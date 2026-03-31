@@ -1,4 +1,5 @@
 import { ThemeProvider } from "@workspace/ui/components/theme-provider"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import {
   HeadContent,
   Outlet,
@@ -51,7 +52,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <Outlet />
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
     </ThemeProvider>
   )
 }
