@@ -1,8 +1,19 @@
-"use client"
-
 import { ChevronRight, File, Folder, FolderOpen } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { createContext, useCallback, useContext, useId, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useRef,
+  useState,
+} from "react"
+import {
+  DragDropProvider,
+  DragOverlay,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/react"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 
@@ -17,6 +28,8 @@ type TreeContextType = {
   multiSelect?: boolean
   indent?: number
   animateExpand?: boolean
+  dragEnabled: boolean
+  draggedId: string | null
 }
 
 const TreeContext = createContext<TreeContextType | undefined>(undefined)
@@ -34,6 +47,8 @@ type TreeNodeContextType = {
   level: number
   isLast: boolean
   parentPath: Array<boolean>
+  isDropTarget: boolean
+  isDroppableNode: boolean
 }
 
 const TreeNodeContext = createContext<TreeNodeContextType | undefined>(
@@ -60,6 +75,8 @@ export type TreeProviderProps = {
   indent?: number
   animateExpand?: boolean
   className?: string
+  onMove?: (sourceId: string, targetId: string) => void
+  renderDragOverlay?: (draggedId: string) => ReactNode
 }
 
 export const TreeProvider = ({
@@ -74,6 +91,8 @@ export const TreeProvider = ({
   indent = 20,
   animateExpand = true,
   className,
+  onMove,
+  renderDragOverlay,
 }: TreeProviderProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     new Set(defaultExpandedIds)
@@ -81,6 +100,9 @@ export const TreeProvider = ({
   const [internalSelectedIds, setInternalSelectedIds] = useState<Array<string>>(
     selectedIds ?? []
   )
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+
+  const dragEnabled = !!onMove
 
   const isControlled =
     selectedIds !== undefined && onSelectionChange !== undefined
@@ -129,29 +151,60 @@ export const TreeProvider = ({
     ]
   )
 
-  return (
-    <TreeContext.Provider
-      value={{
-        expandedIds,
-        selectedIds: currentSelectedIds,
-        toggleExpanded,
-        handleSelection,
-        showLines,
-        showIcons,
-        selectable,
-        multiSelect,
-        indent,
-        animateExpand,
-      }}
+  const contextValue: TreeContextType = {
+    expandedIds,
+    selectedIds: currentSelectedIds,
+    toggleExpanded,
+    handleSelection,
+    showLines,
+    showIcons,
+    selectable,
+    multiSelect,
+    indent,
+    animateExpand,
+    dragEnabled,
+    draggedId,
+  }
+
+  const treeContent = (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className={cn("w-full", className)}
+      initial={{ opacity: 0, y: 10 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
     >
-      <motion.div
-        animate={{ opacity: 1, y: 0 }}
-        className={cn("w-full", className)}
-        initial={{ opacity: 0, y: 10 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-      >
-        {children}
-      </motion.div>
+      {children}
+    </motion.div>
+  )
+
+  return (
+    <TreeContext.Provider value={contextValue}>
+      {dragEnabled ? (
+        <DragDropProvider
+          onDragStart={(event) => {
+            setDraggedId(String(event.operation.source?.id))
+          }}
+          onDragEnd={(event) => {
+            const sourceId = String(event.operation.source?.id)
+            const targetId = event.operation.target?.id
+
+            if (!event.canceled && targetId && sourceId !== String(targetId)) {
+              onMove(sourceId, String(targetId))
+            }
+
+            setDraggedId(null)
+          }}
+        >
+          {treeContent}
+          {renderDragOverlay && (
+            <DragOverlay dropAnimation={null}>
+              {(source) => renderDragOverlay(String(source.id))}
+            </DragOverlay>
+          )}
+        </DragDropProvider>
+      ) : (
+        treeContent
+      )}
     </TreeContext.Provider>
   )
 }
@@ -170,6 +223,7 @@ export type TreeNodeProps = HTMLAttributes<HTMLDivElement> & {
   isLast?: boolean
   parentPath?: Array<boolean>
   children?: ReactNode
+  droppable?: boolean
 }
 
 export const TreeNode = ({
@@ -177,6 +231,7 @@ export const TreeNode = ({
   level = 0,
   isLast = false,
   parentPath = [],
+  droppable: isDroppableNode = false,
   children,
   className,
   onClick,
@@ -185,10 +240,8 @@ export const TreeNode = ({
   const generatedId = useId()
   const nodeId = providedNodeId ?? generatedId
 
-  // Build the parent path - mark positions where the parent was the last child
   const currentPath = level === 0 ? [] : [...parentPath]
   if (level > 0 && parentPath.length < level - 1) {
-    // Fill in missing levels with false (not last)
     while (currentPath.length < level - 1) {
       currentPath.push(false)
     }
@@ -204,6 +257,8 @@ export const TreeNode = ({
         level,
         isLast,
         parentPath: currentPath,
+        isDropTarget: false,
+        isDroppableNode,
       }}
     >
       <div className={cn("select-none", className)} {...props}>
@@ -221,25 +276,55 @@ export const TreeNodeTrigger = ({
   onClick,
   ...props
 }: TreeNodeTriggerProps) => {
-  const { selectedIds, toggleExpanded, handleSelection, indent } = useTree()
-  const { nodeId, level } = useTreeNode()
-  const isSelected = selectedIds.includes(nodeId)
+  const {
+    selectedIds,
+    toggleExpanded,
+    handleSelection,
+    indent,
+    dragEnabled,
+    draggedId,
+  } = useTree()
+  const { nodeId, level, isDroppableNode } = useTreeNode()
+  const isSelected = !isDroppableNode && selectedIds.includes(nodeId)
+
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const { isDragSource } = useDraggable({
+    id: nodeId,
+    element: triggerRef,
+    disabled: !dragEnabled,
+  })
+
+  const { isDropTarget } = useDroppable({
+    id: `drop-${nodeId}`,
+    element: triggerRef,
+    disabled: !dragEnabled || !isDroppableNode,
+  })
+
+  const isDraggedOver = isDropTarget && draggedId !== nodeId
 
   return (
     <motion.div
+      ref={triggerRef}
       className={cn(
-        "group relative mx-1 flex cursor-pointer items-center rounded-md px-3 py-2 transition-all duration-200",
+        "group relative mx-1 flex cursor-default items-center rounded-md px-3 py-2 transition-all duration-200",
         "hover:bg-accent/50",
         isSelected && "bg-accent/80",
+        isDragSource && "opacity-30",
+        isDraggedOver && "bg-accent/30 ring-1 ring-accent/40 ring-inset",
         className
       )}
       onClick={(e) => {
+        if (draggedId) return
         toggleExpanded(nodeId)
-        handleSelection(nodeId, e.ctrlKey || e.metaKey)
+        if (!isDroppableNode) {
+          handleSelection(nodeId, e.ctrlKey || e.metaKey)
+        }
         onClick?.(e)
       }}
       style={{ paddingLeft: level * (indent ?? 0) + 8 }}
-      whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
+      whileTap={
+        dragEnabled ? undefined : { scale: 0.98, transition: { duration: 0.1 } }
+      }
       {...props}
     >
       <TreeLines />
@@ -258,7 +343,6 @@ export const TreeLines = () => {
 
   return (
     <div className="pointer-events-none absolute top-0 bottom-0 left-0">
-      {/* Render vertical lines for all parent levels */}
       {Array.from({ length: level }, (_, index) => {
         const shouldHideLine = parentPath[index] === true
         if (shouldHideLine && index === level - 1) {
@@ -277,7 +361,6 @@ export const TreeLines = () => {
         )
       })}
 
-      {/* Horizontal connector line */}
       <div
         className="absolute top-1/2 border-t border-border/40"
         style={{
@@ -287,7 +370,6 @@ export const TreeLines = () => {
         }}
       />
 
-      {/* Vertical line to midpoint for last items */}
       {isLast && (
         <div
           className="absolute top-0 border-l border-border/40"
@@ -369,7 +451,7 @@ export const TreeExpander = ({
     <motion.div
       animate={{ rotate: isExpanded ? 90 : 0 }}
       className={cn(
-        "mr-1 flex h-4 w-4 cursor-pointer items-center justify-center",
+        "mr-1 flex h-4 w-4 cursor-default items-center justify-center",
         className
       )}
       onClick={(e) => {
