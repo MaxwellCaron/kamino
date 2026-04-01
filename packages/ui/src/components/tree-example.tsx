@@ -1,5 +1,4 @@
-import { IconFileCode, IconFileText, IconJson } from "@tabler/icons-react"
-import { File, Folder, FolderOpen } from "lucide-react"
+import { IconFile, IconFolder, IconServer } from "@tabler/icons-react"
 import { useCallback, useState } from "react"
 import {
   TreeExpander,
@@ -22,47 +21,52 @@ type FileNode = {
 
 const initialTree: Array<FileNode> = [
   {
-    id: "src",
-    name: "src",
+    id: "f-1",
+    name: "Public",
     children: [
       {
-        id: "components",
-        name: "components",
+        id: "f-2",
+        name: "Pods",
         children: [
           {
-            id: "ui",
-            name: "ui",
+            id: "f-6",
+            name: "1001-mcaron-linux",
             children: [
               {
-                id: "button.tsx",
-                name: "button.tsx",
-                icon: <IconFileCode className="h-4 w-4" />,
+                id: "vm-1",
+                name: "Ubuntu",
+                icon: <IconServer />,
               },
               {
-                id: "card.tsx",
-                name: "card.tsx",
-                icon: <IconFileCode className="h-4 w-4" />,
+                id: "vm-2",
+                name: "Mint",
+                icon: <IconServer />,
               },
               {
-                id: "dialog.tsx",
-                name: "dialog.tsx",
-                icon: <IconFileCode className="h-4 w-4" />,
+                id: "vm-3",
+                name: "Arch",
+                icon: <IconServer />,
               },
             ],
           },
           {
-            id: "layout",
-            name: "layout",
+            id: "f-3",
+            name: "1002-mung-linux",
             children: [
               {
-                id: "header.tsx",
-                name: "header.tsx",
-                icon: <IconFileCode className="h-4 w-4" />,
+                id: "vm-4",
+                name: "Ubuntu",
+                icon: <IconServer />,
               },
               {
-                id: "footer.tsx",
-                name: "footer.tsx",
-                icon: <IconFileCode className="h-4 w-4" />,
+                id: "vm-5",
+                name: "Mint",
+                icon: <IconServer />,
+              },
+              {
+                id: "vm-6",
+                name: "Arch",
+                icon: <IconServer />,
               },
             ],
           },
@@ -71,41 +75,20 @@ const initialTree: Array<FileNode> = [
     ],
   },
   {
-    id: "public",
-    name: "public",
+    id: "f-4",
+    name: "Critical",
     children: [
       {
-        id: "images",
-        name: "images",
-        children: [
-          {
-            id: "logo.svg",
-            name: "logo.svg",
-            icon: <IconFileText className="h-4 w-4" />,
-          },
-          {
-            id: "hero.png",
-            name: "hero.png",
-            icon: <IconFileText className="h-4 w-4" />,
-          },
-        ],
+        id: "vm-999",
+        name: "mufasa",
+        icon: <IconServer />,
+      },
+      {
+        id: "vm-998",
+        name: "ursula",
+        icon: <IconServer />,
       },
     ],
-  },
-  {
-    id: "package.json",
-    name: "package.json",
-    icon: <IconJson className="h-4 w-4" />,
-  },
-  {
-    id: "tsconfig.json",
-    name: "tsconfig.json",
-    icon: <IconJson className="h-4 w-4" />,
-  },
-  {
-    id: "README.md",
-    name: "README.md",
-    icon: <IconFileText className="h-4 w-4" />,
   },
 ]
 
@@ -265,11 +248,11 @@ export default function TreeExample() {
         <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 opacity-50 shadow-xl shadow-black/20">
           <span className="text-muted-foreground">
             {hasChildren ? (
-              <Folder className="h-4 w-4" />
+              <IconFolder />
             ) : node.icon ? (
               node.icon
             ) : (
-              <File className="h-4 w-4" />
+              <IconFile />
             )}
           </span>
           <span className="text-sm font-medium">{node.name}</span>
@@ -281,12 +264,12 @@ export default function TreeExample() {
 
   return (
     <TreeProvider
-      defaultExpandedIds={["src", "components", "ui"]}
+      defaultExpandedIds={["f-1", "f-2"]}
+      indent={12}
       onMove={handleMove}
-      onSelectionChange={(ids) => console.log("Selected:", ids)}
       renderDragOverlay={renderOverlay}
     >
-      <TreeView>{renderTree(tree, 0, [])}</TreeView>
+      <TreeView className="p-0">{renderTree(tree, 0, [])}</TreeView>
     </TreeProvider>
   )
 }
