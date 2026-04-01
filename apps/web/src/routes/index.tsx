@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { AppSidebar } from "@workspace/ui/components/app-sidebar"
 import { SiteHeader } from "@workspace/ui/components/site-header"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { VncConsole } from "@workspace/ui/components/vnc-console"
 
 export const Route = createFileRoute("/")({ component: App })
 
@@ -19,7 +20,7 @@ function App() {
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col items-center gap-2 p-6"></div>
+          <VncConsole />
         </div>
       </SidebarInset>
     </SidebarProvider>
