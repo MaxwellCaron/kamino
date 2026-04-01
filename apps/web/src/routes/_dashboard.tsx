@@ -1,12 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { AppSidebar } from "@workspace/ui/components/app-sidebar"
 import { SiteHeader } from "@workspace/ui/components/site-header"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
-import { VncConsole } from "@workspace/ui/components/vnc-console"
 
-export const Route = createFileRoute("/")({ component: App })
+export const Route = createFileRoute("/_dashboard")({
+  component: Layout,
+})
 
-function App() {
+function Layout() {
   return (
     <SidebarProvider
       style={
@@ -20,7 +21,7 @@ function App() {
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
-          <VncConsole />
+          <Outlet />
         </div>
       </SidebarInset>
     </SidebarProvider>
