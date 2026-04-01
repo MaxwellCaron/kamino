@@ -22,6 +22,7 @@ type TreeContextType = {
   selectedIds: Array<string>
   toggleExpanded: (nodeId: string) => void
   handleSelection: (nodeId: string, ctrlKey: boolean) => void
+  selectNode: (nodeId: string) => void
   showLines?: boolean
   showIcons?: boolean
   selectable?: boolean
@@ -34,7 +35,7 @@ type TreeContextType = {
 
 const TreeContext = createContext<TreeContextType | undefined>(undefined)
 
-const useTree = () => {
+export const useTree = () => {
   const context = useContext(TreeContext)
   if (!context) {
     throw new Error("Tree components must be used within a TreeProvider")
@@ -47,7 +48,6 @@ type TreeNodeContextType = {
   level: number
   isLast: boolean
   parentPath: Array<boolean>
-  isDropTarget: boolean
   isDroppableNode: boolean
 }
 
@@ -55,7 +55,7 @@ const TreeNodeContext = createContext<TreeNodeContextType | undefined>(
   undefined
 )
 
-const useTreeNode = () => {
+export const useTreeNode = () => {
   const context = useContext(TreeNodeContext)
   if (!context) {
     throw new Error("TreeNode components must be used within a TreeNode")
@@ -151,11 +151,24 @@ export const TreeProvider = ({
     ]
   )
 
+  const selectNode = useCallback(
+    (nodeId: string) => {
+      const newSelection = [nodeId]
+      if (isControlled) {
+        onSelectionChange(newSelection)
+      } else {
+        setInternalSelectedIds(newSelection)
+      }
+    },
+    [isControlled, onSelectionChange]
+  )
+
   const contextValue: TreeContextType = {
     expandedIds,
     selectedIds: currentSelectedIds,
     toggleExpanded,
     handleSelection,
+    selectNode,
     showLines,
     showIcons,
     selectable,
@@ -234,7 +247,6 @@ export const TreeNode = ({
   droppable: isDroppableNode = false,
   children,
   className,
-  onClick,
   ...props
 }: TreeNodeProps) => {
   const generatedId = useId()
@@ -257,7 +269,6 @@ export const TreeNode = ({
         level,
         isLast,
         parentPath: currentPath,
-        isDropTarget: false,
         isDroppableNode,
       }}
     >
@@ -306,7 +317,7 @@ export const TreeNodeTrigger = ({
     <motion.div
       ref={triggerRef}
       className={cn(
-        "group relative mx-1 flex cursor-default items-center rounded-md px-3 py-2 transition-all duration-200",
+        "group/row relative mx-1 flex cursor-default items-center rounded-md px-3 py-1.5 transition-all duration-200",
         "hover:bg-accent/50",
         isSelected && "bg-accent/80",
         isDragSource && "opacity-30",
