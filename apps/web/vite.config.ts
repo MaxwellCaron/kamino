@@ -9,11 +9,11 @@ import basicSsl from "@vitejs/plugin-basic-ssl"
 const config = defineConfig({
   server: {
     host: "0.0.0.0",
-    allowedHosts: ["panel.homeserver.local"],
+    allowedHosts: ["kamino.homeserver.local"],
   },
   plugins: [
     basicSsl(),
-    nitro(),
+    nitro({ serverDir: true, features: { websocket: true } }),
     viteTsConfigPaths({
       projects: ["./tsconfig.json"],
     }),
