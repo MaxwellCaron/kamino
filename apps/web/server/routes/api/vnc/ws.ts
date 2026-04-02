@@ -1,10 +1,11 @@
 import { defineWebSocketHandler } from "nitro/h3"
 import WebSocket from "ws"
+import { getProxmoxConfig } from "../../../utils/proxmox"
 import { consumeSession } from "../../../utils/vnc-sessions"
 
 type PeerState = {
   pveWs: WebSocket | null
-  buffer: (string | Buffer | ArrayBuffer | Uint8Array)[]
+  buffer: Array<string | Buffer | ArrayBuffer | Uint8Array>
   ready: boolean
   initialized: boolean
 }
@@ -21,25 +22,20 @@ function initBridge(
 ) {
   const session = consumeSession(sessionId)
   if (!session) {
-    console.error("[vnc-ws] invalid/expired session:", sessionId)
     peer.close(1008, "Invalid or expired session")
     return
   }
 
-  const nodeUrl = process.env.PVE_NODE_URL!
-  const tokenId = process.env.PVE_API_TOKEN_ID!
-  const tokenSecret = process.env.PVE_API_TOKEN_SECRET!
+  const { nodeUrl, authHeader } = getProxmoxConfig()
 
   const pveWsUrl =
     `${nodeUrl.replace("https://", "wss://")}/api2/json/nodes/${session.node}` +
     `/qemu/${session.vmid}/vncwebsocket` +
     `?port=${session.port}&vncticket=${encodeURIComponent(session.ticket)}`
 
-  console.log("[vnc-ws] connecting to Proxmox:", pveWsUrl)
-
   const pveWs = new WebSocket(pveWsUrl, {
     headers: {
-      Authorization: `PVEAPIToken=${tokenId}=${tokenSecret}`,
+      Authorization: authHeader,
     },
     rejectUnauthorized: false,
   })
@@ -49,11 +45,6 @@ function initBridge(
   state.initialized = true
 
   pveWs.on("open", () => {
-    console.log(
-      "[vnc-ws] Proxmox WS connected, flushing",
-      state.buffer.length,
-      "buffered messages"
-    )
     state.ready = true
     for (const msg of state.buffer) {
       pveWs.send(msg)
@@ -70,13 +61,11 @@ function initBridge(
   })
 
   pveWs.on("close", (code, reason) => {
-    console.log("[vnc-ws] Proxmox WS closed:", code, reason?.toString())
     connections.delete(peer.id)
     peer.close()
   })
 
   pveWs.on("error", (err) => {
-    console.error("[vnc-ws] Proxmox WS error:", err.message)
     connections.delete(peer.id)
     peer.close()
   })
@@ -84,11 +73,6 @@ function initBridge(
 
 export default defineWebSocketHandler({
   open(peer) {
-    console.log(
-      "[vnc-ws] client connected:",
-      peer.id,
-      "— waiting for session init message"
-    )
     connections.set(peer.id, {
       pveWs: null,
       buffer: [],
@@ -106,22 +90,19 @@ export default defineWebSocketHandler({
       const text =
         typeof message === "string"
           ? message
-          : (message.text?.() ??
-            new TextDecoder().decode(message.rawData ?? message))
-      console.log("[vnc-ws] received init message:", text)
+          : new TextDecoder().decode(message.rawData as AllowSharedBufferSource)
       try {
         const { sessionId } = JSON.parse(text)
         if (!sessionId) throw new Error("missing sessionId")
         initBridge(peer, sessionId)
       } catch {
-        console.error("[vnc-ws] invalid init message:", text)
         peer.close(1008, "Invalid init message — expected JSON with sessionId")
       }
       return
     }
 
     // Forward subsequent messages to Proxmox
-    const data = message.rawData ?? message
+    const data = (message.rawData ?? message) as string | Buffer
     if (state.ready && state.pveWs?.readyState === WebSocket.OPEN) {
       state.pveWs.send(data)
     } else {
@@ -130,7 +111,6 @@ export default defineWebSocketHandler({
   },
 
   close(peer) {
-    console.log("[vnc-ws] client disconnected:", peer.id)
     const state = connections.get(peer.id)
     if (state?.pveWs) {
       state.pveWs.close()
@@ -139,7 +119,6 @@ export default defineWebSocketHandler({
   },
 
   error(peer) {
-    console.error("[vnc-ws] client error:", peer.id)
     const state = connections.get(peer.id)
     if (state?.pveWs) {
       state.pveWs.close()

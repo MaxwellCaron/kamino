@@ -1,29 +1,19 @@
-import { defineEventHandler, readBody, createError } from "nitro/h3"
 import { randomUUID } from "node:crypto"
+import { HTTPError, defineEventHandler, readBody } from "nitro/h3"
+import { getProxmoxConfig } from "../../../utils/proxmox"
 import { storeSession } from "../../../utils/vnc-sessions"
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ node: string; vmid: number }>(event)
 
-  if (!body?.node || !body?.vmid) {
-    throw createError({
+  if (!body?.node || !body.vmid) {
+    throw new HTTPError({
       statusCode: 400,
       statusMessage: "node and vmid required",
     })
   }
 
-  const nodeUrl = process.env.PVE_NODE_URL
-  const tokenId = process.env.PVE_API_TOKEN_ID
-  const tokenSecret = process.env.PVE_API_TOKEN_SECRET
-
-  if (!nodeUrl || !tokenId || !tokenSecret) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: "Proxmox API not configured",
-    })
-  }
-
-  const authHeader = `PVEAPIToken=${tokenId}=${tokenSecret}`
+  const { nodeUrl, authHeader } = getProxmoxConfig()
 
   const res = await fetch(
     `${nodeUrl}/api2/json/nodes/${body.node}/qemu/${body.vmid}/vncproxy`,
@@ -42,7 +32,7 @@ export default defineEventHandler(async (event) => {
 
   if (!res.ok) {
     const text = await res.text()
-    throw createError({
+    throw new HTTPError({
       statusCode: res.status,
       statusMessage: `Proxmox vncproxy failed: ${text}`,
     })

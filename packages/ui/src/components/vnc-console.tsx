@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import {
   IconLoader2,
-  IconServer,
   IconPlugConnected,
   IconPlugConnectedX,
+  IconServer,
 } from "@tabler/icons-react"
 import type RFB from "@novnc/novnc/core/rfb.js"
 
@@ -59,18 +59,8 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
           ws.onerror = () => reject(new Error("WebSocket connection failed"))
         })
 
-        if (cancelled || !screenRef.current) {
-          ws.close()
-          return
-        }
-
         // Dynamic import to avoid SSR issues
         const { default: RFB } = await import("@novnc/novnc/core/rfb.js")
-
-        if (cancelled || !screenRef.current) {
-          ws.close()
-          return
-        }
 
         // Pass the already-connected WebSocket to noVNC as a channel
         const rfb = new RFB(screenRef.current, ws, {

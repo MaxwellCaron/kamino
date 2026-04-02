@@ -8,7 +8,7 @@ declare module "@novnc/novnc/core/rfb.js" {
   interface RFBOptions {
     shared?: boolean
     credentials?: RFBCredentials
-    wsProtocols?: string[]
+    wsProtocols?: Array<string>
   }
 
   export default class RFB extends EventTarget {
