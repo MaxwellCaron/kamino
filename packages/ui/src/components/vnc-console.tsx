@@ -148,10 +148,10 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
   }
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden rounded-b-none pb-0">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconTerminal />
+          <IconTerminal className="size-5" />
           Console
         </CardTitle>
         <CardDescription>
@@ -164,7 +164,7 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
         </CardAction>
       </CardHeader>
 
-      <CardContent className="relative flex h-[90vh] items-center justify-center border-t">
+      <CardContent className="relative flex h-[83vh] items-center justify-center bg-muted/50">
         {status !== "connected" && (
           <Empty className="w-full max-w-md">
             <EmptyHeader>
