@@ -13,5 +13,9 @@ export const Route = createFileRoute("/_dashboard/vnc")({
 function VncPage() {
   const { vmid, nodeName } = Route.useLoaderData()
 
-  return <VncConsole node={nodeName} vmid={vmid} />
+  return (
+    <div className="h-[calc(100vh-(--spacing(16)))] p-6">
+      <VncConsole node={nodeName} vmid={vmid} />
+    </div>
+  )
 }

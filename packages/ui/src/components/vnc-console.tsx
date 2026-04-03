@@ -1,12 +1,36 @@
-"use client"
-
 import { useEffect, useRef, useState } from "react"
 import {
-  IconLoader2,
   IconPlugConnected,
   IconPlugConnectedX,
-  IconServer,
+  IconTerminal,
 } from "@tabler/icons-react"
+
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import { Spinner } from "@workspace/ui/components/spinner"
+
 import type RFB from "@novnc/novnc/core/rfb.js"
 
 type VncConsoleProps = {
@@ -19,16 +43,18 @@ type Status = "connecting" | "connected" | "disconnected" | "error"
 export function VncConsole({ node, vmid }: VncConsoleProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
-  const [status, setStatus] = useState<Status>("connecting")
+  const [status, setStatus] = useState<Status>("disconnected")
   const [error, setError] = useState<string>()
   const [connectAttempt, setConnectAttempt] = useState(0)
+  const [shouldConnect, setShouldConnect] = useState(false)
 
   useEffect(() => {
+    if (!shouldConnect) return
+
     let cancelled = false
 
     async function connect() {
       try {
-        // Step 1: Get VNC proxy session from our server
         const res = await fetch("/api/vnc/proxy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -46,7 +72,6 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
 
         if (cancelled || !screenRef.current) return
 
-        // Step 2: Open raw WebSocket and send session ID as first message
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
         const wsUrl = `${protocol}//${window.location.host}/api/vnc/ws`
 
@@ -59,10 +84,8 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
           ws.onerror = () => reject(new Error("WebSocket connection failed"))
         })
 
-        // Dynamic import to avoid SSR issues
         const { default: RFB } = await import("@novnc/novnc/core/rfb.js")
 
-        // Pass the already-connected WebSocket to noVNC as a channel
         const rfb = new RFB(screenRef.current, ws, {
           credentials: { password },
         })
@@ -99,9 +122,9 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
       rfbRef.current?.disconnect()
       rfbRef.current = null
     }
-  }, [node, vmid, connectAttempt])
+  }, [node, vmid, connectAttempt, shouldConnect])
 
-  function reconnect() {
+  function startConnection() {
     rfbRef.current?.disconnect()
     rfbRef.current = null
     if (screenRef.current) {
@@ -109,47 +132,107 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
     }
     setStatus("connecting")
     setError(undefined)
+    setShouldConnect(true)
     setConnectAttempt((n) => n + 1)
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <IconServer className="size-4 text-muted-foreground" />
-        <span className="text-sm font-medium">VM {vmid}</span>
-        <span className="text-xs text-muted-foreground">(Node: {node})</span>
-        <div className="ml-auto flex items-center gap-2">
-          {status === "connected" && (
-            <span className="flex items-center gap-1 text-xs text-green-600">
-              <IconPlugConnected className="size-3" />
-              Connected
-            </span>
-          )}
-          {(status === "disconnected" || status === "error") && (
-            <>
-              <span className="flex items-center gap-1 text-xs text-red-500">
-                <IconPlugConnectedX className="size-3" />
-                {error || "Disconnected"}
-              </span>
-              <button
-                onClick={reconnect}
-                className="rounded-md border border-border px-2 py-0.5 text-xs hover:bg-accent"
-              >
-                Reconnect
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+  function disconnect() {
+    rfbRef.current?.disconnect()
+    rfbRef.current = null
+    if (screenRef.current) {
+      screenRef.current.innerHTML = ""
+    }
+    setShouldConnect(false)
+    setStatus("disconnected")
+    setError(undefined)
+  }
 
-      <div className="relative flex-1">
-        {status === "connecting" && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-            <IconLoader2 className="size-6 animate-spin text-muted-foreground" />
-          </div>
+  return (
+    <Card className="flex h-full flex-col overflow-hidden rounded-b-none pb-0">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <IconTerminal />
+          Console
+        </CardTitle>
+        <CardDescription>
+          Connect directly to the GUI interface of this VM using a VNC client
+          connection.
+        </CardDescription>
+
+        <CardAction>
+          <StatusIndicator status={status} error={error} />
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="relative flex h-[90vh] items-center justify-center border-t">
+        {status !== "connected" && (
+          <Empty className="w-full max-w-md">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconPlugConnectedX />
+              </EmptyMedia>
+              <EmptyTitle>Not Connected</EmptyTitle>
+              <EmptyDescription>
+                You haven&apos;t created a VNC session. Start a new session to
+                connect.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent className="flex-row justify-center gap-2">
+              <Button
+                onClick={startConnection}
+                disabled={status === "connecting"}
+              >
+                {status === "connecting" && <Spinner />}
+                {status === "connecting" ? "Connecting..." : "Connect"}
+              </Button>
+            </EmptyContent>
+          </Empty>
         )}
-        <div ref={screenRef} className="h-full w-full" />
-      </div>
-    </div>
+
+        <div
+          ref={screenRef}
+          className={`absolute inset-0 h-full w-full ${
+            status === "connected"
+              ? "opacity-100"
+              : "pointer-events-none opacity-0"
+          }`}
+        />
+      </CardContent>
+    </Card>
   )
+}
+
+function StatusIndicator({
+  status,
+  error,
+}: {
+  status: Status
+  error: string | undefined
+}) {
+  switch (status) {
+    case "connected":
+      return (
+        <Badge>
+          <IconPlugConnected />
+          Connected
+        </Badge>
+      )
+    case "disconnected":
+    case "error":
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <Badge variant="destructive">
+                <IconPlugConnectedX />
+                {status === "error" ? "Error" : "Disconnected"}
+              </Badge>
+            </TooltipTrigger>
+            {error && <TooltipContent>{error}</TooltipContent>}
+          </Tooltip>
+        </TooltipProvider>
+      )
+    default:
+      return null
+  }
 }
