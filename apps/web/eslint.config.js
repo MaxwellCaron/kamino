@@ -9,4 +9,12 @@ export default [
       "sort-imports": "warn",
     },
   },
+  {
+    files: ["server/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        project: "./tsconfig.server.json",
+      },
+    },
+  },
 ]

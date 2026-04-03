@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { AppSidebar } from "@workspace/ui/components/app-sidebar"
 import { SiteHeader } from "@workspace/ui/components/site-header"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 
-export const Route = createFileRoute("/")({ component: App })
+export const Route = createFileRoute("/_dashboard")({
+  component: Layout,
+})
 
-function App() {
+function Layout() {
   return (
     <SidebarProvider
       style={
@@ -19,7 +21,7 @@ function App() {
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col items-center gap-2 p-6"></div>
+          <Outlet />
         </div>
       </SidebarInset>
     </SidebarProvider>

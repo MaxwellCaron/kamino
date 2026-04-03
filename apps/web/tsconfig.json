@@ -4,8 +4,10 @@
     "**/*.tsx",
     "eslint.config.js",
     "prettier.config.js",
-    "vite.config.js"
+    "vite.config.js",
+    "../../packages/ui/src/types/**/*.d.ts"
   ],
+  "exclude": ["node_modules", "dist", ".output", "server"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

@@ -7,7 +7,7 @@ import { nitro } from "nitro/vite"
 
 const config = defineConfig({
   plugins: [
-    nitro(),
+    nitro({ serverDir: true, features: { websocket: true } }),
     viteTsConfigPaths({
       projects: ["./tsconfig.json"],
     }),
