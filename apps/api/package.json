@@ -1,0 +1,8 @@
+{
+  "name": "api",
+  "private": true,
+  "scripts": {
+    "dev": "air",
+    "build": "go build -o bin/api ./cmd/api"
+  }
+}
