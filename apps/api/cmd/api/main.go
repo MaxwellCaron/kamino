@@ -96,7 +96,7 @@ func main() {
 	// Initialize handlers
 	inventoryHandler := &handlers.InventoryHandler{DB: server.DBPool}
 
-	r := gin.New()
+	r := gin.Default()
 
 	// Register all API routes
 	routes.RegisterRoutes(r, inventoryHandler)
