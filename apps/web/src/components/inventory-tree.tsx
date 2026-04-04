@@ -3,7 +3,6 @@
 import {
   IconDots,
   IconEdit,
-  IconFile,
   IconFolder,
   IconFolderPlus,
   IconLock,
@@ -61,8 +60,8 @@ type ApiTreeNode = {
 type FileNode = {
   id: string
   name: string
+  vmid?: number
   children?: Array<FileNode>
-  icon?: ReactNode
 }
 
 function mapApiToTree(nodes: Array<ApiTreeNode>): Array<FileNode> {
@@ -71,8 +70,28 @@ function mapApiToTree(nodes: Array<ApiTreeNode>): Array<FileNode> {
     name: node.name,
     ...(node.kind === "folder"
       ? { children: node.children ? mapApiToTree(node.children) : [] }
-      : { icon: <IconServer /> }),
+      : { vmid: node.vm?.vmid }),
   }))
+}
+
+// Build a flat map of inventory item id → vmid for status lookups
+function collectVmIds(nodes: Array<FileNode>): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const node of nodes) {
+    if (node.vmid !== undefined) map.set(node.id, node.vmid)
+    if (node.children) {
+      for (const [id, vmid] of collectVmIds(node.children)) {
+        map.set(id, vmid)
+      }
+    }
+  }
+  return map
+}
+
+async function fetchVmStatuses(): Promise<Record<number, string>> {
+  const res = await fetch("/api/v1/vms/status")
+  if (!res.ok) throw new Error(`Failed to fetch VM statuses: ${res.status}`)
+  return res.json()
 }
 
 function findNode(nodes: Array<FileNode>, id: string): FileNode | null {
@@ -240,10 +259,33 @@ function NodeMenu({ isFolder }: { isFolder: boolean }) {
   )
 }
 
+function VmIcon({ status }: { status: string | undefined }) {
+  const color = status
+    ? status === "running"
+      ? "bg-green-500"
+      : status === "stopped"
+        ? "bg-muted-foreground/40"
+        : "bg-yellow-500"
+    : undefined
+
+  return (
+    <span className="relative">
+      <IconServer className="size-4" />
+      {color && (
+        <span
+          className={`absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full ring-1 ring-background ${color}`}
+          title={status}
+        />
+      )}
+    </span>
+  )
+}
+
 function renderTree(
   nodes: Array<FileNode>,
   level: number,
-  parentPath: Array<boolean>
+  parentPath: Array<boolean>,
+  getStatus: (id: string) => string | undefined
 ): ReactNode {
   return nodes.map((node, index) => {
     const isLast = index === nodes.length - 1
@@ -261,7 +303,12 @@ function renderTree(
       >
         <TreeNodeTrigger>
           <TreeExpander hasChildren={isFolder} />
-          <TreeIcon hasChildren={isFolder} icon={node.icon} />
+          <TreeIcon
+            hasChildren={isFolder}
+            icon={
+              !isFolder ? <VmIcon status={getStatus(node.id)} /> : undefined
+            }
+          />
           <TreeLabel>{node.name}</TreeLabel>
           <NodeMenu isFolder={isFolder} />
         </TreeNodeTrigger>
@@ -270,7 +317,8 @@ function renderTree(
             {renderTree(
               node.children!,
               level + 1,
-              level === 0 ? [] : [...parentPath.slice(0, level - 1), isLast]
+              level === 0 ? [] : [...parentPath.slice(0, level - 1), isLast],
+              getStatus
             )}
           </TreeNodeContent>
         )}
@@ -309,17 +357,36 @@ export function InventoryTree() {
     queryFn: fetchInventoryTree,
   })
 
+  const { data: vmStatuses } = useQuery({
+    queryKey: ["vms", "status"],
+    queryFn: fetchVmStatuses,
+    refetchInterval: 30_000,
+  })
+
   const [localTree, setLocalTree] = useState<Array<FileNode>>([])
   const [initialized, setInitialized] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Array<string>>([])
+  const [vmIdMap, setVmIdMap] = useState<Map<string, number>>(new Map())
 
   // Sync API data into local state for drag-and-drop manipulation
   if (apiTree && !initialized) {
-    setLocalTree(mapApiToTree(apiTree))
+    const mapped = mapApiToTree(apiTree)
+    setLocalTree(mapped)
+    setVmIdMap(collectVmIds(mapped))
     setInitialized(true)
   }
 
   const tree = initialized ? localTree : []
+
+  const getStatus = useCallback(
+    (itemId: string): string | undefined => {
+      if (!vmStatuses) return undefined
+      const vmid = vmIdMap.get(itemId)
+      if (vmid === undefined) return undefined
+      return vmStatuses[vmid]
+    },
+    [vmStatuses, vmIdMap]
+  )
 
   // Use route-derived selection on refresh, user clicks take priority
   const effectiveSelectedIds =
@@ -370,13 +437,7 @@ export function InventoryTree() {
       return (
         <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 opacity-50 shadow-xl shadow-black/20">
           <span className="text-muted-foreground">
-            {hasChildren ? (
-              <IconFolder />
-            ) : node.icon ? (
-              node.icon
-            ) : (
-              <IconFile />
-            )}
+            {hasChildren ? <IconFolder /> : <IconServer />}
           </span>
           <span className="text-sm font-medium">{node.name}</span>
         </div>
@@ -414,7 +475,7 @@ export function InventoryTree() {
       onMove={handleMove}
       renderDragOverlay={renderOverlay}
     >
-      <TreeView className="p-0">{renderTree(tree, 0, [])}</TreeView>
+      <TreeView className="p-0">{renderTree(tree, 0, [], getStatus)}</TreeView>
     </TreeProvider>
   )
 }
