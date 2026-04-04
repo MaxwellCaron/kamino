@@ -25,8 +25,8 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { VncConsole } from "@workspace/ui/components/vnc-console"
-import { PROXMOX_CONFIG } from "@workspace/ui/lib/proxmox-config"
+import { VncConsole } from "@/components/vnc-console"
+import { PROXMOX_CONFIG } from "@/lib/proxmox-config"
 
 export const Route = createFileRoute("/_dashboard/vnc")({
   loader: () => ({

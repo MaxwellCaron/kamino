@@ -23,7 +23,8 @@
     "react-dom": "^19.2.4",
     "tailwindcss": "^4.1.18",
     "vite-tsconfig-paths": "^5.1.4",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tanstack/eslint-config": "^0.3.0",
