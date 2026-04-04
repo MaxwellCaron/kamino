@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,15 +15,21 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port        string `envconfig:"PORT" default:":8080"`
-	FrontendURL string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
+	Port               string `envconfig:"PORT" default:":8080"`
+	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
 }
 
 // Server holds all application dependencies
 type Server struct {
-	Config *Config
-	DBPool *pgxpool.Pool
+	Config        *Config
+	DBPool        *pgxpool.Pool
+	ProxmoxClient *proxmox.Client
+	ProxmoxSync   *proxmox.Sync
 }
 
 // init the environment
@@ -48,15 +55,22 @@ func newServer(config *Config) (*Server, error) {
 		return nil, fmt.Errorf("unable to ping database: %w", err)
 	}
 
-	// Initialize clients/database
+	// Initialize Proxmox client
+	pxClient := proxmox.NewClient(
+		config.ProxmoxURL,
+		config.ProxmoxTokenID,
+		config.ProxmoxTokenSecret,
+		config.ProxmoxInsecure,
+	)
 
-	// Initialize services
-
-	// Initialize handlers
+	// Initialize sync service
+	pxSync := proxmox.NewSync(dbPool, pxClient)
 
 	return &Server{
-		Config: config,
-		DBPool: dbPool,
+		Config:        config,
+		DBPool:        dbPool,
+		ProxmoxClient: pxClient,
+		ProxmoxSync:   pxSync,
 	}, nil
 }
 
@@ -72,6 +86,11 @@ func main() {
 		log.Fatalf("Failed to initialize server: %v", err)
 	}
 	defer server.DBPool.Close()
+
+	// Run initial Proxmox inventory sync
+	if err := server.ProxmoxSync.Run(context.Background()); err != nil {
+		log.Printf("Initial Proxmox sync failed: %v", err)
+	}
 
 	r := gin.New()
 
