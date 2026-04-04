@@ -1,15 +1,14 @@
 import {
   SidebarGroup,
   SidebarGroupLabel,
-  useSidebar,
 } from "@workspace/ui/components/sidebar"
-import TreeExample from "./tree-example"
+import type { ReactNode } from "react"
 
-export function NavDocuments() {
+export function NavDocuments({ children }: { children: ReactNode }) {
   return (
     <SidebarGroup className="px-0 group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>VMs</SidebarGroupLabel>
-      <TreeExample />
+      {children}
     </SidebarGroup>
   )
 }

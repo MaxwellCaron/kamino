@@ -17,6 +17,8 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 import { useCallback, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,9 +39,25 @@ import {
   useTree,
   useTreeNode,
 } from "@workspace/ui/components/tree"
-import { Button } from "./button"
+import { Button } from "@workspace/ui/components/button"
 import type { ReactNode } from "react"
 
+// API response types matching GET /api/v1/inventory/tree
+type ApiTreeNode = {
+  id: string
+  name: string
+  kind: "folder" | "vm"
+  children?: Array<ApiTreeNode>
+  vm?: {
+    node: string
+    vmid: number
+    cpu_count?: number
+    memory_mb?: number
+    disk_gb?: number
+  }
+}
+
+// Internal tree node used for rendering and drag-and-drop
 type FileNode = {
   id: string
   name: string
@@ -47,78 +65,15 @@ type FileNode = {
   icon?: ReactNode
 }
 
-const initialTree: Array<FileNode> = [
-  {
-    id: "f-1",
-    name: "Public",
-    children: [
-      {
-        id: "f-2",
-        name: "Pods",
-        children: [
-          {
-            id: "f-6",
-            name: "1001-mcaron-linux",
-            children: [
-              {
-                id: "vm-1",
-                name: "Ubuntu",
-                icon: <IconServer />,
-              },
-              {
-                id: "vm-2",
-                name: "Mint",
-                icon: <IconServer />,
-              },
-              {
-                id: "vm-3",
-                name: "Arch",
-                icon: <IconServer />,
-              },
-            ],
-          },
-          {
-            id: "f-3",
-            name: "1002-mung-linux",
-            children: [
-              {
-                id: "vm-4",
-                name: "Ubuntu",
-                icon: <IconServer />,
-              },
-              {
-                id: "vm-5",
-                name: "Mint",
-                icon: <IconServer />,
-              },
-              {
-                id: "vm-6",
-                name: "Arch",
-                icon: <IconServer />,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "f-4",
-    name: "Critical",
-    children: [
-      {
-        id: "vm-999",
-        name: "mufasa",
-        icon: <IconServer />,
-      },
-      {
-        id: "vm-998",
-        name: "ursula",
-        icon: <IconServer />,
-      },
-    ],
-  },
-]
+function mapApiToTree(nodes: Array<ApiTreeNode>): Array<FileNode> {
+  return nodes.map((node) => ({
+    id: node.id,
+    name: node.name,
+    ...(node.kind === "folder"
+      ? { children: node.children ? mapApiToTree(node.children) : [] }
+      : { icon: <IconServer /> }),
+  }))
+}
 
 function findNode(nodes: Array<FileNode>, id: string): FileNode | null {
   for (const node of nodes) {
@@ -172,7 +127,6 @@ function isDescendant(
 function sortNodes(nodes: Array<FileNode>): Array<FileNode> {
   return [...nodes]
     .sort((a, b) => {
-      // Folders first, then files, both alphabetical
       const aIsFolder = a.children !== undefined ? 0 : 1
       const bIsFolder = b.children !== undefined ? 0 : 1
       if (aIsFolder !== bIsFolder) return aIsFolder - bIsFolder
@@ -325,12 +279,62 @@ function renderTree(
   })
 }
 
-export default function TreeExample() {
-  const [tree, setTree] = useState<Array<FileNode>>(initialTree)
+function collectFolderIds(nodes: Array<FileNode>): Array<string> {
+  const ids: Array<string> = []
+  for (const node of nodes) {
+    if (node.children) {
+      ids.push(node.id)
+      ids.push(...collectFolderIds(node.children))
+    }
+  }
+  return ids
+}
+
+async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
+  const res = await fetch("/api/v1/inventory/tree")
+  if (!res.ok) throw new Error(`Failed to fetch inventory: ${res.status}`)
+  return res.json()
+}
+
+export function InventoryTree() {
+  const navigate = useNavigate()
+
+  const {
+    data: apiTree,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["inventory", "tree"],
+    queryFn: fetchInventoryTree,
+  })
+
+  const [localTree, setLocalTree] = useState<Array<FileNode>>([])
+  const [initialized, setInitialized] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Array<string>>([])
+
+  // Sync API data into local state for drag-and-drop manipulation
+  if (apiTree && !initialized) {
+    setLocalTree(mapApiToTree(apiTree))
+    setInitialized(true)
+  }
+
+  const tree = initialized ? localTree : []
+
+  const handleSelectionChange = useCallback(
+    (ids: Array<string>) => {
+      setSelectedIds(ids)
+      if (ids.length !== 1) return
+      const id = ids[0]
+      const node = findNode(tree, id)
+      if (node && !node.children) {
+        navigate({ to: "/vm/$itemId", params: { itemId: id } })
+      }
+    },
+    [tree, navigate]
+  )
 
   const handleMove = useCallback(
     (sourceId: string, rawTargetId: string) => {
-      // targetId comes prefixed with "drop-" from the droppable wrapper
       const targetId = rawTargetId.startsWith("drop-")
         ? rawTargetId.slice(5)
         : rawTargetId
@@ -342,7 +346,7 @@ export default function TreeExample() {
       if (!removedNode) return
 
       const updated = insertIntoNode(treeWithoutSource, targetId, removedNode)
-      setTree(sortNodes(updated))
+      setLocalTree(sortNodes(updated))
     },
     [tree]
   )
@@ -372,10 +376,32 @@ export default function TreeExample() {
     [tree]
   )
 
+  if (isLoading) {
+    return (
+      <div className="px-4 py-2 text-sm text-muted-foreground">Loading...</div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-2 text-sm text-destructive">{error.message}</div>
+    )
+  }
+
+  if (tree.length === 0) {
+    return (
+      <div className="px-4 py-2 text-sm text-muted-foreground">
+        No inventory items
+      </div>
+    )
+  }
+
   return (
     <TreeProvider
-      defaultExpandedIds={["f-1", "f-2"]}
+      defaultExpandedIds={collectFolderIds(tree)}
       indent={12}
+      selectedIds={selectedIds}
+      onSelectionChange={handleSelectionChange}
       onMove={handleMove}
       renderDragOverlay={renderOverlay}
     >

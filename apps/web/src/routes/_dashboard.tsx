@@ -2,6 +2,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { AppSidebar } from "@workspace/ui/components/app-sidebar"
 import { SiteHeader } from "@workspace/ui/components/site-header"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { InventoryTree } from "@/components/inventory-tree"
 
 export const Route = createFileRoute("/_dashboard")({
   component: Layout,
@@ -17,7 +18,7 @@ function Layout() {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="inset" inventoryTree={<InventoryTree />} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">

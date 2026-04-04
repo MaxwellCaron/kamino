@@ -7,7 +7,16 @@ import { nitro } from "nitro/vite"
 
 const config = defineConfig({
   plugins: [
-    nitro({ serverDir: true, features: { websocket: true } }),
+    nitro({
+      serverDir: true,
+      features: { websocket: true },
+      devProxy: {
+        "/api": { target: "http://localhost:8080/api", changeOrigin: true },
+      },
+      routeRules: {
+        "/api/**": { proxy: "http://localhost:8080/api/**" },
+      },
+    }),
     viteTsConfigPaths({
       projects: ["./tsconfig.json"],
     }),

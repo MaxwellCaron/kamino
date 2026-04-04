@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
-import { Route as DashboardVncRouteImport } from './routes/_dashboard/vnc'
+import { Route as DashboardVmItemIdRouteImport } from './routes/_dashboard/vm/$itemId'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
@@ -22,32 +22,32 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardVncRoute = DashboardVncRouteImport.update({
-  id: '/vnc',
-  path: '/vnc',
+const DashboardVmItemIdRoute = DashboardVmItemIdRouteImport.update({
+  id: '/vm/$itemId',
+  path: '/vm/$itemId',
   getParentRoute: () => DashboardRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
-  '/vnc': typeof DashboardVncRoute
+  '/vm/$itemId': typeof DashboardVmItemIdRoute
 }
 export interface FileRoutesByTo {
-  '/vnc': typeof DashboardVncRoute
   '/': typeof DashboardIndexRoute
+  '/vm/$itemId': typeof DashboardVmItemIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
-  '/_dashboard/vnc': typeof DashboardVncRoute
   '/_dashboard/': typeof DashboardIndexRoute
+  '/_dashboard/vm/$itemId': typeof DashboardVmItemIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/vnc'
+  fullPaths: '/' | '/vm/$itemId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/vnc' | '/'
-  id: '__root__' | '/_dashboard' | '/_dashboard/vnc' | '/_dashboard/'
+  to: '/' | '/vm/$itemId'
+  id: '__root__' | '/_dashboard' | '/_dashboard/' | '/_dashboard/vm/$itemId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -70,24 +70,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/vnc': {
-      id: '/_dashboard/vnc'
-      path: '/vnc'
-      fullPath: '/vnc'
-      preLoaderRoute: typeof DashboardVncRouteImport
+    '/_dashboard/vm/$itemId': {
+      id: '/_dashboard/vm/$itemId'
+      path: '/vm/$itemId'
+      fullPath: '/vm/$itemId'
+      preLoaderRoute: typeof DashboardVmItemIdRouteImport
       parentRoute: typeof DashboardRoute
     }
   }
 }
 
 interface DashboardRouteChildren {
-  DashboardVncRoute: typeof DashboardVncRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardVmItemIdRoute: typeof DashboardVmItemIdRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardVncRoute: DashboardVncRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardVmItemIdRoute: DashboardVmItemIdRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
