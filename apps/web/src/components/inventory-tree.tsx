@@ -18,7 +18,7 @@ import {
 } from "@tabler/icons-react"
 import { useCallback, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useParams } from "@tanstack/react-router"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -298,6 +298,7 @@ async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
 
 export function InventoryTree() {
   const navigate = useNavigate()
+  const activeItemId = useParams({ strict: false }).itemId as string | undefined
 
   const {
     data: apiTree,
@@ -319,6 +320,14 @@ export function InventoryTree() {
   }
 
   const tree = initialized ? localTree : []
+
+  // Use route-derived selection on refresh, user clicks take priority
+  const effectiveSelectedIds =
+    selectedIds.length > 0
+      ? selectedIds
+      : activeItemId && findNode(tree, activeItemId)
+        ? [activeItemId]
+        : []
 
   const handleSelectionChange = useCallback(
     (ids: Array<string>) => {
@@ -400,7 +409,7 @@ export function InventoryTree() {
     <TreeProvider
       defaultExpandedIds={collectFolderIds(tree)}
       indent={12}
-      selectedIds={selectedIds}
+      selectedIds={effectiveSelectedIds}
       onSelectionChange={handleSelectionChange}
       onMove={handleMove}
       renderDragOverlay={renderOverlay}

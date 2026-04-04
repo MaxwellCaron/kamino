@@ -95,11 +95,12 @@ func main() {
 
 	// Initialize handlers
 	inventoryHandler := &handlers.InventoryHandler{DB: server.DBPool}
+	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
 
 	r := gin.Default()
 
 	// Register all API routes
-	routes.RegisterRoutes(r, inventoryHandler)
+	routes.RegisterRoutes(r, inventoryHandler, vncHandler)
 
 	r.Run(config.Port)
 }

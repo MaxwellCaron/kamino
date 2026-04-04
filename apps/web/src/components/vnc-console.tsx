@@ -55,7 +55,7 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
 
     async function connect() {
       try {
-        const res = await fetch("/api/vnc/proxy", {
+        const res = await fetch("/api/v1/vnc/proxy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ node, vmid }),
@@ -73,7 +73,11 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
         if (cancelled || !screenRef.current) return
 
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-        const wsUrl = `${protocol}//${window.location.host}/api/vnc/ws`
+        // In dev, connect directly to Go backend — Nitro's devProxy strips WebSocket upgrade headers
+        const wsHost = import.meta.env.DEV
+          ? "localhost:8080"
+          : window.location.host
+        const wsUrl = `${protocol}//${wsHost}/api/v1/vnc/ws`
 
         const ws = new WebSocket(wsUrl)
         await new Promise<void>((resolve, reject) => {
