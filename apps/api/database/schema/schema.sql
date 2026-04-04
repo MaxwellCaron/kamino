@@ -1,25 +1,3 @@
--- ============================================================================
--- Proxmox VM Inventory + AD-backed ACLs
--- PostgreSQL 18 single migration
---
--- Final naming set:
---   - inventory_items
---   - inventory_item_kind
---   - proxmox_vms
---   - inventory_acl_entries
---   - inventory_ace_effect
---   - ad_principals
---   - ad_group_memberships
---
--- Notes:
---   - Logical hierarchy is folders + VM items
---   - VM metadata is stored separately in proxmox_vms
---   - No concept of "owner" on VMs
---   - ACLs are assigned to AD users/groups
---   - Soft delete on inventory_items only
---   - Permissions stored as BIGINT bitmask
--- ============================================================================
-
 BEGIN;
 
 -- ----------------------------------------------------------------------------
@@ -37,7 +15,8 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ----------------------------------------------------------------------------
 CREATE TYPE inventory_item_kind AS ENUM ('folder', 'vm');
 CREATE TYPE inventory_ace_effect AS ENUM ('allow', 'deny');
-CREATE TYPE ad_principal_type AS ENUM ('user', 'group');
+CREATE TYPE principal_type AS ENUM ('user', 'group');
+CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox');
 
 -- ----------------------------------------------------------------------------
 -- Permission bit definitions (reference)
@@ -53,53 +32,62 @@ CREATE TYPE ad_principal_type AS ENUM ('user', 'group');
 -- 256     = snapshot_vm
 
 -- ----------------------------------------------------------------------------
--- AD principals (users + groups)
+-- Directory provider configuration
+-- Configured once during initial setup; exactly one row may exist.
+-- external_id format per provider:
+--   active_directory  — Windows SID string (e.g. S-1-5-21-...)
+--   proxmox           — user@realm (e.g. root@pam) or group name
 -- ----------------------------------------------------------------------------
-CREATE TABLE ad_principals (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    principal_type      ad_principal_type NOT NULL,
-    sid                 TEXT NOT NULL,
-    sam_account_name    TEXT NOT NULL,
-    display_name        TEXT NULL,
-    distinguished_name  TEXT NULL,
-    domain_fqdn         TEXT NULL,
-    is_enabled          BOOLEAN NOT NULL DEFAULT true,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ad_principals_sid_not_empty
-        CHECK (length(trim(sid)) > 0),
-    CONSTRAINT ad_principals_sam_account_name_not_empty
-        CHECK (length(trim(sam_account_name)) > 0)
+CREATE TABLE principal_providers (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_type   principal_provider_type NOT NULL,
+    name            TEXT NOT NULL,
+    config          JSONB NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT principal_providers_name_not_empty
+        CHECK (length(trim(name)) > 0)
 );
 
-CREATE UNIQUE INDEX ux_ad_principals_sid
-    ON ad_principals (sid);
-
-CREATE INDEX ix_ad_principals_type
-    ON ad_principals (principal_type);
-
-CREATE INDEX ix_ad_principals_sam_account_name
-    ON ad_principals (sam_account_name);
-
-CREATE INDEX ix_ad_principals_domain_fqdn
-    ON ad_principals (domain_fqdn);
+-- Enforce: exactly one provider row may ever exist
+CREATE UNIQUE INDEX ux_principal_providers_single_row
+    ON principal_providers ((true));
 
 -- ----------------------------------------------------------------------------
--- AD group memberships
--- group_id must point to a group
+-- Directory principals (users + groups)
+-- external_id is provider-specific (see principal_providers comment above)
+-- ----------------------------------------------------------------------------
+CREATE TABLE principals (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_id         UUID NOT NULL REFERENCES principal_providers(id) ON DELETE RESTRICT,
+    principal_type      principal_type NOT NULL,
+    external_id         TEXT NOT NULL,
+    name                TEXT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Prevent duplicate principals within the same provider
+CREATE UNIQUE INDEX ux_principals_provider_external_id
+    ON principals (provider_id, external_id);
+
+-- ----------------------------------------------------------------------------
+-- Group memberships
+-- group_id must point to a group principal
 -- member_id may point to a user or a group (nested groups supported)
+-- Both sides must belong to the same provider (enforced by trigger below)
 -- ----------------------------------------------------------------------------
-CREATE TABLE ad_group_memberships (
-    group_id             UUID NOT NULL REFERENCES ad_principals(id) ON DELETE CASCADE,
-    member_id            UUID NOT NULL REFERENCES ad_principals(id) ON DELETE CASCADE,
+CREATE TABLE group_memberships (
+    group_id             UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
+    member_id            UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (group_id, member_id),
-    CONSTRAINT ad_group_memberships_no_self_membership
+    CONSTRAINT group_memberships_no_self_membership
         CHECK (group_id <> member_id)
 );
 
-CREATE INDEX ix_ad_group_memberships_member_id
-    ON ad_group_memberships (member_id);
+CREATE INDEX ix_group_memberships_member_id
+    ON group_memberships (member_id);
 
 -- ----------------------------------------------------------------------------
 -- Inventory tree (folders + VM references)
@@ -143,15 +131,11 @@ CREATE TABLE proxmox_vms (
         CHECK (length(trim(node)) > 0)
 );
 
--- Conservative uniqueness
 CREATE UNIQUE INDEX ux_proxmox_vms_node_vmid
     ON proxmox_vms (node, vmid);
 
 CREATE INDEX ix_proxmox_vms_vmid
     ON proxmox_vms (vmid);
-
-CREATE INDEX ix_proxmox_vms_node_name
-    ON proxmox_vms (node);
 
 
 -- ----------------------------------------------------------------------------
@@ -161,9 +145,9 @@ CREATE INDEX ix_proxmox_vms_node_name
 CREATE TABLE inventory_acl_entries (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     inventory_item_id     UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
-    principal_id          UUID NOT NULL REFERENCES ad_principals(id) ON DELETE CASCADE,
+    principal_id          UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
     effect                inventory_ace_effect NOT NULL,
-    permissions           BIGINT NOT NULL CHECK (permissions >= 0),
+    permissions           BIGINT NOT NULL CHECK (permissions > 0),
     applies_to_self       BOOLEAN NOT NULL DEFAULT true,
     applies_to_children   BOOLEAN NOT NULL DEFAULT true,
     inherited_only        BOOLEAN NOT NULL DEFAULT false,
@@ -183,17 +167,8 @@ CREATE UNIQUE INDEX ux_inventory_acl_entries_dedup
         inherited_only
     );
 
-CREATE INDEX ix_inventory_acl_entries_item
-    ON inventory_acl_entries (inventory_item_id);
-
 CREATE INDEX ix_inventory_acl_entries_principal
     ON inventory_acl_entries (principal_id);
-
-CREATE INDEX ix_inventory_acl_entries_item_principal
-    ON inventory_acl_entries (inventory_item_id, principal_id);
-
-CREATE INDEX ix_inventory_acl_entries_effect
-    ON inventory_acl_entries (effect);
 
 -- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
@@ -208,8 +183,13 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_ad_principals_set_updated_at
-BEFORE UPDATE ON ad_principals
+CREATE TRIGGER trg_principal_providers_set_updated_at
+BEFORE UPDATE ON principal_providers
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_principals_set_updated_at
+BEFORE UPDATE ON principals
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -224,7 +204,7 @@ FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
 -- ----------------------------------------------------------------------------
--- Validate that parent exists, is active, and is a folder
+-- Validate that parent exists and is a folder
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION inventory_validate_parent_folder()
 RETURNS trigger
@@ -270,7 +250,7 @@ AS $$
 DECLARE
     cycle_found BOOLEAN;
 BEGIN
-    IF TG_OP <> 'UPDATE' OR NEW.parent_id IS NULL THEN
+    IF NEW.parent_id IS NULL THEN
         RETURN NEW;
     END IF;
 
@@ -316,7 +296,6 @@ EXECUTE FUNCTION inventory_prevent_cycles();
 -- ----------------------------------------------------------------------------
 -- Enforce:
 --   - proxmox_vms row must point to inventory_items.kind = 'vm'
---   - inventory_items.kind = 'vm' should not be soft-deleted? (allowed)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION proxmox_vms_validate_inventory_item()
 RETURNS trigger
@@ -387,18 +366,21 @@ FOR EACH ROW
 EXECUTE FUNCTION inventory_validate_kind_change();
 
 -- ----------------------------------------------------------------------------
--- Ensure ad_group_memberships.group_id is actually a group
+-- Ensure group_memberships.group_id is actually a group
+-- Also ensures both sides belong to the same provider
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION ad_group_memberships_validate_group()
+CREATE OR REPLACE FUNCTION group_memberships_validate_group()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    group_type ad_principal_type;
+    group_type      principal_type;
+    group_provider  UUID;
+    member_provider UUID;
 BEGIN
-    SELECT principal_type
-      INTO group_type
-      FROM ad_principals
+    SELECT principal_type, provider_id
+      INTO group_type, group_provider
+      FROM principals
      WHERE id = NEW.group_id;
 
     IF NOT FOUND THEN
@@ -406,34 +388,47 @@ BEGIN
     END IF;
 
     IF group_type <> 'group' THEN
-        RAISE EXCEPTION 'group_id must reference an AD group principal';
+        RAISE EXCEPTION 'group_id must reference a group principal';
+    END IF;
+
+    SELECT provider_id
+      INTO member_provider
+      FROM principals
+     WHERE id = NEW.member_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Member principal does not exist';
+    END IF;
+
+    IF group_provider <> member_provider THEN
+        RAISE EXCEPTION 'group_id and member_id must belong to the same directory provider';
     END IF;
 
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_ad_group_memberships_validate_group
-BEFORE INSERT OR UPDATE OF group_id
-ON ad_group_memberships
+CREATE TRIGGER trg_group_memberships_validate_group
+BEFORE INSERT OR UPDATE OF group_id, member_id
+ON group_memberships
 FOR EACH ROW
-EXECUTE FUNCTION ad_group_memberships_validate_group();
+EXECUTE FUNCTION group_memberships_validate_group();
 
 -- ----------------------------------------------------------------------------
--- Prevent nested AD group cycles
+-- Prevent nested group cycles
 -- Only relevant when member_id is also a group
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION ad_group_memberships_prevent_cycles()
+CREATE OR REPLACE FUNCTION group_memberships_prevent_cycles()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    member_type ad_principal_type;
+    member_type principal_type;
     cycle_found BOOLEAN;
 BEGIN
     SELECT principal_type
       INTO member_type
-      FROM ad_principals
+      FROM principals
      WHERE id = NEW.member_id;
 
     IF NOT FOUND THEN
@@ -447,16 +442,16 @@ BEGIN
 
     -- Check whether NEW.group_id is reachable from NEW.member_id
     WITH RECURSIVE nested_groups AS (
-        SELECT agm.group_id, agm.member_id
-        FROM ad_group_memberships agm
-        WHERE agm.group_id = NEW.member_id
+        SELECT gm.group_id, gm.member_id
+        FROM group_memberships gm
+        WHERE gm.group_id = NEW.member_id
 
         UNION ALL
 
-        SELECT agm.group_id, agm.member_id
-        FROM ad_group_memberships agm
+        SELECT gm.group_id, gm.member_id
+        FROM group_memberships gm
         JOIN nested_groups ng
-          ON agm.group_id = ng.member_id
+          ON gm.group_id = ng.member_id
     )
     SELECT EXISTS (
         SELECT 1
@@ -466,18 +461,18 @@ BEGIN
     INTO cycle_found;
 
     IF cycle_found THEN
-        RAISE EXCEPTION 'Nested AD group membership would create a cycle';
+        RAISE EXCEPTION 'Nested group membership would create a cycle';
     END IF;
 
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_ad_group_memberships_prevent_cycles
+CREATE TRIGGER trg_group_memberships_prevent_cycles
 BEFORE INSERT OR UPDATE OF group_id, member_id
-ON ad_group_memberships
+ON group_memberships
 FOR EACH ROW
-EXECUTE FUNCTION ad_group_memberships_prevent_cycles();
+EXECUTE FUNCTION group_memberships_prevent_cycles();
 
 -- ----------------------------------------------------------------------------
 -- Helper: get all effective principals for a user (user + all transitive groups)
@@ -489,16 +484,16 @@ LANGUAGE sql
 STABLE
 AS $$
     WITH RECURSIVE effective_groups AS (
-        SELECT agm.group_id
-        FROM ad_group_memberships agm
-        WHERE agm.member_id = p_user_principal_id
+        SELECT gm.group_id
+        FROM group_memberships gm
+        WHERE gm.member_id = p_user_principal_id
 
         UNION
 
-        SELECT agm.group_id
-        FROM ad_group_memberships agm
+        SELECT gm.group_id
+        FROM group_memberships gm
         JOIN effective_groups eg
-          ON agm.member_id = eg.group_id
+          ON gm.member_id = eg.group_id
     )
     SELECT p_user_principal_id
     UNION
@@ -646,7 +641,7 @@ $$;
 -- ----------------------------------------------------------------------------
 -- Optional helper: boolean permission check for a specific bit mask
 -- Example:
---   SELECT has_permission(user_id, item_id, 128); -- vm_power
+--   SELECT has_permission(user_id, item_id, 128); -- power_vm
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION has_permission(
     p_user_principal_id UUID,
