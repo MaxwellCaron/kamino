@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/gin-gonic/gin"
@@ -92,10 +93,13 @@ func main() {
 		log.Printf("Initial Proxmox sync failed: %v", err)
 	}
 
+	// Initialize handlers
+	inventoryHandler := &handlers.InventoryHandler{DB: server.DBPool}
+
 	r := gin.New()
 
 	// Register all API routes
-	routes.RegisterRoutes(r)
+	routes.RegisterRoutes(r, inventoryHandler)
 
 	r.Run(config.Port)
 }

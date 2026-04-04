@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -47,7 +48,7 @@ func (s *Sync) Run(ctx context.Context) error {
 	}
 
 	// Sync pools as child folders under root
-	poolFolders := make(map[string]pgtype.UUID, len(pools))
+	poolFolders := make(map[string]uuid.UUID, len(pools))
 	for _, pool := range pools {
 		folderID, err := ensureChildFolder(ctx, q, rootID, pool.PoolID)
 		if err != nil {
@@ -77,38 +78,35 @@ func (s *Sync) Run(ctx context.Context) error {
 	return nil
 }
 
-// ensureRootFolder returns the root folder ID, creating it if it doesn't exist.
-func ensureRootFolder(ctx context.Context, q *database.Queries) (pgtype.UUID, error) {
+func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, error) {
 	id, err := q.GetRootFolderByName(ctx, rootFolderName)
 	if err == nil {
 		return id, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return pgtype.UUID{}, err
+		return uuid.Nil, err
 	}
 	return q.CreateRootFolder(ctx, rootFolderName)
 }
 
-// ensureChildFolder returns a child folder's ID, creating it if it doesn't exist.
-func ensureChildFolder(ctx context.Context, q *database.Queries, parentID pgtype.UUID, name string) (pgtype.UUID, error) {
+func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.UUID, name string) (uuid.UUID, error) {
 	id, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
-		ParentID: parentID,
+		ParentID: &parentID,
 		Name:     name,
 	})
 	if err == nil {
 		return id, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return pgtype.UUID{}, err
+		return uuid.Nil, err
 	}
 	return q.CreateChildFolder(ctx, database.CreateChildFolderParams{
-		ParentID: parentID,
+		ParentID: &parentID,
 		Name:     name,
 	})
 }
 
-// syncVM creates or updates a VM's inventory item and proxmox_vms metadata.
-func syncVM(ctx context.Context, q *database.Queries, parentID pgtype.UUID, vm VM) error {
+func syncVM(ctx context.Context, q *database.Queries, parentID uuid.UUID, vm VM) error {
 	name := vm.Name
 	if name == "" {
 		name = fmt.Sprintf("vm-%d", vm.VMID)
@@ -116,11 +114,7 @@ func syncVM(ctx context.Context, q *database.Queries, parentID pgtype.UUID, vm V
 
 	cpuCount := int32(vm.MaxCPU)
 	memoryMB := int32(vm.MaxMem / (1024 * 1024))
-
-	var diskGB pgtype.Numeric
-	if vm.MaxDisk > 0 {
-		diskGB.Scan(fmt.Sprintf("%.2f", float64(vm.MaxDisk)/(1024*1024*1024)))
-	}
+	diskGB := math.Round(float64(vm.MaxDisk)/(1024*1024*1024)*100) / 100
 
 	// Check if this VM already exists in the database
 	existing, err := q.GetProxmoxVMByNodeVMID(ctx, database.GetProxmoxVMByNodeVMIDParams{
@@ -131,7 +125,7 @@ func syncVM(ctx context.Context, q *database.Queries, parentID pgtype.UUID, vm V
 	if errors.Is(err, pgx.ErrNoRows) {
 		// New VM: create inventory item + proxmox_vms row
 		itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
-			ParentID: parentID,
+			ParentID: &parentID,
 			Name:     name,
 		})
 		if err != nil {
@@ -144,7 +138,7 @@ func syncVM(ctx context.Context, q *database.Queries, parentID pgtype.UUID, vm V
 			Vmid:            int32(vm.VMID),
 			CpuCount:        &cpuCount,
 			MemoryMb:        &memoryMB,
-			DiskGb:          diskGB,
+			DiskGb:          &diskGB,
 		})
 	}
 	if err != nil {
@@ -155,7 +149,7 @@ func syncVM(ctx context.Context, q *database.Queries, parentID pgtype.UUID, vm V
 	if err := q.UpdateProxmoxVM(ctx, database.UpdateProxmoxVMParams{
 		CpuCount: &cpuCount,
 		MemoryMb: &memoryMB,
-		DiskGb:   diskGB,
+		DiskGb:   &diskGB,
 		Node:     vm.Node,
 		Vmid:     int32(vm.VMID),
 	}); err != nil {
@@ -173,9 +167,10 @@ func syncVM(ctx context.Context, q *database.Queries, parentID pgtype.UUID, vm V
 	}
 
 	// Move to correct parent if pool assignment changed
-	if existing.ParentID != parentID {
+	if (existing.ParentID == nil) != (parentID == uuid.Nil) ||
+		(existing.ParentID != nil && *existing.ParentID != parentID) {
 		if err := q.UpdateInventoryItemParent(ctx, database.UpdateInventoryItemParentParams{
-			ParentID: parentID,
+			ParentID: &parentID,
 			ID:       existing.InventoryItemID,
 		}); err != nil {
 			return fmt.Errorf("updating inventory item parent: %w", err)

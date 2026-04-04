@@ -1,3 +1,7 @@
+-- ---------------------------------------------------------------------------
+-- Sync queries
+-- ---------------------------------------------------------------------------
+
 -- name: GetRootFolderByName :one
 SELECT id
 FROM inventory_items
@@ -69,3 +73,23 @@ SELECT id, name
 FROM inventory_items
 WHERE parent_id = $1
   AND kind = 'folder';
+
+-- ---------------------------------------------------------------------------
+-- Read queries for API endpoints
+-- ---------------------------------------------------------------------------
+
+-- name: GetAllInventoryItems :many
+SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+FROM inventory_items ii
+LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
+ORDER BY
+  CASE WHEN ii.kind = 'folder' THEN 0 ELSE 1 END,
+  ii.name ASC;
+
+-- name: GetInventoryItemByID :one
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+FROM inventory_items ii
+LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
+WHERE ii.id = $1;

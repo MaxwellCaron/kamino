@@ -8,7 +8,7 @@ package database
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const createChildFolder = `-- name: CreateChildFolder :one
@@ -18,13 +18,13 @@ RETURNING id
 `
 
 type CreateChildFolderParams struct {
-	ParentID pgtype.UUID `json:"parent_id"`
-	Name     string      `json:"name"`
+	ParentID *uuid.UUID `json:"parent_id"`
+	Name     string     `json:"name"`
 }
 
-func (q *Queries) CreateChildFolder(ctx context.Context, arg CreateChildFolderParams) (pgtype.UUID, error) {
+func (q *Queries) CreateChildFolder(ctx context.Context, arg CreateChildFolderParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createChildFolder, arg.ParentID, arg.Name)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -35,9 +35,9 @@ VALUES (NULL, 'folder', $1)
 RETURNING id
 `
 
-func (q *Queries) CreateRootFolder(ctx context.Context, name string) (pgtype.UUID, error) {
+func (q *Queries) CreateRootFolder(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createRootFolder, name)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -49,13 +49,13 @@ RETURNING id
 `
 
 type CreateVMItemParams struct {
-	ParentID pgtype.UUID `json:"parent_id"`
-	Name     string      `json:"name"`
+	ParentID *uuid.UUID `json:"parent_id"`
+	Name     string     `json:"name"`
 }
 
-func (q *Queries) CreateVMItem(ctx context.Context, arg CreateVMItemParams) (pgtype.UUID, error) {
+func (q *Queries) CreateVMItem(ctx context.Context, arg CreateVMItemParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createVMItem, arg.ParentID, arg.Name)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -64,9 +64,65 @@ const deleteInventoryItem = `-- name: DeleteInventoryItem :exec
 DELETE FROM inventory_items WHERE id = $1
 `
 
-func (q *Queries) DeleteInventoryItem(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteInventoryItem, id)
 	return err
+}
+
+const getAllInventoryItems = `-- name: GetAllInventoryItems :many
+
+SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+FROM inventory_items ii
+LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
+ORDER BY
+  CASE WHEN ii.kind = 'folder' THEN 0 ELSE 1 END,
+  ii.name ASC
+`
+
+type GetAllInventoryItemsRow struct {
+	ID       uuid.UUID         `json:"id"`
+	ParentID *uuid.UUID        `json:"parent_id"`
+	Kind     InventoryItemKind `json:"kind"`
+	Name     string            `json:"name"`
+	Node     *string           `json:"node"`
+	Vmid     *int32            `json:"vmid"`
+	CpuCount *int32            `json:"cpu_count"`
+	MemoryMb *int32            `json:"memory_mb"`
+	DiskGb   *float64          `json:"disk_gb"`
+}
+
+// ---------------------------------------------------------------------------
+// Read queries for API endpoints
+// ---------------------------------------------------------------------------
+func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryItemsRow, error) {
+	rows, err := q.db.Query(ctx, getAllInventoryItems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllInventoryItemsRow
+	for rows.Next() {
+		var i GetAllInventoryItemsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Kind,
+			&i.Name,
+			&i.Node,
+			&i.Vmid,
+			&i.CpuCount,
+			&i.MemoryMb,
+			&i.DiskGb,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAllProxmoxVMNodeVMIDs = `-- name: GetAllProxmoxVMNodeVMIDs :many
@@ -75,9 +131,9 @@ FROM proxmox_vms pv
 `
 
 type GetAllProxmoxVMNodeVMIDsRow struct {
-	InventoryItemID pgtype.UUID `json:"inventory_item_id"`
-	Node            string      `json:"node"`
-	Vmid            int32       `json:"vmid"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Node            string    `json:"node"`
+	Vmid            int32     `json:"vmid"`
 }
 
 func (q *Queries) GetAllProxmoxVMNodeVMIDs(ctx context.Context) ([]GetAllProxmoxVMNodeVMIDsRow, error) {
@@ -109,13 +165,13 @@ WHERE parent_id = $1
 `
 
 type GetChildFolderByNameParams struct {
-	ParentID pgtype.UUID `json:"parent_id"`
-	Name     string      `json:"name"`
+	ParentID *uuid.UUID `json:"parent_id"`
+	Name     string     `json:"name"`
 }
 
-func (q *Queries) GetChildFolderByName(ctx context.Context, arg GetChildFolderByNameParams) (pgtype.UUID, error) {
+func (q *Queries) GetChildFolderByName(ctx context.Context, arg GetChildFolderByNameParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getChildFolderByName, arg.ParentID, arg.Name)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -128,11 +184,11 @@ WHERE parent_id = $1
 `
 
 type GetChildFolderIDsRow struct {
-	ID   pgtype.UUID `json:"id"`
-	Name string      `json:"name"`
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 }
 
-func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID pgtype.UUID) ([]GetChildFolderIDsRow, error) {
+func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID *uuid.UUID) ([]GetChildFolderIDsRow, error) {
 	rows, err := q.db.Query(ctx, getChildFolderIDs, parentID)
 	if err != nil {
 		return nil, err
@@ -150,6 +206,45 @@ func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID pgtype.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const getInventoryItemByID = `-- name: GetInventoryItemByID :one
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+FROM inventory_items ii
+LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
+WHERE ii.id = $1
+`
+
+type GetInventoryItemByIDRow struct {
+	ID                 uuid.UUID         `json:"id"`
+	ParentID           *uuid.UUID        `json:"parent_id"`
+	Kind               InventoryItemKind `json:"kind"`
+	Name               string            `json:"name"`
+	InheritPermissions bool              `json:"inherit_permissions"`
+	Node               *string           `json:"node"`
+	Vmid               *int32            `json:"vmid"`
+	CpuCount           *int32            `json:"cpu_count"`
+	MemoryMb           *int32            `json:"memory_mb"`
+	DiskGb             *float64          `json:"disk_gb"`
+}
+
+func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetInventoryItemByIDRow, error) {
+	row := q.db.QueryRow(ctx, getInventoryItemByID, id)
+	var i GetInventoryItemByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.Kind,
+		&i.Name,
+		&i.InheritPermissions,
+		&i.Node,
+		&i.Vmid,
+		&i.CpuCount,
+		&i.MemoryMb,
+		&i.DiskGb,
+	)
+	return i, err
 }
 
 const getProxmoxVMByNodeVMID = `-- name: GetProxmoxVMByNodeVMID :one
@@ -170,12 +265,12 @@ type GetProxmoxVMByNodeVMIDParams struct {
 }
 
 type GetProxmoxVMByNodeVMIDRow struct {
-	InventoryItemID pgtype.UUID    `json:"inventory_item_id"`
-	CpuCount        *int32         `json:"cpu_count"`
-	MemoryMb        *int32         `json:"memory_mb"`
-	DiskGb          pgtype.Numeric `json:"disk_gb"`
-	ParentID        pgtype.UUID    `json:"parent_id"`
-	Name            string         `json:"name"`
+	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
+	CpuCount        *int32     `json:"cpu_count"`
+	MemoryMb        *int32     `json:"memory_mb"`
+	DiskGb          *float64   `json:"disk_gb"`
+	ParentID        *uuid.UUID `json:"parent_id"`
+	Name            string     `json:"name"`
 }
 
 func (q *Queries) GetProxmoxVMByNodeVMID(ctx context.Context, arg GetProxmoxVMByNodeVMIDParams) (GetProxmoxVMByNodeVMIDRow, error) {
@@ -200,9 +295,9 @@ WHERE parent_id IS NULL
   AND name = $1
 `
 
-func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (pgtype.UUID, error) {
+func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getRootFolderByName, name)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -213,12 +308,12 @@ VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type InsertProxmoxVMParams struct {
-	InventoryItemID pgtype.UUID    `json:"inventory_item_id"`
-	Node            string         `json:"node"`
-	Vmid            int32          `json:"vmid"`
-	CpuCount        *int32         `json:"cpu_count"`
-	MemoryMb        *int32         `json:"memory_mb"`
-	DiskGb          pgtype.Numeric `json:"disk_gb"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Node            string    `json:"node"`
+	Vmid            int32     `json:"vmid"`
+	CpuCount        *int32    `json:"cpu_count"`
+	MemoryMb        *int32    `json:"memory_mb"`
+	DiskGb          *float64  `json:"disk_gb"`
 }
 
 func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams) error {
@@ -240,8 +335,8 @@ WHERE id = $2
 `
 
 type UpdateInventoryItemNameParams struct {
-	Name string      `json:"name"`
-	ID   pgtype.UUID `json:"id"`
+	Name string    `json:"name"`
+	ID   uuid.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateInventoryItemName(ctx context.Context, arg UpdateInventoryItemNameParams) error {
@@ -256,8 +351,8 @@ WHERE id = $2
 `
 
 type UpdateInventoryItemParentParams struct {
-	ParentID pgtype.UUID `json:"parent_id"`
-	ID       pgtype.UUID `json:"id"`
+	ParentID *uuid.UUID `json:"parent_id"`
+	ID       uuid.UUID  `json:"id"`
 }
 
 func (q *Queries) UpdateInventoryItemParent(ctx context.Context, arg UpdateInventoryItemParentParams) error {
@@ -272,11 +367,11 @@ WHERE node = $4 AND vmid = $5
 `
 
 type UpdateProxmoxVMParams struct {
-	CpuCount *int32         `json:"cpu_count"`
-	MemoryMb *int32         `json:"memory_mb"`
-	DiskGb   pgtype.Numeric `json:"disk_gb"`
-	Node     string         `json:"node"`
-	Vmid     int32          `json:"vmid"`
+	CpuCount *int32   `json:"cpu_count"`
+	MemoryMb *int32   `json:"memory_mb"`
+	DiskGb   *float64 `json:"disk_gb"`
+	Node     string   `json:"node"`
+	Vmid     int32    `json:"vmid"`
 }
 
 func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams) error {
