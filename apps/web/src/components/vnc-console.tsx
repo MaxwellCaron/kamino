@@ -3,6 +3,7 @@ import {
   IconPlugConnected,
   IconPlugConnectedX,
   IconTerminal,
+  IconX,
 } from "@tabler/icons-react"
 
 import { Badge } from "@workspace/ui/components/badge"
@@ -47,6 +48,7 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
   const [error, setError] = useState<string>()
   const [connectAttempt, setConnectAttempt] = useState(0)
   const [shouldConnect, setShouldConnect] = useState(false)
+  const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
   useEffect(() => {
     if (!shouldConnect) return
@@ -98,7 +100,10 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
         rfb.resizeSession = true
 
         rfb.addEventListener("connect", () => {
-          if (!cancelled) setStatus("connected")
+          if (!cancelled) {
+            setStatus("connected")
+            setConnectedAt(Date.now())
+          }
         })
 
         rfb.addEventListener("disconnect", (e: Event) => {
@@ -149,6 +154,7 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
     setShouldConnect(false)
     setStatus("disconnected")
     setError(undefined)
+    setConnectedAt(null)
   }
 
   return (
@@ -164,7 +170,12 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
         </CardDescription>
 
         <CardAction>
-          <StatusIndicator status={status} error={error} />
+          <StatusIndicator
+            status={status}
+            error={error}
+            connectedAt={connectedAt}
+            onDisconnect={disconnect}
+          />
         </CardAction>
       </CardHeader>
 
@@ -206,20 +217,68 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
   )
 }
 
+function formatElapsed(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":")
+}
+
+function useElapsed(since: number | null): string {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (since === null) {
+      setElapsed(0)
+      return
+    }
+
+    setElapsed(Math.floor((Date.now() - since) / 1000))
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - since) / 1000))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [since])
+
+  return formatElapsed(elapsed)
+}
+
 function StatusIndicator({
   status,
   error,
+  connectedAt,
+  onDisconnect,
 }: {
   status: Status
   error: string | undefined
+  connectedAt: number | null
+  onDisconnect: () => void
 }) {
+  const elapsed = useElapsed(status === "connected" ? connectedAt : null)
+
   switch (status) {
     case "connected":
       return (
-        <Badge>
-          <IconPlugConnected />
-          Connected
-        </Badge>
+        <div className="space-x-2">
+          <Badge>
+            <IconPlugConnected />
+            <span className="font-mono">{elapsed}</span>
+          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Button
+                  variant="destructive"
+                  size="icon-xs"
+                  onClick={onDisconnect}
+                >
+                  <IconX />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Disconnect</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       )
     case "disconnected":
     case "error":
