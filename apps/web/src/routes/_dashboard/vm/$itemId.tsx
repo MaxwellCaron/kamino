@@ -2,7 +2,6 @@ import {
   IconCpu,
   IconDatabase,
   IconDeviceImac,
-  IconDots,
   IconId,
   IconPackages,
   IconTopologyBus,
@@ -10,7 +9,6 @@ import {
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -28,6 +26,7 @@ import {
 } from "@workspace/ui/components/item"
 import type { ReactNode } from "react"
 import { VncConsole } from "@/components/vnc-console"
+import { VmOptionsMenu } from "@/components/vm-options"
 
 type InventoryItem = {
   id: string
@@ -98,27 +97,29 @@ function VmPage() {
 
   const stats: Array<{ icon: ReactNode; label: string; value: string }> = [
     {
-      icon: <IconPackages className="size-5" />,
+      icon: <IconPackages className="size-5 text-muted-foreground" />,
       label: "Node",
       value: vm.node,
     },
     {
-      icon: <IconId className="size-5" />,
+      icon: <IconId className="size-5 text-muted-foreground" />,
       label: "VMID",
       value: String(vm.vmid),
     },
     {
-      icon: <IconCpu className="size-5" />,
+      icon: <IconCpu className="size-5 text-muted-foreground" />,
       label: "CPU",
       value: vm.cpu_count != null ? `${vm.cpu_count} CPUs` : "—",
     },
     {
-      icon: <IconTopologyBus className="size-5 rotate-180" />,
+      icon: (
+        <IconTopologyBus className="size-5 rotate-180 text-muted-foreground" />
+      ),
       label: "Memory",
       value: vm.memory_mb != null ? formatMemory(vm.memory_mb) : "—",
     },
     {
-      icon: <IconDatabase className="size-5" />,
+      icon: <IconDatabase className="size-5 text-muted-foreground" />,
       label: "Storage",
       value: vm.disk_gb != null ? `${vm.disk_gb} GB` : "—",
     },
@@ -135,9 +136,7 @@ function VmPage() {
             </CardTitle>
             <CardDescription>Virtual Machine</CardDescription>
             <CardAction>
-              <Button variant="ghost" size="icon-lg">
-                <IconDots />
-              </Button>
+              <VmOptionsMenu />
             </CardAction>
           </CardHeader>
           <CardContent>

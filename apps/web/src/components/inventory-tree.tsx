@@ -1,31 +1,9 @@
 "use client"
 
-import {
-  IconDots,
-  IconEdit,
-  IconFolder,
-  IconFolderPlus,
-  IconLock,
-  IconPin,
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconPower,
-  IconRefresh,
-  IconServer,
-  IconServerSpark,
-  IconTrash,
-} from "@tabler/icons-react"
+import { IconFolder, IconServer } from "@tabler/icons-react"
 import { useCallback, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { useSidebar } from "@workspace/ui/components/sidebar"
 import {
   TreeExpander,
   TreeIcon,
@@ -35,10 +13,8 @@ import {
   TreeNodeTrigger,
   TreeProvider,
   TreeView,
-  useTree,
-  useTreeNode,
 } from "@workspace/ui/components/tree"
-import { Button } from "@workspace/ui/components/button"
+import { TreeNodeMenu } from "./vm-options"
 import type { ReactNode } from "react"
 
 // API response types matching GET /api/v1/inventory/tree
@@ -178,87 +154,6 @@ function insertIntoNode(
   })
 }
 
-function NodeMenu({ isFolder }: { isFolder: boolean }) {
-  const { selectNode } = useTree()
-  const { nodeId } = useTreeNode()
-  const { isMobile } = useSidebar()
-
-  return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (open) {
-          selectNode(nodeId)
-        }
-      }}
-    >
-      <DropdownMenuTrigger
-        className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Button variant="ghost" size="icon-xs">
-          <IconDots />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align={isMobile ? "end" : "start"}>
-        {isFolder ? (
-          <>
-            <DropdownMenuItem>
-              <IconFolderPlus />
-              Create Folder
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconServerSpark />
-              Create VM
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <IconPin />
-              Pin
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconEdit />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconLock />
-              Permissions
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">
-              <IconTrash />
-              Delete
-            </DropdownMenuItem>
-          </>
-        ) : (
-          <>
-            <DropdownMenuItem>
-              <IconPlayerPlay />
-              Start
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconPower />
-              Shutdown
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconRefresh />
-              Reboot
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconPlayerStop />
-              Stop
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">
-              <IconTrash />
-              Delete
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 function VmIcon({ status }: { status: string | undefined }) {
   const color = status
     ? status === "running"
@@ -310,7 +205,7 @@ function renderTree(
             }
           />
           <TreeLabel>{node.name}</TreeLabel>
-          <NodeMenu isFolder={isFolder} />
+          <TreeNodeMenu isFolder={isFolder} />
         </TreeNodeTrigger>
         {hasChildren && (
           <TreeNodeContent hasChildren>
@@ -346,7 +241,7 @@ async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
 
 export function InventoryTree() {
   const navigate = useNavigate()
-  const activeItemId = useParams({ strict: false }).itemId as string | undefined
+  const activeItemId = useParams({ strict: false }).itemId
 
   const {
     data: apiTree,
