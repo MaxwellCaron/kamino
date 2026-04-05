@@ -28,28 +28,11 @@ import {
 import type { ReactNode } from "react"
 import { VncConsole } from "@/components/vnc-console"
 import { VmOptionsMenu } from "@/components/vm-options"
-import { vmStatusQueryOptions } from "@/lib/queries"
-
-type InventoryItem = {
-  id: string
-  parent_id: string | null
-  kind: "folder" | "vm"
-  name: string
-  inherit_permissions: boolean
-  vm?: {
-    node: string
-    vmid: number
-    cpu_count?: number
-    memory_mb?: number
-    disk_gb?: number
-  }
-}
-
-async function fetchInventoryItem(itemId: string): Promise<InventoryItem> {
-  const res = await fetch(`/api/v1/inventory/items/${itemId}`)
-  if (!res.ok) throw new Error(`Failed to fetch item: ${res.status}`)
-  return res.json()
-}
+import {
+  findTreeNode,
+  inventoryTreeQueryOptions,
+  vmStatusQueryOptions,
+} from "@/lib/queries"
 
 function formatMemory(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${mb} MB`
@@ -62,15 +45,7 @@ export const Route = createFileRoute("/_dashboard/vm/$itemId")({
 function VmPage() {
   const { itemId } = Route.useParams()
 
-  const {
-    data: item,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["inventory", "item", itemId],
-    queryFn: () => fetchInventoryItem(itemId),
-  })
-
+  const { data: tree, isLoading } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
   if (isLoading) {
@@ -81,15 +56,17 @@ function VmPage() {
     )
   }
 
-  if (error || !item) {
+  const node = tree ? findTreeNode(tree, itemId) : null
+
+  if (!node) {
     return (
       <div className="flex flex-1 items-center justify-center text-destructive">
-        {error?.message ?? "Item not found"}
+        Item not found
       </div>
     )
   }
 
-  if (!item.vm) {
+  if (!node.vm) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
         This item is not a virtual machine.
@@ -97,7 +74,7 @@ function VmPage() {
     )
   }
 
-  const { vm } = item
+  const { vm } = node
   const vmStatus = vmStatuses?.[vm.vmid]
 
   const stats: Array<{
@@ -156,7 +133,7 @@ function VmPage() {
             <CardTitle className="flex items-center gap-2">
               <IconDeviceImac className="size-8" />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-                {item.name}
+                {node.name}
               </h1>
             </CardTitle>
             <CardDescription>Virtual Machine</CardDescription>

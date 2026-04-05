@@ -16,22 +16,8 @@ import {
 } from "@workspace/ui/components/tree"
 import { TreeNodeMenu } from "./vm-options"
 import type { ReactNode } from "react"
-import { vmStatusQueryOptions } from "@/lib/queries"
-
-// API response types matching GET /api/v1/inventory/tree
-type ApiTreeNode = {
-  id: string
-  name: string
-  kind: "folder" | "vm"
-  children?: Array<ApiTreeNode>
-  vm?: {
-    node: string
-    vmid: number
-    cpu_count?: number
-    memory_mb?: number
-    disk_gb?: number
-  }
-}
+import type { ApiTreeNode } from "@/lib/queries"
+import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
 
 // Internal tree node used for rendering and drag-and-drop
 type FileNode = {
@@ -228,12 +214,6 @@ function collectFolderIds(nodes: Array<FileNode>): Array<string> {
   return ids
 }
 
-async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
-  const res = await fetch("/api/v1/inventory/tree")
-  if (!res.ok) throw new Error(`Failed to fetch inventory: ${res.status}`)
-  return res.json()
-}
-
 export function InventoryTree() {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
@@ -242,10 +222,7 @@ export function InventoryTree() {
     data: apiTree,
     isLoading,
     error,
-  } = useQuery({
-    queryKey: ["inventory", "tree"],
-    queryFn: fetchInventoryTree,
-  })
+  } = useQuery(inventoryTreeQueryOptions)
 
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
