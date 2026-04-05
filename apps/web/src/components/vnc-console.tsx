@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import {
+  IconKeyboard,
   IconPlugConnected,
   IconPlugConnectedX,
   IconPower,
@@ -23,6 +24,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import {
   Empty,
   EmptyContent,
@@ -172,10 +179,11 @@ export function VncConsole({ node, vmid, powerStatus }: VncConsoleProps) {
         </CardDescription>
 
         <CardAction>
-          <StatusIndicator
+          <ConsoleToolbar
             status={status}
             error={error}
             connectedAt={connectedAt}
+            rfb={rfbRef}
             onDisconnect={disconnect}
           />
         </CardAction>
@@ -252,38 +260,88 @@ function useElapsed(since: number | null): string {
   return formatElapsed(elapsed)
 }
 
-function StatusIndicator({
+const KEY_COMBOS = [
+  {
+    label: "Ctrl + Alt + Del",
+    action: (rfb: RFB) => rfb.sendCtrlAltDel(),
+  },
+  {
+    label: "Tab",
+    action: (rfb: RFB) => rfb.sendKey(0xff09, "Tab"),
+  },
+  {
+    label: "Escape",
+    action: (rfb: RFB) => rfb.sendKey(0xff1b, "Escape"),
+  },
+  {
+    label: "F11",
+    action: (rfb: RFB) => rfb.sendKey(0xffc8, "F11"),
+  },
+] as const
+
+function ConsoleToolbar({
   status,
   error,
   connectedAt,
+  rfb,
   onDisconnect,
 }: {
   status: Status
   error: string | undefined
   connectedAt: number | null
+  rfb: React.RefObject<RFB | null>
   onDisconnect: () => void
 }) {
   const elapsed = useElapsed(status === "connected" ? connectedAt : null)
 
+  function send(action: (rfb: RFB) => void) {
+    if (rfb.current) {
+      action(rfb.current)
+      rfb.current.focus()
+    }
+  }
+
   switch (status) {
     case "connected":
       return (
-        <div className="space-x-2">
+        <div className="flex items-center gap-2">
           <Badge>
             <IconPlugConnected />
             <span className="font-mono">{elapsed}</span>
           </Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="xs">
+                  <IconKeyboard />
+                  Send Keys
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              {KEY_COMBOS.map((combo) => (
+                <DropdownMenuItem
+                  key={combo.label}
+                  onClick={() => send(combo.action)}
+                >
+                  {combo.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  variant="destructive"
-                  size="icon-xs"
-                  onClick={onDisconnect}
-                >
-                  <IconX />
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="destructive"
+                    size="icon-xs"
+                    onClick={onDisconnect}
+                  >
+                    <IconX />
+                  </Button>
+                }
+              />
               <TooltipContent>Disconnect</TooltipContent>
             </Tooltip>
           </TooltipProvider>
