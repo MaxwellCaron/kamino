@@ -125,13 +125,17 @@ export function TreeNodeMenu({ isFolder }: { isFolder: boolean }) {
   return (
     <DropdownMenu onOpenChange={(open) => open && selectNode(nodeId)}>
       <DropdownMenuTrigger
-        className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Button variant="ghost" size="icon-xs">
-          <IconDots />
-        </Button>
-      </DropdownMenuTrigger>
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <IconDots />
+          </Button>
+        }
+      />
       <DropdownMenuContent align={isMobile ? "end" : "start"}>
         {isFolder ? <FolderMenuItems /> : <VmMenuItems />}
       </DropdownMenuContent>
