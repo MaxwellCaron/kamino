@@ -159,7 +159,12 @@ function VmPage() {
             </div>
           </CardContent>
         </Card>
-        <VncConsole node={vm.node} vmid={vm.vmid} powerStatus={vmStatus} />
+        <VncConsole
+          key={vm.vmid}
+          node={vm.node}
+          vmid={vm.vmid}
+          powerStatus={vmStatus}
+        />
       </div>
     </div>
   )
