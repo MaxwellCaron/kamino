@@ -138,10 +138,10 @@ function insertIntoNode(
 function VmIcon({ status }: { status: string | undefined }) {
   const color = status
     ? status === "running"
-      ? "bg-green-500"
+      ? "bg-green-600 dark:bg-green-400"
       : status === "stopped"
         ? "bg-muted-foreground/40"
-        : "bg-yellow-500"
+        : "bg-yellow-600 dark:bg-yellow-400"
     : undefined
 
   return (

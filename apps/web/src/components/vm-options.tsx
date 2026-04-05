@@ -11,6 +11,7 @@ import {
   IconPower,
   IconRefresh,
   IconServerSpark,
+  IconTemplate,
   IconTrash,
 } from "@tabler/icons-react"
 import {
@@ -93,6 +94,10 @@ function VmMenuItems() {
         <DropdownMenuItem>
           <IconCopy className="text-muted-foreground" />
           Clone
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <IconTemplate className="text-muted-foreground" />
+          Template
         </DropdownMenuItem>
         <DropdownMenuItem>
           <IconCamera className="text-muted-foreground" />
