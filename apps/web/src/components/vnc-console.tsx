@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import {
   IconPlugConnected,
   IconPlugConnectedX,
+  IconPower,
   IconTerminal,
   IconX,
 } from "@tabler/icons-react"
@@ -37,11 +38,12 @@ import type RFB from "@novnc/novnc/core/rfb.js"
 type VncConsoleProps = {
   node: string
   vmid: number
+  powerStatus?: string
 }
 
 type Status = "connecting" | "connected" | "disconnected" | "error"
 
-export function VncConsole({ node, vmid }: VncConsoleProps) {
+export function VncConsole({ node, vmid, powerStatus }: VncConsoleProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
   const [status, setStatus] = useState<Status>("disconnected")
@@ -184,18 +186,25 @@ export function VncConsole({ node, vmid }: VncConsoleProps) {
           <Empty className="w-full max-w-md">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconPlugConnectedX />
+                {powerStatus !== "running" ? (
+                  <IconPower />
+                ) : (
+                  <IconPlugConnectedX />
+                )}
               </EmptyMedia>
-              <EmptyTitle>Not Connected</EmptyTitle>
+              <EmptyTitle>
+                {powerStatus !== "running" ? "VM Not Running" : "Not Connected"}
+              </EmptyTitle>
               <EmptyDescription>
-                You haven&apos;t created a VNC session. Start a new session to
-                connect.
+                {powerStatus !== "running"
+                  ? "The VM must be running to create a VNC session."
+                  : "You haven't created a VNC session. Start a new session to connect."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center gap-2">
               <Button
                 onClick={startConnection}
-                disabled={status === "connecting"}
+                disabled={status === "connecting" || powerStatus !== "running"}
               >
                 {status === "connecting" && <Spinner />}
                 {status === "connecting" ? "Connecting..." : "Connect"}
