@@ -4,6 +4,7 @@ import {
   IconDeviceImac,
   IconId,
   IconPackages,
+  IconPower,
   IconTopologyBus,
 } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
@@ -19,14 +20,15 @@ import {
 } from "@workspace/ui/components/card"
 import {
   Item,
-  ItemActions,
   ItemContent,
+  ItemFooter,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
 import type { ReactNode } from "react"
 import { VncConsole } from "@/components/vnc-console"
 import { VmOptionsMenu } from "@/components/vm-options"
+import { vmStatusQueryOptions } from "@/lib/queries"
 
 type InventoryItem = {
   id: string
@@ -69,6 +71,8 @@ function VmPage() {
     queryFn: () => fetchInventoryItem(itemId),
   })
 
+  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
@@ -94,8 +98,27 @@ function VmPage() {
   }
 
   const { vm } = item
+  const vmStatus = vmStatuses?.[vm.vmid]
 
-  const stats: Array<{ icon: ReactNode; label: string; value: string }> = [
+  const stats: Array<{
+    icon: ReactNode
+    label: string
+    value: string
+    variant?: "default" | "secondary" | "destructive" | "outline"
+  }> = [
+    {
+      icon: <IconPower className="size-5 text-muted-foreground" />,
+      label: "Status",
+      value: vmStatus
+        ? vmStatus.charAt(0).toUpperCase() + vmStatus.slice(1)
+        : "—",
+      variant:
+        vmStatus === "running"
+          ? "default"
+          : vmStatus === "stopped"
+            ? "destructive"
+            : "secondary",
+    },
     {
       icon: <IconPackages className="size-5 text-muted-foreground" />,
       label: "Node",
@@ -131,8 +154,10 @@ function VmPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconDeviceImac className="size-5" />
-              {item.name}
+              <IconDeviceImac className="size-8" />
+              <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
+                {item.name}
+              </h1>
             </CardTitle>
             <CardDescription>Virtual Machine</CardDescription>
             <CardAction>
@@ -140,16 +165,18 @@ function VmPage() {
             </CardAction>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 grid-rows-3 gap-4 md:grid-cols-3 md:grid-rows-2 md:gap-6 xl:grid-cols-6 xl:grid-rows-1">
               {stats.map((stat) => (
                 <Item key={stat.label} variant="muted">
                   <ItemMedia>{stat.icon}</ItemMedia>
                   <ItemContent>
                     <ItemTitle>{stat.label}</ItemTitle>
                   </ItemContent>
-                  <ItemActions>
-                    <Badge>{stat.value}</Badge>
-                  </ItemActions>
+                  <ItemFooter>
+                    <Badge variant={stat.variant ?? "default"}>
+                      {stat.value}
+                    </Badge>
+                  </ItemFooter>
                 </Item>
               ))}
             </div>

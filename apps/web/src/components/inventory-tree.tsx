@@ -16,6 +16,7 @@ import {
 } from "@workspace/ui/components/tree"
 import { TreeNodeMenu } from "./vm-options"
 import type { ReactNode } from "react"
+import { vmStatusQueryOptions } from "@/lib/queries"
 
 // API response types matching GET /api/v1/inventory/tree
 type ApiTreeNode = {
@@ -62,12 +63,6 @@ function collectVmIds(nodes: Array<FileNode>): Map<string, number> {
     }
   }
   return map
-}
-
-async function fetchVmStatuses(): Promise<Record<number, string>> {
-  const res = await fetch("/api/v1/vms/status")
-  if (!res.ok) throw new Error(`Failed to fetch VM statuses: ${res.status}`)
-  return res.json()
 }
 
 function findNode(nodes: Array<FileNode>, id: string): FileNode | null {
@@ -252,11 +247,7 @@ export function InventoryTree() {
     queryFn: fetchInventoryTree,
   })
 
-  const { data: vmStatuses } = useQuery({
-    queryKey: ["vms", "status"],
-    queryFn: fetchVmStatuses,
-    refetchInterval: 30_000,
-  })
+  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
   const [localTree, setLocalTree] = useState<Array<FileNode>>([])
   const [initialized, setInitialized] = useState(false)
