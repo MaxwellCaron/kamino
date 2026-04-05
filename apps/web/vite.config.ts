@@ -8,6 +8,9 @@ const config = defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  server: {
+    forwardConsole: true,
+  },
   plugins: [
     nitro({
       devProxy: {
