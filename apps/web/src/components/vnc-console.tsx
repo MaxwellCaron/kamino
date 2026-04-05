@@ -106,7 +106,6 @@ export function VncConsole({ node, vmid, powerStatus }: VncConsoleProps) {
         })
 
         rfb.scaleViewport = true
-        rfb.resizeSession = true
 
         rfb.addEventListener("connect", () => {
           if (!cancelled) {
