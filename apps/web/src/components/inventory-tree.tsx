@@ -1,6 +1,6 @@
 "use client"
 
-import { IconFolder, IconServer } from "@tabler/icons-react"
+import { IconFolder, IconSearch, IconServer } from "@tabler/icons-react"
 import { useCallback, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
@@ -14,6 +14,11 @@ import {
   TreeProvider,
   TreeView,
 } from "@workspace/ui/components/tree"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import { TreeNodeMenu } from "./vm-options"
 import type { ReactNode } from "react"
 import type { ApiTreeNode } from "@/lib/queries"
@@ -203,6 +208,34 @@ function renderTree(
   })
 }
 
+function filterTree(nodes: Array<FileNode>, query: string): Array<FileNode> {
+  if (!query) return nodes
+  const q = query.toLowerCase()
+  const result: Array<FileNode> = []
+  for (const node of nodes) {
+    if (node.children !== undefined) {
+      const filteredChildren = filterTree(node.children, query)
+      if (filteredChildren.length > 0) {
+        result.push({ ...node, children: filteredChildren })
+      } else if (node.name.toLowerCase().includes(q)) {
+        result.push(node)
+      }
+    } else if (node.name.toLowerCase().includes(q)) {
+      result.push(node)
+    }
+  }
+  return result
+}
+
+function countLeaves(nodes: Array<FileNode>): number {
+  let count = 0
+  for (const node of nodes) {
+    if (node.children !== undefined) count += countLeaves(node.children)
+    else count++
+  }
+  return count
+}
+
 function collectFolderIds(nodes: Array<FileNode>): Array<string> {
   const ids: Array<string> = []
   for (const node of nodes) {
@@ -217,6 +250,7 @@ function collectFolderIds(nodes: Array<FileNode>): Array<string> {
 export function InventoryTree() {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
+  const [query, setQuery] = useState("")
 
   const {
     data: apiTree,
@@ -240,6 +274,8 @@ export function InventoryTree() {
   }
 
   const tree = initialized ? localTree : []
+  const filteredTree = filterTree(tree, query)
+  const resultCount = query ? countLeaves(filteredTree) : null
 
   const getStatus = useCallback(
     (itemId: string): string | undefined => {
@@ -330,15 +366,35 @@ export function InventoryTree() {
   }
 
   return (
-    <TreeProvider
-      defaultExpandedIds={collectFolderIds(tree)}
-      indent={12}
-      selectedIds={effectiveSelectedIds}
-      onSelectionChange={handleSelectionChange}
-      onMove={handleMove}
-      renderDragOverlay={renderOverlay}
-    >
-      <TreeView className="p-0">{renderTree(tree, 0, [], getStatus)}</TreeView>
-    </TreeProvider>
+    <>
+      <InputGroup className="mb-2">
+        <InputGroupInput
+          placeholder="Search..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <InputGroupAddon>
+          <IconSearch />
+        </InputGroupAddon>
+        {resultCount !== null && (
+          <InputGroupAddon align="inline-end">
+            {resultCount} results
+          </InputGroupAddon>
+        )}
+      </InputGroup>
+      <TreeProvider
+        defaultExpandedIds={collectFolderIds(tree)}
+        expandedIds={query ? collectFolderIds(filteredTree) : undefined}
+        indent={12}
+        selectedIds={effectiveSelectedIds}
+        onSelectionChange={handleSelectionChange}
+        onMove={handleMove}
+        renderDragOverlay={renderOverlay}
+      >
+        <TreeView className="p-0">
+          {renderTree(filteredTree, 0, [], getStatus)}
+        </TreeView>
+      </TreeProvider>
+    </>
   )
 }

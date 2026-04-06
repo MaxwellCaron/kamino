@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -66,6 +67,7 @@ export const useTreeNode = () => {
 export type TreeProviderProps = {
   children: ReactNode
   defaultExpandedIds?: Array<string>
+  expandedIds?: Array<string>
   showLines?: boolean
   showIcons?: boolean
   selectable?: boolean
@@ -82,6 +84,7 @@ export type TreeProviderProps = {
 export const TreeProvider = ({
   children,
   defaultExpandedIds = [],
+  expandedIds: controlledExpandedIds,
   showLines = true,
   showIcons = true,
   selectable = true,
@@ -97,6 +100,12 @@ export const TreeProvider = ({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     new Set(defaultExpandedIds)
   )
+
+  useEffect(() => {
+    if (controlledExpandedIds !== undefined) {
+      setExpandedIds(new Set(controlledExpandedIds))
+    }
+  }, [controlledExpandedIds])
   const [internalSelectedIds, setInternalSelectedIds] = useState<Array<string>>(
     selectedIds ?? []
   )
