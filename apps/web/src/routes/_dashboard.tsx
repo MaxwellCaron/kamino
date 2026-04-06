@@ -3,6 +3,7 @@ import { AppSidebar } from "@workspace/ui/components/app-sidebar"
 import { SiteHeader } from "@workspace/ui/components/site-header"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { InventoryTree } from "@/components/inventory-tree"
+import { CommandManyItems } from "@/components/site-command"
 
 export const Route = createFileRoute("/_dashboard")({
   component: Layout,
@@ -20,7 +21,7 @@ function Layout() {
     >
       <AppSidebar variant="inset" inventoryTree={<InventoryTree />} />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader command={<CommandManyItems />} />
         <div className="flex flex-1 flex-col">
           <Outlet />
         </div>

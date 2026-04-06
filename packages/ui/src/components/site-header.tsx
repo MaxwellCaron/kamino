@@ -1,20 +1,25 @@
 import { Separator } from "@workspace/ui/components/separator"
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 import { ThemeToggle } from "./theme-toggle"
+import type { ReactNode } from "react"
 
-export function SiteHeader() {
+export function SiteHeader({ command }: { command?: ReactNode }) {
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-      <div className="flex w-full items-center justify-between gap-1 px-4 lg:gap-2 lg:px-6">
+      <div className="relative flex w-full items-center px-4 lg:px-6">
         <div className="flex items-center">
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"
             className="mx-2 h-4 data-vertical:self-auto"
           />
-          <h1 className="text-base font-medium">Documents</h1>
         </div>
-        <ThemeToggle />
+        {command && (
+          <div className="absolute left-1/2 -translate-x-1/2">{command}</div>
+        )}
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )
