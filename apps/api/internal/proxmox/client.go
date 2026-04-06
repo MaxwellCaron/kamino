@@ -123,6 +123,26 @@ type VNCProxyResponse struct {
 	Password string `json:"password"`
 }
 
+// CreateSnapshot creates a snapshot of a VM and returns the task ID.
+func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) (string, error) {
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot", node, vmid)
+	form := map[string]string{
+		"snapname": snapname,
+	}
+	if description != "" {
+		form["description"] = description
+	}
+	if vmstate {
+		form["vmstate"] = "1"
+	}
+
+	var resp apiResponse[string]
+	if err := c.post(ctx, path, form, &resp); err != nil {
+		return "", fmt.Errorf("creating snapshot: %w", err)
+	}
+	return resp.Data, nil
+}
+
 // CreateVNCProxy requests a VNC proxy session from Proxmox for a given VM.
 func (c *Client) CreateVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyResponse, error) {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/vncproxy", node, vmid)

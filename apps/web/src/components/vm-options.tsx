@@ -28,6 +28,7 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 import { ConfirmDialog } from "./confirm-action"
+import { SnapshotDialog } from "./snapshot-dialog"
 import type { ConfirmConfig } from "./confirm-action"
 
 function FolderMenuItems({
@@ -87,8 +88,10 @@ function FolderMenuItems({
 
 function VmMenuItems({
   onAction,
+  onSnapshot,
 }: {
   onAction: (config: ConfirmConfig) => void
+  onSnapshot: () => void
 }) {
   return (
     <>
@@ -165,7 +168,7 @@ function VmMenuItems({
           <IconTemplate className="text-muted-foreground" />
           Template
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onSnapshot}>
           <IconCamera className="text-muted-foreground" />
           Snapshot
         </DropdownMenuItem>
@@ -238,27 +241,34 @@ function MenuItems({
   isFolder,
   isTemplate,
   onAction,
+  onSnapshot,
 }: {
   isFolder: boolean
   isTemplate?: boolean
   onAction: (config: ConfirmConfig) => void
+  onSnapshot: () => void
 }) {
   if (isFolder) return <FolderMenuItems onAction={onAction} />
   if (isTemplate) return <TemplateMenuItems onAction={onAction} />
-  return <VmMenuItems onAction={onAction} />
+  return <VmMenuItems onAction={onAction} onSnapshot={onSnapshot} />
 }
 
 export function TreeNodeMenu({
   isFolder,
   isTemplate,
+  vmid,
+  pveNode,
 }: {
   isFolder: boolean
   isTemplate?: boolean
+  vmid?: number
+  pveNode?: string
 }) {
   const { selectNode } = useTree()
   const { nodeId } = useTreeNode()
   const { isMobile } = useSidebar()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+  const [snapshotOpen, setSnapshotOpen] = useState(false)
 
   return (
     <>
@@ -280,10 +290,19 @@ export function TreeNodeMenu({
             isFolder={isFolder}
             isTemplate={isTemplate}
             onAction={setConfirm}
+            onSnapshot={() => setSnapshotOpen(true)}
           />
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      {pveNode && vmid !== undefined && (
+        <SnapshotDialog
+          node={pveNode}
+          vmid={vmid}
+          open={snapshotOpen}
+          onOpenChange={setSnapshotOpen}
+        />
+      )}
     </>
   )
 }
@@ -291,11 +310,16 @@ export function TreeNodeMenu({
 export function VmOptionsMenu({
   isFolder = false,
   isTemplate,
+  vmid,
+  pveNode,
 }: {
   isFolder?: boolean
   isTemplate?: boolean
+  vmid?: number
+  pveNode?: string
 }) {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+  const [snapshotOpen, setSnapshotOpen] = useState(false)
 
   return (
     <>
@@ -312,10 +336,19 @@ export function VmOptionsMenu({
             isFolder={isFolder}
             isTemplate={isTemplate}
             onAction={setConfirm}
+            onSnapshot={() => setSnapshotOpen(true)}
           />
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      {pveNode && vmid !== undefined && (
+        <SnapshotDialog
+          node={pveNode}
+          vmid={vmid}
+          open={snapshotOpen}
+          onOpenChange={setSnapshotOpen}
+        />
+      )}
     </>
   )
 }

@@ -34,6 +34,7 @@ type FileNode = {
   id: string
   name: string
   vmid?: number
+  pveNode?: string
   isTemplate?: boolean
   children?: Array<FileNode>
 }
@@ -44,7 +45,11 @@ function mapApiToTree(nodes: Array<ApiTreeNode>): Array<FileNode> {
     name: node.name,
     ...(node.kind === "folder"
       ? { children: node.children ? mapApiToTree(node.children) : [] }
-      : { vmid: node.vm?.vmid, isTemplate: node.vm?.is_template }),
+      : {
+          vmid: node.vm?.vmid,
+          pveNode: node.vm?.node,
+          isTemplate: node.vm?.is_template,
+        }),
   }))
 }
 
@@ -212,7 +217,12 @@ function renderTree(
             }
           />
           <TreeLabel>{node.name}</TreeLabel>
-          <TreeNodeMenu isFolder={isFolder} isTemplate={node.isTemplate} />
+          <TreeNodeMenu
+            isFolder={isFolder}
+            isTemplate={node.isTemplate}
+            vmid={node.vmid}
+            pveNode={node.pveNode}
+          />
         </TreeNodeTrigger>
         {hasChildren && (
           <TreeNodeContent hasChildren>

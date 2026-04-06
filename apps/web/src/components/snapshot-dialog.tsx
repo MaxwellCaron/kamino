@@ -1,0 +1,189 @@
+import { useForm } from "@tanstack/react-form"
+import { z } from "zod"
+import { IconCamera } from "@tabler/icons-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
+import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { Textarea } from "@workspace/ui/components/textarea"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { createSnapshot } from "@/lib/queries"
+
+const snapshotSchema = z.object({
+  snapname: z
+    .string()
+    .min(1, "Snapshot name is required")
+    .max(40, "Snapshot name must be 40 characters or less")
+    .regex(
+      /^[a-zA-Z][a-zA-Z0-9_-]*$/,
+      "Must start with a letter and contain only letters, numbers, hyphens, and underscores"
+    ),
+  description: z
+    .string()
+    .max(256, "Description must be 256 characters or less")
+    .optional(),
+  vmstate: z.boolean().optional(),
+})
+
+export function SnapshotDialog({
+  node,
+  vmid,
+  open,
+  onOpenChange,
+}: {
+  node: string
+  vmid: number
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const form = useForm({
+    defaultValues: {
+      snapname: "",
+      description: "",
+      vmstate: false,
+    },
+    onSubmit: async ({ value }) => {
+      const parsed = snapshotSchema.parse(value)
+      await createSnapshot({
+        node,
+        vmid,
+        snapname: parsed.snapname,
+        description: parsed.description || undefined,
+        vmstate: parsed.vmstate,
+      })
+      onOpenChange(false)
+      form.reset()
+    },
+  })
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        onOpenChange(isOpen)
+        if (!isOpen) form.reset()
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Snapshot</DialogTitle>
+          <DialogDescription>
+            Take a point-in-time snapshot of this virtual machine.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <FieldGroup>
+            <form.Field
+              name="snapname"
+              validators={{
+                onBlur: ({ value }) => {
+                  const result = snapshotSchema.shape.snapname.safeParse(value)
+                  return result.success
+                    ? undefined
+                    : result.error.issues[0].message
+                },
+              }}
+            >
+              {(field) => (
+                <Field
+                  data-invalid={field.state.meta.errors.length > 0 || undefined}
+                >
+                  <FieldLabel htmlFor="snapname">Name</FieldLabel>
+                  <Input
+                    id="snapname"
+                    placeholder="my-snapshot"
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  <FieldError>{field.state.meta.errors[0]}</FieldError>
+                </Field>
+              )}
+            </form.Field>
+            <form.Field
+              name="description"
+              validators={{
+                onBlur: ({ value }) => {
+                  const result =
+                    snapshotSchema.shape.description.safeParse(value)
+                  return result.success
+                    ? undefined
+                    : result.error.issues[0].message
+                },
+              }}
+            >
+              {(field) => (
+                <Field
+                  data-invalid={field.state.meta.errors.length > 0 || undefined}
+                >
+                  <FieldLabel htmlFor="description">Description</FieldLabel>
+                  <Textarea
+                    id="description"
+                    placeholder="Optional description..."
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  <FieldError>{field.state.meta.errors[0]}</FieldError>
+                </Field>
+              )}
+            </form.Field>
+            <form.Field name="vmstate">
+              {(field) => (
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="vmstate"
+                    checked={field.state.value}
+                    onCheckedChange={(checked) => field.handleChange(!!checked)}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
+                    <FieldDescription>
+                      Save the RAM contents along with the snapshot. Uses more
+                      storage.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+          </FieldGroup>
+          <DialogFooter className="mt-6">
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <Button type="submit" disabled={isSubmitting}>
+                  <IconCamera data-icon="inline-start" />
+                  {isSubmitting ? "Creating..." : "Create Snapshot"}
+                </Button>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

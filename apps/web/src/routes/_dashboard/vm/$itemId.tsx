@@ -149,7 +149,11 @@ function VmPage() {
               {isTemplate ? "Template" : "Virtual Machine"}
             </CardDescription>
             <CardAction>
-              <VmOptionsMenu isTemplate={isTemplate} />
+              <VmOptionsMenu
+                isTemplate={isTemplate}
+                vmid={vm.vmid}
+                pveNode={vm.node}
+              />
             </CardAction>
           </CardHeader>
           <CardContent>

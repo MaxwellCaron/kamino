@@ -49,3 +49,22 @@ export const vmStatusQueryOptions = {
   queryFn: fetchVmStatuses,
   refetchInterval: 30_000,
 }
+
+export async function createSnapshot(params: {
+  node: string
+  vmid: number
+  snapname: string
+  description?: string
+  vmstate?: boolean
+}): Promise<{ task_id: string }> {
+  const res = await fetch("/api/v1/vms/snapshot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to create snapshot: ${res.status}`)
+  }
+  return res.json()
+}

@@ -9,7 +9,7 @@ func RegisterRoutes(
 	r *gin.Engine,
 	inventory *handlers.InventoryHandler,
 	vnc *handlers.VNCHandler,
-	vmStatus *handlers.VMStatusHandler,
+	vm *handlers.VMHandler,
 ) {
 	v1 := r.Group("/api/v1")
 
@@ -22,8 +22,9 @@ func RegisterRoutes(
 	v1.GET("/inventory/tree", inventory.GetTree)
 	v1.GET("/inventory/items/:id", inventory.GetItem)
 
-	// VM status (live from Proxmox)
-	v1.GET("/vms/status", vmStatus.GetStatuses)
+	// VM endpoints
+	v1.GET("/vms/status", vm.GetStatuses)
+	v1.POST("/vms/snapshot", vm.CreateSnapshot)
 
 	// VNC proxy endpoints
 	v1.POST("/vnc/proxy", vnc.PostProxy)
