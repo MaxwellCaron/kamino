@@ -72,7 +72,7 @@ func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
 
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
-       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -81,15 +81,16 @@ ORDER BY
 `
 
 type GetAllInventoryItemsRow struct {
-	ID       uuid.UUID         `json:"id"`
-	ParentID *uuid.UUID        `json:"parent_id"`
-	Kind     InventoryItemKind `json:"kind"`
-	Name     string            `json:"name"`
-	Node     *string           `json:"node"`
-	Vmid     *int32            `json:"vmid"`
-	CpuCount *int32            `json:"cpu_count"`
-	MemoryMb *int32            `json:"memory_mb"`
-	DiskGb   *float64          `json:"disk_gb"`
+	ID         uuid.UUID         `json:"id"`
+	ParentID   *uuid.UUID        `json:"parent_id"`
+	Kind       InventoryItemKind `json:"kind"`
+	Name       string            `json:"name"`
+	Node       *string           `json:"node"`
+	Vmid       *int32            `json:"vmid"`
+	IsTemplate *bool             `json:"is_template"`
+	CpuCount   *int32            `json:"cpu_count"`
+	MemoryMb   *int32            `json:"memory_mb"`
+	DiskGb     *float64          `json:"disk_gb"`
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +112,7 @@ func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryIt
 			&i.Name,
 			&i.Node,
 			&i.Vmid,
+			&i.IsTemplate,
 			&i.CpuCount,
 			&i.MemoryMb,
 			&i.DiskGb,
@@ -210,7 +212,7 @@ func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID *uuid.UUID) ([
 
 const getInventoryItemByID = `-- name: GetInventoryItemByID :one
 SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
-       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1
@@ -224,6 +226,7 @@ type GetInventoryItemByIDRow struct {
 	InheritPermissions bool              `json:"inherit_permissions"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	IsTemplate         *bool             `json:"is_template"`
 	CpuCount           *int32            `json:"cpu_count"`
 	MemoryMb           *int32            `json:"memory_mb"`
 	DiskGb             *float64          `json:"disk_gb"`
@@ -240,6 +243,7 @@ func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetIn
 		&i.InheritPermissions,
 		&i.Node,
 		&i.Vmid,
+		&i.IsTemplate,
 		&i.CpuCount,
 		&i.MemoryMb,
 		&i.DiskGb,
@@ -288,6 +292,7 @@ func (q *Queries) GetProxmoxVMByNodeVMID(ctx context.Context, arg GetProxmoxVMBy
 }
 
 const getRootFolderByName = `-- name: GetRootFolderByName :one
+
 SELECT id
 FROM inventory_items
 WHERE parent_id IS NULL
@@ -295,6 +300,9 @@ WHERE parent_id IS NULL
   AND name = $1
 `
 
+// ---------------------------------------------------------------------------
+// Sync queries
+// ---------------------------------------------------------------------------
 func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getRootFolderByName, name)
 	var id uuid.UUID
@@ -303,14 +311,15 @@ func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UU
 }
 
 const insertProxmoxVM = `-- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type InsertProxmoxVMParams struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	IsTemplate      bool      `json:"is_template"`
 	CpuCount        *int32    `json:"cpu_count"`
 	MemoryMb        *int32    `json:"memory_mb"`
 	DiskGb          *float64  `json:"disk_gb"`
@@ -321,6 +330,7 @@ func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams
 		arg.InventoryItemID,
 		arg.Node,
 		arg.Vmid,
+		arg.IsTemplate,
 		arg.CpuCount,
 		arg.MemoryMb,
 		arg.DiskGb,
@@ -362,20 +372,22 @@ func (q *Queries) UpdateInventoryItemParent(ctx context.Context, arg UpdateInven
 
 const updateProxmoxVM = `-- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
-SET cpu_count = $1, memory_mb = $2, disk_gb = $3
-WHERE node = $4 AND vmid = $5
+SET is_template = $1, cpu_count = $2, memory_mb = $3, disk_gb = $4
+WHERE node = $5 AND vmid = $6
 `
 
 type UpdateProxmoxVMParams struct {
-	CpuCount *int32   `json:"cpu_count"`
-	MemoryMb *int32   `json:"memory_mb"`
-	DiskGb   *float64 `json:"disk_gb"`
-	Node     string   `json:"node"`
-	Vmid     int32    `json:"vmid"`
+	IsTemplate bool     `json:"is_template"`
+	CpuCount   *int32   `json:"cpu_count"`
+	MemoryMb   *int32   `json:"memory_mb"`
+	DiskGb     *float64 `json:"disk_gb"`
+	Node       string   `json:"node"`
+	Vmid       int32    `json:"vmid"`
 }
 
 func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams) error {
 	_, err := q.db.Exec(ctx, updateProxmoxVM,
+		arg.IsTemplate,
 		arg.CpuCount,
 		arg.MemoryMb,
 		arg.DiskGb,

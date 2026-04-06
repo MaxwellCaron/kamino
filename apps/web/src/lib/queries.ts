@@ -6,6 +6,7 @@ export type ApiTreeNode = {
   vm?: {
     node: string
     vmid: number
+    is_template: boolean
     cpu_count?: number
     memory_mb?: number
     disk_gb?: number

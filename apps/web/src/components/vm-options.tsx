@@ -27,6 +27,12 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 
+function getMenuItems(isFolder: boolean, isTemplate?: boolean) {
+  if (isFolder) return <FolderMenuItems />
+  if (isTemplate) return <TemplateMenuItems />
+  return <VmMenuItems />
+}
+
 function FolderMenuItems() {
   return (
     <>
@@ -117,7 +123,36 @@ function VmMenuItems() {
   )
 }
 
-export function TreeNodeMenu({ isFolder }: { isFolder: boolean }) {
+function TemplateMenuItems() {
+  return (
+    <>
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuItem>
+          <IconCopy className="text-muted-foreground" />
+          Clone
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <IconLock className="text-muted-foreground" />
+          Permissions
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive">
+        <IconTrash />
+        Delete
+      </DropdownMenuItem>
+    </>
+  )
+}
+
+export function TreeNodeMenu({
+  isFolder,
+  isTemplate,
+}: {
+  isFolder: boolean
+  isTemplate?: boolean
+}) {
   const { selectNode } = useTree()
   const { nodeId } = useTreeNode()
   const { isMobile } = useSidebar()
@@ -137,13 +172,19 @@ export function TreeNodeMenu({ isFolder }: { isFolder: boolean }) {
         }
       />
       <DropdownMenuContent align={isMobile ? "end" : "start"}>
-        {isFolder ? <FolderMenuItems /> : <VmMenuItems />}
+        {getMenuItems(isFolder, isTemplate)}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-export function VmOptionsMenu({ isFolder = false }: { isFolder?: boolean }) {
+export function VmOptionsMenu({
+  isFolder = false,
+  isTemplate,
+}: {
+  isFolder?: boolean
+  isTemplate?: boolean
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -154,7 +195,7 @@ export function VmOptionsMenu({ isFolder = false }: { isFolder?: boolean }) {
         }
       ></DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {isFolder ? <FolderMenuItems /> : <VmMenuItems />}
+        {getMenuItems(isFolder, isTemplate)}
       </DropdownMenuContent>
     </DropdownMenu>
   )

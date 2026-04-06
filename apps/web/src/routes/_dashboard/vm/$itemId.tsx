@@ -5,6 +5,7 @@ import {
   IconId,
   IconPackages,
   IconPower,
+  IconTemplate,
   IconTopologyBus,
 } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
@@ -75,6 +76,7 @@ function VmPage() {
   }
 
   const { vm } = node
+  const isTemplate = vm.is_template
   const vmStatus = vmStatuses?.[vm.vmid]
 
   const stats: Array<{
@@ -86,11 +88,14 @@ function VmPage() {
     {
       icon: <IconPower className="size-5 text-muted-foreground" />,
       label: "Status",
-      value: vmStatus
-        ? vmStatus.charAt(0).toUpperCase() + vmStatus.slice(1)
-        : "—",
-      variant:
-        vmStatus === "running"
+      value: isTemplate
+        ? "Template"
+        : vmStatus
+          ? vmStatus.charAt(0).toUpperCase() + vmStatus.slice(1)
+          : "—",
+      variant: isTemplate
+        ? "secondary"
+        : vmStatus === "running"
           ? "default"
           : vmStatus === "stopped"
             ? "destructive"
@@ -131,14 +136,20 @@ function VmPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconDeviceImac className="size-8" />
+              {isTemplate ? (
+                <IconTemplate className="size-8" />
+              ) : (
+                <IconDeviceImac className="size-8" />
+              )}
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 {node.name}
               </h1>
             </CardTitle>
-            <CardDescription>Virtual Machine</CardDescription>
+            <CardDescription>
+              {isTemplate ? "Template" : "Virtual Machine"}
+            </CardDescription>
             <CardAction>
-              <VmOptionsMenu />
+              <VmOptionsMenu isTemplate={isTemplate} />
             </CardAction>
           </CardHeader>
           <CardContent>
@@ -159,12 +170,14 @@ function VmPage() {
             </div>
           </CardContent>
         </Card>
-        <VncConsole
-          key={vm.vmid}
-          node={vm.node}
-          vmid={vm.vmid}
-          powerStatus={vmStatus}
-        />
+        {!isTemplate && (
+          <VncConsole
+            key={vm.vmid}
+            node={vm.node}
+            vmid={vm.vmid}
+            powerStatus={vmStatus}
+          />
+        )}
       </div>
     </div>
   )

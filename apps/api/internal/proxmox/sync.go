@@ -136,6 +136,7 @@ func syncVM(ctx context.Context, q *database.Queries, parentID uuid.UUID, vm VM)
 			InventoryItemID: itemID,
 			Node:            vm.Node,
 			Vmid:            int32(vm.VMID),
+			IsTemplate:      vm.IsTemplate(),
 			CpuCount:        &cpuCount,
 			MemoryMb:        &memoryMB,
 			DiskGb:          &diskGB,
@@ -147,11 +148,12 @@ func syncVM(ctx context.Context, q *database.Queries, parentID uuid.UUID, vm VM)
 
 	// Existing VM: update metadata
 	if err := q.UpdateProxmoxVM(ctx, database.UpdateProxmoxVMParams{
-		CpuCount: &cpuCount,
-		MemoryMb: &memoryMB,
-		DiskGb:   &diskGB,
-		Node:     vm.Node,
-		Vmid:     int32(vm.VMID),
+		IsTemplate: vm.IsTemplate(),
+		CpuCount:   &cpuCount,
+		MemoryMb:   &memoryMB,
+		DiskGb:     &diskGB,
+		Node:       vm.Node,
+		Vmid:       int32(vm.VMID),
 	}); err != nil {
 		return fmt.Errorf("updating proxmox_vms: %w", err)
 	}

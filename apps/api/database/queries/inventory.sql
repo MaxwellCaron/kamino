@@ -53,13 +53,13 @@ JOIN inventory_items ii ON ii.id = pv.inventory_item_id
 WHERE pv.node = $1 AND pv.vmid = $2;
 
 -- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
-SET cpu_count = $1, memory_mb = $2, disk_gb = $3
-WHERE node = $4 AND vmid = $5;
+SET is_template = $1, cpu_count = $2, memory_mb = $3, disk_gb = $4
+WHERE node = $5 AND vmid = $6;
 
 -- name: GetAllProxmoxVMNodeVMIDs :many
 SELECT pv.inventory_item_id, pv.node, pv.vmid
@@ -80,7 +80,7 @@ WHERE parent_id = $1
 
 -- name: GetAllInventoryItems :many
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
-       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -89,7 +89,7 @@ ORDER BY
 
 -- name: GetInventoryItemByID :one
 SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
-       pv.node, pv.vmid, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1;

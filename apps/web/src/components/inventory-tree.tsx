@@ -1,6 +1,11 @@
 "use client"
 
-import { IconFolder, IconSearch, IconServer } from "@tabler/icons-react"
+import {
+  IconFolder,
+  IconSearch,
+  IconServer,
+  IconTemplate,
+} from "@tabler/icons-react"
 import { useCallback, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
@@ -29,6 +34,7 @@ type FileNode = {
   id: string
   name: string
   vmid?: number
+  isTemplate?: boolean
   children?: Array<FileNode>
 }
 
@@ -38,7 +44,7 @@ function mapApiToTree(nodes: Array<ApiTreeNode>): Array<FileNode> {
     name: node.name,
     ...(node.kind === "folder"
       ? { children: node.children ? mapApiToTree(node.children) : [] }
-      : { vmid: node.vm?.vmid }),
+      : { vmid: node.vm?.vmid, isTemplate: node.vm?.is_template }),
   }))
 }
 
@@ -140,7 +146,17 @@ function insertIntoNode(
   })
 }
 
-function VmIcon({ status }: { status: string | undefined }) {
+function VmIcon({
+  status,
+  isTemplate,
+}: {
+  status: string | undefined
+  isTemplate?: boolean
+}) {
+  if (isTemplate) {
+    return <IconTemplate className="size-4 text-muted-foreground" />
+  }
+
   const color = status
     ? status === "running"
       ? "bg-green-600 dark:bg-green-400"
@@ -187,11 +203,16 @@ function renderTree(
           <TreeIcon
             hasChildren={isFolder}
             icon={
-              !isFolder ? <VmIcon status={getStatus(node.id)} /> : undefined
+              !isFolder ? (
+                <VmIcon
+                  status={getStatus(node.id)}
+                  isTemplate={node.isTemplate}
+                />
+              ) : undefined
             }
           />
           <TreeLabel>{node.name}</TreeLabel>
-          <TreeNodeMenu isFolder={isFolder} />
+          <TreeNodeMenu isFolder={isFolder} isTemplate={node.isTemplate} />
         </TreeNodeTrigger>
         {hasChildren && (
           <TreeNodeContent hasChildren>
@@ -336,7 +357,13 @@ export function InventoryTree() {
       return (
         <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 opacity-50 shadow-xl shadow-black/20">
           <span className="text-muted-foreground">
-            {hasChildren ? <IconFolder /> : <IconServer />}
+            {hasChildren ? (
+              <IconFolder />
+            ) : node.isTemplate ? (
+              <IconTemplate />
+            ) : (
+              <IconServer />
+            )}
           </span>
           <span className="text-sm font-medium">{node.name}</span>
         </div>
