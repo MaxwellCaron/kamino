@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   IconCamera,
   IconCopy,
@@ -26,14 +27,14 @@ import {
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
+import { ConfirmDialog } from "./confirm-action"
+import type { ConfirmConfig } from "./confirm-action"
 
-function getMenuItems(isFolder: boolean, isTemplate?: boolean) {
-  if (isFolder) return <FolderMenuItems />
-  if (isTemplate) return <TemplateMenuItems />
-  return <VmMenuItems />
-}
-
-function FolderMenuItems() {
+function FolderMenuItems({
+  onAction,
+}: {
+  onAction: (config: ConfirmConfig) => void
+}) {
   return (
     <>
       <DropdownMenuGroup>
@@ -64,7 +65,19 @@ function FolderMenuItems() {
         </DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive">
+      <DropdownMenuItem
+        variant="destructive"
+        onClick={() =>
+          onAction({
+            title: "Delete Folder?",
+            description:
+              "This will permanently delete the folder and all its contents. This action cannot be undone.",
+            actionLabel: "Delete",
+            variant: "destructive",
+            onConfirm: () => {},
+          })
+        }
+      >
         <IconTrash />
         Delete
       </DropdownMenuItem>
@@ -72,24 +85,71 @@ function FolderMenuItems() {
   )
 }
 
-function VmMenuItems() {
+function VmMenuItems({
+  onAction,
+}: {
+  onAction: (config: ConfirmConfig) => void
+}) {
   return (
     <>
       <DropdownMenuGroup>
         <DropdownMenuLabel>Power</DropdownMenuLabel>
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            onAction({
+              title: "Start VM?",
+              description: "This will power on the virtual machine.",
+              actionLabel: "Start",
+              variant: "default",
+              onConfirm: () => {},
+            })
+          }
+        >
           <IconPlayerPlay className="text-muted-foreground" />
           Start
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            onAction({
+              title: "Shutdown VM?",
+              description:
+                "This will send a shutdown signal to the virtual machine. The guest OS will attempt a graceful shutdown.",
+              actionLabel: "Shutdown",
+              variant: "destructive",
+              onConfirm: () => {},
+            })
+          }
+        >
           <IconPower className="text-muted-foreground" />
           Shutdown
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            onAction({
+              title: "Reboot VM?",
+              description:
+                "This will send a reboot signal to the virtual machine.",
+              actionLabel: "Reboot",
+              variant: "destructive",
+              onConfirm: () => {},
+            })
+          }
+        >
           <IconRefresh className="text-muted-foreground" />
           Reboot
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            onAction({
+              title: "Stop VM?",
+              description:
+                "This will immediately stop the virtual machine. Unsaved data may be lost.",
+              actionLabel: "Stop",
+              variant: "destructive",
+              onConfirm: () => {},
+            })
+          }
+        >
           <IconPlayerStop className="text-muted-foreground" />
           Stop
         </DropdownMenuItem>
@@ -115,7 +175,19 @@ function VmMenuItems() {
         </DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive">
+      <DropdownMenuItem
+        variant="destructive"
+        onClick={() =>
+          onAction({
+            title: "Delete VM?",
+            description:
+              "This will permanently delete the virtual machine. This action cannot be undone.",
+            actionLabel: "Delete",
+            variant: "destructive",
+            onConfirm: () => {},
+          })
+        }
+      >
         <IconTrash />
         Delete
       </DropdownMenuItem>
@@ -123,7 +195,11 @@ function VmMenuItems() {
   )
 }
 
-function TemplateMenuItems() {
+function TemplateMenuItems({
+  onAction,
+}: {
+  onAction: (config: ConfirmConfig) => void
+}) {
   return (
     <>
       <DropdownMenuGroup>
@@ -138,12 +214,38 @@ function TemplateMenuItems() {
         </DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive">
+      <DropdownMenuItem
+        variant="destructive"
+        onClick={() =>
+          onAction({
+            title: "Delete Template?",
+            description:
+              "This will permanently delete the template. This action cannot be undone.",
+            actionLabel: "Delete",
+            variant: "destructive",
+            onConfirm: () => {},
+          })
+        }
+      >
         <IconTrash />
         Delete
       </DropdownMenuItem>
     </>
   )
+}
+
+function MenuItems({
+  isFolder,
+  isTemplate,
+  onAction,
+}: {
+  isFolder: boolean
+  isTemplate?: boolean
+  onAction: (config: ConfirmConfig) => void
+}) {
+  if (isFolder) return <FolderMenuItems onAction={onAction} />
+  if (isTemplate) return <TemplateMenuItems onAction={onAction} />
+  return <VmMenuItems onAction={onAction} />
 }
 
 export function TreeNodeMenu({
@@ -156,25 +258,33 @@ export function TreeNodeMenu({
   const { selectNode } = useTree()
   const { nodeId } = useTreeNode()
   const { isMobile } = useSidebar()
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && selectNode(nodeId)}>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <IconDots />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align={isMobile ? "end" : "start"}>
-        {getMenuItems(isFolder, isTemplate)}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu onOpenChange={(open) => open && selectNode(nodeId)}>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <IconDots />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align={isMobile ? "end" : "start"}>
+          <MenuItems
+            isFolder={isFolder}
+            isTemplate={isTemplate}
+            onAction={setConfirm}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+    </>
   )
 }
 
@@ -185,18 +295,27 @@ export function VmOptionsMenu({
   isFolder?: boolean
   isTemplate?: boolean
 }) {
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon">
-            <IconDots />
-          </Button>
-        }
-      ></DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {getMenuItems(isFolder, isTemplate)}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon">
+              <IconDots />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <MenuItems
+            isFolder={isFolder}
+            isTemplate={isTemplate}
+            onAction={setConfirm}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+    </>
   )
 }
