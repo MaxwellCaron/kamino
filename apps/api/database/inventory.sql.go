@@ -69,6 +69,21 @@ func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteInventoryItemByProxmoxVM = `-- name: DeleteInventoryItemByProxmoxVM :exec
+DELETE FROM inventory_items
+WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $1 AND vmid = $2)
+`
+
+type DeleteInventoryItemByProxmoxVMParams struct {
+	Node string `json:"node"`
+	Vmid int32  `json:"vmid"`
+}
+
+func (q *Queries) DeleteInventoryItemByProxmoxVM(ctx context.Context, arg DeleteInventoryItemByProxmoxVMParams) error {
+	_, err := q.db.Exec(ctx, deleteInventoryItemByProxmoxVM, arg.Node, arg.Vmid)
+	return err
+}
+
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
 
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
@@ -354,6 +369,22 @@ func (q *Queries) UpdateInventoryItemName(ctx context.Context, arg UpdateInvento
 	return err
 }
 
+const updateInventoryItemNameByProxmoxVM = `-- name: UpdateInventoryItemNameByProxmoxVM :exec
+UPDATE inventory_items SET name = $1
+WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $2 AND vmid = $3)
+`
+
+type UpdateInventoryItemNameByProxmoxVMParams struct {
+	Name string `json:"name"`
+	Node string `json:"node"`
+	Vmid int32  `json:"vmid"`
+}
+
+func (q *Queries) UpdateInventoryItemNameByProxmoxVM(ctx context.Context, arg UpdateInventoryItemNameByProxmoxVMParams) error {
+	_, err := q.db.Exec(ctx, updateInventoryItemNameByProxmoxVM, arg.Name, arg.Node, arg.Vmid)
+	return err
+}
+
 const updateInventoryItemParent = `-- name: UpdateInventoryItemParent :exec
 UPDATE inventory_items
 SET parent_id = $1
@@ -394,5 +425,19 @@ func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams
 		arg.Node,
 		arg.Vmid,
 	)
+	return err
+}
+
+const updateProxmoxVMIsTemplate = `-- name: UpdateProxmoxVMIsTemplate :exec
+UPDATE proxmox_vms SET is_template = true WHERE node = $1 AND vmid = $2
+`
+
+type UpdateProxmoxVMIsTemplateParams struct {
+	Node string `json:"node"`
+	Vmid int32  `json:"vmid"`
+}
+
+func (q *Queries) UpdateProxmoxVMIsTemplate(ctx context.Context, arg UpdateProxmoxVMIsTemplateParams) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMIsTemplate, arg.Node, arg.Vmid)
 	return err
 }

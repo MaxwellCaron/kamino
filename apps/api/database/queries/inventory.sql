@@ -74,6 +74,17 @@ FROM inventory_items
 WHERE parent_id = $1
   AND kind = 'folder';
 
+-- name: UpdateInventoryItemNameByProxmoxVM :exec
+UPDATE inventory_items SET name = $1
+WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $2 AND vmid = $3);
+
+-- name: UpdateProxmoxVMIsTemplate :exec
+UPDATE proxmox_vms SET is_template = true WHERE node = $1 AND vmid = $2;
+
+-- name: DeleteInventoryItemByProxmoxVM :exec
+DELETE FROM inventory_items
+WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $1 AND vmid = $2);
+
 -- ---------------------------------------------------------------------------
 -- Read queries for API endpoints
 -- ---------------------------------------------------------------------------
