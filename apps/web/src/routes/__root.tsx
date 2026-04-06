@@ -29,10 +29,15 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "Kamino",
       },
     ],
     links: [
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/kamino.svg",
+      },
       {
         rel: "stylesheet",
         href: appCss,
