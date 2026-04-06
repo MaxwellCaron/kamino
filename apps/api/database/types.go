@@ -50,3 +50,87 @@ func (ns NullInventoryItemKind) Value() (driver.Value, error) {
 	}
 	return string(ns.InventoryItemKind), nil
 }
+
+type PrincipalProviderType string
+
+const (
+	PrincipalProviderTypeActiveDirectory PrincipalProviderType = "active_directory"
+	PrincipalProviderTypeProxmox         PrincipalProviderType = "proxmox"
+)
+
+func (e *PrincipalProviderType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PrincipalProviderType(s)
+	case string:
+		*e = PrincipalProviderType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PrincipalProviderType: %T", src)
+	}
+	return nil
+}
+
+type NullPrincipalProviderType struct {
+	PrincipalProviderType PrincipalProviderType `json:"principal_provider_type"`
+	Valid                 bool                  `json:"valid"` // Valid is true if PrincipalProviderType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPrincipalProviderType) Scan(value interface{}) error {
+	if value == nil {
+		ns.PrincipalProviderType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PrincipalProviderType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPrincipalProviderType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PrincipalProviderType), nil
+}
+
+type PrincipalType string
+
+const (
+	PrincipalTypeUser  PrincipalType = "user"
+	PrincipalTypeGroup PrincipalType = "group"
+)
+
+func (e *PrincipalType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PrincipalType(s)
+	case string:
+		*e = PrincipalType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PrincipalType: %T", src)
+	}
+	return nil
+}
+
+type NullPrincipalType struct {
+	PrincipalType PrincipalType `json:"principal_type"`
+	Valid         bool          `json:"valid"` // Valid is true if PrincipalType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPrincipalType) Scan(value interface{}) error {
+	if value == nil {
+		ns.PrincipalType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PrincipalType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPrincipalType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PrincipalType), nil
+}

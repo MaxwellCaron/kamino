@@ -42,7 +42,6 @@ CREATE TABLE principal_providers (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     provider_type   principal_provider_type NOT NULL,
     name            TEXT NOT NULL,
-    config          JSONB NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT principal_providers_name_not_empty
@@ -108,11 +107,11 @@ CREATE TABLE inventory_items (
         CHECK (parent_id IS NOT NULL OR kind = 'folder')
 );
 
-CREATE INDEX ix_inventory_items_parent_id
-    ON inventory_items (parent_id);
+CREATE UNIQUE INDEX ux_inventory_items_root_folder_name
+    ON inventory_items (name) WHERE parent_id IS NULL AND kind = 'folder';
 
-CREATE INDEX ix_inventory_items_kind
-    ON inventory_items (kind);
+CREATE INDEX ix_inventory_items_parent_kind_name
+    ON inventory_items (parent_id, kind, name);
 
 -- ----------------------------------------------------------------------------
 -- Proxmox VM metadata

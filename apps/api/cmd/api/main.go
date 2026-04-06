@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	activedirectory "github.com/MaxwellCaron/kamino/internal/active_directory"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/routes"
@@ -23,6 +24,11 @@ type Config struct {
 	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
 	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
 	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	LDAPUrl            string `envconfig:"LDAP_URL"`
+	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
 }
 
 // Server holds all application dependencies
@@ -31,6 +37,7 @@ type Server struct {
 	DBPool        *pgxpool.Pool
 	ProxmoxClient *proxmox.Client
 	ProxmoxSync   *proxmox.Sync
+	ADSync        *activedirectory.Sync
 }
 
 // init the environment
@@ -67,12 +74,26 @@ func newServer(config *Config) (*Server, error) {
 	// Initialize sync service
 	pxSync := proxmox.NewSync(dbPool, pxClient)
 
-	return &Server{
+	server := &Server{
 		Config:        config,
 		DBPool:        dbPool,
 		ProxmoxClient: pxClient,
 		ProxmoxSync:   pxSync,
-	}, nil
+	}
+
+	// Initialize AD sync if LDAP is configured
+	if config.LDAPUrl != "" {
+		adClient := activedirectory.NewClient(
+			config.LDAPUrl,
+			config.LDAPBindDN,
+			config.LDAPBindPassword,
+			config.LDAPSearchBaseDN,
+			config.LDAPInsecure,
+		)
+		server.ADSync = activedirectory.NewSync(dbPool, adClient)
+	}
+
+	return server, nil
 }
 
 func main() {
@@ -91,6 +112,13 @@ func main() {
 	// Run initial Proxmox inventory sync
 	if err := server.ProxmoxSync.Run(context.Background()); err != nil {
 		log.Printf("Initial Proxmox sync failed: %v", err)
+	}
+
+	// Run initial AD sync if configured
+	if server.ADSync != nil {
+		if err := server.ADSync.Run(context.Background()); err != nil {
+			log.Printf("Initial AD sync failed: %v", err)
+		}
 	}
 
 	// Initialize handlers
