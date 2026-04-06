@@ -27,9 +27,9 @@ import {
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
-import { ConfirmDialog } from "./confirm-action"
+import { ConfirmDialog } from "./inventory-confirm-actions"
 import { SnapshotDialog } from "./snapshot-dialog"
-import type { ConfirmConfig } from "./confirm-action"
+import type { ConfirmConfig } from "./inventory-confirm-actions"
 
 function FolderMenuItems({
   onAction,
@@ -164,7 +164,18 @@ function VmMenuItems({
           <IconCopy className="text-muted-foreground" />
           Clone
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            onAction({
+              title: "Convert to Template?",
+              description:
+                "This will convert the VM to a template, making it available for cloning.",
+              actionLabel: "Convert",
+              variant: "destructive",
+              onConfirm: () => {},
+            })
+          }
+        >
           <IconTemplate className="text-muted-foreground" />
           Template
         </DropdownMenuItem>

@@ -28,7 +28,7 @@ import {
 } from "@workspace/ui/components/item"
 import type { ReactNode } from "react"
 import { VncConsole } from "@/components/vnc-console"
-import { VmOptionsMenu } from "@/components/vm-options"
+import { VmOptionsMenu } from "@/components/inventory-actions"
 import {
   findTreeNode,
   inventoryTreeQueryOptions,

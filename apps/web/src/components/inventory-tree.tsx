@@ -24,7 +24,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
-import { TreeNodeMenu } from "./vm-options"
+import { TreeNodeMenu } from "./inventory-actions"
 import type { ReactNode } from "react"
 import type { ApiTreeNode } from "@/lib/queries"
 import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
