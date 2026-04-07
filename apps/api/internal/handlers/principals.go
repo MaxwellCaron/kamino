@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -535,9 +536,9 @@ func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
 // ---------- Helpers ----------
 
 // syncInBackground triggers an AD sync in a goroutine so the response isn't blocked.
-func (h *PrincipalsHandler) syncInBackground(c *gin.Context) {
+func (h *PrincipalsHandler) syncInBackground(_ *gin.Context) {
 	go func() {
-		if err := h.ADSync.Run(c.Request.Context()); err != nil {
+		if err := h.ADSync.Run(context.Background()); err != nil {
 			log.Printf("Background AD sync failed: %v", err)
 		}
 	}()

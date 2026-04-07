@@ -84,8 +84,8 @@ function MembershipEditor({
   // Current memberships
   const membersQuery = useQuery(groupMembersQueryOptions(principal.id))
   const userGroupsQuery = useQuery(userGroupsQueryOptions(principal.id))
-  const currentMembers: Array<ApiGroupMember> =
-    (mode === "user-groups" ? userGroupsQuery.data : membersQuery.data) ?? []
+  const activeQuery = mode === "user-groups" ? userGroupsQuery : membersQuery
+  const currentMembers: Array<ApiGroupMember> = activeQuery.data ?? []
 
   // All possible options
   const allGroupsQuery = useQuery(groupsQueryOptions)
@@ -100,10 +100,10 @@ function MembershipEditor({
 
   // Initialize local value from server data once loaded
   React.useEffect(() => {
-    if (localValue === null && currentMembers.length >= 0) {
+    if (localValue === null && activeQuery.isSuccess) {
       setLocalValue(serverIds)
     }
-  }, [localValue, currentMembers, serverIds])
+  }, [localValue, activeQuery.isSuccess, serverIds])
 
   const selectedIds = localValue ?? serverIds
 
