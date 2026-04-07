@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -80,7 +79,7 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	h.syncInBackground(c)
+	h.syncBeforeResponse(c)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -285,7 +284,7 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 		return
 	}
 
-	h.syncInBackground(c)
+	h.syncBeforeResponse(c)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -447,7 +446,7 @@ func (h *PrincipalsHandler) AddGroupMember(c *gin.Context) {
 		return
 	}
 
-	h.syncInBackground(c)
+	h.syncBeforeResponse(c)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -496,7 +495,7 @@ func (h *PrincipalsHandler) RemoveGroupMember(c *gin.Context) {
 		return
 	}
 
-	h.syncInBackground(c)
+	h.syncBeforeResponse(c)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -535,13 +534,11 @@ func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
 
 // ---------- Helpers ----------
 
-// syncInBackground triggers an AD sync in a goroutine so the response isn't blocked.
-func (h *PrincipalsHandler) syncInBackground(_ *gin.Context) {
-	go func() {
-		if err := h.ADSync.Run(context.Background()); err != nil {
-			log.Printf("Background AD sync failed: %v", err)
-		}
-	}()
+// syncBeforeResponse runs an AD sync synchronously so the local DB is up to date
+func (h *PrincipalsHandler) syncBeforeResponse(c *gin.Context) {
+	if err := h.ADSync.Run(c.Request.Context()); err != nil {
+		log.Printf("AD sync after mutation failed: %v", err)
+	}
 }
 
 // lookupDN finds the Distinguished Name for a principal by searching AD with its SID.
