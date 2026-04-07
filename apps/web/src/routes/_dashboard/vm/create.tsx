@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 import { toast } from "sonner"
-import { IconDeviceImac } from "@tabler/icons-react"
+import { IconDeviceImac, IconPlus, IconTrash } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -37,6 +37,18 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxSeparator,
+} from "@workspace/ui/components/combobox"
+import {
+  bridgesQueryOptions,
   createVM,
   getNextVMID,
   inventoryTreeQueryOptions,
@@ -47,6 +59,13 @@ import {
 
 export const Route = createFileRoute("/_dashboard/vm/create")({
   component: CreateVmPage,
+})
+
+const networkInterfaceSchema = z.object({
+  bridge: z.string().default("vmbr0"),
+  model: z.string().default("virtio"),
+  vlan_tag: z.number().int().optional(),
+  firewall: z.boolean().default(true),
 })
 
 const vmSchema = z.object({
@@ -66,10 +85,9 @@ const vmSchema = z.object({
   balloon: z.number().int().default(0),
   storage: z.string().optional(),
   disk_size: z.number().int().min(1).default(32),
-  bridge: z.string().default("vmbr0"),
-  net_model: z.string().default("virtio"),
-  vlan_tag: z.number().int().optional(),
-  firewall: z.boolean().default(true),
+  networks: z
+    .array(networkInterfaceSchema)
+    .default([{ bridge: "vmbr0", model: "virtio", firewall: true }]),
 })
 
 type VMFormValues = z.infer<typeof vmSchema>
@@ -91,10 +109,7 @@ const defaultValues: VMFormValues = {
   balloon: 0,
   storage: "",
   disk_size: 32,
-  bridge: "vmbr0",
-  net_model: "virtio",
-  vlan_tag: 0,
-  firewall: true,
+  networks: [{ bridge: "vmbr0", model: "virtio", firewall: true }],
 }
 
 function CreateVmPage() {
@@ -107,6 +122,7 @@ function CreateVmPage() {
   const { data: nodes } = useQuery(nodesQueryOptions)
   const { data: storages } = useQuery(storagesQueryOptions(selectedNode))
   const { data: isos } = useQuery(isosQueryOptions(selectedNode, isoStorage))
+  const { data: networks } = useQuery(bridgesQueryOptions(selectedNode))
 
   const diskStorages =
     storages?.filter((s) => s.content.includes("images")) ?? []
@@ -134,7 +150,6 @@ function CreateVmPage() {
     },
   })
 
-  // Auto-fetch next VMID on mount
   useEffect(() => {
     getNextVMID().then((id) => {
       form.setFieldValue("vmid", id)
@@ -537,74 +552,182 @@ function CreateVmPage() {
                 </TabsContent>
 
                 <TabsContent value="network">
-                  <FieldGroup>
-                    <form.Field name="bridge">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Bridge</FieldLabel>
-                          <Input
-                            value={field.state.value}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                          />
-                        </Field>
-                      )}
-                    </form.Field>
-                    <form.Field name="net_model">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Model</FieldLabel>
-                          <Select
-                            value={field.state.value}
-                            onValueChange={(v) => v && field.handleChange(v)}
+                  <form.Field name="networks" mode="array">
+                    {(networksField) => (
+                      <div className="space-y-4">
+                        {networksField.state.value.map((_, i) => (
+                          <div
+                            key={i}
+                            className="space-y-3 rounded-lg border p-4"
                           >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="virtio">
-                                VirtIO (Default)
-                              </SelectItem>
-                              <SelectItem value="e1000">Intel E1000</SelectItem>
-                              <SelectItem value="rtl8139">
-                                Realtek RTL8139
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </Field>
-                      )}
-                    </form.Field>
-                    <form.Field name="vlan_tag">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>VLAN Tag</FieldLabel>
-                          <Input
-                            type="number"
-                            placeholder="No VLAN"
-                            value={field.state.value || ""}
-                            onChange={(e) =>
-                              field.handleChange(parseInt(e.target.value) || 0)
-                            }
-                          />
-                        </Field>
-                      )}
-                    </form.Field>
-                    <form.Field name="firewall">
-                      {(field) => (
-                        <Field orientation="horizontal">
-                          <Checkbox
-                            id="firewall"
-                            checked={field.state.value}
-                            onCheckedChange={(checked) =>
-                              field.handleChange(!!checked)
-                            }
-                          />
-                          <FieldContent>
-                            <FieldLabel htmlFor="firewall">Firewall</FieldLabel>
-                          </FieldContent>
-                        </Field>
-                      )}
-                    </form.Field>
-                  </FieldGroup>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium">net{i}</p>
+                              {networksField.state.value.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => networksField.removeValue(i)}
+                                >
+                                  <IconTrash className="size-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <FieldGroup>
+                              <form.Field name={`networks[${i}].bridge`}>
+                                {(field) => (
+                                  <Field>
+                                    <FieldLabel>Bridge</FieldLabel>
+                                    <Combobox
+                                      value={field.state.value}
+                                      onValueChange={(val) =>
+                                        field.handleChange(val as string)
+                                      }
+                                    >
+                                      <ComboboxInput
+                                        placeholder="vmbr0"
+                                        onChange={(e) =>
+                                          field.handleChange(e.target.value)
+                                        }
+                                      />
+                                      <ComboboxContent>
+                                        <ComboboxList>
+                                          <ComboboxGroup
+                                            key="bridges"
+                                            items={networks?.bridges}
+                                          >
+                                            <ComboboxLabel>
+                                              Bridges
+                                            </ComboboxLabel>
+                                            {networks?.bridges.map((b) => (
+                                              <ComboboxItem
+                                                key={b.iface}
+                                                value={b.iface}
+                                              >
+                                                {b.iface}
+                                                {b.comments && (
+                                                  <span className="ml-1 text-xs text-muted-foreground">
+                                                    {b.comments}
+                                                  </span>
+                                                )}
+                                              </ComboboxItem>
+                                            ))}
+                                          </ComboboxGroup>
+                                          <ComboboxSeparator />
+                                          <ComboboxGroup
+                                            key="vnets"
+                                            items={networks?.vnets}
+                                          >
+                                            <ComboboxLabel>VNets</ComboboxLabel>
+                                            {networks?.vnets.map((b) => (
+                                              <ComboboxItem
+                                                key={b.vnet}
+                                                value={b.vnet}
+                                              >
+                                                {b.vnet}
+                                                {b.alias && (
+                                                  <span className="ml-1 text-xs text-muted-foreground">
+                                                    {b.alias}
+                                                  </span>
+                                                )}
+                                              </ComboboxItem>
+                                            ))}
+                                          </ComboboxGroup>
+                                          <ComboboxEmpty>
+                                            {selectedNode
+                                              ? "No bridges found"
+                                              : "Select a node first"}
+                                          </ComboboxEmpty>
+                                        </ComboboxList>
+                                      </ComboboxContent>
+                                    </Combobox>
+                                  </Field>
+                                )}
+                              </form.Field>
+                              <form.Field name={`networks[${i}].model`}>
+                                {(field) => (
+                                  <Field>
+                                    <FieldLabel>Model</FieldLabel>
+                                    <Select
+                                      value={field.state.value}
+                                      onValueChange={(v) =>
+                                        v && field.handleChange(v)
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="virtio">
+                                          VirtIO (Default)
+                                        </SelectItem>
+                                        <SelectItem value="e1000">
+                                          Intel E1000
+                                        </SelectItem>
+                                        <SelectItem value="rtl8139">
+                                          Realtek RTL8139
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </Field>
+                                )}
+                              </form.Field>
+                              <form.Field name={`networks[${i}].vlan_tag`}>
+                                {(field) => (
+                                  <Field>
+                                    <FieldLabel>VLAN Tag</FieldLabel>
+                                    <Input
+                                      type="number"
+                                      placeholder="No VLAN"
+                                      value={field.state.value || ""}
+                                      onChange={(e) =>
+                                        field.handleChange(
+                                          parseInt(e.target.value) || undefined
+                                        )
+                                      }
+                                    />
+                                  </Field>
+                                )}
+                              </form.Field>
+                              <form.Field name={`networks[${i}].firewall`}>
+                                {(field) => (
+                                  <Field orientation="horizontal">
+                                    <Checkbox
+                                      id={`firewall-${i}`}
+                                      checked={field.state.value}
+                                      onCheckedChange={(checked) =>
+                                        field.handleChange(!!checked)
+                                      }
+                                    />
+                                    <FieldContent>
+                                      <FieldLabel htmlFor={`firewall-${i}`}>
+                                        Firewall
+                                      </FieldLabel>
+                                    </FieldContent>
+                                  </Field>
+                                )}
+                              </form.Field>
+                            </FieldGroup>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            networksField.pushValue({
+                              bridge: "vmbr0",
+                              model: "virtio",
+                              firewall: true,
+                            })
+                          }
+                        >
+                          <IconPlus className="mr-1 size-4" />
+                          Add Network Interface
+                        </Button>
+                      </div>
+                    )}
+                  </form.Field>
                 </TabsContent>
 
                 <TabsContent value="confirm">
@@ -626,6 +749,12 @@ function CreateVmPage() {
                               <dt className="text-muted-foreground">Name</dt>
                               <dd>{values.name || "—"}</dd>
                             </div>
+                            {values.pool && (
+                              <div className="flex justify-between">
+                                <dt className="text-muted-foreground">Pool</dt>
+                                <dd>{values.pool}</dd>
+                              </div>
+                            )}
                           </dl>
                         </div>
                         <div>
@@ -666,19 +795,19 @@ function CreateVmPage() {
                         </div>
                         <div>
                           <h3 className="mb-2 font-semibold">Network</h3>
-                          <dl className="space-y-1">
-                            <div className="flex justify-between">
-                              <dt className="text-muted-foreground">Bridge</dt>
-                              <dd>{values.bridge}</dd>
-                            </div>
-                            <div className="flex justify-between">
-                              <dt className="text-muted-foreground">Model</dt>
-                              <dd>{values.net_model}</dd>
-                            </div>
-                            <div className="flex justify-between">
-                              <dt className="text-muted-foreground">VLAN</dt>
-                              <dd>{values.vlan_tag || "None"}</dd>
-                            </div>
+                          <dl className="space-y-2">
+                            {values.networks.map((net, i) => (
+                              <div key={i}>
+                                <dt className="text-muted-foreground">
+                                  net{i}
+                                </dt>
+                                <dd className="ml-2 text-xs">
+                                  {net.model}, {net.bridge}
+                                  {net.vlan_tag ? `, VLAN ${net.vlan_tag}` : ""}
+                                  {net.firewall ? ", fw" : ""}
+                                </dd>
+                              </div>
+                            ))}
                           </dl>
                         </div>
                       </div>

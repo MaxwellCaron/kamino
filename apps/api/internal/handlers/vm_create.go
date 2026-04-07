@@ -60,27 +60,48 @@ func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"vmid": id})
 }
 
-type createVMRequest struct {
-	Node     string `json:"node" binding:"required"`
-	VMID     int    `json:"vmid" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Pool     string `json:"pool"`
-	OSType   string `json:"ostype"`
-	ISO      string `json:"iso"`
-	BIOS     string `json:"bios"`
-	Machine  string `json:"machine"`
-	Sockets  int    `json:"sockets"`
-	Cores    int    `json:"cores"`
-	CPUType  string `json:"cpu_type"`
-	NUMA     bool   `json:"numa"`
-	Memory   int    `json:"memory"`
-	Balloon  int    `json:"balloon"`
-	Storage  string `json:"storage"`
-	DiskSize int    `json:"disk_size"`
+// GetBridges returns network bridges for a node.
+// GET /api/v1/proxmox/nodes/:node/bridges
+func (h *VMCreateHandler) GetBridges(c *gin.Context) {
+	node := c.Param("node")
+	bridges, err := h.PX.GetBridges(c.Request.Context(), node)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch bridges"})
+		return
+	}
+	vnets, err := h.PX.GetVNets(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch vnets"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"bridges": bridges, "vnets": vnets})
+}
+
+type networkInterface struct {
 	Bridge   string `json:"bridge"`
-	NetModel string `json:"net_model"`
+	Model    string `json:"model"`
 	VLANTag  int    `json:"vlan_tag"`
 	Firewall bool   `json:"firewall"`
+}
+
+type createVMRequest struct {
+	Node     string             `json:"node" binding:"required"`
+	VMID     int                `json:"vmid" binding:"required"`
+	Name     string             `json:"name" binding:"required"`
+	Pool     string             `json:"pool"`
+	OSType   string             `json:"ostype"`
+	ISO      string             `json:"iso"`
+	BIOS     string             `json:"bios"`
+	Machine  string             `json:"machine"`
+	Sockets  int                `json:"sockets"`
+	Cores    int                `json:"cores"`
+	CPUType  string             `json:"cpu_type"`
+	NUMA     bool               `json:"numa"`
+	Memory   int                `json:"memory"`
+	Balloon  int                `json:"balloon"`
+	Storage  string             `json:"storage"`
+	DiskSize int                `json:"disk_size"`
+	Networks []networkInterface `json:"networks"`
 }
 
 // CreateVM creates a new virtual machine.
@@ -135,22 +156,24 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		params["scsihw"] = "virtio-scsi-single"
 	}
 
-	// Network
-	net := req.NetModel
-	if net == "" {
-		net = "virtio"
+	// Networks
+	for i, iface := range req.Networks {
+		model := iface.Model
+		if model == "" {
+			model = "virtio"
+		}
+		netStr := model
+		if iface.Bridge != "" {
+			netStr += ",bridge=" + iface.Bridge
+		}
+		if iface.Firewall {
+			netStr += ",firewall=1"
+		}
+		if iface.VLANTag > 0 {
+			netStr += fmt.Sprintf(",tag=%d", iface.VLANTag)
+		}
+		params[fmt.Sprintf("net%d", i)] = netStr
 	}
-	netParts := net
-	if req.Bridge != "" {
-		netParts += ",bridge=" + req.Bridge
-	}
-	if req.Firewall {
-		netParts += ",firewall=1"
-	}
-	if req.VLANTag > 0 {
-		netParts += fmt.Sprintf(",tag=%d", req.VLANTag)
-	}
-	params["net0"] = netParts
 
 	taskID, err := h.PX.CreateVM(c.Request.Context(), req.Node, params)
 	if err != nil {

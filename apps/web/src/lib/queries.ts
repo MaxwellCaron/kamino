@@ -217,6 +217,28 @@ export type ApiNode = {
   maxmem: number
 }
 
+export type ApiNetworkBridge = {
+  iface: string
+  type: string
+  active?: number
+  comments?: string
+}
+
+export function bridgesQueryOptions(node: string) {
+  return {
+    queryKey: ["proxmox", "bridges", node] as const,
+    queryFn: async (): Promise<{
+      bridges: Array<ApiNetworkBridge>
+      vnets: Array<ApiVNet>
+    }> => {
+      const res = await fetch(`/api/v1/proxmox/nodes/${node}/bridges`)
+      if (!res.ok) throw new Error(`Failed to fetch bridges: ${res.status}`)
+      return res.json()
+    },
+    enabled: !!node,
+  }
+}
+
 export type ApiStorage = {
   storage: string
   type: string
@@ -274,6 +296,13 @@ export async function getNextVMID(): Promise<number> {
   return data.vmid
 }
 
+export type NetworkInterface = {
+  bridge: string
+  model: string
+  vlan_tag?: number
+  firewall: boolean
+}
+
 export type CreateVMParams = {
   node: string
   vmid: number
@@ -291,10 +320,7 @@ export type CreateVMParams = {
   balloon?: number
   storage?: string
   disk_size?: number
-  bridge?: string
-  net_model?: string
-  vlan_tag?: number
-  firewall?: boolean
+  networks: Array<NetworkInterface>
 }
 
 export async function createVM(

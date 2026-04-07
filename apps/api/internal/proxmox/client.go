@@ -336,6 +336,16 @@ func (c *Client) GetISOs(ctx context.Context, node, storage string) ([]ISOConten
 	return resp.Data, nil
 }
 
+// GetBridges returns all network bridges for a node.
+func (c *Client) GetBridges(ctx context.Context, node string) ([]NetworkBridge, error) {
+	path := fmt.Sprintf("/api2/json/nodes/%s/network?type=bridge", node)
+	var resp apiResponse[[]NetworkBridge]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, fmt.Errorf("fetching bridges: %w", err)
+	}
+	return resp.Data, nil
+}
+
 // GetNextVMID returns the next available VMID from the cluster.
 func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	var resp apiResponse[json.Number]

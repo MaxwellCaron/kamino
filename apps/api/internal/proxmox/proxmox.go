@@ -71,6 +71,14 @@ type VNet struct {
 	Alias string `json:"alias,omitempty"`
 }
 
+// NetworkBridge represents a network bridge on a Proxmox node.
+type NetworkBridge struct {
+	Iface    string `json:"iface"`
+	Type     string `json:"type"`
+	Active   int    `json:"active,omitempty"`
+	Comments string `json:"comments,omitempty"`
+}
+
 // Snapshot represents a VM snapshot from the Proxmox API.
 type Snapshot struct {
 	Name        string  `json:"name"`

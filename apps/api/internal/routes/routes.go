@@ -42,6 +42,7 @@ func RegisterRoutes(
 	v1.GET("/proxmox/nodes", vmCreate.GetNodes)
 	v1.GET("/proxmox/nodes/:node/storages", vmCreate.GetStorages)
 	v1.GET("/proxmox/nodes/:node/storages/:storage/isos", vmCreate.GetISOs)
+	v1.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
 	v1.GET("/proxmox/nextid", vmCreate.GetNextVMID)
 
 	// SDN endpoints
