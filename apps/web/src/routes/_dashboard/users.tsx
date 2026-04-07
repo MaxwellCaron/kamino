@@ -99,14 +99,16 @@ function UsersPage() {
                 disabled={syncMutation.isPending || isLoading || error !== null}
               >
                 <IconRefresh data-icon="inline-start" />
-                {syncMutation.isPending ? "Syncing..." : "Sync"}
+                <span className="hidden lg:block">
+                  {syncMutation.isPending ? "Syncing..." : "Sync"}
+                </span>
               </Button>
               <Button
                 onClick={() => setCreateOpen(true)}
                 disabled={isLoading || error !== null}
               >
                 <IconPlus data-icon="inline-start" />
-                Create User
+                <span className="hidden lg:block">Create User</span>
               </Button>
             </CardAction>
           </CardHeader>
