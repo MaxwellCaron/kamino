@@ -29,7 +29,14 @@ import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 import { ConfirmDialog } from "./inventory-confirm-actions"
 import { SnapshotDialog } from "./snapshot-dialog"
+import { RenameDialog } from "./rename-dialog"
+import { CloneDialog } from "./clone-dialog"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
+import {
+  useConvertToTemplate,
+  useDeleteVM,
+  useVmPowerAction,
+} from "@/hooks/use-vm-actions"
 
 function FolderMenuItems({
   onAction,
@@ -87,12 +94,24 @@ function FolderMenuItems({
 }
 
 function VmMenuItems({
+  node,
+  vmid,
   onAction,
   onSnapshot,
+  onClone,
+  onRename,
 }: {
+  node: string
+  vmid: number
   onAction: (config: ConfirmConfig) => void
   onSnapshot: () => void
+  onClone: () => void
+  onRename: () => void
 }) {
+  const powerAction = useVmPowerAction()
+  const deleteVm = useDeleteVM()
+  const toTemplate = useConvertToTemplate()
+
   return (
     <>
       <DropdownMenuGroup>
@@ -104,7 +123,8 @@ function VmMenuItems({
               description: "This will power on the virtual machine.",
               actionLabel: "Start",
               variant: "default",
-              onConfirm: () => {},
+              onConfirm: () =>
+                powerAction.mutateAsync({ node, vmid, action: "start" }),
             })
           }
         >
@@ -119,7 +139,8 @@ function VmMenuItems({
                 "This will send a shutdown signal to the virtual machine. The guest OS will attempt a graceful shutdown.",
               actionLabel: "Shutdown",
               variant: "destructive",
-              onConfirm: () => {},
+              onConfirm: () =>
+                powerAction.mutateAsync({ node, vmid, action: "shutdown" }),
             })
           }
         >
@@ -134,7 +155,8 @@ function VmMenuItems({
                 "This will send a reboot signal to the virtual machine.",
               actionLabel: "Reboot",
               variant: "destructive",
-              onConfirm: () => {},
+              onConfirm: () =>
+                powerAction.mutateAsync({ node, vmid, action: "reboot" }),
             })
           }
         >
@@ -149,7 +171,8 @@ function VmMenuItems({
                 "This will immediately stop the virtual machine. Unsaved data may be lost.",
               actionLabel: "Stop",
               variant: "destructive",
-              onConfirm: () => {},
+              onConfirm: () =>
+                powerAction.mutateAsync({ node, vmid, action: "stop" }),
             })
           }
         >
@@ -160,7 +183,7 @@ function VmMenuItems({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onClone}>
           <IconCopy className="text-muted-foreground" />
           Clone
         </DropdownMenuItem>
@@ -172,7 +195,7 @@ function VmMenuItems({
                 "This will convert the VM to a template, making it available for cloning.",
               actionLabel: "Convert",
               variant: "destructive",
-              onConfirm: () => {},
+              onConfirm: () => toTemplate.mutateAsync({ node, vmid }),
             })
           }
         >
@@ -182,6 +205,10 @@ function VmMenuItems({
         <DropdownMenuItem onClick={onSnapshot}>
           <IconCamera className="text-muted-foreground" />
           Snapshot
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onRename}>
+          <IconEdit className="text-muted-foreground" />
+          Rename
         </DropdownMenuItem>
         <DropdownMenuItem>
           <IconLock className="text-muted-foreground" />
@@ -198,7 +225,7 @@ function VmMenuItems({
               "This will permanently delete the virtual machine. This action cannot be undone.",
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: () => {},
+            onConfirm: () => deleteVm.mutateAsync({ node, vmid }),
           })
         }
       >
@@ -210,15 +237,23 @@ function VmMenuItems({
 }
 
 function TemplateMenuItems({
+  node,
+  vmid,
   onAction,
+  onClone,
 }: {
+  node: string
+  vmid: number
   onAction: (config: ConfirmConfig) => void
+  onClone: () => void
 }) {
+  const deleteVm = useDeleteVM()
+
   return (
     <>
       <DropdownMenuGroup>
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onClone}>
           <IconCopy className="text-muted-foreground" />
           Clone
         </DropdownMenuItem>
@@ -237,7 +272,7 @@ function TemplateMenuItems({
               "This will permanently delete the template. This action cannot be undone.",
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: () => {},
+            onConfirm: () => deleteVm.mutateAsync({ node, vmid }),
           })
         }
       >
@@ -251,17 +286,42 @@ function TemplateMenuItems({
 function MenuItems({
   isFolder,
   isTemplate,
+  node,
+  vmid,
   onAction,
   onSnapshot,
+  onClone,
+  onRename,
 }: {
   isFolder: boolean
   isTemplate?: boolean
+  node: string
+  vmid: number
   onAction: (config: ConfirmConfig) => void
   onSnapshot: () => void
+  onClone: () => void
+  onRename: () => void
 }) {
   if (isFolder) return <FolderMenuItems onAction={onAction} />
-  if (isTemplate) return <TemplateMenuItems onAction={onAction} />
-  return <VmMenuItems onAction={onAction} onSnapshot={onSnapshot} />
+  if (isTemplate)
+    return (
+      <TemplateMenuItems
+        node={node}
+        vmid={vmid}
+        onAction={onAction}
+        onClone={onClone}
+      />
+    )
+  return (
+    <VmMenuItems
+      node={node}
+      vmid={vmid}
+      onAction={onAction}
+      onSnapshot={onSnapshot}
+      onClone={onClone}
+      onRename={onRename}
+    />
+  )
 }
 
 export function TreeNodeMenu({
@@ -269,17 +329,21 @@ export function TreeNodeMenu({
   isTemplate,
   vmid,
   pveNode,
+  name,
 }: {
   isFolder: boolean
   isTemplate?: boolean
   vmid?: number
   pveNode?: string
+  name?: string
 }) {
   const { selectNode } = useTree()
   const { nodeId } = useTreeNode()
   const { isMobile } = useSidebar()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
+  const [cloneOpen, setCloneOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
 
   return (
     <>
@@ -300,19 +364,41 @@ export function TreeNodeMenu({
           <MenuItems
             isFolder={isFolder}
             isTemplate={isTemplate}
+            node={pveNode ?? ""}
+            vmid={vmid ?? 0}
             onAction={setConfirm}
             onSnapshot={() => setSnapshotOpen(true)}
+            onClone={() => setCloneOpen(true)}
+            onRename={() => setRenameOpen(true)}
           />
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       {pveNode && vmid !== undefined && (
-        <SnapshotDialog
-          node={pveNode}
-          vmid={vmid}
-          open={snapshotOpen}
-          onOpenChange={setSnapshotOpen}
-        />
+        <>
+          <SnapshotDialog
+            node={pveNode}
+            vmid={vmid}
+            open={snapshotOpen}
+            onOpenChange={setSnapshotOpen}
+          />
+          <CloneDialog
+            node={pveNode}
+            vmid={vmid}
+            currentName={name ?? ""}
+            open={cloneOpen}
+            onOpenChange={setCloneOpen}
+          />
+          {!isTemplate && (
+            <RenameDialog
+              node={pveNode}
+              vmid={vmid}
+              currentName={name ?? ""}
+              open={renameOpen}
+              onOpenChange={setRenameOpen}
+            />
+          )}
+        </>
       )}
     </>
   )
@@ -323,14 +409,18 @@ export function VmOptionsMenu({
   isTemplate,
   vmid,
   pveNode,
+  name,
 }: {
   isFolder?: boolean
   isTemplate?: boolean
   vmid?: number
   pveNode?: string
+  name?: string
 }) {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
+  const [cloneOpen, setCloneOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
 
   return (
     <>
@@ -346,19 +436,41 @@ export function VmOptionsMenu({
           <MenuItems
             isFolder={isFolder}
             isTemplate={isTemplate}
+            node={pveNode ?? ""}
+            vmid={vmid ?? 0}
             onAction={setConfirm}
             onSnapshot={() => setSnapshotOpen(true)}
+            onClone={() => setCloneOpen(true)}
+            onRename={() => setRenameOpen(true)}
           />
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       {pveNode && vmid !== undefined && (
-        <SnapshotDialog
-          node={pveNode}
-          vmid={vmid}
-          open={snapshotOpen}
-          onOpenChange={setSnapshotOpen}
-        />
+        <>
+          <SnapshotDialog
+            node={pveNode}
+            vmid={vmid}
+            open={snapshotOpen}
+            onOpenChange={setSnapshotOpen}
+          />
+          <CloneDialog
+            node={pveNode}
+            vmid={vmid}
+            currentName={name ?? ""}
+            open={cloneOpen}
+            onOpenChange={setCloneOpen}
+          />
+          {!isTemplate && (
+            <RenameDialog
+              node={pveNode}
+              vmid={vmid}
+              currentName={name ?? ""}
+              open={renameOpen}
+              onOpenChange={setRenameOpen}
+            />
+          )}
+        </>
       )}
     </>
   )

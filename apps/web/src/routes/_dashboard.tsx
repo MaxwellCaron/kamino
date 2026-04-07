@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router"
-import { AppSidebar } from "@workspace/ui/components/app-sidebar"
-import { SiteHeader } from "@workspace/ui/components/site-header"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { SiteHeader } from "@/components/site-header"
+import { AppSidebar } from "@/components/app-sidebar"
 import { InventoryTree } from "@/components/inventory-tree"
 import { CommandManyItems } from "@/components/site-command"
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -236,6 +237,10 @@ func (h *VMHandler) GetSnapshots(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch snapshots"})
 		return
 	}
+
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].Snaptime < snapshots[j].Snaptime
+	})
 
 	c.JSON(http.StatusOK, snapshots)
 }

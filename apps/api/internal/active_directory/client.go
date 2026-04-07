@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/go-ldap/ldap/v3"
 )
@@ -193,4 +194,231 @@ func decodeSID(b []byte) string {
 	}
 
 	return strings.Join(parts, "-")
+}
+
+// encodePassword converts a plaintext password to the UTF-16LE encoding
+// required by Active Directory's unicodePwd attribute.
+func encodePassword(password string) []byte {
+	quoted := "\"" + password + "\""
+	encoded := utf16.Encode([]rune(quoted))
+	buf := make([]byte, len(encoded)*2)
+	for i, v := range encoded {
+		binary.LittleEndian.PutUint16(buf[i*2:], v)
+	}
+	return buf
+}
+
+// CreateUser creates a new user account in Active Directory.
+func (c *Client) CreateUser(samAccountName, displayName, ou, password string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(displayName), ou)
+
+	addReq := ldap.NewAddRequest(dn, nil)
+	addReq.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
+	addReq.Attribute("sAMAccountName", []string{samAccountName})
+	addReq.Attribute("displayName", []string{displayName})
+	addReq.Attribute("userPrincipalName", []string{samAccountName + "@" + c.domainFromBaseDN()})
+	addReq.Attribute("unicodePwd", []string{string(encodePassword(password))})
+	// 512 = NORMAL_ACCOUNT (enabled)
+	addReq.Attribute("userAccountControl", []string{"512"})
+
+	if err := conn.Add(addReq); err != nil {
+		return fmt.Errorf("ldap create user: %w", err)
+	}
+	return nil
+}
+
+// UpdateUser modifies the display name of an existing user.
+func (c *Client) UpdateUser(dn, displayName string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(dn, nil)
+	modReq.Replace("displayName", []string{displayName})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap update user: %w", err)
+	}
+	return nil
+}
+
+// SetPassword sets the password for an existing user account.
+func (c *Client) SetPassword(dn, password string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(dn, nil)
+	modReq.Replace("unicodePwd", []string{string(encodePassword(password))})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap set password: %w", err)
+	}
+	return nil
+}
+
+// EnableUser enables a user account by setting userAccountControl to NORMAL_ACCOUNT.
+func (c *Client) EnableUser(dn string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(dn, nil)
+	modReq.Replace("userAccountControl", []string{"512"})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap enable user: %w", err)
+	}
+	return nil
+}
+
+// DisableUser disables a user account by setting the ACCOUNTDISABLE flag.
+func (c *Client) DisableUser(dn string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(dn, nil)
+	// 514 = NORMAL_ACCOUNT | ACCOUNTDISABLE
+	modReq.Replace("userAccountControl", []string{"514"})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap disable user: %w", err)
+	}
+	return nil
+}
+
+// DeleteUser deletes a user account from Active Directory.
+func (c *Client) DeleteUser(dn string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if err := conn.Del(ldap.NewDelRequest(dn, nil)); err != nil {
+		return fmt.Errorf("ldap delete user: %w", err)
+	}
+	return nil
+}
+
+// CreateGroup creates a new security group in Active Directory.
+func (c *Client) CreateGroup(samAccountName, displayName, ou string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(displayName), ou)
+
+	addReq := ldap.NewAddRequest(dn, nil)
+	addReq.Attribute("objectClass", []string{"top", "group"})
+	addReq.Attribute("sAMAccountName", []string{samAccountName})
+	addReq.Attribute("displayName", []string{displayName})
+	// -2147483646 = Global security group
+	addReq.Attribute("groupType", []string{"-2147483646"})
+
+	if err := conn.Add(addReq); err != nil {
+		return fmt.Errorf("ldap create group: %w", err)
+	}
+	return nil
+}
+
+// UpdateGroup modifies the display name of an existing group.
+func (c *Client) UpdateGroup(dn, displayName string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(dn, nil)
+	modReq.Replace("displayName", []string{displayName})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap update group: %w", err)
+	}
+	return nil
+}
+
+// DeleteGroup deletes a group from Active Directory.
+func (c *Client) DeleteGroup(dn string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if err := conn.Del(ldap.NewDelRequest(dn, nil)); err != nil {
+		return fmt.Errorf("ldap delete group: %w", err)
+	}
+	return nil
+}
+
+// AddGroupMember adds a member to an AD group.
+func (c *Client) AddGroupMember(groupDN, memberDN string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(groupDN, nil)
+	modReq.Add("member", []string{memberDN})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap add group member: %w", err)
+	}
+	return nil
+}
+
+// RemoveGroupMember removes a member from an AD group.
+func (c *Client) RemoveGroupMember(groupDN, memberDN string) error {
+	conn, err := c.connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	modReq := ldap.NewModifyRequest(groupDN, nil)
+	modReq.Delete("member", []string{memberDN})
+
+	if err := conn.Modify(modReq); err != nil {
+		return fmt.Errorf("ldap remove group member: %w", err)
+	}
+	return nil
+}
+
+// domainFromBaseDN extracts a DNS domain name from the base DN.
+// e.g. "DC=corp,DC=example,DC=com" → "corp.example.com"
+func (c *Client) domainFromBaseDN() string {
+	parts := strings.Split(c.baseDN, ",")
+	var domains []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if strings.HasPrefix(strings.ToUpper(p), "DC=") {
+			domains = append(domains, p[3:])
+		}
+	}
+	return strings.Join(domains, ".")
+}
+
+// BaseDN returns the configured search base DN.
+func (c *Client) BaseDN() string {
+	return c.baseDN
 }

@@ -1,5 +1,3 @@
-"use client"
-
 import {
   IconFolder,
   IconSearch,
@@ -222,6 +220,7 @@ function renderTree(
             isTemplate={node.isTemplate}
             vmid={node.vmid}
             pveNode={node.pveNode}
+            name={node.name}
           />
         </TreeNodeTrigger>
         {hasChildren && (

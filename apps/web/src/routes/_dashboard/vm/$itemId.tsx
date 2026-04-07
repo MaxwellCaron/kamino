@@ -1,21 +1,27 @@
 import {
+  IconCamera,
   IconCpu,
   IconDatabase,
   IconDeviceImac,
+  IconHistory,
   IconId,
   IconPackages,
+  IconPlus,
   IconPower,
   IconTemplate,
   IconTopologyBus,
+  IconTrash,
 } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -26,14 +32,27 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table"
+import { useState } from "react"
 import type { ReactNode } from "react"
+import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
+import { ConfirmDialog } from "@/components/inventory-confirm-actions"
 import { VncConsole } from "@/components/vnc-console"
 import { VmOptionsMenu } from "@/components/inventory-actions"
 import {
   findTreeNode,
   inventoryTreeQueryOptions,
+  snapshotsQueryOptions,
   vmStatusQueryOptions,
 } from "@/lib/queries"
+import { useDeleteSnapshot, useRollbackSnapshot } from "@/hooks/use-vm-actions"
 
 function formatMemory(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${mb} MB`
@@ -42,6 +61,131 @@ function formatMemory(mb: number): string {
 export const Route = createFileRoute("/_dashboard/vm/$itemId")({
   component: VmPage,
 })
+
+function SnapshotsTable({ node, vmid }: { node: string; vmid: number }) {
+  const { data: snapshots, isLoading } = useQuery(
+    snapshotsQueryOptions(node, vmid)
+  )
+  const rollback = useRollbackSnapshot(node, vmid)
+  const remove = useDeleteSnapshot(node, vmid)
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+
+  const filtered = snapshots?.filter((s) => s.name !== "current") ?? []
+
+  if (isLoading) return null
+
+  if (filtered.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <IconCamera className="size-6" />
+            Snapshots
+          </CardTitle>
+          <CardDescription>No snapshots found.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <IconCamera className="size-6" />
+          Snapshots
+        </CardTitle>
+        <CardDescription>Point in time snapshots of the VM.</CardDescription>
+        <CardAction>
+          <Button>
+            <IconPlus />
+            <span className="hidden lg:block">Create</span>
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="border-b px-0">
+        <Table>
+          <TableHeader className="bg-muted hover:bg-muted">
+            <TableRow>
+              <TableHead className="pl-6">Name</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead className="w-24">RAM</TableHead>
+              <TableHead className="w-32 pr-6 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((snap) => (
+              <TableRow key={snap.name}>
+                <TableCell className="pl-6 font-medium">{snap.name}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {snap.description || "—"}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {snap.snaptime
+                    ? new Date(snap.snaptime * 1000).toLocaleString()
+                    : "—"}
+                </TableCell>
+                <TableCell>
+                  {snap.vmstate ? <Badge variant="secondary">Yes</Badge> : "No"}
+                </TableCell>
+                <TableCell className="pr-6 text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      title="Rollback"
+                      onClick={() =>
+                        setConfirm({
+                          title: "Rollback Snapshot",
+                          description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
+                          actionLabel: "Rollback",
+                          onConfirm: () =>
+                            rollback.mutateAsync({
+                              node,
+                              vmid,
+                              snapname: snap.name,
+                            }),
+                        })
+                      }
+                    >
+                      <IconHistory className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      title="Delete"
+                      onClick={() =>
+                        setConfirm({
+                          title: "Delete Snapshot",
+                          description: `Are you sure you want to delete snapshot "${snap.name}"? This action cannot be undone.`,
+                          actionLabel: "Delete",
+                          variant: "destructive",
+                          onConfirm: () =>
+                            remove.mutateAsync({
+                              node,
+                              vmid,
+                              snapname: snap.name,
+                            }),
+                        })
+                      }
+                    >
+                      <IconTrash className="size-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+      <CardFooter className="justify-end text-muted-foreground">
+        {filtered.length} result{filtered.length !== 1 && "s"}
+      </CardFooter>
+      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+    </Card>
+  )
+}
 
 function VmPage() {
   const { itemId } = Route.useParams()
@@ -153,6 +297,7 @@ function VmPage() {
                 isTemplate={isTemplate}
                 vmid={vm.vmid}
                 pveNode={vm.node}
+                name={node.name}
               />
             </CardAction>
           </CardHeader>
@@ -182,6 +327,7 @@ function VmPage() {
             powerStatus={vmStatus}
           />
         )}
+        <SnapshotsTable node={vm.node} vmid={vm.vmid} />
       </div>
     </div>
   )

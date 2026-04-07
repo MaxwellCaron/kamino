@@ -37,6 +37,7 @@ type Server struct {
 	DBPool        *pgxpool.Pool
 	ProxmoxClient *proxmox.Client
 	ProxmoxSync   *proxmox.Sync
+	ADClient      *activedirectory.Client
 	ADSync        *activedirectory.Sync
 }
 
@@ -81,7 +82,7 @@ func newServer(config *Config) (*Server, error) {
 		ProxmoxSync:   pxSync,
 	}
 
-	// Initialize AD sync if LDAP is configured
+	// Initialize AD client and sync if LDAP is configured
 	if config.LDAPUrl != "" {
 		adClient := activedirectory.NewClient(
 			config.LDAPUrl,
@@ -90,6 +91,7 @@ func newServer(config *Config) (*Server, error) {
 			config.LDAPSearchBaseDN,
 			config.LDAPInsecure,
 		)
+		server.ADClient = adClient
 		server.ADSync = activedirectory.NewSync(dbPool, adClient)
 	}
 
@@ -124,12 +126,23 @@ func main() {
 	// Initialize handlers
 	inventoryHandler := &handlers.InventoryHandler{DB: server.DBPool}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
-	vmHandler := &handlers.VMHandler{PX: server.ProxmoxClient}
+	vmHandler := &handlers.VMHandler{PX: server.ProxmoxClient, DB: server.DBPool}
+	vmCreateHandler := &handlers.VMCreateHandler{PX: server.ProxmoxClient}
+	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
+
+	var principalsHandler *handlers.PrincipalsHandler
+	if server.ADClient != nil {
+		principalsHandler = &handlers.PrincipalsHandler{
+			DB:     server.DBPool,
+			AD:     server.ADClient,
+			ADSync: server.ADSync,
+		}
+	}
 
 	r := gin.Default()
 
 	// Register all API routes
-	routes.RegisterRoutes(r, inventoryHandler, vncHandler, vmHandler)
+	routes.RegisterRoutes(r, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)
 
 	r.Run(config.Port)
 }

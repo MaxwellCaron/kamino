@@ -5,8 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
 	"strings"
 )
@@ -405,54 +403,4 @@ func (c *Client) CreateVNCProxy(ctx context.Context, node string, vmid int) (*VN
 		return nil, fmt.Errorf("creating VNC proxy: %w", err)
 	}
 	return &resp.Data, nil
-}
-
-// UploadISO streams an ISO file to a Proxmox node storage via multipart upload.
-func (c *Client) UploadISO(ctx context.Context, node, storage, filename string, reader io.Reader, size int64) (string, error) {
-	path := fmt.Sprintf("/api2/json/nodes/%s/storage/%s/upload", node, storage)
-
-	pr, pw := io.Pipe()
-	writer := multipart.NewWriter(pw)
-
-	// Write multipart in a goroutine to stream without buffering the entire file.
-	go func() {
-		defer pw.Close()
-		defer writer.Close()
-
-		_ = writer.WriteField("content", "iso")
-		_ = writer.WriteField("filename", filename)
-
-		part, err := writer.CreateFormFile("filename", filename)
-		if err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-		if _, err := io.Copy(part, reader); err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-	}()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, pr)
-	if err != nil {
-		return "", fmt.Errorf("creating upload request: %w", err)
-	}
-	req.Header.Set("Authorization", c.AuthHeader())
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("uploading ISO: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("upload failed with status %d", resp.StatusCode)
-	}
-
-	var result apiResponse[string]
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decoding upload response: %w", err)
-	}
-	return result.Data, nil
 }

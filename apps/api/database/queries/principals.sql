@@ -41,3 +41,50 @@ WHERE group_id IN (
 INSERT INTO group_memberships (group_id, member_id)
 VALUES ($1, $2)
 ON CONFLICT DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Principal CRUD queries
+-- ---------------------------------------------------------------------------
+
+-- name: GetAllUsers :many
+SELECT id, external_id, name
+FROM principals
+WHERE provider_id = $1 AND principal_type = 'user'
+ORDER BY name;
+
+-- name: GetAllGroups :many
+SELECT id, external_id, name
+FROM principals
+WHERE provider_id = $1 AND principal_type = 'group'
+ORDER BY name;
+
+-- name: GetPrincipalByID :one
+SELECT id, provider_id, principal_type, external_id, name
+FROM principals
+WHERE id = $1;
+
+-- name: GetPrincipalByExternalID :one
+SELECT id, provider_id, principal_type, external_id, name
+FROM principals
+WHERE provider_id = $1 AND external_id = $2;
+
+-- name: DeletePrincipal :exec
+DELETE FROM principals WHERE id = $1;
+
+-- name: GetGroupMembers :many
+SELECT p.id, p.principal_type, p.external_id, p.name
+FROM group_memberships gm
+JOIN principals p ON p.id = gm.member_id
+WHERE gm.group_id = $1
+ORDER BY p.name;
+
+-- name: DeleteGroupMembership :exec
+DELETE FROM group_memberships
+WHERE group_id = $1 AND member_id = $2;
+
+-- name: GetUserGroups :many
+SELECT p.id, p.principal_type, p.external_id, p.name
+FROM group_memberships gm
+JOIN principals p ON p.id = gm.group_id
+WHERE gm.member_id = $1
+ORDER BY p.name;

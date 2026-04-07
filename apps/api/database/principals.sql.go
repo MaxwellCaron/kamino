@@ -29,6 +29,21 @@ func (q *Queries) CreatePrincipalProvider(ctx context.Context, arg CreatePrincip
 	return id, err
 }
 
+const deleteGroupMembership = `-- name: DeleteGroupMembership :exec
+DELETE FROM group_memberships
+WHERE group_id = $1 AND member_id = $2
+`
+
+type DeleteGroupMembershipParams struct {
+	GroupID  uuid.UUID `json:"group_id"`
+	MemberID uuid.UUID `json:"member_id"`
+}
+
+func (q *Queries) DeleteGroupMembership(ctx context.Context, arg DeleteGroupMembershipParams) error {
+	_, err := q.db.Exec(ctx, deleteGroupMembership, arg.GroupID, arg.MemberID)
+	return err
+}
+
 const deleteGroupMembershipsByProvider = `-- name: DeleteGroupMembershipsByProvider :exec
 
 DELETE FROM group_memberships
@@ -43,6 +58,15 @@ WHERE group_id IN (
 // ---------------------------------------------------------------------------
 func (q *Queries) DeleteGroupMembershipsByProvider(ctx context.Context, providerID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteGroupMembershipsByProvider, providerID)
+	return err
+}
+
+const deletePrincipal = `-- name: DeletePrincipal :exec
+DELETE FROM principals WHERE id = $1
+`
+
+func (q *Queries) DeletePrincipal(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deletePrincipal, id)
 	return err
 }
 
@@ -65,6 +89,175 @@ func (q *Queries) DeleteStalePrincipals(ctx context.Context, arg DeleteStalePrin
 	return result.RowsAffected(), nil
 }
 
+const getAllGroups = `-- name: GetAllGroups :many
+SELECT id, external_id, name
+FROM principals
+WHERE provider_id = $1 AND principal_type = 'group'
+ORDER BY name
+`
+
+type GetAllGroupsRow struct {
+	ID         uuid.UUID `json:"id"`
+	ExternalID string    `json:"external_id"`
+	Name       *string   `json:"name"`
+}
+
+func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]GetAllGroupsRow, error) {
+	rows, err := q.db.Query(ctx, getAllGroups, providerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllGroupsRow
+	for rows.Next() {
+		var i GetAllGroupsRow
+		if err := rows.Scan(&i.ID, &i.ExternalID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllUsers = `-- name: GetAllUsers :many
+
+SELECT id, external_id, name
+FROM principals
+WHERE provider_id = $1 AND principal_type = 'user'
+ORDER BY name
+`
+
+type GetAllUsersRow struct {
+	ID         uuid.UUID `json:"id"`
+	ExternalID string    `json:"external_id"`
+	Name       *string   `json:"name"`
+}
+
+// ---------------------------------------------------------------------------
+// Principal CRUD queries
+// ---------------------------------------------------------------------------
+func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetAllUsersRow, error) {
+	rows, err := q.db.Query(ctx, getAllUsers, providerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllUsersRow
+	for rows.Next() {
+		var i GetAllUsersRow
+		if err := rows.Scan(&i.ID, &i.ExternalID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGroupMembers = `-- name: GetGroupMembers :many
+SELECT p.id, p.principal_type, p.external_id, p.name
+FROM group_memberships gm
+JOIN principals p ON p.id = gm.member_id
+WHERE gm.group_id = $1
+ORDER BY p.name
+`
+
+type GetGroupMembersRow struct {
+	ID            uuid.UUID     `json:"id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+	ExternalID    string        `json:"external_id"`
+	Name          *string       `json:"name"`
+}
+
+func (q *Queries) GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]GetGroupMembersRow, error) {
+	rows, err := q.db.Query(ctx, getGroupMembers, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGroupMembersRow
+	for rows.Next() {
+		var i GetGroupMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PrincipalType,
+			&i.ExternalID,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPrincipalByExternalID = `-- name: GetPrincipalByExternalID :one
+SELECT id, provider_id, principal_type, external_id, name
+FROM principals
+WHERE provider_id = $1 AND external_id = $2
+`
+
+type GetPrincipalByExternalIDParams struct {
+	ProviderID uuid.UUID `json:"provider_id"`
+	ExternalID string    `json:"external_id"`
+}
+
+type GetPrincipalByExternalIDRow struct {
+	ID            uuid.UUID     `json:"id"`
+	ProviderID    uuid.UUID     `json:"provider_id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+	ExternalID    string        `json:"external_id"`
+	Name          *string       `json:"name"`
+}
+
+func (q *Queries) GetPrincipalByExternalID(ctx context.Context, arg GetPrincipalByExternalIDParams) (GetPrincipalByExternalIDRow, error) {
+	row := q.db.QueryRow(ctx, getPrincipalByExternalID, arg.ProviderID, arg.ExternalID)
+	var i GetPrincipalByExternalIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderID,
+		&i.PrincipalType,
+		&i.ExternalID,
+		&i.Name,
+	)
+	return i, err
+}
+
+const getPrincipalByID = `-- name: GetPrincipalByID :one
+SELECT id, provider_id, principal_type, external_id, name
+FROM principals
+WHERE id = $1
+`
+
+type GetPrincipalByIDRow struct {
+	ID            uuid.UUID     `json:"id"`
+	ProviderID    uuid.UUID     `json:"provider_id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+	ExternalID    string        `json:"external_id"`
+	Name          *string       `json:"name"`
+}
+
+func (q *Queries) GetPrincipalByID(ctx context.Context, id uuid.UUID) (GetPrincipalByIDRow, error) {
+	row := q.db.QueryRow(ctx, getPrincipalByID, id)
+	var i GetPrincipalByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderID,
+		&i.PrincipalType,
+		&i.ExternalID,
+		&i.Name,
+	)
+	return i, err
+}
+
 const getPrincipalProvider = `-- name: GetPrincipalProvider :one
 
 SELECT id FROM principal_providers LIMIT 1
@@ -78,6 +271,46 @@ func (q *Queries) GetPrincipalProvider(ctx context.Context) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getUserGroups = `-- name: GetUserGroups :many
+SELECT p.id, p.principal_type, p.external_id, p.name
+FROM group_memberships gm
+JOIN principals p ON p.id = gm.group_id
+WHERE gm.member_id = $1
+ORDER BY p.name
+`
+
+type GetUserGroupsRow struct {
+	ID            uuid.UUID     `json:"id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+	ExternalID    string        `json:"external_id"`
+	Name          *string       `json:"name"`
+}
+
+func (q *Queries) GetUserGroups(ctx context.Context, memberID uuid.UUID) ([]GetUserGroupsRow, error) {
+	rows, err := q.db.Query(ctx, getUserGroups, memberID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserGroupsRow
+	for rows.Next() {
+		var i GetUserGroupsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PrincipalType,
+			&i.ExternalID,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertGroupMembership = `-- name: InsertGroupMembership :exec
