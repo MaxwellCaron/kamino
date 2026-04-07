@@ -15,7 +15,7 @@ export type ConfirmConfig = {
   description: string
   actionLabel: string
   variant?: "default" | "destructive"
-  onConfirm: () => void | Promise<unknown>
+  onConfirm: () => Promise<void> | void
 }
 
 export function ConfirmDialog({

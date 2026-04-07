@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Client talks to the Proxmox VE API.
@@ -123,8 +124,8 @@ type VNCProxyResponse struct {
 	Password string `json:"password"`
 }
 
-// CreateSnapshot creates a snapshot of a VM and returns the task ID.
-func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) (string, error) {
+// CreateSnapshot creates a snapshot of a VM and waits for the task to complete.
+func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot", node, vmid)
 	form := map[string]string{
 		"snapname": snapname,
@@ -138,9 +139,9 @@ func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snap
 
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, form, &resp); err != nil {
-		return "", fmt.Errorf("creating snapshot: %w", err)
+		return fmt.Errorf("creating snapshot: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
 func (c *Client) put(ctx context.Context, path string, formData map[string]string, result any) error {
@@ -197,54 +198,54 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 	return nil
 }
 
-// StartVM powers on a VM and returns the task ID.
-func (c *Client) StartVM(ctx context.Context, node string, vmid int) (string, error) {
+// StartVM powers on a VM and waits for the Proxmox task to complete.
+func (c *Client) StartVM(ctx context.Context, node string, vmid int) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/start", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return "", fmt.Errorf("starting VM: %w", err)
+		return fmt.Errorf("starting VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// ShutdownVM sends a graceful shutdown signal to a VM and returns the task ID.
-func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) (string, error) {
+// ShutdownVM sends a graceful shutdown signal to a VM and waits for the task to complete.
+func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/shutdown", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return "", fmt.Errorf("shutting down VM: %w", err)
+		return fmt.Errorf("shutting down VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// RebootVM sends a reboot signal to a VM and returns the task ID.
-func (c *Client) RebootVM(ctx context.Context, node string, vmid int) (string, error) {
+// RebootVM sends a reboot signal to a VM and waits for the task to complete.
+func (c *Client) RebootVM(ctx context.Context, node string, vmid int) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/reboot", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return "", fmt.Errorf("rebooting VM: %w", err)
+		return fmt.Errorf("rebooting VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// StopVM immediately stops a VM and returns the task ID.
-func (c *Client) StopVM(ctx context.Context, node string, vmid int) (string, error) {
+// StopVM immediately stops a VM and waits for the task to complete.
+func (c *Client) StopVM(ctx context.Context, node string, vmid int) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/stop", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return "", fmt.Errorf("stopping VM: %w", err)
+		return fmt.Errorf("stopping VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// DeleteVM deletes a VM and returns the task ID.
-func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) (string, error) {
+// DeleteVM deletes a VM and waits for the task to complete.
+func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d", node, vmid)
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
-		return "", fmt.Errorf("deleting VM: %w", err)
+		return fmt.Errorf("deleting VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
 // RenameVM changes the name of a VM.
@@ -253,8 +254,8 @@ func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name strin
 	return c.put(ctx, path, map[string]string{"name": name}, nil)
 }
 
-// CloneVM clones a VM and returns the task ID.
-func (c *Client) CloneVM(ctx context.Context, node string, vmid, newid int, name string, full bool) (string, error) {
+// CloneVM clones a VM and waits for the task to complete.
+func (c *Client) CloneVM(ctx context.Context, node string, vmid, newid int, name string, full bool) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/clone", node, vmid)
 	form := map[string]string{
 		"newid": fmt.Sprintf("%d", newid),
@@ -265,9 +266,9 @@ func (c *Client) CloneVM(ctx context.Context, node string, vmid, newid int, name
 	}
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, form, &resp); err != nil {
-		return "", fmt.Errorf("cloning VM: %w", err)
+		return fmt.Errorf("cloning VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
 // ConvertToTemplate converts a VM to a template.
@@ -287,24 +288,24 @@ func (c *Client) GetSnapshots(ctx context.Context, node string, vmid int) ([]Sna
 	return resp.Data, nil
 }
 
-// RollbackSnapshot rolls back a VM to a snapshot and returns the task ID.
-func (c *Client) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
+// RollbackSnapshot rolls back a VM to a snapshot and waits for the task to complete.
+func (c *Client) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot/%s/rollback", node, vmid, snapname)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return "", fmt.Errorf("rolling back snapshot: %w", err)
+		return fmt.Errorf("rolling back snapshot: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// DeleteSnapshot deletes a snapshot and returns the task ID.
-func (c *Client) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
+// DeleteSnapshot deletes a snapshot and waits for the task to complete.
+func (c *Client) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot/%s", node, vmid, snapname)
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
-		return "", fmt.Errorf("deleting snapshot: %w", err)
+		return fmt.Errorf("deleting snapshot: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
 // GetNodes returns all cluster nodes.
@@ -359,14 +360,14 @@ func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	return int(id), nil
 }
 
-// CreateVM creates a new virtual machine and returns the task ID.
-func (c *Client) CreateVM(ctx context.Context, node string, params map[string]string) (string, error) {
+// CreateVM creates a new virtual machine and waits for the task to complete.
+func (c *Client) CreateVM(ctx context.Context, node string, params map[string]string) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu", node)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, params, &resp); err != nil {
-		return "", fmt.Errorf("creating VM: %w", err)
+		return fmt.Errorf("creating VM: %w", err)
 	}
-	return resp.Data, nil
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
 // GetVNets returns all SDN virtual networks.
@@ -413,4 +414,47 @@ func (c *Client) CreateVNCProxy(ctx context.Context, node string, vmid int) (*VN
 		return nil, fmt.Errorf("creating VNC proxy: %w", err)
 	}
 	return &resp.Data, nil
+}
+
+// TaskStatus represents the current state of a Proxmox background task.
+type TaskStatus struct {
+	Status     string `json:"status"`     // "running" or "stopped"
+	ExitStatus string `json:"exitstatus"` // "OK" on success, otherwise an error message
+}
+
+// GetTaskStatus fetches the current status of a Proxmox task identified by its UPID.
+func (c *Client) GetTaskStatus(ctx context.Context, node, upid string) (*TaskStatus, error) {
+	path := fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, upid)
+	var resp apiResponse[TaskStatus]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, fmt.Errorf("fetching task status: %w", err)
+	}
+	return &resp.Data, nil
+}
+
+// waitForTask polls a Proxmox task once per second until it stops, the
+// context is cancelled, or the task fails. It returns nil only when the
+// task finishes with exitstatus == "OK".
+func (c *Client) waitForTask(ctx context.Context, node, upid string) error {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		status, err := c.GetTaskStatus(ctx, node, upid)
+		if err != nil {
+			return err
+		}
+		if status.Status == "stopped" {
+			if status.ExitStatus != "OK" {
+				return fmt.Errorf("proxmox task failed: %s", status.ExitStatus)
+			}
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }

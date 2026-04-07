@@ -40,6 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { toast } from "sonner"
 import { useState } from "react"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
@@ -140,12 +141,20 @@ function SnapshotsTable({ node, vmid }: { node: string; vmid: number }) {
                           title: "Rollback Snapshot",
                           description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
                           actionLabel: "Rollback",
-                          onConfirm: () =>
-                            rollback.mutateAsync({
-                              node,
-                              vmid,
-                              snapname: snap.name,
-                            }),
+                          onConfirm: () => {
+                            toast.promise(
+                              rollback.mutateAsync({
+                                node,
+                                vmid,
+                                snapname: snap.name,
+                              }),
+                              {
+                                loading: `Rolling back to "${snap.name}"…`,
+                                success: `Rolled back to "${snap.name}"`,
+                                error: (err: Error) => err.message,
+                              }
+                            )
+                          },
                         })
                       }
                     >
@@ -161,12 +170,20 @@ function SnapshotsTable({ node, vmid }: { node: string; vmid: number }) {
                           description: `Are you sure you want to delete snapshot "${snap.name}"? This action cannot be undone.`,
                           actionLabel: "Delete",
                           variant: "destructive",
-                          onConfirm: () =>
-                            remove.mutateAsync({
-                              node,
-                              vmid,
-                              snapname: snap.name,
-                            }),
+                          onConfirm: () => {
+                            toast.promise(
+                              remove.mutateAsync({
+                                node,
+                                vmid,
+                                snapname: snap.name,
+                              }),
+                              {
+                                loading: `Deleting snapshot "${snap.name}"…`,
+                                success: `Snapshot "${snap.name}" deleted`,
+                                error: (err: Error) => err.message,
+                              }
+                            )
+                          },
                         })
                       }
                     >

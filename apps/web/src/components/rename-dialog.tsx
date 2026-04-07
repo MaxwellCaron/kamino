@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form"
+import { toast } from "sonner"
 import { z } from "zod"
 import { IconEdit } from "@tabler/icons-react"
 import {
@@ -43,9 +44,13 @@ export function RenameDialog({
 
   const form = useForm({
     defaultValues: { name: currentName },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = renameSchema.parse(value)
-      await rename.mutateAsync({ node, vmid, name: parsed.name })
+      toast.promise(rename.mutateAsync({ node, vmid, name: parsed.name }), {
+        loading: `Renaming VM ${vmid}…`,
+        success: `VM ${vmid} renamed to "${parsed.name}"`,
+        error: (err: Error) => err.message,
+      })
       onOpenChange(false)
     },
   })

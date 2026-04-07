@@ -131,22 +131,22 @@ function CreateVmPage() {
   const mutation = useMutation({
     mutationFn: createVM,
     onSuccess: () => {
-      toast.success("VM creation initiated")
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
       navigate({ to: "/" })
     },
-    onError: (error) => {
-      toast.error(error.message)
-    },
   })
 
   const form = useForm({
     defaultValues,
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = vmSchema.parse(value)
-      await mutation.mutateAsync(parsed)
+      toast.promise(mutation.mutateAsync(parsed), {
+        loading: `Creating VM ${parsed.vmid}…`,
+        success: `VM ${parsed.vmid} created`,
+        error: (err: Error) => err.message,
+      })
     },
   })
 

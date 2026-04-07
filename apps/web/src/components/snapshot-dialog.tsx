@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
 import { IconCamera } from "@tabler/icons-react"
+import { toast } from "sonner"
 import {
   Dialog,
   DialogContent,
@@ -56,15 +57,22 @@ export function SnapshotDialog({
       description: "",
       vmstate: false,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = snapshotSchema.parse(value)
-      await createSnapshot({
-        node,
-        vmid,
-        snapname: parsed.snapname,
-        description: parsed.description || undefined,
-        vmstate: parsed.vmstate,
-      })
+      toast.promise(
+        createSnapshot({
+          node,
+          vmid,
+          snapname: parsed.snapname,
+          description: parsed.description || undefined,
+          vmstate: parsed.vmstate,
+        }),
+        {
+          loading: `Creating snapshot "${parsed.snapname}"…`,
+          success: `Snapshot "${parsed.snapname}" created`,
+          error: (err: Error) => err.message,
+        }
+      )
       onOpenChange(false)
       form.reset()
     },

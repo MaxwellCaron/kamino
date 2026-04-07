@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
@@ -123,8 +124,16 @@ function VmMenuItems({
               description: "This will power on the virtual machine.",
               actionLabel: "Start",
               variant: "default",
-              onConfirm: () =>
-                powerAction.mutateAsync({ node, vmid, action: "start" }),
+              onConfirm: () => {
+                toast.promise(
+                  powerAction.mutateAsync({ node, vmid, action: "start" }),
+                  {
+                    loading: `Starting VM ${vmid}…`,
+                    success: `VM ${vmid} started`,
+                    error: (err: Error) => err.message,
+                  }
+                )
+              },
             })
           }
         >
@@ -139,8 +148,16 @@ function VmMenuItems({
                 "This will send a shutdown signal to the virtual machine. The guest OS will attempt a graceful shutdown.",
               actionLabel: "Shutdown",
               variant: "destructive",
-              onConfirm: () =>
-                powerAction.mutateAsync({ node, vmid, action: "shutdown" }),
+              onConfirm: () => {
+                toast.promise(
+                  powerAction.mutateAsync({ node, vmid, action: "shutdown" }),
+                  {
+                    loading: `Shutting down VM ${vmid}…`,
+                    success: `VM ${vmid} shut down`,
+                    error: (err: Error) => err.message,
+                  }
+                )
+              },
             })
           }
         >
@@ -155,8 +172,16 @@ function VmMenuItems({
                 "This will send a reboot signal to the virtual machine.",
               actionLabel: "Reboot",
               variant: "destructive",
-              onConfirm: () =>
-                powerAction.mutateAsync({ node, vmid, action: "reboot" }),
+              onConfirm: () => {
+                toast.promise(
+                  powerAction.mutateAsync({ node, vmid, action: "reboot" }),
+                  {
+                    loading: `Rebooting VM ${vmid}…`,
+                    success: `VM ${vmid} rebooted`,
+                    error: (err: Error) => err.message,
+                  }
+                )
+              },
             })
           }
         >
@@ -171,8 +196,16 @@ function VmMenuItems({
                 "This will immediately stop the virtual machine. Unsaved data may be lost.",
               actionLabel: "Stop",
               variant: "destructive",
-              onConfirm: () =>
-                powerAction.mutateAsync({ node, vmid, action: "stop" }),
+              onConfirm: () => {
+                toast.promise(
+                  powerAction.mutateAsync({ node, vmid, action: "stop" }),
+                  {
+                    loading: `Stopping VM ${vmid}…`,
+                    success: `VM ${vmid} stopped`,
+                    error: (err: Error) => err.message,
+                  }
+                )
+              },
             })
           }
         >
@@ -195,7 +228,13 @@ function VmMenuItems({
                 "This will convert the VM to a template, making it available for cloning.",
               actionLabel: "Convert",
               variant: "destructive",
-              onConfirm: () => toTemplate.mutateAsync({ node, vmid }),
+              onConfirm: () => {
+                toast.promise(toTemplate.mutateAsync({ node, vmid }), {
+                  loading: `Converting VM ${vmid} to template…`,
+                  success: `VM ${vmid} is now a template`,
+                  error: (err: Error) => err.message,
+                })
+              },
             })
           }
         >
@@ -225,7 +264,13 @@ function VmMenuItems({
               "This will permanently delete the virtual machine. This action cannot be undone.",
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: () => deleteVm.mutateAsync({ node, vmid }),
+            onConfirm: () => {
+              toast.promise(deleteVm.mutateAsync({ node, vmid }), {
+                loading: `Deleting VM ${vmid}…`,
+                success: `VM ${vmid} deleted`,
+                error: (err: Error) => err.message,
+              })
+            },
           })
         }
       >
@@ -272,7 +317,13 @@ function TemplateMenuItems({
               "This will permanently delete the template. This action cannot be undone.",
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: () => deleteVm.mutateAsync({ node, vmid }),
+            onConfirm: () => {
+              toast.promise(deleteVm.mutateAsync({ node, vmid }), {
+                loading: `Deleting template ${vmid}…`,
+                success: `Template ${vmid} deleted`,
+                error: (err: Error) => err.message,
+              })
+            },
           })
         }
       >

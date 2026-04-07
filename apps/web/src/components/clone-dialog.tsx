@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form"
+import { toast } from "sonner"
 import { z } from "zod"
 import { IconCopy } from "@tabler/icons-react"
 import {
@@ -52,9 +53,13 @@ export function CloneDialog({
       name: `${currentName}-clone`,
       full: true,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = cloneSchema.parse(value)
-      await clone.mutateAsync({ node, vmid, ...parsed })
+      toast.promise(clone.mutateAsync({ node, vmid, ...parsed }), {
+        loading: `Cloning VM ${vmid} → ${parsed.newid}…`,
+        success: `VM cloned to ${parsed.newid}`,
+        error: (err: Error) => err.message,
+      })
       onOpenChange(false)
       form.reset()
     },

@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { toast } from "sonner"
 import {
   cloneVM,
   convertToTemplate,
@@ -13,19 +12,22 @@ import {
   vmStatusQueryOptions,
 } from "@/lib/queries"
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export function useVmPowerAction() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: vmPowerAction,
-    onSuccess: (_data, variables) => {
-      toast.success(`VM ${variables.action} initiated`)
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
       queryClient.invalidateQueries({
         queryKey: vmStatusQueryOptions.queryKey,
       })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }
@@ -36,8 +38,9 @@ export function useDeleteVM() {
 
   return useMutation({
     mutationFn: deleteVM,
-    onSuccess: () => {
-      toast.success("VM deleted")
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
@@ -45,9 +48,6 @@ export function useDeleteVM() {
         queryKey: vmStatusQueryOptions.queryKey,
       })
       navigate({ to: "/" })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }
@@ -57,14 +57,12 @@ export function useRenameVM() {
 
   return useMutation({
     mutationFn: renameVM,
-    onSuccess: () => {
-      toast.success("VM renamed")
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }
@@ -74,14 +72,12 @@ export function useCloneVM() {
 
   return useMutation({
     mutationFn: cloneVM,
-    onSuccess: () => {
-      toast.success("Clone initiated")
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }
@@ -91,14 +87,12 @@ export function useConvertToTemplate() {
 
   return useMutation({
     mutationFn: convertToTemplate,
-    onSuccess: () => {
-      toast.success("Converted to template")
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }
@@ -108,14 +102,12 @@ export function useRollbackSnapshot(node: string, vmid: number) {
 
   return useMutation({
     mutationFn: rollbackSnapshot,
-    onSuccess: () => {
-      toast.success("Snapshot rollback initiated")
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: ["vms", node, vmid, "snapshots"],
       })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }
@@ -125,14 +117,12 @@ export function useDeleteSnapshot(node: string, vmid: number) {
 
   return useMutation({
     mutationFn: deleteSnapshot,
-    onSuccess: () => {
-      toast.success("Snapshot deleted")
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: ["vms", node, vmid, "snapshots"],
       })
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 }

@@ -54,7 +54,7 @@ export async function vmPowerAction(params: {
   node: string
   vmid: number
   action: "start" | "shutdown" | "reboot" | "stop"
-}): Promise<{ task_id: string }> {
+}): Promise<void> {
   const res = await fetch("/api/v1/vms/power", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -66,13 +66,12 @@ export async function vmPowerAction(params: {
       body.error ?? `Failed to ${params.action} VM: ${res.status}`
     )
   }
-  return res.json()
 }
 
 export async function deleteVM(params: {
   node: string
   vmid: number
-}): Promise<{ task_id: string }> {
+}): Promise<void> {
   const res = await fetch(`/api/v1/vms/${params.node}/${params.vmid}`, {
     method: "DELETE",
   })
@@ -80,7 +79,6 @@ export async function deleteVM(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to delete VM: ${res.status}`)
   }
-  return res.json()
 }
 
 export async function renameVM(params: {
@@ -105,7 +103,7 @@ export async function cloneVM(params: {
   newid: number
   name: string
   full: boolean
-}): Promise<{ task_id: string }> {
+}): Promise<void> {
   const res = await fetch("/api/v1/vms/clone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -115,7 +113,6 @@ export async function cloneVM(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to clone VM: ${res.status}`)
   }
-  return res.json()
 }
 
 export async function convertToTemplate(params: {
@@ -158,7 +155,7 @@ export async function rollbackSnapshot(params: {
   node: string
   vmid: number
   snapname: string
-}): Promise<{ task_id: string }> {
+}): Promise<void> {
   const res = await fetch("/api/v1/vms/snapshot/rollback", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -168,14 +165,13 @@ export async function rollbackSnapshot(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to rollback snapshot: ${res.status}`)
   }
-  return res.json()
 }
 
 export async function deleteSnapshot(params: {
   node: string
   vmid: number
   snapname: string
-}): Promise<{ task_id: string }> {
+}): Promise<void> {
   const res = await fetch(
     `/api/v1/vms/${params.node}/${params.vmid}/snapshots/${params.snapname}`,
     { method: "DELETE" }
@@ -184,7 +180,6 @@ export async function deleteSnapshot(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to delete snapshot: ${res.status}`)
   }
-  return res.json()
 }
 
 export async function createSnapshot(params: {
@@ -193,7 +188,7 @@ export async function createSnapshot(params: {
   snapname: string
   description?: string
   vmstate?: boolean
-}): Promise<{ task_id: string }> {
+}): Promise<void> {
   const res = await fetch("/api/v1/vms/snapshot", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -203,7 +198,6 @@ export async function createSnapshot(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create snapshot: ${res.status}`)
   }
-  return res.json()
 }
 
 // --- VM Creation metadata ---
@@ -323,9 +317,7 @@ export type CreateVMParams = {
   networks: Array<NetworkInterface>
 }
 
-export async function createVM(
-  params: CreateVMParams
-): Promise<{ task_id: string }> {
+export async function createVM(params: CreateVMParams): Promise<void> {
   const res = await fetch("/api/v1/vms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -335,7 +327,6 @@ export async function createVM(
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create VM: ${res.status}`)
   }
-  return res.json()
 }
 
 // --- SDN ---

@@ -175,11 +175,10 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		params[fmt.Sprintf("net%d", i)] = netStr
 	}
 
-	taskID, err := h.PX.CreateVM(c.Request.Context(), req.Node, params)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create VM"})
+	if err := h.PX.CreateVM(c.Request.Context(), req.Node, params); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

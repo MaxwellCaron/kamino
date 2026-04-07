@@ -50,7 +50,7 @@ type createSnapshotRequest struct {
 	VMState     bool   `json:"vmstate"`
 }
 
-// CreateSnapshot creates a snapshot of a VM.
+// CreateSnapshot creates a snapshot of a VM and waits for the Proxmox task to complete.
 // POST /api/v1/vms/snapshot
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 	var req createSnapshotRequest
@@ -59,13 +59,12 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 		return
 	}
 
-	taskID, err := h.PX.CreateSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname, req.Description, req.VMState)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create snapshot"})
+	if err := h.PX.CreateSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname, req.Description, req.VMState); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type powerActionRequest struct {
@@ -74,7 +73,8 @@ type powerActionRequest struct {
 	Action string `json:"action" binding:"required,oneof=start shutdown reboot stop"`
 }
 
-// PowerAction performs a power action (start, shutdown, reboot, stop) on a VM.
+// PowerAction performs a power action (start, shutdown, reboot, stop) on a VM
+// and waits for the Proxmox task to complete.
 // POST /api/v1/vms/power
 func (h *VMHandler) PowerAction(c *gin.Context) {
 	var req powerActionRequest
@@ -84,29 +84,29 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	var taskID string
 	var err error
 
 	switch req.Action {
 	case "start":
-		taskID, err = h.PX.StartVM(ctx, req.Node, req.VMID)
+		err = h.PX.StartVM(ctx, req.Node, req.VMID)
 	case "shutdown":
-		taskID, err = h.PX.ShutdownVM(ctx, req.Node, req.VMID)
+		err = h.PX.ShutdownVM(ctx, req.Node, req.VMID)
 	case "reboot":
-		taskID, err = h.PX.RebootVM(ctx, req.Node, req.VMID)
+		err = h.PX.RebootVM(ctx, req.Node, req.VMID)
 	case "stop":
-		taskID, err = h.PX.StopVM(ctx, req.Node, req.VMID)
+		err = h.PX.StopVM(ctx, req.Node, req.VMID)
 	}
 
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to " + req.Action + " VM"})
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteVM deletes a VM from Proxmox and removes it from the inventory.
+// DeleteVM deletes a VM from Proxmox (waits for the task to complete) and
+// removes it from the inventory.
 // DELETE /api/v1/vms/:node/:vmid
 func (h *VMHandler) DeleteVM(c *gin.Context) {
 	node := c.Param("node")
@@ -117,9 +117,8 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	taskID, err := h.PX.DeleteVM(ctx, node, vmid)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete VM from Proxmox"})
+	if err := h.PX.DeleteVM(ctx, node, vmid); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -132,7 +131,7 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type renameVMRequest struct {
@@ -175,7 +174,7 @@ type cloneVMRequest struct {
 	Full  bool   `json:"full"`
 }
 
-// CloneVM clones a VM in Proxmox.
+// CloneVM clones a VM and waits for the Proxmox task to complete.
 // POST /api/v1/vms/clone
 func (h *VMHandler) CloneVM(c *gin.Context) {
 	var req cloneVMRequest
@@ -184,13 +183,12 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	taskID, err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, req.NewID, req.Name, req.Full)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to clone VM"})
+	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, req.NewID, req.Name, req.Full); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type convertToTemplateRequest struct {
@@ -251,7 +249,7 @@ type rollbackSnapshotRequest struct {
 	Snapname string `json:"snapname" binding:"required"`
 }
 
-// RollbackSnapshot rolls back a VM to a snapshot.
+// RollbackSnapshot rolls back a VM to a snapshot and waits for the Proxmox task to complete.
 // POST /api/v1/vms/snapshot/rollback
 func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 	var req rollbackSnapshotRequest
@@ -260,16 +258,15 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 		return
 	}
 
-	taskID, err := h.PX.RollbackSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to rollback snapshot"})
+	if err := h.PX.RollbackSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteSnapshot deletes a VM snapshot.
+// DeleteSnapshot deletes a VM snapshot and waits for the Proxmox task to complete.
 // DELETE /api/v1/vms/:node/:vmid/snapshots/:snapname
 func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 	node := c.Param("node")
@@ -279,11 +276,10 @@ func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 	}
 	snapname := c.Param("snapname")
 
-	taskID, err := h.PX.DeleteSnapshot(c.Request.Context(), node, vmid, snapname)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete snapshot"})
+	if err := h.PX.DeleteSnapshot(c.Request.Context(), node, vmid, snapname); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
