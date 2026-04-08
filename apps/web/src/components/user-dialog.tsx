@@ -99,7 +99,7 @@ export function UserDialog({
         if (!isOpen) form.reset()
       }}
     >
-      <DialogContent>
+      <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit User" : "Create User"}</DialogTitle>
           <DialogDescription>

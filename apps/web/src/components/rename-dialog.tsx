@@ -63,7 +63,7 @@ export function RenameDialog({
         if (!isOpen) form.reset()
       }}
     >
-      <DialogContent>
+      <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>Rename</DialogTitle>
           <DialogDescription>

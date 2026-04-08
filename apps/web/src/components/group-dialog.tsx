@@ -88,7 +88,7 @@ export function GroupDialog({
         if (!isOpen) form.reset()
       }}
     >
-      <DialogContent>
+      <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Group" : "Create Group"}</DialogTitle>
           <DialogDescription>

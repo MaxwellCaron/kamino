@@ -99,7 +99,7 @@ export function VNetDialog({
         if (!isOpen) form.reset()
       }}
     >
-      <DialogContent>
+      <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit VNet" : "Create VNet"}</DialogTitle>
           <DialogDescription>

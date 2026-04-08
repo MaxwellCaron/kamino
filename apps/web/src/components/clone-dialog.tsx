@@ -73,7 +73,7 @@ export function CloneDialog({
         if (!isOpen) form.reset()
       }}
     >
-      <DialogContent>
+      <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>Clone VM</DialogTitle>
           <DialogDescription>

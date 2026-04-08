@@ -86,7 +86,7 @@ export function SnapshotDialog({
         if (!isOpen) form.reset()
       }}
     >
-      <DialogContent>
+      <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>Create Snapshot</DialogTitle>
           <DialogDescription>
