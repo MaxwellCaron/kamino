@@ -21,6 +21,7 @@
     "hooks": "@workspace/ui/hooks"
   },
   "registries": {
-    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json"
+    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json",
+    "@diceui": "https://diceui.com/r/{name}.json"
   }
 }

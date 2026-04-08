@@ -13,6 +13,71 @@ type PrincipalsHandler struct {
 	Provider principals.Provider
 }
 
+type bulkDeleteRequest struct {
+	IDs []string `json:"ids" binding:"required,min=1"`
+}
+
+type bulkDeleteFailure struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type bulkDeleteResponse struct {
+	Deleted []string            `json:"deleted"`
+	Failed  []bulkDeleteFailure `json:"failed"`
+}
+
+func parseBulkDeleteIDs(c *gin.Context) ([]string, bool) {
+	var req bulkDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return nil, false
+	}
+
+	for _, rawID := range req.IDs {
+		if _, err := uuid.Parse(rawID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			return nil, false
+		}
+	}
+
+	return req.IDs, true
+}
+
+func writeBulkDeleteResponse(
+	c *gin.Context,
+	rawIDs []string,
+	deleteFn func(uuid.UUID) error,
+) {
+	response := bulkDeleteResponse{
+		Deleted: make([]string, 0, len(rawIDs)),
+		Failed:  make([]bulkDeleteFailure, 0),
+	}
+
+	for i, rawID := range rawIDs {
+		id, err := uuid.Parse(rawID)
+		if err != nil {
+			response.Failed = append(response.Failed, bulkDeleteFailure{
+				ID:    rawID,
+				Error: "invalid id",
+			})
+			continue
+		}
+
+		if err := deleteFn(id); err != nil {
+			response.Failed = append(response.Failed, bulkDeleteFailure{
+				ID:    rawID,
+				Error: err.Error(),
+			})
+			continue
+		}
+
+		response.Deleted = append(response.Deleted, rawIDs[i])
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // ---------- Users ----------
 
 // ListUsers returns all user principals.
@@ -142,21 +207,17 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteUser deletes a user.
-// DELETE /api/v1/principals/users/:id
-func (h *PrincipalsHandler) DeleteUser(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+// DeleteUsers deletes multiple users.
+// DELETE /api/v1/principals/users
+func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
+	rawIDs, ok := parseBulkDeleteIDs(c)
+	if !ok {
 		return
 	}
 
-	if err := h.Provider.DeleteUser(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete user"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	writeBulkDeleteResponse(c, rawIDs, func(id uuid.UUID) error {
+		return h.Provider.DeleteUser(c.Request.Context(), id)
+	})
 }
 
 // ---------- Groups ----------
@@ -226,21 +287,17 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteGroup deletes a group.
-// DELETE /api/v1/principals/groups/:id
-func (h *PrincipalsHandler) DeleteGroup(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+// DeleteGroups deletes multiple groups.
+// DELETE /api/v1/principals/groups
+func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
+	rawIDs, ok := parseBulkDeleteIDs(c)
+	if !ok {
 		return
 	}
 
-	if err := h.Provider.DeleteGroup(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete group"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	writeBulkDeleteResponse(c, rawIDs, func(id uuid.UUID) error {
+		return h.Provider.DeleteGroup(c.Request.Context(), id)
+	})
 }
 
 // ---------- Group Members ----------

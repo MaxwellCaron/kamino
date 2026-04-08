@@ -1,4 +1,11 @@
 import {
+  ActionBar,
+  ActionBarClose,
+  ActionBarGroup,
+  ActionBarSelection,
+  ActionBarSeparator,
+} from "@workspace/ui/components/action-bar"
+import {
   Table,
   TableBody,
   TableCell,
@@ -14,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
+import { IconX } from "@tabler/icons-react"
 
 import {
   flexRender,
@@ -24,13 +32,27 @@ import {
 } from "@tanstack/react-table"
 import { useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ReactNode } from "react"
+import type {
+  ColumnDef,
+  RowSelectionState,
+  TableOptions,
+} from "@tanstack/react-table"
+
+type DataTableSelectionActionsContext<TData> = {
+  clearSelection: () => void
+  selectedRows: Array<TData>
+}
 
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
   isLoading: boolean
   error: Error | null
+  getRowId?: TableOptions<TData>["getRowId"]
+  renderSelectionActions?: (
+    context: DataTableSelectionActionsContext<TData>
+  ) => ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -38,20 +60,27 @@ export function DataTable<TData, TValue>({
   data,
   isLoading,
   error,
+  getRowId,
+  renderSelectionActions,
 }: DataTableProps<TData, TValue>) {
-  const [globalFilter, setGlobalFilter] = useState<any>([])
+  const [globalFilter, setGlobalFilter] = useState("")
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const notReady = isLoading || error !== null
 
   const table = useReactTable({
     data,
     columns,
+    getRowId,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
     globalFilterFn: "includesString",
     state: {
       globalFilter,
+      rowSelection,
     },
     initialState: {
       pagination: {
@@ -59,13 +88,17 @@ export function DataTable<TData, TValue>({
       },
     },
   })
+  const selectedRows = table
+    .getSelectedRowModel()
+    .rows.map((row) => row.original)
+  const clearSelection = () => setRowSelection({})
 
   return (
     <div>
       <div className="flex items-center justify-between gap-6 px-6">
         <Input
           placeholder="Search..."
-          value={globalFilter ?? ""}
+          value={globalFilter}
           onChange={(e) => table.setGlobalFilter(String(e.target.value))}
           className="max-w-sm"
           disabled={notReady}
@@ -163,6 +196,25 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
       <DataTablePagination table={table} />
+      {renderSelectionActions && (
+        <ActionBar
+          open={selectedRows.length > 0}
+          onOpenChange={(open) => {
+            if (!open) clearSelection()
+          }}
+        >
+          <ActionBarSelection>
+            {selectedRows.length} selected
+          </ActionBarSelection>
+          <ActionBarSeparator />
+          <ActionBarGroup>
+            {renderSelectionActions({ clearSelection, selectedRows })}
+          </ActionBarGroup>
+          <ActionBarClose aria-label="Clear selection">
+            <IconX />
+          </ActionBarClose>
+        </ActionBar>
+      )}
     </div>
   )
 }

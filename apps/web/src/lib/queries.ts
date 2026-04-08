@@ -379,12 +379,19 @@ export async function updateVNet(
   }
 }
 
-export async function deleteVNet(vnet: string): Promise<void> {
-  const res = await fetch(`/api/v1/sdn/vnets/${vnet}`, { method: "DELETE" })
+export async function deleteVNet(
+  vnets: Array<string>
+): Promise<ApiBulkDeleteResponse> {
+  const res = await fetch("/api/v1/sdn/vnets", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vnets }),
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete VNet: ${res.status}`)
+    throw new Error(body.error ?? `Failed to delete VNets: ${res.status}`)
   }
+  return res.json()
 }
 
 // --- Principals (Users & Groups) ---
@@ -402,6 +409,16 @@ export type ApiGroupMember = {
   external_id: string
   name: string | null
   description: string | null
+}
+
+export type ApiBulkDeleteFailure = {
+  id: string
+  error: string
+}
+
+export type ApiBulkDeleteResponse = {
+  deleted: Array<string>
+  failed: Array<ApiBulkDeleteFailure>
 }
 
 export const usersQueryOptions = {
@@ -465,14 +482,19 @@ export async function updateUser(
   }
 }
 
-export async function deleteUser(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/principals/users/${id}`, {
+export async function deleteUser(
+  ids: Array<string>
+): Promise<ApiBulkDeleteResponse> {
+  const res = await fetch("/api/v1/principals/users", {
     method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete user: ${res.status}`)
+    throw new Error(body.error ?? `Failed to delete users: ${res.status}`)
   }
+  return res.json()
 }
 
 export async function setUserPassword(
@@ -540,14 +562,19 @@ export async function updateGroup(
   }
 }
 
-export async function deleteGroup(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/principals/groups/${id}`, {
+export async function deleteGroup(
+  ids: Array<string>
+): Promise<ApiBulkDeleteResponse> {
+  const res = await fetch("/api/v1/principals/groups", {
     method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete group: ${res.status}`)
+    throw new Error(body.error ?? `Failed to delete groups: ${res.status}`)
   }
+  return res.json()
 }
 
 export async function addGroupMember(

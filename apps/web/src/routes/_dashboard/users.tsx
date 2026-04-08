@@ -2,7 +2,13 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react"
+import {
+  IconPlus,
+  IconRefresh,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react"
+import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import {
   Card,
   CardAction,
@@ -25,6 +31,10 @@ export const Route = createFileRoute("/_dashboard/users")({
   component: UsersPage,
 })
 
+function getUserLabel(user: ApiPrincipal) {
+  return user.name ?? user.external_id
+}
+
 function UsersPage() {
   const { data: users, isLoading, error } = useQuery(usersQueryOptions)
   const [createOpen, setCreateOpen] = useState(false)
@@ -37,9 +47,25 @@ function UsersPage() {
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteUser(id),
-    onSuccess: () => {
-      toast.success("User deleted")
+    mutationFn: deleteUser,
+    onSuccess: (result) => {
+      const deletedCount = result.deleted.length
+      const failedCount = result.failed.length
+
+      if (deletedCount > 0) {
+        toast.success(
+          deletedCount === 1 ? "User deleted" : `${deletedCount} users deleted`
+        )
+      }
+
+      if (failedCount === 1) {
+        toast.error(
+          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+        )
+      } else if (failedCount > 1) {
+        toast.error(`Failed to delete ${failedCount} users`)
+      }
+
       queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
     },
     onError: (err) => {
@@ -55,10 +81,12 @@ function UsersPage() {
         onDeleteClick: (user) =>
           setConfirm({
             title: "Delete User",
-            description: `Are you sure you want to delete ${user.name ?? user.external_id}? This will permanently remove the user.`,
+            description: `Are you sure you want to delete ${getUserLabel(user)}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: () => deleteMutation.mutateAsync(user.id),
+            onConfirm: async () => {
+              await deleteMutation.mutateAsync([user.id])
+            },
           }),
       }),
     [deleteMutation]
@@ -115,6 +143,38 @@ function UsersPage() {
               data={users || []}
               isLoading={isLoading}
               error={error}
+              getRowId={(user) => user.id}
+              renderSelectionActions={({ clearSelection, selectedRows }) => (
+                <ActionBarItem
+                  variant="destructive"
+                  onSelect={(event) => event.preventDefault()}
+                  onClick={() =>
+                    setConfirm({
+                      title:
+                        selectedRows.length === 1
+                          ? "Delete User"
+                          : "Delete Users",
+                      description:
+                        selectedRows.length === 1
+                          ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`
+                          : `Are you sure you want to delete ${selectedRows.length} users? This will permanently remove the selected users.`,
+                      actionLabel: "Delete",
+                      variant: "destructive",
+                      onConfirm: async () => {
+                        const result = await deleteMutation.mutateAsync(
+                          selectedRows.map((selectedUser) => selectedUser.id)
+                        )
+                        if (result.failed.length === 0) {
+                          clearSelection()
+                        }
+                      },
+                    })
+                  }
+                >
+                  <IconTrash data-icon="inline-start" />
+                  Delete
+                </ActionBarItem>
+              )}
             />
           </CardContent>
         </Card>

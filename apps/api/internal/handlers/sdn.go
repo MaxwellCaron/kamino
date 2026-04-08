@@ -14,6 +14,20 @@ type SDNHandler struct {
 	PX *proxmox.Client
 }
 
+type bulkDeleteVNetsRequest struct {
+	VNets []string `json:"vnets" binding:"required,min=1"`
+}
+
+type bulkDeleteVNetFailure struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type bulkDeleteVNetsResponse struct {
+	Deleted []string                `json:"deleted"`
+	Failed  []bulkDeleteVNetFailure `json:"failed"`
+}
+
 // GetVNets returns all SDN virtual networks.
 // GET /api/v1/sdn/vnets
 func (h *SDNHandler) GetVNets(c *gin.Context) {
@@ -105,22 +119,40 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteVNet deletes an SDN virtual network and applies the config.
-// DELETE /api/v1/sdn/vnets/:vnet
-func (h *SDNHandler) DeleteVNet(c *gin.Context) {
-	vnet := c.Param("vnet")
-	ctx := c.Request.Context()
-
-	if err := h.PX.DeleteVNet(ctx, vnet); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to delete VNet"})
+// DeleteVNets deletes multiple SDN virtual networks and applies the config once.
+// DELETE /api/v1/sdn/vnets
+func (h *SDNHandler) DeleteVNets(c *gin.Context) {
+	var req bulkDeleteVNetsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.PX.ApplySDN(ctx); err != nil {
-		log.Printf("SDN apply after delete VNet failed: %v", err)
+	ctx := c.Request.Context()
+	response := bulkDeleteVNetsResponse{
+		Deleted: make([]string, 0, len(req.VNets)),
+		Failed:  make([]bulkDeleteVNetFailure, 0),
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	for _, vnet := range req.VNets {
+		if err := h.PX.DeleteVNet(ctx, vnet); err != nil {
+			response.Failed = append(response.Failed, bulkDeleteVNetFailure{
+				ID:    vnet,
+				Error: err.Error(),
+			})
+			continue
+		}
+
+		response.Deleted = append(response.Deleted, vnet)
+	}
+
+	if len(response.Deleted) > 0 {
+		if err := h.PX.ApplySDN(ctx); err != nil {
+			log.Printf("SDN apply after bulk delete VNet failed: %v", err)
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func intToStr(n int) string {

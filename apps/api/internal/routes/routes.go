@@ -48,15 +48,15 @@ func RegisterRoutes(
 	// SDN endpoints
 	v1.GET("/sdn/vnets", sdn.GetVNets)
 	v1.POST("/sdn/vnets", sdn.CreateVNet)
+	v1.DELETE("/sdn/vnets", sdn.DeleteVNets)
 	v1.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
-	v1.DELETE("/sdn/vnets/:vnet", sdn.DeleteVNet)
 
 	// Principals endpoints (AD users & groups)
 	if principals != nil {
 		v1.GET("/principals/users", principals.ListUsers)
 		v1.POST("/principals/users", principals.CreateUser)
+		v1.DELETE("/principals/users", principals.DeleteUsers)
 		v1.PUT("/principals/users/:id", principals.UpdateUser)
-		v1.DELETE("/principals/users/:id", principals.DeleteUser)
 		v1.POST("/principals/users/:id/password", principals.SetPassword)
 		v1.POST("/principals/users/:id/enable", principals.EnableUser)
 		v1.POST("/principals/users/:id/disable", principals.DisableUser)
@@ -64,8 +64,8 @@ func RegisterRoutes(
 
 		v1.GET("/principals/groups", principals.ListGroups)
 		v1.POST("/principals/groups", principals.CreateGroup)
+		v1.DELETE("/principals/groups", principals.DeleteGroups)
 		v1.PUT("/principals/groups/:id", principals.UpdateGroup)
-		v1.DELETE("/principals/groups/:id", principals.DeleteGroup)
 		v1.GET("/principals/groups/:id/members", principals.GetGroupMembers)
 		v1.POST("/principals/groups/:id/members", principals.AddGroupMember)
 		v1.DELETE("/principals/groups/:id/members/:mid", principals.RemoveGroupMember)

@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { IconNetwork, IconPlus } from "@tabler/icons-react"
+import { IconNetwork, IconPlus, IconTrash } from "@tabler/icons-react"
+import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import {
   Card,
   CardAction,
@@ -24,6 +25,10 @@ export const Route = createFileRoute("/_dashboard/sdn")({
   component: SdnPage,
 })
 
+function getVNetLabel(vnet: ApiVNet) {
+  return vnet.vnet
+}
+
 function SdnPage() {
   const { data: vnets, isLoading, error } = useQuery(vnetsQueryOptions)
 
@@ -34,8 +39,24 @@ function SdnPage() {
   const queryClient = useQueryClient()
   const deleteMutation = useMutation({
     mutationFn: deleteVNet,
-    onSuccess: () => {
-      toast.success("VNet deleted")
+    onSuccess: (result) => {
+      const deletedCount = result.deleted.length
+      const failedCount = result.failed.length
+
+      if (deletedCount > 0) {
+        toast.success(
+          deletedCount === 1 ? "VNet deleted" : `${deletedCount} VNets deleted`
+        )
+      }
+
+      if (failedCount === 1) {
+        toast.error(
+          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+        )
+      } else if (failedCount > 1) {
+        toast.error(`Failed to delete ${failedCount} VNets`)
+      }
+
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
     },
     onError: (err) => {
@@ -53,7 +74,9 @@ function SdnPage() {
             description: `Are you sure you want to delete ${v.vnet}? This will apply the SDN configuration immediately.`,
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: () => deleteMutation.mutateAsync(v.vnet),
+            onConfirm: async () => {
+              await deleteMutation.mutateAsync([v.vnet])
+            },
           }),
       }),
     [deleteMutation]
@@ -87,6 +110,41 @@ function SdnPage() {
               data={vnets || []}
               isLoading={isLoading}
               error={error}
+              getRowId={(vnet) => vnet.vnet}
+              renderSelectionActions={({
+                clearSelection: clearTableSelection,
+                selectedRows,
+              }) => (
+                <ActionBarItem
+                  variant="destructive"
+                  onSelect={(event) => event.preventDefault()}
+                  onClick={() =>
+                    setConfirm({
+                      title:
+                        selectedRows.length === 1
+                          ? "Delete VNet"
+                          : "Delete VNets",
+                      description:
+                        selectedRows.length === 1
+                          ? `Are you sure you want to delete ${getVNetLabel(selectedRows[0])}? This will apply the SDN configuration immediately.`
+                          : `Are you sure you want to delete ${selectedRows.length} VNets? This will apply the SDN configuration immediately.`,
+                      actionLabel: "Delete",
+                      variant: "destructive",
+                      onConfirm: async () => {
+                        const result = await deleteMutation.mutateAsync(
+                          selectedRows.map((selectedVNet) => selectedVNet.vnet)
+                        )
+                        if (result.failed.length === 0) {
+                          clearTableSelection()
+                        }
+                      },
+                    })
+                  }
+                >
+                  <IconTrash data-icon="inline-start" />
+                  Delete
+                </ActionBarItem>
+              )}
             />
           </CardContent>
         </Card>
