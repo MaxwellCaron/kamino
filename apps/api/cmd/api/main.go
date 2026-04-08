@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	activedirectory "github.com/MaxwellCaron/kamino/internal/active_directory"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,8 @@ type Config struct {
 	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
 	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
 	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
 	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
 }
 
@@ -89,6 +92,8 @@ func newServer(config *Config) (*Server, error) {
 			config.LDAPBindDN,
 			config.LDAPBindPassword,
 			config.LDAPSearchBaseDN,
+			config.LDAPUserOU,
+			config.LDAPGroupOU,
 			config.LDAPInsecure,
 		)
 		server.ADClient = adClient
@@ -124,18 +129,18 @@ func main() {
 	}
 
 	// Initialize handlers
-	inventoryHandler := &handlers.InventoryHandler{DB: server.DBPool}
+	inventoryService := inventory.NewService(server.DBPool)
+	inventoryHandler := &handlers.InventoryHandler{Service: inventoryService}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
-	vmHandler := &handlers.VMHandler{PX: server.ProxmoxClient, DB: server.DBPool}
+	vmHandler := &handlers.VMHandler{PX: server.ProxmoxClient, Service: inventoryService}
 	vmCreateHandler := &handlers.VMCreateHandler{PX: server.ProxmoxClient}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 
 	var principalsHandler *handlers.PrincipalsHandler
 	if server.ADClient != nil {
+		adService := activedirectory.NewService(server.DBPool, server.ADClient, server.ADSync)
 		principalsHandler = &handlers.PrincipalsHandler{
-			DB:     server.DBPool,
-			AD:     server.ADClient,
-			ADSync: server.ADSync,
+			Provider: adService,
 		}
 	}
 

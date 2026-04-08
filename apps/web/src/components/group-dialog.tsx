@@ -23,21 +23,17 @@ import { IconPlus } from "@tabler/icons-react"
 import { createGroup } from "@/lib/queries"
 
 const groupSchema = z.object({
-  sam_account_name: z
+  name: z
     .string()
     .min(1, "Name is required")
     .max(64)
     .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only"),
-  display_name: z.string().min(1, "Display name is required").max(256),
-  ou: z.string().min(1, "OU is required"),
 })
 
 export function CreateGroupDialog({
-  defaultOU,
   open,
   onOpenChange,
 }: {
-  defaultOU: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -60,9 +56,7 @@ export function CreateGroupDialog({
 
   const form = useForm({
     defaultValues: {
-      sam_account_name: "",
-      display_name: "",
-      ou: defaultOU,
+      name: "",
     },
     onSubmit: async ({ value }) => {
       const parsed = groupSchema.parse(value)
@@ -81,9 +75,7 @@ export function CreateGroupDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Group</DialogTitle>
-          <DialogDescription>
-            Create a new Active Directory security group.
-          </DialogDescription>
+          <DialogDescription>Create a new group.</DialogDescription>
         </DialogHeader>
 
         <form
@@ -94,11 +86,10 @@ export function CreateGroupDialog({
         >
           <FieldGroup>
             <form.Field
-              name="sam_account_name"
+              name="name"
               validators={{
                 onBlur: ({ value }) => {
-                  const result =
-                    groupSchema.shape.sam_account_name.safeParse(value)
+                  const result = groupSchema.shape.name.safeParse(value)
                   return result.success
                     ? undefined
                     : result.error.issues[0].message
@@ -109,12 +100,10 @@ export function CreateGroupDialog({
                 <Field
                   data-invalid={field.state.meta.errors.length > 0 || undefined}
                 >
-                  <FieldLabel htmlFor="sam_account_name">
-                    Account Name
-                  </FieldLabel>
+                  <FieldLabel htmlFor="name">Name</FieldLabel>
                   <FieldContent>
                     <Input
-                      id="sam_account_name"
+                      id="name"
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
@@ -125,56 +114,6 @@ export function CreateGroupDialog({
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Field
-              name="display_name"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = groupSchema.shape.display_name.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0].message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="display_name">Display Name</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="display_name"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="Engineering Team"
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                  </FieldContent>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Field name="ou">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor="ou">Organizational Unit (DN)</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="ou"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="OU=Groups,DC=corp,DC=example,DC=com"
-                    />
-                  </FieldContent>
                 </Field>
               )}
             </form.Field>

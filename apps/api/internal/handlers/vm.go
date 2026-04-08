@@ -5,10 +5,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func parseIntParam(c *gin.Context, name string) (int, error) {
@@ -21,8 +20,8 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX *proxmox.Client
-	DB *pgxpool.Pool
+	PX      *proxmox.Client
+	Service *inventory.Service
 }
 
 // GetStatuses returns a map of vmid -> status directly from Proxmox.
@@ -122,11 +121,7 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		return
 	}
 
-	queries := database.New(h.DB)
-	if err := queries.DeleteInventoryItemByProxmoxVM(ctx, database.DeleteInventoryItemByProxmoxVMParams{
-		Node: node,
-		Vmid: int32(vmid),
-	}); err != nil {
+	if err := h.Service.DeleteInventoryItemByProxmoxVM(ctx, node, int32(vmid)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "VM deleted from Proxmox but failed to remove from inventory"})
 		return
 	}
@@ -156,12 +151,7 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 		return
 	}
 
-	queries := database.New(h.DB)
-	_ = queries.UpdateInventoryItemNameByProxmoxVM(ctx, database.UpdateInventoryItemNameByProxmoxVMParams{
-		Name: req.Name,
-		Node: req.Node,
-		Vmid: int32(req.VMID),
-	})
+	_ = h.Service.UpdateInventoryItemNameByProxmoxVM(ctx, req.Node, int32(req.VMID), req.Name)
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -212,11 +202,7 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 		return
 	}
 
-	queries := database.New(h.DB)
-	_ = queries.UpdateProxmoxVMIsTemplate(ctx, database.UpdateProxmoxVMIsTemplateParams{
-		Node: req.Node,
-		Vmid: int32(req.VMID),
-	})
+	_ = h.Service.UpdateProxmoxVMIsTemplate(ctx, req.Node, int32(req.VMID))
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

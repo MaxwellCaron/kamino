@@ -123,11 +123,7 @@ function UsersPage() {
         </Card>
       </div>
 
-      <CreateUserDialog
-        defaultOU=""
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-      />
+      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {passwordTarget && (
         <PasswordDialog

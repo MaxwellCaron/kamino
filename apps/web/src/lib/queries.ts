@@ -433,9 +433,7 @@ export function groupMembersQueryOptions(groupId: string) {
 }
 
 export async function createUser(params: {
-  sam_account_name: string
-  display_name: string
-  ou: string
+  username: string
   password: string
 }): Promise<void> {
   const res = await fetch("/api/v1/principals/users", {
@@ -451,7 +449,7 @@ export async function createUser(params: {
 
 export async function updateUser(
   id: string,
-  params: { dn: string; display_name: string }
+  params: { username: string }
 ): Promise<void> {
   const res = await fetch(`/api/v1/principals/users/${id}`, {
     method: "PUT",
@@ -489,11 +487,9 @@ export async function setUserPassword(
   }
 }
 
-export async function enableUser(id: string, dn: string): Promise<void> {
+export async function enableUser(id: string): Promise<void> {
   const res = await fetch(`/api/v1/principals/users/${id}/enable`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dn }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -501,11 +497,9 @@ export async function enableUser(id: string, dn: string): Promise<void> {
   }
 }
 
-export async function disableUser(id: string, dn: string): Promise<void> {
+export async function disableUser(id: string): Promise<void> {
   const res = await fetch(`/api/v1/principals/users/${id}/disable`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dn }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -513,11 +507,7 @@ export async function disableUser(id: string, dn: string): Promise<void> {
   }
 }
 
-export async function createGroup(params: {
-  sam_account_name: string
-  display_name: string
-  ou: string
-}): Promise<void> {
+export async function createGroup(params: { name: string }): Promise<void> {
   const res = await fetch("/api/v1/principals/groups", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -531,7 +521,7 @@ export async function createGroup(params: {
 
 export async function updateGroup(
   id: string,
-  params: { dn: string; display_name: string }
+  params: { name: string }
 ): Promise<void> {
   const res = await fetch(`/api/v1/principals/groups/${id}`, {
     method: "PUT",

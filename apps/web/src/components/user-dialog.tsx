@@ -23,22 +23,18 @@ import { IconPlus } from "@tabler/icons-react"
 import { createUser } from "@/lib/queries"
 
 const userSchema = z.object({
-  sam_account_name: z
+  username: z
     .string()
     .min(1, "Username is required")
     .max(20, "Max 20 characters")
     .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only"),
-  display_name: z.string().min(1, "Display name is required").max(256),
-  ou: z.string().min(1, "OU is required"),
   password: z.string().min(8, "Minimum 8 characters"),
 })
 
 export function CreateUserDialog({
-  defaultOU,
   open,
   onOpenChange,
 }: {
-  defaultOU: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -61,9 +57,7 @@ export function CreateUserDialog({
 
   const form = useForm({
     defaultValues: {
-      sam_account_name: "",
-      display_name: "",
-      ou: defaultOU,
+      username: "",
       password: "",
     },
     onSubmit: async ({ value }) => {
@@ -83,9 +77,7 @@ export function CreateUserDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create User</DialogTitle>
-          <DialogDescription>
-            Create a new Active Directory user account.
-          </DialogDescription>
+          <DialogDescription>Create a new user account.</DialogDescription>
         </DialogHeader>
 
         <form
@@ -96,11 +88,10 @@ export function CreateUserDialog({
         >
           <FieldGroup>
             <form.Field
-              name="sam_account_name"
+              name="username"
               validators={{
                 onBlur: ({ value }) => {
-                  const result =
-                    userSchema.shape.sam_account_name.safeParse(value)
+                  const result = userSchema.shape.username.safeParse(value)
                   return result.success
                     ? undefined
                     : result.error.issues[0].message
@@ -111,10 +102,10 @@ export function CreateUserDialog({
                 <Field
                   data-invalid={field.state.meta.errors.length > 0 || undefined}
                 >
-                  <FieldLabel htmlFor="sam_account_name">Username</FieldLabel>
+                  <FieldLabel htmlFor="username">Username</FieldLabel>
                   <FieldContent>
                     <Input
-                      id="sam_account_name"
+                      id="username"
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
@@ -125,56 +116,6 @@ export function CreateUserDialog({
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Field
-              name="display_name"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = userSchema.shape.display_name.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0].message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="display_name">Display Name</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="display_name"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="John Doe"
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                  </FieldContent>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Field name="ou">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor="ou">Organizational Unit (DN)</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="ou"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="OU=Users,DC=corp,DC=example,DC=com"
-                    />
-                  </FieldContent>
                 </Field>
               )}
             </form.Field>

@@ -5,14 +5,14 @@ import (
 	"net/http"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type InventoryHandler struct {
-	DB *pgxpool.Pool
+	Service *inventory.Service
 }
 
 // JSON response types
@@ -46,9 +46,7 @@ type InventoryItem struct {
 // GetTree returns the full inventory tree.
 // GET /api/v1/inventory/tree
 func (h *InventoryHandler) GetTree(c *gin.Context) {
-	q := database.New(h.DB)
-
-	rows, err := q.GetAllInventoryItems(c.Request.Context())
+	rows, err := h.Service.GetAllInventoryItems(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch inventory"})
 		return
@@ -66,8 +64,7 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 		return
 	}
 
-	q := database.New(h.DB)
-	row, err := q.GetInventoryItemByID(c.Request.Context(), id)
+	row, err := h.Service.GetInventoryItemByID(c.Request.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
 		return

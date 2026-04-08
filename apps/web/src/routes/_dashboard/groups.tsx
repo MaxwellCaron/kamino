@@ -113,11 +113,7 @@ function GroupsPage() {
         </Card>
       </div>
 
-      <CreateGroupDialog
-        defaultOU=""
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-      />
+      <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {membershipTarget && (
         <MembershipDialog

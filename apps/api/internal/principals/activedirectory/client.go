@@ -32,16 +32,20 @@ type Client struct {
 	bindDN   string
 	bindPass string
 	baseDN   string
+	userOU   string
+	groupOU  string
 	insecure bool
 }
 
 // NewClient creates a new LDAP client for Active Directory.
-func NewClient(url, bindDN, bindPass, baseDN string, insecure bool) *Client {
+func NewClient(url, bindDN, bindPass, baseDN, userOU, groupOU string, insecure bool) *Client {
 	return &Client{
 		url:      url,
 		bindDN:   bindDN,
 		bindPass: bindPass,
 		baseDN:   baseDN,
+		userOU:   userOU,
+		groupOU:  groupOU,
 		insecure: insecure,
 	}
 }
@@ -209,20 +213,20 @@ func encodePassword(password string) []byte {
 }
 
 // CreateUser creates a new user account in Active Directory.
-func (c *Client) CreateUser(samAccountName, displayName, ou, password string) error {
+func (c *Client) CreateUser(username, password string) error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(displayName), ou)
+	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(username), c.userOU)
 
 	addReq := ldap.NewAddRequest(dn, nil)
 	addReq.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
-	addReq.Attribute("sAMAccountName", []string{samAccountName})
-	addReq.Attribute("displayName", []string{displayName})
-	addReq.Attribute("userPrincipalName", []string{samAccountName + "@" + c.domainFromBaseDN()})
+	addReq.Attribute("sAMAccountName", []string{username})
+	addReq.Attribute("displayName", []string{username})
+	addReq.Attribute("userPrincipalName", []string{username + "@" + c.domainFromBaseDN()})
 	addReq.Attribute("unicodePwd", []string{string(encodePassword(password))})
 	// 512 = NORMAL_ACCOUNT (enabled)
 	addReq.Attribute("userAccountControl", []string{"512"})
@@ -234,7 +238,7 @@ func (c *Client) CreateUser(samAccountName, displayName, ou, password string) er
 }
 
 // UpdateUser modifies the display name of an existing user.
-func (c *Client) UpdateUser(dn, displayName string) error {
+func (c *Client) UpdateUser(dn, username string) error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
@@ -242,7 +246,7 @@ func (c *Client) UpdateUser(dn, displayName string) error {
 	defer conn.Close()
 
 	modReq := ldap.NewModifyRequest(dn, nil)
-	modReq.Replace("displayName", []string{displayName})
+	modReq.Replace("displayName", []string{username})
 
 	if err := conn.Modify(modReq); err != nil {
 		return fmt.Errorf("ldap update user: %w", err)
@@ -317,19 +321,19 @@ func (c *Client) DeleteUser(dn string) error {
 }
 
 // CreateGroup creates a new security group in Active Directory.
-func (c *Client) CreateGroup(samAccountName, displayName, ou string) error {
+func (c *Client) CreateGroup(name string) error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(displayName), ou)
+	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(name), c.groupOU)
 
 	addReq := ldap.NewAddRequest(dn, nil)
 	addReq.Attribute("objectClass", []string{"top", "group"})
-	addReq.Attribute("sAMAccountName", []string{samAccountName})
-	addReq.Attribute("displayName", []string{displayName})
+	addReq.Attribute("sAMAccountName", []string{name})
+	addReq.Attribute("displayName", []string{name})
 	// -2147483646 = Global security group
 	addReq.Attribute("groupType", []string{"-2147483646"})
 
@@ -340,7 +344,7 @@ func (c *Client) CreateGroup(samAccountName, displayName, ou string) error {
 }
 
 // UpdateGroup modifies the display name of an existing group.
-func (c *Client) UpdateGroup(dn, displayName string) error {
+func (c *Client) UpdateGroup(dn, name string) error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
@@ -348,7 +352,7 @@ func (c *Client) UpdateGroup(dn, displayName string) error {
 	defer conn.Close()
 
 	modReq := ldap.NewModifyRequest(dn, nil)
-	modReq.Replace("displayName", []string{displayName})
+	modReq.Replace("displayName", []string{name})
 
 	if err := conn.Modify(modReq); err != nil {
 		return fmt.Errorf("ldap update group: %w", err)
