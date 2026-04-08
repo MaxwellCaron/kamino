@@ -72,15 +72,29 @@ func (s *Service) ListUsers(ctx context.Context) ([]database.GetAllUsersRow, err
 	return database.New(s.db).GetAllUsers(ctx, providerID)
 }
 
-func (s *Service) CreateUser(ctx context.Context, username, password string) error {
+func (s *Service) CreateUser(ctx context.Context, username, password, description string) error {
 	if err := s.client.CreateUser(username, password); err != nil {
 		return err
 	}
 	s.syncBeforeResponse(ctx)
+
+	users, err := s.ListUsers(ctx)
+	if err == nil {
+		for _, u := range users {
+			if u.Name != nil && *u.Name == username {
+				_ = database.New(s.db).UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+					Description: &description,
+					ID:          u.ID,
+				})
+				break
+			}
+		}
+	}
+
 	return nil
 }
 
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username string) error {
+func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, description string) error {
 	q := database.New(s.db)
 	p, err := q.GetPrincipalByID(ctx, id)
 	if err != nil {
@@ -107,7 +121,14 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username string)
 		ExternalID:    p.ExternalID,
 		Name:          &username,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	return q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+		Description: &description,
+		ID:          id,
+	})
 }
 
 func (s *Service) SetPassword(ctx context.Context, id uuid.UUID, password string) error {
@@ -182,15 +203,29 @@ func (s *Service) ListGroups(ctx context.Context) ([]database.GetAllGroupsRow, e
 	return database.New(s.db).GetAllGroups(ctx, providerID)
 }
 
-func (s *Service) CreateGroup(ctx context.Context, name string) error {
+func (s *Service) CreateGroup(ctx context.Context, name, description string) error {
 	if err := s.client.CreateGroup(name); err != nil {
 		return err
 	}
 	s.syncBeforeResponse(ctx)
+
+	groups, err := s.ListGroups(ctx)
+	if err == nil {
+		for _, g := range groups {
+			if g.Name != nil && *g.Name == name {
+				_ = database.New(s.db).UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+					Description: &description,
+					ID:          g.ID,
+				})
+				break
+			}
+		}
+	}
+
 	return nil
 }
 
-func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, name string) error {
+func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, name, description string) error {
 	q := database.New(s.db)
 	p, err := q.GetPrincipalByID(ctx, id)
 	if err != nil {
@@ -217,7 +252,14 @@ func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, name string) er
 		ExternalID:    p.ExternalID,
 		Name:          &name,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	return q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+		Description: &description,
+		ID:          id,
+	})
 }
 
 func (s *Service) DeleteGroup(ctx context.Context, id uuid.UUID) error {

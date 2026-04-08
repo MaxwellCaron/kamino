@@ -16,8 +16,9 @@ export function getVNetColumns({
   return [
     {
       id: "select",
+      size: 48,
       header: ({ table }) => (
-        <div className="flex justify-center">
+        <div className="pl-4">
           <Checkbox
             checked={table.getIsAllPageRowsSelected()}
             indeterminate={table.getIsSomePageRowsSelected()}
@@ -29,7 +30,7 @@ export function getVNetColumns({
         </div>
       ),
       cell: ({ row }) => (
-        <div className="flex justify-center">
+        <div className="pl-4">
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -56,27 +57,33 @@ export function getVNetColumns({
     },
     {
       id: "actions",
-      header: () => <div className="text-center">Actions</div>,
+      header: () => (
+        <div className="flex justify-end pr-6">
+          <div className="w-16 text-center">Actions</div>
+        </div>
+      ),
       cell: ({ row: { original: vnet } }) => {
         return (
-          <div className="flex justify-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => onEditVnet(vnet)}
-              title="Edit"
-            >
-              <IconUsersGroup className="size-4" />
-            </Button>
+          <div className="flex justify-end pr-6">
+            <div className="flex w-16 justify-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => onEditVnet(vnet)}
+                title="Edit"
+              >
+                <IconUsersGroup className="size-4" />
+              </Button>
 
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => onDeleteClick(vnet)}
-              title="Delete"
-            >
-              <IconTrash className="size-4" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => onDeleteClick(vnet)}
+                title="Delete"
+              >
+                <IconTrash className="size-4" />
+              </Button>
+            </div>
           </div>
         )
       },

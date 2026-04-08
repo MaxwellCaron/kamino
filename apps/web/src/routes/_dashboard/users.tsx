@@ -16,8 +16,7 @@ import type { ApiPrincipal } from "@/lib/queries"
 import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
 import { ConfirmDialog } from "@/components/inventory-confirm-actions"
 import { deleteUser, triggerADSync, usersQueryOptions } from "@/lib/queries"
-import { CreateUserDialog } from "@/components/user-dialog"
-import { PasswordDialog } from "@/components/password-dialog"
+import { UserDialog } from "@/components/user-dialog"
 import { MembershipDialog } from "@/components/membership-dialog"
 import { DataTable } from "@/components/data-table"
 import { getUserColumns } from "@/components/users-columns"
@@ -29,10 +28,8 @@ export const Route = createFileRoute("/_dashboard/users")({
 function UsersPage() {
   const { data: users, isLoading, error } = useQuery(usersQueryOptions)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<ApiPrincipal | null>(null)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [passwordTarget, setPasswordTarget] = useState<ApiPrincipal | null>(
-    null
-  )
   const [membershipTarget, setMembershipTarget] = useState<ApiPrincipal | null>(
     null
   )
@@ -53,8 +50,8 @@ function UsersPage() {
   const columns = useMemo(
     () =>
       getUserColumns({
+        onEditClick: setEditTarget,
         onEditGroups: setMembershipTarget,
-        onSetPassword: setPasswordTarget,
         onDeleteClick: (user) =>
           setConfirm({
             title: "Delete User",
@@ -123,15 +120,13 @@ function UsersPage() {
         </Card>
       </div>
 
-      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
-
-      {passwordTarget && (
-        <PasswordDialog
-          userId={passwordTarget.id}
-          userName={passwordTarget.name ?? passwordTarget.external_id}
-          open={!!passwordTarget}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) setPasswordTarget(null)
+      <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {editTarget && (
+        <UserDialog
+          user={editTarget}
+          open={!!editTarget}
+          onOpenChange={(open) => {
+            if (!open) setEditTarget(null)
           }}
         />
       )}

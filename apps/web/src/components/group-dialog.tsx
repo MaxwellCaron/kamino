@@ -19,8 +19,9 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
-import { IconPlus } from "@tabler/icons-react"
-import { createGroup } from "@/lib/queries"
+import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react"
+import type { ApiPrincipal } from "@/lib/queries"
+import { createGroup, updateGroup } from "@/lib/queries"
 
 const groupSchema = z.object({
   name: z
@@ -28,23 +29,37 @@ const groupSchema = z.object({
     .min(1, "Name is required")
     .max(64)
     .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only"),
+  description: z.string().max(256).optional(),
 })
 
-export function CreateGroupDialog({
+export function GroupDialog({
+  group,
   open,
   onOpenChange,
 }: {
+  group?: ApiPrincipal
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const isEdit = !!group
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof groupSchema>) => {
-      await createGroup(values)
+      if (isEdit) {
+        await updateGroup(group.id, {
+          name: values.name,
+          description: values.description,
+        })
+      } else {
+        await createGroup({
+          name: values.name,
+          description: values.description,
+        })
+      }
     },
     onSuccess: () => {
-      toast.success("Group created")
+      toast.success(isEdit ? "Group updated" : "Group created")
       queryClient.invalidateQueries({ queryKey: ["principals", "groups"] })
       onOpenChange(false)
       form.reset()
@@ -56,7 +71,8 @@ export function CreateGroupDialog({
 
   const form = useForm({
     defaultValues: {
-      name: "",
+      name: group?.name ?? "",
+      description: group?.description ?? "",
     },
     onSubmit: async ({ value }) => {
       const parsed = groupSchema.parse(value)
@@ -74,8 +90,12 @@ export function CreateGroupDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Group</DialogTitle>
-          <DialogDescription>Create a new group.</DialogDescription>
+          <DialogTitle>{isEdit ? "Edit Group" : "Create Group"}</DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? "Update the group account details."
+              : "Create a new Active Directory security group."}
+          </DialogDescription>
         </DialogHeader>
 
         <form
@@ -117,14 +137,57 @@ export function CreateGroupDialog({
                 </Field>
               )}
             </form.Field>
+
+            <form.Field
+              name="description"
+              validators={{
+                onBlur: ({ value }) => {
+                  const result = groupSchema.shape.description.safeParse(value)
+                  return result.success
+                    ? undefined
+                    : result.error.issues[0].message
+                },
+              }}
+            >
+              {(field) => (
+                <Field
+                  data-invalid={field.state.meta.errors.length > 0 || undefined}
+                >
+                  <FieldLabel htmlFor="description">Description</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="description"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="Optional description"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                    />
+                  </FieldContent>
+                  <FieldError>{field.state.meta.errors[0]}</FieldError>
+                </Field>
+              )}
+            </form.Field>
           </FieldGroup>
 
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
                 <Button type="submit" disabled={isSubmitting}>
-                  <IconPlus data-icon="inline-start" />
-                  {isSubmitting ? "Creating..." : "Create Group"}
+                  {isEdit ? (
+                    <IconDeviceFloppy data-icon="inline-start" />
+                  ) : (
+                    <IconPlus data-icon="inline-start" />
+                  )}
+                  {isSubmitting
+                    ? isEdit
+                      ? "Saving..."
+                      : "Creating..."
+                    : isEdit
+                      ? "Save"
+                      : "Create Group"}
                 </Button>
               )}
             </form.Subscribe>

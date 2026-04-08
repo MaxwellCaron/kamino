@@ -31,8 +31,9 @@ func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
 }
 
 type createUserRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username    string `json:"username" binding:"required"`
+	Description string `json:"description"`
+	Password    string `json:"password" binding:"required"`
 }
 
 // CreateUser creates a new user.
@@ -44,7 +45,7 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.Provider.CreateUser(c.Request.Context(), req.Username, req.Password); err != nil {
+	if err := h.Provider.CreateUser(c.Request.Context(), req.Username, req.Password, req.Description); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create user: " + err.Error()})
 		return
 	}
@@ -53,7 +54,8 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 }
 
 type updateUserRequest struct {
-	Username string `json:"username" binding:"required"`
+	Username    string `json:"username" binding:"required"`
+	Description string `json:"description"`
 }
 
 // UpdateUser updates a user's name.
@@ -71,7 +73,7 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.Provider.UpdateUser(c.Request.Context(), id, req.Username); err != nil {
+	if err := h.Provider.UpdateUser(c.Request.Context(), id, req.Username, req.Description); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to update user"})
 		return
 	}
@@ -175,7 +177,8 @@ func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
 }
 
 type createGroupRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
 }
 
 // CreateGroup creates a new group.
@@ -187,7 +190,7 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 		return
 	}
 
-	if err := h.Provider.CreateGroup(c.Request.Context(), req.Name); err != nil {
+	if err := h.Provider.CreateGroup(c.Request.Context(), req.Name, req.Description); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create group: " + err.Error()})
 		return
 	}
@@ -196,7 +199,8 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 }
 
 type updateGroupRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
 }
 
 // UpdateGroup updates a group's name.
@@ -214,7 +218,7 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 		return
 	}
 
-	if err := h.Provider.UpdateGroup(c.Request.Context(), id, req.Name); err != nil {
+	if err := h.Provider.UpdateGroup(c.Request.Context(), id, req.Name, req.Description); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to update group"})
 		return
 	}

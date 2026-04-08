@@ -16,7 +16,7 @@ import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
 import type { ApiPrincipal } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory-confirm-actions"
 import { deleteGroup, groupsQueryOptions, triggerADSync } from "@/lib/queries"
-import { CreateGroupDialog } from "@/components/group-dialog"
+import { GroupDialog } from "@/components/group-dialog"
 import { MembershipDialog } from "@/components/membership-dialog"
 import { getGroupColumns } from "@/components/groups-columns"
 import { DataTable } from "@/components/data-table"
@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_dashboard/groups")({
 function GroupsPage() {
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<ApiPrincipal | null>(null)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [membershipTarget, setMembershipTarget] = useState<ApiPrincipal | null>(
     null
@@ -60,6 +61,7 @@ function GroupsPage() {
   const columns = useMemo(
     () =>
       getGroupColumns({
+        onEditClick: setEditTarget,
         onEditGroups: setMembershipTarget,
         onDeleteClick: (group) =>
           setConfirm({
@@ -113,7 +115,16 @@ function GroupsPage() {
         </Card>
       </div>
 
-      <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {editTarget && (
+        <GroupDialog
+          group={editTarget}
+          open={!!editTarget}
+          onOpenChange={(open) => {
+            if (!open) setEditTarget(null)
+          }}
+        />
+      )}
 
       {membershipTarget && (
         <MembershipDialog

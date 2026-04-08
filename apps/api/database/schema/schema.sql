@@ -62,6 +62,7 @@ CREATE TABLE principals (
     principal_type      principal_type NOT NULL,
     external_id         TEXT NOT NULL,
     name                TEXT NULL,
+    description         TEXT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );

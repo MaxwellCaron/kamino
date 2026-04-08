@@ -393,6 +393,7 @@ export type ApiPrincipal = {
   id: string
   external_id: string
   name: string | null
+  description: string | null
 }
 
 export type ApiGroupMember = {
@@ -400,6 +401,7 @@ export type ApiGroupMember = {
   principal_type: "user" | "group"
   external_id: string
   name: string | null
+  description: string | null
 }
 
 export const usersQueryOptions = {
@@ -435,6 +437,7 @@ export function groupMembersQueryOptions(groupId: string) {
 export async function createUser(params: {
   username: string
   password: string
+  description?: string
 }): Promise<void> {
   const res = await fetch("/api/v1/principals/users", {
     method: "POST",
@@ -449,7 +452,7 @@ export async function createUser(params: {
 
 export async function updateUser(
   id: string,
-  params: { username: string }
+  params: { username: string; description?: string }
 ): Promise<void> {
   const res = await fetch(`/api/v1/principals/users/${id}`, {
     method: "PUT",
@@ -507,7 +510,10 @@ export async function disableUser(id: string): Promise<void> {
   }
 }
 
-export async function createGroup(params: { name: string }): Promise<void> {
+export async function createGroup(params: {
+  name: string
+  description?: string
+}): Promise<void> {
   const res = await fetch("/api/v1/principals/groups", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -521,7 +527,7 @@ export async function createGroup(params: { name: string }): Promise<void> {
 
 export async function updateGroup(
   id: string,
-  params: { name: string }
+  params: { name: string; description?: string }
 ): Promise<void> {
   const res = await fetch(`/api/v1/principals/groups/${id}`, {
     method: "PUT",

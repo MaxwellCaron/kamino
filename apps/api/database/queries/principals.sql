@@ -47,32 +47,35 @@ ON CONFLICT DO NOTHING;
 -- ---------------------------------------------------------------------------
 
 -- name: GetAllUsers :many
-SELECT id, external_id, name
+SELECT id, external_id, name, description
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name;
 
 -- name: GetAllGroups :many
-SELECT id, external_id, name
+SELECT id, external_id, name, description
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'group'
 ORDER BY name;
 
 -- name: GetPrincipalByID :one
-SELECT id, provider_id, principal_type, external_id, name
+SELECT id, provider_id, principal_type, external_id, name, description
 FROM principals
 WHERE id = $1;
 
 -- name: GetPrincipalByExternalID :one
-SELECT id, provider_id, principal_type, external_id, name
+SELECT id, provider_id, principal_type, external_id, name, description
 FROM principals
 WHERE provider_id = $1 AND external_id = $2;
+
+-- name: UpdatePrincipalDescription :exec
+UPDATE principals SET description = $1 WHERE id = $2;
 
 -- name: DeletePrincipal :exec
 DELETE FROM principals WHERE id = $1;
 
 -- name: GetGroupMembers :many
-SELECT p.id, p.principal_type, p.external_id, p.name
+SELECT p.id, p.principal_type, p.external_id, p.name, p.description
 FROM group_memberships gm
 JOIN principals p ON p.id = gm.member_id
 WHERE gm.group_id = $1
@@ -83,7 +86,7 @@ DELETE FROM group_memberships
 WHERE group_id = $1 AND member_id = $2;
 
 -- name: GetUserGroups :many
-SELECT p.id, p.principal_type, p.external_id, p.name
+SELECT p.id, p.principal_type, p.external_id, p.name, p.description
 FROM group_memberships gm
 JOIN principals p ON p.id = gm.group_id
 WHERE gm.member_id = $1

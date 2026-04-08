@@ -70,7 +70,7 @@ export function DataTable<TData, TValue>({
           className="max-w-sm"
           disabled={notReady}
         />
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <p className="hidden text-sm font-medium lg:block">Rows per page</p>
           <Select
             value={`${table.getState().pagination.pageSize}`}
@@ -99,7 +99,15 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      style={{
+                        width:
+                          header.column.getSize() === 150
+                            ? undefined
+                            : header.column.getSize(),
+                      }}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -120,7 +128,15 @@ export function DataTable<TData, TValue>({
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      style={{
+                        width:
+                          cell.column.getSize() === 150
+                            ? undefined
+                            : cell.column.getSize(),
+                      }}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
