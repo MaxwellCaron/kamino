@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ func (s *Sync) Run(ctx context.Context) error {
 	// Sync pools as child folders under root
 	poolFolders := make(map[string]uuid.UUID, len(pools))
 	for _, pool := range pools {
-		folderID, err := ensureChildFolder(ctx, q, rootID, pool.PoolID)
+		folderID, err := ensureFolderPath(ctx, q, rootID, decodePoolPath(pool.PoolID))
 		if err != nil {
 			return fmt.Errorf("ensuring folder for pool %q: %w", pool.PoolID, err)
 		}
@@ -168,16 +169,52 @@ func syncVM(ctx context.Context, q *database.Queries, parentID uuid.UUID, vm VM)
 		}
 	}
 
-	// Move to correct parent if pool assignment changed
-	if (existing.ParentID == nil) != (parentID == uuid.Nil) ||
-		(existing.ParentID != nil && *existing.ParentID != parentID) {
-		if err := q.UpdateInventoryItemParent(ctx, database.UpdateInventoryItemParentParams{
-			ParentID: &parentID,
-			ID:       existing.InventoryItemID,
-		}); err != nil {
-			return fmt.Errorf("updating inventory item parent: %w", err)
-		}
+	return nil
+}
+
+func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {
+	currentID := rootID
+	if len(path) == 0 {
+		return currentID, nil
 	}
 
-	return nil
+	for _, segment := range path {
+		if segment == "" {
+			continue
+		}
+
+		nextID, err := ensureChildFolder(ctx, q, currentID, segment)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		currentID = nextID
+	}
+
+	return currentID, nil
+}
+
+func decodePoolPath(poolID string) []string {
+	var (
+		segments []string
+		current  strings.Builder
+	)
+
+	for i := 0; i < len(poolID); i++ {
+		if poolID[i] != '_' {
+			current.WriteByte(poolID[i])
+			continue
+		}
+
+		if i+1 < len(poolID) && poolID[i+1] == '_' {
+			current.WriteByte('_')
+			i++
+			continue
+		}
+
+		segments = append(segments, current.String())
+		current.Reset()
+	}
+
+	segments = append(segments, current.String())
+	return segments
 }

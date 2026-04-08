@@ -4,9 +4,10 @@ import {
   IconServer,
   IconTemplate,
 } from "@tabler/icons-react"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
+import { toast } from "sonner"
 import {
   TreeExpander,
   TreeIcon,
@@ -23,49 +24,30 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { TreeNodeMenu } from "./inventory-actions"
-import type { ReactNode } from "react"
 import type { ApiTreeNode } from "@/lib/queries"
+import type { ReactNode } from "react"
+import { useMoveInventoryItem } from "@/hooks/use-inventory-actions"
+import { sortInventoryTree } from "@/lib/inventory-tree"
 import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
 
-// Internal tree node used for rendering and drag-and-drop
-type FileNode = {
-  id: string
-  name: string
-  vmid?: number
-  pveNode?: string
-  isTemplate?: boolean
-  children?: Array<FileNode>
-}
-
-function mapApiToTree(nodes: Array<ApiTreeNode>): Array<FileNode> {
-  return nodes.map((node) => ({
-    id: node.id,
-    name: node.name,
-    ...(node.kind === "folder"
-      ? { children: node.children ? mapApiToTree(node.children) : [] }
-      : {
-          vmid: node.vm?.vmid,
-          pveNode: node.vm?.node,
-          isTemplate: node.vm?.is_template,
-        }),
-  }))
-}
-
-// Build a flat map of inventory item id → vmid for status lookups
-function collectVmIds(nodes: Array<FileNode>): Map<string, number> {
+function collectVmIds(nodes: Array<ApiTreeNode>): Map<string, number> {
   const map = new Map<string, number>()
+
   for (const node of nodes) {
-    if (node.vmid !== undefined) map.set(node.id, node.vmid)
+    if (node.kind === "vm" && node.vm?.vmid !== undefined) {
+      map.set(node.id, node.vm.vmid)
+    }
     if (node.children) {
       for (const [id, vmid] of collectVmIds(node.children)) {
         map.set(id, vmid)
       }
     }
   }
+
   return map
 }
 
-function findNode(nodes: Array<FileNode>, id: string): FileNode | null {
+function findNode(nodes: Array<ApiTreeNode>, id: string): ApiTreeNode | null {
   for (const node of nodes) {
     if (node.id === id) return node
     if (node.children) {
@@ -76,77 +58,145 @@ function findNode(nodes: Array<FileNode>, id: string): FileNode | null {
   return null
 }
 
+function findParentId(
+  nodes: Array<ApiTreeNode>,
+  id: string,
+  parentId: string | null = null
+): string | null {
+  for (const node of nodes) {
+    if (node.id === id) return parentId
+    if (node.children) {
+      const found = findParentId(node.children, id, node.id)
+      if (found !== null) return found
+    }
+  }
+  return null
+}
+
 function removeNode(
-  nodes: Array<FileNode>,
+  nodes: Array<ApiTreeNode>,
   id: string
-): [Array<FileNode>, FileNode | null] {
+): [Array<ApiTreeNode>, ApiTreeNode | null] {
   const index = nodes.findIndex((node) => node.id === id)
   if (index !== -1) {
     const removed = nodes[index]
-    return [nodes.filter((_, i) => i !== index), removed]
+    return [nodes.filter((_, currentIndex) => currentIndex !== index), removed]
   }
 
-  let removed: FileNode | null = null
+  let removed: ApiTreeNode | null = null
   const result = nodes.map((node) => {
     if (!node.children || removed) return node
-    const [newChildren, found] = removeNode(node.children, id)
-    if (found) {
-      removed = found
-      return { ...node, children: newChildren }
-    }
-    return node
+    const [nextChildren, found] = removeNode(node.children, id)
+    if (!found) return node
+    removed = found
+    return { ...node, children: nextChildren }
   })
 
   return [result, removed]
 }
 
+function insertIntoNode(
+  nodes: Array<ApiTreeNode>,
+  targetId: string,
+  nodeToInsert: ApiTreeNode
+): Array<ApiTreeNode> {
+  return nodes.map((node) => {
+    if (node.id === targetId) {
+      return {
+        ...node,
+        children: sortInventoryTree([...(node.children ?? []), nodeToInsert]),
+      }
+    }
+    if (!node.children) return node
+    return {
+      ...node,
+      children: insertIntoNode(node.children, targetId, nodeToInsert),
+    }
+  })
+}
+
+function moveNode(
+  nodes: Array<ApiTreeNode>,
+  sourceId: string,
+  targetId: string
+): Array<ApiTreeNode> {
+  if (sourceId === targetId || isDescendant(nodes, sourceId, targetId)) {
+    return nodes
+  }
+
+  const [treeWithoutSource, removedNode] = removeNode(nodes, sourceId)
+  if (!removedNode) return nodes
+
+  return sortInventoryTree(
+    insertIntoNode(treeWithoutSource, targetId, removedNode)
+  )
+}
+
 function isDescendant(
-  nodes: Array<FileNode>,
+  nodes: Array<ApiTreeNode>,
   parentId: string,
   childId: string
 ): boolean {
   const parent = findNode(nodes, parentId)
   if (!parent?.children) return false
+
   for (const child of parent.children) {
     if (child.id === childId) return true
-    if (child.children && isDescendant([child], child.id, childId)) return true
+    if (child.kind === "folder" && isDescendant([child], child.id, childId)) {
+      return true
+    }
   }
+
   return false
 }
 
-function sortNodes(nodes: Array<FileNode>): Array<FileNode> {
-  return [...nodes]
-    .sort((a, b) => {
-      const aIsFolder = a.children !== undefined ? 0 : 1
-      const bIsFolder = b.children !== undefined ? 0 : 1
-      if (aIsFolder !== bIsFolder) return aIsFolder - bIsFolder
-      return a.name.localeCompare(b.name)
-    })
-    .map((node) =>
-      node.children ? { ...node, children: sortNodes(node.children) } : node
-    )
+function filterTree(
+  nodes: Array<ApiTreeNode>,
+  query: string
+): Array<ApiTreeNode> {
+  if (!query) return nodes
+
+  const normalizedQuery = query.toLowerCase()
+  const result: Array<ApiTreeNode> = []
+
+  for (const node of nodes) {
+    if (node.kind === "folder") {
+      const filteredChildren = filterTree(node.children ?? [], query)
+      if (filteredChildren.length > 0) {
+        result.push({ ...node, children: filteredChildren })
+      } else if (node.name.toLowerCase().includes(normalizedQuery)) {
+        result.push(node)
+      }
+      continue
+    }
+
+    if (node.name.toLowerCase().includes(normalizedQuery)) {
+      result.push(node)
+    }
+  }
+
+  return result
 }
 
-function insertIntoNode(
-  nodes: Array<FileNode>,
-  targetId: string,
-  nodeToInsert: FileNode
-): Array<FileNode> {
-  return nodes.map((node) => {
-    if (node.id === targetId) {
-      return {
-        ...node,
-        children: [...(node.children ?? []), nodeToInsert],
-      }
-    }
-    if (node.children) {
-      return {
-        ...node,
-        children: insertIntoNode(node.children, targetId, nodeToInsert),
-      }
-    }
-    return node
-  })
+function countLeaves(nodes: Array<ApiTreeNode>): number {
+  let count = 0
+  for (const node of nodes) {
+    if (node.kind === "folder") count += countLeaves(node.children ?? [])
+    else count++
+  }
+  return count
+}
+
+function collectFolderIds(nodes: Array<ApiTreeNode>): Array<string> {
+  const ids: Array<string> = []
+
+  for (const node of nodes) {
+    if (node.kind !== "folder") continue
+    ids.push(node.id)
+    ids.push(...collectFolderIds(node.children ?? []))
+  }
+
+  return ids
 }
 
 function VmIcon({
@@ -182,15 +232,15 @@ function VmIcon({
 }
 
 function renderTree(
-  nodes: Array<FileNode>,
+  nodes: Array<ApiTreeNode>,
   level: number,
   parentPath: Array<boolean>,
   getStatus: (id: string) => string | undefined
 ): ReactNode {
   return nodes.map((node, index) => {
     const isLast = index === nodes.length - 1
-    const isFolder = node.children !== undefined
-    const hasChildren = isFolder && node.children!.length > 0
+    const isFolder = node.kind === "folder"
+    const hasChildren = isFolder && (node.children?.length ?? 0) > 0
 
     return (
       <TreeNode
@@ -209,7 +259,7 @@ function renderTree(
               !isFolder ? (
                 <VmIcon
                   status={getStatus(node.id)}
-                  isTemplate={node.isTemplate}
+                  isTemplate={node.vm?.is_template}
                 />
               ) : undefined
             }
@@ -217,16 +267,16 @@ function renderTree(
           <TreeLabel>{node.name}</TreeLabel>
           <TreeNodeMenu
             isFolder={isFolder}
-            isTemplate={node.isTemplate}
-            vmid={node.vmid}
-            pveNode={node.pveNode}
+            isTemplate={node.vm?.is_template}
             name={node.name}
+            pveNode={node.vm?.node}
+            vmid={node.vm?.vmid}
           />
         </TreeNodeTrigger>
         {hasChildren && (
           <TreeNodeContent hasChildren>
             {renderTree(
-              node.children!,
+              node.children ?? [],
               level + 1,
               level === 0 ? [] : [...parentPath.slice(0, level - 1), isLast],
               getStatus
@@ -238,73 +288,28 @@ function renderTree(
   })
 }
 
-function filterTree(nodes: Array<FileNode>, query: string): Array<FileNode> {
-  if (!query) return nodes
-  const q = query.toLowerCase()
-  const result: Array<FileNode> = []
-  for (const node of nodes) {
-    if (node.children !== undefined) {
-      const filteredChildren = filterTree(node.children, query)
-      if (filteredChildren.length > 0) {
-        result.push({ ...node, children: filteredChildren })
-      } else if (node.name.toLowerCase().includes(q)) {
-        result.push(node)
-      }
-    } else if (node.name.toLowerCase().includes(q)) {
-      result.push(node)
-    }
-  }
-  return result
-}
-
-function countLeaves(nodes: Array<FileNode>): number {
-  let count = 0
-  for (const node of nodes) {
-    if (node.children !== undefined) count += countLeaves(node.children)
-    else count++
-  }
-  return count
-}
-
-function collectFolderIds(nodes: Array<FileNode>): Array<string> {
-  const ids: Array<string> = []
-  for (const node of nodes) {
-    if (node.children) {
-      ids.push(node.id)
-      ids.push(...collectFolderIds(node.children))
-    }
-  }
-  return ids
-}
-
 export function InventoryTree() {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
   const [query, setQuery] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Array<string>>([])
+  const [localTree, setLocalTree] = useState<Array<ApiTreeNode>>([])
 
   const {
-    data: apiTree,
+    data: tree = [],
     isLoading,
     error,
   } = useQuery(inventoryTreeQueryOptions)
-
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
+  const moveItem = useMoveInventoryItem()
 
-  const [localTree, setLocalTree] = useState<Array<FileNode>>([])
-  const [initialized, setInitialized] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Array<string>>([])
-  const [vmIdMap, setVmIdMap] = useState<Map<string, number>>(new Map())
+  useEffect(() => {
+    setLocalTree(tree)
+  }, [tree])
 
-  // Sync API data into local state for drag-and-drop manipulation
-  if (apiTree && !initialized) {
-    const mapped = mapApiToTree(apiTree)
-    setLocalTree(mapped)
-    setVmIdMap(collectVmIds(mapped))
-    setInitialized(true)
-  }
-
-  const tree = initialized ? localTree : []
-  const filteredTree = filterTree(tree, query)
+  const displayTree = localTree
+  const vmIdMap = collectVmIds(displayTree)
+  const filteredTree = filterTree(displayTree, query)
   const resultCount = query ? countLeaves(filteredTree) : null
 
   const getStatus = useCallback(
@@ -317,11 +322,10 @@ export function InventoryTree() {
     [vmStatuses, vmIdMap]
   )
 
-  // Use route-derived selection on refresh, user clicks take priority
   const effectiveSelectedIds =
     selectedIds.length > 0
       ? selectedIds
-      : activeItemId && findNode(tree, activeItemId)
+      : activeItemId && findNode(displayTree, activeItemId)
         ? [activeItemId]
         : []
 
@@ -329,13 +333,14 @@ export function InventoryTree() {
     (ids: Array<string>) => {
       setSelectedIds(ids)
       if (ids.length !== 1) return
+
       const id = ids[0]
-      const node = findNode(tree, id)
-      if (node && !node.children) {
+      const node = findNode(displayTree, id)
+      if (node?.kind === "vm") {
         navigate({ to: "/vm/$itemId", params: { itemId: id } })
       }
     },
-    [tree, navigate]
+    [displayTree, navigate]
   )
 
   const handleMove = useCallback(
@@ -344,31 +349,42 @@ export function InventoryTree() {
         ? rawTargetId.slice(5)
         : rawTargetId
 
-      if (sourceId === targetId) return
-      if (isDescendant(tree, sourceId, targetId)) return
+      const currentParentId = findParentId(displayTree, sourceId)
 
-      const [treeWithoutSource, removedNode] = removeNode(tree, sourceId)
-      if (!removedNode) return
+      if (
+        sourceId === targetId ||
+        currentParentId === targetId ||
+        isDescendant(displayTree, sourceId, targetId)
+      ) {
+        return
+      }
 
-      const updated = insertIntoNode(treeWithoutSource, targetId, removedNode)
-      setLocalTree(sortNodes(updated))
+      setLocalTree((currentTree) => moveNode(currentTree, sourceId, targetId))
+
+      moveItem.mutate(
+        { itemId: sourceId, parentId: targetId },
+        {
+          onError: (mutationError) => {
+            setLocalTree(tree)
+            toast.error(mutationError.message)
+          },
+        }
+      )
     },
-    [tree]
+    [displayTree, moveItem, tree]
   )
 
   const renderOverlay = useCallback(
     (draggedId: string) => {
-      const node = findNode(tree, draggedId)
+      const node = findNode(displayTree, draggedId)
       if (!node) return null
 
-      const hasChildren = !!node.children
-
       return (
-        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 opacity-50 shadow-xl shadow-black/20">
+        <div className="flex items-center gap-2 rounded-3xl border border-border/60 bg-card px-3 py-2 opacity-50 shadow-xl shadow-black/20">
           <span className="text-muted-foreground">
-            {hasChildren ? (
+            {node.kind === "folder" ? (
               <IconFolder />
-            ) : node.isTemplate ? (
+            ) : node.vm?.is_template ? (
               <IconTemplate />
             ) : (
               <IconServer />
@@ -378,7 +394,7 @@ export function InventoryTree() {
         </div>
       )
     },
-    [tree]
+    [displayTree]
   )
 
   if (isLoading) {
@@ -393,7 +409,7 @@ export function InventoryTree() {
     )
   }
 
-  if (tree.length === 0) {
+  if (displayTree.length === 0) {
     return (
       <div className="px-4 py-2 text-sm text-muted-foreground">
         No inventory items
@@ -419,12 +435,12 @@ export function InventoryTree() {
         )}
       </InputGroup>
       <TreeProvider
-        defaultExpandedIds={collectFolderIds(tree)}
+        defaultExpandedIds={collectFolderIds(displayTree)}
         expandedIds={query ? collectFolderIds(filteredTree) : undefined}
         indent={12}
         selectedIds={effectiveSelectedIds}
-        onSelectionChange={handleSelectionChange}
         onMove={handleMove}
+        onSelectionChange={handleSelectionChange}
         renderDragOverlay={renderOverlay}
       >
         <TreeView className="p-0">

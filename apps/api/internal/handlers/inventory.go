@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -12,7 +15,8 @@ import (
 )
 
 type InventoryHandler struct {
-	Service *inventory.Service
+	Service  *inventory.Service
+	Notifier *inventory.Notifier
 }
 
 // JSON response types
@@ -89,6 +93,130 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 	c.JSON(http.StatusOK, item)
 }
 
+type moveInventoryItemRequest struct {
+	ItemID   uuid.UUID `json:"item_id" binding:"required"`
+	ParentID uuid.UUID `json:"parent_id" binding:"required"`
+}
+
+// MoveItem persists an inventory move initiated from drag and drop.
+// POST /api/v1/inventory/move
+func (h *InventoryHandler) MoveItem(c *gin.Context) {
+	var req moveInventoryItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.Service.MoveInventoryItem(c.Request.Context(), req.ItemID, req.ParentID); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+type createFolderRequest struct {
+	ParentID uuid.UUID `json:"parent_id" binding:"required"`
+	Name     string    `json:"name" binding:"required"`
+}
+
+// CreateFolder creates a child folder within the inventory tree.
+// POST /api/v1/inventory/folders
+func (h *InventoryHandler) CreateFolder(c *gin.Context) {
+	var req createFolderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	id, err := h.Service.CreateFolder(c.Request.Context(), req.ParentID, req.Name)
+	if err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"id": id})
+}
+
+type renameFolderRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+// RenameFolder renames a folder without changing its identity.
+// POST /api/v1/inventory/folders/:id/rename
+func (h *InventoryHandler) RenameFolder(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req renameFolderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.Service.RenameFolder(c.Request.Context(), id, req.Name); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// StreamEvents pushes inventory change events to connected browsers.
+// GET /api/v1/inventory/events
+func (h *InventoryHandler) StreamEvents(c *gin.Context) {
+	if h.Notifier == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "inventory events unavailable"})
+		return
+	}
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
+		return
+	}
+
+	events, unsubscribe := h.Notifier.Subscribe()
+	defer unsubscribe()
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	fmt.Fprint(c.Writer, ": inventory stream connected\n\n")
+	flusher.Flush()
+
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+
+			payload, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+
+			fmt.Fprintf(c.Writer, "event: %s\n", event.Type)
+			fmt.Fprintf(c.Writer, "data: %s\n\n", payload)
+			flusher.Flush()
+		case <-ticker.C:
+			fmt.Fprint(c.Writer, ": ping\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
 // buildTree converts a flat list of inventory rows into a nested tree.
 func buildTree(rows []database.GetAllInventoryItemsRow) []TreeNode {
 	nodes := make(map[uuid.UUID]*TreeNode, len(rows))
@@ -150,4 +278,22 @@ func toVMDetail(node *string, vmid *int32, isTemplate *bool, cpuCount, memoryMB 
 		vm.IsTemplate = *isTemplate
 	}
 	return vm
+}
+
+func writeInventoryError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, inventory.ErrInventoryItemNotFound),
+		errors.Is(err, inventory.ErrInventoryFolderNotFound),
+		errors.Is(err, inventory.ErrInventoryParentNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
+		errors.Is(err, inventory.ErrInventoryItemNotFolder):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+	case errors.Is(err, inventory.ErrInventoryInvalidMove),
+		errors.Is(err, inventory.ErrInventoryReservedFolder),
+		errors.Is(err, inventory.ErrInventoryFolderConflict):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory mutation failed"})
+	}
 }

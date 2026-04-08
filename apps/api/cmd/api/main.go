@@ -128,9 +128,22 @@ func main() {
 		}
 	}
 
+	inventoryNotifier := inventory.NewNotifier(server.DBPool)
+	go inventoryNotifier.Start(context.Background())
+
+	proxmoxMirror := inventory.NewProxmoxMirror(server.DBPool, server.ProxmoxClient)
+	if proxmoxMirror != nil {
+		if err := proxmoxMirror.Reconcile(context.Background()); err != nil {
+			log.Printf("Initial Proxmox mirror reconcile failed: %v", err)
+		}
+	}
+
 	// Initialize handlers
-	inventoryService := inventory.NewService(server.DBPool)
-	inventoryHandler := &handlers.InventoryHandler{Service: inventoryService}
+	inventoryService := inventory.NewService(server.DBPool, inventoryNotifier, proxmoxMirror)
+	inventoryHandler := &handlers.InventoryHandler{
+		Service:  inventoryService,
+		Notifier: inventoryNotifier,
+	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
 	vmHandler := &handlers.VMHandler{PX: server.ProxmoxClient, Service: inventoryService}
 	vmCreateHandler := &handlers.VMCreateHandler{PX: server.ProxmoxClient}

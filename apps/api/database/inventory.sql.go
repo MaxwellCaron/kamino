@@ -92,6 +92,7 @@ FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
   CASE WHEN ii.kind = 'folder' THEN 0 ELSE 1 END,
+  lower(ii.name) ASC,
   ii.name ASC
 `
 
@@ -262,6 +263,34 @@ func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetIn
 		&i.CpuCount,
 		&i.MemoryMb,
 		&i.DiskGb,
+	)
+	return i, err
+}
+
+const getInventoryItemForUpdate = `-- name: GetInventoryItemForUpdate :one
+SELECT id, parent_id, kind, name, inherit_permissions
+FROM inventory_items
+WHERE id = $1
+FOR UPDATE
+`
+
+type GetInventoryItemForUpdateRow struct {
+	ID                 uuid.UUID         `json:"id"`
+	ParentID           *uuid.UUID        `json:"parent_id"`
+	Kind               InventoryItemKind `json:"kind"`
+	Name               string            `json:"name"`
+	InheritPermissions bool              `json:"inherit_permissions"`
+}
+
+func (q *Queries) GetInventoryItemForUpdate(ctx context.Context, id uuid.UUID) (GetInventoryItemForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getInventoryItemForUpdate, id)
+	var i GetInventoryItemForUpdateRow
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.Kind,
+		&i.Name,
+		&i.InheritPermissions,
 	)
 	return i, err
 }

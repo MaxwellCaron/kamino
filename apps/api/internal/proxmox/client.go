@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -71,12 +72,12 @@ func (c *Client) get(ctx context.Context, path string, result any) error {
 }
 
 func (c *Client) post(ctx context.Context, path string, formData map[string]string, result any) error {
-	form := make([]string, 0, len(formData))
+	form := url.Values{}
 	for k, v := range formData {
-		form = append(form, k+"="+v)
+		form.Set(k, v)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(strings.Join(form, "&")))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
@@ -145,12 +146,12 @@ func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snap
 }
 
 func (c *Client) put(ctx context.Context, path string, formData map[string]string, result any) error {
-	form := make([]string, 0, len(formData))
+	form := url.Values{}
 	for k, v := range formData {
-		form = append(form, k+"="+v)
+		form.Set(k, v)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, strings.NewReader(strings.Join(form, "&")))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
@@ -192,10 +193,52 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
+	if result != nil {
+		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+			return fmt.Errorf("decoding response: %w", err)
+		}
 	}
 	return nil
+}
+
+// CreatePool ensures a pool exists for a folder path mirrored from Kamino.
+func (c *Client) CreatePool(ctx context.Context, poolID, comment string) error {
+	var resp apiResponse[any]
+	return c.post(ctx, "/api2/json/pools", map[string]string{
+		"poolid":  poolID,
+		"comment": comment,
+	}, &resp)
+}
+
+// UpdatePoolComment updates metadata for an existing pool.
+func (c *Client) UpdatePoolComment(ctx context.Context, poolID, comment string) error {
+	var resp apiResponse[any]
+	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+		"comment": comment,
+	}, &resp)
+}
+
+// DeletePool removes an empty pool that is no longer represented by Kamino inventory.
+func (c *Client) DeletePool(ctx context.Context, poolID string) error {
+	var resp apiResponse[any]
+	return c.delete(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), &resp)
+}
+
+// AddVMToPool adds a VM to a resource pool.
+func (c *Client) AddVMToPool(ctx context.Context, poolID string, vmid int) error {
+	var resp apiResponse[any]
+	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+		"vms": fmt.Sprintf("%d", vmid),
+	}, &resp)
+}
+
+// RemoveVMFromPool removes a VM from a resource pool.
+func (c *Client) RemoveVMFromPool(ctx context.Context, poolID string, vmid int) error {
+	var resp apiResponse[any]
+	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+		"vms":    fmt.Sprintf("%d", vmid),
+		"delete": "1",
+	}, &resp)
 }
 
 // StartVM powers on a VM and waits for the Proxmox task to complete.

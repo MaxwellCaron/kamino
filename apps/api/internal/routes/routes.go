@@ -24,6 +24,10 @@ func RegisterRoutes(
 	// Inventory endpoints
 	v1.GET("/inventory/tree", inventory.GetTree)
 	v1.GET("/inventory/items/:id", inventory.GetItem)
+	v1.POST("/inventory/move", inventory.MoveItem)
+	v1.POST("/inventory/folders", inventory.CreateFolder)
+	v1.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
+	v1.GET("/inventory/events", inventory.StreamEvents)
 
 	// VM endpoints
 	v1.GET("/vms/status", vm.GetStatuses)

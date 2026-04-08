@@ -31,6 +31,12 @@ INSERT INTO inventory_items (parent_id, kind, name)
 VALUES ($1, 'vm', $2)
 RETURNING id;
 
+-- name: GetInventoryItemForUpdate :one
+SELECT id, parent_id, kind, name, inherit_permissions
+FROM inventory_items
+WHERE id = $1
+FOR UPDATE;
+
 -- name: UpdateInventoryItemParent :exec
 UPDATE inventory_items
 SET parent_id = $1
@@ -96,6 +102,7 @@ FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
   CASE WHEN ii.kind = 'folder' THEN 0 ELSE 1 END,
+  lower(ii.name) ASC,
   ii.name ASC;
 
 -- name: GetInventoryItemByID :one

@@ -38,6 +38,59 @@ export const inventoryTreeQueryOptions = {
   queryFn: fetchInventoryTree,
 }
 
+export async function moveInventoryItem(params: {
+  itemId: string
+  parentId: string
+}): Promise<void> {
+  const res = await fetch("/api/v1/inventory/move", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      item_id: params.itemId,
+      parent_id: params.parentId,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to move inventory item: ${res.status}`
+    )
+  }
+}
+
+export async function createFolder(params: {
+  parentId: string
+  name: string
+}): Promise<void> {
+  const res = await fetch("/api/v1/inventory/folders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      parent_id: params.parentId,
+      name: params.name,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to create folder: ${res.status}`)
+  }
+}
+
+export async function renameFolder(params: {
+  id: string
+  name: string
+}): Promise<void> {
+  const res = await fetch(`/api/v1/inventory/folders/${params.id}/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: params.name }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to rename folder: ${res.status}`)
+  }
+}
+
 async function fetchVmStatuses(): Promise<Record<number, string>> {
   const res = await fetch("/api/v1/vms/status")
   if (!res.ok) throw new Error(`Failed to fetch VM statuses: ${res.status}`)
