@@ -119,6 +119,9 @@ export function CreateGroupDialog({
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="engineering-team"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
@@ -149,6 +152,9 @@ export function CreateGroupDialog({
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="Engineering Team"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>

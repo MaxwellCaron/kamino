@@ -58,7 +58,7 @@ function UsersPage() {
         onDeleteClick: (user) =>
           setConfirm({
             title: "Delete User",
-            description: `Are you sure you want to delete ${user.name ?? user.external_id}? This will remove the user from Active Directory.`,
+            description: `Are you sure you want to delete ${user.name ?? user.external_id}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
             onConfirm: () => deleteMutation.mutateAsync(user.id),

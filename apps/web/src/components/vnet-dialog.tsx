@@ -140,6 +140,9 @@ export function VNetDialog({
                       onBlur={field.handleBlur}
                       disabled={isEdit}
                       placeholder="myvnet"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
@@ -170,6 +173,9 @@ export function VNetDialog({
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="localzone"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>

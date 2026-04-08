@@ -119,6 +119,9 @@ export function CreateUserDialog({
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="jdoe"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
@@ -149,6 +152,9 @@ export function CreateUserDialog({
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="John Doe"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
@@ -196,6 +202,9 @@ export function CreateUserDialog({
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
                     />
                   </FieldContent>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>

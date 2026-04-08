@@ -98,6 +98,9 @@ export function RenameDialog({
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
                   />
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </Field>
