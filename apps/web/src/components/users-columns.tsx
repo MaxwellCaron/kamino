@@ -43,7 +43,6 @@ export function getUserColumns({
     {
       accessorKey: "name",
       header: "Name",
-      cell: ({ row }) => row.original.name ?? "—",
     },
     {
       accessorKey: "external_id",
