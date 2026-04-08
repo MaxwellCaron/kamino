@@ -286,62 +286,105 @@ func (s *Service) GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]dat
 	return q.GetGroupMembers(ctx, groupID)
 }
 
-func (s *Service) AddGroupMember(ctx context.Context, groupID, memberID uuid.UUID) error {
-	q := database.New(s.db)
-
-	group, err := q.GetPrincipalByID(ctx, groupID)
-	if err != nil {
-		return err
+func dedupeUUIDs(ids []uuid.UUID) []uuid.UUID {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	deduped := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		deduped = append(deduped, id)
 	}
-	member, err := q.GetPrincipalByID(ctx, memberID)
-	if err != nil {
-		return err
-	}
-
-	groupDN, err := s.lookupDN(group.ExternalID, "group")
-	if err != nil {
-		return err
-	}
-	memberDN, err := s.lookupDN(member.ExternalID, string(member.PrincipalType))
-	if err != nil {
-		return err
-	}
-
-	if err := s.client.AddGroupMember(groupDN, memberDN); err != nil {
-		return err
-	}
-
-	s.syncBeforeResponse(ctx)
-	return nil
+	return deduped
 }
 
-func (s *Service) RemoveGroupMember(ctx context.Context, groupID, memberID uuid.UUID) error {
+func (s *Service) updateGroupMembers(
+	ctx context.Context,
+	groupID uuid.UUID,
+	memberIDs []uuid.UUID,
+	add bool,
+) (map[uuid.UUID]error, error) {
 	q := database.New(s.db)
 
 	group, err := q.GetPrincipalByID(ctx, groupID)
 	if err != nil {
-		return err
-	}
-	member, err := q.GetPrincipalByID(ctx, memberID)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
 	groupDN, err := s.lookupDN(group.ExternalID, "group")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	memberDN, err := s.lookupDN(member.ExternalID, string(member.PrincipalType))
+
+	currentMembers, err := q.GetGroupMembers(ctx, groupID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := s.client.RemoveGroupMember(groupDN, memberDN); err != nil {
-		return err
+	currentMemberSet := make(map[uuid.UUID]struct{}, len(currentMembers))
+	for _, member := range currentMembers {
+		currentMemberSet[member.ID] = struct{}{}
 	}
 
-	s.syncBeforeResponse(ctx)
-	return nil
+	failed := make(map[uuid.UUID]error)
+	changed := false
+
+	for _, memberID := range dedupeUUIDs(memberIDs) {
+		_, isMember := currentMemberSet[memberID]
+		if add && isMember {
+			continue
+		}
+		if !add && !isMember {
+			continue
+		}
+
+		member, err := q.GetPrincipalByID(ctx, memberID)
+		if err != nil {
+			failed[memberID] = err
+			continue
+		}
+
+		memberDN, err := s.lookupDN(member.ExternalID, string(member.PrincipalType))
+		if err != nil {
+			failed[memberID] = err
+			continue
+		}
+
+		if add {
+			err = s.client.AddGroupMember(groupDN, memberDN)
+		} else {
+			err = s.client.RemoveGroupMember(groupDN, memberDN)
+		}
+		if err != nil {
+			failed[memberID] = err
+			continue
+		}
+
+		changed = true
+	}
+
+	if changed {
+		s.syncBeforeResponse(ctx)
+	}
+
+	return failed, nil
+}
+
+func (s *Service) AddGroupMembers(
+	ctx context.Context,
+	groupID uuid.UUID,
+	memberIDs []uuid.UUID,
+) (map[uuid.UUID]error, error) {
+	return s.updateGroupMembers(ctx, groupID, memberIDs, true)
+}
+
+func (s *Service) RemoveGroupMembers(
+	ctx context.Context,
+	groupID uuid.UUID,
+	memberIDs []uuid.UUID,
+) (map[uuid.UUID]error, error) {
+	return s.updateGroupMembers(ctx, groupID, memberIDs, false)
 }
 
 func (s *Service) GetUserGroups(ctx context.Context, userID uuid.UUID) ([]database.GetUserGroupsRow, error) {

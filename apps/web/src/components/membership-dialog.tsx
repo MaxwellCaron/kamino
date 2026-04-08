@@ -140,25 +140,23 @@ function MembershipEditor({
       const toAdd = selectedIds.filter((id) => !serverSet.has(id))
       const toRemove = serverIds.filter((id) => !localSet.has(id))
 
-      const promises: Array<Promise<void>> = []
-
-      for (const id of toAdd) {
-        if (mode === "user-groups") {
-          promises.push(addGroupMember(id, principal.id))
-        } else {
-          promises.push(addGroupMember(principal.id, id))
-        }
+      if (mode === "user-groups") {
+        await Promise.all([
+          ...toAdd.map((groupID) => addGroupMember(groupID, [principal.id])),
+          ...toRemove.map((groupID) =>
+            removeGroupMember(groupID, [principal.id])
+          ),
+        ])
+        return
       }
 
-      for (const id of toRemove) {
-        if (mode === "user-groups") {
-          promises.push(removeGroupMember(id, principal.id))
-        } else {
-          promises.push(removeGroupMember(principal.id, id))
-        }
+      if (toAdd.length > 0) {
+        await addGroupMember(principal.id, toAdd)
       }
 
-      await Promise.all(promises)
+      if (toRemove.length > 0) {
+        await removeGroupMember(principal.id, toRemove)
+      }
     },
     onMutate: () => setSaving(true),
     onSettled: () => setSaving(false),

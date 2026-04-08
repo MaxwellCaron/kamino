@@ -7,6 +7,11 @@ import { cn } from "@workspace/ui/lib/utils"
 import { useAsRef } from "@workspace/ui/hooks/use-as-ref"
 import { useIsomorphicLayoutEffect } from "@workspace/ui/hooks/use-isomorphic-layout-effect"
 import { Button } from "@workspace/ui/components/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 
 const ROOT_NAME = "ActionBar"
 const GROUP_NAME = "ActionBarGroup"
@@ -421,6 +426,11 @@ interface ActionBarItemProps extends Omit<
   "onSelect"
 > {
   onSelect?: (event: Event) => void
+  tooltip?: React.ReactNode
+  tooltipContentProps?: Omit<
+    React.ComponentProps<typeof TooltipContent>,
+    "children"
+  >
 }
 
 function ActionBarItem(props: ActionBarItemProps) {
@@ -432,6 +442,8 @@ function ActionBarItem(props: ActionBarItemProps) {
     onMouseDown: onMouseDownProp,
     className,
     disabled,
+    tooltip,
+    tooltipContentProps,
     ref,
     ...itemProps
   } = props
@@ -571,7 +583,7 @@ function ActionBarItem(props: ActionBarItemProps) {
     [onMouseDownProp, focusContext, itemId, disabled]
   )
 
-  return (
+  const item = (
     <Button
       type="button"
       data-slot="action-bar-item"
@@ -587,6 +599,19 @@ function ActionBarItem(props: ActionBarItemProps) {
       onKeyDown={onKeyDown}
       onMouseDown={onMouseDown}
     />
+  )
+
+  if (!tooltip) {
+    return item
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={item} />
+      <TooltipContent side="top" sideOffset={8} {...tooltipContentProps}>
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

@@ -27,6 +27,20 @@ type bulkDeleteResponse struct {
 	Failed  []bulkDeleteFailure `json:"failed"`
 }
 
+type bulkMembershipRequest struct {
+	MemberIDs []string `json:"member_ids" binding:"required,min=1"`
+}
+
+type bulkMembershipFailure struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type bulkMembershipResponse struct {
+	Succeeded []string                `json:"succeeded"`
+	Failed    []bulkMembershipFailure `json:"failed"`
+}
+
 func parseBulkDeleteIDs(c *gin.Context) ([]string, bool) {
 	var req bulkDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -76,6 +90,26 @@ func writeBulkDeleteResponse(
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
+	var req bulkMembershipRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return nil, nil, false
+	}
+
+	memberIDs := make([]uuid.UUID, 0, len(req.MemberIDs))
+	for _, rawID := range req.MemberIDs {
+		id, err := uuid.Parse(rawID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid member id"})
+			return nil, nil, false
+		}
+		memberIDs = append(memberIDs, id)
+	}
+
+	return memberIDs, req.MemberIDs, true
 }
 
 // ---------- Users ----------
@@ -323,60 +357,84 @@ func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
 	c.JSON(http.StatusOK, members)
 }
 
-type addMemberRequest struct {
-	MemberID string `json:"member_id" binding:"required"`
-}
-
-// AddGroupMember adds a member to a group.
+// AddGroupMembers adds members to a group.
 // POST /api/v1/principals/groups/:id/members
-func (h *PrincipalsHandler) AddGroupMember(c *gin.Context) {
+func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
 		return
 	}
 
-	var req addMemberRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	memberIDs, rawIDs, ok := parseBulkMembershipIDs(c)
+	if !ok {
 		return
 	}
 
-	memberID, err := uuid.Parse(req.MemberID)
+	failed, err := h.Provider.AddGroupMembers(c.Request.Context(), groupID, memberIDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid member_id"})
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to add members: " + err.Error()})
 		return
 	}
 
-	if err := h.Provider.AddGroupMember(c.Request.Context(), groupID, memberID); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to add member: " + err.Error()})
-		return
+	response := bulkMembershipResponse{
+		Succeeded: make([]string, 0, len(rawIDs)),
+		Failed:    make([]bulkMembershipFailure, 0),
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	for index, memberID := range memberIDs {
+		if memberErr, hasFailed := failed[memberID]; hasFailed {
+			response.Failed = append(response.Failed, bulkMembershipFailure{
+				ID:    rawIDs[index],
+				Error: memberErr.Error(),
+			})
+			continue
+		}
+
+		response.Succeeded = append(response.Succeeded, rawIDs[index])
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
-// RemoveGroupMember removes a member from a group.
-// DELETE /api/v1/principals/groups/:id/members/:mid
-func (h *PrincipalsHandler) RemoveGroupMember(c *gin.Context) {
+// RemoveGroupMembers removes members from a group.
+// DELETE /api/v1/principals/groups/:id/members
+func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
 		return
 	}
 
-	memberID, err := uuid.Parse(c.Param("mid"))
+	memberIDs, rawIDs, ok := parseBulkMembershipIDs(c)
+	if !ok {
+		return
+	}
+
+	failed, err := h.Provider.RemoveGroupMembers(c.Request.Context(), groupID, memberIDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid member id"})
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to remove members: " + err.Error()})
 		return
 	}
 
-	if err := h.Provider.RemoveGroupMember(c.Request.Context(), groupID, memberID); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to remove member: " + err.Error()})
-		return
+	response := bulkMembershipResponse{
+		Succeeded: make([]string, 0, len(rawIDs)),
+		Failed:    make([]bulkMembershipFailure, 0),
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	for index, memberID := range memberIDs {
+		if memberErr, hasFailed := failed[memberID]; hasFailed {
+			response.Failed = append(response.Failed, bulkMembershipFailure{
+				ID:    rawIDs[index],
+				Error: memberErr.Error(),
+			})
+			continue
+		}
+
+		response.Succeeded = append(response.Succeeded, rawIDs[index])
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetUserGroups returns the groups a user belongs to.

@@ -22,8 +22,8 @@ type Provider interface {
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 
 	GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]database.GetGroupMembersRow, error)
-	AddGroupMember(ctx context.Context, groupID, memberID uuid.UUID) error
-	RemoveGroupMember(ctx context.Context, groupID, memberID uuid.UUID) error
+	AddGroupMembers(ctx context.Context, groupID uuid.UUID, memberIDs []uuid.UUID) (map[uuid.UUID]error, error)
+	RemoveGroupMembers(ctx context.Context, groupID uuid.UUID, memberIDs []uuid.UUID) (map[uuid.UUID]error, error)
 
 	GetUserGroups(ctx context.Context, userID uuid.UUID) ([]database.GetUserGroupsRow, error)
 

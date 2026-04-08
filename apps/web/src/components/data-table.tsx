@@ -204,7 +204,8 @@ export function DataTable<TData, TValue>({
           }}
         >
           <ActionBarSelection>
-            {selectedRows.length} selected
+            {selectedRows.length}{" "}
+            <span className="hidden lg:block">selected</span>
           </ActionBarSelection>
           <ActionBarSeparator />
           <ActionBarGroup>

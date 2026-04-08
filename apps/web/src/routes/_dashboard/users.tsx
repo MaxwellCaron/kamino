@@ -7,8 +7,13 @@ import {
   IconRefresh,
   IconTrash,
   IconUsers,
+  IconUsersMinus,
+  IconUsersPlus,
 } from "@tabler/icons-react"
-import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import {
+  ActionBarItem,
+  ActionBarSeparator,
+} from "@workspace/ui/components/action-bar"
 import {
   Card,
   CardAction,
@@ -26,6 +31,7 @@ import { UserDialog } from "@/components/user-dialog"
 import { MembershipDialog } from "@/components/membership-dialog"
 import { DataTable } from "@/components/data-table"
 import { getUserColumns } from "@/components/users-columns"
+import { UserGroupBulkDialog } from "@/components/user-group-bulk-dialog"
 
 export const Route = createFileRoute("/_dashboard/users")({
   component: UsersPage,
@@ -39,6 +45,11 @@ function UsersPage() {
   const { data: users, isLoading, error } = useQuery(usersQueryOptions)
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<ApiPrincipal | null>(null)
+  const [bulkGroupAction, setBulkGroupAction] = useState<{
+    clearSelection: () => void
+    mode: "add" | "remove"
+    users: Array<ApiPrincipal>
+  } | null>(null)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [membershipTarget, setMembershipTarget] = useState<ApiPrincipal | null>(
     null
@@ -145,35 +156,69 @@ function UsersPage() {
               error={error}
               getRowId={(user) => user.id}
               renderSelectionActions={({ clearSelection, selectedRows }) => (
-                <ActionBarItem
-                  variant="destructive"
-                  onSelect={(event) => event.preventDefault()}
-                  onClick={() =>
-                    setConfirm({
-                      title:
-                        selectedRows.length === 1
-                          ? "Delete User"
-                          : "Delete Users",
-                      description:
-                        selectedRows.length === 1
-                          ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`
-                          : `Are you sure you want to delete ${selectedRows.length} users? This will permanently remove the selected users.`,
-                      actionLabel: "Delete",
-                      variant: "destructive",
-                      onConfirm: async () => {
-                        const result = await deleteMutation.mutateAsync(
-                          selectedRows.map((selectedUser) => selectedUser.id)
-                        )
-                        if (result.failed.length === 0) {
-                          clearSelection()
-                        }
-                      },
-                    })
-                  }
-                >
-                  <IconTrash data-icon="inline-start" />
-                  Delete
-                </ActionBarItem>
+                <>
+                  <ActionBarItem
+                    onSelect={(event) => event.preventDefault()}
+                    onClick={() =>
+                      setBulkGroupAction({
+                        clearSelection,
+                        mode: "add",
+                        users: selectedRows,
+                      })
+                    }
+                    aria-label="Add selected users to a group"
+                    tooltip="Add to group"
+                    variant="default"
+                  >
+                    <IconUsersPlus />
+                  </ActionBarItem>
+                  <ActionBarItem
+                    onSelect={(event) => event.preventDefault()}
+                    onClick={() =>
+                      setBulkGroupAction({
+                        clearSelection,
+                        mode: "remove",
+                        users: selectedRows,
+                      })
+                    }
+                    aria-label="Remove selected users from a group"
+                    tooltip="Remove from group"
+                    variant="destructive"
+                  >
+                    <IconUsersMinus />
+                  </ActionBarItem>
+                  <ActionBarSeparator />
+                  <ActionBarItem
+                    variant="destructive"
+                    onSelect={(event) => event.preventDefault()}
+                    aria-label="Delete selected users"
+                    tooltip="Delete users"
+                    onClick={() =>
+                      setConfirm({
+                        title:
+                          selectedRows.length === 1
+                            ? "Delete User"
+                            : "Delete Users",
+                        description:
+                          selectedRows.length === 1
+                            ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`
+                            : `Are you sure you want to delete ${selectedRows.length} users? This will permanently remove the selected users.`,
+                        actionLabel: "Delete",
+                        variant: "destructive",
+                        onConfirm: async () => {
+                          const result = await deleteMutation.mutateAsync(
+                            selectedRows.map((selectedUser) => selectedUser.id)
+                          )
+                          if (result.failed.length === 0) {
+                            clearSelection()
+                          }
+                        },
+                      })
+                    }
+                  >
+                    <IconTrash />
+                  </ActionBarItem>
+                </>
               )}
             />
           </CardContent>
@@ -199,6 +244,18 @@ function UsersPage() {
           onOpenChange={(isOpen) => {
             if (!isOpen) setMembershipTarget(null)
           }}
+        />
+      )}
+
+      {bulkGroupAction && (
+        <UserGroupBulkDialog
+          clearSelection={bulkGroupAction.clearSelection}
+          mode={bulkGroupAction.mode}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setBulkGroupAction(null)
+          }}
+          open={!!bulkGroupAction}
+          users={bulkGroupAction.users}
         />
       )}
 

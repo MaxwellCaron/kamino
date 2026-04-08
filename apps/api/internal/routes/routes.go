@@ -67,8 +67,8 @@ func RegisterRoutes(
 		v1.DELETE("/principals/groups", principals.DeleteGroups)
 		v1.PUT("/principals/groups/:id", principals.UpdateGroup)
 		v1.GET("/principals/groups/:id/members", principals.GetGroupMembers)
-		v1.POST("/principals/groups/:id/members", principals.AddGroupMember)
-		v1.DELETE("/principals/groups/:id/members/:mid", principals.RemoveGroupMember)
+		v1.POST("/principals/groups/:id/members", principals.AddGroupMembers)
+		v1.DELETE("/principals/groups/:id/members", principals.RemoveGroupMembers)
 
 		v1.POST("/principals/sync", principals.TriggerSync)
 	}

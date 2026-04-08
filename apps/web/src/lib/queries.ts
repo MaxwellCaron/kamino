@@ -421,6 +421,11 @@ export type ApiBulkDeleteResponse = {
   failed: Array<ApiBulkDeleteFailure>
 }
 
+export type ApiBulkMembershipResponse = {
+  succeeded: Array<string>
+  failed: Array<ApiBulkDeleteFailure>
+}
+
 export const usersQueryOptions = {
   queryKey: ["principals", "users"] as const,
   queryFn: async (): Promise<Array<ApiPrincipal>> => {
@@ -579,31 +584,34 @@ export async function deleteGroup(
 
 export async function addGroupMember(
   groupId: string,
-  memberId: string
-): Promise<void> {
+  memberIds: Array<string>
+): Promise<ApiBulkMembershipResponse> {
   const res = await fetch(`/api/v1/principals/groups/${groupId}/members`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member_id: memberId }),
+    body: JSON.stringify({ member_ids: memberIds }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to add member: ${res.status}`)
+    throw new Error(body.error ?? `Failed to add members: ${res.status}`)
   }
+  return res.json()
 }
 
 export async function removeGroupMember(
   groupId: string,
-  memberId: string
-): Promise<void> {
-  const res = await fetch(
-    `/api/v1/principals/groups/${groupId}/members/${memberId}`,
-    { method: "DELETE" }
-  )
+  memberIds: Array<string>
+): Promise<ApiBulkMembershipResponse> {
+  const res = await fetch(`/api/v1/principals/groups/${groupId}/members`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ member_ids: memberIds }),
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to remove member: ${res.status}`)
+    throw new Error(body.error ?? `Failed to remove members: ${res.status}`)
   }
+  return res.json()
 }
 
 export function userGroupsQueryOptions(userId: string) {
