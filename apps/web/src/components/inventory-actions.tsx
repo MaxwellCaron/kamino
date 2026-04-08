@@ -32,6 +32,7 @@ import { ConfirmDialog } from "./inventory-confirm-actions"
 import { SnapshotDialog } from "./snapshot-dialog"
 import { RenameDialog } from "./rename-dialog"
 import { CloneDialog } from "./clone-dialog"
+import { CreateVmDialog } from "./create-vm-dialog"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import {
   useConvertToTemplate,
@@ -41,8 +42,10 @@ import {
 
 function FolderMenuItems({
   onAction,
+  onCreateVm,
 }: {
   onAction: (config: ConfirmConfig) => void
+  onCreateVm: () => void
 }) {
   return (
     <>
@@ -52,7 +55,7 @@ function FolderMenuItems({
           <IconFolderPlus className="text-muted-foreground" />
           New Folder
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onCreateVm}>
           <IconServerSpark className="text-muted-foreground" />
           New VM
         </DropdownMenuItem>
@@ -343,6 +346,7 @@ function MenuItems({
   onSnapshot,
   onClone,
   onRename,
+  onCreateVm,
 }: {
   isFolder: boolean
   isTemplate?: boolean
@@ -352,8 +356,10 @@ function MenuItems({
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
+  onCreateVm: () => void
 }) {
-  if (isFolder) return <FolderMenuItems onAction={onAction} />
+  if (isFolder)
+    return <FolderMenuItems onAction={onAction} onCreateVm={onCreateVm} />
   if (isTemplate)
     return (
       <TemplateMenuItems
@@ -395,6 +401,7 @@ export function TreeNodeMenu({
   const [snapshotOpen, setSnapshotOpen] = useState(false)
   const [cloneOpen, setCloneOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
+  const [createVmOpen, setCreateVmOpen] = useState(false)
 
   return (
     <>
@@ -421,10 +428,12 @@ export function TreeNodeMenu({
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
             onRename={() => setRenameOpen(true)}
+            onCreateVm={() => setCreateVmOpen(true)}
           />
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
       {pveNode && vmid !== undefined && (
         <>
           <SnapshotDialog
@@ -472,6 +481,7 @@ export function VmOptionsMenu({
   const [snapshotOpen, setSnapshotOpen] = useState(false)
   const [cloneOpen, setCloneOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
+  const [createVmOpen, setCreateVmOpen] = useState(false)
 
   return (
     <>
@@ -493,10 +503,12 @@ export function VmOptionsMenu({
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
             onRename={() => setRenameOpen(true)}
+            onCreateVm={() => setCreateVmOpen(true)}
           />
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
       {pveNode && vmid !== undefined && (
         <>
           <SnapshotDialog

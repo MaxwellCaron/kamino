@@ -14,7 +14,6 @@ import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as DashboardUsersRouteImport } from './routes/_dashboard/users'
 import { Route as DashboardSdnRouteImport } from './routes/_dashboard/sdn'
 import { Route as DashboardGroupsRouteImport } from './routes/_dashboard/groups'
-import { Route as DashboardVmCreateRouteImport } from './routes/_dashboard/vm/create'
 import { Route as DashboardVmItemIdRouteImport } from './routes/_dashboard/vm/$itemId'
 
 const DashboardRoute = DashboardRouteImport.update({
@@ -41,11 +40,6 @@ const DashboardGroupsRoute = DashboardGroupsRouteImport.update({
   path: '/groups',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardVmCreateRoute = DashboardVmCreateRouteImport.update({
-  id: '/vm/create',
-  path: '/vm/create',
-  getParentRoute: () => DashboardRoute,
-} as any)
 const DashboardVmItemIdRoute = DashboardVmItemIdRouteImport.update({
   id: '/vm/$itemId',
   path: '/vm/$itemId',
@@ -58,7 +52,6 @@ export interface FileRoutesByFullPath {
   '/sdn': typeof DashboardSdnRoute
   '/users': typeof DashboardUsersRoute
   '/vm/$itemId': typeof DashboardVmItemIdRoute
-  '/vm/create': typeof DashboardVmCreateRoute
 }
 export interface FileRoutesByTo {
   '/groups': typeof DashboardGroupsRoute
@@ -66,7 +59,6 @@ export interface FileRoutesByTo {
   '/users': typeof DashboardUsersRoute
   '/': typeof DashboardIndexRoute
   '/vm/$itemId': typeof DashboardVmItemIdRoute
-  '/vm/create': typeof DashboardVmCreateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -76,13 +68,12 @@ export interface FileRoutesById {
   '/_dashboard/users': typeof DashboardUsersRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/vm/$itemId': typeof DashboardVmItemIdRoute
-  '/_dashboard/vm/create': typeof DashboardVmCreateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/groups' | '/sdn' | '/users' | '/vm/$itemId' | '/vm/create'
+  fullPaths: '/' | '/groups' | '/sdn' | '/users' | '/vm/$itemId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/groups' | '/sdn' | '/users' | '/' | '/vm/$itemId' | '/vm/create'
+  to: '/groups' | '/sdn' | '/users' | '/' | '/vm/$itemId'
   id:
     | '__root__'
     | '/_dashboard'
@@ -91,7 +82,6 @@ export interface FileRouteTypes {
     | '/_dashboard/users'
     | '/_dashboard/'
     | '/_dashboard/vm/$itemId'
-    | '/_dashboard/vm/create'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -135,13 +125,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardGroupsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/vm/create': {
-      id: '/_dashboard/vm/create'
-      path: '/vm/create'
-      fullPath: '/vm/create'
-      preLoaderRoute: typeof DashboardVmCreateRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/_dashboard/vm/$itemId': {
       id: '/_dashboard/vm/$itemId'
       path: '/vm/$itemId'
@@ -158,7 +141,6 @@ interface DashboardRouteChildren {
   DashboardUsersRoute: typeof DashboardUsersRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardVmItemIdRoute: typeof DashboardVmItemIdRoute
-  DashboardVmCreateRoute: typeof DashboardVmCreateRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -167,7 +149,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardUsersRoute: DashboardUsersRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardVmItemIdRoute: DashboardVmItemIdRoute,
-  DashboardVmCreateRoute: DashboardVmCreateRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
