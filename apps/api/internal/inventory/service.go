@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -25,13 +26,19 @@ var (
 	ErrInventoryFolderConflict  = errors.New("inventory folder with that name already exists")
 )
 
+const proxmoxRootFolderName = "Proxmox"
+
 type Service struct {
 	db       *pgxpool.Pool
 	notifier *Notifier
-	mirror   *ProxmoxMirror
+	mirror   Mirror
 }
 
-func NewService(db *pgxpool.Pool, notifier *Notifier, mirror *ProxmoxMirror) *Service {
+type Mirror interface {
+	ScheduleReconcile()
+}
+
+func NewService(db *pgxpool.Pool, notifier *Notifier, mirror Mirror) *Service {
 	return &Service{
 		db:       db,
 		notifier: notifier,
@@ -48,6 +55,11 @@ func (s *Service) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (datab
 }
 
 func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name string) (uuid.UUID, error) {
+	name = names.Normalize(name)
+	if err := names.ValidateFolder(name); err != nil {
+		return uuid.Nil, err
+	}
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, err
@@ -100,6 +112,11 @@ func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name str
 }
 
 func (s *Service) RenameFolder(ctx context.Context, id uuid.UUID, name string) error {
+	name = names.Normalize(name)
+	if err := names.ValidateFolder(name); err != nil {
+		return err
+	}
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err

@@ -55,6 +55,7 @@ import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/lib/queries"
+import { vmNameSchema } from "@/lib/vm-name"
 
 const networkInterfaceSchema = z.object({
   bridge: z.string().default("vmbr0"),
@@ -66,7 +67,7 @@ const networkInterfaceSchema = z.object({
 const vmSchema = z.object({
   node: z.string().min(1, "Node is required"),
   vmid: z.number().int().min(100, "VM ID must be at least 100"),
-  name: z.string().min(1, "Name is required").max(63),
+  name: vmNameSchema,
   pool: z.string().optional(),
   ostype: z.string().default("l26"),
   iso: z.string().optional(),
@@ -290,7 +291,9 @@ export function CreateVmDialog({
                           <SelectItem value="l26">Linux 2.6+</SelectItem>
                           <SelectItem value="l24">Linux 2.4</SelectItem>
                           <SelectItem value="win11">Windows 11/2022</SelectItem>
-                          <SelectItem value="win10">Windows 10/2016/2019</SelectItem>
+                          <SelectItem value="win10">
+                            Windows 10/2016/2019
+                          </SelectItem>
                           <SelectItem value="win8">Windows 8/2012</SelectItem>
                           <SelectItem value="win7">Windows 7/2008</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
@@ -358,7 +361,9 @@ export function CreateVmDialog({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="seabios">SeaBIOS (Default)</SelectItem>
+                          <SelectItem value="seabios">
+                            SeaBIOS (Default)
+                          </SelectItem>
                           <SelectItem value="ovmf">OVMF (UEFI)</SelectItem>
                         </SelectContent>
                       </Select>
@@ -473,7 +478,9 @@ export function CreateVmDialog({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="x86-64-v2-AES">x86-64-v2-AES (Default)</SelectItem>
+                          <SelectItem value="x86-64-v2-AES">
+                            x86-64-v2-AES (Default)
+                          </SelectItem>
                           <SelectItem value="host">host</SelectItem>
                           <SelectItem value="kvm64">kvm64</SelectItem>
                           <SelectItem value="qemu64">qemu64</SelectItem>
@@ -546,10 +553,7 @@ export function CreateVmDialog({
                 {(networksField) => (
                   <div className="space-y-4">
                     {networksField.state.value.map((_, i) => (
-                      <div
-                        key={i}
-                        className="space-y-3 rounded-lg border p-4"
-                      >
+                      <div key={i} className="space-y-3 rounded-lg border p-4">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium">net{i}</p>
                           {networksField.state.value.length > 1 && (
@@ -646,9 +650,15 @@ export function CreateVmDialog({
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="virtio">VirtIO (Default)</SelectItem>
-                                    <SelectItem value="e1000">Intel E1000</SelectItem>
-                                    <SelectItem value="rtl8139">Realtek RTL8139</SelectItem>
+                                    <SelectItem value="virtio">
+                                      VirtIO (Default)
+                                    </SelectItem>
+                                    <SelectItem value="e1000">
+                                      Intel E1000
+                                    </SelectItem>
+                                    <SelectItem value="rtl8139">
+                                      Realtek RTL8139
+                                    </SelectItem>
                                   </SelectContent>
                                 </Select>
                               </Field>
@@ -814,10 +824,7 @@ export function CreateVmDialog({
                 )}
               </form.Subscribe>
             ) : (
-              <Button
-                type="button"
-                onClick={() => setTab(tabs[tabIndex + 1])}
-              >
+              <Button type="button" onClick={() => setTab(tabs[tabIndex + 1])}>
                 Next
               </Button>
             )}

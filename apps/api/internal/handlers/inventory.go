@@ -9,6 +9,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -287,7 +288,11 @@ func writeInventoryError(c *gin.Context, err error) {
 		errors.Is(err, inventory.ErrInventoryParentNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
-		errors.Is(err, inventory.ErrInventoryItemNotFolder):
+		errors.Is(err, inventory.ErrInventoryItemNotFolder),
+		errors.Is(err, names.ErrRequired),
+		errors.Is(err, names.ErrTooLong),
+		errors.Is(err, names.ErrMustStartWithLetter),
+		errors.Is(err, names.ErrInvalidCharacters):
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryInvalidMove),
 		errors.Is(err, inventory.ErrInventoryReservedFolder),

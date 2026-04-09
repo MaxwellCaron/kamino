@@ -19,12 +19,10 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { useRenameVM } from "@/hooks/use-vm-actions"
+import { vmNameSchema } from "@/lib/vm-name"
 
 const renameSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Name is required")
-    .max(63, "Name must be 63 characters or less"),
+  name: vmNameSchema,
 })
 
 export function RenameDialog({

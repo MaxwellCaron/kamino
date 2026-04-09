@@ -1,4 +1,4 @@
-package inventory
+package proxmox
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,27 +18,27 @@ const (
 	kaminoManagedPoolCommentTag = "Managed by Kamino"
 )
 
-type ProxmoxMirror struct {
+type InventoryMirror struct {
 	db     *pgxpool.Pool
-	client *proxmox.Client
+	client *Client
 
 	mu      sync.Mutex
 	running bool
 	pending bool
 }
 
-func NewProxmoxMirror(db *pgxpool.Pool, client *proxmox.Client) *ProxmoxMirror {
+func NewInventoryMirror(db *pgxpool.Pool, client *Client) *InventoryMirror {
 	if client == nil {
 		return nil
 	}
 
-	return &ProxmoxMirror{
+	return &InventoryMirror{
 		db:     db,
 		client: client,
 	}
 }
 
-func (m *ProxmoxMirror) ScheduleReconcile() {
+func (m *InventoryMirror) ScheduleReconcile() {
 	if m == nil || m.client == nil {
 		return
 	}
@@ -56,7 +55,7 @@ func (m *ProxmoxMirror) ScheduleReconcile() {
 	go m.run()
 }
 
-func (m *ProxmoxMirror) run() {
+func (m *InventoryMirror) run() {
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		err := m.Reconcile(ctx)
@@ -77,7 +76,7 @@ func (m *ProxmoxMirror) run() {
 	}
 }
 
-func (m *ProxmoxMirror) Reconcile(ctx context.Context) error {
+func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	if m == nil || m.client == nil {
 		return nil
 	}
@@ -133,7 +132,7 @@ func (m *ProxmoxMirror) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("loading proxmox pools: %w", err)
 	}
 
-	currentPoolsByID := make(map[string]proxmox.Pool, len(currentPools))
+	currentPoolsByID := make(map[string]Pool, len(currentPools))
 	for _, pool := range currentPools {
 		currentPoolsByID[pool.PoolID] = pool
 	}
@@ -246,30 +245,4 @@ func EncodePoolPath(path []string) string {
 	}
 
 	return strings.Join(escaped, "_")
-}
-
-func DecodePoolPath(poolID string) []string {
-	var (
-		segments []string
-		current  strings.Builder
-	)
-
-	for i := 0; i < len(poolID); i++ {
-		if poolID[i] != '_' {
-			current.WriteByte(poolID[i])
-			continue
-		}
-
-		if i+1 < len(poolID) && poolID[i+1] == '_' {
-			current.WriteByte('_')
-			i++
-			continue
-		}
-
-		segments = append(segments, current.String())
-		current.Reset()
-	}
-
-	segments = append(segments, current.String())
-	return segments
 }

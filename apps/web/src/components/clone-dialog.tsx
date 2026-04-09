@@ -22,13 +22,11 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { useCloneVM } from "@/hooks/use-vm-actions"
+import { vmNameSchema } from "@/lib/vm-name"
 
 const cloneSchema = z.object({
   newid: z.number().int().min(100, "VM ID must be at least 100"),
-  name: z
-    .string()
-    .min(1, "Name is required")
-    .max(63, "Name must be 63 characters or less"),
+  name: vmNameSchema,
   full: z.boolean(),
 })
 

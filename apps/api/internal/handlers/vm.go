@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 )
@@ -143,6 +144,11 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	req.Name = names.Normalize(req.Name)
+	if err := names.ValidateVM(req.Name); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
 
 	ctx := c.Request.Context()
 
@@ -170,6 +176,11 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	var req cloneVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.Name = names.Normalize(req.Name)
+	if err := names.ValidateVM(req.Name); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 

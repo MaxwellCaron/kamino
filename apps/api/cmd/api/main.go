@@ -39,7 +39,7 @@ type Server struct {
 	Config        *Config
 	DBPool        *pgxpool.Pool
 	ProxmoxClient *proxmox.Client
-	ProxmoxSync   *proxmox.Sync
+	ProxmoxImport *proxmox.InventoryImporter
 	ADClient      *activedirectory.Client
 	ADSync        *activedirectory.Sync
 }
@@ -76,13 +76,13 @@ func newServer(config *Config) (*Server, error) {
 	)
 
 	// Initialize sync service
-	pxSync := proxmox.NewSync(dbPool, pxClient)
+	pxImport := proxmox.NewInventoryImporter(dbPool, pxClient)
 
 	server := &Server{
 		Config:        config,
 		DBPool:        dbPool,
 		ProxmoxClient: pxClient,
-		ProxmoxSync:   pxSync,
+		ProxmoxImport: pxImport,
 	}
 
 	// Initialize AD client and sync if LDAP is configured
@@ -117,7 +117,7 @@ func main() {
 	defer server.DBPool.Close()
 
 	// Run initial Proxmox inventory sync
-	if err := server.ProxmoxSync.Run(context.Background()); err != nil {
+	if err := server.ProxmoxImport.Run(context.Background()); err != nil {
 		log.Printf("Initial Proxmox sync failed: %v", err)
 	}
 
@@ -131,7 +131,7 @@ func main() {
 	inventoryNotifier := inventory.NewNotifier(server.DBPool)
 	go inventoryNotifier.Start(context.Background())
 
-	proxmoxMirror := inventory.NewProxmoxMirror(server.DBPool, server.ProxmoxClient)
+	proxmoxMirror := proxmox.NewInventoryMirror(server.DBPool, server.ProxmoxClient)
 	if proxmoxMirror != nil {
 		if err := proxmoxMirror.Reconcile(context.Background()); err != nil {
 			log.Printf("Initial Proxmox mirror reconcile failed: %v", err)

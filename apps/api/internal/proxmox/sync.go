@@ -16,18 +16,18 @@ import (
 
 const rootFolderName = "Proxmox"
 
-// Sync handles syncing Proxmox pools and VMs into the inventory database.
-type Sync struct {
+// InventoryImporter syncs Proxmox pools and VMs into the inventory database.
+type InventoryImporter struct {
 	db     *pgxpool.Pool
 	client *Client
 }
 
-func NewSync(db *pgxpool.Pool, client *Client) *Sync {
-	return &Sync{db: db, client: client}
+func NewInventoryImporter(db *pgxpool.Pool, client *Client) *InventoryImporter {
+	return &InventoryImporter{db: db, client: client}
 }
 
 // Run performs a full sync of pools (as folders) and VMs from Proxmox.
-func (s *Sync) Run(ctx context.Context) error {
+func (s *InventoryImporter) Run(ctx context.Context) error {
 	log.Println("Starting Proxmox inventory sync")
 
 	pools, err := s.client.GetPools(ctx)
