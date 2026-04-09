@@ -120,7 +120,10 @@ export function CreateVmDialog({
   const [selectedNode, setSelectedNode] = useState("")
   const [isoStorage, setIsoStorage] = useState("")
 
-  const { data: nodes } = useQuery(nodesQueryOptions)
+  const { data: nodes } = useQuery({
+    ...nodesQueryOptions,
+    enabled: open,
+  })
   const { data: storages } = useQuery(storagesQueryOptions(selectedNode))
   const { data: isos } = useQuery(isosQueryOptions(selectedNode, isoStorage))
   const { data: networks } = useQuery(bridgesQueryOptions(selectedNode))

@@ -449,7 +449,9 @@ export function TreeNodeMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
+      {createVmOpen && (
+        <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
+      )}
       {isFolder && (
         <>
           <FolderDialog
@@ -543,7 +545,9 @@ export function VmOptionsMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
+      {createVmOpen && (
+        <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
+      )}
       {isFolder && (
         <>
           <FolderDialog
