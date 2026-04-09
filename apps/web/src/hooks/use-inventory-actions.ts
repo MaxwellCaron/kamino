@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import type { ApiTreeNode } from "@/lib/queries"
 import {
   createFolder,
+  deleteFolder,
   inventoryTreeQueryOptions,
   moveInventoryItem,
   renameFolder,
@@ -156,6 +157,19 @@ export function useRenameFolder() {
 
   return useMutation({
     mutationFn: renameFolder,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+    },
+  })
+}
+
+export function useDeleteFolder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deleteFolder,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,

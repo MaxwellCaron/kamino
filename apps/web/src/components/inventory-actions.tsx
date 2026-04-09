@@ -1,9 +1,11 @@
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconCamera,
   IconCopy,
   IconDots,
   IconEdit,
+  IconFolder,
   IconFolderPlus,
   IconLock,
   IconPin,
@@ -11,6 +13,7 @@ import {
   IconPlayerStop,
   IconPower,
   IconRefresh,
+  IconServer,
   IconServerSpark,
   IconTemplate,
   IconTrash,
@@ -24,10 +27,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
 import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
+import { Badge } from "@workspace/ui/components/badge"
 import { ConfirmDialog } from "./inventory-confirm-actions"
 import { SnapshotDialog } from "./snapshot-dialog"
 import { RenameDialog } from "./rename-dialog"
@@ -35,22 +46,127 @@ import { CloneDialog } from "./clone-dialog"
 import { CreateVmDialog } from "./create-vm-dialog"
 import { FolderDialog } from "./folder-dialog"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
+import type { ApiTreeNode } from "@/lib/queries"
+import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
+import { summarizeFolderDeletion } from "@/lib/inventory-tree"
+import { useDeleteFolder } from "@/hooks/use-inventory-actions"
 import {
   useConvertToTemplate,
   useDeleteVM,
   useVmPowerAction,
 } from "@/hooks/use-vm-actions"
 
+function formatMutationError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
+function pluralize(
+  count: number,
+  singular: string,
+  plural = `${singular}s`
+): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function formatAffectedItems(
+  items: Array<string>,
+  totalCount: number,
+  emptyLabel: string
+): string {
+  if (totalCount === 0) return emptyLabel
+  if (items.length === 0) return pluralize(totalCount, "item")
+
+  const remainingCount = Math.max(totalCount - items.length, 0)
+  const listedItems = items.join(", ")
+
+  return remainingCount > 0
+    ? `${listedItems}, and ${pluralize(remainingCount, "other item")}`
+    : listedItems
+}
+
+function FolderDeletionDescription({
+  folderCount,
+  vmCount,
+  templateCount,
+  folderNames,
+  vmNames,
+  templateNames,
+}: {
+  folderName: string
+  folderCount: number
+  vmCount: number
+  templateCount: number
+  folderNames: Array<string>
+  vmNames: Array<string>
+  templateNames: Array<string>
+}) {
+  return (
+    <>
+      <p>The following items will be permanently deleted.</p>
+      <div className="space-y-4 pt-4">
+        <Item variant="muted">
+          <ItemMedia variant="icon">
+            <IconFolder />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle className="text-foreground">
+              <span>Folders</span>
+              <Badge variant={folderCount !== 0 ? "destructive" : "outline"}>
+                {folderCount}
+              </Badge>
+            </ItemTitle>
+            <ItemDescription>
+              {formatAffectedItems(folderNames, folderCount, "—")}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemMedia variant="icon">
+            <IconServer />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle className="text-foreground">
+              <span>VMs</span>
+              <Badge variant={vmCount !== 0 ? "destructive" : "outline"}>
+                {vmCount}
+              </Badge>
+            </ItemTitle>
+            <ItemDescription>
+              {formatAffectedItems(vmNames, vmCount, "—")}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemMedia variant="icon">
+            <IconTemplate />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle className="text-foreground">
+              <span>Templates</span>
+              <Badge variant={templateCount !== 0 ? "destructive" : "outline"}>
+                {templateCount}
+              </Badge>
+            </ItemTitle>
+            <ItemDescription>
+              {formatAffectedItems(templateNames, templateCount, "—")}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      </div>
+    </>
+  )
+}
+
 function FolderMenuItems({
-  onAction,
   onCreateVm,
   onCreateFolder,
   onRename,
+  onDelete,
 }: {
-  onAction: (config: ConfirmConfig) => void
   onCreateVm: () => void
   onCreateFolder: () => void
   onRename: () => void
+  onDelete: () => void
 }) {
   return (
     <>
@@ -82,19 +198,7 @@ function FolderMenuItems({
         </DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem
-        variant="destructive"
-        onClick={() =>
-          onAction({
-            title: "Delete Folder?",
-            description:
-              "This will permanently delete the folder and all its contents. This action cannot be undone.",
-            actionLabel: "Delete",
-            variant: "destructive",
-            onConfirm: () => {},
-          })
-        }
-      >
+      <DropdownMenuItem variant="destructive" onClick={onDelete}>
         <IconTrash />
         Delete
       </DropdownMenuItem>
@@ -353,6 +457,7 @@ function MenuItems({
   onRename,
   onCreateVm,
   onCreateFolder,
+  onDeleteFolder,
 }: {
   isFolder: boolean
   isTemplate?: boolean
@@ -364,14 +469,15 @@ function MenuItems({
   onRename: () => void
   onCreateVm: () => void
   onCreateFolder: () => void
+  onDeleteFolder: () => void
 }) {
   if (isFolder)
     return (
       <FolderMenuItems
-        onAction={onAction}
         onCreateFolder={onCreateFolder}
         onCreateVm={onCreateVm}
         onRename={onRename}
+        onDelete={onDeleteFolder}
       />
     )
   if (isTemplate)
@@ -411,12 +517,55 @@ export function TreeNodeMenu({
   const { selectNode } = useTree()
   const { nodeId } = useTreeNode()
   const { isMobile } = useSidebar()
+  const queryClient = useQueryClient()
+  const deleteFolder = useDeleteFolder()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
   const [cloneOpen, setCloneOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [createVmOpen, setCreateVmOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
+
+  function handleDeleteFolder() {
+    const tree =
+      queryClient.getQueryData<Array<ApiTreeNode>>(
+        inventoryTreeQueryOptions.queryKey
+      ) ?? []
+    const folder = findTreeNode(tree, nodeId)
+
+    if (!folder || folder.kind !== "folder") {
+      toast.error("Failed to load folder details.")
+      return
+    }
+
+    const summary = summarizeFolderDeletion(folder)
+
+    setConfirm({
+      title: `Delete folder "${folder.name}"?`,
+      description: (
+        <FolderDeletionDescription
+          folderName={folder.name}
+          folderCount={summary.folderCount}
+          vmCount={summary.vmCount}
+          templateCount={summary.templateCount}
+          folderNames={summary.folderNames}
+          vmNames={summary.vmNames}
+          templateNames={summary.templateNames}
+        />
+      ),
+      actionLabel: "Delete",
+      variant: "destructive",
+      onConfirm: async () => {
+        try {
+          await deleteFolder.mutateAsync({ id: nodeId })
+          toast.success(`Folder "${folder.name}" deleted`)
+        } catch (error) {
+          toast.error(formatMutationError(error, "Failed to delete folder"))
+          throw error
+        }
+      },
+    })
+  }
 
   return (
     <>
@@ -445,6 +594,7 @@ export function TreeNodeMenu({
             onRename={() => setRenameOpen(true)}
             onCreateVm={() => setCreateVmOpen(true)}
             onCreateFolder={() => setCreateFolderOpen(true)}
+            onDeleteFolder={handleDeleteFolder}
           />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -541,6 +691,7 @@ export function VmOptionsMenu({
             onRename={() => setRenameOpen(true)}
             onCreateVm={() => setCreateVmOpen(true)}
             onCreateFolder={() => setCreateFolderOpen(true)}
+            onDeleteFolder={() => {}}
           />
         </DropdownMenuContent>
       </DropdownMenu>

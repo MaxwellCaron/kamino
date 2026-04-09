@@ -91,6 +91,16 @@ export async function renameFolder(params: {
   }
 }
 
+export async function deleteFolder(params: { id: string }): Promise<void> {
+  const res = await fetch(`/api/v1/inventory/folders/${params.id}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to delete folder: ${res.status}`)
+  }
+}
+
 async function fetchVmStatuses(): Promise<Record<number, string>> {
   const res = await fetch("/api/v1/vms/status")
   if (!res.ok) throw new Error(`Failed to fetch VM statuses: ${res.status}`)

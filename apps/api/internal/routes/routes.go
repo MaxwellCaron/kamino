@@ -27,6 +27,7 @@ func RegisterRoutes(
 	v1.POST("/inventory/move", inventory.MoveItem)
 	v1.POST("/inventory/folders", inventory.CreateFolder)
 	v1.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
+	v1.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
 	v1.GET("/inventory/events", inventory.StreamEvents)
 
 	// VM endpoints

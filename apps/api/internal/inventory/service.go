@@ -34,6 +34,17 @@ type Service struct {
 	mirror   Mirror
 }
 
+type FolderDeletionVM struct {
+	Node       string
+	VMID       int32
+	Name       string
+	IsTemplate bool
+}
+
+type FolderDeletionPlan struct {
+	ProxmoxVMs []FolderDeletionVM
+}
+
 type Mirror interface {
 	ScheduleReconcile()
 }
@@ -172,6 +183,61 @@ func (s *Service) RenameFolder(ctx context.Context, id uuid.UUID, name string) e
 	return nil
 }
 
+func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (FolderDeletionPlan, error) {
+	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	if err != nil {
+		return FolderDeletionPlan{}, err
+	}
+
+	itemsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(rows))
+	childrenByParent := make(map[uuid.UUID][]uuid.UUID, len(rows))
+
+	for _, row := range rows {
+		itemsByID[row.ID] = row
+		if row.ParentID != nil {
+			childrenByParent[*row.ParentID] = append(childrenByParent[*row.ParentID], row.ID)
+		}
+	}
+
+	item, ok := itemsByID[id]
+	if !ok {
+		return FolderDeletionPlan{}, ErrInventoryFolderNotFound
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return FolderDeletionPlan{}, ErrInventoryItemNotFolder
+	}
+	if item.ParentID == nil && item.Name == proxmoxRootFolderName {
+		return FolderDeletionPlan{}, ErrInventoryReservedFolder
+	}
+
+	plan := FolderDeletionPlan{}
+
+	var walk func(uuid.UUID)
+	walk = func(itemID uuid.UUID) {
+		current := itemsByID[itemID]
+
+		if current.Kind == database.InventoryItemKindFolder {
+			for _, childID := range childrenByParent[itemID] {
+				walk(childID)
+			}
+			return
+		}
+
+		isTemplate := current.IsTemplate != nil && *current.IsTemplate
+		if current.Node != nil && current.Vmid != nil {
+			plan.ProxmoxVMs = append(plan.ProxmoxVMs, FolderDeletionVM{
+				Node:       *current.Node,
+				VMID:       *current.Vmid,
+				Name:       current.Name,
+				IsTemplate: isTemplate,
+			})
+		}
+	}
+
+	walk(id)
+	return plan, nil
+}
+
 func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.UUID) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -218,6 +284,43 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 	}
 
 	s.notifyTx(ctx, tx, itemID)
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	s.scheduleMirror()
+	return nil
+}
+
+func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+
+	item, err := q.GetInventoryItemForUpdate(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInventoryFolderNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return ErrInventoryItemNotFolder
+	}
+	if item.ParentID == nil && item.Name == proxmoxRootFolderName {
+		return ErrInventoryReservedFolder
+	}
+
+	if err := q.DeleteInventoryItem(ctx, id); err != nil {
+		return err
+	}
+
+	s.notifyTx(ctx, tx, id)
 
 	if err := tx.Commit(ctx); err != nil {
 		return err

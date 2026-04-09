@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,10 +9,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
+import type { ReactNode } from "react"
 
 export type ConfirmConfig = {
   title: string
-  description: string
+  description: ReactNode
   actionLabel: string
   variant?: "default" | "destructive"
   onConfirm: () => Promise<void> | void
@@ -26,6 +27,7 @@ export function ConfirmDialog({
   onClose: () => void
 }) {
   const lastConfig = useRef<ConfirmConfig | null>(null)
+  const [isPending, setIsPending] = useState(false)
   if (config) lastConfig.current = config
 
   const display = config ?? lastConfig.current
@@ -34,23 +36,37 @@ export function ConfirmDialog({
     <AlertDialog
       open={config !== null}
       onOpenChange={(open) => {
-        if (!open) onClose()
+        if (!open && !isPending) onClose()
       }}
     >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{display?.title}</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription
+            render={<div />}
+            className="space-y-3 text-sm text-muted-foreground"
+          >
             {display?.description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel />
+          <AlertDialogCancel disabled={isPending} />
           <AlertDialogAction
             variant={display?.variant ?? "default"}
+            disabled={isPending}
             onClick={async () => {
-              await config?.onConfirm()
-              onClose()
+              if (!config) return
+
+              setIsPending(true)
+
+              try {
+                await config.onConfirm()
+                onClose()
+              } catch {
+                // Error feedback is handled by the caller.
+              } finally {
+                setIsPending(false)
+              }
             }}
           >
             {display?.actionLabel}

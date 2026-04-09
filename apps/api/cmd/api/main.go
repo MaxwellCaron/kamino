@@ -146,6 +146,7 @@ func main() {
 	inventoryHandler := &handlers.InventoryHandler{
 		Service:  inventoryService,
 		Notifier: inventoryNotifier,
+		PX:       server.ProxmoxClient,
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
 	vmHandler := &handlers.VMHandler{

@@ -10,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,6 +19,7 @@ import (
 type InventoryHandler struct {
 	Service  *inventory.Service
 	Notifier *inventory.Notifier
+	PX       *proxmox.Client
 }
 
 // JSON response types
@@ -159,6 +161,49 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 	}
 
 	if err := h.Service.RenameFolder(c.Request.Context(), id, req.Name); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// DeleteFolder recursively deletes a folder, its embedded Proxmox VMs/templates,
+// and the folder subtree from inventory.
+// DELETE /api/v1/inventory/folders/:id
+func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	plan, err := h.Service.BuildFolderDeletionPlan(c.Request.Context(), id)
+	if err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	if h.PX == nil && len(plan.ProxmoxVMs) > 0 {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "proxmox client unavailable"})
+		return
+	}
+
+	for _, vm := range plan.ProxmoxVMs {
+		if err := h.PX.DeleteVM(c.Request.Context(), vm.Node, int(vm.VMID)); err != nil {
+			kind := "VM"
+			if vm.IsTemplate {
+				kind = "template"
+			}
+
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error": fmt.Sprintf("failed to delete %s %q (%d)", kind, vm.Name, vm.VMID),
+			})
+			return
+		}
+	}
+
+	if err := h.Service.DeleteFolder(c.Request.Context(), id); err != nil {
 		writeInventoryError(c, err)
 		return
 	}
