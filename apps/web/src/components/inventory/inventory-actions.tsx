@@ -84,6 +84,12 @@ function formatAffectedItems(
     : listedItems
 }
 
+function formatVmIdentifier(name: string | undefined, vmid: number): string {
+  const trimmedName = name?.trim()
+
+  return trimmedName ? `"${trimmedName}" (${vmid})` : `${vmid}`
+}
+
 function FolderDeletionDescription({
   folderCount,
   vmCount,
@@ -209,6 +215,7 @@ function FolderMenuItems({
 function VmMenuItems({
   node,
   vmid,
+  name,
   onAction,
   onSnapshot,
   onClone,
@@ -216,6 +223,7 @@ function VmMenuItems({
 }: {
   node: string
   vmid: number
+  name?: string
   onAction: (config: ConfirmConfig) => void
   onSnapshot: () => void
   onClone: () => void
@@ -224,6 +232,7 @@ function VmMenuItems({
   const powerAction = useVmPowerAction()
   const deleteVm = useDeleteVM()
   const toTemplate = useConvertToTemplate()
+  const vmIdentifier = formatVmIdentifier(name, vmid)
 
   return (
     <>
@@ -240,8 +249,8 @@ function VmMenuItems({
                 toast.promise(
                   powerAction.mutateAsync({ node, vmid, action: "start" }),
                   {
-                    loading: `Starting VM ${vmid}…`,
-                    success: `VM ${vmid} started`,
+                    loading: `Starting VM ${vmIdentifier}…`,
+                    success: `VM ${vmIdentifier} started`,
                     error: (err: Error) => err.message,
                   }
                 )
@@ -264,8 +273,8 @@ function VmMenuItems({
                 toast.promise(
                   powerAction.mutateAsync({ node, vmid, action: "shutdown" }),
                   {
-                    loading: `Shutting down VM ${vmid}…`,
-                    success: `VM ${vmid} shut down`,
+                    loading: `Shutting down VM ${vmIdentifier}…`,
+                    success: `VM ${vmIdentifier} shut down`,
                     error: (err: Error) => err.message,
                   }
                 )
@@ -288,8 +297,8 @@ function VmMenuItems({
                 toast.promise(
                   powerAction.mutateAsync({ node, vmid, action: "reboot" }),
                   {
-                    loading: `Rebooting VM ${vmid}…`,
-                    success: `VM ${vmid} rebooted`,
+                    loading: `Rebooting VM ${vmIdentifier}…`,
+                    success: `VM ${vmIdentifier} rebooted`,
                     error: (err: Error) => err.message,
                   }
                 )
@@ -312,8 +321,8 @@ function VmMenuItems({
                 toast.promise(
                   powerAction.mutateAsync({ node, vmid, action: "stop" }),
                   {
-                    loading: `Stopping VM ${vmid}…`,
-                    success: `VM ${vmid} stopped`,
+                    loading: `Stopping VM ${vmIdentifier}…`,
+                    success: `VM ${vmIdentifier} stopped`,
                     error: (err: Error) => err.message,
                   }
                 )
@@ -342,8 +351,8 @@ function VmMenuItems({
               variant: "destructive",
               onConfirm: () => {
                 toast.promise(toTemplate.mutateAsync({ node, vmid }), {
-                  loading: `Converting VM ${vmid} to template…`,
-                  success: `VM ${vmid} is now a template`,
+                  loading: `Converting VM ${vmIdentifier} to template…`,
+                  success: `VM ${vmIdentifier} is now a template`,
                   error: (err: Error) => err.message,
                 })
               },
@@ -378,8 +387,8 @@ function VmMenuItems({
             variant: "destructive",
             onConfirm: () => {
               toast.promise(deleteVm.mutateAsync({ node, vmid }), {
-                loading: `Deleting VM ${vmid}…`,
-                success: `VM ${vmid} deleted`,
+                loading: `Deleting VM ${vmIdentifier}…`,
+                success: `VM ${vmIdentifier} deleted`,
                 error: (err: Error) => err.message,
               })
             },
@@ -396,15 +405,18 @@ function VmMenuItems({
 function TemplateMenuItems({
   node,
   vmid,
+  name,
   onAction,
   onClone,
 }: {
   node: string
   vmid: number
+  name?: string
   onAction: (config: ConfirmConfig) => void
   onClone: () => void
 }) {
   const deleteVm = useDeleteVM()
+  const vmIdentifier = formatVmIdentifier(name, vmid)
 
   return (
     <>
@@ -431,8 +443,8 @@ function TemplateMenuItems({
             variant: "destructive",
             onConfirm: () => {
               toast.promise(deleteVm.mutateAsync({ node, vmid }), {
-                loading: `Deleting template ${vmid}…`,
-                success: `Template ${vmid} deleted`,
+                loading: `Deleting template ${vmIdentifier}…`,
+                success: `Template ${vmIdentifier} deleted`,
                 error: (err: Error) => err.message,
               })
             },
@@ -451,6 +463,7 @@ function MenuItems({
   isTemplate,
   node,
   vmid,
+  name,
   onAction,
   onSnapshot,
   onClone,
@@ -463,6 +476,7 @@ function MenuItems({
   isTemplate?: boolean
   node: string
   vmid: number
+  name?: string
   onAction: (config: ConfirmConfig) => void
   onSnapshot: () => void
   onClone: () => void
@@ -485,6 +499,7 @@ function MenuItems({
       <TemplateMenuItems
         node={node}
         vmid={vmid}
+        name={name}
         onAction={onAction}
         onClone={onClone}
       />
@@ -493,6 +508,7 @@ function MenuItems({
     <VmMenuItems
       node={node}
       vmid={vmid}
+      name={name}
       onAction={onAction}
       onSnapshot={onSnapshot}
       onClone={onClone}
@@ -588,6 +604,7 @@ export function TreeNodeMenu({
             isTemplate={isTemplate}
             node={pveNode ?? ""}
             vmid={vmid ?? 0}
+            name={name}
             onAction={setConfirm}
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
@@ -685,6 +702,7 @@ export function VmOptionsMenu({
             isTemplate={isTemplate}
             node={pveNode ?? ""}
             vmid={vmid ?? 0}
+            name={name}
             onAction={setConfirm}
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
