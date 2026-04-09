@@ -9,44 +9,22 @@ import {
   renameVM,
   rollbackSnapshot,
   vmPowerAction,
-  vmStatusQueryOptions,
 } from "@/lib/queries"
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function useVmPowerAction() {
-  const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: vmPowerAction,
-    onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
-      queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
-      queryClient.invalidateQueries({
-        queryKey: vmStatusQueryOptions.queryKey,
-      })
-    },
   })
 }
 
 export function useDeleteVM() {
-  const queryClient = useQueryClient()
   const navigate = useNavigate()
 
   return useMutation({
     mutationFn: deleteVM,
-    onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
-      queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
-      queryClient.invalidateQueries({
-        queryKey: vmStatusQueryOptions.queryKey,
-      })
+    onSuccess: () => {
       navigate({ to: "/" })
     },
   })

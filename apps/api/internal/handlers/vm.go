@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -50,6 +52,37 @@ func (h *VMHandler) GetStatuses(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, statuses)
+}
+
+func (h *VMHandler) waitForObservedVMStatus(vmid int, expectedStatus string) {
+	if h.Notifier == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := h.Notifier.RefreshUntilStatus(ctx, vmid, expectedStatus); err != nil {
+		log.Printf(
+			"vm status catch-up failed for vmid=%d expected=%s: %v",
+			vmid,
+			expectedStatus,
+			err,
+		)
+	}
+}
+
+func (h *VMHandler) waitForVMRemoval(vmid int) {
+	if h.Notifier == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := h.Notifier.RefreshUntilAbsent(ctx, vmid); err != nil {
+		log.Printf("vm removal catch-up failed for vmid=%d: %v", vmid, err)
+	}
 }
 
 // StreamEvents pushes VM status updates to connected browsers.
@@ -175,6 +208,12 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		return
 	}
 
+	switch req.Action {
+	case "start", "reboot":
+		h.waitForObservedVMStatus(req.VMID, "running")
+	case "shutdown", "stop":
+		h.waitForObservedVMStatus(req.VMID, "stopped")
+	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -200,6 +239,7 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		return
 	}
 
+	h.waitForVMRemoval(vmid)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

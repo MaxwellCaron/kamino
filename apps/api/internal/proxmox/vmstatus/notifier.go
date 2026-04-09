@@ -10,6 +10,7 @@ import (
 )
 
 const pollInterval = 10 * time.Second
+const catchUpPollInterval = 1 * time.Second
 
 type Event struct {
 	Type      string         `json:"type"`
@@ -20,6 +21,7 @@ type Event struct {
 type Notifier struct {
 	px *proxmox.Client
 
+	pollMu      sync.Mutex
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}
 	last        map[int]string
@@ -34,7 +36,9 @@ func NewNotifier(px *proxmox.Client) *Notifier {
 }
 
 func (n *Notifier) Start(ctx context.Context) {
-	n.pollAndBroadcast(ctx)
+	if err := n.RefreshNow(ctx); err != nil && ctx.Err() == nil {
+		log.Printf("vm status notifier initial poll failed: %v", err)
+	}
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
@@ -44,9 +48,35 @@ func (n *Notifier) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			n.pollAndBroadcast(ctx)
+			if err := n.RefreshNow(ctx); err != nil && ctx.Err() == nil {
+				log.Printf("vm status notifier poll failed: %v", err)
+			}
 		}
 	}
+}
+
+func (n *Notifier) RefreshNow(ctx context.Context) error {
+	n.pollMu.Lock()
+	defer n.pollMu.Unlock()
+
+	return n.pollAndBroadcast(ctx)
+}
+
+func (n *Notifier) RefreshUntilStatus(
+	ctx context.Context,
+	vmid int,
+	expectedStatus string,
+) error {
+	return n.refreshUntil(ctx, func(statuses map[int]string) bool {
+		return statuses[vmid] == expectedStatus
+	})
+}
+
+func (n *Notifier) RefreshUntilAbsent(ctx context.Context, vmid int) error {
+	return n.refreshUntil(ctx, func(statuses map[int]string) bool {
+		_, exists := statuses[vmid]
+		return !exists
+	})
 }
 
 func (n *Notifier) Current() map[int]string {
@@ -73,13 +103,38 @@ func (n *Notifier) Subscribe() (<-chan Event, func()) {
 	}
 }
 
-func (n *Notifier) pollAndBroadcast(ctx context.Context) {
+func (n *Notifier) refreshUntil(
+	ctx context.Context,
+	matches func(statuses map[int]string) bool,
+) error {
+	if matches(n.Current()) {
+		return nil
+	}
+
+	ticker := time.NewTicker(catchUpPollInterval)
+	defer ticker.Stop()
+
+	for {
+		if err := n.RefreshNow(ctx); err != nil {
+			return err
+		}
+
+		if matches(n.Current()) {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func (n *Notifier) pollAndBroadcast(ctx context.Context) error {
 	vms, err := n.px.GetVMs(ctx)
 	if err != nil {
-		if ctx.Err() == nil {
-			log.Printf("vm status notifier poll failed: %v", err)
-		}
-		return
+		return err
 	}
 
 	next := make(map[int]string, len(vms))
@@ -90,7 +145,7 @@ func (n *Notifier) pollAndBroadcast(ctx context.Context) {
 	n.mu.Lock()
 	if statusesEqual(n.last, next) {
 		n.mu.Unlock()
-		return
+		return nil
 	}
 
 	n.last = next
@@ -102,6 +157,7 @@ func (n *Notifier) pollAndBroadcast(ctx context.Context) {
 	n.mu.Unlock()
 
 	n.broadcast(event)
+	return nil
 }
 
 func (n *Notifier) broadcast(event Event) {
