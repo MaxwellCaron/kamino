@@ -18,18 +18,14 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
-import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import type { ApiPrincipal } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/inventory-confirm-actions"
-import {
-  deleteGroup,
-  groupsQueryOptions,
-  triggerADSync,
-} from "@/lib/queries"
-import { GroupDialog } from "@/components/group-dialog"
-import { MembershipDialog } from "@/components/membership-dialog"
-import { getGroupColumns } from "@/components/groups-columns"
-import { DataTable } from "@/components/data-table"
+import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import { deleteGroup, groupsQueryOptions, triggerADSync } from "@/lib/queries"
+import { GroupDialog } from "@/components/principals/groups/group-dialog"
+import { MembershipDialog } from "@/components/principals/membership-dialog"
+import { getGroupColumns } from "@/components/principals/groups/groups-columns"
+import { DataTable } from "@/components/data-table/data-table"
 
 export const Route = createFileRoute("/_dashboard/groups")({
   component: GroupsPage,
@@ -58,7 +54,9 @@ function GroupsPage() {
 
       if (deletedCount > 0) {
         toast.success(
-          deletedCount === 1 ? "Group deleted" : `${deletedCount} groups deleted`
+          deletedCount === 1
+            ? "Group deleted"
+            : `${deletedCount} groups deleted`
         )
       }
 

@@ -1,9 +1,9 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
-import { SiteHeader } from "@/components/site-header"
-import { AppSidebar } from "@/components/app-sidebar"
-import { InventoryTree } from "@/components/inventory-tree"
-import { CommandManyItems } from "@/components/site-command"
+import { SiteHeader } from "@/components/app-shell/site-header"
+import { AppSidebar } from "@/components/app-shell/app-sidebar"
+import { InventoryTree } from "@/components/inventory/inventory-tree"
+import { CommandManyItems } from "@/components/app-shell/site-command"
 
 export const Route = createFileRoute("/_dashboard")({
   component: Layout,

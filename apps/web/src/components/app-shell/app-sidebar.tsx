@@ -19,10 +19,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { NavDocuments } from "@/components/nav-inventory"
-import { NavUser } from "@/components/nav-user"
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
+import { NavDocuments } from "./nav-inventory"
+import { NavUser } from "./nav-user"
+import { NavMain } from "./nav-main"
+import { NavSecondary } from "./nav-secondary"
 
 const data = {
   user: {

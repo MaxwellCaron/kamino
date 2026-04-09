@@ -10,8 +10,8 @@ import {
 } from "@tanstack/react-router"
 
 import appCss from "@workspace/ui/globals.css?url"
-import { InventoryEvents } from "@/components/inventory-events"
-import { VmStatusEvents } from "@/components/vm-status-events"
+import { InventoryEvents } from "@/components/inventory/inventory-events"
+import { VmStatusEvents } from "@/components/vm/vm-status-events"
 
 const queryClient = new QueryClient({
   defaultOptions: {

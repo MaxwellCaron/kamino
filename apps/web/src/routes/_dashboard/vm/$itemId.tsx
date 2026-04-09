@@ -43,10 +43,10 @@ import {
 import { toast } from "sonner"
 import { useState } from "react"
 import type { ReactNode } from "react"
-import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
-import { ConfirmDialog } from "@/components/inventory-confirm-actions"
-import { VncConsole } from "@/components/vnc-console"
-import { VmOptionsMenu } from "@/components/inventory-actions"
+import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import { VncConsole } from "@/components/vm/vnc-console"
+import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
 import {
   findTreeNode,
   inventoryTreeQueryOptions,

@@ -1,7 +1,7 @@
 import { Separator } from "@workspace/ui/components/separator"
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
+import { ThemeToggle } from "./theme-toggle"
 import type { ReactNode } from "react"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 export function SiteHeader({ command }: { command?: ReactNode }) {
   return (

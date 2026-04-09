@@ -24,14 +24,14 @@ import {
 } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import type { ApiPrincipal } from "@/lib/queries"
-import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
-import { ConfirmDialog } from "@/components/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { deleteUser, triggerADSync, usersQueryOptions } from "@/lib/queries"
-import { UserDialog } from "@/components/user-dialog"
-import { MembershipDialog } from "@/components/membership-dialog"
-import { DataTable } from "@/components/data-table"
-import { getUserColumns } from "@/components/users-columns"
-import { UserGroupBulkDialog } from "@/components/user-group-bulk-dialog"
+import { UserDialog } from "@/components/principals/users/user-dialog"
+import { MembershipDialog } from "@/components/principals/membership-dialog"
+import { DataTable } from "@/components/data-table/data-table"
+import { getUserColumns } from "@/components/principals/users/users-columns"
+import { UserGroupBulkDialog } from "@/components/principals/users/user-group-bulk-dialog"
 
 export const Route = createFileRoute("/_dashboard/users")({
   component: UsersPage,

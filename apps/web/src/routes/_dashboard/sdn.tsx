@@ -13,13 +13,13 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
-import type { ConfirmConfig } from "@/components/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import type { ApiVNet } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/inventory-confirm-actions"
+import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { deleteVNet, vnetsQueryOptions } from "@/lib/queries"
-import { VNetDialog } from "@/components/vnet-dialog"
-import { getVNetColumns } from "@/components/vnets-columns"
-import { DataTable } from "@/components/data-table"
+import { VNetDialog } from "@/components/vnet/vnet-dialog"
+import { getVNetColumns } from "@/components/vnet/vnets-columns"
+import { DataTable } from "@/components/data-table/data-table"
 
 export const Route = createFileRoute("/_dashboard/sdn")({
   component: SdnPage,
