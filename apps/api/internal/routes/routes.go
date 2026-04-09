@@ -31,6 +31,7 @@ func RegisterRoutes(
 
 	// VM endpoints
 	v1.GET("/vms/status", vm.GetStatuses)
+	v1.GET("/vms/events", vm.StreamEvents)
 	v1.POST("/vms/power", vm.PowerAction)
 	v1.POST("/vms/rename", vm.RenameVM)
 	v1.POST("/vms/clone", vm.CloneVM)

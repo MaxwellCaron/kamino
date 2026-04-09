@@ -9,6 +9,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -130,6 +131,8 @@ func main() {
 
 	inventoryNotifier := inventory.NewNotifier(server.DBPool)
 	go inventoryNotifier.Start(context.Background())
+	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient)
+	go vmStatusNotifier.Start(context.Background())
 
 	proxmoxMirror := proxmox.NewInventoryMirror(server.DBPool, server.ProxmoxClient)
 	if proxmoxMirror != nil {
@@ -145,7 +148,11 @@ func main() {
 		Notifier: inventoryNotifier,
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
-	vmHandler := &handlers.VMHandler{PX: server.ProxmoxClient, Service: inventoryService}
+	vmHandler := &handlers.VMHandler{
+		PX:       server.ProxmoxClient,
+		Service:  inventoryService,
+		Notifier: vmStatusNotifier,
+	}
 	vmCreateHandler := &handlers.VMCreateHandler{PX: server.ProxmoxClient}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 

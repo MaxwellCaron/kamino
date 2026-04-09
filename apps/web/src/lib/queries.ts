@@ -100,7 +100,6 @@ async function fetchVmStatuses(): Promise<Record<number, string>> {
 export const vmStatusQueryOptions = {
   queryKey: ["vms", "status"] as const,
   queryFn: fetchVmStatuses,
-  refetchInterval: 30_000,
 }
 
 export async function vmPowerAction(params: {

@@ -42,13 +42,16 @@ export function RenameDialog({
 
   const form = useForm({
     defaultValues: { name: currentName },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const parsed = renameSchema.parse(value)
-      toast.promise(rename.mutateAsync({ node, vmid, name: parsed.name }), {
-        loading: `Renaming VM ${vmid}…`,
-        success: `VM ${vmid} renamed to "${parsed.name}"`,
-        error: (err: Error) => err.message,
-      })
+      try {
+        await rename.mutateAsync({ node, vmid, name: parsed.name })
+        toast.success(`VM ${vmid} renamed to "${parsed.name}"`)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to rename VM")
+        return
+      }
+
       onOpenChange(false)
     },
   })

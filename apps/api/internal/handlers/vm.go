@@ -1,13 +1,17 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,13 +25,19 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX      *proxmox.Client
-	Service *inventory.Service
+	PX       *proxmox.Client
+	Service  *inventory.Service
+	Notifier *vmstatus.Notifier
 }
 
 // GetStatuses returns a map of vmid -> status directly from Proxmox.
 // GET /api/v1/vms/status
 func (h *VMHandler) GetStatuses(c *gin.Context) {
+	if h.Notifier != nil {
+		c.JSON(http.StatusOK, h.Notifier.Current())
+		return
+	}
+
 	vms, err := h.PX.GetVMs(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch VM statuses"})
@@ -40,6 +50,69 @@ func (h *VMHandler) GetStatuses(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, statuses)
+}
+
+// StreamEvents pushes VM status updates to connected browsers.
+// GET /api/v1/vms/events
+func (h *VMHandler) StreamEvents(c *gin.Context) {
+	if h.Notifier == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vm events unavailable"})
+		return
+	}
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
+		return
+	}
+
+	events, unsubscribe := h.Notifier.Subscribe()
+	defer unsubscribe()
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	fmt.Fprint(c.Writer, ": vm status stream connected\n\n")
+	flusher.Flush()
+
+	initialPayload, err := json.Marshal(vmstatus.Event{
+		Type:      "vm.statuses.changed",
+		Statuses:  h.Notifier.Current(),
+		Timestamp: time.Now().UTC(),
+	})
+	if err == nil {
+		fmt.Fprint(c.Writer, "event: vm.statuses.changed\n")
+		fmt.Fprintf(c.Writer, "data: %s\n\n", initialPayload)
+		flusher.Flush()
+	}
+
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+
+			payload, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+
+			fmt.Fprintf(c.Writer, "event: %s\n", event.Type)
+			fmt.Fprintf(c.Writer, "data: %s\n\n", payload)
+			flusher.Flush()
+		case <-ticker.C:
+			fmt.Fprint(c.Writer, ": ping\n\n")
+			flusher.Flush()
+		}
+	}
 }
 
 type createSnapshotRequest struct {

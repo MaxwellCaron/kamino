@@ -11,6 +11,7 @@ import {
 
 import appCss from "@workspace/ui/globals.css?url"
 import { InventoryEvents } from "@/components/inventory-events"
+import { VmStatusEvents } from "@/components/vm-status-events"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +71,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <InventoryEvents />
+      <VmStatusEvents />
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <TooltipProvider>
           <Outlet />

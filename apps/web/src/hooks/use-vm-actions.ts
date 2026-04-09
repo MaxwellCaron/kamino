@@ -57,9 +57,7 @@ export function useRenameVM() {
 
   return useMutation({
     mutationFn: renameVM,
-    onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
