@@ -113,7 +113,7 @@ export function CreateVmDialog({
           parsed.method === "template"
             ? `Cloning template ${selectedTemplate?.name ?? "template"}…`
             : parsed.method === "iso"
-              ? `Creating VM${parsed.vmid > 0 ? ` ${parsed.vmid}` : ""}…`
+              ? `Creating VM…`
               : "Preparing upload workflow…",
         success: (result) => {
           if (parsed.method === "template") {
