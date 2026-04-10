@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -30,15 +29,14 @@ import {
   optionalVmNameSchema,
   optionalVmidSchema,
 } from "@/components/vm/create-vm/create-vm-form"
-import {
-  getInventoryFolderOptions,
-  getParentFolderIdForItem,
-  getSelectedFolder,
-} from "@/lib/inventory-tree"
+import { getInventoryFolderOptions } from "@/lib/inventory-tree"
 import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
 
 const cloneSchema = z.object({
-  target_folder_id: z.string().min(1, "Destination folder is required"),
+  target_folder_id: z
+    .string()
+    .nullable()
+    .refine((value) => !!value, "Destination folder is required"),
   node: z.string().default(""),
   newid: optionalVmidSchema,
   name: optionalVmNameSchema,
@@ -49,7 +47,7 @@ export function CloneDialog({
   node,
   vmid,
   currentName,
-  sourceItemId,
+  sourceItemId: _sourceItemId,
   open,
   onOpenChange,
 }: {
@@ -61,7 +59,6 @@ export function CloneDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const clone = useCloneVM()
-  const didPrefillTargetFolder = useRef(false)
   const { data: inventoryTree = [] } = useQuery({
     ...inventoryTreeQueryOptions,
     enabled: open,
@@ -71,12 +68,10 @@ export function CloneDialog({
     enabled: open,
   })
   const folderOptions = getInventoryFolderOptions(inventoryTree)
-  const defaultFolderId =
-    getParentFolderIdForItem(inventoryTree, sourceItemId) ?? ""
 
   const form = useForm({
     defaultValues: {
-      target_folder_id: "",
+      target_folder_id: null as string | null,
       node: "",
       newid: 0,
       name: "",
@@ -93,7 +88,7 @@ export function CloneDialog({
           name: parsed.name.trim() || currentName,
           full: parsed.full,
           target: parsed.node || undefined,
-          target_folder_id: parsed.target_folder_id,
+          target_folder_id: parsed.target_folder_id ?? "",
         }),
         {
           loading: `Cloning VM ${vmid}…`,
@@ -106,21 +101,6 @@ export function CloneDialog({
       form.reset()
     },
   })
-
-  useEffect(() => {
-    if (!open) {
-      didPrefillTargetFolder.current = false
-      return
-    }
-
-    if (didPrefillTargetFolder.current) return
-
-    form.setFieldValue(
-      "target_folder_id",
-      getSelectedFolder(folderOptions, defaultFolderId)?.id ?? ""
-    )
-    didPrefillTargetFolder.current = true
-  }, [defaultFolderId, folderOptions, form, open])
 
   return (
     <Dialog

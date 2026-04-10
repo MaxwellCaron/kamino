@@ -39,6 +39,10 @@ import { validateVMID } from "@/lib/queries"
 
 type AppFieldComponent = ComponentType<any>
 
+function validateDestinationFolder(value: string | null | undefined) {
+  return value ? undefined : "Destination folder is required"
+}
+
 export function CloneNameField({
   FieldComponent,
   fieldName,
@@ -176,19 +180,29 @@ export function CloneDestinationFolderField({
   folderOptions: Array<InventoryFolderOption>
 }) {
   return (
-    <FieldComponent name={fieldName}>
+    <FieldComponent
+      name={fieldName}
+      validators={{
+        onBlur: ({ value }: { value: string | null | undefined }) =>
+          validateDestinationFolder(value),
+        onSubmit: ({ value }: { value: string | null | undefined }) =>
+          validateDestinationFolder(value),
+      }}
+    >
       {(field: any) => (
         <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
           <FieldLabel>Destination Folder</FieldLabel>
           <Combobox
             items={folderOptions}
             itemToStringValue={(folder) => folder.label}
-            value={getSelectedFolder(folderOptions, field.state.value) ?? null}
-            onValueChange={(folder) => field.handleChange(folder?.id ?? "")}
+            value={
+              getSelectedFolder(folderOptions, field.state.value ?? "") ?? null
+            }
+            onValueChange={(folder) => field.handleChange(folder?.id ?? null)}
             autoHighlight
           >
             <ComboboxInput
-              placeholder="Critical / Pods"
+              placeholder="Select a folder"
               onBlur={field.handleBlur}
               aria-invalid={field.state.meta.errors.length > 0 || undefined}
             />
@@ -203,10 +217,10 @@ export function CloneDestinationFolderField({
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
+          <FieldError>{renderError(field.state.meta.errors[0])}</FieldError>
           <FieldDescription>
             Where the vm will be placed once cloned.
           </FieldDescription>
-          <FieldError>{renderError(field.state.meta.errors[0])}</FieldError>
         </Field>
       )}
     </FieldComponent>
