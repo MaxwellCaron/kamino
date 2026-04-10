@@ -28,19 +28,26 @@ import {
 } from "./create-vm-form"
 import { SummaryRow, SummarySection } from "./create-vm-step-shared"
 import type { CreateVmFormValues, VmTemplateOption } from "./create-vm-form"
+import type { InventoryFolderOption } from "@/lib/inventory-tree"
+import { getSelectedFolder } from "@/lib/inventory-tree"
 
 export const CreateVmSummaryStep = withCreateVmForm({
   ...createVmFormOptions,
   props: {
+    folderOptions: [] as Array<InventoryFolderOption>,
     templateOptions: [] as Array<VmTemplateOption>,
   },
-  render: function Render({ form, templateOptions }) {
+  render: function Render({ form, folderOptions, templateOptions }) {
     return (
       <form.Subscribe selector={(state) => state.values}>
         {(values) => {
           const selectedTemplate = getSelectedTemplate(
             templateOptions,
             values.template_id ?? ""
+          )
+          const selectedFolder = getSelectedFolder(
+            folderOptions,
+            values.target_folder_id
           )
           const templateCloneName =
             values.name || selectedTemplate?.name || "Unset"
@@ -77,13 +84,19 @@ export const CreateVmSummaryStep = withCreateVmForm({
                   <SummaryRow label="Node" value={values.node || "Auto"} />
                   <SummaryRow label="Name" value={templateCloneName} />
                   <SummaryRow
+                    label="Destination Folder"
+                    value={selectedFolder?.label || "Unset"}
+                  />
+                  <SummaryRow
                     label="Clone Mode"
                     value={values.full_clone ? "Full clone" : "Linked clone"}
                   />
                 </SummarySection>
               ) : null}
 
-              {values.method === "iso" ? <IsoReview values={values} /> : null}
+              {values.method === "iso" ? (
+                <IsoReview values={values} selectedFolder={selectedFolder} />
+              ) : null}
 
               {values.method === "upload" ? (
                 <SummarySection title="Upload Workflow">
@@ -106,7 +119,13 @@ export const CreateVmSummaryStep = withCreateVmForm({
   },
 })
 
-function IsoReview({ values }: { values: CreateVmFormValues }) {
+function IsoReview({
+  values,
+  selectedFolder,
+}: {
+  values: CreateVmFormValues
+  selectedFolder: InventoryFolderOption | undefined
+}) {
   return (
     <div className="flex flex-col gap-6">
       <FieldSet>
@@ -123,6 +142,10 @@ function IsoReview({ values }: { values: CreateVmFormValues }) {
           <ReviewField
             label="VMID"
             value={values.vmid > 0 ? values.vmid : "Auto"}
+          />
+          <ReviewField
+            label="Destination Folder"
+            value={selectedFolder?.label || "Unset"}
           />
         </div>
       </FieldSet>

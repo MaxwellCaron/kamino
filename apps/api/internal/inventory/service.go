@@ -9,6 +9,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,6 +46,12 @@ type FolderDeletionPlan struct {
 	ProxmoxVMs []FolderDeletionVM
 }
 
+type FolderPlacement struct {
+	FolderID uuid.UUID
+	Path     []string
+	PoolID   string
+}
+
 type Mirror interface {
 	ScheduleReconcile()
 }
@@ -63,6 +70,51 @@ func (s *Service) GetAllInventoryItems(ctx context.Context) ([]database.GetAllIn
 
 func (s *Service) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (database.GetInventoryItemByIDRow, error) {
 	return database.New(s.db).GetInventoryItemByID(ctx, id)
+}
+
+func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {
+	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	if err != nil {
+		return FolderPlacement{}, err
+	}
+
+	itemsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(rows))
+	for _, row := range rows {
+		itemsByID[row.ID] = row
+	}
+
+	item, ok := itemsByID[id]
+	if !ok {
+		return FolderPlacement{}, ErrInventoryFolderNotFound
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return FolderPlacement{}, ErrInventoryItemNotFolder
+	}
+
+	path := make([]string, 0, 4)
+	for current := item; ; {
+		if current.ParentID == nil {
+			break
+		}
+
+		path = append(path, current.Name)
+
+		parent, ok := itemsByID[*current.ParentID]
+		if !ok {
+			return FolderPlacement{}, ErrInventoryParentNotFound
+		}
+		current = parent
+	}
+
+	for left, right := 0, len(path)-1; left < right; left, right = left+1, right-1 {
+		path[left], path[right] = path[right], path[left]
+	}
+
+	return FolderPlacement{
+		FolderID: id,
+		Path:     path,
+		PoolID:   proxmox.EncodePoolPath(path),
+	}, nil
 }
 
 func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name string) (uuid.UUID, error) {
@@ -364,6 +416,60 @@ func (s *Service) UpdateProxmoxVMIsTemplate(ctx context.Context, node string, vm
 	}
 
 	s.notify(ctx, nil)
+	return nil
+}
+
+func (s *Service) RegisterProxmoxVM(
+	ctx context.Context,
+	parentID uuid.UUID,
+	node string,
+	vmid int32,
+	name string,
+	isTemplate bool,
+) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+
+	parent, err := q.GetInventoryItemForUpdate(ctx, parentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInventoryParentNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if parent.Kind != database.InventoryItemKindFolder {
+		return ErrInventoryTargetNotFolder
+	}
+
+	itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
+		InventoryItemID: itemID,
+		Node:            node,
+		Vmid:            vmid,
+		IsTemplate:      isTemplate,
+	}); err != nil {
+		return err
+	}
+
+	s.notifyTx(ctx, tx, itemID)
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	s.scheduleMirror()
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -15,6 +16,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func parseIntParam(c *gin.Context, name string) (int, error) {
@@ -276,11 +278,13 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 }
 
 type cloneVMRequest struct {
-	Node  string `json:"node" binding:"required"`
-	VMID  int    `json:"vmid" binding:"required"`
-	NewID int    `json:"newid"`
-	Name  string `json:"name" binding:"required"`
-	Full  bool   `json:"full"`
+	Node           string `json:"node" binding:"required"`
+	VMID           int    `json:"vmid" binding:"required"`
+	NewID          int    `json:"newid"`
+	Name           string `json:"name" binding:"required"`
+	Full           bool   `json:"full"`
+	Target         string `json:"target"`
+	TargetFolderID string `json:"target_folder_id" binding:"required"`
 }
 
 // CloneVM clones a VM and waits for the Proxmox task to complete.
@@ -295,6 +299,23 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	if err := names.ValidateVM(req.Name); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
+	}
+
+	targetFolderID, err := uuid.Parse(req.TargetFolderID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
+		return
+	}
+
+	placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), targetFolderID)
+	if err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	targetNode := strings.TrimSpace(req.Target)
+	if targetNode == "" {
+		targetNode = req.Node
 	}
 
 	newID := req.NewID
@@ -317,8 +338,25 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, newID, req.Name, req.Full); err != nil {
+	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, newID, req.Name, req.Full, targetNode); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.Service.RegisterProxmoxVM(
+		c.Request.Context(),
+		placement.FolderID,
+		targetNode,
+		int32(newID),
+		req.Name,
+		false,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "vm cloned in Proxmox but failed to update inventory"})
 		return
 	}
 

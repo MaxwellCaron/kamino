@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX *proxmox.Client
+	PX      *proxmox.Client
+	Service *inventory.Service
 }
 
 // GetNodes returns all cluster nodes.
@@ -103,22 +106,23 @@ type networkInterface struct {
 }
 
 type createVMRequest struct {
-	Node     string             `json:"node" binding:"required"`
-	VMID     int                `json:"vmid"`
-	Name     string             `json:"name" binding:"required"`
-	OSType   string             `json:"ostype"`
-	ISO      string             `json:"iso"`
-	BIOS     string             `json:"bios"`
-	Machine  string             `json:"machine"`
-	SCSI     string             `json:"scsi"`
-	Sockets  int                `json:"sockets"`
-	Cores    int                `json:"cores"`
-	CPUType  string             `json:"cpu_type"`
-	Memory   int                `json:"memory"`
-	Balloon  int                `json:"balloon"`
-	Storage  string             `json:"storage"`
-	DiskSize int                `json:"disk_size"`
-	Networks []networkInterface `json:"networks"`
+	TargetFolderID string             `json:"target_folder_id" binding:"required"`
+	Node           string             `json:"node" binding:"required"`
+	VMID           int                `json:"vmid"`
+	Name           string             `json:"name" binding:"required"`
+	OSType         string             `json:"ostype"`
+	ISO            string             `json:"iso"`
+	BIOS           string             `json:"bios"`
+	Machine        string             `json:"machine"`
+	SCSI           string             `json:"scsi"`
+	Sockets        int                `json:"sockets"`
+	Cores          int                `json:"cores"`
+	CPUType        string             `json:"cpu_type"`
+	Memory         int                `json:"memory"`
+	Balloon        int                `json:"balloon"`
+	Storage        string             `json:"storage"`
+	DiskSize       int                `json:"disk_size"`
+	Networks       []networkInterface `json:"networks"`
 }
 
 // CreateVM creates a new virtual machine.
@@ -132,6 +136,18 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	req.Name = names.Normalize(req.Name)
 	if err := names.ValidateVM(req.Name); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+
+	targetFolderID, err := uuid.Parse(req.TargetFolderID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
+		return
+	}
+
+	placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), targetFolderID)
+	if err != nil {
+		writeInventoryError(c, err)
 		return
 	}
 
@@ -218,6 +234,23 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 
 	if err := h.PX.CreateVM(c.Request.Context(), req.Node, params); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), req.Node, vmid, placement.PoolID, placement.Path); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.Service.RegisterProxmoxVM(
+		c.Request.Context(),
+		placement.FolderID,
+		req.Node,
+		int32(vmid),
+		req.Name,
+		false,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "vm created in Proxmox but failed to update inventory"})
 		return
 	}
 

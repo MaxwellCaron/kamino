@@ -165,6 +165,8 @@ export async function cloneVM(params: {
   newid: number
   name: string
   full: boolean
+  target?: string
+  target_folder_id: string
 }): Promise<{ vmid: number }> {
   const res = await fetch("/api/v1/vms/clone", {
     method: "POST",
@@ -371,6 +373,7 @@ export type NetworkInterface = {
 }
 
 export type CreateVMParams = {
+  target_folder_id: string
   node: string
   vmid: number
   name: string

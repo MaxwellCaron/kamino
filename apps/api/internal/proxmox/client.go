@@ -298,7 +298,15 @@ func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name strin
 }
 
 // CloneVM clones a VM and waits for the task to complete.
-func (c *Client) CloneVM(ctx context.Context, node string, vmid, newid int, name string, full bool) error {
+func (c *Client) CloneVM(
+	ctx context.Context,
+	node string,
+	vmid int,
+	newid int,
+	name string,
+	full bool,
+	target string,
+) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/clone", node, vmid)
 	form := map[string]string{
 		"newid": fmt.Sprintf("%d", newid),
@@ -307,11 +315,16 @@ func (c *Client) CloneVM(ctx context.Context, node string, vmid, newid int, name
 	if full {
 		form["full"] = "1"
 	}
+	taskNode := node
+	if target != "" {
+		form["target"] = target
+		taskNode = target
+	}
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, form, &resp); err != nil {
 		return fmt.Errorf("cloning VM: %w", err)
 	}
-	return c.waitForTask(ctx, node, resp.Data)
+	return c.waitForTask(ctx, taskNode, resp.Data)
 }
 
 // ConvertToTemplate converts a VM to a template.

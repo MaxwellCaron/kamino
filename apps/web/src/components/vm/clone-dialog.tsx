@@ -1,7 +1,10 @@
+import { useEffect, useRef } from "react"
 import { useForm } from "@tanstack/react-form"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
 import { IconCopy } from "@tabler/icons-react"
+import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -10,23 +13,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
   FieldGroup,
-  FieldLabel,
+  FieldSeparator,
+  FieldSet,
 } from "@workspace/ui/components/field"
 import { useCloneVM } from "@/hooks/use-vm-actions"
-import { vmNameSchema } from "@/lib/vm-name"
+import {
+  CloneDestinationFolderField,
+  CloneFullCloneField,
+  CloneNameField,
+  CloneNodeField,
+  CloneVmidField,
+} from "@/components/vm/create-vm/clone-form-fields"
+import {
+  optionalVmNameSchema,
+  optionalVmidSchema,
+} from "@/components/vm/create-vm/create-vm-form"
+import {
+  getInventoryFolderOptions,
+  getParentFolderIdForItem,
+  getSelectedFolder,
+} from "@/lib/inventory-tree"
+import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
 
 const cloneSchema = z.object({
-  newid: z.number().int().min(100, "VM ID must be at least 100"),
-  name: vmNameSchema,
+  target_folder_id: z.string().min(1, "Destination folder is required"),
+  node: z.string().default(""),
+  newid: optionalVmidSchema,
+  name: optionalVmNameSchema,
   full: z.boolean(),
 })
 
@@ -34,34 +49,78 @@ export function CloneDialog({
   node,
   vmid,
   currentName,
+  sourceItemId,
   open,
   onOpenChange,
 }: {
   node: string
   vmid: number
   currentName: string
+  sourceItemId: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const clone = useCloneVM()
+  const didPrefillTargetFolder = useRef(false)
+  const { data: inventoryTree = [] } = useQuery({
+    ...inventoryTreeQueryOptions,
+    enabled: open,
+  })
+  const { data: nodes = [] } = useQuery({
+    ...nodesQueryOptions,
+    enabled: open,
+  })
+  const folderOptions = getInventoryFolderOptions(inventoryTree)
+  const defaultFolderId =
+    getParentFolderIdForItem(inventoryTree, sourceItemId) ?? ""
 
   const form = useForm({
     defaultValues: {
+      target_folder_id: "",
+      node: "",
       newid: 0,
-      name: `${currentName}-clone`,
-      full: true,
+      name: "",
+      full: false,
     },
     onSubmit: ({ value }) => {
       const parsed = cloneSchema.parse(value)
-      toast.promise(clone.mutateAsync({ node, vmid, ...parsed }), {
-        loading: `Cloning VM ${vmid} → ${parsed.newid}…`,
-        success: `VM cloned to ${parsed.newid}`,
-        error: (err: Error) => err.message,
-      })
+
+      toast.promise(
+        clone.mutateAsync({
+          node,
+          vmid,
+          newid: parsed.newid,
+          name: parsed.name.trim() || currentName,
+          full: parsed.full,
+          target: parsed.node || undefined,
+          target_folder_id: parsed.target_folder_id,
+        }),
+        {
+          loading: `Cloning VM ${vmid}…`,
+          success: (result) => `VM cloned to ${result.vmid}`,
+          error: (error: Error) => error.message,
+        }
+      )
+
       onOpenChange(false)
       form.reset()
     },
   })
+
+  useEffect(() => {
+    if (!open) {
+      didPrefillTargetFolder.current = false
+      return
+    }
+
+    if (didPrefillTargetFolder.current) return
+
+    form.setFieldValue(
+      "target_folder_id",
+      getSelectedFolder(folderOptions, defaultFolderId)?.id ?? ""
+    )
+    didPrefillTargetFolder.current = true
+  }, [defaultFolderId, folderOptions, form, open])
 
   return (
     <Dialog
@@ -75,97 +134,58 @@ export function CloneDialog({
         <DialogHeader>
           <DialogTitle>Clone VM</DialogTitle>
           <DialogDescription>
-            Create a copy of this virtual machine.
+            Clone {currentName} into a new virtual machine.
           </DialogDescription>
         </DialogHeader>
+
         <form
-          onSubmit={(e) => {
-            e.preventDefault()
+          onSubmit={(event) => {
+            event.preventDefault()
             form.handleSubmit()
           }}
         >
-          <FieldGroup>
-            <form.Field
-              name="newid"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = cloneSchema.shape.newid.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0].message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="newid">New VM ID</FieldLabel>
-                  <Input
-                    id="newid"
-                    type="number"
-                    placeholder="e.g. 200"
-                    value={field.state.value || ""}
-                    onChange={(e) =>
-                      field.handleChange(parseInt(e.target.value) || 0)
-                    }
-                    onBlur={field.handleBlur}
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
+          <div className="flex flex-col gap-6">
+            <FieldSet>
+              <FieldGroup>
+                <CloneNameField
+                  FieldComponent={form.Field}
+                  fieldName="name"
+                  inputId="clone-name"
+                  placeholder={`${currentName} (Default)`}
+                />
+
+                <div className="grid grid-cols-2 gap-6">
+                  <CloneNodeField
+                    FieldComponent={form.Field}
+                    fieldName="node"
+                    inputId="clone-node"
+                    nodes={nodes}
                   />
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-            <form.Field
-              name="name"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = cloneSchema.shape.name.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0].message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="clone-name">Name</FieldLabel>
-                  <Input
-                    id="clone-name"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
+                  <CloneVmidField
+                    FieldComponent={form.Field}
+                    fieldName="newid"
+                    inputId="clone-vmid"
                   />
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-            <form.Field name="full">
-              {(field) => (
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="full-clone"
-                    checked={field.state.value}
-                    onCheckedChange={(checked) => field.handleChange(!!checked)}
-                  />
-                  <FieldContent>
-                    <FieldLabel htmlFor="full-clone">Full clone</FieldLabel>
-                    <FieldDescription>
-                      Create a full copy of the disk. Linked clones are faster
-                      but depend on the source.
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
-          </FieldGroup>
+                </div>
+
+                <FieldSeparator />
+
+                <CloneDestinationFolderField
+                  FieldComponent={form.Field}
+                  fieldName="target_folder_id"
+                  folderOptions={folderOptions}
+                />
+
+                <CloneFullCloneField
+                  FieldComponent={form.Field}
+                  fieldName="full"
+                  inputId="clone-full"
+                  dependencyLabel="source VM"
+                />
+              </FieldGroup>
+            </FieldSet>
+          </div>
+
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (

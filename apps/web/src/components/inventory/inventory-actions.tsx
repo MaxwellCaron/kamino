@@ -617,7 +617,11 @@ export function TreeNodeMenu({
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       {createVmOpen && (
-        <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
+        <CreateVmDialog
+          open={createVmOpen}
+          onOpenChange={setCreateVmOpen}
+          initialFolderId={nodeId}
+        />
       )}
       {isFolder && (
         <>
@@ -648,6 +652,7 @@ export function TreeNodeMenu({
             node={pveNode}
             vmid={vmid}
             currentName={name ?? ""}
+            sourceItemId={nodeId}
             open={cloneOpen}
             onOpenChange={setCloneOpen}
           />
@@ -667,12 +672,14 @@ export function TreeNodeMenu({
 }
 
 export function VmOptionsMenu({
+  nodeId,
   isFolder = false,
   isTemplate,
   vmid,
   pveNode,
   name,
 }: {
+  nodeId: string
   isFolder?: boolean
   isTemplate?: boolean
   vmid?: number
@@ -715,7 +722,11 @@ export function VmOptionsMenu({
       </DropdownMenu>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       {createVmOpen && (
-        <CreateVmDialog open={createVmOpen} onOpenChange={setCreateVmOpen} />
+        <CreateVmDialog
+          open={createVmOpen}
+          onOpenChange={setCreateVmOpen}
+          initialFolderId={nodeId}
+        />
       )}
       {isFolder && (
         <>
@@ -744,6 +755,7 @@ export function VmOptionsMenu({
             node={pveNode}
             vmid={vmid}
             currentName={name ?? ""}
+            sourceItemId={nodeId}
             open={cloneOpen}
             onOpenChange={setCloneOpen}
           />

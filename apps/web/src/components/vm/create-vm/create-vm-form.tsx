@@ -27,12 +27,14 @@ export const optionalVmidSchema = z.union([
 
 const templateConfigurationSchema = z.object({
   template_id: z.string().min(1, "Template is required"),
+  target_folder_id: z.string().min(1, "Destination folder is required"),
   node: z.union([z.string(), z.literal("")]).optional(),
   vmid: optionalVmidSchema,
   name: optionalVmNameSchema,
 })
 
 const isoConfigurationSchema = z.object({
+  target_folder_id: z.string().min(1, "Destination folder is required"),
   node: z.string().min(1, "Node is required"),
   vmid: optionalVmidSchema,
   name: vmNameSchema,
@@ -67,6 +69,7 @@ export const createVmFormSchema = z
   .object({
     method: createVmMethodSchema.default("template"),
     template_id: z.string().optional(),
+    target_folder_id: z.string().default(""),
     full_clone: z.boolean().default(true),
     node: z.string().default(""),
     vmid: optionalVmidSchema,
@@ -148,6 +151,7 @@ function getCreateVmFormErrors(values: CreateVmFormValues) {
 const defaultValues: CreateVmFormValues = {
   method: "template",
   template_id: "",
+  target_folder_id: "",
   full_clone: false,
   node: "",
   vmid: 0,
@@ -255,6 +259,7 @@ function optionalString(value: string | undefined) {
 
 export function toCreateVmParams(values: CreateVmFormValues): CreateVMParams {
   return {
+    target_folder_id: values.target_folder_id,
     node: values.node,
     vmid: values.vmid,
     name: values.name,

@@ -154,7 +154,10 @@ func main() {
 		Service:  inventoryService,
 		Notifier: vmStatusNotifier,
 	}
-	vmCreateHandler := &handlers.VMCreateHandler{PX: server.ProxmoxClient}
+	vmCreateHandler := &handlers.VMCreateHandler{
+		PX:      server.ProxmoxClient,
+		Service: inventoryService,
+	}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 
 	var principalsHandler *handlers.PrincipalsHandler

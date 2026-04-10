@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useStore } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -45,6 +45,10 @@ import {
 } from "./create-vm/create-vm-form"
 import type { CreateVmFormValues } from "./create-vm/create-vm-form"
 import {
+  getInventoryFolderOptions,
+  getSelectedFolder,
+} from "@/lib/inventory-tree"
+import {
   bridgesQueryOptions,
   cloneVM,
   createVM,
@@ -72,12 +76,15 @@ function getTemplateCloneName(
 export function CreateVmDialog({
   open,
   onOpenChange,
+  initialFolderId,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialFolderId: string
 }) {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<StepValue>("method")
+  const didPrefillTargetFolder = useRef(false)
 
   const form = useCreateVmForm({
     ...createVmFormOptions,
@@ -136,11 +143,12 @@ export function CreateVmDialog({
     setStep("method")
   }
 
-  const { data: templateOptions = [] } = useQuery({
+  const { data: inventoryTree = [] } = useQuery({
     ...inventoryTreeQueryOptions,
     enabled: open,
-    select: getVmTemplateOptions,
   })
+  const templateOptions = getVmTemplateOptions(inventoryTree)
+  const folderOptions = getInventoryFolderOptions(inventoryTree)
   const { data: nodes } = useQuery({
     ...nodesQueryOptions,
     enabled: open,
@@ -186,6 +194,8 @@ export function CreateVmDialog({
           newid: values.vmid,
           name: getTemplateCloneName(values, selectedTemplate.name),
           full: values.full_clone,
+          target: values.node || undefined,
+          target_folder_id: values.target_folder_id,
         })
       }
 
@@ -205,9 +215,20 @@ export function CreateVmDialog({
 
   useEffect(() => {
     if (!open) {
+      didPrefillTargetFolder.current = false
       resetDialog()
     }
   }, [form, open])
+
+  useEffect(() => {
+    if (!open || didPrefillTargetFolder.current) return
+
+    form.setFieldValue(
+      "target_folder_id",
+      getSelectedFolder(folderOptions, initialFolderId)?.id ?? ""
+    )
+    didPrefillTargetFolder.current = true
+  }, [folderOptions, form, initialFolderId, open])
 
   function handleCreate() {
     if (method === "upload") {
@@ -288,6 +309,7 @@ export function CreateVmDialog({
               <StepperContent value="confirmation">
                 <CreateVmSummaryStep
                   form={form}
+                  folderOptions={folderOptions}
                   templateOptions={templateOptions}
                 />
               </StepperContent>

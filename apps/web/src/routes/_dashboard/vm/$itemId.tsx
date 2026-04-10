@@ -311,6 +311,7 @@ function VmPage() {
             </CardDescription>
             <CardAction>
               <VmOptionsMenu
+                nodeId={node.id}
                 isTemplate={isTemplate}
                 vmid={vm.vmid}
                 pveNode={vm.node}

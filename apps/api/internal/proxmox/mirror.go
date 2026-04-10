@@ -102,7 +102,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		if id != *rootID && row.Kind == database.InventoryItemKindFolder {
 			nextPath = appendPath(path, row.Name)
 			poolID := EncodePoolPath(nextPath)
-			desiredPools[poolID] = managedPoolComment(nextPath)
+			desiredPools[poolID] = ManagedPoolComment(nextPath)
 		}
 
 		for _, childID := range childrenByParent[id] {
@@ -221,14 +221,6 @@ func buildInventoryIndex(rows []database.GetAllInventoryItemsRow) (*uuid.UUID, m
 	}
 
 	return rootID, itemsByID, childrenByParent
-}
-
-func managedPoolComment(path []string) string {
-	if len(path) == 0 {
-		return kaminoManagedPoolCommentTag
-	}
-
-	return kaminoManagedPoolCommentTag + ": " + strings.Join(path, "/")
 }
 
 func appendPath(path []string, segment string) []string {
