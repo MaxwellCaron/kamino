@@ -107,14 +107,13 @@ type proxyRequest struct {
 func (h *VNCHandler) PostProxy(c *gin.Context) {
 	var req proxyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), req.Node, req.VMID)
 	if err != nil {
-		log.Printf("vnc proxy error: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create VNC proxy"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to create VNC proxy", "create vnc proxy", err)
 		return
 	}
 

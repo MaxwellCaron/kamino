@@ -44,7 +44,7 @@ type bulkMembershipResponse struct {
 func parseBulkDeleteIDs(c *gin.Context) ([]string, bool) {
 	var req bulkDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return nil, false
 	}
 
@@ -79,9 +79,10 @@ func writeBulkDeleteResponse(
 		}
 
 		if err := deleteFn(id); err != nil {
+			logRequestError(c, "bulk delete principal id="+rawID, err)
 			response.Failed = append(response.Failed, bulkDeleteFailure{
 				ID:    rawID,
-				Error: err.Error(),
+				Error: "delete failed",
 			})
 			continue
 		}
@@ -95,7 +96,7 @@ func writeBulkDeleteResponse(
 func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 	var req bulkMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return nil, nil, false
 	}
 
@@ -119,7 +120,7 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
 	users, err := h.Provider.ListUsers(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch users"})
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch users", "list users", err)
 		return
 	}
 	if users == nil {
@@ -140,12 +141,12 @@ type createUserRequest struct {
 func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	if err := h.Provider.CreateUser(c.Request.Context(), req.Username, req.Password, req.Description); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create user: " + err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to create user", "create user", err)
 		return
 	}
 
@@ -162,7 +163,7 @@ type updateUserRequest struct {
 func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -173,7 +174,7 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 	}
 
 	if err := h.Provider.UpdateUser(c.Request.Context(), id, req.Username, req.Description); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to update user"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to update user", "update user", err)
 		return
 	}
 
@@ -189,7 +190,7 @@ type setPasswordRequest struct {
 func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 	var req setPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -200,7 +201,7 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 	}
 
 	if err := h.Provider.SetPassword(c.Request.Context(), id, req.Password); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to set password"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to set password", "set user password", err)
 		return
 	}
 
@@ -217,7 +218,7 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 	}
 
 	if err := h.Provider.EnableUser(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to enable user"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to enable user", "enable user", err)
 		return
 	}
 
@@ -234,7 +235,7 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 	}
 
 	if err := h.Provider.DisableUser(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to disable user"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to disable user", "disable user", err)
 		return
 	}
 
@@ -261,7 +262,7 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
 	groups, err := h.Provider.ListGroups(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch groups"})
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch groups", "list groups", err)
 		return
 	}
 	if groups == nil {
@@ -281,12 +282,12 @@ type createGroupRequest struct {
 func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 	var req createGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	if err := h.Provider.CreateGroup(c.Request.Context(), req.Name, req.Description); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create group: " + err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to create group", "create group", err)
 		return
 	}
 
@@ -303,7 +304,7 @@ type updateGroupRequest struct {
 func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 	var req updateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -314,7 +315,7 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 	}
 
 	if err := h.Provider.UpdateGroup(c.Request.Context(), id, req.Name, req.Description); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to update group"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to update group", "update group", err)
 		return
 	}
 
@@ -347,7 +348,7 @@ func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
 
 	members, err := h.Provider.GetGroupMembers(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch members"})
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch members", "get group members", err)
 		return
 	}
 	if members == nil {
@@ -373,7 +374,7 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 
 	failed, err := h.Provider.AddGroupMembers(c.Request.Context(), groupID, memberIDs)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to add members: " + err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to add members", "add group members", err)
 		return
 	}
 
@@ -384,9 +385,10 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 
 	for index, memberID := range memberIDs {
 		if memberErr, hasFailed := failed[memberID]; hasFailed {
+			logRequestError(c, "add group member id="+rawIDs[index], memberErr)
 			response.Failed = append(response.Failed, bulkMembershipFailure{
 				ID:    rawIDs[index],
-				Error: memberErr.Error(),
+				Error: "add failed",
 			})
 			continue
 		}
@@ -413,7 +415,7 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 
 	failed, err := h.Provider.RemoveGroupMembers(c.Request.Context(), groupID, memberIDs)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to remove members: " + err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to remove members", "remove group members", err)
 		return
 	}
 
@@ -424,9 +426,10 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 
 	for index, memberID := range memberIDs {
 		if memberErr, hasFailed := failed[memberID]; hasFailed {
+			logRequestError(c, "remove group member id="+rawIDs[index], memberErr)
 			response.Failed = append(response.Failed, bulkMembershipFailure{
 				ID:    rawIDs[index],
-				Error: memberErr.Error(),
+				Error: "remove failed",
 			})
 			continue
 		}
@@ -448,7 +451,7 @@ func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
 
 	groups, err := h.Provider.GetUserGroups(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch user groups"})
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch user groups", "get user groups", err)
 		return
 	}
 	if groups == nil {
@@ -464,7 +467,7 @@ func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
 // POST /api/v1/principals/sync
 func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
 	if err := h.Provider.TriggerSync(c.Request.Context()); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "sync failed: " + err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "sync failed", "trigger principals sync", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

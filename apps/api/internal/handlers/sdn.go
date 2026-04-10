@@ -33,7 +33,7 @@ type bulkDeleteVNetsResponse struct {
 func (h *SDNHandler) GetVNets(c *gin.Context) {
 	vnets, err := h.PX.GetVNets(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch VNets"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VNets", "fetch vnets", err)
 		return
 	}
 	c.JSON(http.StatusOK, vnets)
@@ -51,7 +51,7 @@ type createVNetRequest struct {
 func (h *SDNHandler) CreateVNet(c *gin.Context) {
 	var req createVNetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -68,7 +68,7 @@ func (h *SDNHandler) CreateVNet(c *gin.Context) {
 	}
 
 	if err := h.PX.CreateVNet(ctx, params); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to create VNet"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to create VNet", "create vnet", err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 	vnet := c.Param("vnet")
 	var req updateVNetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 	}
 
 	if err := h.PX.UpdateVNet(ctx, vnet, params); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to update VNet"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to update VNet", "update vnet", err)
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 func (h *SDNHandler) DeleteVNets(c *gin.Context) {
 	var req bulkDeleteVNetsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -136,9 +136,10 @@ func (h *SDNHandler) DeleteVNets(c *gin.Context) {
 
 	for _, vnet := range req.VNets {
 		if err := h.PX.DeleteVNet(ctx, vnet); err != nil {
+			logRequestError(c, "delete vnet "+vnet, err)
 			response.Failed = append(response.Failed, bulkDeleteVNetFailure{
 				ID:    vnet,
-				Error: err.Error(),
+				Error: "delete failed",
 			})
 			continue
 		}

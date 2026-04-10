@@ -55,7 +55,7 @@ type InventoryItem struct {
 func (h *InventoryHandler) GetTree(c *gin.Context) {
 	rows, err := h.Service.GetAllInventoryItems(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch inventory"})
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch inventory", "load inventory tree", err)
 		return
 	}
 
@@ -77,7 +77,7 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch item"})
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch item", "load inventory item", err)
 		return
 	}
 
@@ -106,7 +106,7 @@ type moveInventoryItemRequest struct {
 func (h *InventoryHandler) MoveItem(c *gin.Context) {
 	var req moveInventoryItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -128,7 +128,7 @@ type createFolderRequest struct {
 func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 	var req createFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 
 	var req renameFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -191,6 +191,7 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 
 	for _, vm := range plan.ProxmoxVMs {
 		if err := h.PX.DeleteVM(c.Request.Context(), vm.Node, int(vm.VMID)); err != nil {
+			logRequestError(c, fmt.Sprintf("delete inventory folder proxmox vmid=%d node=%s", vm.VMID, vm.Node), err)
 			kind := "VM"
 			if vm.IsTemplate {
 				kind = "template"
@@ -344,6 +345,6 @@ func writeInventoryError(c *gin.Context, err error) {
 		errors.Is(err, inventory.ErrInventoryFolderConflict):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory mutation failed"})
+		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)
 	}
 }

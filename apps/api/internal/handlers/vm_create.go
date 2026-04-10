@@ -23,7 +23,7 @@ type VMCreateHandler struct {
 func (h *VMCreateHandler) GetNodes(c *gin.Context) {
 	nodes, err := h.PX.GetNodes(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch nodes"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch proxmox nodes", err)
 		return
 	}
 	c.JSON(http.StatusOK, nodes)
@@ -43,13 +43,13 @@ type createOptionsResponse struct {
 func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	nodes, err := h.PX.GetNodes(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch nodes"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch create options nodes", err)
 		return
 	}
 
 	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve primary node"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", err)
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		createOptionsNode.Node,
 	)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch storages"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch create option storages", err)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		createOptionsNode.Node,
 	)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch networks"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch networks", "fetch create option networks", err)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 	node := c.Param("node")
 	storages, err := h.PX.GetStorages(c.Request.Context(), node)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch storages"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch node storages", err)
 		return
 	}
 	c.JSON(http.StatusOK, storages)
@@ -99,7 +99,7 @@ func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 	storage := c.Param("storage")
 	isos, err := h.PX.GetISOs(c.Request.Context(), node, storage)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch ISOs"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch ISOs", "fetch node isos", err)
 		return
 	}
 	c.JSON(http.StatusOK, isos)
@@ -112,7 +112,7 @@ func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 
 	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve primary node"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", err)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 		storage,
 	)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch ISOs"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch ISOs", "fetch create option isos", err)
 		return
 	}
 	c.JSON(http.StatusOK, isos)
@@ -133,7 +133,7 @@ func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
 	id, err := h.PX.GetNextVMID(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch next VMID"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"vmid": id})
@@ -149,7 +149,7 @@ func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
 
 	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), vmid)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate VMID"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
 		return
 	}
 
@@ -162,12 +162,12 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 	node := c.Param("node")
 	bridges, err := h.PX.GetBridges(c.Request.Context(), node)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch bridges"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch bridges", "fetch node bridges", err)
 		return
 	}
 	vnets, err := h.PX.GetVNets(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch vnets"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VNets", "fetch vnets", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"bridges": bridges, "vnets": vnets})
@@ -214,7 +214,7 @@ func normalizeMachineType(machine string) string {
 func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	var req createVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 	req.Name = names.Normalize(req.Name)
@@ -243,7 +243,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	if vmid <= 0 {
 		nextID, err := h.PX.GetNextVMID(c.Request.Context())
 		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch next VMID"})
+			writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
 			return
 		}
 		vmid = nextID
@@ -251,7 +251,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 
 	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), vmid)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate VMID"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
 		return
 	}
 	if !available {
@@ -320,19 +320,19 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	if targetNode == "" {
 		optimalNode, err := h.PX.GetOptimalNode(c.Request.Context())
 		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve optimal node"})
+			writeLoggedError(c, http.StatusBadGateway, "failed to resolve optimal node", "resolve optimal node", err)
 			return
 		}
 		targetNode = optimalNode.Node
 	}
 
 	if err := h.PX.CreateVM(c.Request.Context(), targetNode, params); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to create VM", "create proxmox vm", err)
 		return
 	}
 
 	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, vmid, placement.PoolID, placement.Path); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync vm pool membership", err)
 		return
 	}
 
@@ -344,7 +344,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		req.Name,
 		false,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "vm created in Proxmox but failed to update inventory"})
+		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to update inventory", "register created vm in inventory", err)
 		return
 	}
 

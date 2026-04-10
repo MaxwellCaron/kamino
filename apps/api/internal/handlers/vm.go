@@ -44,7 +44,7 @@ func (h *VMHandler) GetStatuses(c *gin.Context) {
 
 	vms, err := h.PX.GetVMs(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch VM statuses"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM statuses", "fetch vm statuses", err)
 		return
 	}
 
@@ -163,12 +163,12 @@ type createSnapshotRequest struct {
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 	var req createSnapshotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	if err := h.PX.CreateSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname, req.Description, req.VMState); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to create snapshot", "create vm snapshot", err)
 		return
 	}
 
@@ -187,7 +187,7 @@ type powerActionRequest struct {
 func (h *VMHandler) PowerAction(c *gin.Context) {
 	var req powerActionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
@@ -206,7 +206,7 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to perform VM power action", "vm power action", err)
 		return
 	}
 
@@ -232,12 +232,12 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	if err := h.PX.DeleteVM(ctx, node, vmid); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to delete VM", "delete proxmox vm", err)
 		return
 	}
 
 	if err := h.Service.DeleteInventoryItemByProxmoxVM(ctx, node, int32(vmid)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "VM deleted from Proxmox but failed to remove from inventory"})
+		writeLoggedError(c, http.StatusInternalServerError, "VM deleted from Proxmox but failed to remove from inventory", "delete inventory item for vm", err)
 		return
 	}
 
@@ -256,7 +256,7 @@ type renameVMRequest struct {
 func (h *VMHandler) RenameVM(c *gin.Context) {
 	var req renameVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 	req.Name = names.Normalize(req.Name)
@@ -268,7 +268,7 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	if err := h.PX.RenameVM(ctx, req.Node, req.VMID, req.Name); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to rename VM"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to rename VM", "rename vm", err)
 		return
 	}
 
@@ -292,7 +292,7 @@ type cloneVMRequest struct {
 func (h *VMHandler) CloneVM(c *gin.Context) {
 	var req cloneVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 	req.Name = names.Normalize(req.Name)
@@ -317,7 +317,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	if targetNode == "" {
 		optimalNode, err := h.PX.GetOptimalNode(c.Request.Context())
 		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve optimal node"})
+			writeLoggedError(c, http.StatusBadGateway, "failed to resolve optimal node", "resolve optimal node", err)
 			return
 		}
 		targetNode = optimalNode.Node
@@ -327,7 +327,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	if newID <= 0 {
 		nextID, err := h.PX.GetNextVMID(c.Request.Context())
 		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch next VMID"})
+			writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
 			return
 		}
 		newID = nextID
@@ -335,7 +335,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 
 	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), newID)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate VMID"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
 		return
 	}
 	if !available {
@@ -344,12 +344,12 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	}
 
 	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, newID, req.Name, req.Full, targetNode); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
 		return
 	}
 
 	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
 		return
 	}
 
@@ -361,7 +361,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		req.Name,
 		false,
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "vm cloned in Proxmox but failed to update inventory"})
+		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to update inventory", "register cloned vm in inventory", err)
 		return
 	}
 
@@ -378,14 +378,14 @@ type convertToTemplateRequest struct {
 func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 	var req convertToTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	ctx := c.Request.Context()
 
 	if err := h.PX.ConvertToTemplate(ctx, req.Node, req.VMID); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to convert to template"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to convert to template", "convert vm to template", err)
 		return
 	}
 
@@ -405,7 +405,7 @@ func (h *VMHandler) GetSnapshots(c *gin.Context) {
 
 	snapshots, err := h.PX.GetSnapshots(c.Request.Context(), node, vmid)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch snapshots"})
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch snapshots", "fetch vm snapshots", err)
 		return
 	}
 
@@ -427,12 +427,12 @@ type rollbackSnapshotRequest struct {
 func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 	var req rollbackSnapshotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	if err := h.PX.RollbackSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to rollback snapshot", "rollback vm snapshot", err)
 		return
 	}
 
@@ -450,7 +450,7 @@ func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 	snapname := c.Param("snapname")
 
 	if err := h.PX.DeleteSnapshot(c.Request.Context(), node, vmid, snapname); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadGateway, "failed to delete snapshot", "delete vm snapshot", err)
 		return
 	}
 
