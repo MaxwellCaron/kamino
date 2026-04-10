@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -19,21 +20,21 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port                       string `envconfig:"PORT" default:":8080"`
-	FrontendURL                string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL                string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL                 string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID             string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret         string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure            bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxVMCreateOptionsNode string `envconfig:"PROXMOX_VM_CREATE_OPTIONS_NODE"`
-	LDAPUrl                    string `envconfig:"LDAP_URL"`
-	LDAPBindDN                 string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword           string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN           string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU                 string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU                string `envconfig:"LDAP_GROUP_OU"`
-	LDAPInsecure               bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	Port               string `envconfig:"PORT" default:":8080"`
+	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
+	LDAPUrl            string `envconfig:"LDAP_URL"`
+	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
+	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
 }
 
 // Server holds all application dependencies
@@ -44,6 +45,19 @@ type Server struct {
 	ProxmoxImport *proxmox.InventoryImporter
 	ADClient      *activedirectory.Client
 	ADSync        *activedirectory.Sync
+}
+
+func splitCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		result = append(result, trimmed)
+	}
+	return result
 }
 
 // init the environment
@@ -70,11 +84,17 @@ func newServer(config *Config) (*Server, error) {
 	}
 
 	// Initialize Proxmox client
+	proxmoxNodes := splitCSV(config.ProxmoxNodes)
+	if len(proxmoxNodes) == 0 {
+		return nil, fmt.Errorf("PROXMOX_NODES must contain at least one node")
+	}
+
 	pxClient := proxmox.NewClient(
 		config.ProxmoxURL,
 		config.ProxmoxTokenID,
 		config.ProxmoxTokenSecret,
 		config.ProxmoxInsecure,
+		proxmoxNodes,
 	)
 
 	// Initialize sync service
@@ -156,9 +176,8 @@ func main() {
 		Notifier: vmStatusNotifier,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:                server.ProxmoxClient,
-		Service:           inventoryService,
-		CreateOptionsNode: config.ProxmoxVMCreateOptionsNode,
+		PX:      server.ProxmoxClient,
+		Service: inventoryService,
 	}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 

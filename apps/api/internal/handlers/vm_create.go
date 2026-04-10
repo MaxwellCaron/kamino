@@ -14,9 +14,8 @@ import (
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX                *proxmox.Client
-	Service           *inventory.Service
-	CreateOptionsNode string
+	PX      *proxmox.Client
+	Service *inventory.Service
 }
 
 // GetNodes returns all cluster nodes.
@@ -48,12 +47,9 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
-	createOptionsNode, err := h.PX.ResolveCreateOptionsNode(
-		c.Request.Context(),
-		h.CreateOptionsNode,
-	)
+	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve create options node"})
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve primary node"})
 		return
 	}
 
@@ -114,12 +110,9 @@ func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 	storage := c.Param("storage")
 
-	createOptionsNode, err := h.PX.ResolveCreateOptionsNode(
-		c.Request.Context(),
-		h.CreateOptionsNode,
-	)
+	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve create options node"})
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve primary node"})
 		return
 	}
 

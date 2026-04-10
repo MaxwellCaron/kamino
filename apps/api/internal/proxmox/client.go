@@ -18,15 +18,33 @@ type Client struct {
 	tokenID    string
 	secret     string
 	insecure   bool
+	nodes      []string
+	nodeIndex  map[string]int
 	httpClient *http.Client
 }
 
 // NewClient creates a Proxmox API client.
 // Set insecure to true to skip TLS certificate verification (common for self-signed certs).
-func NewClient(baseURL, tokenID, secret string, insecure bool) *Client {
+func NewClient(
+	baseURL, tokenID, secret string, insecure bool, nodes []string,
+) *Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if insecure {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	nodeIndex := make(map[string]int, len(nodes))
+	allowedNodes := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		node = strings.TrimSpace(node)
+		if node == "" {
+			continue
+		}
+		if _, exists := nodeIndex[node]; exists {
+			continue
+		}
+		nodeIndex[node] = len(allowedNodes)
+		allowedNodes = append(allowedNodes, node)
 	}
 
 	return &Client{
@@ -34,6 +52,8 @@ func NewClient(baseURL, tokenID, secret string, insecure bool) *Client {
 		tokenID:    tokenID,
 		secret:     secret,
 		insecure:   insecure,
+		nodes:      allowedNodes,
+		nodeIndex:  nodeIndex,
 		httpClient: &http.Client{Transport: transport},
 	}
 }
@@ -48,6 +68,46 @@ func (c *Client) AuthHeader() string {
 
 // Insecure returns whether TLS verification is disabled.
 func (c *Client) Insecure() bool { return c.insecure }
+
+func (c *Client) isAllowedNode(node string) bool {
+	_, ok := c.nodeIndex[strings.TrimSpace(node)]
+	return ok
+}
+
+func (c *Client) requireAllowedNode(node string) error {
+	node = strings.TrimSpace(node)
+	if node == "" {
+		return fmt.Errorf("node is required")
+	}
+	if c.isAllowedNode(node) {
+		return nil
+	}
+	return fmt.Errorf("node %q is not managed by Kamino", node)
+}
+
+func (c *Client) filterNodes(nodes []Node) []Node {
+	filtered := make([]Node, 0, len(nodes))
+	for _, node := range nodes {
+		if c.isAllowedNode(node.Node) {
+			filtered = append(filtered, node)
+		}
+	}
+
+	slices.SortFunc(filtered, func(left, right Node) int {
+		return c.nodeIndex[left.Node] - c.nodeIndex[right.Node]
+	})
+	return filtered
+}
+
+func (c *Client) filterVMs(vms []VM) []VM {
+	filtered := make([]VM, 0, len(vms))
+	for _, vm := range vms {
+		if c.isAllowedNode(vm.Node) {
+			filtered = append(filtered, vm)
+		}
+	}
+	return filtered
+}
 
 func (c *Client) get(ctx context.Context, path string, result any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
@@ -116,7 +176,7 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
 		return nil, fmt.Errorf("fetching VMs: %w", err)
 	}
-	return resp.Data, nil
+	return c.filterVMs(resp.Data), nil
 }
 
 // VNCProxyResponse holds the data returned by Proxmox's vncproxy endpoint.
@@ -128,6 +188,9 @@ type VNCProxyResponse struct {
 
 // CreateSnapshot creates a snapshot of a VM and waits for the task to complete.
 func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot", node, vmid)
 	form := map[string]string{
 		"snapname": snapname,
@@ -244,6 +307,9 @@ func (c *Client) RemoveVMFromPool(ctx context.Context, poolID string, vmid int) 
 
 // StartVM powers on a VM and waits for the Proxmox task to complete.
 func (c *Client) StartVM(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/start", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
@@ -254,6 +320,9 @@ func (c *Client) StartVM(ctx context.Context, node string, vmid int) error {
 
 // ShutdownVM sends a graceful shutdown signal to a VM and waits for the task to complete.
 func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/shutdown", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
@@ -264,6 +333,9 @@ func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) error {
 
 // RebootVM sends a reboot signal to a VM and waits for the task to complete.
 func (c *Client) RebootVM(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/reboot", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
@@ -274,6 +346,9 @@ func (c *Client) RebootVM(ctx context.Context, node string, vmid int) error {
 
 // StopVM immediately stops a VM and waits for the task to complete.
 func (c *Client) StopVM(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/stop", node, vmid)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
@@ -284,6 +359,9 @@ func (c *Client) StopVM(ctx context.Context, node string, vmid int) error {
 
 // DeleteVM deletes a VM and waits for the task to complete.
 func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d", node, vmid)
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
@@ -294,6 +372,9 @@ func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
 
 // RenameVM changes the name of a VM.
 func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
 	return c.put(ctx, path, map[string]string{"name": name}, nil)
 }
@@ -308,6 +389,9 @@ func (c *Client) CloneVM(
 	full bool,
 	target string,
 ) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/clone", node, vmid)
 	form := map[string]string{
 		"newid": fmt.Sprintf("%d", newid),
@@ -318,6 +402,9 @@ func (c *Client) CloneVM(
 	}
 	taskNode := node
 	if target != "" {
+		if err := c.requireAllowedNode(target); err != nil {
+			return err
+		}
 		form["target"] = target
 		taskNode = target
 	}
@@ -330,6 +417,9 @@ func (c *Client) CloneVM(
 
 // ConvertToTemplate converts a VM to a template.
 func (c *Client) ConvertToTemplate(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/template", node, vmid)
 	var resp apiResponse[any]
 	return c.post(ctx, path, nil, &resp)
@@ -337,6 +427,9 @@ func (c *Client) ConvertToTemplate(ctx context.Context, node string, vmid int) e
 
 // GetSnapshots returns all snapshots for a VM.
 func (c *Client) GetSnapshots(ctx context.Context, node string, vmid int) ([]Snapshot, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot", node, vmid)
 	var resp apiResponse[[]Snapshot]
 	if err := c.get(ctx, path, &resp); err != nil {
@@ -347,6 +440,9 @@ func (c *Client) GetSnapshots(ctx context.Context, node string, vmid int) ([]Sna
 
 // RollbackSnapshot rolls back a VM to a snapshot and waits for the task to complete.
 func (c *Client) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot/%s/rollback", node, vmid, snapname)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
@@ -357,6 +453,9 @@ func (c *Client) RollbackSnapshot(ctx context.Context, node string, vmid int, sn
 
 // DeleteSnapshot deletes a snapshot and waits for the task to complete.
 func (c *Client) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot/%s", node, vmid, snapname)
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
@@ -371,7 +470,7 @@ func (c *Client) GetNodes(ctx context.Context) ([]Node, error) {
 	if err := c.get(ctx, "/api2/json/nodes", &resp); err != nil {
 		return nil, fmt.Errorf("fetching nodes: %w", err)
 	}
-	return resp.Data, nil
+	return c.filterNodes(resp.Data), nil
 }
 
 func containsContent(content, item string) bool {
@@ -383,36 +482,19 @@ func containsContent(content, item string) bool {
 	return false
 }
 
-// ResolveCreateOptionsNode returns the configured metadata node or the first
-// node alphabetically when no preference is set.
-func (c *Client) ResolveCreateOptionsNode(
-	ctx context.Context,
-	preferred string,
-) (Node, error) {
+// ResolvePrimaryNode returns the first configured Proxmox node.
+func (c *Client) ResolvePrimaryNode(ctx context.Context) (Node, error) {
 	nodes, err := c.GetNodes(ctx)
 	if err != nil {
-		return Node{}, fmt.Errorf("fetching nodes: %w", err)
+		return Node{}, err
 	}
 	if len(nodes) == 0 {
-		return Node{}, fmt.Errorf("no cluster nodes available")
+		return Node{}, fmt.Errorf("no managed cluster nodes available")
 	}
-
-	slices.SortFunc(nodes, func(left, right Node) int {
-		return strings.Compare(left.Node, right.Node)
-	})
-
-	preferred = strings.TrimSpace(preferred)
-	if preferred == "" {
-		return nodes[0], nil
+	if nodes[0].Node != c.nodes[0] {
+		return Node{}, fmt.Errorf("primary node %q was not found", c.nodes[0])
 	}
-
-	for _, node := range nodes {
-		if node.Node == preferred {
-			return node, nil
-		}
-	}
-
-	return Node{}, fmt.Errorf("configured create options node %q was not found", preferred)
+	return nodes[0], nil
 }
 
 func sortStorages(storages []Storage) {
@@ -423,6 +505,9 @@ func sortStorages(storages []Storage) {
 
 // GetStorages returns all storages for a node.
 func (c *Client) GetStorages(ctx context.Context, node string) ([]Storage, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/storage", node)
 	var resp apiResponse[[]Storage]
 	if err := c.get(ctx, path, &resp); err != nil {
@@ -458,6 +543,9 @@ func (c *Client) GetCreateStorages(
 
 // GetISOs returns ISO files available on a storage.
 func (c *Client) GetISOs(ctx context.Context, node, storage string) ([]ISOContent, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/storage/%s/content?content=iso", node, storage)
 	var resp apiResponse[[]ISOContent]
 	if err := c.get(ctx, path, &resp); err != nil {
@@ -484,6 +572,9 @@ func (c *Client) GetCreateISOs(
 
 // GetBridges returns all network bridges for a node.
 func (c *Client) GetBridges(ctx context.Context, node string) ([]NetworkBridge, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/network?type=bridge", node)
 	var resp apiResponse[[]NetworkBridge]
 	if err := c.get(ctx, path, &resp); err != nil {
@@ -546,6 +637,9 @@ func (c *Client) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
 
 // CreateVM creates a new virtual machine and waits for the task to complete.
 func (c *Client) CreateVM(ctx context.Context, node string, params map[string]string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu", node)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, params, &resp); err != nil {
@@ -589,6 +683,9 @@ func (c *Client) ApplySDN(ctx context.Context) error {
 
 // CreateVNCProxy requests a VNC proxy session from Proxmox for a given VM.
 func (c *Client) CreateVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyResponse, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/vncproxy", node, vmid)
 	var resp apiResponse[VNCProxyResponse]
 	if err := c.post(ctx, path, map[string]string{
@@ -608,6 +705,9 @@ type TaskStatus struct {
 
 // GetTaskStatus fetches the current status of a Proxmox task identified by its UPID.
 func (c *Client) GetTaskStatus(ctx context.Context, node, upid string) (*TaskStatus, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, upid)
 	var resp apiResponse[TaskStatus]
 	if err := c.get(ctx, path, &resp); err != nil {
@@ -620,6 +720,9 @@ func (c *Client) GetTaskStatus(ctx context.Context, node, upid string) (*TaskSta
 // context is cancelled, or the task fails. It returns nil only when the
 // task finishes with exitstatus == "OK".
 func (c *Client) waitForTask(ctx context.Context, node, upid string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
