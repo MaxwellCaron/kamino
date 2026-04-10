@@ -1,0 +1,280 @@
+import {
+  createFormHook,
+  createFormHookContexts,
+  formOptions,
+} from "@tanstack/react-form"
+import { z } from "zod"
+import type { DeepKeys } from "@tanstack/react-form"
+import type { ApiTreeNode, CreateVMParams } from "@/lib/queries"
+import { vmNameSchema } from "@/lib/vm-name"
+
+export const createVmMethodSchema = z.enum(["template", "iso", "upload"])
+
+export type CreateVmMethod = z.infer<typeof createVmMethodSchema>
+
+export const networkInterfaceSchema = z.object({
+  bridge: z.string().min(1, "Network bridge is required").default("vmbr0"),
+  model: z.string().min(1, "NIC model is required").default("virtio"),
+  vlan_tag: z.number().int().min(1).max(4094).optional(),
+  firewall: z.boolean().default(true),
+})
+
+export const optionalVmNameSchema = z.union([vmNameSchema, z.literal("")])
+export const optionalVmidSchema = z.union([
+  z.literal(0),
+  z.number().int().min(100, "VM ID must be at least 100"),
+])
+
+const templateConfigurationSchema = z.object({
+  template_id: z.string().min(1, "Template is required"),
+  node: z.union([z.string(), z.literal("")]).optional(),
+  vmid: optionalVmidSchema,
+  name: optionalVmNameSchema,
+})
+
+const isoConfigurationSchema = z.object({
+  node: z.string().min(1, "Node is required"),
+  vmid: optionalVmidSchema,
+  name: vmNameSchema,
+  ostype: z.string().min(1, "OS type is required"),
+  iso_storage: z.string().min(1, "ISO storage is required"),
+  iso: z.string().min(1, "ISO image is required"),
+  bios: z.string().min(1, "BIOS is required"),
+  machine: z.string().min(1, "Machine type is required"),
+  scsi: z.string().min(1, "SCSI controller is required"),
+  sockets: z.number().int().min(1, "At least one socket is required"),
+  cores: z.number().int().min(1, "At least one core is required"),
+  cpu_type: z.string().min(1, "CPU type is required"),
+  storage: z.string().min(1, "Disk storage is required"),
+  disk_size: z
+    .number()
+    .int()
+    .min(1, "Disk size must be at least 1 GB")
+    .max(100, "Disk size must be at most 100 GB"),
+  memory: z
+    .number()
+    .int()
+    .min(1, "Memory must be at least 1 GB")
+    .max(24, "Memory must be at most 24 GB"),
+  balloon: z.number().int().min(0, "Balloon must be 0 GB or higher"),
+  networks: z
+    .array(networkInterfaceSchema)
+    .min(1, "At least one network interface is required")
+    .max(5, "No more than 5 network interfaces are permitted."),
+})
+
+export const createVmFormSchema = z
+  .object({
+    method: createVmMethodSchema.default("template"),
+    template_id: z.string().optional(),
+    full_clone: z.boolean().default(true),
+    node: z.string().default(""),
+    vmid: optionalVmidSchema,
+    name: optionalVmNameSchema,
+    ostype: z.string().default("l26"),
+    iso_storage: z.string().optional(),
+    iso: z.string().optional(),
+    bios: z.string().default("seabios"),
+    machine: z.string().default("i440fx"),
+    scsi: z.string().default("virtio-scsi-single"),
+    sockets: z.number().int().min(1).default(1),
+    cores: z.number().int().min(1).default(1),
+    cpu_type: z.string().default("x86-64-v2-AES"),
+    memory: z.number().int().min(1).default(2),
+    balloon: z.number().int().min(0).default(0),
+    storage: z.string().optional(),
+    disk_size: z.number().int().min(1).default(32),
+    networks: z
+      .array(networkInterfaceSchema)
+      .default([{ bridge: "vmbr0", model: "virtio", firewall: true }]),
+    upload_filename: z.string().optional(),
+    upload_notes: z.string().max(256).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const result =
+      value.method === "template"
+        ? templateConfigurationSchema.safeParse(value)
+        : value.method === "iso"
+          ? isoConfigurationSchema.safeParse(value)
+          : null
+
+    if (!result || result.success) return
+
+    for (const issue of result.error.issues) {
+      ctx.addIssue({
+        code: "custom",
+        path: issue.path,
+        message: issue.message,
+      })
+    }
+  })
+
+export type CreateVmFormValues = z.infer<typeof createVmFormSchema>
+
+function toFormFieldPath(path: Array<PropertyKey>) {
+  return path.reduce<string>((fieldPath, segment) => {
+    if (typeof segment === "number") {
+      return `${fieldPath}[${segment}]`
+    }
+
+    if (typeof segment !== "string") {
+      return fieldPath
+    }
+
+    return fieldPath ? `${fieldPath}.${segment}` : segment
+  }, "")
+}
+
+function getCreateVmFormErrors(values: CreateVmFormValues) {
+  const result = createVmFormSchema.safeParse(values)
+
+  if (result.success) return undefined
+
+  const fields: Partial<Record<DeepKeys<CreateVmFormValues>, string>> = {}
+
+  for (const issue of result.error.issues) {
+    const path = toFormFieldPath(issue.path)
+    if (!path) continue
+
+    const field = path as DeepKeys<CreateVmFormValues>
+    if (fields[field]) continue
+
+    fields[field] = issue.message
+  }
+
+  return { fields }
+}
+
+const defaultValues: CreateVmFormValues = {
+  method: "template",
+  template_id: "",
+  full_clone: false,
+  node: "",
+  vmid: 0,
+  name: "",
+  ostype: "l26",
+  iso_storage: "",
+  iso: "",
+  bios: "seabios",
+  machine: "i440fx",
+  scsi: "virtio-scsi-single",
+  sockets: 1,
+  cores: 1,
+  cpu_type: "x86-64-v2-AES",
+  memory: 2,
+  balloon: 0,
+  storage: "",
+  disk_size: 32,
+  networks: [{ bridge: "vmbr0", model: "virtio", firewall: true }],
+  upload_filename: "",
+  upload_notes: "",
+}
+
+export const createVmFormOptions = formOptions({
+  defaultValues,
+  validators: {
+    onSubmit: ({ value }) => getCreateVmFormErrors(value),
+  },
+})
+
+const { fieldContext, formContext } = createFormHookContexts()
+
+export const { useAppForm: useCreateVmForm, withForm: withCreateVmForm } =
+  createFormHook({
+    fieldContext,
+    formContext,
+    fieldComponents: {},
+    formComponents: {},
+  })
+
+export type CreateVmFormApi = ReturnType<typeof useCreateVmForm>
+
+export type VmTemplateOption = {
+  id: string
+  label: string
+  name: string
+  node: string
+  vmid: number
+}
+
+export function getVmTemplateOptions(
+  tree: Array<ApiTreeNode> | undefined
+): Array<VmTemplateOption> {
+  if (!tree) return []
+
+  const templates: Array<VmTemplateOption> = []
+
+  function walk(nodes: Array<ApiTreeNode>) {
+    for (const entry of nodes) {
+      if (entry.kind === "vm" && entry.vm?.is_template) {
+        templates.push({
+          id: entry.id,
+          label: `${entry.name} (${entry.vm.node}/${entry.vm.vmid})`,
+          name: entry.name,
+          node: entry.vm.node,
+          vmid: entry.vm.vmid,
+        })
+      }
+
+      if (entry.children?.length) walk(entry.children)
+    }
+  }
+
+  walk(tree)
+
+  return templates.sort((left, right) => left.label.localeCompare(right.label))
+}
+
+export function getSelectedTemplate(
+  templateOptions: Array<VmTemplateOption>,
+  templateId: string
+) {
+  return templateOptions.find(
+    (template) => template.id === templateId || template.name === templateId
+  )
+}
+
+export function parseNumberInput(value: string, fallback: number) {
+  const next = Number.parseInt(value, 10)
+  return Number.isNaN(next) ? fallback : next
+}
+
+export function parseOptionalNumberInput(value: string) {
+  const next = Number.parseInt(value, 10)
+  return Number.isNaN(next) ? undefined : next
+}
+
+export function getFirstIssueMessage(result: z.ZodSafeParseResult<unknown>) {
+  return result.success ? undefined : result.error.issues[0]?.message
+}
+
+function optionalString(value: string | undefined) {
+  const next = value?.trim()
+  return next ? next : undefined
+}
+
+export function toCreateVmParams(values: CreateVmFormValues): CreateVMParams {
+  return {
+    node: values.node,
+    vmid: values.vmid,
+    name: values.name,
+    ostype: values.ostype,
+    iso: optionalString(values.iso),
+    bios: values.bios,
+    machine: values.machine,
+    scsi: values.scsi,
+    sockets: values.sockets,
+    cores: values.cores,
+    cpu_type: values.cpu_type,
+    memory: values.memory,
+    balloon: values.balloon,
+    storage: optionalString(values.storage),
+    disk_size: values.disk_size,
+    networks: values.networks.map((network) => ({
+      bridge: network.bridge,
+      model: network.model,
+      vlan_tag: network.vlan_tag,
+      firewall: network.firewall,
+    })),
+  }
+}

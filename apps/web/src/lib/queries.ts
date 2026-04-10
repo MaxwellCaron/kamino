@@ -165,7 +165,7 @@ export async function cloneVM(params: {
   newid: number
   name: string
   full: boolean
-}): Promise<void> {
+}): Promise<{ vmid: number }> {
   const res = await fetch("/api/v1/vms/clone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -175,6 +175,7 @@ export async function cloneVM(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to clone VM: ${res.status}`)
   }
+  return res.json()
 }
 
 export async function convertToTemplate(params: {
@@ -352,6 +353,16 @@ export async function getNextVMID(): Promise<number> {
   return data.vmid
 }
 
+export async function validateVMID(vmid: number): Promise<boolean> {
+  const res = await fetch(`/api/v1/proxmox/vmid/${vmid}/validate`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to validate VM ID: ${res.status}`)
+  }
+  const data = await res.json()
+  return !!data.valid
+}
+
 export type NetworkInterface = {
   bridge: string
   model: string
@@ -363,15 +374,14 @@ export type CreateVMParams = {
   node: string
   vmid: number
   name: string
-  pool?: string
   ostype?: string
   iso?: string
   bios?: string
   machine?: string
+  scsi?: string
   sockets?: number
   cores?: number
   cpu_type?: string
-  numa?: boolean
   memory?: number
   balloon?: number
   storage?: string
@@ -379,7 +389,9 @@ export type CreateVMParams = {
   networks: Array<NetworkInterface>
 }
 
-export async function createVM(params: CreateVMParams): Promise<void> {
+export async function createVM(
+  params: CreateVMParams
+): Promise<{ vmid: number }> {
   const res = await fetch("/api/v1/vms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -389,6 +401,7 @@ export async function createVM(params: CreateVMParams): Promise<void> {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create VM: ${res.status}`)
   }
+  return res.json()
 }
 
 // --- SDN ---

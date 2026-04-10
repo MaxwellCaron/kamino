@@ -278,7 +278,7 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 type cloneVMRequest struct {
 	Node  string `json:"node" binding:"required"`
 	VMID  int    `json:"vmid" binding:"required"`
-	NewID int    `json:"newid" binding:"required"`
+	NewID int    `json:"newid"`
 	Name  string `json:"name" binding:"required"`
 	Full  bool   `json:"full"`
 }
@@ -297,12 +297,32 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, req.NewID, req.Name, req.Full); err != nil {
+	newID := req.NewID
+	if newID <= 0 {
+		nextID, err := h.PX.GetNextVMID(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch next VMID"})
+			return
+		}
+		newID = nextID
+	}
+
+	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), newID)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to validate VMID"})
+		return
+	}
+	if !available {
+		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+		return
+	}
+
+	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, newID, req.Name, req.Full); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": newID})
 }
 
 type convertToTemplateRequest struct {

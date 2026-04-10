@@ -403,6 +403,20 @@ func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	return int(id), nil
 }
 
+// IsVMIDAvailable returns true if no existing guest currently uses the VMID.
+func (c *Client) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
+	vms, err := c.GetVMs(ctx)
+	if err != nil {
+		return false, fmt.Errorf("fetching VMs: %w", err)
+	}
+	for _, vm := range vms {
+		if vm.VMID == vmid {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // CreateVM creates a new virtual machine and waits for the task to complete.
 func (c *Client) CreateVM(ctx context.Context, node string, params map[string]string) error {
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu", node)
