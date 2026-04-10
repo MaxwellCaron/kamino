@@ -75,7 +75,7 @@ const scsiControllers = [
 ]
 
 const machineTypes = [
-  { label: "i440fx", value: "i440fx" },
+  { label: "i440fx", value: "pc" },
   { label: "q35", value: "q35" },
 ]
 
@@ -204,25 +204,20 @@ export const IsoConfigurationFields = withCreateVmForm({
                   <Field>
                     <FieldLabel htmlFor="node">Node</FieldLabel>
                     <Select
-                    value={field.state.value}
-                    onValueChange={(value) => {
-                      const next = value ?? ""
-                      field.handleChange(next)
-                      form.setFieldValue("iso_storage", "")
-                      form.setFieldValue("iso", "")
-                      form.setFieldValue("storage", "")
-                      }}
+                      value={field.state.value}
+                      onValueChange={(value) => field.handleChange(value ?? "")}
                     >
                       <SelectTrigger
                         aria-invalid={
                           field.state.meta.errors.length > 0 || undefined
                         }
                       >
-                        <SelectValue placeholder="Select node" />
+                        <SelectValue placeholder="Optimal (Default)" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
                           <SelectLabel>Nodes</SelectLabel>
+                          <SelectItem value="">Optimal (Default)</SelectItem>
                           {nodes.map((node) => (
                             <SelectItem key={node.node} value={node.node}>
                               {node.node}
@@ -305,7 +300,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                   <FieldLabel>ISO Storage</FieldLabel>
                   <Select
                     value={field.state.value ?? ""}
-                    disabled={!form.state.values.node}
                     onValueChange={(value) => {
                       const next = value ?? ""
                       field.handleChange(next)
@@ -334,9 +328,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                     </SelectContent>
                   </Select>
                   <FieldDescription>
-                    {form.state.values.node
-                      ? "Choose the storage that contains the installation ISO."
-                      : "Select a node first to load ISO storages."}
+                    Choose the storage that contains the installation ISO.
                   </FieldDescription>
                   <FieldError>
                     {renderError(field.state.meta.errors[0])}
@@ -448,7 +440,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                     <Select
                       value={field.state.value}
                       onValueChange={(value) =>
-                        field.handleChange(value ?? "i440fx")
+                        field.handleChange(value ?? "pc")
                       }
                       items={machineTypes}
                     >
@@ -709,7 +701,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                           <FieldLabel>Disk</FieldLabel>
                           <Select
                             value={field.state.value ?? ""}
-                            disabled={!form.state.values.node}
                             onValueChange={(value) =>
                               field.handleChange(value ?? "")
                             }
@@ -854,7 +845,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                               >
                                 <ComboboxInput
                                   placeholder="Select network"
-                                  disabled={!form.state.values.node}
                                   onBlur={field.handleBlur}
                                   aria-invalid={
                                     field.state.meta.errors.length > 0 ||
@@ -863,9 +853,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                                 />
                                 <ComboboxContent>
                                   <ComboboxEmpty>
-                                    {form.state.values.node
-                                      ? "No networks found."
-                                      : "Select a node first."}
+                                    No networks found.
                                   </ComboboxEmpty>
                                   <ComboboxList>
                                     {bridgeOptions.length ? (

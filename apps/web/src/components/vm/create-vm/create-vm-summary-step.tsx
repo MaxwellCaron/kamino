@@ -31,6 +31,10 @@ import type { CreateVmFormValues, VmTemplateOption } from "./create-vm-form"
 import type { InventoryFolderOption } from "@/lib/inventory-tree"
 import { getSelectedFolder } from "@/lib/inventory-tree"
 
+function getMachineTypeLabel(machine: string) {
+  return machine === "pc" ? "i440fx" : machine
+}
+
 export const CreateVmSummaryStep = withCreateVmForm({
   ...createVmFormOptions,
   props: {
@@ -81,7 +85,7 @@ export const CreateVmSummaryStep = withCreateVmForm({
                     label="New VM ID"
                     value={values.vmid > 0 ? values.vmid : "Auto"}
                   />
-                  <SummaryRow label="Node" value={values.node || "Auto"} />
+                  <SummaryRow label="Node" value={values.node || "Optimal"} />
                   <SummaryRow label="Name" value={templateCloneName} />
                   <SummaryRow
                     label="Destination Folder"
@@ -138,7 +142,7 @@ function IsoReview({
         </FieldDescription>
         <div className="grid grid-cols-2 gap-6">
           <ReviewField label="Name" value={values.name || "Unset"} />
-          <ReviewField label="Node" value={values.node || "Unset"} />
+          <ReviewField label="Node" value={values.node || "Optimal"} />
           <ReviewField
             label="VMID"
             value={values.vmid > 0 ? values.vmid : "Auto"}
@@ -163,7 +167,10 @@ function IsoReview({
         <div className="grid grid-cols-2 gap-6">
           <ReviewField label="OS Type" value={values.ostype} />
           <ReviewField label="BIOS" value={values.bios} />
-          <ReviewField label="Machine Type" value={values.machine} />
+          <ReviewField
+            label="Machine Type"
+            value={getMachineTypeLabel(values.machine)}
+          />
           <ReviewField label="SCSI Controller" value={values.scsi || "Unset"} />
           <ReviewField
             label="ISO Storage"

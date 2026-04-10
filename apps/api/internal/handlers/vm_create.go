@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -13,8 +14,9 @@ import (
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX      *proxmox.Client
-	Service *inventory.Service
+	PX                *proxmox.Client
+	Service           *inventory.Service
+	CreateOptionsNode string
 }
 
 // GetNodes returns all cluster nodes.
@@ -26,6 +28,60 @@ func (h *VMCreateHandler) GetNodes(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, nodes)
+}
+
+type createOptionsResponse struct {
+	Nodes        []proxmox.Node          `json:"nodes"`
+	DiskStorages []proxmox.Storage       `json:"disk_storages"`
+	ISOStorages  []proxmox.Storage       `json:"iso_storages"`
+	Bridges      []proxmox.NetworkBridge `json:"bridges"`
+	VNets        []proxmox.VNet          `json:"vnets"`
+}
+
+// GetCreateOptions returns VM create options sourced from the configured
+// metadata node plus cluster-level VNets.
+// GET /api/v1/proxmox/create/options
+func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
+	nodes, err := h.PX.GetNodes(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch nodes"})
+		return
+	}
+
+	createOptionsNode, err := h.PX.ResolveCreateOptionsNode(
+		c.Request.Context(),
+		h.CreateOptionsNode,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve create options node"})
+		return
+	}
+
+	diskStorages, isoStorages, err := h.PX.GetCreateStorages(
+		c.Request.Context(),
+		createOptionsNode.Node,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch storages"})
+		return
+	}
+
+	bridges, vnets, err := h.PX.GetCreateNetworks(
+		c.Request.Context(),
+		createOptionsNode.Node,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch networks"})
+		return
+	}
+
+	c.JSON(http.StatusOK, createOptionsResponse{
+		Nodes:        nodes,
+		DiskStorages: diskStorages,
+		ISOStorages:  isoStorages,
+		Bridges:      bridges,
+		VNets:        vnets,
+	})
 }
 
 // GetStorages returns storages for a node.
@@ -46,6 +102,32 @@ func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 	node := c.Param("node")
 	storage := c.Param("storage")
 	isos, err := h.PX.GetISOs(c.Request.Context(), node, storage)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch ISOs"})
+		return
+	}
+	c.JSON(http.StatusOK, isos)
+}
+
+// GetCreateISOs returns ISO files for a storage from the configured metadata node.
+// GET /api/v1/proxmox/create/isos/:storage
+func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
+	storage := c.Param("storage")
+
+	createOptionsNode, err := h.PX.ResolveCreateOptionsNode(
+		c.Request.Context(),
+		h.CreateOptionsNode,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve create options node"})
+		return
+	}
+
+	isos, err := h.PX.GetCreateISOs(
+		c.Request.Context(),
+		createOptionsNode.Node,
+		storage,
+	)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch ISOs"})
 		return
@@ -107,7 +189,7 @@ type networkInterface struct {
 
 type createVMRequest struct {
 	TargetFolderID string             `json:"target_folder_id" binding:"required"`
-	Node           string             `json:"node" binding:"required"`
+	Node           string             `json:"node"`
 	VMID           int                `json:"vmid"`
 	Name           string             `json:"name" binding:"required"`
 	OSType         string             `json:"ostype"`
@@ -123,6 +205,15 @@ type createVMRequest struct {
 	Storage        string             `json:"storage"`
 	DiskSize       int                `json:"disk_size"`
 	Networks       []networkInterface `json:"networks"`
+}
+
+func normalizeMachineType(machine string) string {
+	switch strings.TrimSpace(machine) {
+	case "", "i440fx":
+		return "pc"
+	default:
+		return machine
+	}
 }
 
 // CreateVM creates a new virtual machine.
@@ -187,7 +278,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		params["bios"] = req.BIOS
 	}
 	if req.Machine != "" {
-		params["machine"] = req.Machine
+		params["machine"] = normalizeMachineType(req.Machine)
 	}
 	if req.Sockets > 0 {
 		params["sockets"] = fmt.Sprintf("%d", req.Sockets)
@@ -232,12 +323,22 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		params[fmt.Sprintf("net%d", i)] = netStr
 	}
 
-	if err := h.PX.CreateVM(c.Request.Context(), req.Node, params); err != nil {
+	targetNode := req.Node
+	if targetNode == "" {
+		optimalNode, err := h.PX.GetOptimalNode(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve optimal node"})
+			return
+		}
+		targetNode = optimalNode.Node
+	}
+
+	if err := h.PX.CreateVM(c.Request.Context(), targetNode, params); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), req.Node, vmid, placement.PoolID, placement.Path); err != nil {
+	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, vmid, placement.PoolID, placement.Path); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
@@ -245,7 +346,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	if err := h.Service.RegisterProxmoxVM(
 		c.Request.Context(),
 		placement.FolderID,
-		req.Node,
+		targetNode,
 		int32(vmid),
 		req.Name,
 		false,

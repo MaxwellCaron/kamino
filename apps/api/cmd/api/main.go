@@ -19,20 +19,21 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port               string `envconfig:"PORT" default:":8080"`
-	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	LDAPUrl            string `envconfig:"LDAP_URL"`
-	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
-	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	Port                       string `envconfig:"PORT" default:":8080"`
+	FrontendURL                string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL                string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL                 string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID             string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret         string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure            bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxVMCreateOptionsNode string `envconfig:"PROXMOX_VM_CREATE_OPTIONS_NODE"`
+	LDAPUrl                    string `envconfig:"LDAP_URL"`
+	LDAPBindDN                 string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword           string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN           string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU                 string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU                string `envconfig:"LDAP_GROUP_OU"`
+	LDAPInsecure               bool   `envconfig:"LDAP_INSECURE" default:"false"`
 }
 
 // Server holds all application dependencies
@@ -155,8 +156,9 @@ func main() {
 		Notifier: vmStatusNotifier,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:      server.ProxmoxClient,
-		Service: inventoryService,
+		PX:                server.ProxmoxClient,
+		Service:           inventoryService,
+		CreateOptionsNode: config.ProxmoxVMCreateOptionsNode,
 	}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 

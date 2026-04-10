@@ -35,7 +35,7 @@ const templateConfigurationSchema = z.object({
 
 const isoConfigurationSchema = z.object({
   target_folder_id: z.string().min(1, "Destination folder is required"),
-  node: z.string().min(1, "Node is required"),
+  node: z.union([z.string(), z.literal("")]).optional(),
   vmid: optionalVmidSchema,
   name: vmNameSchema,
   ostype: z.string().min(1, "OS type is required"),
@@ -77,8 +77,8 @@ export const createVmFormSchema = z
     ostype: z.string().default("l26"),
     iso_storage: z.string().optional(),
     iso: z.string().optional(),
-    bios: z.string().default("seabios"),
-    machine: z.string().default("i440fx"),
+  bios: z.string().default("seabios"),
+  machine: z.string().default("pc"),
     scsi: z.string().default("virtio-scsi-single"),
     sockets: z.number().int().min(1).default(1),
     cores: z.number().int().min(1).default(1),
@@ -160,7 +160,7 @@ const defaultValues: CreateVmFormValues = {
   iso_storage: "",
   iso: "",
   bios: "seabios",
-  machine: "i440fx",
+  machine: "pc",
   scsi: "virtio-scsi-single",
   sockets: 1,
   cores: 1,

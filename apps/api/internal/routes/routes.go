@@ -46,6 +46,8 @@ func RegisterRoutes(
 	// VM creation & Proxmox metadata endpoints
 	v1.POST("/vms", vmCreate.CreateVM)
 	v1.GET("/proxmox/nodes", vmCreate.GetNodes)
+	v1.GET("/proxmox/create/options", vmCreate.GetCreateOptions)
+	v1.GET("/proxmox/create/isos/:storage", vmCreate.GetCreateISOs)
 	v1.GET("/proxmox/nodes/:node/storages", vmCreate.GetStorages)
 	v1.GET("/proxmox/nodes/:node/storages/:storage/isos", vmCreate.GetISOs)
 	v1.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)

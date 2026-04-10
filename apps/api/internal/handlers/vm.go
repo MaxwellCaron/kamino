@@ -315,7 +315,12 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 
 	targetNode := strings.TrimSpace(req.Target)
 	if targetNode == "" {
-		targetNode = req.Node
+		optimalNode, err := h.PX.GetOptimalNode(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to resolve optimal node"})
+			return
+		}
+		targetNode = optimalNode.Node
 	}
 
 	newID := req.NewID

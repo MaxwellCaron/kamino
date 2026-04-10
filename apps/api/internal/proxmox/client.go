@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -373,6 +374,53 @@ func (c *Client) GetNodes(ctx context.Context) ([]Node, error) {
 	return resp.Data, nil
 }
 
+func containsContent(content, item string) bool {
+	for _, entry := range strings.Split(content, ",") {
+		if strings.TrimSpace(entry) == item {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveCreateOptionsNode returns the configured metadata node or the first
+// node alphabetically when no preference is set.
+func (c *Client) ResolveCreateOptionsNode(
+	ctx context.Context,
+	preferred string,
+) (Node, error) {
+	nodes, err := c.GetNodes(ctx)
+	if err != nil {
+		return Node{}, fmt.Errorf("fetching nodes: %w", err)
+	}
+	if len(nodes) == 0 {
+		return Node{}, fmt.Errorf("no cluster nodes available")
+	}
+
+	slices.SortFunc(nodes, func(left, right Node) int {
+		return strings.Compare(left.Node, right.Node)
+	})
+
+	preferred = strings.TrimSpace(preferred)
+	if preferred == "" {
+		return nodes[0], nil
+	}
+
+	for _, node := range nodes {
+		if node.Node == preferred {
+			return node, nil
+		}
+	}
+
+	return Node{}, fmt.Errorf("configured create options node %q was not found", preferred)
+}
+
+func sortStorages(storages []Storage) {
+	slices.SortFunc(storages, func(left, right Storage) int {
+		return strings.Compare(left.Storage, right.Storage)
+	})
+}
+
 // GetStorages returns all storages for a node.
 func (c *Client) GetStorages(ctx context.Context, node string) ([]Storage, error) {
 	path := fmt.Sprintf("/api2/json/nodes/%s/storage", node)
@@ -381,6 +429,31 @@ func (c *Client) GetStorages(ctx context.Context, node string) ([]Storage, error
 		return nil, fmt.Errorf("fetching storages: %w", err)
 	}
 	return resp.Data, nil
+}
+
+// GetCreateStorages returns the storages used by the VM create flow from the
+// configured metadata node.
+func (c *Client) GetCreateStorages(
+	ctx context.Context,
+	node string,
+) (diskStorages []Storage, isoStorages []Storage, err error) {
+	storages, err := c.GetStorages(ctx, node)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching storages for %s: %w", node, err)
+	}
+
+	for _, storage := range storages {
+		if containsContent(storage.Content, "images") {
+			diskStorages = append(diskStorages, storage)
+		}
+		if containsContent(storage.Content, "iso") {
+			isoStorages = append(isoStorages, storage)
+		}
+	}
+	sortStorages(diskStorages)
+	sortStorages(isoStorages)
+
+	return diskStorages, isoStorages, nil
 }
 
 // GetISOs returns ISO files available on a storage.
@@ -393,6 +466,22 @@ func (c *Client) GetISOs(ctx context.Context, node, storage string) ([]ISOConten
 	return resp.Data, nil
 }
 
+// GetCreateISOs returns the ISO list used by the VM create flow from the
+// configured metadata node.
+func (c *Client) GetCreateISOs(
+	ctx context.Context,
+	node, storage string,
+) ([]ISOContent, error) {
+	isos, err := c.GetISOs(ctx, node, storage)
+	if err != nil {
+		return nil, fmt.Errorf("fetching ISOs for %s on %s: %w", storage, node, err)
+	}
+	slices.SortFunc(isos, func(left, right ISOContent) int {
+		return strings.Compare(left.Volid, right.Volid)
+	})
+	return isos, nil
+}
+
 // GetBridges returns all network bridges for a node.
 func (c *Client) GetBridges(ctx context.Context, node string) ([]NetworkBridge, error) {
 	path := fmt.Sprintf("/api2/json/nodes/%s/network?type=bridge", node)
@@ -401,6 +490,31 @@ func (c *Client) GetBridges(ctx context.Context, node string) ([]NetworkBridge, 
 		return nil, fmt.Errorf("fetching bridges: %w", err)
 	}
 	return resp.Data, nil
+}
+
+// GetCreateNetworks returns bridge options from the configured metadata node
+// plus cluster-level VNets.
+func (c *Client) GetCreateNetworks(
+	ctx context.Context,
+	node string,
+) ([]NetworkBridge, []VNet, error) {
+	bridges, err := c.GetBridges(ctx, node)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching bridges for %s: %w", node, err)
+	}
+	slices.SortFunc(bridges, func(left, right NetworkBridge) int {
+		return strings.Compare(left.Iface, right.Iface)
+	})
+
+	vnets, err := c.GetVNets(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching vnets: %w", err)
+	}
+	slices.SortFunc(vnets, func(left, right VNet) int {
+		return strings.Compare(left.VNet, right.VNet)
+	})
+
+	return bridges, vnets, nil
 }
 
 // GetNextVMID returns the next available VMID from the cluster.

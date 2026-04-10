@@ -49,13 +49,11 @@ import {
   getSelectedFolder,
 } from "@/lib/inventory-tree"
 import {
-  bridgesQueryOptions,
   cloneVM,
   createVM,
+  createVmIsosQueryOptions,
+  createVmOptionsQueryOptions,
   inventoryTreeQueryOptions,
-  isosQueryOptions,
-  nodesQueryOptions,
-  storagesQueryOptions,
 } from "@/lib/queries"
 
 const steps = [
@@ -132,7 +130,6 @@ export function CreateVmDialog({
   })
 
   const method = useStore(form.store, (state) => state.values.method)
-  const selectedNode = useStore(form.store, (state) => state.values.node)
   const selectedIsoStorage = useStore(
     form.store,
     (state) => state.values.iso_storage ?? ""
@@ -149,32 +146,20 @@ export function CreateVmDialog({
   })
   const templateOptions = getVmTemplateOptions(inventoryTree)
   const folderOptions = getInventoryFolderOptions(inventoryTree)
-  const { data: nodes } = useQuery({
-    ...nodesQueryOptions,
+  const { data: createOptions } = useQuery({
+    ...createVmOptionsQueryOptions,
     enabled: open,
   })
-  const { data: storageOptions } = useQuery({
-    ...storagesQueryOptions(selectedNode),
-    enabled: open && !!selectedNode,
-    select: (storages) => ({
-      diskStorages: storages.filter((storage) =>
-        storage.content.includes("images")
-      ),
-      isoStorages: storages.filter((storage) =>
-        storage.content.includes("iso")
-      ),
-    }),
-  })
   const { data: isos } = useQuery({
-    ...isosQueryOptions(selectedNode, selectedIsoStorage),
-    enabled: open && !!selectedNode && !!selectedIsoStorage,
+    ...createVmIsosQueryOptions(selectedIsoStorage),
+    enabled: open && !!selectedIsoStorage,
   })
-  const { data: networks } = useQuery({
-    ...bridgesQueryOptions(selectedNode),
-    enabled: open && !!selectedNode,
-  })
-  const diskStorages = storageOptions?.diskStorages ?? []
-  const isoStorages = storageOptions?.isoStorages ?? []
+  const nodes = createOptions?.nodes ?? []
+  const diskStorages = createOptions?.disk_storages ?? []
+  const isoStorages = createOptions?.iso_storages ?? []
+  const networks = createOptions
+    ? { bridges: createOptions.bridges, vnets: createOptions.vnets }
+    : undefined
 
   const mutation = useMutation({
     mutationFn: async (values: CreateVmFormValues) => {
@@ -298,7 +283,7 @@ export function CreateVmDialog({
                 <CreateVmConfigurationStep
                   form={form}
                   templateOptions={templateOptions}
-                  nodes={nodes ?? []}
+                  nodes={nodes}
                   diskStorages={diskStorages}
                   isoStorages={isoStorages}
                   isos={isos ?? []}
