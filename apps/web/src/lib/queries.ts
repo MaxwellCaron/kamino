@@ -1,16 +1,18 @@
+export type ApiTreeNodeVM = {
+  node: string
+  vmid: number
+  is_template: boolean
+  cpu_count?: number
+  memory_mb?: number
+  disk_gb?: number
+}
+
 export type ApiTreeNode = {
   id: string
   name: string
   kind: "folder" | "vm"
   children?: Array<ApiTreeNode>
-  vm?: {
-    node: string
-    vmid: number
-    is_template: boolean
-    cpu_count?: number
-    memory_mb?: number
-    disk_gb?: number
-  }
+  vm?: ApiTreeNodeVM
 }
 
 export function findTreeNode(

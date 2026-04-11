@@ -48,7 +48,9 @@ export function RenameDialog({
         await rename.mutateAsync({ node, vmid, name: parsed.name })
         toast.success(`VM ${vmid} renamed to "${parsed.name}"`)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to rename VM")
+        toast.error(
+          error instanceof Error ? error.message : "Failed to rename VM"
+        )
         return
       }
 
@@ -67,9 +69,7 @@ export function RenameDialog({
       <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>Rename</DialogTitle>
-          <DialogDescription>
-            Enter a new name for this virtual machine.
-          </DialogDescription>
+          <DialogDescription>Enter a new name for VM {vmid}.</DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {

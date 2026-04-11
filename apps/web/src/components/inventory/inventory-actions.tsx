@@ -168,21 +168,23 @@ function FolderMenuItems({
   onCreateFolder,
   onRename,
   onDelete,
+  isLoading,
 }: {
   onCreateVm: () => void
   onCreateFolder: () => void
   onRename: () => void
   onDelete: () => void
+  isLoading?: boolean
 }) {
   return (
     <>
       <DropdownMenuGroup>
         <DropdownMenuLabel>Create</DropdownMenuLabel>
-        <DropdownMenuItem onClick={onCreateFolder}>
+        <DropdownMenuItem onClick={onCreateFolder} disabled={isLoading}>
           <IconFolderPlus className="text-muted-foreground" />
           New Folder
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCreateVm}>
+        <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
           <IconServerSpark className="text-muted-foreground" />
           New VM
         </DropdownMenuItem>
@@ -190,21 +192,25 @@ function FolderMenuItems({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem>
+        <DropdownMenuItem disabled={isLoading}>
           <IconPin className="text-muted-foreground" />
           Pin
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onRename}>
+        <DropdownMenuItem onClick={onRename} disabled={isLoading}>
           <IconEdit className="text-muted-foreground" />
           Rename
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem disabled={isLoading}>
           <IconLock className="text-muted-foreground" />
           Permissions
         </DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive" onClick={onDelete}>
+      <DropdownMenuItem
+        variant="destructive"
+        onClick={onDelete}
+        disabled={isLoading}
+      >
         <IconTrash />
         Delete
       </DropdownMenuItem>
@@ -220,6 +226,7 @@ function VmMenuItems({
   onSnapshot,
   onClone,
   onRename,
+  isLoading,
 }: {
   node: string
   vmid: number
@@ -228,6 +235,7 @@ function VmMenuItems({
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
+  isLoading?: boolean
 }) {
   const powerAction = useVmPowerAction()
   const deleteVm = useDeleteVM()
@@ -239,6 +247,7 @@ function VmMenuItems({
       <DropdownMenuGroup>
         <DropdownMenuLabel>Power</DropdownMenuLabel>
         <DropdownMenuItem
+          disabled={isLoading}
           onClick={() =>
             onAction({
               title: "Start VM?",
@@ -262,6 +271,7 @@ function VmMenuItems({
           Start
         </DropdownMenuItem>
         <DropdownMenuItem
+          disabled={isLoading}
           onClick={() =>
             onAction({
               title: "Shutdown VM?",
@@ -286,6 +296,7 @@ function VmMenuItems({
           Shutdown
         </DropdownMenuItem>
         <DropdownMenuItem
+          disabled={isLoading}
           onClick={() =>
             onAction({
               title: "Reboot VM?",
@@ -310,6 +321,7 @@ function VmMenuItems({
           Reboot
         </DropdownMenuItem>
         <DropdownMenuItem
+          disabled={isLoading}
           onClick={() =>
             onAction({
               title: "Stop VM?",
@@ -337,11 +349,12 @@ function VmMenuItems({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem onClick={onClone}>
+        <DropdownMenuItem onClick={onClone} disabled={isLoading}>
           <IconCopy className="text-muted-foreground" />
           Clone
         </DropdownMenuItem>
         <DropdownMenuItem
+          disabled={isLoading}
           onClick={() =>
             onAction({
               title: "Convert to Template?",
@@ -362,15 +375,15 @@ function VmMenuItems({
           <IconTemplate className="text-muted-foreground" />
           Template
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onSnapshot}>
+        <DropdownMenuItem onClick={onSnapshot} disabled={isLoading}>
           <IconCamera className="text-muted-foreground" />
           Snapshot
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onRename}>
+        <DropdownMenuItem onClick={onRename} disabled={isLoading}>
           <IconEdit className="text-muted-foreground" />
           Rename
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem disabled={isLoading}>
           <IconLock className="text-muted-foreground" />
           Permissions
         </DropdownMenuItem>
@@ -378,6 +391,7 @@ function VmMenuItems({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
+        disabled={isLoading}
         onClick={() =>
           onAction({
             title: "Delete VM?",
@@ -408,12 +422,14 @@ function TemplateMenuItems({
   name,
   onAction,
   onClone,
+  isLoading,
 }: {
   node: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
   onClone: () => void
+  isLoading?: boolean
 }) {
   const deleteVm = useDeleteVM()
   const vmIdentifier = formatVmIdentifier(name, vmid)
@@ -422,11 +438,11 @@ function TemplateMenuItems({
     <>
       <DropdownMenuGroup>
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem onClick={onClone}>
+        <DropdownMenuItem onClick={onClone} disabled={isLoading}>
           <IconCopy className="text-muted-foreground" />
           Clone
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem disabled={isLoading}>
           <IconLock className="text-muted-foreground" />
           Permissions
         </DropdownMenuItem>
@@ -434,6 +450,7 @@ function TemplateMenuItems({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
+        disabled={isLoading}
         onClick={() =>
           onAction({
             title: "Delete Template?",
@@ -471,6 +488,7 @@ function MenuItems({
   onCreateVm,
   onCreateFolder,
   onDeleteFolder,
+  isLoading,
 }: {
   isFolder: boolean
   isTemplate?: boolean
@@ -484,6 +502,7 @@ function MenuItems({
   onCreateVm: () => void
   onCreateFolder: () => void
   onDeleteFolder: () => void
+  isLoading?: boolean
 }) {
   if (isFolder)
     return (
@@ -492,6 +511,7 @@ function MenuItems({
         onCreateVm={onCreateVm}
         onRename={onRename}
         onDelete={onDeleteFolder}
+        isLoading={isLoading}
       />
     )
   if (isTemplate)
@@ -502,6 +522,7 @@ function MenuItems({
         name={name}
         onAction={onAction}
         onClone={onClone}
+        isLoading={isLoading}
       />
     )
   return (
@@ -513,6 +534,7 @@ function MenuItems({
       onSnapshot={onSnapshot}
       onClone={onClone}
       onRename={onRename}
+      isLoading={isLoading}
     />
   )
 }
@@ -612,6 +634,7 @@ export function TreeNodeMenu({
             onCreateVm={() => setCreateVmOpen(true)}
             onCreateFolder={() => setCreateFolderOpen(true)}
             onDeleteFolder={handleDeleteFolder}
+            isLoading={false}
           />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -678,6 +701,7 @@ export function VmOptionsMenu({
   vmid,
   pveNode,
   name,
+  isLoading,
 }: {
   nodeId: string
   isFolder?: boolean
@@ -685,6 +709,7 @@ export function VmOptionsMenu({
   vmid?: number
   pveNode?: string
   name?: string
+  isLoading?: boolean
 }) {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
@@ -717,6 +742,7 @@ export function VmOptionsMenu({
             onCreateVm={() => setCreateVmOpen(true)}
             onCreateFolder={() => setCreateFolderOpen(true)}
             onDeleteFolder={() => {}}
+            isLoading={isLoading}
           />
         </DropdownMenuContent>
       </DropdownMenu>

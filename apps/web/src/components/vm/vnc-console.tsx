@@ -43,14 +43,20 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import type RFB from "@novnc/novnc/core/rfb.js"
 
 type VncConsoleProps = {
-  node: string
-  vmid: number
+  node: string | null
+  vmid: number | null
   powerStatus?: string
+  isLoading?: boolean
 }
 
 type Status = "connecting" | "connected" | "disconnected" | "error"
 
-export function VncConsole({ node, vmid, powerStatus }: VncConsoleProps) {
+export function VncConsole({
+  node,
+  vmid,
+  powerStatus,
+  isLoading,
+}: VncConsoleProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
   const [status, setStatus] = useState<Status>("disconnected")
@@ -60,7 +66,7 @@ export function VncConsole({ node, vmid, powerStatus }: VncConsoleProps) {
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!shouldConnect) return
+    if (!shouldConnect || !node || vmid == null) return
 
     let cancelled = false
 
@@ -193,25 +199,39 @@ export function VncConsole({ node, vmid, powerStatus }: VncConsoleProps) {
           <Empty className="w-full max-w-md">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                {powerStatus !== "running" ? (
+                {isLoading ? (
+                  <Spinner className="size-5" />
+                ) : powerStatus !== "running" ? (
                   <IconPower />
                 ) : (
                   <IconPlugConnectedX />
                 )}
               </EmptyMedia>
               <EmptyTitle>
-                {powerStatus !== "running" ? "VM Not Running" : "Not Connected"}
+                {isLoading
+                  ? "VM state..."
+                  : powerStatus !== "running"
+                    ? "VM Not Running"
+                    : "Not Connected"}
               </EmptyTitle>
               <EmptyDescription>
-                {powerStatus !== "running"
-                  ? "The VM must be running to create a VNC session."
-                  : "You haven't created a VNC session. Start a new session to connect."}
+                {isLoading
+                  ? "Fetching VM details. Details are required before starting a new session."
+                  : powerStatus !== "running"
+                    ? "The VM must be running to create a VNC session."
+                    : "You haven't created a VNC session. Start a new session to connect."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center gap-2">
               <Button
                 onClick={startConnection}
-                disabled={status === "connecting" || powerStatus !== "running"}
+                disabled={
+                  isLoading ||
+                  status === "connecting" ||
+                  powerStatus !== "running" ||
+                  !node ||
+                  vmid == null
+                }
               >
                 {status === "connecting" && <Spinner />}
                 {status === "connecting" ? "Connecting..." : "Connect"}

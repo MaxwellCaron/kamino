@@ -26,6 +26,7 @@ import {
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
 import { useState } from "react"
+import { Spinner } from "@workspace/ui/components/spinner"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { snapshotsQueryOptions } from "@/lib/queries"
@@ -35,16 +36,20 @@ export function SnapshotsTable({
   node,
   vmid,
   isTemplate,
+  isLoading: isVmLoading,
 }: {
-  node: string
-  vmid: number
+  node: string | null
+  vmid: number | null
   isTemplate: boolean
+  isLoading?: boolean
 }) {
-  const { data: snapshots, isLoading } = useQuery(
-    snapshotsQueryOptions(node, vmid)
-  )
-  const rollback = useRollbackSnapshot(node, vmid)
-  const remove = useDeleteSnapshot(node, vmid)
+  const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
+    ...snapshotsQueryOptions(node ?? "", vmid ?? 0),
+    enabled: !!node && vmid != null,
+  })
+  const isLoading = isVmLoading || isSnapshotsLoading
+  const rollback = useRollbackSnapshot(node ?? "", vmid ?? 0)
+  const remove = useDeleteSnapshot(node ?? "", vmid ?? 0)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const filtered = snapshots?.filter((s) => s.name !== "current") ?? []
 
@@ -52,7 +57,11 @@ export function SnapshotsTable({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconCamera className="size-6" />
+          {isVmLoading ? (
+            <Spinner className="size-6" />
+          ) : (
+            <IconCamera className="size-6" />
+          )}
           Snapshots
         </CardTitle>
         <CardDescription>Point in time snapshots of the VM.</CardDescription>
@@ -122,8 +131,8 @@ export function SnapshotsTable({
                             onConfirm: () => {
                               toast.promise(
                                 rollback.mutateAsync({
-                                  node,
-                                  vmid,
+                                  node: node!,
+                                  vmid: vmid!,
                                   snapname: snap.name,
                                 }),
                                 {
@@ -151,8 +160,8 @@ export function SnapshotsTable({
                             onConfirm: () => {
                               toast.promise(
                                 remove.mutateAsync({
-                                  node,
-                                  vmid,
+                                  node: node!,
+                                  vmid: vmid!,
                                   snapname: snap.name,
                                 }),
                                 {
