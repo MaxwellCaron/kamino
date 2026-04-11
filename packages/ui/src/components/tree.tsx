@@ -370,7 +370,7 @@ export const TreeLines = () => {
 
         return (
           <div
-            className="absolute top-0 bottom-0 border-l border-border/40"
+            className="absolute top-0 bottom-0 border-l border-border/75"
             key={index.toString()}
             style={{
               left: index * (indent ?? 0) + 12,
@@ -381,7 +381,7 @@ export const TreeLines = () => {
       })}
 
       <div
-        className="absolute top-1/2 border-t border-border/40"
+        className="absolute top-1/2 border-t border-border/75"
         style={{
           left: (level - 1) * (indent ?? 0) + 12,
           width: (indent ?? 0) - 4,
@@ -391,7 +391,7 @@ export const TreeLines = () => {
 
       {isLast && (
         <div
-          className="absolute top-0 border-l border-border/40"
+          className="absolute top-0 border-l border-border/75"
           style={{
             left: (level - 1) * (indent ?? 0) + 12,
             height: "50%",
