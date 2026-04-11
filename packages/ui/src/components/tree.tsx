@@ -326,9 +326,9 @@ export const TreeNodeTrigger = ({
     <motion.div
       ref={triggerRef}
       className={cn(
-        "group/row relative mx-1 flex cursor-default items-center rounded-3xl px-3 py-1.5 transition-all duration-200",
-        "hover:bg-sidebar-accent",
-        (isSelected || isDraggedOver) && "bg-sidebar-accent",
+        "group/row relative mx-1 flex cursor-default items-center rounded-3xl px-3 py-1.5",
+        "hover:bg-sidebar-accent/50",
+        (isSelected || isDraggedOver) && "bg-sidebar-accent!",
         isDragSource && "opacity-25",
         className
       )}
