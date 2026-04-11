@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   cloneVM,
   convertToTemplate,
+  createSnapshot,
   deleteSnapshot,
   deleteVM,
   inventoryTreeQueryOptions,
@@ -26,6 +27,21 @@ export function useDeleteVM() {
     mutationFn: deleteVM,
     onSuccess: () => {
       navigate({ to: "/" })
+    },
+  })
+}
+
+export function useCreateSnapshot(node: string, vmid: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: createSnapshot,
+    onSuccess: async () => {
+      // Wait 7 second to let the backend settle
+      await delay(7000)
+      queryClient.invalidateQueries({
+        queryKey: ["vms", node, vmid, "snapshots"],
+      })
     },
   })
 }

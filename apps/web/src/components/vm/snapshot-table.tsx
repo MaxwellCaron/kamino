@@ -29,6 +29,7 @@ import { useState } from "react"
 import { Spinner } from "@workspace/ui/components/spinner"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 import { snapshotsQueryOptions } from "@/lib/queries"
 import { useDeleteSnapshot, useRollbackSnapshot } from "@/hooks/use-vm-actions"
 
@@ -51,6 +52,7 @@ export function SnapshotsTable({
   const rollback = useRollbackSnapshot(node ?? "", vmid ?? 0)
   const remove = useDeleteSnapshot(node ?? "", vmid ?? 0)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+  const [snapshotOpen, setSnapshotOpen] = useState(false)
   const filtered = snapshots?.filter((s) => s.name !== "current") ?? []
 
   return (
@@ -66,7 +68,10 @@ export function SnapshotsTable({
         </CardTitle>
         <CardDescription>Point in time snapshots of the VM.</CardDescription>
         <CardAction>
-          <Button disabled={isLoading || isTemplate}>
+          <Button
+            disabled={isLoading || isTemplate || !node || vmid == null}
+            onClick={() => setSnapshotOpen(true)}
+          >
             <IconPlus />
             <span className="hidden lg:block">Create</span>
           </Button>
@@ -188,6 +193,14 @@ export function SnapshotsTable({
         {filtered.length} result{filtered.length !== 1 && "s"}
       </CardFooter>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      {node && vmid != null && (
+        <SnapshotDialog
+          node={node}
+          vmid={vmid}
+          open={snapshotOpen}
+          onOpenChange={setSnapshotOpen}
+        />
+      )}
     </Card>
   )
 }

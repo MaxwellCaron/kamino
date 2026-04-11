@@ -22,7 +22,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { createSnapshot } from "@/lib/queries"
+import { useCreateSnapshot } from "@/hooks/use-vm-actions"
 
 const snapshotSchema = z.object({
   snapname: z
@@ -51,16 +51,18 @@ export function SnapshotDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const create = useCreateSnapshot(node, vmid)
+
   const form = useForm({
     defaultValues: {
       snapname: "",
       description: "",
       vmstate: false,
     },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const parsed = snapshotSchema.parse(value)
-      toast.promise(
-        createSnapshot({
+      await toast.promise(
+        create.mutateAsync({
           node,
           vmid,
           snapname: parsed.snapname,
