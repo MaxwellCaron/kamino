@@ -15,27 +15,27 @@
     "@novnc/novnc": "github:novnc/noVNC#v1.6.0",
     "@tabler/icons-react": "^3.41.1",
     "@tailwindcss/vite": "^4.2.2",
-    "@tanstack/react-form": "^1.28.6",
-    "@tanstack/react-query": "^5.96.2",
-    "@tanstack/react-router": "^1.168.10",
-    "@tanstack/react-start": "^1.167.16",
-    "@tanstack/router-plugin": "^1.167.12",
+    "@tanstack/react-form": "^1.29.0",
+    "@tanstack/react-query": "^5.99.0",
+    "@tanstack/react-router": "^1.168.18",
+    "@tanstack/react-start": "^1.167.31",
+    "@tanstack/router-plugin": "^1.167.17",
     "@workspace/ui": "workspace:*",
     "nitro": "^3.0.260311-beta",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "tailwindcss": "^4.2.2",
     "sonner": "^2.0.7",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tanstack/eslint-config": "^0.4.0",
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2",
-    "vite": "^8.0.7"
+    "vite": "^8.0.8"
   }
 }
