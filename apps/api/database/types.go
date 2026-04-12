@@ -7,6 +7,9 @@ package database
 import (
 	"database/sql/driver"
 	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type InventoryItemKind string
@@ -133,4 +136,18 @@ func (ns NullPrincipalType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PrincipalType), nil
+}
+
+type AuthSessions struct {
+	ID                  uuid.UUID          `json:"id"`
+	PrincipalID         uuid.UUID          `json:"principal_id"`
+	TokenHash           string             `json:"token_hash"`
+	FamilyID            uuid.UUID          `json:"family_id"`
+	ReplacedBySessionID *uuid.UUID         `json:"replaced_by_session_id"`
+	UserAgent           *string            `json:"user_agent"`
+	IpAddress           *string            `json:"ip_address"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt          pgtype.Timestamptz `json:"last_used_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
 }

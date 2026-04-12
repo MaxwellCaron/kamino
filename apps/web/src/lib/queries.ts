@@ -1,21 +1,20 @@
 // --- Auth & fetch wrapper ---
 
-let accessToken: string | null = null
+const AUTH_REFRESH_BUFFER_MS = 60_000
+const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? "http://localhost:8080" : "")
 
-export function setAccessToken(token: string | null) {
-  accessToken = token
-}
+let currentSession: AuthSession | null = null
+let refreshPromise: Promise<AuthSession> | null = null
+let bootstrapPromise: Promise<AuthSession> | null = null
+let refreshTimer: number | null = null
 
-export function getAccessToken(): string | null {
-  return accessToken
-}
+class AuthenticationError extends Error {}
 
-function apiFetch(input: string, init?: RequestInit): Promise<Response> {
-  const headers = new Headers(init?.headers)
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`)
-  }
-  return fetch(input, { ...init, headers })
+export function apiUrl(path: string) {
+  return `${API_BASE_URL}${path}`
 }
 
 export type AuthUser = {
@@ -23,13 +22,126 @@ export type AuthUser = {
   username: string
 }
 
+export type AuthSession = {
+  user: AuthUser
+  access_token_expires_at: string
+}
+
+function clearRefreshTimer() {
+  if (refreshTimer) {
+    window.clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function scheduleRefresh(expiresAt: string) {
+  clearRefreshTimer()
+
+  if (typeof window === "undefined") return
+
+  const refreshAt = new Date(expiresAt).getTime() - AUTH_REFRESH_BUFFER_MS
+  const delay = Math.max(refreshAt - Date.now(), 0)
+
+  refreshTimer = window.setTimeout(() => {
+    void refreshAuth().catch(() => {
+      // Keep the current UI alive on transient failures.
+    })
+  }, delay)
+}
+
+function applyAuthSession(session: AuthSession): AuthSession {
+  currentSession = session
+  scheduleRefresh(session.access_token_expires_at)
+  return session
+}
+
+function clearAuthState() {
+  currentSession = null
+  bootstrapPromise = null
+  clearRefreshTimer()
+  refreshPromise = null
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return
+  if (window.location.pathname === "/login") return
+
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
+}
+
+function isAuthEndpoint(input: string) {
+  return input.startsWith("/api/v1/auth/")
+}
+
+export async function apiFetch(
+  input: string,
+  init?: RequestInit,
+  options?: { retryOn401?: boolean }
+): Promise<Response> {
+  const retryOn401 = options?.retryOn401 ?? true
+  const requestInit = { credentials: "include" as const, ...init }
+
+  const response = await fetch(apiUrl(input), requestInit)
+  if (response.status !== 401 || !retryOn401 || isAuthEndpoint(input)) {
+    return response
+  }
+
+  try {
+    await refreshAuth()
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      redirectToLogin()
+    }
+    return response
+  }
+
+  const retried = await fetch(apiUrl(input), requestInit)
+  if (retried.status === 401) {
+    clearAuthState()
+    redirectToLogin()
+  }
+
+  return retried
+}
+
+async function fetchAuthSession(): Promise<AuthSession> {
+  const res = await apiFetch("/api/v1/auth/me")
+  if (!res.ok) throw new Error("not authenticated")
+  return applyAuthSession(await res.json())
+}
+
+export async function ensureAuth(): Promise<AuthSession> {
+  if (isSessionUsable(currentSession)) {
+    return currentSession
+  }
+
+  if (bootstrapPromise) {
+    return bootstrapPromise
+  }
+
+  bootstrapPromise = (async () => {
+    if (isSessionExpired(currentSession)) {
+      return refreshAuth()
+    }
+
+    try {
+      return await fetchAuthSession()
+    } catch {
+      return await refreshAuth()
+    }
+  })()
+
+  try {
+    return await bootstrapPromise
+  } finally {
+    bootstrapPromise = null
+  }
+}
+
 export const authMeQueryOptions = {
   queryKey: ["auth", "me"] as const,
-  queryFn: async (): Promise<AuthUser> => {
-    const res = await apiFetch("/api/v1/auth/me")
-    if (!res.ok) throw new Error("not authenticated")
-    return res.json()
-  },
+  queryFn: fetchAuthSession,
   retry: false,
   staleTime: Infinity,
 }
@@ -37,9 +149,9 @@ export const authMeQueryOptions = {
 export async function login(params: {
   username: string
   password: string
-}): Promise<{ user: AuthUser; access_token: string }> {
-  const res = await fetch("/api/v1/auth/login", {
-    method: "POST",
+}): Promise<AuthSession> {
+  const res = await fetch(apiUrl("/api/v1/auth/login"), {
+    ...{ method: "POST", credentials: "include" as const },
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   })
@@ -47,25 +159,59 @@ export async function login(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? "Login failed")
   }
-  const data = await res.json()
-  accessToken = data.access_token
-  return data
+
+  return applyAuthSession(await res.json())
 }
 
 export async function logout(): Promise<void> {
-  await fetch("/api/v1/auth/logout", { method: "POST" })
-  accessToken = null
+  await fetch(apiUrl("/api/v1/auth/logout"), {
+    ...{ method: "POST", credentials: "include" as const },
+  })
+  clearAuthState()
 }
 
-export async function refreshAuth(): Promise<{
-  user: AuthUser
-  access_token: string
-}> {
-  const res = await fetch("/api/v1/auth/refresh", { method: "POST" })
-  if (!res.ok) throw new Error("refresh failed")
-  const data = await res.json()
-  accessToken = data.access_token
-  return data
+export async function refreshAuth(): Promise<AuthSession> {
+  if (refreshPromise) {
+    return refreshPromise
+  }
+
+  refreshPromise = (async () => {
+    const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    })
+    if (!res.ok) {
+      clearAuthState()
+      if (res.status === 401) {
+        throw new AuthenticationError("refresh failed")
+      }
+      throw new Error("refresh failed")
+    }
+
+    return applyAuthSession(await res.json())
+  })()
+
+  try {
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
+}
+
+function getSessionExpiryMs(session: AuthSession | null) {
+  if (!session) return 0
+  return new Date(session.access_token_expires_at).getTime()
+}
+
+function isSessionExpired(session: AuthSession | null) {
+  return Date.now() >= getSessionExpiryMs(session)
+}
+
+function isSessionUsable(session: AuthSession | null): session is AuthSession {
+  return (
+    !!session &&
+    Date.now() < getSessionExpiryMs(session) - AUTH_BOOTSTRAP_RETRY_BUFFER_MS
+  )
 }
 
 // --- Inventory ---

@@ -2,38 +2,34 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/gin-gonic/gin"
 )
 
 // Auth returns a Gin middleware that validates the access token from the
-// Authorization header (or "token" query parameter for SSE) and sets
-// userID and username in the request context.
+// access-token cookie and sets request auth context.
 func Auth(authService *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var token string
-
-		if header := c.GetHeader("Authorization"); strings.HasPrefix(header, "Bearer ") {
-			token = strings.TrimPrefix(header, "Bearer ")
-		} else if q := c.Query("token"); q != "" {
-			token = q
-		}
+		token, _ := c.Cookie(auth.AccessCookieName)
 
 		if token == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 			return
 		}
 
-		claims, err := authService.ValidateToken(token)
+		claims, err := authService.ValidateAccessToken(token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			return
 		}
 
-		c.Set("userID", claims.UserID)
+		userID, _ := claims.PrincipalID()
+		c.Set("userID", userID)
 		c.Set("username", claims.Username)
+		if claims.ExpiresAt != nil {
+			c.Set("accessTokenExpiresAt", claims.ExpiresAt.Time.UTC())
+		}
 		c.Next()
 	}
 }

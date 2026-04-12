@@ -9,6 +9,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
@@ -29,6 +30,7 @@ type Config struct {
 	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
 	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
 	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
 	LDAPUrl            string `envconfig:"LDAP_URL"`
 	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
 	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
@@ -36,7 +38,6 @@ type Config struct {
 	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
 	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
 	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	JWTSecret          string `envconfig:"JWT_SECRET"`
 }
 
 // Server holds all application dependencies
@@ -187,14 +188,17 @@ func main() {
 	var authService *auth.Service
 	var principalsHandler *handlers.PrincipalsHandler
 	if server.ADClient != nil {
-		if server.Config.JWTSecret == "" {
-			log.Fatal("JWT_SECRET is required when LDAP is configured")
+		authService, err := auth.NewService(server.Config.JWTSecret)
+		if err != nil {
+			log.Fatal(err)
 		}
-		authService = auth.NewService(server.Config.JWTSecret)
+
 		authHandler = &handlers.AuthHandler{
-			Auth:     authService,
-			ADClient: server.ADClient,
-			DB:       server.DBPool,
+			Auth:         authService,
+			Sessions:     auth.NewSessionManager(server.DBPool),
+			ADClient:     server.ADClient,
+			DB:           server.DBPool,
+			CookieSecure: strings.HasPrefix(server.Config.FrontendURL, "https://"),
 		}
 
 		adService := activedirectory.NewService(server.DBPool, server.ADClient, server.ADSync)
@@ -204,6 +208,7 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	// Register all API routes
 	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)

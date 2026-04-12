@@ -42,6 +42,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type RFB from "@novnc/novnc/core/rfb.js"
+import { apiFetch, apiUrl } from "@/lib/queries"
 
 type VncConsoleProps = {
   node: string | null
@@ -73,14 +74,11 @@ export function VncConsole({
 
     async function connect() {
       try {
-        const token = (await import("@/lib/queries")).getAccessToken()
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        }
-        if (token) headers["Authorization"] = `Bearer ${token}`
-        const res = await fetch("/api/v1/vnc/proxy", {
+        const res = await apiFetch("/api/v1/vnc/proxy", {
           method: "POST",
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ node, vmid }),
         })
 
@@ -95,14 +93,12 @@ export function VncConsole({
 
         if (cancelled || !screenRef.current) return
 
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-        // In dev, connect directly to Go backend — Nitro's devProxy strips WebSocket upgrade headers
-        const wsHost = import.meta.env.DEV
-          ? "localhost:8080"
-          : window.location.host
-        const wsUrl = token
-          ? `${protocol}//${wsHost}/api/v1/vnc/ws?token=${encodeURIComponent(token)}`
-          : `${protocol}//${wsHost}/api/v1/vnc/ws`
+        const wsHttpUrl = new URL(
+          apiUrl("/api/v1/vnc/ws"),
+          window.location.origin
+        )
+        wsHttpUrl.protocol = wsHttpUrl.protocol === "https:" ? "wss:" : "ws:"
+        const wsUrl = wsHttpUrl.toString()
 
         const ws = new WebSocket(wsUrl)
         await new Promise<void>((resolve, reject) => {

@@ -17,7 +17,7 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { login } from "@/lib/queries"
+import { authMeQueryOptions, login } from "@/lib/queries"
 
 export function LoginForm({
   className,
@@ -29,7 +29,7 @@ export function LoginForm({
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (data) => {
-      queryClient.setQueryData(["auth", "me"], data.user)
+      queryClient.setQueryData(authMeQueryOptions.queryKey, data)
       onSuccess?.()
     },
   })

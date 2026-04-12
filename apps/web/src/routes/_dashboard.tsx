@@ -6,28 +6,26 @@ import { InventoryTree } from "@/components/inventory/inventory-tree"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { InventoryEvents } from "@/components/inventory/inventory-events"
 import { VmStatusEvents } from "@/components/vm/vm-status-events"
-import { getAccessToken, refreshAuth } from "@/lib/queries"
-
-async function checkAuth(): Promise<void> {
-  // If we already have an access token in memory, we're good
-  if (getAccessToken()) return
-
-  // No token in memory (page refresh) — try to get one via refresh cookie
-  try {
-    await refreshAuth()
-  } catch {
-    throw redirect({ to: "/login" })
-  }
-}
+import { ensureAuth } from "@/lib/queries"
 
 export const Route = createFileRoute("/_dashboard")({
-  beforeLoad: async () => {
-    await checkAuth()
+  beforeLoad: async ({ location }) => {
+    try {
+      const session = await ensureAuth()
+      return { user: session.user }
+    } catch {
+      throw redirect({
+        to: "/login",
+        search: { redirect: location.href },
+      })
+    }
   },
   component: Layout,
 })
 
 function Layout() {
+  const { user } = Route.useRouteContext()
+
   return (
     <SidebarProvider
       style={
@@ -39,7 +37,11 @@ function Layout() {
     >
       <InventoryEvents />
       <VmStatusEvents />
-      <AppSidebar variant="inset" inventoryTree={<InventoryTree />} />
+      <AppSidebar
+        user={user}
+        variant="inset"
+        inventoryTree={<InventoryTree />}
+      />
       <SidebarInset>
         <SiteHeader command={<CommandManyItems />} />
         <div className="flex flex-1 flex-col">
