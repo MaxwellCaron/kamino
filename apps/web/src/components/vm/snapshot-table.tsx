@@ -18,7 +18,6 @@ import {
 } from "@workspace/ui/components/card"
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
@@ -26,8 +25,10 @@ import {
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
 import { useState } from "react"
-import { Spinner } from "@workspace/ui/components/spinner"
+import { AnimatePresence, motion } from "motion/react"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import { loadingTransition } from "@/components/loading-transition"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 import { snapshotsQueryOptions } from "@/lib/queries"
@@ -59,11 +60,7 @@ export function SnapshotsTable({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {isVmLoading ? (
-            <Spinner className="size-6" />
-          ) : (
-            <IconCamera className="size-6" />
-          )}
+          <IconCamera className="size-6" />
           Snapshots
         </CardTitle>
         <CardDescription>Point in time snapshots of the VM.</CardDescription>
@@ -78,115 +75,142 @@ export function SnapshotsTable({
         </CardAction>
       </CardHeader>
       <CardContent className="border-b px-0">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader className="bg-muted hover:bg-muted">
             <TableRow>
-              <TableHead className="pl-6">Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="w-24">RAM</TableHead>
-              <TableHead className="w-32 pr-6 text-right">Actions</TableHead>
+              <TableHead className="w-[20%] pl-6">Name</TableHead>
+              <TableHead className="w-[30%]">Description</TableHead>
+              <TableHead className="w-[25%]">Date</TableHead>
+              <TableHead className="w-[10%]">RAM</TableHead>
+              <TableHead className="w-[15%] pr-6 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center">
-                  No snapshots found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((snap) => (
-                <TableRow key={snap.name}>
-                  <TableCell className="pl-6 font-medium">
-                    {snap.name}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {snap.description || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {snap.snaptime
-                      ? new Date(snap.snaptime * 1000).toLocaleString()
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {snap.vmstate ? (
-                      <Badge variant="secondary">Yes</Badge>
-                    ) : (
-                      "No"
-                    )}
-                  </TableCell>
-                  <TableCell className="pr-6 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        title="Rollback"
-                        onClick={() =>
-                          setConfirm({
-                            title: "Rollback Snapshot",
-                            description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
-                            actionLabel: "Rollback",
-                            onConfirm: () => {
-                              toast.promise(
-                                rollback.mutateAsync({
-                                  node: node!,
-                                  vmid: vmid!,
-                                  snapname: snap.name,
-                                }),
-                                {
-                                  loading: `Rolling back to "${snap.name}"…`,
-                                  success: `Rolled back to "${snap.name}"`,
-                                  error: (err: Error) => err.message,
-                                }
-                              )
-                            },
-                          })
-                        }
-                      >
-                        <IconHistory className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        title="Delete"
-                        onClick={() =>
-                          setConfirm({
-                            title: "Delete Snapshot",
-                            description: `Are you sure you want to delete snapshot "${snap.name}"? This action cannot be undone.`,
-                            actionLabel: "Delete",
-                            variant: "destructive",
-                            onConfirm: () => {
-                              toast.promise(
-                                remove.mutateAsync({
-                                  node: node!,
-                                  vmid: vmid!,
-                                  snapname: snap.name,
-                                }),
-                                {
-                                  loading: `Deleting snapshot "${snap.name}"…`,
-                                  success: `Snapshot "${snap.name}" deleted`,
-                                  error: (err: Error) => err.message,
-                                }
-                              )
-                            },
-                          })
-                        }
-                      >
-                        <IconTrash className="size-4" />
-                      </Button>
-                    </div>
+          <AnimatePresence mode="wait">
+            <motion.tbody
+              key={isLoading ? "loading" : "loaded"}
+              data-slot="table-body"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={loadingTransition}
+              className="overflow-hidden [&_tr:last-child]:border-0"
+            >
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="pl-6">
+                      <Skeleton className="h-4 w-3/4 rounded-md" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-4/5 rounded-md" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-3/4 rounded-md" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-1/2 rounded-md" />
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Skeleton className="size-6 rounded-md" />
+                        <Skeleton className="size-6 rounded-md" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    No snapshots found.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
+              ) : (
+                filtered.map((snap) => (
+                  <TableRow key={snap.name}>
+                    <TableCell className="wrap-break-words pl-6 font-medium">
+                      {snap.name}
+                    </TableCell>
+                    <TableCell className="wrap-break-words text-muted-foreground">
+                      {snap.description || "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {snap.snaptime
+                        ? new Date(snap.snaptime * 1000).toLocaleString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {snap.vmstate ? (
+                        <Badge variant="secondary">Yes</Badge>
+                      ) : (
+                        "No"
+                      )}
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title="Rollback"
+                          onClick={() =>
+                            setConfirm({
+                              title: "Rollback Snapshot",
+                              description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
+                              actionLabel: "Rollback",
+                              onConfirm: () => {
+                                toast.promise(
+                                  rollback.mutateAsync({
+                                    node: node!,
+                                    vmid: vmid!,
+                                    snapname: snap.name,
+                                  }),
+                                  {
+                                    loading: `Rolling back to "${snap.name}"…`,
+                                    success: `Rolled back to "${snap.name}"`,
+                                    error: (err: Error) => err.message,
+                                  }
+                                )
+                              },
+                            })
+                          }
+                        >
+                          <IconHistory className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title="Delete"
+                          onClick={() =>
+                            setConfirm({
+                              title: "Delete Snapshot",
+                              description: `Are you sure you want to delete snapshot "${snap.name}"? This action cannot be undone.`,
+                              actionLabel: "Delete",
+                              variant: "destructive",
+                              onConfirm: () => {
+                                toast.promise(
+                                  remove.mutateAsync({
+                                    node: node!,
+                                    vmid: vmid!,
+                                    snapname: snap.name,
+                                  }),
+                                  {
+                                    loading: `Deleting snapshot "${snap.name}"…`,
+                                    success: `Snapshot "${snap.name}" deleted`,
+                                    error: (err: Error) => err.message,
+                                  }
+                                )
+                              },
+                            })
+                          }
+                        >
+                          <IconTrash className="size-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </motion.tbody>
+          </AnimatePresence>
         </Table>
       </CardContent>
       <CardFooter className="justify-end text-muted-foreground">

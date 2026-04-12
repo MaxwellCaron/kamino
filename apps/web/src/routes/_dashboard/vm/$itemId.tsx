@@ -19,14 +19,6 @@ function VmPage() {
   const { data: tree, isLoading } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
-  // if (isLoading) {
-  //   return (
-  //     <div className="flex flex-1 items-center justify-center text-muted-foreground">
-  //       Loading...
-  //     </div>
-  //   )
-  // }
-
   const node = tree ? findTreeNode(tree, itemId) : null
 
   if (!isLoading && !node) {
@@ -59,6 +51,12 @@ function VmPage() {
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
+        <SnapshotsTable
+          node={vm?.node ?? null}
+          vmid={vm?.vmid ?? null}
+          isTemplate={isTemplate}
+          isLoading={isLoading}
+        />
         {!isTemplate && (
           <VncConsole
             key={vm?.vmid ?? "loading"}
@@ -68,12 +66,6 @@ function VmPage() {
             isLoading={isLoading}
           />
         )}
-        <SnapshotsTable
-          node={vm?.node ?? null}
-          vmid={vm?.vmid ?? null}
-          isTemplate={isTemplate}
-          isLoading={isLoading}
-        />
       </div>
     </div>
   )

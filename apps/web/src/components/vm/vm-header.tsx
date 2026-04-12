@@ -24,8 +24,10 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { ReactNode } from "@tabler/icons-react"
 import type { ApiTreeNode, ApiTreeNodeVM } from "@/lib/queries"
+import { LoadingTransition } from "@/components/loading-transition"
 import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
 import { formatMemory } from "@/lib/utils"
 
@@ -110,9 +112,14 @@ export function VmHeader({
           ) : (
             <IconDeviceImac className="size-8" />
           )}
-          <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-            {isLoading ? "Loading..." : (node?.name ?? "—")}
-          </h1>
+          <LoadingTransition
+            isLoading={isLoading}
+            fallback={<Skeleton className="h-10 w-48 rounded-md" />}
+          >
+            <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
+              {node?.name ?? "—"}
+            </h1>
+          </LoadingTransition>
         </CardTitle>
         <CardDescription>
           {isTemplate ? "Template" : "Virtual Machine"}
@@ -138,9 +145,14 @@ export function VmHeader({
               </ItemContent>
               <ItemFooter>
                 <ItemFooter>
-                  <Badge variant={stat.variant ?? "default"}>
-                    {isLoading ? "—" : stat.value}
-                  </Badge>
+                  <LoadingTransition
+                    isLoading={isLoading}
+                    fallback={<Skeleton className="h-5 w-16 rounded-md" />}
+                  >
+                    <Badge variant={stat.variant ?? "default"}>
+                      {stat.value}
+                    </Badge>
+                  </LoadingTransition>
                 </ItemFooter>
               </ItemFooter>
             </Item>

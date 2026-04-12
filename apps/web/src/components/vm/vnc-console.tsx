@@ -38,6 +38,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type RFB from "@novnc/novnc/core/rfb.js"
@@ -208,18 +209,22 @@ export function VncConsole({
                 )}
               </EmptyMedia>
               <EmptyTitle>
-                {isLoading
-                  ? "VM state..."
-                  : powerStatus !== "running"
-                    ? "VM Not Running"
-                    : "Not Connected"}
+                {isLoading ? (
+                  <Skeleton className="mx-auto h-5 w-32 rounded-md" />
+                ) : powerStatus !== "running" ? (
+                  "VM Not Running"
+                ) : (
+                  "Not Connected"
+                )}
               </EmptyTitle>
               <EmptyDescription>
-                {isLoading
-                  ? "Fetching VM details. Details are required before starting a new session."
-                  : powerStatus !== "running"
-                    ? "The VM must be running to create a VNC session."
-                    : "You haven't created a VNC session. Start a new session to connect."}
+                {isLoading ? (
+                  <Skeleton className="mx-auto h-4 w-64 rounded-md" />
+                ) : powerStatus !== "running" ? (
+                  "The VM must be running to create a VNC session."
+                ) : (
+                  "You haven't created a VNC session. Start a new session to connect."
+                )}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center gap-2">
