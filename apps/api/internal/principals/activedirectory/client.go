@@ -81,6 +81,77 @@ func (c *Client) connect() (*ldap.Conn, error) {
 	return conn, nil
 }
 
+// AuthResult holds the identity of a successfully authenticated AD user.
+type AuthResult struct {
+	DN   string
+	SID  string
+	Name string
+}
+
+func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
+	// First, connect with service account to look up the user's DN and SID.
+	conn, err := c.connect()
+	if err != nil {
+		return nil, fmt.Errorf("ad connect: %w", err)
+	}
+	defer conn.Close()
+
+	filter := fmt.Sprintf("(&(objectClass=user)(objectCategory=person)(sAMAccountName=%s))", ldap.EscapeFilter(username))
+	result, err := conn.Search(ldap.NewSearchRequest(
+		c.baseDN,
+		ldap.ScopeWholeSubtree,
+		ldap.NeverDerefAliases, 1, 0, false,
+		filter,
+		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName"},
+		nil,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("ad search user: %w", err)
+	}
+	if len(result.Entries) == 0 {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	entry := result.Entries[0]
+	userDN := entry.GetAttributeValue("distinguishedName")
+	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
+	if sid == "" {
+		return nil, fmt.Errorf("ad: could not decode user SID")
+	}
+
+	name := entry.GetAttributeValue("displayName")
+	if name == "" {
+		name = entry.GetAttributeValue("sAMAccountName")
+	}
+
+	// Now attempt a fresh bind as the user to verify their password.
+	conn.Close()
+	u, err := url.Parse(c.url)
+	if err != nil {
+		return nil, fmt.Errorf("parse ldap url: %w", err)
+	}
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		host += ":636"
+	}
+	tlsConn, err := tls.Dial("tcp", host, &tls.Config{
+		InsecureSkipVerify: c.insecure,
+		ServerName:         u.Hostname(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ldaps dial: %w", err)
+	}
+	userConn := ldap.NewConn(tlsConn, true)
+	userConn.Start()
+	defer userConn.Close()
+
+	if err := userConn.Bind(userDN, password); err != nil {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	return &AuthResult{DN: userDN, SID: sid, Name: name}, nil
+}
+
 // FetchUsers returns all enabled user accounts under the configured base DN.
 func (c *Client) FetchUsers() ([]User, error) {
 	conn, err := c.connect()

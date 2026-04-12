@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
@@ -35,6 +36,7 @@ type Config struct {
 	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
 	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
 	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	JWTSecret          string `envconfig:"JWT_SECRET"`
 }
 
 // Server holds all application dependencies
@@ -181,8 +183,20 @@ func main() {
 	}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 
+	var authHandler *handlers.AuthHandler
+	var authService *auth.Service
 	var principalsHandler *handlers.PrincipalsHandler
 	if server.ADClient != nil {
+		if server.Config.JWTSecret == "" {
+			log.Fatal("JWT_SECRET is required when LDAP is configured")
+		}
+		authService = auth.NewService(server.Config.JWTSecret)
+		authHandler = &handlers.AuthHandler{
+			Auth:     authService,
+			ADClient: server.ADClient,
+			DB:       server.DBPool,
+		}
+
 		adService := activedirectory.NewService(server.DBPool, server.ADClient, server.ADSync)
 		principalsHandler = &handlers.PrincipalsHandler{
 			Provider: adService,
@@ -192,7 +206,7 @@ func main() {
 	r := gin.Default()
 
 	// Register all API routes
-	routes.RegisterRoutes(r, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)
+	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)
 
 	r.Run(config.Port)
 }

@@ -1,3 +1,5 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
 import {
   IconCreditCard,
   IconDotsVertical,
@@ -25,6 +27,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
+import { logout } from "@/lib/queries"
 
 export function NavUser({
   user,
@@ -36,6 +39,15 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear()
+      router.navigate({ to: "/login" })
+    },
+  })
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -95,7 +107,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => logoutMutation.mutate()}>
               <IconLogout />
               Log out
             </DropdownMenuItem>

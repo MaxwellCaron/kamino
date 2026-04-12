@@ -73,9 +73,14 @@ export function VncConsole({
 
     async function connect() {
       try {
+        const token = (await import("@/lib/queries")).getAccessToken()
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        }
+        if (token) headers["Authorization"] = `Bearer ${token}`
         const res = await fetch("/api/v1/vnc/proxy", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ node, vmid }),
         })
 
@@ -95,7 +100,9 @@ export function VncConsole({
         const wsHost = import.meta.env.DEV
           ? "localhost:8080"
           : window.location.host
-        const wsUrl = `${protocol}//${wsHost}/api/v1/vnc/ws`
+        const wsUrl = token
+          ? `${protocol}//${wsHost}/api/v1/vnc/ws?token=${encodeURIComponent(token)}`
+          : `${protocol}//${wsHost}/api/v1/vnc/ws`
 
         const ws = new WebSocket(wsUrl)
         await new Promise<void>((resolve, reject) => {

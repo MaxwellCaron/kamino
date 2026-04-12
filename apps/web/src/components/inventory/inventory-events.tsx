@@ -1,12 +1,16 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { inventoryTreeQueryOptions } from "@/lib/queries"
+import { getAccessToken, inventoryTreeQueryOptions } from "@/lib/queries"
 
 export function InventoryEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/v1/inventory/events")
+    const token = getAccessToken()
+    const url = token
+      ? `/api/v1/inventory/events?token=${encodeURIComponent(token)}`
+      : "/api/v1/inventory/events"
+    const eventSource = new EventSource(url)
 
     const invalidateTree = () => {
       queryClient.invalidateQueries({
