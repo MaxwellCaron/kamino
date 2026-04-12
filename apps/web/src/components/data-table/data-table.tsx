@@ -7,12 +7,12 @@ import {
 } from "@workspace/ui/components/action-bar"
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { AnimatePresence, motion } from "motion/react"
 import { Input } from "@workspace/ui/components/input"
 import {
   Select,
@@ -30,7 +30,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import type { ReactNode } from "react"
 import type {
@@ -38,6 +38,7 @@ import type {
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
+import { loadingTransition } from "@/components/loading-transition"
 
 type DataTableSelectionActionsContext<TData> = {
   clearSelection: () => void
@@ -65,6 +66,8 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const hasBeenLoading = useRef(isLoading)
+  if (isLoading) hasBeenLoading.current = true
   const notReady = isLoading || error !== null
 
   const table = useReactTable({
@@ -126,7 +129,7 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
       <div className="overflow-hidden py-6">
-        <Table className="border-y">
+        <Table className="table-fixed border-y">
           <TableHeader className="bg-muted hover:bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -153,46 +156,63 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      style={{
-                        width:
-                          cell.column.getSize() === 150
-                            ? undefined
-                            : cell.column.getSize(),
-                      }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+          <AnimatePresence mode="wait">
+            <motion.tbody
+              key={isLoading ? "loading" : "loaded"}
+              data-slot="table-body"
+              initial={
+                hasBeenLoading.current ? { opacity: 0, height: 0 } : false
+              }
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={loadingTransition}
+              className="overflow-hidden [&_tr:last-child]:border-0"
+            >
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className={`h-24 text-center ${error !== null ? "text-destructive" : ""}`}
-                >
-                  {isLoading
-                    ? "Loading..."
-                    : error
-                      ? error.message
-                      : "No results."}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
+              ) : table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        style={{
+                          width:
+                            cell.column.getSize() === 150
+                              ? undefined
+                              : cell.column.getSize(),
+                        }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className={`h-24 text-center ${error !== null ? "text-destructive" : ""}`}
+                  >
+                    {error ? error.message : "No results."}
+                  </TableCell>
+                </TableRow>
+              )}
+            </motion.tbody>
+          </AnimatePresence>
         </Table>
       </div>
       <DataTablePagination table={table} />

@@ -42,6 +42,7 @@ export function getVNetColumns({
     {
       accessorKey: "vnet",
       header: "Name",
+      cell: ({ row }) => <span className="text-wrap">{row.original.vnet}</span>,
     },
     {
       accessorKey: "zone",
@@ -54,9 +55,13 @@ export function getVNetColumns({
     {
       accessorKey: "alias",
       header: "Alias",
+      cell: ({ row }) => (
+        <span className="text-wrap">{row.original.alias}</span>
+      ),
     },
     {
       id: "actions",
+      size: 100,
       header: () => (
         <div className="flex justify-end pr-6">
           <div className="w-16 text-center">Actions</div>

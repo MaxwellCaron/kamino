@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
@@ -50,6 +50,8 @@ export function SnapshotsTable({
     enabled: !!node && vmid != null,
   })
   const isLoading = isVmLoading || isSnapshotsLoading
+  const hasBeenLoading = useRef(isLoading)
+  if (isLoading) hasBeenLoading.current = true
   const rollback = useRollbackSnapshot(node ?? "", vmid ?? 0)
   const remove = useDeleteSnapshot(node ?? "", vmid ?? 0)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -89,7 +91,9 @@ export function SnapshotsTable({
             <motion.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
-              initial={{ opacity: 0, height: 0 }}
+              initial={
+                hasBeenLoading.current ? { opacity: 0, height: 0 } : false
+              }
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={loadingTransition}
@@ -127,10 +131,10 @@ export function SnapshotsTable({
               ) : (
                 filtered.map((snap) => (
                   <TableRow key={snap.name}>
-                    <TableCell className="wrap-break-words pl-6 font-medium">
+                    <TableCell className="pl-6 font-medium text-wrap">
                       {snap.name}
                     </TableCell>
-                    <TableCell className="wrap-break-words text-muted-foreground">
+                    <TableCell className="text-wrap text-muted-foreground">
                       {snap.description || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">

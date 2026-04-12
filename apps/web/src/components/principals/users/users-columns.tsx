@@ -49,9 +49,12 @@ export function getUserColumns({
     {
       accessorKey: "name",
       header: "Name",
+      size: 300,
       cell: ({ row: { original: user } }) => (
         <Tooltip>
-          <TooltipTrigger render={<span>{user.name}</span>} />
+          <TooltipTrigger
+            render={<span className="text-wrap">{user.name}</span>}
+          />
           <TooltipContent>
             <span>{user.external_id}</span>
           </TooltipContent>
@@ -67,6 +70,7 @@ export function getUserColumns({
     },
     {
       id: "actions",
+      size: 120,
       header: () => (
         <div className="flex justify-end pr-6">
           <div className="w-18 text-center">Actions</div>

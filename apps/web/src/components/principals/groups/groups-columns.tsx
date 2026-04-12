@@ -49,9 +49,12 @@ export function getGroupColumns({
     {
       accessorKey: "name",
       header: "Name",
+      size: 300,
       cell: ({ row: { original: group } }) => (
         <Tooltip>
-          <TooltipTrigger render={<span>{group.name}</span>} />
+          <TooltipTrigger
+            render={<span className="text-wrap">{group.name}</span>}
+          />
           <TooltipContent>
             <span>{group.external_id}</span>
           </TooltipContent>
@@ -67,6 +70,7 @@ export function getGroupColumns({
     },
     {
       id: "actions",
+      size: 120,
       header: () => (
         <div className="flex justify-end pr-6">
           <div className="w-18 text-center">Actions</div>
