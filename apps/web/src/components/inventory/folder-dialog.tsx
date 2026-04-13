@@ -130,6 +130,7 @@ export function FolderDialog({
                   <FieldLabel htmlFor="folder-name">Name</FieldLabel>
                   <Input
                     id="folder-name"
+                    placeholder="Folder"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
