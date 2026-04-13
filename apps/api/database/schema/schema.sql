@@ -24,12 +24,18 @@ CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox');
 -- 1       = view
 -- 2       = create_vm
 -- 4       = create_folder
--- 8       = delete_vm
--- 16      = delete_folder
--- 32      = move_vm
--- 64      = move_folder
--- 128     = power_vm
--- 256     = snapshot_vm
+-- 8       = rename_vm
+-- 16      = rename_folder
+-- 32      = delete_vm
+-- 64      = delete_folder
+-- 128     = move_vm
+-- 256     = move_folder
+-- 512     = power_vm
+-- 1024    = console_vm
+-- 2048    = clone_vm
+-- 4096    = snapshot_vm
+-- 8192    = template_vm
+-- 16384   = manage_permissions
 
 -- ----------------------------------------------------------------------------
 -- Directory provider configuration

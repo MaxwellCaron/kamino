@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/components/vm/vnc-console"
 import {
   findTreeNode,
+  hasInventoryPermission,
+  InventoryPermissionBits,
   inventoryTreeQueryOptions,
   vmStatusQueryOptions,
 } from "@/lib/queries"
@@ -40,6 +42,14 @@ function VmPage() {
   const vm = node?.vm ?? null
   const isTemplate = vm?.is_template ?? false
   const powerStatus = vm ? vmStatuses?.[vm.vmid] : undefined
+  const canManageSnapshots = hasInventoryPermission(
+    node?.permissions,
+    InventoryPermissionBits.snapshotVm
+  )
+  const canUseConsole = hasInventoryPermission(
+    node?.permissions,
+    InventoryPermissionBits.consoleVm
+  )
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -55,9 +65,10 @@ function VmPage() {
           node={vm?.node ?? null}
           vmid={vm?.vmid ?? null}
           isTemplate={isTemplate}
+          canManageSnapshots={canManageSnapshots}
           isLoading={isLoading}
         />
-        {!isTemplate && (
+        {!isTemplate && canUseConsole && (
           <VncConsole
             key={vm?.vmid ?? "loading"}
             node={vm?.node ?? null}

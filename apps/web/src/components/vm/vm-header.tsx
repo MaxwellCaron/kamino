@@ -125,14 +125,17 @@ export function VmHeader({
           {isTemplate ? "Template" : "Virtual Machine"}
         </CardDescription>
         <CardAction>
-          <VmOptionsMenu
-            nodeId={node?.id ?? ""}
-            isTemplate={isTemplate}
-            vmid={vm?.vmid}
-            pveNode={vm?.node}
-            name={node?.name}
-            isLoading={isLoading}
-          />
+          {node && (
+            <VmOptionsMenu
+              nodeId={node.id}
+              permissions={node.permissions}
+              isTemplate={isTemplate}
+              vmid={vm?.vmid}
+              pveNode={vm?.node}
+              name={node.name}
+              isLoading={isLoading}
+            />
+          )}
         </CardAction>
       </CardHeader>
       <CardContent>

@@ -266,6 +266,7 @@ function renderTree(
           />
           <TreeLabel>{node.name}</TreeLabel>
           <TreeNodeMenu
+            permissions={node.permissions}
             isFolder={isFolder}
             isTemplate={node.vm?.is_template}
             name={node.name}

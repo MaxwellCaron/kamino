@@ -12,6 +12,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type InventoryAceEffect string
+
+const (
+	InventoryAceEffectAllow InventoryAceEffect = "allow"
+	InventoryAceEffectDeny  InventoryAceEffect = "deny"
+)
+
+func (e *InventoryAceEffect) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InventoryAceEffect(s)
+	case string:
+		*e = InventoryAceEffect(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InventoryAceEffect: %T", src)
+	}
+	return nil
+}
+
+type NullInventoryAceEffect struct {
+	InventoryAceEffect InventoryAceEffect `json:"inventory_ace_effect"`
+	Valid              bool               `json:"valid"` // Valid is true if InventoryAceEffect is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInventoryAceEffect) Scan(value interface{}) error {
+	if value == nil {
+		ns.InventoryAceEffect, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InventoryAceEffect.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInventoryAceEffect) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InventoryAceEffect), nil
+}
+
 type InventoryItemKind string
 
 const (

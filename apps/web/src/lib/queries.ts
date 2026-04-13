@@ -225,10 +225,42 @@ export type ApiTreeNodeVM = {
   disk_gb?: number
 }
 
+export const InventoryPermissionBits = {
+  view: 1 << 0,
+  createVm: 1 << 1,
+  createFolder: 1 << 2,
+  renameVm: 1 << 3,
+  renameFolder: 1 << 4,
+  deleteVm: 1 << 5,
+  deleteFolder: 1 << 6,
+  moveVm: 1 << 7,
+  moveFolder: 1 << 8,
+  powerVm: 1 << 9,
+  consoleVm: 1 << 10,
+  cloneVm: 1 << 11,
+  snapshotVm: 1 << 12,
+  templateVm: 1 << 13,
+  managePermissions: 1 << 14,
+} as const
+
+export type ApiTreeNodePermissions = {
+  allowed_mask: number
+  denied_mask: number
+}
+
+export function hasInventoryPermission(
+  permissions: ApiTreeNodePermissions | undefined,
+  required: number
+) {
+  if (!permissions) return false
+  return (permissions.allowed_mask & required) === required
+}
+
 export type ApiTreeNode = {
   id: string
   name: string
   kind: "folder" | "vm"
+  permissions: ApiTreeNodePermissions
   children?: Array<ApiTreeNode>
   vm?: ApiTreeNodeVM
 }

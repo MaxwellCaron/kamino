@@ -68,8 +68,26 @@ func (s *Service) GetAllInventoryItems(ctx context.Context) ([]database.GetAllIn
 	return database.New(s.db).GetAllInventoryItems(ctx)
 }
 
+func (s *Service) GetVisibleInventoryItems(
+	ctx context.Context,
+	principalID uuid.UUID,
+) ([]database.GetVisibleInventoryItemsForPrincipalRow, error) {
+	return database.New(s.db).GetVisibleInventoryItemsForPrincipal(ctx, principalID)
+}
+
 func (s *Service) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (database.GetInventoryItemByIDRow, error) {
 	return database.New(s.db).GetInventoryItemByID(ctx, id)
+}
+
+func (s *Service) GetInventoryItemWithPermissions(
+	ctx context.Context,
+	principalID uuid.UUID,
+	id uuid.UUID,
+) (database.GetInventoryItemWithPermissionsRow, error) {
+	return database.New(s.db).GetInventoryItemWithPermissions(ctx, database.GetInventoryItemWithPermissionsParams{
+		PrincipalID:     principalID,
+		InventoryItemID: id,
+	})
 }
 
 func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -16,6 +17,7 @@ import (
 type VMCreateHandler struct {
 	PX      *proxmox.Client
 	Service *inventory.Service
+	Authz   *authorization.Service
 }
 
 // GetNodes returns all cluster nodes.
@@ -212,6 +214,12 @@ func normalizeMachineType(machine string) string {
 // CreateVM creates a new virtual machine.
 // POST /api/v1/vms
 func (h *VMCreateHandler) CreateVM(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req createVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -226,6 +234,9 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	targetFolderID, err := uuid.Parse(req.TargetFolderID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
+		return
+	}
+	if !requireInventoryPermission(c, h.Authz, principalID, targetFolderID, authorization.CreateVM) {
 		return
 	}
 

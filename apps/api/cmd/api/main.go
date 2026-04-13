@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/internal/auth"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
@@ -22,22 +23,23 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port               string `envconfig:"PORT" default:":8080"`
-	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
-	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
-	LDAPUrl            string `envconfig:"LDAP_URL"`
-	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
-	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	Port                          string `envconfig:"PORT" default:":8080"`
+	FrontendURL                   string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL                   string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL                    string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID                string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret            string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure               bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes                  string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret                     string `envconfig:"JWT_SECRET" required:"true"`
+	LDAPUrl                       string `envconfig:"LDAP_URL"`
+	LDAPBindDN                    string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword              string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN              string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU                    string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU                   string `envconfig:"LDAP_GROUP_OU"`
+	LDAPInsecure                  bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	InventoryBootstrapAdminGroups string `envconfig:"INVENTORY_BOOTSTRAP_ADMIN_GROUPS"`
 }
 
 // Server holds all application dependencies
@@ -165,22 +167,34 @@ func main() {
 		}
 	}
 
+	authzService := authorization.NewService(server.DBPool)
+	if err := authzService.BootstrapRootAccess(
+		context.Background(),
+		splitCSV(server.Config.InventoryBootstrapAdminGroups),
+	); err != nil {
+		log.Printf("Inventory ACL bootstrap failed: %v", err)
+	}
+
 	// Initialize handlers
 	inventoryService := inventory.NewService(server.DBPool, inventoryNotifier, proxmoxMirror)
 	inventoryHandler := &handlers.InventoryHandler{
 		Service:  inventoryService,
 		Notifier: inventoryNotifier,
 		PX:       server.ProxmoxClient,
+		Authz:    authzService,
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
+	vncHandler.Authz = authzService
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Service:  inventoryService,
 		Notifier: vmStatusNotifier,
+		Authz:    authzService,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:      server.ProxmoxClient,
 		Service: inventoryService,
+		Authz:   authzService,
 	}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 

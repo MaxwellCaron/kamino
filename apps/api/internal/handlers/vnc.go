@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -21,6 +22,7 @@ import (
 // VNCHandler handles VNC proxy and WebSocket bridge requests.
 type VNCHandler struct {
 	PX       *proxmox.Client
+	Authz    *authorization.Service
 	sessions *sessionStore
 }
 
@@ -105,9 +107,18 @@ type proxyRequest struct {
 // PostProxy handles POST /api/v1/vnc/proxy.
 // Calls the Proxmox vncproxy endpoint and returns a session ID + password.
 func (h *VNCHandler) PostProxy(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req proxyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.ConsoleVM); !ok {
 		return
 	}
 

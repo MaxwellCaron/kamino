@@ -38,16 +38,18 @@ export function SnapshotsTable({
   node,
   vmid,
   isTemplate,
+  canManageSnapshots,
   isLoading: isVmLoading,
 }: {
   node: string | null
   vmid: number | null
   isTemplate: boolean
+  canManageSnapshots: boolean
   isLoading?: boolean
 }) {
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     ...snapshotsQueryOptions(node ?? "", vmid ?? 0),
-    enabled: !!node && vmid != null,
+    enabled: !!node && vmid != null && canManageSnapshots,
   })
   const isLoading = isVmLoading || isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
@@ -68,7 +70,13 @@ export function SnapshotsTable({
         <CardDescription>Point in time snapshots of the VM.</CardDescription>
         <CardAction>
           <Button
-            disabled={isLoading || isTemplate || !node || vmid == null}
+            disabled={
+              isLoading ||
+              isTemplate ||
+              !canManageSnapshots ||
+              !node ||
+              vmid == null
+            }
             onClick={() => setSnapshotOpen(true)}
           >
             <IconPlus />
@@ -125,7 +133,9 @@ export function SnapshotsTable({
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center">
-                    No snapshots found.
+                    {canManageSnapshots
+                      ? "No snapshots found."
+                      : "You do not have access to snapshots for this VM."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -155,6 +165,7 @@ export function SnapshotsTable({
                           variant="ghost"
                           size="icon-xs"
                           title="Rollback"
+                          disabled={!canManageSnapshots}
                           onClick={() =>
                             setConfirm({
                               title: "Rollback Snapshot",
@@ -183,6 +194,7 @@ export function SnapshotsTable({
                           variant="ghost"
                           size="icon-xs"
                           title="Delete"
+                          disabled={!canManageSnapshots}
                           onClick={() =>
                             setConfirm({
                               title: "Delete Snapshot",
