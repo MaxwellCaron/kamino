@@ -22,6 +22,7 @@ import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-act
 import type { ApiPrincipal } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { deleteGroup, groupsQueryOptions, triggerADSync } from "@/lib/queries"
+import { useItemDialogState } from "@/hooks/use-item-dialog-state"
 import { GroupDialog } from "@/components/principals/groups/group-dialog"
 import { MembershipDialog } from "@/components/principals/membership-dialog"
 import { getGroupColumns } from "@/components/principals/groups/groups-columns"
@@ -38,11 +39,9 @@ function getGroupLabel(group: ApiPrincipal) {
 function GroupsPage() {
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
   const [createOpen, setCreateOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<ApiPrincipal | null>(null)
+  const editDialog = useItemDialogState<ApiPrincipal>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [membershipTarget, setMembershipTarget] = useState<ApiPrincipal | null>(
-    null
-  )
+  const membershipDialog = useItemDialogState<ApiPrincipal>()
 
   const queryClient = useQueryClient()
 
@@ -89,8 +88,8 @@ function GroupsPage() {
   const columns = useMemo(
     () =>
       getGroupColumns({
-        onEditClick: setEditTarget,
-        onEditGroups: setMembershipTarget,
+        onEditClick: editDialog.openWith,
+        onEditGroups: membershipDialog.openWith,
         onDeleteClick: (group) =>
           setConfirm({
             title: "Delete Group",
@@ -102,7 +101,7 @@ function GroupsPage() {
             },
           }),
       }),
-    [deleteMutation]
+    [deleteMutation, editDialog.openWith, membershipDialog.openWith]
   )
 
   return (
@@ -178,24 +177,22 @@ function GroupsPage() {
       </div>
 
       <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      {editTarget && (
+      {editDialog.data && (
         <GroupDialog
-          group={editTarget}
-          open={!!editTarget}
-          onOpenChange={(open) => {
-            if (!open) setEditTarget(null)
-          }}
+          key={editDialog.dialogKey}
+          group={editDialog.data}
+          open={editDialog.open}
+          onOpenChange={editDialog.onOpenChange}
         />
       )}
 
-      {membershipTarget && (
+      {membershipDialog.data && (
         <MembershipDialog
+          key={membershipDialog.dialogKey}
           mode="group-members"
-          principal={membershipTarget}
-          open={!!membershipTarget}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) setMembershipTarget(null)
-          }}
+          principal={membershipDialog.data}
+          open={membershipDialog.open}
+          onOpenChange={membershipDialog.onOpenChange}
         />
       )}
 

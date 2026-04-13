@@ -27,6 +27,7 @@ import type { ApiPrincipal } from "@/lib/queries"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { deleteUser, triggerADSync, usersQueryOptions } from "@/lib/queries"
+import { useItemDialogState } from "@/hooks/use-item-dialog-state"
 import { UserDialog } from "@/components/principals/users/user-dialog"
 import { MembershipDialog } from "@/components/principals/membership-dialog"
 import { DataTable } from "@/components/data-table/data-table"
@@ -44,16 +45,14 @@ function getUserLabel(user: ApiPrincipal) {
 function UsersPage() {
   const { data: users, isLoading, error } = useQuery(usersQueryOptions)
   const [createOpen, setCreateOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<ApiPrincipal | null>(null)
-  const [bulkGroupAction, setBulkGroupAction] = useState<{
+  const editDialog = useItemDialogState<ApiPrincipal>()
+  const bulkGroupDialog = useItemDialogState<{
     clearSelection: () => void
     mode: "add" | "remove"
     users: Array<ApiPrincipal>
-  } | null>(null)
+  }>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [membershipTarget, setMembershipTarget] = useState<ApiPrincipal | null>(
-    null
-  )
+  const membershipDialog = useItemDialogState<ApiPrincipal>()
 
   const queryClient = useQueryClient()
 
@@ -87,8 +86,8 @@ function UsersPage() {
   const columns = useMemo(
     () =>
       getUserColumns({
-        onEditClick: setEditTarget,
-        onEditGroups: setMembershipTarget,
+        onEditClick: editDialog.openWith,
+        onEditGroups: membershipDialog.openWith,
         onDeleteClick: (user) =>
           setConfirm({
             title: "Delete User",
@@ -100,7 +99,7 @@ function UsersPage() {
             },
           }),
       }),
-    [deleteMutation]
+    [deleteMutation, editDialog.openWith, membershipDialog.openWith]
   )
 
   const syncMutation = useMutation({
@@ -160,7 +159,7 @@ function UsersPage() {
                   <ActionBarItem
                     onSelect={(event) => event.preventDefault()}
                     onClick={() =>
-                      setBulkGroupAction({
+                      bulkGroupDialog.openWith({
                         clearSelection,
                         mode: "add",
                         users: selectedRows,
@@ -175,7 +174,7 @@ function UsersPage() {
                   <ActionBarItem
                     onSelect={(event) => event.preventDefault()}
                     onClick={() =>
-                      setBulkGroupAction({
+                      bulkGroupDialog.openWith({
                         clearSelection,
                         mode: "remove",
                         users: selectedRows,
@@ -226,36 +225,33 @@ function UsersPage() {
       </div>
 
       <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
-      {editTarget && (
+      {editDialog.data && (
         <UserDialog
-          user={editTarget}
-          open={!!editTarget}
-          onOpenChange={(open) => {
-            if (!open) setEditTarget(null)
-          }}
+          key={editDialog.dialogKey}
+          user={editDialog.data}
+          open={editDialog.open}
+          onOpenChange={editDialog.onOpenChange}
         />
       )}
 
-      {membershipTarget && (
+      {membershipDialog.data && (
         <MembershipDialog
+          key={membershipDialog.dialogKey}
           mode="user-groups"
-          principal={membershipTarget}
-          open={!!membershipTarget}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) setMembershipTarget(null)
-          }}
+          principal={membershipDialog.data}
+          open={membershipDialog.open}
+          onOpenChange={membershipDialog.onOpenChange}
         />
       )}
 
-      {bulkGroupAction && (
+      {bulkGroupDialog.data && (
         <UserGroupBulkDialog
-          clearSelection={bulkGroupAction.clearSelection}
-          mode={bulkGroupAction.mode}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) setBulkGroupAction(null)
-          }}
-          open={!!bulkGroupAction}
-          users={bulkGroupAction.users}
+          key={bulkGroupDialog.dialogKey}
+          clearSelection={bulkGroupDialog.data.clearSelection}
+          mode={bulkGroupDialog.data.mode}
+          onOpenChange={bulkGroupDialog.onOpenChange}
+          open={bulkGroupDialog.open}
+          users={bulkGroupDialog.data.users}
         />
       )}
 

@@ -17,6 +17,7 @@ import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-act
 import type { ApiVNet } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { deleteVNet, vnetsQueryOptions } from "@/lib/queries"
+import { useItemDialogState } from "@/hooks/use-item-dialog-state"
 import { VNetDialog } from "@/components/vnet/vnet-dialog"
 import { getVNetColumns } from "@/components/vnet/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
@@ -33,7 +34,7 @@ function SdnPage() {
   const { data: vnets, isLoading, error } = useQuery(vnetsQueryOptions)
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [editVNet, setEditVNet] = useState<ApiVNet | null>(null)
+  const editDialog = useItemDialogState<ApiVNet>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
 
   const queryClient = useQueryClient()
@@ -67,7 +68,7 @@ function SdnPage() {
   const columns = useMemo(
     () =>
       getVNetColumns({
-        onEditVnet: setEditVNet,
+        onEditVnet: editDialog.openWith,
         onDeleteClick: (v) =>
           setConfirm({
             title: "Delete VNet",
@@ -79,7 +80,7 @@ function SdnPage() {
             },
           }),
       }),
-    [deleteMutation]
+    [deleteMutation, editDialog.openWith]
   )
 
   return (
@@ -152,13 +153,14 @@ function SdnPage() {
 
       <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-      <VNetDialog
-        vnet={editVNet ?? undefined}
-        open={!!editVNet}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setEditVNet(null)
-        }}
-      />
+      {editDialog.data && (
+        <VNetDialog
+          key={editDialog.dialogKey}
+          vnet={editDialog.data}
+          open={editDialog.open}
+          onOpenChange={editDialog.onOpenChange}
+        />
+      )}
 
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
     </div>

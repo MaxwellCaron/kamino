@@ -1,6 +1,6 @@
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import { IconTrash, IconUsersGroup } from "@tabler/icons-react"
+import { IconEdit, IconTrash } from "@tabler/icons-react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/lib/queries"
 
@@ -77,7 +77,7 @@ export function getVNetColumns({
                 onClick={() => onEditVnet(vnet)}
                 title="Edit"
               >
-                <IconUsersGroup className="size-4" />
+                <IconEdit className="size-4" />
               </Button>
 
               <Button
