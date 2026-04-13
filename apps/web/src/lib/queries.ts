@@ -1,3 +1,221 @@
+// --- Auth & fetch wrapper ---
+
+const AUTH_REFRESH_BUFFER_MS = 60_000
+const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? "http://localhost:8080" : "")
+
+let currentSession: AuthSession | null = null
+let refreshPromise: Promise<AuthSession> | null = null
+let bootstrapPromise: Promise<AuthSession> | null = null
+let refreshTimer: number | null = null
+
+class AuthenticationError extends Error {}
+
+export function apiUrl(path: string) {
+  return `${API_BASE_URL}${path}`
+}
+
+export type AuthUser = {
+  id: string
+  username: string
+}
+
+export type AuthSession = {
+  user: AuthUser
+  access_token_expires_at: string
+}
+
+function clearRefreshTimer() {
+  if (refreshTimer) {
+    window.clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function scheduleRefresh(expiresAt: string) {
+  clearRefreshTimer()
+
+  if (typeof window === "undefined") return
+
+  const refreshAt = new Date(expiresAt).getTime() - AUTH_REFRESH_BUFFER_MS
+  const delay = Math.max(refreshAt - Date.now(), 0)
+
+  refreshTimer = window.setTimeout(() => {
+    void refreshAuth().catch(() => {
+      // Keep the current UI alive on transient failures.
+    })
+  }, delay)
+}
+
+function applyAuthSession(session: AuthSession): AuthSession {
+  currentSession = session
+  scheduleRefresh(session.access_token_expires_at)
+  return session
+}
+
+function clearAuthState() {
+  currentSession = null
+  bootstrapPromise = null
+  clearRefreshTimer()
+  refreshPromise = null
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return
+  if (window.location.pathname === "/login") return
+
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
+}
+
+function isAuthEndpoint(input: string) {
+  return input.startsWith("/api/v1/auth/")
+}
+
+export async function apiFetch(
+  input: string,
+  init?: RequestInit,
+  options?: { retryOn401?: boolean }
+): Promise<Response> {
+  const retryOn401 = options?.retryOn401 ?? true
+  const requestInit = { credentials: "include" as const, ...init }
+
+  const response = await fetch(apiUrl(input), requestInit)
+  if (response.status !== 401 || !retryOn401 || isAuthEndpoint(input)) {
+    return response
+  }
+
+  try {
+    await refreshAuth()
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      redirectToLogin()
+    }
+    return response
+  }
+
+  const retried = await fetch(apiUrl(input), requestInit)
+  if (retried.status === 401) {
+    clearAuthState()
+    redirectToLogin()
+  }
+
+  return retried
+}
+
+async function fetchAuthSession(): Promise<AuthSession> {
+  const res = await apiFetch("/api/v1/auth/me")
+  if (!res.ok) throw new Error("not authenticated")
+  return applyAuthSession(await res.json())
+}
+
+export async function ensureAuth(): Promise<AuthSession> {
+  if (isSessionUsable(currentSession)) {
+    return currentSession
+  }
+
+  if (bootstrapPromise) {
+    return bootstrapPromise
+  }
+
+  bootstrapPromise = (async () => {
+    if (isSessionExpired(currentSession)) {
+      return refreshAuth()
+    }
+
+    try {
+      return await fetchAuthSession()
+    } catch {
+      return await refreshAuth()
+    }
+  })()
+
+  try {
+    return await bootstrapPromise
+  } finally {
+    bootstrapPromise = null
+  }
+}
+
+export const authMeQueryOptions = {
+  queryKey: ["auth", "me"] as const,
+  queryFn: fetchAuthSession,
+  retry: false,
+  staleTime: Infinity,
+}
+
+export async function login(params: {
+  username: string
+  password: string
+}): Promise<AuthSession> {
+  const res = await fetch(apiUrl("/api/v1/auth/login"), {
+    ...{ method: "POST", credentials: "include" as const },
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? "Login failed")
+  }
+
+  return applyAuthSession(await res.json())
+}
+
+export async function logout(): Promise<void> {
+  await fetch(apiUrl("/api/v1/auth/logout"), {
+    ...{ method: "POST", credentials: "include" as const },
+  })
+  clearAuthState()
+}
+
+export async function refreshAuth(): Promise<AuthSession> {
+  if (refreshPromise) {
+    return refreshPromise
+  }
+
+  refreshPromise = (async () => {
+    const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    })
+    if (!res.ok) {
+      clearAuthState()
+      if (res.status === 401) {
+        throw new AuthenticationError("refresh failed")
+      }
+      throw new Error("refresh failed")
+    }
+
+    return applyAuthSession(await res.json())
+  })()
+
+  try {
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
+}
+
+function getSessionExpiryMs(session: AuthSession | null) {
+  if (!session) return 0
+  return new Date(session.access_token_expires_at).getTime()
+}
+
+function isSessionExpired(session: AuthSession | null) {
+  return Date.now() >= getSessionExpiryMs(session)
+}
+
+function isSessionUsable(session: AuthSession | null): session is AuthSession {
+  return (
+    !!session &&
+    Date.now() < getSessionExpiryMs(session) - AUTH_BOOTSTRAP_RETRY_BUFFER_MS
+  )
+}
+
+// --- Inventory ---
+
 export type ApiTreeNodeVM = {
   node: string
   vmid: number
@@ -30,7 +248,7 @@ export function findTreeNode(
 }
 
 async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
-  const res = await fetch("/api/v1/inventory/tree")
+  const res = await apiFetch("/api/v1/inventory/tree")
   if (!res.ok) throw new Error(`Failed to fetch inventory: ${res.status}`)
   return res.json()
 }
@@ -44,7 +262,7 @@ export async function moveInventoryItem(params: {
   itemId: string
   parentId: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/inventory/move", {
+  const res = await apiFetch("/api/v1/inventory/move", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -64,7 +282,7 @@ export async function createFolder(params: {
   parentId: string
   name: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/inventory/folders", {
+  const res = await apiFetch("/api/v1/inventory/folders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -82,7 +300,7 @@ export async function renameFolder(params: {
   id: string
   name: string
 }): Promise<void> {
-  const res = await fetch(`/api/v1/inventory/folders/${params.id}/rename`, {
+  const res = await apiFetch(`/api/v1/inventory/folders/${params.id}/rename`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: params.name }),
@@ -94,7 +312,7 @@ export async function renameFolder(params: {
 }
 
 export async function deleteFolder(params: { id: string }): Promise<void> {
-  const res = await fetch(`/api/v1/inventory/folders/${params.id}`, {
+  const res = await apiFetch(`/api/v1/inventory/folders/${params.id}`, {
     method: "DELETE",
   })
   if (!res.ok) {
@@ -104,7 +322,7 @@ export async function deleteFolder(params: { id: string }): Promise<void> {
 }
 
 async function fetchVmStatuses(): Promise<Record<number, string>> {
-  const res = await fetch("/api/v1/vms/status")
+  const res = await apiFetch("/api/v1/vms/status")
   if (!res.ok) throw new Error(`Failed to fetch VM statuses: ${res.status}`)
   return res.json()
 }
@@ -119,7 +337,7 @@ export async function vmPowerAction(params: {
   vmid: number
   action: "start" | "shutdown" | "reboot" | "stop"
 }): Promise<void> {
-  const res = await fetch("/api/v1/vms/power", {
+  const res = await apiFetch("/api/v1/vms/power", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -136,7 +354,7 @@ export async function deleteVM(params: {
   node: string
   vmid: number
 }): Promise<void> {
-  const res = await fetch(`/api/v1/vms/${params.node}/${params.vmid}`, {
+  const res = await apiFetch(`/api/v1/vms/${params.node}/${params.vmid}`, {
     method: "DELETE",
   })
   if (!res.ok) {
@@ -150,7 +368,7 @@ export async function renameVM(params: {
   vmid: number
   name: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/vms/rename", {
+  const res = await apiFetch("/api/v1/vms/rename", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -170,7 +388,7 @@ export async function cloneVM(params: {
   target?: string
   target_folder_id: string
 }): Promise<{ vmid: number }> {
-  const res = await fetch("/api/v1/vms/clone", {
+  const res = await apiFetch("/api/v1/vms/clone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -186,7 +404,7 @@ export async function convertToTemplate(params: {
   node: string
   vmid: number
 }): Promise<void> {
-  const res = await fetch("/api/v1/vms/template", {
+  const res = await apiFetch("/api/v1/vms/template", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -211,7 +429,7 @@ export function snapshotsQueryOptions(node: string, vmid: number) {
   return {
     queryKey: ["vms", node, vmid, "snapshots"] as const,
     queryFn: async (): Promise<Array<ApiSnapshot>> => {
-      const res = await fetch(`/api/v1/vms/${node}/${vmid}/snapshots`)
+      const res = await apiFetch(`/api/v1/vms/${node}/${vmid}/snapshots`)
       if (!res.ok) throw new Error(`Failed to fetch snapshots: ${res.status}`)
       return res.json()
     },
@@ -223,7 +441,7 @@ export async function rollbackSnapshot(params: {
   vmid: number
   snapname: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/vms/snapshot/rollback", {
+  const res = await apiFetch("/api/v1/vms/snapshot/rollback", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -239,7 +457,7 @@ export async function deleteSnapshot(params: {
   vmid: number
   snapname: string
 }): Promise<void> {
-  const res = await fetch(
+  const res = await apiFetch(
     `/api/v1/vms/${params.node}/${params.vmid}/snapshots/${params.snapname}`,
     { method: "DELETE" }
   )
@@ -256,7 +474,7 @@ export async function createSnapshot(params: {
   description?: string
   vmstate?: boolean
 }): Promise<void> {
-  const res = await fetch("/api/v1/vms/snapshot", {
+  const res = await apiFetch("/api/v1/vms/snapshot", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -292,7 +510,7 @@ export function bridgesQueryOptions(node: string) {
       bridges: Array<ApiNetworkBridge>
       vnets: Array<ApiVNet>
     }> => {
-      const res = await fetch(`/api/v1/proxmox/nodes/${node}/bridges`)
+      const res = await apiFetch(`/api/v1/proxmox/nodes/${node}/bridges`)
       if (!res.ok) throw new Error(`Failed to fetch bridges: ${res.status}`)
       return res.json()
     },
@@ -309,7 +527,7 @@ export const createVmOptionsQueryOptions = {
     bridges: Array<ApiNetworkBridge>
     vnets: Array<ApiVNet>
   }> => {
-    const res = await fetch("/api/v1/proxmox/create/options")
+    const res = await apiFetch("/api/v1/proxmox/create/options")
     if (!res.ok)
       throw new Error(`Failed to fetch create options: ${res.status}`)
     return res.json()
@@ -334,7 +552,7 @@ export type ApiISO = {
 export const nodesQueryOptions = {
   queryKey: ["proxmox", "nodes"] as const,
   queryFn: async (): Promise<Array<ApiNode>> => {
-    const res = await fetch("/api/v1/proxmox/nodes")
+    const res = await apiFetch("/api/v1/proxmox/nodes")
     if (!res.ok) throw new Error(`Failed to fetch nodes: ${res.status}`)
     return res.json()
   },
@@ -344,7 +562,7 @@ export function storagesQueryOptions(node: string) {
   return {
     queryKey: ["proxmox", "storages", node] as const,
     queryFn: async (): Promise<Array<ApiStorage>> => {
-      const res = await fetch(`/api/v1/proxmox/nodes/${node}/storages`)
+      const res = await apiFetch(`/api/v1/proxmox/nodes/${node}/storages`)
       if (!res.ok) throw new Error(`Failed to fetch storages: ${res.status}`)
       return res.json()
     },
@@ -356,7 +574,7 @@ export function isosQueryOptions(node: string, storage: string) {
   return {
     queryKey: ["proxmox", "isos", node, storage] as const,
     queryFn: async (): Promise<Array<ApiISO>> => {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/v1/proxmox/nodes/${node}/storages/${storage}/isos`
       )
       if (!res.ok) throw new Error(`Failed to fetch ISOs: ${res.status}`)
@@ -370,7 +588,7 @@ export function createVmIsosQueryOptions(storage: string) {
   return {
     queryKey: ["proxmox", "create", "isos", storage] as const,
     queryFn: async (): Promise<Array<ApiISO>> => {
-      const res = await fetch(`/api/v1/proxmox/create/isos/${storage}`)
+      const res = await apiFetch(`/api/v1/proxmox/create/isos/${storage}`)
       if (!res.ok) throw new Error(`Failed to fetch ISOs: ${res.status}`)
       return res.json()
     },
@@ -379,14 +597,14 @@ export function createVmIsosQueryOptions(storage: string) {
 }
 
 export async function getNextVMID(): Promise<number> {
-  const res = await fetch("/api/v1/proxmox/nextid")
+  const res = await apiFetch("/api/v1/proxmox/nextid")
   if (!res.ok) throw new Error(`Failed to fetch next VMID: ${res.status}`)
   const data = await res.json()
   return data.vmid
 }
 
 export async function validateVMID(vmid: number): Promise<boolean> {
-  const res = await fetch(`/api/v1/proxmox/vmid/${vmid}/validate`)
+  const res = await apiFetch(`/api/v1/proxmox/vmid/${vmid}/validate`)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to validate VM ID: ${res.status}`)
@@ -425,7 +643,7 @@ export type CreateVMParams = {
 export async function createVM(
   params: CreateVMParams
 ): Promise<{ vmid: number }> {
-  const res = await fetch("/api/v1/vms", {
+  const res = await apiFetch("/api/v1/vms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -449,7 +667,7 @@ export type ApiVNet = {
 export const vnetsQueryOptions = {
   queryKey: ["sdn", "vnets"] as const,
   queryFn: async (): Promise<Array<ApiVNet>> => {
-    const res = await fetch("/api/v1/sdn/vnets")
+    const res = await apiFetch("/api/v1/sdn/vnets")
     if (!res.ok) throw new Error(`Failed to fetch VNets: ${res.status}`)
     return res.json()
   },
@@ -461,7 +679,7 @@ export async function createVNet(params: {
   tag?: number
   alias?: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/sdn/vnets", {
+  const res = await apiFetch("/api/v1/sdn/vnets", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -476,7 +694,7 @@ export async function updateVNet(
   vnet: string,
   params: { zone?: string; tag?: number; alias?: string }
 ): Promise<void> {
-  const res = await fetch(`/api/v1/sdn/vnets/${vnet}`, {
+  const res = await apiFetch(`/api/v1/sdn/vnets/${vnet}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -490,7 +708,7 @@ export async function updateVNet(
 export async function deleteVNet(
   vnets: Array<string>
 ): Promise<ApiBulkDeleteResponse> {
-  const res = await fetch("/api/v1/sdn/vnets", {
+  const res = await apiFetch("/api/v1/sdn/vnets", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ vnets }),
@@ -537,7 +755,7 @@ export type ApiBulkMembershipResponse = {
 export const usersQueryOptions = {
   queryKey: ["principals", "users"] as const,
   queryFn: async (): Promise<Array<ApiPrincipal>> => {
-    const res = await fetch("/api/v1/principals/users")
+    const res = await apiFetch("/api/v1/principals/users")
     if (!res.ok) throw new Error(`Failed to fetch users: ${res.status}`)
     return res.json()
   },
@@ -546,7 +764,7 @@ export const usersQueryOptions = {
 export const groupsQueryOptions = {
   queryKey: ["principals", "groups"] as const,
   queryFn: async (): Promise<Array<ApiPrincipal>> => {
-    const res = await fetch("/api/v1/principals/groups")
+    const res = await apiFetch("/api/v1/principals/groups")
     if (!res.ok) throw new Error(`Failed to fetch groups: ${res.status}`)
     return res.json()
   },
@@ -556,7 +774,7 @@ export function groupMembersQueryOptions(groupId: string) {
   return {
     queryKey: ["principals", "groups", groupId, "members"] as const,
     queryFn: async (): Promise<Array<ApiGroupMember>> => {
-      const res = await fetch(`/api/v1/principals/groups/${groupId}/members`)
+      const res = await apiFetch(`/api/v1/principals/groups/${groupId}/members`)
       if (!res.ok) throw new Error(`Failed to fetch members: ${res.status}`)
       return res.json()
     },
@@ -569,7 +787,7 @@ export async function createUser(params: {
   password: string
   description?: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/principals/users", {
+  const res = await apiFetch("/api/v1/principals/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -584,7 +802,7 @@ export async function updateUser(
   id: string,
   params: { username: string; description?: string }
 ): Promise<void> {
-  const res = await fetch(`/api/v1/principals/users/${id}`, {
+  const res = await apiFetch(`/api/v1/principals/users/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -598,7 +816,7 @@ export async function updateUser(
 export async function deleteUser(
   ids: Array<string>
 ): Promise<ApiBulkDeleteResponse> {
-  const res = await fetch("/api/v1/principals/users", {
+  const res = await apiFetch("/api/v1/principals/users", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
@@ -614,7 +832,7 @@ export async function setUserPassword(
   id: string,
   password: string
 ): Promise<void> {
-  const res = await fetch(`/api/v1/principals/users/${id}/password`, {
+  const res = await apiFetch(`/api/v1/principals/users/${id}/password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password }),
@@ -626,7 +844,7 @@ export async function setUserPassword(
 }
 
 export async function enableUser(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/principals/users/${id}/enable`, {
+  const res = await apiFetch(`/api/v1/principals/users/${id}/enable`, {
     method: "POST",
   })
   if (!res.ok) {
@@ -636,7 +854,7 @@ export async function enableUser(id: string): Promise<void> {
 }
 
 export async function disableUser(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/principals/users/${id}/disable`, {
+  const res = await apiFetch(`/api/v1/principals/users/${id}/disable`, {
     method: "POST",
   })
   if (!res.ok) {
@@ -649,7 +867,7 @@ export async function createGroup(params: {
   name: string
   description?: string
 }): Promise<void> {
-  const res = await fetch("/api/v1/principals/groups", {
+  const res = await apiFetch("/api/v1/principals/groups", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -664,7 +882,7 @@ export async function updateGroup(
   id: string,
   params: { name: string; description?: string }
 ): Promise<void> {
-  const res = await fetch(`/api/v1/principals/groups/${id}`, {
+  const res = await apiFetch(`/api/v1/principals/groups/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -678,7 +896,7 @@ export async function updateGroup(
 export async function deleteGroup(
   ids: Array<string>
 ): Promise<ApiBulkDeleteResponse> {
-  const res = await fetch("/api/v1/principals/groups", {
+  const res = await apiFetch("/api/v1/principals/groups", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
@@ -694,7 +912,7 @@ export async function addGroupMember(
   groupId: string,
   memberIds: Array<string>
 ): Promise<ApiBulkMembershipResponse> {
-  const res = await fetch(`/api/v1/principals/groups/${groupId}/members`, {
+  const res = await apiFetch(`/api/v1/principals/groups/${groupId}/members`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ member_ids: memberIds }),
@@ -710,7 +928,7 @@ export async function removeGroupMember(
   groupId: string,
   memberIds: Array<string>
 ): Promise<ApiBulkMembershipResponse> {
-  const res = await fetch(`/api/v1/principals/groups/${groupId}/members`, {
+  const res = await apiFetch(`/api/v1/principals/groups/${groupId}/members`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ member_ids: memberIds }),
@@ -726,7 +944,7 @@ export function userGroupsQueryOptions(userId: string) {
   return {
     queryKey: ["principals", "users", userId, "groups"] as const,
     queryFn: async (): Promise<Array<ApiGroupMember>> => {
-      const res = await fetch(`/api/v1/principals/users/${userId}/groups`)
+      const res = await apiFetch(`/api/v1/principals/users/${userId}/groups`)
       if (!res.ok) throw new Error(`Failed to fetch user groups: ${res.status}`)
       return res.json()
     },
@@ -735,7 +953,7 @@ export function userGroupsQueryOptions(userId: string) {
 }
 
 export async function triggerADSync(): Promise<void> {
-  const res = await fetch("/api/v1/principals/sync", { method: "POST" })
+  const res = await apiFetch("/api/v1/principals/sync", { method: "POST" })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `AD sync failed: ${res.status}`)

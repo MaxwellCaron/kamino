@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { vmStatusQueryOptions } from "@/lib/queries"
+import { apiUrl, vmStatusQueryOptions } from "@/lib/queries"
 
 type VmStatusEvent = {
   type: "vm.statuses.changed"
@@ -12,7 +12,9 @@ export function VmStatusEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/v1/vms/events")
+    const eventSource = new EventSource(apiUrl("/api/v1/vms/events"), {
+      withCredentials: true,
+    })
 
     const handleStatusesChanged = (event: Event) => {
       if (!(event instanceof MessageEvent)) return

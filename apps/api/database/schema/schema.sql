@@ -90,6 +90,39 @@ CREATE INDEX ix_group_memberships_member_id
     ON group_memberships (member_id);
 
 -- ----------------------------------------------------------------------------
+-- Browser authentication sessions
+-- Stores hashed opaque refresh tokens for rotation and revocation.
+-- Access JWTs stay short-lived and are not persisted server-side.
+-- ----------------------------------------------------------------------------
+CREATE TABLE auth_sessions (
+    id                      UUID PRIMARY KEY,
+    principal_id            UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
+    token_hash              TEXT NOT NULL,
+    family_id               UUID NOT NULL,
+    replaced_by_session_id  UUID NULL REFERENCES auth_sessions(id) ON DELETE SET NULL,
+    user_agent              TEXT NULL,
+    ip_address              TEXT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at              TIMESTAMPTZ NOT NULL,
+    revoked_at              TIMESTAMPTZ NULL,
+    CONSTRAINT auth_sessions_token_hash_not_empty
+        CHECK (length(token_hash) > 0)
+);
+
+CREATE UNIQUE INDEX ux_auth_sessions_token_hash
+    ON auth_sessions (token_hash);
+
+CREATE INDEX ix_auth_sessions_principal_id
+    ON auth_sessions (principal_id);
+
+CREATE INDEX ix_auth_sessions_family_id
+    ON auth_sessions (family_id);
+
+CREATE INDEX ix_auth_sessions_expires_at
+    ON auth_sessions (expires_at);
+
+-- ----------------------------------------------------------------------------
 -- Inventory tree (folders + VM references)
 -- ----------------------------------------------------------------------------
 CREATE TABLE inventory_items (

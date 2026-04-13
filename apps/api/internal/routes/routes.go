@@ -1,12 +1,16 @@
 package routes
 
 import (
+	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
+	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(
 	r *gin.Engine,
+	authHandler *handlers.AuthHandler,
+	authService *auth.Service,
 	inventory *handlers.InventoryHandler,
 	vnc *handlers.VNCHandler,
 	vm *handlers.VMHandler,
@@ -20,6 +24,24 @@ func RegisterRoutes(
 	v1.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// Public auth endpoints
+	if authHandler != nil {
+		authGroup := v1.Group("/auth")
+		authGroup.POST("/login", authHandler.Login)
+		authGroup.POST("/refresh", authHandler.Refresh)
+		authGroup.POST("/logout", authHandler.Logout)
+	}
+
+	// Apply auth middleware to all remaining routes when auth is configured
+	if authService != nil {
+		v1.Use(middleware.Auth(authService))
+	}
+
+	// Authenticated: current user info
+	if authHandler != nil {
+		v1.GET("/auth/me", authHandler.Me)
+	}
 
 	// Inventory endpoints
 	v1.GET("/inventory/tree", inventory.GetTree)

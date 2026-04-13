@@ -23,13 +23,9 @@ import { NavDocuments } from "./nav-inventory"
 import { NavUser } from "./nav-user"
 import { NavMain } from "./nav-main"
 import { NavSecondary } from "./nav-secondary"
+import type { AuthUser } from "@/lib/queries"
 
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -71,9 +67,13 @@ const data = {
   ],
 }
 export function AppSidebar({
+  user,
   inventoryTree,
   ...props
-}: React.ComponentProps<typeof Sidebar> & { inventoryTree?: React.ReactNode }) {
+}: React.ComponentProps<typeof Sidebar> & {
+  user: AuthUser
+  inventoryTree?: React.ReactNode
+}) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -95,7 +95,7 @@ export function AppSidebar({
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

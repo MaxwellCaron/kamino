@@ -6,8 +6,10 @@ import (
 	"log"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
@@ -28,6 +30,7 @@ type Config struct {
 	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
 	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
 	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
 	LDAPUrl            string `envconfig:"LDAP_URL"`
 	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
 	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
@@ -181,8 +184,23 @@ func main() {
 	}
 	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
 
+	var authHandler *handlers.AuthHandler
+	var authService *auth.Service
 	var principalsHandler *handlers.PrincipalsHandler
 	if server.ADClient != nil {
+		authService, err := auth.NewService(server.Config.JWTSecret)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		authHandler = &handlers.AuthHandler{
+			Auth:         authService,
+			Sessions:     auth.NewSessionManager(server.DBPool),
+			ADClient:     server.ADClient,
+			DB:           server.DBPool,
+			CookieSecure: strings.HasPrefix(server.Config.FrontendURL, "https://"),
+		}
+
 		adService := activedirectory.NewService(server.DBPool, server.ADClient, server.ADSync)
 		principalsHandler = &handlers.PrincipalsHandler{
 			Provider: adService,
@@ -190,9 +208,10 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	// Register all API routes
-	routes.RegisterRoutes(r, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)
+	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)
 
 	r.Run(config.Port)
 }

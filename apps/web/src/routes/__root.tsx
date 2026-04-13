@@ -10,8 +10,6 @@ import {
 } from "@tanstack/react-router"
 
 import appCss from "@workspace/ui/globals.css?url"
-import { InventoryEvents } from "@/components/inventory/inventory-events"
-import { VmStatusEvents } from "@/components/vm/vm-status-events"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,8 +68,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
-      <InventoryEvents />
-      <VmStatusEvents />
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <TooltipProvider>
           <Outlet />
