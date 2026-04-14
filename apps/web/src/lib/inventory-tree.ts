@@ -1,11 +1,10 @@
 import type { ApiTreeNode } from "@/lib/queries"
+import { InventoryPermissionBits, hasInventoryPermission } from "@/lib/queries"
 
 export const INVENTORY_KIND_SORT_ORDER = {
   folder: 0,
   vm: 1,
 } as const
-
-const PROXMOX_ROOT_FOLDER_NAME = "Proxmox"
 
 const inventoryNameCollator = new Intl.Collator(undefined, {
   numeric: true,
@@ -177,15 +176,13 @@ export function getInventoryFolderOptions(
       if (entry.kind !== "folder") continue
 
       const nextPath = [...ancestors, entry.name]
-      const isRootFolder =
-        entry.name === PROXMOX_ROOT_FOLDER_NAME && ancestors.length === 0
-      const folderPath = isRootFolder
-        ? []
-        : nextPath[0] === PROXMOX_ROOT_FOLDER_NAME
-          ? nextPath.slice(1)
-          : nextPath
+      const isRootFolder = ancestors.length === 0
+      const folderPath = isRootFolder ? [] : nextPath.slice(1)
 
-      if (!isRootFolder) {
+      if (
+        !isRootFolder &&
+        hasInventoryPermission(entry.permissions, InventoryPermissionBits.view)
+      ) {
         folders.push({
           id: entry.id,
           name: entry.name,

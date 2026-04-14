@@ -24,8 +24,8 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { TreeNodeMenu } from "./inventory-actions"
-import type { ApiTreeNode } from "@/lib/queries"
 import type { ReactNode } from "react"
+import type { ApiTreeNode } from "@/lib/queries"
 import { useMoveInventoryItem } from "@/hooks/use-inventory-actions"
 import {
   findInventoryParentId,
@@ -33,7 +33,12 @@ import {
   isInventoryDescendant,
   moveInventoryTreeNode,
 } from "@/lib/inventory-tree"
-import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
+import {
+  InventoryPermissionBits,
+  hasInventoryPermission,
+  inventoryTreeQueryOptions,
+  vmStatusQueryOptions,
+} from "@/lib/queries"
 
 function collectVmIds(nodes: Array<ApiTreeNode>): Map<string, number> {
   const map = new Map<string, number>()
@@ -147,7 +152,10 @@ function renderTree(
     return (
       <TreeNode
         key={node.id}
-        droppable={isFolder}
+        droppable={
+          isFolder &&
+          hasInventoryPermission(node.permissions, InventoryPermissionBits.view)
+        }
         isLast={isLast}
         level={level}
         nodeId={node.id}

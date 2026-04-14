@@ -14,8 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const rootFolderName = "Proxmox"
-
 // InventoryImporter syncs Proxmox pools and VMs into the inventory database.
 type InventoryImporter struct {
 	db     *pgxpool.Pool
@@ -80,14 +78,16 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 }
 
 func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, error) {
-	id, err := q.GetRootFolderByName(ctx, rootFolderName)
-	if err == nil {
-		return id, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
 		return uuid.Nil, err
 	}
-	return q.CreateRootFolder(ctx, rootFolderName)
+
+	if rootID := findManagedRootFolderID(rows); rootID != nil {
+		return *rootID, nil
+	}
+
+	return q.CreateRootFolder(ctx, proxmoxRootFolderName)
 }
 
 func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.UUID, name string) (uuid.UUID, error) {

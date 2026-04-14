@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	proxmoxRootFolderName       = "Proxmox"
 	kaminoManagedPoolCommentTag = "Managed by Kamino"
 )
 
@@ -204,23 +203,15 @@ type vmKey struct {
 func buildInventoryIndex(rows []database.GetAllInventoryItemsRow) (*uuid.UUID, map[uuid.UUID]database.GetAllInventoryItemsRow, map[uuid.UUID][]uuid.UUID) {
 	itemsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(rows))
 	childrenByParent := make(map[uuid.UUID][]uuid.UUID, len(rows))
-	var rootID *uuid.UUID
-
 	for _, row := range rows {
 		itemsByID[row.ID] = row
 
 		if row.ParentID != nil {
 			childrenByParent[*row.ParentID] = append(childrenByParent[*row.ParentID], row.ID)
-			continue
-		}
-
-		if row.Kind == database.InventoryItemKindFolder && row.Name == proxmoxRootFolderName {
-			id := row.ID
-			rootID = &id
 		}
 	}
 
-	return rootID, itemsByID, childrenByParent
+	return findManagedRootFolderID(rows), itemsByID, childrenByParent
 }
 
 func appendPath(path []string, segment string) []string {
