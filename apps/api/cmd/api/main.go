@@ -44,7 +44,6 @@ type Config struct {
 	LDAPGroupOU                   string `envconfig:"LDAP_GROUP_OU"`
 	LDAPAdminGroupDN              string `envconfig:"LDAP_ADMIN_GROUP_DN"`
 	LDAPInsecure                  bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	InventoryBootstrapAdminGroups string `envconfig:"INVENTORY_BOOTSTRAP_ADMIN_GROUPS"`
 }
 
 // Server holds all application dependencies
@@ -74,34 +73,25 @@ func resolveBootstrapAdminGroups(
 	config *Config,
 	adClient *activedirectory.Client,
 ) ([]string, error) {
-	groupNames := splitCSV(config.InventoryBootstrapAdminGroups)
-
 	if adClient == nil || strings.TrimSpace(config.LDAPAdminGroupDN) == "" {
-		return groupNames, nil
+		return nil, nil
 	}
 
 	group, err := adClient.FetchGroupByDN(config.LDAPAdminGroupDN)
 	if err != nil {
-		return groupNames, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"fetch admin group from LDAP_ADMIN_GROUP_DN %q: %w",
 			config.LDAPAdminGroupDN,
 			err,
 		)
 	}
 	if group == nil {
-		return groupNames, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"no group found at LDAP_ADMIN_GROUP_DN %q",
 			config.LDAPAdminGroupDN,
 		)
 	}
-
-	for _, existing := range groupNames {
-		if existing == group.Name {
-			return groupNames, nil
-		}
-	}
-
-	return append(groupNames, group.Name), nil
+	return []string{group.Name}, nil
 }
 
 func resolveProtectedInventoryACLPrincipalIDs(
@@ -264,7 +254,6 @@ func main() {
 	bootstrapAdminGroups, err := resolveBootstrapAdminGroups(server.Config, server.ADClient)
 	if err != nil {
 		log.Printf("Inventory ACL admin group discovery failed: %v", err)
-		bootstrapAdminGroups = splitCSV(server.Config.InventoryBootstrapAdminGroups)
 	}
 	if err := authzService.BootstrapRootAccess(
 		context.Background(),

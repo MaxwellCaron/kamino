@@ -124,7 +124,7 @@ func (s *Service) BootstrapRootAccess(
 	}
 
 	if len(groupNames) == 0 {
-		log.Printf("inventory ACL bootstrap skipped: INVENTORY_BOOTSTRAP_ADMIN_GROUPS is empty and all inventory access will be denied until ACEs are seeded")
+		log.Printf("inventory ACL bootstrap skipped: LDAP_ADMIN_GROUP_DN is not configured or could not be resolved, and all inventory access will be denied until ACEs are seeded")
 		return nil
 	}
 
