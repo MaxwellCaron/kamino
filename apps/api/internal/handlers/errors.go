@@ -34,3 +34,7 @@ func writeLoggedError(
 func writeInvalidRequest(c *gin.Context, message string) {
 	c.JSON(http.StatusBadRequest, gin.H{"error": message})
 }
+
+func writeForbidden(c *gin.Context) {
+	c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+}

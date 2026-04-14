@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -20,16 +21,18 @@ type InventoryHandler struct {
 	Service  *inventory.Service
 	Notifier *inventory.Notifier
 	PX       *proxmox.Client
+	Authz    *authorization.Service
 }
 
 // JSON response types
 
 type TreeNode struct {
-	ID       uuid.UUID  `json:"id"`
-	Name     string     `json:"name"`
-	Kind     string     `json:"kind"`
-	Children []TreeNode `json:"children,omitempty"`
-	VM       *VMDetail  `json:"vm,omitempty"`
+	ID          uuid.UUID          `json:"id"`
+	Name        string             `json:"name"`
+	Kind        string             `json:"kind"`
+	Permissions PermissionEnvelope `json:"permissions"`
+	Children    []TreeNode         `json:"children,omitempty"`
+	VM          *VMDetail          `json:"vm,omitempty"`
 }
 
 type VMDetail struct {
@@ -42,18 +45,54 @@ type VMDetail struct {
 }
 
 type InventoryItem struct {
-	ID                 uuid.UUID  `json:"id"`
-	ParentID           *uuid.UUID `json:"parent_id"`
-	Kind               string     `json:"kind"`
-	Name               string     `json:"name"`
-	InheritPermissions bool       `json:"inherit_permissions"`
-	VM                 *VMDetail  `json:"vm,omitempty"`
+	ID                 uuid.UUID          `json:"id"`
+	ParentID           *uuid.UUID         `json:"parent_id"`
+	Kind               string             `json:"kind"`
+	Name               string             `json:"name"`
+	InheritPermissions bool               `json:"inherit_permissions"`
+	Permissions        PermissionEnvelope `json:"permissions"`
+	VM                 *VMDetail          `json:"vm,omitempty"`
+}
+
+type InventoryACLEntry struct {
+	ID                  uuid.UUID `json:"id"`
+	PrincipalID         uuid.UUID `json:"principal_id"`
+	PrincipalType       string    `json:"principal_type"`
+	PrincipalExternalID string    `json:"principal_external_id"`
+	PrincipalName       *string   `json:"principal_name"`
+	Effect              string    `json:"effect"`
+	Permissions         int64     `json:"permissions"`
+	Immutable           bool      `json:"immutable"`
+}
+
+type InheritedInventoryACLEntry struct {
+	ID                  uuid.UUID `json:"id"`
+	SourceItemID        uuid.UUID `json:"source_item_id"`
+	SourceItemName      string    `json:"source_item_name"`
+	PrincipalID         uuid.UUID `json:"principal_id"`
+	PrincipalType       string    `json:"principal_type"`
+	PrincipalExternalID string    `json:"principal_external_id"`
+	PrincipalName       *string   `json:"principal_name"`
+	Effect              string    `json:"effect"`
+	Permissions         int64     `json:"permissions"`
+	Immutable           bool      `json:"immutable"`
+}
+
+type InventoryACL struct {
+	Entries          []InventoryACLEntry          `json:"entries"`
+	InheritedEntries []InheritedInventoryACLEntry `json:"inherited_entries"`
 }
 
 // GetTree returns the full inventory tree.
 // GET /api/v1/inventory/tree
 func (h *InventoryHandler) GetTree(c *gin.Context) {
-	rows, err := h.Service.GetAllInventoryItems(c.Request.Context())
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	rows, err := h.Service.GetVisibleInventoryItems(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch inventory", "load inventory tree", err)
 		return
@@ -65,19 +104,29 @@ func (h *InventoryHandler) GetTree(c *gin.Context) {
 // GetItem returns a single inventory item with VM details.
 // GET /api/v1/inventory/items/:id
 func (h *InventoryHandler) GetItem(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	row, err := h.Service.GetInventoryItemByID(c.Request.Context(), id)
+	row, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
 		return
 	}
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch item", "load inventory item", err)
+		return
+	}
+	if (row.AllowedMask & int64(authorization.View)) != int64(authorization.View) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
 		return
 	}
 
@@ -87,6 +136,10 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 		Kind:               string(row.Kind),
 		Name:               row.Name,
 		InheritPermissions: row.InheritPermissions,
+		Permissions: PermissionEnvelope{
+			AllowedMask: authorization.Mask(row.AllowedMask),
+			DeniedMask:  authorization.Mask(row.DeniedMask),
+		},
 	}
 
 	if row.Node != nil {
@@ -94,6 +147,147 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, item)
+}
+
+// GetACL returns the direct ACL entries for an inventory item.
+// GET /api/v1/inventory/items/:id/acl
+func (h *InventoryHandler) GetACL(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "load inventory item ACL", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+		writeForbidden(c)
+		return
+	}
+
+	rows, err := h.Service.ListInventoryACLEntries(c.Request.Context(), id)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "list inventory ACL entries", err)
+		return
+	}
+	inheritedRows, err := h.Service.ListInheritedInventoryACLEntries(c.Request.Context(), id)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "list inherited inventory ACL entries", err)
+		return
+	}
+
+	entries := make([]InventoryACLEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, InventoryACLEntry{
+			ID:                  row.ID,
+			PrincipalID:         row.PrincipalID,
+			PrincipalType:       string(row.PrincipalType),
+			PrincipalExternalID: row.ExternalID,
+			PrincipalName:       row.Name,
+			Effect:              string(row.Effect),
+			Permissions:         row.Permissions,
+			Immutable:           h.Service.IsProtectedACLPrincipal(row.PrincipalID),
+		})
+	}
+	inheritedEntries := make([]InheritedInventoryACLEntry, 0, len(inheritedRows))
+	for _, row := range inheritedRows {
+		inheritedEntries = append(inheritedEntries, InheritedInventoryACLEntry{
+			ID:                  row.ID,
+			SourceItemID:        row.SourceItemID,
+			SourceItemName:      row.SourceItemName,
+			PrincipalID:         row.PrincipalID,
+			PrincipalType:       string(row.PrincipalType),
+			PrincipalExternalID: row.ExternalID,
+			PrincipalName:       row.Name,
+			Effect:              string(row.Effect),
+			Permissions:         row.Permissions,
+			Immutable:           h.Service.IsProtectedACLPrincipal(row.PrincipalID),
+		})
+	}
+
+	c.JSON(http.StatusOK, InventoryACL{
+		Entries:          entries,
+		InheritedEntries: inheritedEntries,
+	})
+}
+
+type inventoryACLEntryRequest struct {
+	PrincipalID uuid.UUID `json:"principal_id" binding:"required"`
+	Effect      string    `json:"effect" binding:"required"`
+	Permissions int64     `json:"permissions" binding:"required"`
+}
+
+type updateInventoryACLRequest struct {
+	Entries []inventoryACLEntryRequest `json:"entries"`
+}
+
+// UpdateACL replaces the direct ACL entries for an inventory item.
+// PUT /api/v1/inventory/items/:id/acl
+func (h *InventoryHandler) UpdateACL(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req updateInventoryACLRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to update ACL", "load inventory item ACL", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+		writeForbidden(c)
+		return
+	}
+
+	entries := make([]inventory.ACLEntryInput, 0, len(req.Entries))
+	for _, entry := range req.Entries {
+		entries = append(entries, inventory.ACLEntryInput{
+			PrincipalID: entry.PrincipalID,
+			Effect:      database.InventoryAceEffect(entry.Effect),
+			Permissions: entry.Permissions,
+		})
+	}
+
+	if err := h.Service.ReplaceInventoryACL(
+		c.Request.Context(),
+		id,
+		entries,
+	); err != nil {
+		writeInventoryACLError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type moveInventoryItemRequest struct {
@@ -104,9 +298,48 @@ type moveInventoryItemRequest struct {
 // MoveItem persists an inventory move initiated from drag and drop.
 // POST /api/v1/inventory/move
 func (h *InventoryHandler) MoveItem(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req moveInventoryItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, req.ItemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory item for move", err)
+		return
+	}
+
+	target, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, req.ParentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "parent not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory parent for move", err)
+		return
+	}
+
+	requiredOnItem := authorization.MoveFolder
+	requiredOnTarget := authorization.CreateFolder
+	if item.Kind == database.InventoryItemKindVm {
+		requiredOnItem = authorization.MoveVM
+		requiredOnTarget = authorization.CreateVM
+	}
+
+	if (item.AllowedMask&int64(requiredOnItem)) != int64(requiredOnItem) ||
+		(target.AllowedMask&int64(requiredOnTarget)) != int64(requiredOnTarget) {
+		writeForbidden(c)
 		return
 	}
 
@@ -126,9 +359,29 @@ type createFolderRequest struct {
 // CreateFolder creates a child folder within the inventory tree.
 // POST /api/v1/inventory/folders
 func (h *InventoryHandler) CreateFolder(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req createFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	parent, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, req.ParentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "parent not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder create", "load inventory parent for folder create", err)
+		return
+	}
+	if (parent.AllowedMask & int64(authorization.CreateFolder)) != int64(authorization.CreateFolder) {
+		writeForbidden(c)
 		return
 	}
 
@@ -148,6 +401,12 @@ type renameFolderRequest struct {
 // RenameFolder renames a folder without changing its identity.
 // POST /api/v1/inventory/folders/:id/rename
 func (h *InventoryHandler) RenameFolder(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -157,6 +416,20 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 	var req renameFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder rename", "load inventory item for folder rename", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.RenameFolder)) != int64(authorization.RenameFolder) {
+		writeForbidden(c)
 		return
 	}
 
@@ -172,9 +445,29 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 // and the folder subtree from inventory.
 // DELETE /api/v1/inventory/folders/:id
 func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder delete", "load inventory item for folder delete", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.DeleteFolder)) != int64(authorization.DeleteFolder) {
+		writeForbidden(c)
 		return
 	}
 
@@ -265,16 +558,19 @@ func (h *InventoryHandler) StreamEvents(c *gin.Context) {
 }
 
 // buildTree converts a flat list of inventory rows into a nested tree.
-func buildTree(rows []database.GetAllInventoryItemsRow) []TreeNode {
+func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNode {
 	nodes := make(map[uuid.UUID]*TreeNode, len(rows))
 	childMap := make(map[uuid.UUID][]uuid.UUID, len(rows))
-	var rootIDs []uuid.UUID
 
 	for _, row := range rows {
 		node := &TreeNode{
 			ID:   row.ID,
 			Name: row.Name,
 			Kind: string(row.Kind),
+			Permissions: PermissionEnvelope{
+				AllowedMask: authorization.Mask(row.AllowedMask),
+				DeniedMask:  authorization.Mask(row.DeniedMask),
+			},
 		}
 
 		if row.Node != nil {
@@ -282,12 +578,17 @@ func buildTree(rows []database.GetAllInventoryItemsRow) []TreeNode {
 		}
 
 		nodes[row.ID] = node
+	}
 
+	rootIDs := make([]uuid.UUID, 0, len(rows))
+	for _, row := range rows {
 		if row.ParentID != nil {
-			childMap[*row.ParentID] = append(childMap[*row.ParentID], row.ID)
-		} else {
-			rootIDs = append(rootIDs, row.ID)
+			if _, ok := nodes[*row.ParentID]; ok {
+				childMap[*row.ParentID] = append(childMap[*row.ParentID], row.ID)
+				continue
+			}
 		}
+		rootIDs = append(rootIDs, row.ID)
 	}
 
 	var assemble func(id uuid.UUID) TreeNode
@@ -346,5 +647,17 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)
+	}
+}
+
+func writeInventoryACLError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, inventory.ErrInventoryItemNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.Is(err, inventory.ErrInventoryPrincipalNotFound),
+		errors.Is(err, inventory.ErrInventoryInvalidACL):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+	default:
+		writeLoggedError(c, http.StatusInternalServerError, "inventory ACL update failed", "inventory ACL mutation", err)
 	}
 }

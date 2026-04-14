@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
@@ -17,22 +19,23 @@ import (
 )
 
 var (
-	ErrInventoryItemNotFound    = errors.New("inventory item not found")
-	ErrInventoryParentNotFound  = errors.New("inventory parent not found")
-	ErrInventoryFolderNotFound  = errors.New("inventory folder not found")
-	ErrInventoryTargetNotFolder = errors.New("inventory target must be a folder")
-	ErrInventoryItemNotFolder   = errors.New("inventory item is not a folder")
-	ErrInventoryInvalidMove     = errors.New("invalid inventory move")
-	ErrInventoryReservedFolder  = errors.New("reserved inventory folder cannot be changed")
-	ErrInventoryFolderConflict  = errors.New("inventory folder with that name already exists")
+	ErrInventoryItemNotFound      = errors.New("inventory item not found")
+	ErrInventoryParentNotFound    = errors.New("inventory parent not found")
+	ErrInventoryFolderNotFound    = errors.New("inventory folder not found")
+	ErrInventoryTargetNotFolder   = errors.New("inventory target must be a folder")
+	ErrInventoryItemNotFolder     = errors.New("inventory item is not a folder")
+	ErrInventoryInvalidMove       = errors.New("invalid inventory move")
+	ErrInventoryReservedFolder    = errors.New("reserved inventory folder cannot be changed")
+	ErrInventoryFolderConflict    = errors.New("inventory folder with that name already exists")
+	ErrInventoryInvalidACL        = errors.New("invalid inventory ACL entry")
+	ErrInventoryPrincipalNotFound = errors.New("principal not found")
 )
 
-const proxmoxRootFolderName = "Proxmox"
-
 type Service struct {
-	db       *pgxpool.Pool
-	notifier *Notifier
-	mirror   Mirror
+	db                       *pgxpool.Pool
+	notifier                 *Notifier
+	mirror                   Mirror
+	protectedACLPrincipalIDs map[uuid.UUID]struct{}
 }
 
 type FolderDeletionVM struct {
@@ -52,24 +55,343 @@ type FolderPlacement struct {
 	PoolID   string
 }
 
+type ACLEntryInput struct {
+	PrincipalID uuid.UUID
+	Effect      database.InventoryAceEffect
+	Permissions int64
+}
+
 type Mirror interface {
 	ScheduleReconcile()
 }
 
-func NewService(db *pgxpool.Pool, notifier *Notifier, mirror Mirror) *Service {
-	return &Service{
-		db:       db,
-		notifier: notifier,
-		mirror:   mirror,
+func NewService(
+	db *pgxpool.Pool,
+	notifier *Notifier,
+	mirror Mirror,
+	protectedACLPrincipalIDs []uuid.UUID,
+) *Service {
+	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedACLPrincipalIDs))
+	for _, principalID := range protectedACLPrincipalIDs {
+		if principalID == uuid.Nil {
+			continue
+		}
+		protectedIDs[principalID] = struct{}{}
 	}
+
+	return &Service{
+		db:                       db,
+		notifier:                 notifier,
+		mirror:                   mirror,
+		protectedACLPrincipalIDs: protectedIDs,
+	}
+}
+
+func (s *Service) IsProtectedACLPrincipal(principalID uuid.UUID) bool {
+	_, ok := s.protectedACLPrincipalIDs[principalID]
+	return ok
 }
 
 func (s *Service) GetAllInventoryItems(ctx context.Context) ([]database.GetAllInventoryItemsRow, error) {
 	return database.New(s.db).GetAllInventoryItems(ctx)
 }
 
+func (s *Service) GetVisibleInventoryItems(
+	ctx context.Context,
+	principalID uuid.UUID,
+) ([]database.GetVisibleInventoryItemsForPrincipalRow, error) {
+	q := database.New(s.db)
+
+	visibleRows, err := q.GetVisibleInventoryItemsForPrincipal(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+	if len(visibleRows) == 0 {
+		return visibleRows, nil
+	}
+
+	allRows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return expandVisibleInventoryRows(visibleRows, allRows), nil
+}
+
+func expandVisibleInventoryRows(
+	visibleRows []database.GetVisibleInventoryItemsForPrincipalRow,
+	allRows []database.GetAllInventoryItemsRow,
+) []database.GetVisibleInventoryItemsForPrincipalRow {
+	rowsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(allRows))
+	for _, row := range allRows {
+		rowsByID[row.ID] = row
+	}
+
+	expandedRows := make([]database.GetVisibleInventoryItemsForPrincipalRow, 0, len(visibleRows))
+	includedIDs := make(map[uuid.UUID]struct{}, len(visibleRows))
+
+	for _, row := range visibleRows {
+		expandedRows = append(expandedRows, row)
+		includedIDs[row.ID] = struct{}{}
+	}
+
+	for _, row := range visibleRows {
+		for parentID := row.ParentID; parentID != nil; {
+			parentRow, ok := rowsByID[*parentID]
+			if !ok {
+				break
+			}
+
+			if _, exists := includedIDs[parentRow.ID]; !exists {
+				expandedRows = append(expandedRows, database.GetVisibleInventoryItemsForPrincipalRow{
+					ID:                 parentRow.ID,
+					ParentID:           parentRow.ParentID,
+					Kind:               parentRow.Kind,
+					Name:               parentRow.Name,
+					InheritPermissions: true,
+					AllowedMask:        0,
+					DeniedMask:         0,
+				})
+				includedIDs[parentRow.ID] = struct{}{}
+			}
+
+			parentID = parentRow.ParentID
+		}
+	}
+
+	sort.SliceStable(expandedRows, func(i, j int) bool {
+		return compareVisibleInventoryRows(expandedRows[i], expandedRows[j]) < 0
+	})
+
+	return expandedRows
+}
+
+func compareVisibleInventoryRows(
+	left database.GetVisibleInventoryItemsForPrincipalRow,
+	right database.GetVisibleInventoryItemsForPrincipalRow,
+) int {
+	leftOrder := inventoryRowSortOrder(left.Kind)
+	rightOrder := inventoryRowSortOrder(right.Kind)
+	if leftOrder != rightOrder {
+		return leftOrder - rightOrder
+	}
+
+	leftLower := strings.ToLower(left.Name)
+	rightLower := strings.ToLower(right.Name)
+	if leftLower != rightLower {
+		if leftLower < rightLower {
+			return -1
+		}
+		return 1
+	}
+
+	if left.Name < right.Name {
+		return -1
+	}
+	if left.Name > right.Name {
+		return 1
+	}
+
+	return 0
+}
+
+func inventoryRowSortOrder(kind database.InventoryItemKind) int {
+	if kind == database.InventoryItemKindFolder {
+		return 0
+	}
+
+	return 1
+}
+
 func (s *Service) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (database.GetInventoryItemByIDRow, error) {
 	return database.New(s.db).GetInventoryItemByID(ctx, id)
+}
+
+func (s *Service) GetInventoryItemWithPermissions(
+	ctx context.Context,
+	principalID uuid.UUID,
+	id uuid.UUID,
+) (database.GetInventoryItemWithPermissionsRow, error) {
+	return database.New(s.db).GetInventoryItemWithPermissions(ctx, database.GetInventoryItemWithPermissionsParams{
+		PrincipalID:     principalID,
+		InventoryItemID: id,
+	})
+}
+
+func (s *Service) ListInventoryACLEntries(
+	ctx context.Context,
+	itemID uuid.UUID,
+) ([]database.ListInventoryACLEntriesForItemRow, error) {
+	return database.New(s.db).ListInventoryACLEntriesForItem(ctx, itemID)
+}
+
+func (s *Service) ListInheritedInventoryACLEntries(
+	ctx context.Context,
+	itemID uuid.UUID,
+) ([]database.ListInheritedInventoryACLEntriesForItemRow, error) {
+	return database.New(s.db).ListInheritedInventoryACLEntriesForItem(ctx, itemID)
+}
+
+func (s *Service) NormalizeInheritance(ctx context.Context) error {
+	_, err := database.New(s.db).NormalizeInventoryItemInheritance(ctx)
+	return err
+}
+
+func (s *Service) ReplaceInventoryACL(
+	ctx context.Context,
+	itemID uuid.UUID,
+	entries []ACLEntryInput,
+) error {
+	for _, entry := range entries {
+		if err := validateACLEntryInput(entry); err != nil {
+			return err
+		}
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+
+	item, err := q.GetInventoryItemForUpdate(ctx, itemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInventoryItemNotFound
+		}
+		return err
+	}
+
+	if err := q.UpdateInventoryItemInheritance(ctx, database.UpdateInventoryItemInheritanceParams{
+		InheritPermissions: true,
+		ID:                 itemID,
+	}); err != nil {
+		return err
+	}
+
+	entries = normalizeACLEntries(entries)
+	appliesToSelf, appliesToChildren := inventoryACLEntryScope(item.Kind)
+
+	existingEntries, err := q.ListInventoryACLEntriesForItem(ctx, itemID)
+	if err != nil {
+		return err
+	}
+	protectedEntries := make([]database.CreateInventoryACLEntryParams, 0, len(existingEntries))
+	for _, entry := range existingEntries {
+		if !s.IsProtectedACLPrincipal(entry.PrincipalID) {
+			continue
+		}
+
+		protectedEntries = append(protectedEntries, database.CreateInventoryACLEntryParams{
+			InventoryItemID:   itemID,
+			PrincipalID:       entry.PrincipalID,
+			Effect:            entry.Effect,
+			Permissions:       entry.Permissions,
+			AppliesToSelf:     entry.AppliesToSelf,
+			AppliesToChildren: entry.AppliesToChildren,
+			InheritedOnly:     entry.InheritedOnly,
+		})
+	}
+
+	if err := q.DeleteInventoryACLEntriesForItem(ctx, itemID); err != nil {
+		return err
+	}
+
+	for _, entry := range protectedEntries {
+		if err := q.CreateInventoryACLEntry(ctx, entry); err != nil {
+			if isForeignKeyViolation(err) {
+				return ErrInventoryPrincipalNotFound
+			}
+			return err
+		}
+	}
+
+	for _, entry := range entries {
+		if s.IsProtectedACLPrincipal(entry.PrincipalID) {
+			continue
+		}
+
+		if err := q.CreateInventoryACLEntry(ctx, database.CreateInventoryACLEntryParams{
+			InventoryItemID:   itemID,
+			PrincipalID:       entry.PrincipalID,
+			Effect:            entry.Effect,
+			Permissions:       entry.Permissions,
+			AppliesToSelf:     appliesToSelf,
+			AppliesToChildren: appliesToChildren,
+			InheritedOnly:     false,
+		}); err != nil {
+			if isForeignKeyViolation(err) {
+				return ErrInventoryPrincipalNotFound
+			}
+			return err
+		}
+	}
+
+	s.notifyTx(ctx, tx, itemID)
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func inventoryACLEntryScope(kind database.InventoryItemKind) (bool, bool) {
+	if kind == database.InventoryItemKindFolder {
+		return true, true
+	}
+
+	return true, false
+}
+
+func normalizeACLEntries(entries []ACLEntryInput) []ACLEntryInput {
+	type principalMasks struct {
+		allowMask int64
+		denyMask  int64
+	}
+
+	principalMasksByID := make(map[uuid.UUID]principalMasks, len(entries))
+	principalOrder := make([]uuid.UUID, 0, len(entries))
+
+	for _, entry := range entries {
+		masks, ok := principalMasksByID[entry.PrincipalID]
+		if !ok {
+			principalOrder = append(principalOrder, entry.PrincipalID)
+		}
+
+		if entry.Effect == database.InventoryAceEffectDeny {
+			masks.denyMask |= entry.Permissions
+		} else {
+			masks.allowMask |= entry.Permissions
+		}
+
+		principalMasksByID[entry.PrincipalID] = masks
+	}
+
+	normalized := make([]ACLEntryInput, 0, len(principalMasksByID)*2)
+	for _, principalID := range principalOrder {
+		masks := principalMasksByID[principalID]
+		masks.allowMask &= ^masks.denyMask
+
+		if masks.allowMask > 0 {
+			normalized = append(normalized, ACLEntryInput{
+				PrincipalID: principalID,
+				Effect:      database.InventoryAceEffectAllow,
+				Permissions: masks.allowMask,
+			})
+		}
+		if masks.denyMask > 0 {
+			normalized = append(normalized, ACLEntryInput{
+				PrincipalID: principalID,
+				Effect:      database.InventoryAceEffectDeny,
+				Permissions: masks.denyMask,
+			})
+		}
+	}
+
+	return normalized
 }
 
 func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {
@@ -198,9 +520,6 @@ func (s *Service) RenameFolder(ctx context.Context, id uuid.UUID, name string) e
 	if item.Kind != database.InventoryItemKindFolder {
 		return ErrInventoryItemNotFolder
 	}
-	if item.ParentID == nil && item.Name == proxmoxRootFolderName {
-		return ErrInventoryReservedFolder
-	}
 
 	if item.ParentID != nil {
 		existingID, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
@@ -258,7 +577,7 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 	if item.Kind != database.InventoryItemKindFolder {
 		return FolderDeletionPlan{}, ErrInventoryItemNotFolder
 	}
-	if item.ParentID == nil && item.Name == proxmoxRootFolderName {
+	if isManagedRootFolder(item.ParentID) {
 		return FolderDeletionPlan{}, ErrInventoryReservedFolder
 	}
 
@@ -323,7 +642,7 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 	if item.ParentID != nil && *item.ParentID == parentID {
 		return tx.Commit(ctx)
 	}
-	if item.ParentID == nil && item.Name == proxmoxRootFolderName {
+	if isManagedRootFolder(item.ParentID) {
 		return ErrInventoryReservedFolder
 	}
 
@@ -364,7 +683,7 @@ func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
 	if item.Kind != database.InventoryItemKindFolder {
 		return ErrInventoryItemNotFolder
 	}
-	if item.ParentID == nil && item.Name == proxmoxRootFolderName {
+	if isManagedRootFolder(item.ParentID) {
 		return ErrInventoryReservedFolder
 	}
 
@@ -392,6 +711,10 @@ func (s *Service) DeleteInventoryItemByProxmoxVM(ctx context.Context, node strin
 
 	s.notify(ctx, nil)
 	return nil
+}
+
+func isManagedRootFolder(parentID *uuid.UUID) bool {
+	return parentID == nil
 }
 
 func (s *Service) UpdateInventoryItemNameByProxmoxVM(ctx context.Context, node string, vmid int32, name string) error {
@@ -522,4 +845,30 @@ func normalizeMutationError(err error) error {
 	}
 
 	return fmt.Errorf("%w: %s", ErrInventoryInvalidMove, pgErr.Message)
+}
+
+func validateACLEntryInput(entry ACLEntryInput) error {
+	if entry.PrincipalID == uuid.Nil {
+		return fmt.Errorf("%w: principal_id is required", ErrInventoryInvalidACL)
+	}
+
+	if entry.Effect != database.InventoryAceEffectAllow &&
+		entry.Effect != database.InventoryAceEffectDeny {
+		return fmt.Errorf("%w: effect must be allow or deny", ErrInventoryInvalidACL)
+	}
+
+	if entry.Permissions <= 0 {
+		return fmt.Errorf("%w: permissions must be greater than zero", ErrInventoryInvalidACL)
+	}
+
+	if authorization.Mask(entry.Permissions)&^authorization.FullAccessMask != 0 {
+		return fmt.Errorf("%w: permissions include unknown bits", ErrInventoryInvalidACL)
+	}
+
+	return nil
+}
+
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }

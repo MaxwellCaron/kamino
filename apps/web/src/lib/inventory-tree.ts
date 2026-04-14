@@ -1,11 +1,10 @@
 import type { ApiTreeNode } from "@/lib/queries"
+import { InventoryPermissionBits, hasInventoryPermission } from "@/lib/queries"
 
 export const INVENTORY_KIND_SORT_ORDER = {
   folder: 0,
   vm: 1,
 } as const
-
-const PROXMOX_ROOT_FOLDER_NAME = "Proxmox"
 
 const inventoryNameCollator = new Intl.Collator(undefined, {
   numeric: true,
@@ -38,6 +37,121 @@ export function sortInventoryTree(
     )
 }
 
+export function findInventoryTreeNode(
+  nodes: Array<ApiTreeNode>,
+  id: string
+): ApiTreeNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    if (node.children) {
+      const found = findInventoryTreeNode(node.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+export function findInventoryParentId(
+  nodes: Array<ApiTreeNode>,
+  id: string,
+  parentId: string | null = null
+): string | null {
+  for (const node of nodes) {
+    if (node.id === id) return parentId
+    if (node.children) {
+      const found = findInventoryParentId(node.children, id, node.id)
+      if (found !== null) return found
+    }
+  }
+  return null
+}
+
+function removeInventoryTreeNode(
+  nodes: Array<ApiTreeNode>,
+  id: string
+): [Array<ApiTreeNode>, ApiTreeNode | null] {
+  const index = nodes.findIndex((node) => node.id === id)
+  if (index !== -1) {
+    const removed = nodes[index]
+    return [nodes.filter((_, currentIndex) => currentIndex !== index), removed]
+  }
+
+  let removed: ApiTreeNode | null = null
+  const nextNodes = nodes.map((node) => {
+    if (!node.children || removed) return node
+    const [nextChildren, found] = removeInventoryTreeNode(node.children, id)
+    if (!found) return node
+    removed = found
+    return { ...node, children: nextChildren }
+  })
+
+  return [nextNodes, removed]
+}
+
+function insertInventoryTreeNode(
+  nodes: Array<ApiTreeNode>,
+  targetId: string,
+  nodeToInsert: ApiTreeNode
+): Array<ApiTreeNode> {
+  return nodes.map((node) => {
+    if (node.id === targetId) {
+      return {
+        ...node,
+        children: sortInventoryTree([...(node.children ?? []), nodeToInsert]),
+      }
+    }
+    if (!node.children) return node
+    return {
+      ...node,
+      children: insertInventoryTreeNode(node.children, targetId, nodeToInsert),
+    }
+  })
+}
+
+export function isInventoryDescendant(
+  nodes: Array<ApiTreeNode>,
+  parentId: string,
+  childId: string
+): boolean {
+  const parent = findInventoryTreeNode(nodes, parentId)
+  if (!parent?.children) return false
+
+  for (const child of parent.children) {
+    if (child.id === childId) return true
+    if (
+      child.kind === "folder" &&
+      isInventoryDescendant([child], child.id, childId)
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+export function moveInventoryTreeNode(
+  nodes: Array<ApiTreeNode>,
+  sourceId: string,
+  targetId: string
+): Array<ApiTreeNode> {
+  if (
+    sourceId === targetId ||
+    isInventoryDescendant(nodes, sourceId, targetId)
+  ) {
+    return nodes
+  }
+
+  const [treeWithoutSource, removedNode] = removeInventoryTreeNode(
+    nodes,
+    sourceId
+  )
+  if (!removedNode) return nodes
+
+  return sortInventoryTree(
+    insertInventoryTreeNode(treeWithoutSource, targetId, removedNode)
+  )
+}
+
 export type InventoryFolderOption = {
   id: string
   name: string
@@ -62,15 +176,13 @@ export function getInventoryFolderOptions(
       if (entry.kind !== "folder") continue
 
       const nextPath = [...ancestors, entry.name]
-      const isRootFolder =
-        entry.name === PROXMOX_ROOT_FOLDER_NAME && ancestors.length === 0
-      const folderPath = isRootFolder
-        ? []
-        : nextPath[0] === PROXMOX_ROOT_FOLDER_NAME
-          ? nextPath.slice(1)
-          : nextPath
+      const isRootFolder = ancestors.length === 0
+      const folderPath = isRootFolder ? [] : nextPath.slice(1)
 
-      if (!isRootFolder) {
+      if (
+        !isRootFolder &&
+        hasInventoryPermission(entry.permissions, InventoryPermissionBits.view)
+      ) {
         folders.push({
           id: entry.id,
           name: entry.name,

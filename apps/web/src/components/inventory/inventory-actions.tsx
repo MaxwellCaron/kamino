@@ -39,12 +39,18 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
+import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
 import { ConfirmDialog } from "./inventory-confirm-actions"
 import { RenameDialog } from "./rename-dialog"
 import { FolderDialog } from "./folder-dialog"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
-import type { ApiTreeNode } from "@/lib/queries"
-import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
+import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
+import {
+  InventoryPermissionBits,
+  findTreeNode,
+  hasInventoryPermission,
+  inventoryTreeQueryOptions,
+} from "@/lib/queries"
 import { CloneDialog } from "@/components/vm/clone-dialog"
 import { CreateVmDialog } from "@/components/vm/create-vm-dialog"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
@@ -164,74 +170,126 @@ function FolderDeletionDescription({
 }
 
 function FolderMenuItems({
+  permissions,
   onCreateVm,
   onCreateFolder,
+  onManagePermissions,
   onRename,
   onDelete,
   isLoading,
 }: {
+  permissions: ApiTreeNodePermissions
   onCreateVm: () => void
   onCreateFolder: () => void
+  onManagePermissions: () => void
   onRename: () => void
   onDelete: () => void
   isLoading?: boolean
 }) {
+  const canCreateFolder = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.createFolder
+  )
+  const canCreateVm = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.createVm
+  )
+  const canRename = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.renameFolder
+  )
+  const canDelete = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.deleteFolder
+  )
+  const canManagePermissions = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.managePermissions
+  )
+
   return (
     <>
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Create</DropdownMenuLabel>
-        <DropdownMenuItem onClick={onCreateFolder} disabled={isLoading}>
-          <IconFolderPlus className="text-muted-foreground" />
-          New Folder
+      {(canCreateFolder || canCreateVm) && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Create</DropdownMenuLabel>
+            {canCreateFolder && (
+              <DropdownMenuItem onClick={onCreateFolder} disabled={isLoading}>
+                <IconFolderPlus className="text-muted-foreground" />
+                New Folder
+              </DropdownMenuItem>
+            )}
+            {canCreateVm && (
+              <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
+                <IconServerSpark className="text-muted-foreground" />
+                New VM
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          {(canRename || canManagePermissions || canDelete) && (
+            <DropdownMenuSeparator />
+          )}
+        </>
+      )}
+      {(canRename || canManagePermissions) && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem disabled={isLoading}>
+              <IconPin className="text-muted-foreground" />
+              Pin
+            </DropdownMenuItem>
+            {canRename && (
+              <DropdownMenuItem onClick={onRename} disabled={isLoading}>
+                <IconEdit className="text-muted-foreground" />
+                Rename
+              </DropdownMenuItem>
+            )}
+            {canManagePermissions && (
+              <DropdownMenuItem
+                onClick={onManagePermissions}
+                disabled={isLoading}
+              >
+                <IconLock className="text-muted-foreground" />
+                Permissions
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          {canDelete && <DropdownMenuSeparator />}
+        </>
+      )}
+      {canDelete && (
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={onDelete}
+          disabled={isLoading}
+        >
+          <IconTrash />
+          Delete
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
-          <IconServerSpark className="text-muted-foreground" />
-          New VM
-        </DropdownMenuItem>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem disabled={isLoading}>
-          <IconPin className="text-muted-foreground" />
-          Pin
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onRename} disabled={isLoading}>
-          <IconEdit className="text-muted-foreground" />
-          Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={isLoading}>
-          <IconLock className="text-muted-foreground" />
-          Permissions
-        </DropdownMenuItem>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        variant="destructive"
-        onClick={onDelete}
-        disabled={isLoading}
-      >
-        <IconTrash />
-        Delete
-      </DropdownMenuItem>
+      )}
     </>
   )
 }
 
 function VmMenuItems({
+  permissions,
   node,
   vmid,
   name,
   onAction,
+  onManagePermissions,
   onSnapshot,
   onClone,
   onRename,
   isLoading,
 }: {
+  permissions: ApiTreeNodePermissions
   node: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
+  onManagePermissions: () => void
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
@@ -241,247 +299,342 @@ function VmMenuItems({
   const deleteVm = useDeleteVM()
   const toTemplate = useConvertToTemplate()
   const vmIdentifier = formatVmIdentifier(name, vmid)
+  const canPower = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.powerVm
+  )
+  const canClone = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.cloneVm
+  )
+  const canTemplate = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.templateVm
+  )
+  const canSnapshot = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.snapshotVm
+  )
+  const canRename = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.renameVm
+  )
+  const canDelete = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.deleteVm
+  )
+  const canManagePermissions = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.managePermissions
+  )
 
   return (
     <>
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Power</DropdownMenuLabel>
+      {canPower && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Power</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() =>
+                onAction({
+                  title: "Start VM?",
+                  description: "This will power on the virtual machine.",
+                  actionLabel: "Start",
+                  variant: "default",
+                  onConfirm: () => {
+                    toast.promise(
+                      powerAction.mutateAsync({ node, vmid, action: "start" }),
+                      {
+                        loading: `Starting VM ${vmIdentifier}…`,
+                        success: `VM ${vmIdentifier} started`,
+                        error: (err: Error) => err.message,
+                      }
+                    )
+                  },
+                })
+              }
+            >
+              <IconPlayerPlay className="text-muted-foreground" />
+              Start
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() =>
+                onAction({
+                  title: "Shutdown VM?",
+                  description:
+                    "This will send a shutdown signal to the virtual machine. The guest OS will attempt a graceful shutdown.",
+                  actionLabel: "Shutdown",
+                  variant: "destructive",
+                  onConfirm: () => {
+                    toast.promise(
+                      powerAction.mutateAsync({
+                        node,
+                        vmid,
+                        action: "shutdown",
+                      }),
+                      {
+                        loading: `Shutting down VM ${vmIdentifier}…`,
+                        success: `VM ${vmIdentifier} shut down`,
+                        error: (err: Error) => err.message,
+                      }
+                    )
+                  },
+                })
+              }
+            >
+              <IconPower className="text-muted-foreground" />
+              Shutdown
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() =>
+                onAction({
+                  title: "Reboot VM?",
+                  description:
+                    "This will send a reboot signal to the virtual machine.",
+                  actionLabel: "Reboot",
+                  variant: "destructive",
+                  onConfirm: () => {
+                    toast.promise(
+                      powerAction.mutateAsync({ node, vmid, action: "reboot" }),
+                      {
+                        loading: `Rebooting VM ${vmIdentifier}…`,
+                        success: `VM ${vmIdentifier} rebooted`,
+                        error: (err: Error) => err.message,
+                      }
+                    )
+                  },
+                })
+              }
+            >
+              <IconRefresh className="text-muted-foreground" />
+              Reboot
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() =>
+                onAction({
+                  title: "Stop VM?",
+                  description:
+                    "This will immediately stop the virtual machine. Unsaved data may be lost.",
+                  actionLabel: "Stop",
+                  variant: "destructive",
+                  onConfirm: () => {
+                    toast.promise(
+                      powerAction.mutateAsync({ node, vmid, action: "stop" }),
+                      {
+                        loading: `Stopping VM ${vmIdentifier}…`,
+                        success: `VM ${vmIdentifier} stopped`,
+                        error: (err: Error) => err.message,
+                      }
+                    )
+                  },
+                })
+              }
+            >
+              <IconPlayerStop className="text-muted-foreground" />
+              Stop
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          {(canClone ||
+            canTemplate ||
+            canSnapshot ||
+            canRename ||
+            canManagePermissions ||
+            canDelete) && <DropdownMenuSeparator />}
+        </>
+      )}
+      {(canClone ||
+        canTemplate ||
+        canSnapshot ||
+        canRename ||
+        canManagePermissions) && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            {canClone && (
+              <DropdownMenuItem onClick={onClone} disabled={isLoading}>
+                <IconCopy className="text-muted-foreground" />
+                Clone
+              </DropdownMenuItem>
+            )}
+            {canTemplate && (
+              <DropdownMenuItem
+                disabled={isLoading}
+                onClick={() =>
+                  onAction({
+                    title: "Convert to Template?",
+                    description:
+                      "This will convert the VM to a template, making it available for cloning.",
+                    actionLabel: "Convert",
+                    variant: "destructive",
+                    onConfirm: () => {
+                      toast.promise(toTemplate.mutateAsync({ node, vmid }), {
+                        loading: `Converting VM ${vmIdentifier} to template…`,
+                        success: `VM ${vmIdentifier} is now a template`,
+                        error: (err: Error) => err.message,
+                      })
+                    },
+                  })
+                }
+              >
+                <IconTemplate className="text-muted-foreground" />
+                Template
+              </DropdownMenuItem>
+            )}
+            {canSnapshot && (
+              <DropdownMenuItem onClick={onSnapshot} disabled={isLoading}>
+                <IconCamera className="text-muted-foreground" />
+                Snapshot
+              </DropdownMenuItem>
+            )}
+            {canRename && (
+              <DropdownMenuItem onClick={onRename} disabled={isLoading}>
+                <IconEdit className="text-muted-foreground" />
+                Rename
+              </DropdownMenuItem>
+            )}
+            {canManagePermissions && (
+              <DropdownMenuItem
+                onClick={onManagePermissions}
+                disabled={isLoading}
+              >
+                <IconLock className="text-muted-foreground" />
+                Permissions
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          {canDelete && <DropdownMenuSeparator />}
+        </>
+      )}
+      {canDelete && (
         <DropdownMenuItem
+          variant="destructive"
           disabled={isLoading}
           onClick={() =>
             onAction({
-              title: "Start VM?",
-              description: "This will power on the virtual machine.",
-              actionLabel: "Start",
-              variant: "default",
-              onConfirm: () => {
-                toast.promise(
-                  powerAction.mutateAsync({ node, vmid, action: "start" }),
-                  {
-                    loading: `Starting VM ${vmIdentifier}…`,
-                    success: `VM ${vmIdentifier} started`,
-                    error: (err: Error) => err.message,
-                  }
-                )
-              },
-            })
-          }
-        >
-          <IconPlayerPlay className="text-muted-foreground" />
-          Start
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={isLoading}
-          onClick={() =>
-            onAction({
-              title: "Shutdown VM?",
+              title: "Delete VM?",
               description:
-                "This will send a shutdown signal to the virtual machine. The guest OS will attempt a graceful shutdown.",
-              actionLabel: "Shutdown",
+                "This will permanently delete the virtual machine. This action cannot be undone.",
+              actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(
-                  powerAction.mutateAsync({ node, vmid, action: "shutdown" }),
-                  {
-                    loading: `Shutting down VM ${vmIdentifier}…`,
-                    success: `VM ${vmIdentifier} shut down`,
-                    error: (err: Error) => err.message,
-                  }
-                )
-              },
-            })
-          }
-        >
-          <IconPower className="text-muted-foreground" />
-          Shutdown
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={isLoading}
-          onClick={() =>
-            onAction({
-              title: "Reboot VM?",
-              description:
-                "This will send a reboot signal to the virtual machine.",
-              actionLabel: "Reboot",
-              variant: "destructive",
-              onConfirm: () => {
-                toast.promise(
-                  powerAction.mutateAsync({ node, vmid, action: "reboot" }),
-                  {
-                    loading: `Rebooting VM ${vmIdentifier}…`,
-                    success: `VM ${vmIdentifier} rebooted`,
-                    error: (err: Error) => err.message,
-                  }
-                )
-              },
-            })
-          }
-        >
-          <IconRefresh className="text-muted-foreground" />
-          Reboot
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={isLoading}
-          onClick={() =>
-            onAction({
-              title: "Stop VM?",
-              description:
-                "This will immediately stop the virtual machine. Unsaved data may be lost.",
-              actionLabel: "Stop",
-              variant: "destructive",
-              onConfirm: () => {
-                toast.promise(
-                  powerAction.mutateAsync({ node, vmid, action: "stop" }),
-                  {
-                    loading: `Stopping VM ${vmIdentifier}…`,
-                    success: `VM ${vmIdentifier} stopped`,
-                    error: (err: Error) => err.message,
-                  }
-                )
-              },
-            })
-          }
-        >
-          <IconPlayerStop className="text-muted-foreground" />
-          Stop
-        </DropdownMenuItem>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem onClick={onClone} disabled={isLoading}>
-          <IconCopy className="text-muted-foreground" />
-          Clone
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={isLoading}
-          onClick={() =>
-            onAction({
-              title: "Convert to Template?",
-              description:
-                "This will convert the VM to a template, making it available for cloning.",
-              actionLabel: "Convert",
-              variant: "destructive",
-              onConfirm: () => {
-                toast.promise(toTemplate.mutateAsync({ node, vmid }), {
-                  loading: `Converting VM ${vmIdentifier} to template…`,
-                  success: `VM ${vmIdentifier} is now a template`,
+                toast.promise(deleteVm.mutateAsync({ node, vmid }), {
+                  loading: `Deleting VM ${vmIdentifier}…`,
+                  success: `VM ${vmIdentifier} deleted`,
                   error: (err: Error) => err.message,
                 })
               },
             })
           }
         >
-          <IconTemplate className="text-muted-foreground" />
-          Template
+          <IconTrash />
+          Delete
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onSnapshot} disabled={isLoading}>
-          <IconCamera className="text-muted-foreground" />
-          Snapshot
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onRename} disabled={isLoading}>
-          <IconEdit className="text-muted-foreground" />
-          Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={isLoading}>
-          <IconLock className="text-muted-foreground" />
-          Permissions
-        </DropdownMenuItem>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        variant="destructive"
-        disabled={isLoading}
-        onClick={() =>
-          onAction({
-            title: "Delete VM?",
-            description:
-              "This will permanently delete the virtual machine. This action cannot be undone.",
-            actionLabel: "Delete",
-            variant: "destructive",
-            onConfirm: () => {
-              toast.promise(deleteVm.mutateAsync({ node, vmid }), {
-                loading: `Deleting VM ${vmIdentifier}…`,
-                success: `VM ${vmIdentifier} deleted`,
-                error: (err: Error) => err.message,
-              })
-            },
-          })
-        }
-      >
-        <IconTrash />
-        Delete
-      </DropdownMenuItem>
+      )}
     </>
   )
 }
 
 function TemplateMenuItems({
+  permissions,
   node,
   vmid,
   name,
   onAction,
+  onManagePermissions,
   onClone,
   isLoading,
 }: {
+  permissions: ApiTreeNodePermissions
   node: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
+  onManagePermissions: () => void
   onClone: () => void
   isLoading?: boolean
 }) {
   const deleteVm = useDeleteVM()
   const vmIdentifier = formatVmIdentifier(name, vmid)
+  const canClone = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.cloneVm
+  )
+  const canDelete = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.deleteVm
+  )
+  const canManagePermissions = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.managePermissions
+  )
 
   return (
     <>
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem onClick={onClone} disabled={isLoading}>
-          <IconCopy className="text-muted-foreground" />
-          Clone
+      {(canClone || canManagePermissions) && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            {canClone && (
+              <DropdownMenuItem onClick={onClone} disabled={isLoading}>
+                <IconCopy className="text-muted-foreground" />
+                Clone
+              </DropdownMenuItem>
+            )}
+            {canManagePermissions && (
+              <DropdownMenuItem
+                onClick={onManagePermissions}
+                disabled={isLoading}
+              >
+                <IconLock className="text-muted-foreground" />
+                Permissions
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          {canDelete && <DropdownMenuSeparator />}
+        </>
+      )}
+      {canDelete && (
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={isLoading}
+          onClick={() =>
+            onAction({
+              title: "Delete Template?",
+              description:
+                "This will permanently delete the template. This action cannot be undone.",
+              actionLabel: "Delete",
+              variant: "destructive",
+              onConfirm: () => {
+                toast.promise(deleteVm.mutateAsync({ node, vmid }), {
+                  loading: `Deleting template ${vmIdentifier}…`,
+                  success: `Template ${vmIdentifier} deleted`,
+                  error: (err: Error) => err.message,
+                })
+              },
+            })
+          }
+        >
+          <IconTrash />
+          Delete
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={isLoading}>
-          <IconLock className="text-muted-foreground" />
-          Permissions
-        </DropdownMenuItem>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        variant="destructive"
-        disabled={isLoading}
-        onClick={() =>
-          onAction({
-            title: "Delete Template?",
-            description:
-              "This will permanently delete the template. This action cannot be undone.",
-            actionLabel: "Delete",
-            variant: "destructive",
-            onConfirm: () => {
-              toast.promise(deleteVm.mutateAsync({ node, vmid }), {
-                loading: `Deleting template ${vmIdentifier}…`,
-                success: `Template ${vmIdentifier} deleted`,
-                error: (err: Error) => err.message,
-              })
-            },
-          })
-        }
-      >
-        <IconTrash />
-        Delete
-      </DropdownMenuItem>
+      )}
     </>
   )
 }
 
 function MenuItems({
+  permissions,
   isFolder,
   isTemplate,
   node,
   vmid,
   name,
   onAction,
+  onManagePermissions,
   onSnapshot,
   onClone,
   onRename,
@@ -490,12 +643,14 @@ function MenuItems({
   onDeleteFolder,
   isLoading,
 }: {
+  permissions: ApiTreeNodePermissions
   isFolder: boolean
   isTemplate?: boolean
   node: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
+  onManagePermissions: () => void
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
@@ -507,8 +662,10 @@ function MenuItems({
   if (isFolder)
     return (
       <FolderMenuItems
+        permissions={permissions}
         onCreateFolder={onCreateFolder}
         onCreateVm={onCreateVm}
+        onManagePermissions={onManagePermissions}
         onRename={onRename}
         onDelete={onDeleteFolder}
         isLoading={isLoading}
@@ -517,20 +674,24 @@ function MenuItems({
   if (isTemplate)
     return (
       <TemplateMenuItems
+        permissions={permissions}
         node={node}
         vmid={vmid}
         name={name}
         onAction={onAction}
+        onManagePermissions={onManagePermissions}
         onClone={onClone}
         isLoading={isLoading}
       />
     )
   return (
     <VmMenuItems
+      permissions={permissions}
       node={node}
       vmid={vmid}
       name={name}
       onAction={onAction}
+      onManagePermissions={onManagePermissions}
       onSnapshot={onSnapshot}
       onClone={onClone}
       onRename={onRename}
@@ -540,12 +701,14 @@ function MenuItems({
 }
 
 export function TreeNodeMenu({
+  permissions,
   isFolder,
   isTemplate,
   vmid,
   pveNode,
   name,
 }: {
+  permissions: ApiTreeNodePermissions
   isFolder: boolean
   isTemplate?: boolean
   vmid?: number
@@ -563,6 +726,45 @@ export function TreeNodeMenu({
   const [renameOpen, setRenameOpen] = useState(false)
   const [createVmOpen, setCreateVmOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const hasActions =
+    (isFolder &&
+      (hasInventoryPermission(
+        permissions,
+        InventoryPermissionBits.createFolder
+      ) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.createVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.renameFolder
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.deleteFolder
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.managePermissions
+        ))) ||
+    (!isFolder &&
+      (hasInventoryPermission(permissions, InventoryPermissionBits.powerVm) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.cloneVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.snapshotVm
+        ) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.templateVm
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.managePermissions
+        )))
+
+  if (!hasActions) return null
 
   function handleDeleteFolder() {
     const tree =
@@ -622,12 +824,14 @@ export function TreeNodeMenu({
         />
         <DropdownMenuContent align={isMobile ? "end" : "start"}>
           <MenuItems
+            permissions={permissions}
             isFolder={isFolder}
             isTemplate={isTemplate}
             node={pveNode ?? ""}
             vmid={vmid ?? 0}
             name={name}
             onAction={setConfirm}
+            onManagePermissions={() => setPermissionsOpen(true)}
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
             onRename={() => setRenameOpen(true)}
@@ -690,12 +894,22 @@ export function TreeNodeMenu({
           )}
         </>
       )}
+      {permissionsOpen && (
+        <InventoryPermissionsDialog
+          itemId={nodeId}
+          itemKind={isFolder ? "folder" : "vm"}
+          itemName={name ?? ""}
+          open={permissionsOpen}
+          onOpenChange={setPermissionsOpen}
+        />
+      )}
     </>
   )
 }
 
 export function VmOptionsMenu({
   nodeId,
+  permissions,
   isFolder = false,
   isTemplate,
   vmid,
@@ -704,6 +918,7 @@ export function VmOptionsMenu({
   isLoading,
 }: {
   nodeId: string
+  permissions: ApiTreeNodePermissions
   isFolder?: boolean
   isTemplate?: boolean
   vmid?: number
@@ -717,6 +932,45 @@ export function VmOptionsMenu({
   const [renameOpen, setRenameOpen] = useState(false)
   const [createVmOpen, setCreateVmOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const hasActions =
+    (isFolder &&
+      (hasInventoryPermission(
+        permissions,
+        InventoryPermissionBits.createFolder
+      ) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.createVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.renameFolder
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.deleteFolder
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.managePermissions
+        ))) ||
+    (!isFolder &&
+      (hasInventoryPermission(permissions, InventoryPermissionBits.powerVm) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.cloneVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.snapshotVm
+        ) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
+        hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.templateVm
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.managePermissions
+        )))
+
+  if (!hasActions) return null
 
   return (
     <>
@@ -730,12 +984,14 @@ export function VmOptionsMenu({
         />
         <DropdownMenuContent align="end">
           <MenuItems
+            permissions={permissions}
             isFolder={isFolder}
             isTemplate={isTemplate}
             node={pveNode ?? ""}
             vmid={vmid ?? 0}
             name={name}
             onAction={setConfirm}
+            onManagePermissions={() => setPermissionsOpen(true)}
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
             onRename={() => setRenameOpen(true)}
@@ -795,6 +1051,15 @@ export function VmOptionsMenu({
             />
           )}
         </>
+      )}
+      {permissionsOpen && (
+        <InventoryPermissionsDialog
+          itemId={nodeId}
+          itemKind={isFolder ? "folder" : "vm"}
+          itemName={name ?? ""}
+          open={permissionsOpen}
+          onOpenChange={setPermissionsOpen}
+        />
       )}
     </>
   )

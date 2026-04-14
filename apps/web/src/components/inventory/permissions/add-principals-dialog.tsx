@@ -1,0 +1,140 @@
+import React from "react"
+import { IconPlus } from "@tabler/icons-react"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@workspace/ui/components/combobox"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@workspace/ui/components/dialog"
+import { Field } from "@workspace/ui/components/field"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import {
+  nestedDialogAnimationClassName,
+  principalTypeLabels,
+} from "./constants"
+import type { PrincipalOption } from "./types"
+
+type AddPrincipalsDialogProps = {
+  availablePrincipalIds: Array<string>
+  disabled?: boolean
+  onAdd: (selectedIds: Array<string>) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  principalMap: Map<string, PrincipalOption>
+}
+
+function AddPrincipalsContent({
+  availablePrincipalIds,
+  onAdd,
+  principalMap,
+}: Omit<AddPrincipalsDialogProps, "open" | "onOpenChange">) {
+  const addAnchor = useComboboxAnchor()
+  const [selectedIds, setSelectedIds] = React.useState<Array<string>>([])
+
+  return (
+    <React.Fragment>
+      <DialogHeader>
+        <DialogTitle>Add Principals</DialogTitle>
+        <DialogDescription>
+          Select one or more users or groups to configure permissions for this
+          item.
+        </DialogDescription>
+      </DialogHeader>
+      <Field>
+        <Combobox
+          multiple
+          items={availablePrincipalIds}
+          itemToStringLabel={(id) => principalMap.get(id)?.label ?? id}
+          value={selectedIds}
+          onValueChange={setSelectedIds}
+        >
+          <ComboboxChips ref={addAnchor} className="w-full">
+            <ComboboxValue>
+              {(values: Array<string>) => (
+                <React.Fragment>
+                  {values.map((id) => (
+                    <ComboboxChip key={id}>
+                      {principalMap.get(id)?.label}
+                    </ComboboxChip>
+                  ))}
+                  <ComboboxChipsInput placeholder="Search principals..." />
+                </React.Fragment>
+              )}
+            </ComboboxValue>
+          </ComboboxChips>
+          <ComboboxContent anchor={addAnchor}>
+            <ComboboxEmpty>No principals found.</ComboboxEmpty>
+            <ComboboxList>
+              {(id) => {
+                const principal = principalMap.get(id as string)
+                if (!principal) return null
+                return (
+                  <ComboboxItem key={principal.id} value={principal.id}>
+                    <Item size="xs" className="p-0">
+                      <ItemContent>
+                        <ItemTitle className="whitespace-nowrap">
+                          {principal.label}
+                        </ItemTitle>
+                        <ItemDescription>
+                          {principalTypeLabels[principal.type]}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  </ComboboxItem>
+                )
+              }}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </Field>
+      <DialogFooter>
+        <DialogClose render={<Button variant="outline">Close</Button>} />
+        <Button
+          onClick={() => onAdd(selectedIds)}
+          disabled={selectedIds.length === 0}
+        >
+          Add
+        </Button>
+      </DialogFooter>
+    </React.Fragment>
+  )
+}
+
+export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogTrigger render={<Button size="icon" disabled={props.disabled} />}>
+        <IconPlus />
+      </DialogTrigger>
+      <DialogContent
+        showCloseButton={false}
+        showOverlay={false}
+        className={nestedDialogAnimationClassName}
+      >
+        {props.open && <AddPrincipalsContent {...props} />}
+      </DialogContent>
+    </Dialog>
+  )
+}

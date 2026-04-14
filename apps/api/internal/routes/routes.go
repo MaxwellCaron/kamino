@@ -19,6 +19,7 @@ func RegisterRoutes(
 	principals *handlers.PrincipalsHandler,
 ) {
 	v1 := r.Group("/api/v1")
+	protected := v1
 
 	// Health check endpoint for container orchestration
 	v1.GET("/health", func(c *gin.Context) {
@@ -35,76 +36,79 @@ func RegisterRoutes(
 
 	// Apply auth middleware to all remaining routes when auth is configured
 	if authService != nil {
-		v1.Use(middleware.Auth(authService))
+		protected = v1.Group("")
+		protected.Use(middleware.Auth(authService))
 	}
 
 	// Authenticated: current user info
 	if authHandler != nil {
-		v1.GET("/auth/me", authHandler.Me)
+		protected.GET("/auth/me", authHandler.Me)
 	}
 
 	// Inventory endpoints
-	v1.GET("/inventory/tree", inventory.GetTree)
-	v1.GET("/inventory/items/:id", inventory.GetItem)
-	v1.POST("/inventory/move", inventory.MoveItem)
-	v1.POST("/inventory/folders", inventory.CreateFolder)
-	v1.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
-	v1.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
-	v1.GET("/inventory/events", inventory.StreamEvents)
+	protected.GET("/inventory/tree", inventory.GetTree)
+	protected.GET("/inventory/items/:id", inventory.GetItem)
+	protected.GET("/inventory/items/:id/acl", inventory.GetACL)
+	protected.PUT("/inventory/items/:id/acl", inventory.UpdateACL)
+	protected.POST("/inventory/move", inventory.MoveItem)
+	protected.POST("/inventory/folders", inventory.CreateFolder)
+	protected.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
+	protected.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
+	protected.GET("/inventory/events", inventory.StreamEvents)
 
 	// VM endpoints
-	v1.GET("/vms/status", vm.GetStatuses)
-	v1.GET("/vms/events", vm.StreamEvents)
-	v1.POST("/vms/power", vm.PowerAction)
-	v1.POST("/vms/rename", vm.RenameVM)
-	v1.POST("/vms/clone", vm.CloneVM)
-	v1.POST("/vms/template", vm.ConvertToTemplate)
-	v1.POST("/vms/snapshot", vm.CreateSnapshot)
-	v1.POST("/vms/snapshot/rollback", vm.RollbackSnapshot)
-	v1.GET("/vms/:node/:vmid/snapshots", vm.GetSnapshots)
-	v1.DELETE("/vms/:node/:vmid/snapshots/:snapname", vm.DeleteSnapshot)
-	v1.DELETE("/vms/:node/:vmid", vm.DeleteVM)
+	protected.GET("/vms/status", vm.GetStatuses)
+	protected.GET("/vms/events", vm.StreamEvents)
+	protected.POST("/vms/power", vm.PowerAction)
+	protected.POST("/vms/rename", vm.RenameVM)
+	protected.POST("/vms/clone", vm.CloneVM)
+	protected.POST("/vms/template", vm.ConvertToTemplate)
+	protected.POST("/vms/snapshot", vm.CreateSnapshot)
+	protected.POST("/vms/snapshot/rollback", vm.RollbackSnapshot)
+	protected.GET("/vms/:node/:vmid/snapshots", vm.GetSnapshots)
+	protected.DELETE("/vms/:node/:vmid/snapshots/:snapname", vm.DeleteSnapshot)
+	protected.DELETE("/vms/:node/:vmid", vm.DeleteVM)
 
 	// VM creation & Proxmox metadata endpoints
-	v1.POST("/vms", vmCreate.CreateVM)
-	v1.GET("/proxmox/nodes", vmCreate.GetNodes)
-	v1.GET("/proxmox/create/options", vmCreate.GetCreateOptions)
-	v1.GET("/proxmox/create/isos/:storage", vmCreate.GetCreateISOs)
-	v1.GET("/proxmox/nodes/:node/storages", vmCreate.GetStorages)
-	v1.GET("/proxmox/nodes/:node/storages/:storage/isos", vmCreate.GetISOs)
-	v1.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
-	v1.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
-	v1.GET("/proxmox/nextid", vmCreate.GetNextVMID)
+	protected.POST("/vms", vmCreate.CreateVM)
+	protected.GET("/proxmox/nodes", vmCreate.GetNodes)
+	protected.GET("/proxmox/create/options", vmCreate.GetCreateOptions)
+	protected.GET("/proxmox/create/isos/:storage", vmCreate.GetCreateISOs)
+	protected.GET("/proxmox/nodes/:node/storages", vmCreate.GetStorages)
+	protected.GET("/proxmox/nodes/:node/storages/:storage/isos", vmCreate.GetISOs)
+	protected.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
+	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
+	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
 
 	// SDN endpoints
-	v1.GET("/sdn/vnets", sdn.GetVNets)
-	v1.POST("/sdn/vnets", sdn.CreateVNet)
-	v1.DELETE("/sdn/vnets", sdn.DeleteVNets)
-	v1.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
+	protected.GET("/sdn/vnets", sdn.GetVNets)
+	protected.POST("/sdn/vnets", sdn.CreateVNet)
+	protected.DELETE("/sdn/vnets", sdn.DeleteVNets)
+	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
 
 	// Principals endpoints (AD users & groups)
 	if principals != nil {
-		v1.GET("/principals/users", principals.ListUsers)
-		v1.POST("/principals/users", principals.CreateUser)
-		v1.DELETE("/principals/users", principals.DeleteUsers)
-		v1.PUT("/principals/users/:id", principals.UpdateUser)
-		v1.POST("/principals/users/:id/password", principals.SetPassword)
-		v1.POST("/principals/users/:id/enable", principals.EnableUser)
-		v1.POST("/principals/users/:id/disable", principals.DisableUser)
-		v1.GET("/principals/users/:id/groups", principals.GetUserGroups)
+		protected.GET("/principals/users", principals.ListUsers)
+		protected.POST("/principals/users", principals.CreateUser)
+		protected.DELETE("/principals/users", principals.DeleteUsers)
+		protected.PUT("/principals/users/:id", principals.UpdateUser)
+		protected.POST("/principals/users/:id/password", principals.SetPassword)
+		protected.POST("/principals/users/:id/enable", principals.EnableUser)
+		protected.POST("/principals/users/:id/disable", principals.DisableUser)
+		protected.GET("/principals/users/:id/groups", principals.GetUserGroups)
 
-		v1.GET("/principals/groups", principals.ListGroups)
-		v1.POST("/principals/groups", principals.CreateGroup)
-		v1.DELETE("/principals/groups", principals.DeleteGroups)
-		v1.PUT("/principals/groups/:id", principals.UpdateGroup)
-		v1.GET("/principals/groups/:id/members", principals.GetGroupMembers)
-		v1.POST("/principals/groups/:id/members", principals.AddGroupMembers)
-		v1.DELETE("/principals/groups/:id/members", principals.RemoveGroupMembers)
+		protected.GET("/principals/groups", principals.ListGroups)
+		protected.POST("/principals/groups", principals.CreateGroup)
+		protected.DELETE("/principals/groups", principals.DeleteGroups)
+		protected.PUT("/principals/groups/:id", principals.UpdateGroup)
+		protected.GET("/principals/groups/:id/members", principals.GetGroupMembers)
+		protected.POST("/principals/groups/:id/members", principals.AddGroupMembers)
+		protected.DELETE("/principals/groups/:id/members", principals.RemoveGroupMembers)
 
-		v1.POST("/principals/sync", principals.TriggerSync)
+		protected.POST("/principals/sync", principals.TriggerSync)
 	}
 
 	// VNC proxy endpoints
-	v1.POST("/vnc/proxy", vnc.PostProxy)
-	v1.GET("/vnc/ws", vnc.WebSocket)
+	protected.POST("/vnc/proxy", vnc.PostProxy)
+	protected.GET("/vnc/ws", vnc.WebSocket)
 }

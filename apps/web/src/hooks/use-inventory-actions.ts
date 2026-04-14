@@ -3,101 +3,27 @@ import type { ApiTreeNode } from "@/lib/queries"
 import {
   createFolder,
   deleteFolder,
+  inventoryAclQueryOptions,
   inventoryTreeQueryOptions,
   moveInventoryItem,
   renameFolder,
+  updateInventoryAcl,
 } from "@/lib/queries"
-import { sortInventoryTree } from "@/lib/inventory-tree"
+import { moveInventoryTreeNode } from "@/lib/inventory-tree"
 
-function findTreeNode(
-  nodes: Array<ApiTreeNode>,
-  id: string
-): ApiTreeNode | null {
-  for (const node of nodes) {
-    if (node.id === id) return node
-    if (node.children) {
-      const found = findTreeNode(node.children, id)
-      if (found) return found
-    }
-  }
-  return null
-}
+function useInvalidateInventoryTreeMutation<TVariables>(
+  mutationFn: (variables: TVariables) => Promise<void>
+) {
+  const queryClient = useQueryClient()
 
-function removeTreeNode(
-  nodes: Array<ApiTreeNode>,
-  id: string
-): [Array<ApiTreeNode>, ApiTreeNode | null] {
-  const index = nodes.findIndex((node) => node.id === id)
-  if (index !== -1) {
-    const removed = nodes[index]
-    return [nodes.filter((_, currentIndex) => currentIndex !== index), removed]
-  }
-
-  let removed: ApiTreeNode | null = null
-  const nextNodes = nodes.map((node) => {
-    if (!node.children || removed) return node
-    const [nextChildren, found] = removeTreeNode(node.children, id)
-    if (!found) return node
-    removed = found
-    return { ...node, children: nextChildren }
+  return useMutation({
+    mutationFn,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+    },
   })
-
-  return [nextNodes, removed]
-}
-
-function insertTreeNode(
-  nodes: Array<ApiTreeNode>,
-  targetId: string,
-  nodeToInsert: ApiTreeNode
-): Array<ApiTreeNode> {
-  return nodes.map((node) => {
-    if (node.id === targetId) {
-      return {
-        ...node,
-        children: sortInventoryTree([...(node.children ?? []), nodeToInsert]),
-      }
-    }
-    if (!node.children) return node
-    return {
-      ...node,
-      children: insertTreeNode(node.children, targetId, nodeToInsert),
-    }
-  })
-}
-
-function isDescendant(
-  nodes: Array<ApiTreeNode>,
-  parentId: string,
-  childId: string
-): boolean {
-  const parent = findTreeNode(nodes, parentId)
-  if (!parent?.children) return false
-
-  for (const child of parent.children) {
-    if (child.id === childId) return true
-    if (child.kind === "folder" && isDescendant([child], child.id, childId)) {
-      return true
-    }
-  }
-
-  return false
-}
-
-function moveTreeNode(
-  nodes: Array<ApiTreeNode>,
-  sourceId: string,
-  targetId: string
-): Array<ApiTreeNode> {
-  if (sourceId === targetId || isDescendant(nodes, sourceId, targetId)) {
-    return nodes
-  }
-
-  const [treeWithoutSource, removedNode] = removeTreeNode(nodes, sourceId)
-  if (!removedNode) return nodes
-
-  return sortInventoryTree(
-    insertTreeNode(treeWithoutSource, targetId, removedNode)
-  )
 }
 
 export function useMoveInventoryItem() {
@@ -105,7 +31,11 @@ export function useMoveInventoryItem() {
 
   return useMutation({
     mutationFn: moveInventoryItem,
-    onMutate: (variables) => {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+
       const previousTree = queryClient.getQueryData<Array<ApiTreeNode>>(
         inventoryTreeQueryOptions.queryKey
       )
@@ -113,13 +43,13 @@ export function useMoveInventoryItem() {
       if (previousTree) {
         queryClient.setQueryData<Array<ApiTreeNode>>(
           inventoryTreeQueryOptions.queryKey,
-          moveTreeNode(previousTree, variables.itemId, variables.parentId)
+          moveInventoryTreeNode(
+            previousTree,
+            variables.itemId,
+            variables.parentId
+          )
         )
       }
-
-      void queryClient.cancelQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
 
       return { previousTree }
     },
@@ -140,40 +70,31 @@ export function useMoveInventoryItem() {
 }
 
 export function useCreateFolder() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: createFolder,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
-    },
-  })
+  return useInvalidateInventoryTreeMutation(createFolder)
 }
 
 export function useRenameFolder() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: renameFolder,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
-    },
-  })
+  return useInvalidateInventoryTreeMutation(renameFolder)
 }
 
 export function useDeleteFolder() {
+  return useInvalidateInventoryTreeMutation(deleteFolder)
+}
+
+export function useUpdateInventoryAcl() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: deleteFolder,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
+    mutationFn: updateInventoryAcl,
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: inventoryTreeQueryOptions.queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: inventoryAclQueryOptions(variables.itemId).queryKey,
+        }),
+      ])
     },
   })
 }

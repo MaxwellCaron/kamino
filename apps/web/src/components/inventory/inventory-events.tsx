@@ -1,14 +1,13 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl, inventoryTreeQueryOptions } from "@/lib/queries"
+import { apiUrl, ensureAuth, inventoryTreeQueryOptions } from "@/lib/queries"
 
 export function InventoryEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const eventSource = new EventSource(apiUrl("/api/v1/inventory/events"), {
-      withCredentials: true,
-    })
+    let eventSource: EventSource | null = null
+    let cancelled = false
 
     const invalidateTree = () => {
       queryClient.invalidateQueries({
@@ -16,11 +15,23 @@ export function InventoryEvents() {
       })
     }
 
-    eventSource.addEventListener("inventory.changed", invalidateTree)
+    void ensureAuth()
+      .then(() => {
+        if (cancelled) return
+
+        eventSource = new EventSource(apiUrl("/api/v1/inventory/events"), {
+          withCredentials: true,
+        })
+        eventSource.addEventListener("inventory.changed", invalidateTree)
+      })
+      .catch(() => {
+        // Route auth will handle redirect if the session cannot be refreshed.
+      })
 
     return () => {
-      eventSource.removeEventListener("inventory.changed", invalidateTree)
-      eventSource.close()
+      cancelled = true
+      eventSource?.removeEventListener("inventory.changed", invalidateTree)
+      eventSource?.close()
     }
   }, [queryClient])
 

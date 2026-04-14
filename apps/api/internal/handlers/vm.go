@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -32,28 +33,41 @@ type VMHandler struct {
 	PX       *proxmox.Client
 	Service  *inventory.Service
 	Notifier *vmstatus.Notifier
+	Authz    *authorization.Service
 }
 
 // GetStatuses returns a map of vmid -> status directly from Proxmox.
 // GET /api/v1/vms/status
 func (h *VMHandler) GetStatuses(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	statuses := map[int]string(nil)
 	if h.Notifier != nil {
-		c.JSON(http.StatusOK, h.Notifier.Current())
-		return
+		statuses = h.Notifier.Current()
+	} else {
+		vms, err := h.PX.GetVMs(c.Request.Context())
+		if err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM statuses", "fetch vm statuses", err)
+			return
+		}
+
+		statuses = make(map[int]string, len(vms))
+		for _, vm := range vms {
+			statuses[vm.VMID] = vm.Status
+		}
 	}
 
-	vms, err := h.PX.GetVMs(c.Request.Context())
+	filtered, err := h.Authz.FilterVisibleStatuses(c.Request.Context(), principalID, statuses)
 	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM statuses", "fetch vm statuses", err)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize VM statuses", "filter visible vm statuses", err)
 		return
 	}
 
-	statuses := make(map[int]string, len(vms))
-	for _, vm := range vms {
-		statuses[vm.VMID] = vm.Status
-	}
-
-	c.JSON(http.StatusOK, statuses)
+	c.JSON(http.StatusOK, filtered)
 }
 
 func (h *VMHandler) waitForObservedVMStatus(vmid int, expectedStatus string) {
@@ -90,6 +104,12 @@ func (h *VMHandler) waitForVMRemoval(vmid int) {
 // StreamEvents pushes VM status updates to connected browsers.
 // GET /api/v1/vms/events
 func (h *VMHandler) StreamEvents(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	if h.Notifier == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vm events unavailable"})
 		return
@@ -112,9 +132,15 @@ func (h *VMHandler) StreamEvents(c *gin.Context) {
 	fmt.Fprint(c.Writer, ": vm status stream connected\n\n")
 	flusher.Flush()
 
+	initialStatuses, err := h.Authz.FilterVisibleStatuses(c.Request.Context(), principalID, h.Notifier.Current())
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize VM statuses", "filter initial vm status event", err)
+		return
+	}
+
 	initialPayload, err := json.Marshal(vmstatus.Event{
 		Type:      "vm.statuses.changed",
-		Statuses:  h.Notifier.Current(),
+		Statuses:  initialStatuses,
 		Timestamp: time.Now().UTC(),
 	})
 	if err == nil {
@@ -135,7 +161,16 @@ func (h *VMHandler) StreamEvents(c *gin.Context) {
 				return
 			}
 
-			payload, err := json.Marshal(event)
+			filteredStatuses, err := h.Authz.FilterVisibleStatuses(c.Request.Context(), principalID, event.Statuses)
+			if err != nil {
+				return
+			}
+
+			payload, err := json.Marshal(vmstatus.Event{
+				Type:      event.Type,
+				Statuses:  filteredStatuses,
+				Timestamp: event.Timestamp,
+			})
 			if err != nil {
 				continue
 			}
@@ -161,9 +196,18 @@ type createSnapshotRequest struct {
 // CreateSnapshot creates a snapshot of a VM and waits for the Proxmox task to complete.
 // POST /api/v1/vms/snapshot
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req createSnapshotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.SnapshotVM); !ok {
 		return
 	}
 
@@ -185,9 +229,18 @@ type powerActionRequest struct {
 // and waits for the Proxmox task to complete.
 // POST /api/v1/vms/power
 func (h *VMHandler) PowerAction(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req powerActionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.PowerVM); !ok {
 		return
 	}
 
@@ -223,9 +276,18 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 // removes it from the inventory.
 // DELETE /api/v1/vms/:node/:vmid
 func (h *VMHandler) DeleteVM(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	node := c.Param("node")
 	vmid, err := parseIntParam(c, "vmid")
 	if err != nil {
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.DeleteVM); !ok {
 		return
 	}
 
@@ -254,6 +316,12 @@ type renameVMRequest struct {
 // RenameVM renames a VM in Proxmox and updates the inventory.
 // POST /api/v1/vms/rename
 func (h *VMHandler) RenameVM(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req renameVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -262,6 +330,9 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 	req.Name = names.Normalize(req.Name)
 	if err := names.ValidateVM(req.Name); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.RenameVM); !ok {
 		return
 	}
 
@@ -290,6 +361,12 @@ type cloneVMRequest struct {
 // CloneVM clones a VM and waits for the Proxmox task to complete.
 // POST /api/v1/vms/clone
 func (h *VMHandler) CloneVM(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req cloneVMRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -300,10 +377,16 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.CloneVM); !ok {
+		return
+	}
 
 	targetFolderID, err := uuid.Parse(req.TargetFolderID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
+		return
+	}
+	if !requireInventoryPermission(c, h.Authz, principalID, targetFolderID, authorization.CreateVM) {
 		return
 	}
 
@@ -376,9 +459,18 @@ type convertToTemplateRequest struct {
 // ConvertToTemplate converts a VM to a template.
 // POST /api/v1/vms/template
 func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req convertToTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.TemplateVM); !ok {
 		return
 	}
 
@@ -397,9 +489,18 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 // GetSnapshots returns all snapshots for a VM.
 // GET /api/v1/vms/:node/:vmid/snapshots
 func (h *VMHandler) GetSnapshots(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	node := c.Param("node")
 	vmid, err := parseIntParam(c, "vmid")
 	if err != nil {
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.SnapshotVM); !ok {
 		return
 	}
 
@@ -425,9 +526,18 @@ type rollbackSnapshotRequest struct {
 // RollbackSnapshot rolls back a VM to a snapshot and waits for the Proxmox task to complete.
 // POST /api/v1/vms/snapshot/rollback
 func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var req rollbackSnapshotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.SnapshotVM); !ok {
 		return
 	}
 
@@ -442,12 +552,21 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 // DeleteSnapshot deletes a VM snapshot and waits for the Proxmox task to complete.
 // DELETE /api/v1/vms/:node/:vmid/snapshots/:snapname
 func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	node := c.Param("node")
 	vmid, err := parseIntParam(c, "vmid")
 	if err != nil {
 		return
 	}
 	snapname := c.Param("snapname")
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.SnapshotVM); !ok {
+		return
+	}
 
 	if err := h.PX.DeleteSnapshot(c.Request.Context(), node, vmid, snapname); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to delete snapshot", "delete vm snapshot", err)

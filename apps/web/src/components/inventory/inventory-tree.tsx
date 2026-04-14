@@ -24,11 +24,21 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { TreeNodeMenu } from "./inventory-actions"
-import type { ApiTreeNode } from "@/lib/queries"
 import type { ReactNode } from "react"
+import type { ApiTreeNode } from "@/lib/queries"
 import { useMoveInventoryItem } from "@/hooks/use-inventory-actions"
-import { sortInventoryTree } from "@/lib/inventory-tree"
-import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
+import {
+  findInventoryParentId,
+  findInventoryTreeNode,
+  isInventoryDescendant,
+  moveInventoryTreeNode,
+} from "@/lib/inventory-tree"
+import {
+  InventoryPermissionBits,
+  hasInventoryPermission,
+  inventoryTreeQueryOptions,
+  vmStatusQueryOptions,
+} from "@/lib/queries"
 
 function collectVmIds(nodes: Array<ApiTreeNode>): Map<string, number> {
   const map = new Map<string, number>()
@@ -45,109 +55,6 @@ function collectVmIds(nodes: Array<ApiTreeNode>): Map<string, number> {
   }
 
   return map
-}
-
-function findNode(nodes: Array<ApiTreeNode>, id: string): ApiTreeNode | null {
-  for (const node of nodes) {
-    if (node.id === id) return node
-    if (node.children) {
-      const found = findNode(node.children, id)
-      if (found) return found
-    }
-  }
-  return null
-}
-
-function findParentId(
-  nodes: Array<ApiTreeNode>,
-  id: string,
-  parentId: string | null = null
-): string | null {
-  for (const node of nodes) {
-    if (node.id === id) return parentId
-    if (node.children) {
-      const found = findParentId(node.children, id, node.id)
-      if (found !== null) return found
-    }
-  }
-  return null
-}
-
-function removeNode(
-  nodes: Array<ApiTreeNode>,
-  id: string
-): [Array<ApiTreeNode>, ApiTreeNode | null] {
-  const index = nodes.findIndex((node) => node.id === id)
-  if (index !== -1) {
-    const removed = nodes[index]
-    return [nodes.filter((_, currentIndex) => currentIndex !== index), removed]
-  }
-
-  let removed: ApiTreeNode | null = null
-  const result = nodes.map((node) => {
-    if (!node.children || removed) return node
-    const [nextChildren, found] = removeNode(node.children, id)
-    if (!found) return node
-    removed = found
-    return { ...node, children: nextChildren }
-  })
-
-  return [result, removed]
-}
-
-function insertIntoNode(
-  nodes: Array<ApiTreeNode>,
-  targetId: string,
-  nodeToInsert: ApiTreeNode
-): Array<ApiTreeNode> {
-  return nodes.map((node) => {
-    if (node.id === targetId) {
-      return {
-        ...node,
-        children: sortInventoryTree([...(node.children ?? []), nodeToInsert]),
-      }
-    }
-    if (!node.children) return node
-    return {
-      ...node,
-      children: insertIntoNode(node.children, targetId, nodeToInsert),
-    }
-  })
-}
-
-function moveNode(
-  nodes: Array<ApiTreeNode>,
-  sourceId: string,
-  targetId: string
-): Array<ApiTreeNode> {
-  if (sourceId === targetId || isDescendant(nodes, sourceId, targetId)) {
-    return nodes
-  }
-
-  const [treeWithoutSource, removedNode] = removeNode(nodes, sourceId)
-  if (!removedNode) return nodes
-
-  return sortInventoryTree(
-    insertIntoNode(treeWithoutSource, targetId, removedNode)
-  )
-}
-
-function isDescendant(
-  nodes: Array<ApiTreeNode>,
-  parentId: string,
-  childId: string
-): boolean {
-  const parent = findNode(nodes, parentId)
-  if (!parent?.children) return false
-
-  for (const child of parent.children) {
-    if (child.id === childId) return true
-    if (child.kind === "folder" && isDescendant([child], child.id, childId)) {
-      return true
-    }
-  }
-
-  return false
 }
 
 function filterTree(
@@ -245,7 +152,10 @@ function renderTree(
     return (
       <TreeNode
         key={node.id}
-        droppable={isFolder}
+        droppable={
+          isFolder &&
+          hasInventoryPermission(node.permissions, InventoryPermissionBits.view)
+        }
         isLast={isLast}
         level={level}
         nodeId={node.id}
@@ -266,6 +176,7 @@ function renderTree(
           />
           <TreeLabel>{node.name}</TreeLabel>
           <TreeNodeMenu
+            permissions={node.permissions}
             isFolder={isFolder}
             isTemplate={node.vm?.is_template}
             name={node.name}
@@ -325,7 +236,7 @@ export function InventoryTree() {
   const effectiveSelectedIds =
     selectedIds.length > 0
       ? selectedIds
-      : activeItemId && findNode(displayTree, activeItemId)
+      : activeItemId && findInventoryTreeNode(displayTree, activeItemId)
         ? [activeItemId]
         : []
 
@@ -335,7 +246,7 @@ export function InventoryTree() {
       if (ids.length !== 1) return
 
       const id = ids[0]
-      const node = findNode(displayTree, id)
+      const node = findInventoryTreeNode(displayTree, id)
       if (node?.kind === "vm") {
         navigate({ to: "/vm/$itemId", params: { itemId: id } })
       }
@@ -349,17 +260,19 @@ export function InventoryTree() {
         ? rawTargetId.slice(5)
         : rawTargetId
 
-      const currentParentId = findParentId(displayTree, sourceId)
+      const currentParentId = findInventoryParentId(displayTree, sourceId)
 
       if (
         sourceId === targetId ||
         currentParentId === targetId ||
-        isDescendant(displayTree, sourceId, targetId)
+        isInventoryDescendant(displayTree, sourceId, targetId)
       ) {
         return
       }
 
-      setLocalTree((currentTree) => moveNode(currentTree, sourceId, targetId))
+      setLocalTree((currentTree) =>
+        moveInventoryTreeNode(currentTree, sourceId, targetId)
+      )
 
       moveItem.mutate(
         { itemId: sourceId, parentId: targetId },
@@ -376,7 +289,7 @@ export function InventoryTree() {
 
   const renderOverlay = useCallback(
     (draggedId: string) => {
-      const node = findNode(displayTree, draggedId)
+      const node = findInventoryTreeNode(displayTree, draggedId)
       if (!node) return null
 
       return (

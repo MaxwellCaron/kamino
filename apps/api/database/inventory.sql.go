@@ -382,6 +382,36 @@ func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams
 	return err
 }
 
+const normalizeInventoryItemInheritance = `-- name: NormalizeInventoryItemInheritance :execrows
+UPDATE inventory_items
+SET inherit_permissions = true
+WHERE inherit_permissions = false
+`
+
+func (q *Queries) NormalizeInventoryItemInheritance(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, normalizeInventoryItemInheritance)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateInventoryItemInheritance = `-- name: UpdateInventoryItemInheritance :exec
+UPDATE inventory_items
+SET inherit_permissions = $1
+WHERE id = $2
+`
+
+type UpdateInventoryItemInheritanceParams struct {
+	InheritPermissions bool      `json:"inherit_permissions"`
+	ID                 uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateInventoryItemInheritance(ctx context.Context, arg UpdateInventoryItemInheritanceParams) error {
+	_, err := q.db.Exec(ctx, updateInventoryItemInheritance, arg.InheritPermissions, arg.ID)
+	return err
+}
+
 const updateInventoryItemName = `-- name: UpdateInventoryItemName :exec
 UPDATE inventory_items
 SET name = $1
