@@ -304,9 +304,6 @@ export type ApiInventoryAclEntry = {
   principal_name: string | null
   effect: "allow" | "deny"
   permissions: number
-  applies_to_self: boolean
-  applies_to_children: boolean
-  inherited_only: boolean
   immutable: boolean
 }
 
@@ -320,9 +317,6 @@ export type ApiInheritedInventoryAclEntry = {
   principal_name: string | null
   effect: "allow" | "deny"
   permissions: number
-  applies_to_self: boolean
-  applies_to_children: boolean
-  inherited_only: boolean
   immutable: boolean
 }
 
@@ -362,9 +356,6 @@ export async function updateInventoryAcl(params: {
     principal_id: string
     effect: "allow" | "deny"
     permissions: number
-    applies_to_self: boolean
-    applies_to_children: boolean
-    inherited_only: boolean
   }>
 }): Promise<void> {
   const res = await apiFetch(`/api/v1/inventory/items/${params.itemId}/acl`, {

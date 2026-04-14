@@ -64,16 +64,11 @@ export function createDraftAcl(data: ApiInventoryAcl): DraftAcl {
       order.push(entry.principal_id)
     }
 
-    if (
-      (entry.applies_to_self && !entry.inherited_only) ||
-      entry.applies_to_children
-    ) {
-      principal.self = mergeScopeEntry(
-        principal.self,
-        entry.effect,
-        entry.permissions
-      )
-    }
+    principal.self = mergeScopeEntry(
+      principal.self,
+      entry.effect,
+      entry.permissions
+    )
   }
 
   return {

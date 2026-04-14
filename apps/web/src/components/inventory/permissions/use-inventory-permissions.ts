@@ -23,12 +23,16 @@ import { useUpdateInventoryAcl } from "@/hooks/use-inventory-actions"
 import { getInventoryPermissionDefinitionsByGroup } from "@/lib/inventory-permissions"
 
 type AclEntry = {
-  applies_to_children: boolean
-  applies_to_self: boolean
   effect: "allow" | "deny"
-  inherited_only: boolean
   permissions: number
   principal_id: string
+}
+
+const principalSectionLabels: Record<PrincipalListSectionKey, string> = {
+  "inherited-groups": "Inherited Groups",
+  "inherited-users": "Inherited Users",
+  groups: "Groups",
+  users: "Users",
 }
 
 export function useInventoryPermissions({
@@ -68,9 +72,6 @@ export function useInventoryPermissions({
             principal_id: principal.principalId,
             effect: "allow",
             permissions: scope.allowMask,
-            applies_to_self: true,
-            applies_to_children: itemKind === "folder",
-            inherited_only: false,
           })
         }
         if (scope.denyMask > 0) {
@@ -78,9 +79,6 @@ export function useInventoryPermissions({
             principal_id: principal.principalId,
             effect: "deny",
             permissions: scope.denyMask,
-            applies_to_self: true,
-            applies_to_children: itemKind === "folder",
-            inherited_only: false,
           })
         }
       }
@@ -184,9 +182,7 @@ export function useInventoryPermissions({
       (["inherited-groups", "inherited-users", "groups", "users"] as const)
         .map((key) => ({
           key,
-          label: key
-            .replace(/-/g, " ")
-            .replace(/\b\w/g, (c) => c.toUpperCase()),
+          label: principalSectionLabels[key],
           items: principalListItems.filter((item) => item.section === key),
         }))
         .filter((s) => s.items.length > 0),

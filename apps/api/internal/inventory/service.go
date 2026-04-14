@@ -57,12 +57,9 @@ type FolderPlacement struct {
 }
 
 type ACLEntryInput struct {
-	PrincipalID       uuid.UUID
-	Effect            database.InventoryAceEffect
-	Permissions       int64
-	AppliesToSelf     bool
-	AppliesToChildren bool
-	InheritedOnly     bool
+	PrincipalID uuid.UUID
+	Effect      database.InventoryAceEffect
+	Permissions int64
 }
 
 type Mirror interface {
@@ -147,7 +144,7 @@ func (s *Service) ReplaceInventoryACL(
 	entries []ACLEntryInput,
 ) error {
 	for _, entry := range entries {
-		if err := validateACLEntry(entry); err != nil {
+		if err := validateACLEntryInput(entry); err != nil {
 			return err
 		}
 	}
@@ -160,7 +157,8 @@ func (s *Service) ReplaceInventoryACL(
 
 	q := database.New(tx)
 
-	if _, err := q.GetInventoryItemForUpdate(ctx, itemID); err != nil {
+	item, err := q.GetInventoryItemForUpdate(ctx, itemID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrInventoryItemNotFound
 		}
@@ -173,6 +171,9 @@ func (s *Service) ReplaceInventoryACL(
 	}); err != nil {
 		return err
 	}
+
+	entries = normalizeACLEntries(entries)
+	appliesToSelf, appliesToChildren := inventoryACLEntryScope(item.Kind)
 
 	existingEntries, err := q.ListInventoryACLEntriesForItem(ctx, itemID)
 	if err != nil {
@@ -218,9 +219,9 @@ func (s *Service) ReplaceInventoryACL(
 			PrincipalID:       entry.PrincipalID,
 			Effect:            entry.Effect,
 			Permissions:       entry.Permissions,
-			AppliesToSelf:     entry.AppliesToSelf,
-			AppliesToChildren: entry.AppliesToChildren,
-			InheritedOnly:     entry.InheritedOnly,
+			AppliesToSelf:     appliesToSelf,
+			AppliesToChildren: appliesToChildren,
+			InheritedOnly:     false,
 		}); err != nil {
 			if isForeignKeyViolation(err) {
 				return ErrInventoryPrincipalNotFound
@@ -236,6 +237,62 @@ func (s *Service) ReplaceInventoryACL(
 	}
 
 	return nil
+}
+
+func inventoryACLEntryScope(kind database.InventoryItemKind) (bool, bool) {
+	if kind == database.InventoryItemKindFolder {
+		return true, true
+	}
+
+	return true, false
+}
+
+func normalizeACLEntries(entries []ACLEntryInput) []ACLEntryInput {
+	type principalMasks struct {
+		allowMask int64
+		denyMask  int64
+	}
+
+	principalMasksByID := make(map[uuid.UUID]principalMasks, len(entries))
+	principalOrder := make([]uuid.UUID, 0, len(entries))
+
+	for _, entry := range entries {
+		masks, ok := principalMasksByID[entry.PrincipalID]
+		if !ok {
+			principalOrder = append(principalOrder, entry.PrincipalID)
+		}
+
+		if entry.Effect == database.InventoryAceEffectDeny {
+			masks.denyMask |= entry.Permissions
+		} else {
+			masks.allowMask |= entry.Permissions
+		}
+
+		principalMasksByID[entry.PrincipalID] = masks
+	}
+
+	normalized := make([]ACLEntryInput, 0, len(principalMasksByID)*2)
+	for _, principalID := range principalOrder {
+		masks := principalMasksByID[principalID]
+		masks.allowMask &= ^masks.denyMask
+
+		if masks.allowMask > 0 {
+			normalized = append(normalized, ACLEntryInput{
+				PrincipalID: principalID,
+				Effect:      database.InventoryAceEffectAllow,
+				Permissions: masks.allowMask,
+			})
+		}
+		if masks.denyMask > 0 {
+			normalized = append(normalized, ACLEntryInput{
+				PrincipalID: principalID,
+				Effect:      database.InventoryAceEffectDeny,
+				Permissions: masks.denyMask,
+			})
+		}
+	}
+
+	return normalized
 }
 
 func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {
@@ -690,7 +747,7 @@ func normalizeMutationError(err error) error {
 	return fmt.Errorf("%w: %s", ErrInventoryInvalidMove, pgErr.Message)
 }
 
-func validateACLEntry(entry ACLEntryInput) error {
+func validateACLEntryInput(entry ACLEntryInput) error {
 	if entry.PrincipalID == uuid.Nil {
 		return fmt.Errorf("%w: principal_id is required", ErrInventoryInvalidACL)
 	}
@@ -706,20 +763,6 @@ func validateACLEntry(entry ACLEntryInput) error {
 
 	if authorization.Mask(entry.Permissions)&^authorization.FullAccessMask != 0 {
 		return fmt.Errorf("%w: permissions include unknown bits", ErrInventoryInvalidACL)
-	}
-
-	if !entry.AppliesToSelf && !entry.AppliesToChildren {
-		return fmt.Errorf(
-			"%w: ACL entry must apply to self or children",
-			ErrInventoryInvalidACL,
-		)
-	}
-
-	if entry.InheritedOnly && !entry.AppliesToChildren {
-		return fmt.Errorf(
-			"%w: inherited-only ACL entry must apply to children",
-			ErrInventoryInvalidACL,
-		)
 	}
 
 	return nil

@@ -62,9 +62,6 @@ type InventoryACLEntry struct {
 	PrincipalName       *string   `json:"principal_name"`
 	Effect              string    `json:"effect"`
 	Permissions         int64     `json:"permissions"`
-	AppliesToSelf       bool      `json:"applies_to_self"`
-	AppliesToChildren   bool      `json:"applies_to_children"`
-	InheritedOnly       bool      `json:"inherited_only"`
 	Immutable           bool      `json:"immutable"`
 }
 
@@ -78,9 +75,6 @@ type InheritedInventoryACLEntry struct {
 	PrincipalName       *string   `json:"principal_name"`
 	Effect              string    `json:"effect"`
 	Permissions         int64     `json:"permissions"`
-	AppliesToSelf       bool      `json:"applies_to_self"`
-	AppliesToChildren   bool      `json:"applies_to_children"`
-	InheritedOnly       bool      `json:"inherited_only"`
 	Immutable           bool      `json:"immutable"`
 }
 
@@ -205,9 +199,6 @@ func (h *InventoryHandler) GetACL(c *gin.Context) {
 			PrincipalName:       row.Name,
 			Effect:              string(row.Effect),
 			Permissions:         row.Permissions,
-			AppliesToSelf:       row.AppliesToSelf,
-			AppliesToChildren:   row.AppliesToChildren,
-			InheritedOnly:       row.InheritedOnly,
 			Immutable:           h.Service.IsProtectedACLPrincipal(row.PrincipalID),
 		})
 	}
@@ -223,9 +214,6 @@ func (h *InventoryHandler) GetACL(c *gin.Context) {
 			PrincipalName:       row.Name,
 			Effect:              string(row.Effect),
 			Permissions:         row.Permissions,
-			AppliesToSelf:       row.AppliesToSelf,
-			AppliesToChildren:   row.AppliesToChildren,
-			InheritedOnly:       row.InheritedOnly,
 			Immutable:           h.Service.IsProtectedACLPrincipal(row.PrincipalID),
 		})
 	}
@@ -237,12 +225,9 @@ func (h *InventoryHandler) GetACL(c *gin.Context) {
 }
 
 type inventoryACLEntryRequest struct {
-	PrincipalID       uuid.UUID `json:"principal_id" binding:"required"`
-	Effect            string    `json:"effect" binding:"required"`
-	Permissions       int64     `json:"permissions" binding:"required"`
-	AppliesToSelf     bool      `json:"applies_to_self"`
-	AppliesToChildren bool      `json:"applies_to_children"`
-	InheritedOnly     bool      `json:"inherited_only"`
+	PrincipalID uuid.UUID `json:"principal_id" binding:"required"`
+	Effect      string    `json:"effect" binding:"required"`
+	Permissions int64     `json:"permissions" binding:"required"`
 }
 
 type updateInventoryACLRequest struct {
@@ -287,12 +272,9 @@ func (h *InventoryHandler) UpdateACL(c *gin.Context) {
 	entries := make([]inventory.ACLEntryInput, 0, len(req.Entries))
 	for _, entry := range req.Entries {
 		entries = append(entries, inventory.ACLEntryInput{
-			PrincipalID:       entry.PrincipalID,
-			Effect:            database.InventoryAceEffect(entry.Effect),
-			Permissions:       entry.Permissions,
-			AppliesToSelf:     entry.AppliesToSelf,
-			AppliesToChildren: entry.AppliesToChildren,
-			InheritedOnly:     entry.InheritedOnly,
+			PrincipalID: entry.PrincipalID,
+			Effect:      database.InventoryAceEffect(entry.Effect),
+			Permissions: entry.Permissions,
 		})
 	}
 
