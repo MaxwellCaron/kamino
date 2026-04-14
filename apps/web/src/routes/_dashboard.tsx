@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
+import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
 import { InventoryTree } from "@/components/inventory/inventory-tree"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { InventoryEvents } from "@/components/inventory/inventory-events"
@@ -37,17 +38,19 @@ function Layout() {
     >
       <InventoryEvents />
       <VmStatusEvents />
-      <AppSidebar
-        user={user}
-        variant="inset"
-        inventoryTree={<InventoryTree />}
-      />
-      <SidebarInset>
-        <SiteHeader command={<CommandManyItems />} />
-        <div className="flex flex-1 flex-col">
-          <Outlet />
-        </div>
-      </SidebarInset>
+      <InventoryDialogsProvider>
+        <AppSidebar
+          user={user}
+          variant="inset"
+          inventoryTree={<InventoryTree />}
+        />
+        <SidebarInset>
+          <SiteHeader command={<CommandManyItems />} />
+          <div className="flex flex-1 flex-col">
+            <Outlet />
+          </div>
+        </SidebarInset>
+      </InventoryDialogsProvider>
     </SidebarProvider>
   )
 }

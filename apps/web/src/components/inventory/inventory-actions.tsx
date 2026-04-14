@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   IconCamera,
@@ -39,10 +38,7 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
-import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
-import { ConfirmDialog } from "./inventory-confirm-actions"
-import { RenameDialog } from "./rename-dialog"
-import { FolderDialog } from "./folder-dialog"
+import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
 import {
@@ -51,9 +47,6 @@ import {
   hasInventoryPermission,
   inventoryTreeQueryOptions,
 } from "@/lib/queries"
-import { CloneDialog } from "@/components/vm/clone-dialog"
-import { CreateVmDialog } from "@/components/vm/create-vm-dialog"
-import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"
 import {
@@ -720,13 +713,16 @@ export function TreeNodeMenu({
   const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
   const deleteFolder = useDeleteFolder()
-  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [snapshotOpen, setSnapshotOpen] = useState(false)
-  const [cloneOpen, setCloneOpen] = useState(false)
-  const [renameOpen, setRenameOpen] = useState(false)
-  const [createVmOpen, setCreateVmOpen] = useState(false)
-  const [createFolderOpen, setCreateFolderOpen] = useState(false)
-  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const {
+    openConfirm,
+    openCreateFolder,
+    openRenameFolder,
+    openCreateVm,
+    openSnapshot,
+    openClone,
+    openRenameVm,
+    openPermissions,
+  } = useInventoryDialogs()
   const hasActions =
     (isFolder &&
       (hasInventoryPermission(
@@ -780,7 +776,7 @@ export function TreeNodeMenu({
 
     const summary = summarizeFolderDeletion(folder)
 
-    setConfirm({
+    openConfirm({
       title: `Delete folder "${folder.name}"?`,
       description: (
         <FolderDeletionDescription
@@ -829,79 +825,53 @@ export function TreeNodeMenu({
             node={pveNode ?? ""}
             vmid={vmid ?? 0}
             name={name}
-            onAction={setConfirm}
-            onManagePermissions={() => setPermissionsOpen(true)}
-            onSnapshot={() => setSnapshotOpen(true)}
-            onClone={() => setCloneOpen(true)}
-            onRename={() => setRenameOpen(true)}
-            onCreateVm={() => setCreateVmOpen(true)}
-            onCreateFolder={() => setCreateFolderOpen(true)}
+            onAction={openConfirm}
+            onManagePermissions={() =>
+              openPermissions({
+                itemId: nodeId,
+                itemKind: isFolder ? "folder" : "vm",
+                itemName: name ?? "",
+              })
+            }
+            onSnapshot={() => {
+              if (!pveNode || vmid === undefined) return
+
+              openSnapshot({ node: pveNode, vmid })
+            }}
+            onClone={() => {
+              if (!pveNode || vmid === undefined) return
+
+              openClone({
+                node: pveNode,
+                vmid,
+                currentName: name ?? "",
+                sourceItemId: nodeId,
+              })
+            }}
+            onRename={() => {
+              if (isFolder) {
+                openRenameFolder({
+                  folderId: nodeId,
+                  currentName: name ?? "",
+                })
+                return
+              }
+
+              if (!isTemplate && pveNode && vmid !== undefined) {
+                openRenameVm({
+                  node: pveNode,
+                  vmid,
+                  currentName: name ?? "",
+                })
+              }
+            }}
+            onCreateVm={() => openCreateVm({ initialFolderId: nodeId })}
+            onCreateFolder={() => openCreateFolder({ parentId: nodeId })}
             onDeleteFolder={handleDeleteFolder}
             isLoading={false}
           />
         </DropdownMenuContent>
       </DropdownMenu>
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      {createVmOpen && (
-        <CreateVmDialog
-          open={createVmOpen}
-          onOpenChange={setCreateVmOpen}
-          initialFolderId={nodeId}
-        />
-      )}
-      {isFolder && (
-        <>
-          <FolderDialog
-            mode="create"
-            open={createFolderOpen}
-            onOpenChange={setCreateFolderOpen}
-            parentId={nodeId}
-          />
-          <FolderDialog
-            mode="rename"
-            currentName={name ?? ""}
-            folderId={nodeId}
-            open={renameOpen}
-            onOpenChange={setRenameOpen}
-          />
-        </>
-      )}
-      {pveNode && vmid !== undefined && (
-        <>
-          <SnapshotDialog
-            node={pveNode}
-            vmid={vmid}
-            open={snapshotOpen}
-            onOpenChange={setSnapshotOpen}
-          />
-          <CloneDialog
-            node={pveNode}
-            vmid={vmid}
-            currentName={name ?? ""}
-            sourceItemId={nodeId}
-            open={cloneOpen}
-            onOpenChange={setCloneOpen}
-          />
-          {!isTemplate && !isFolder && (
-            <RenameDialog
-              node={pveNode}
-              vmid={vmid}
-              currentName={name ?? ""}
-              open={renameOpen}
-              onOpenChange={setRenameOpen}
-            />
-          )}
-        </>
-      )}
-      {permissionsOpen && (
-        <InventoryPermissionsDialog
-          itemId={nodeId}
-          itemKind={isFolder ? "folder" : "vm"}
-          itemName={name ?? ""}
-          open={permissionsOpen}
-          onOpenChange={setPermissionsOpen}
-        />
-      )}
     </>
   )
 }
@@ -925,13 +895,16 @@ export function VmOptionsMenu({
   name?: string
   isLoading?: boolean
 }) {
-  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [snapshotOpen, setSnapshotOpen] = useState(false)
-  const [cloneOpen, setCloneOpen] = useState(false)
-  const [renameOpen, setRenameOpen] = useState(false)
-  const [createVmOpen, setCreateVmOpen] = useState(false)
-  const [createFolderOpen, setCreateFolderOpen] = useState(false)
-  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const {
+    openConfirm,
+    openCreateFolder,
+    openRenameFolder,
+    openCreateVm,
+    openSnapshot,
+    openClone,
+    openRenameVm,
+    openPermissions,
+  } = useInventoryDialogs()
   const hasActions =
     (isFolder &&
       (hasInventoryPermission(
@@ -989,77 +962,53 @@ export function VmOptionsMenu({
             node={pveNode ?? ""}
             vmid={vmid ?? 0}
             name={name}
-            onAction={setConfirm}
-            onManagePermissions={() => setPermissionsOpen(true)}
-            onSnapshot={() => setSnapshotOpen(true)}
-            onClone={() => setCloneOpen(true)}
-            onRename={() => setRenameOpen(true)}
-            onCreateVm={() => setCreateVmOpen(true)}
-            onCreateFolder={() => setCreateFolderOpen(true)}
+            onAction={openConfirm}
+            onManagePermissions={() =>
+              openPermissions({
+                itemId: nodeId,
+                itemKind: isFolder ? "folder" : "vm",
+                itemName: name ?? "",
+              })
+            }
+            onSnapshot={() => {
+              if (!pveNode || vmid === undefined) return
+
+              openSnapshot({ node: pveNode, vmid })
+            }}
+            onClone={() => {
+              if (!pveNode || vmid === undefined) return
+
+              openClone({
+                node: pveNode,
+                vmid,
+                currentName: name ?? "",
+                sourceItemId: nodeId,
+              })
+            }}
+            onRename={() => {
+              if (isFolder) {
+                openRenameFolder({
+                  folderId: nodeId,
+                  currentName: name ?? "",
+                })
+                return
+              }
+
+              if (!isTemplate && pveNode && vmid !== undefined) {
+                openRenameVm({
+                  node: pveNode,
+                  vmid,
+                  currentName: name ?? "",
+                })
+              }
+            }}
+            onCreateVm={() => openCreateVm({ initialFolderId: nodeId })}
+            onCreateFolder={() => openCreateFolder({ parentId: nodeId })}
             onDeleteFolder={() => {}}
             isLoading={isLoading}
           />
         </DropdownMenuContent>
       </DropdownMenu>
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      {createVmOpen && (
-        <CreateVmDialog
-          open={createVmOpen}
-          onOpenChange={setCreateVmOpen}
-          initialFolderId={nodeId}
-        />
-      )}
-      {isFolder && (
-        <>
-          <FolderDialog
-            mode="create"
-            open={createFolderOpen}
-            onOpenChange={setCreateFolderOpen}
-          />
-          <FolderDialog
-            mode="rename"
-            currentName={name ?? ""}
-            open={renameOpen}
-            onOpenChange={setRenameOpen}
-          />
-        </>
-      )}
-      {pveNode && vmid !== undefined && (
-        <>
-          <SnapshotDialog
-            node={pveNode}
-            vmid={vmid}
-            open={snapshotOpen}
-            onOpenChange={setSnapshotOpen}
-          />
-          <CloneDialog
-            node={pveNode}
-            vmid={vmid}
-            currentName={name ?? ""}
-            sourceItemId={nodeId}
-            open={cloneOpen}
-            onOpenChange={setCloneOpen}
-          />
-          {!isTemplate && !isFolder && (
-            <RenameDialog
-              node={pveNode}
-              vmid={vmid}
-              currentName={name ?? ""}
-              open={renameOpen}
-              onOpenChange={setRenameOpen}
-            />
-          )}
-        </>
-      )}
-      {permissionsOpen && (
-        <InventoryPermissionsDialog
-          itemId={nodeId}
-          itemKind={isFolder ? "folder" : "vm"}
-          itemName={name ?? ""}
-          open={permissionsOpen}
-          onOpenChange={setPermissionsOpen}
-        />
-      )}
     </>
   )
 }
