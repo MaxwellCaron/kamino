@@ -66,6 +66,7 @@ function AddPrincipalsContent({
         <Combobox
           multiple
           items={availablePrincipalIds}
+          itemToStringLabel={(id) => principalMap.get(id)?.label ?? id}
           value={selectedIds}
           onValueChange={setSelectedIds}
         >
