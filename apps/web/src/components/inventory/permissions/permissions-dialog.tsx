@@ -312,15 +312,12 @@ export function InventoryPermissionsDialog(
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={nestedDialogAnimationClassName}
-        showCloseButton={false}
-      >
+      <DialogContent className={nestedDialogAnimationClassName}>
         <DialogHeader>
           <DialogTitle>Permissions</DialogTitle>
           <DialogDescription>
-            Add or remove principals from this item's ACL. Once added, you can
-            edit their permissions.
+            <p>Add or remove principals from this item's ACL.</p>
+            <p>Once added, you can edit their permissions.</p>
           </DialogDescription>
         </DialogHeader>
 
