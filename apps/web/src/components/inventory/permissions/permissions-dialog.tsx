@@ -166,10 +166,9 @@ function InventoryPermissionsFormBody({
 
       <CustomizePermissionsDialog
         editingPrincipal={state.editingPrincipal}
-        onClose={() => actions.setEditingPrincipalId(null)}
-        onOpenChange={(nextOpen) =>
-          !nextOpen && actions.setEditingPrincipalId(null)
-        }
+        onClose={actions.cancelEditing}
+        onSave={actions.handleSavePermissions}
+        onOpenChange={(nextOpen) => !nextOpen && actions.cancelEditing()}
         onPermissionChange={actions.handlePermissionChange}
         permissionGroups={state.permissionGroups}
       />

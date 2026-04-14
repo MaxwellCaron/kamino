@@ -16,18 +16,16 @@ import type { DraftPrincipal, PermissionState } from "./types"
 type CustomizePermissionsDialogProps = {
   editingPrincipal: DraftPrincipal | null
   onClose: () => void
+  onSave: () => void
   onOpenChange: (open: boolean) => void
-  onPermissionChange: (
-    principalId: string,
-    bit: number,
-    state: PermissionState
-  ) => void
+  onPermissionChange: (bit: number, state: PermissionState) => void
   permissionGroups: ReturnType<typeof getInventoryPermissionDefinitionsByGroup>
 }
 
 export function CustomizePermissionsDialog({
   editingPrincipal,
   onClose,
+  onSave,
   onOpenChange,
   onPermissionChange,
   permissionGroups,
@@ -49,17 +47,21 @@ export function CustomizePermissionsDialog({
         <div className="-mx-4 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-y py-6">
           {editingPrincipal ? (
             <PermissionScopeSection
-              onPermissionChange={(bit, state) =>
-                onPermissionChange(editingPrincipal.principalId, bit, state)
-              }
+              onPermissionChange={onPermissionChange}
               permissionGroups={permissionGroups}
               principal={editingPrincipal}
             />
           ) : null}
         </div>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline">Close</Button>} />
-          <Button onClick={onClose} disabled={editingPrincipal?.immutable}>
+          <DialogClose
+            render={
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+            }
+          />
+          <Button onClick={onSave} disabled={editingPrincipal?.immutable}>
             {editingPrincipal?.immutable ? "Protected" : "Save"}
           </Button>
         </DialogFooter>

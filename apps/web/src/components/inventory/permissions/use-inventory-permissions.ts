@@ -5,7 +5,6 @@ import {
   buildPrincipalOptions,
   createDraftAcl,
   createEmptyPrincipal,
-  createEmptyScope,
   createInheritedPrincipals,
   getPrincipalSectionKey,
   hasPrincipalOverrides,
@@ -50,9 +49,10 @@ export function useInventoryPermissions({
   groups: Array<ApiPrincipal>
 }) {
   const updateAcl = useUpdateInventoryAcl()
-  const [editingPrincipalId, setEditingPrincipalId] = React.useState<
-    string | null
-  >(null)
+
+  // This state now holds the "draft" of the principal currently being edited in the nested dialog
+  const [editingPrincipal, setEditingPrincipal] =
+    React.useState<DraftPrincipal | null>(null)
 
   const form = useForm({
     defaultValues: {
@@ -203,29 +203,28 @@ export function useInventoryPermissions({
     [principalListItems, principalOptions]
   )
 
-  const editingPrincipal = React.useMemo(() => {
-    if (!editingPrincipalId) return null
+  const handleStartEditing = (principalId: string) => {
+    // 1. Check if already in draft
     const draftP = form.state.values.principals.find(
-      (p) => p.principalId === editingPrincipalId
+      (p) => p.principalId === principalId
     )
-    if (draftP) return draftP
+    if (draftP) {
+      setEditingPrincipal({ ...draftP }) // Clone to allow canceling
+      return
+    }
 
-    const option = principalMap.get(editingPrincipalId)
-    if (!option) return null
+    // 2. Otherwise create from principalMap + inherited status
+    const option = principalMap.get(principalId)
+    if (!option) return
 
     const inheritedP = inheritedPrincipals.find(
-      (p) => p.principalId === editingPrincipalId
+      (p) => p.principalId === principalId
     )
-    return {
+    setEditingPrincipal({
       ...createEmptyPrincipal(option),
       immutable: inheritedP?.immutable,
-    }
-  }, [
-    editingPrincipalId,
-    form.state.values.principals,
-    principalMap,
-    inheritedPrincipals,
-  ])
+    })
+  }
 
   const handleAddPrincipals = (selectedIds: Array<string>) => {
     const existingIds = new Set(
@@ -246,43 +245,42 @@ export function useInventoryPermissions({
       (p) => p.principalId === principalId
     )
     if (index !== -1) form.removeFieldValue("principals", index)
-    if (editingPrincipalId === principalId) setEditingPrincipalId(null)
+    if (editingPrincipal?.principalId === principalId) setEditingPrincipal(null)
   }
 
-  const handlePermissionChange = (
-    principalId: string,
-    bit: number,
-    state: PermissionState
-  ) => {
+  // Updates the BUFFER state, not the form
+  const handleLocalPermissionChange = (bit: number, state: PermissionState) => {
+    if (!editingPrincipal || editingPrincipal.immutable) return
+    setEditingPrincipal({
+      ...editingPrincipal,
+      self: setPermissionState(editingPrincipal.self, bit, state),
+    })
+  }
+
+  // Commits buffered changes to the main form
+  const handleSavePermissions = () => {
+    if (!editingPrincipal) return
+
     const index = form.state.values.principals.findIndex(
-      (p) => p.principalId === principalId
+      (p) => p.principalId === editingPrincipal.principalId
     )
 
     if (index !== -1) {
-      const p = form.state.values.principals[index]
-      if (p.immutable) return
-      form.setFieldValue(
-        `principals[${index}].self`,
-        setPermissionState(p.self, bit, state)
-      )
+      form.setFieldValue(`principals[${index}]`, editingPrincipal)
     } else {
-      const inheritedP = inheritedPrincipals.find(
-        (p) => p.principalId === principalId
-      )
-      if (inheritedP?.immutable) return
-
-      form.pushFieldValue("principals", {
-        ...createEmptyPrincipal(principalMap.get(principalId) ?? null),
-        self: setPermissionState(createEmptyScope(), bit, state),
-        immutable: inheritedP?.immutable,
-      })
+      // If it wasn't in draft yet
+      if (hasPrincipalOverrides(editingPrincipal)) {
+        form.pushFieldValue("principals", editingPrincipal)
+      }
     }
+
+    setEditingPrincipal(null)
   }
 
   return {
     state: {
       availablePrincipalIds,
-      editingPrincipal: editingPrincipal as DraftPrincipal,
+      editingPrincipal,
       hasChanges: form.state.isDirty,
       inheritedPrincipalMap: new Map(
         inheritedPrincipals.map((p) => [p.principalId, p])
@@ -297,10 +295,12 @@ export function useInventoryPermissions({
     },
     actions: {
       handleAddPrincipals,
-      handlePermissionChange,
+      handlePermissionChange: handleLocalPermissionChange,
+      handleSavePermissions,
       handleRemovePrincipal,
       handleSubmit: form.handleSubmit,
-      setEditingPrincipalId,
+      setEditingPrincipalId: handleStartEditing,
+      cancelEditing: () => setEditingPrincipal(null),
     },
   }
 }
