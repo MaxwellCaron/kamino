@@ -125,11 +125,8 @@ function AddPrincipalsContent({
 export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogTrigger
-        render={<Button variant="secondary" disabled={props.disabled} />}
-      >
+      <DialogTrigger render={<Button size="icon" disabled={props.disabled} />}>
         <IconPlus />
-        Add Principals
       </DialogTrigger>
       <DialogContent
         showCloseButton={false}
