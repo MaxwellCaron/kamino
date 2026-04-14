@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
@@ -16,6 +18,8 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -38,6 +42,7 @@ type Config struct {
 	LDAPSearchBaseDN              string `envconfig:"LDAP_SEARCH_BASE_DN"`
 	LDAPUserOU                    string `envconfig:"LDAP_USER_OU"`
 	LDAPGroupOU                   string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN              string `envconfig:"LDAP_ADMIN_GROUP_DN"`
 	LDAPInsecure                  bool   `envconfig:"LDAP_INSECURE" default:"false"`
 	InventoryBootstrapAdminGroups string `envconfig:"INVENTORY_BOOTSTRAP_ADMIN_GROUPS"`
 }
@@ -63,6 +68,94 @@ func splitCSV(value string) []string {
 		result = append(result, trimmed)
 	}
 	return result
+}
+
+func resolveBootstrapAdminGroups(
+	config *Config,
+	adClient *activedirectory.Client,
+) ([]string, error) {
+	groupNames := splitCSV(config.InventoryBootstrapAdminGroups)
+
+	if adClient == nil || strings.TrimSpace(config.LDAPAdminGroupDN) == "" {
+		return groupNames, nil
+	}
+
+	group, err := adClient.FetchGroupByDN(config.LDAPAdminGroupDN)
+	if err != nil {
+		return groupNames, fmt.Errorf(
+			"fetch admin group from LDAP_ADMIN_GROUP_DN %q: %w",
+			config.LDAPAdminGroupDN,
+			err,
+		)
+	}
+	if group == nil {
+		return groupNames, fmt.Errorf(
+			"no group found at LDAP_ADMIN_GROUP_DN %q",
+			config.LDAPAdminGroupDN,
+		)
+	}
+
+	for _, existing := range groupNames {
+		if existing == group.Name {
+			return groupNames, nil
+		}
+	}
+
+	return append(groupNames, group.Name), nil
+}
+
+func resolveProtectedInventoryACLPrincipalIDs(
+	ctx context.Context,
+	config *Config,
+	dbPool *pgxpool.Pool,
+	adClient *activedirectory.Client,
+) ([]uuid.UUID, error) {
+	if adClient == nil || strings.TrimSpace(config.LDAPAdminGroupDN) == "" {
+		return nil, nil
+	}
+
+	group, err := adClient.FetchGroupByDN(config.LDAPAdminGroupDN)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"fetch protected admin group from LDAP_ADMIN_GROUP_DN %q: %w",
+			config.LDAPAdminGroupDN,
+			err,
+		)
+	}
+	if group == nil {
+		return nil, fmt.Errorf(
+			"no group found at LDAP_ADMIN_GROUP_DN %q",
+			config.LDAPAdminGroupDN,
+		)
+	}
+	if strings.TrimSpace(group.SID) == "" {
+		return nil, fmt.Errorf(
+			"protected admin group at LDAP_ADMIN_GROUP_DN %q does not have a SID",
+			config.LDAPAdminGroupDN,
+		)
+	}
+
+	q := database.New(dbPool)
+	providerID, err := q.GetPrincipalProvider(ctx)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("load principal provider: %w", err)
+	}
+
+	principal, err := q.GetPrincipalByExternalID(ctx, database.GetPrincipalByExternalIDParams{
+		ProviderID: providerID,
+		ExternalID: group.SID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("load protected admin group principal: %w", err)
+	}
+
+	return []uuid.UUID{principal.ID}, nil
 }
 
 // init the environment
@@ -168,15 +261,37 @@ func main() {
 	}
 
 	authzService := authorization.NewService(server.DBPool)
+	bootstrapAdminGroups, err := resolveBootstrapAdminGroups(server.Config, server.ADClient)
+	if err != nil {
+		log.Printf("Inventory ACL admin group discovery failed: %v", err)
+		bootstrapAdminGroups = splitCSV(server.Config.InventoryBootstrapAdminGroups)
+	}
 	if err := authzService.BootstrapRootAccess(
 		context.Background(),
-		splitCSV(server.Config.InventoryBootstrapAdminGroups),
+		bootstrapAdminGroups,
 	); err != nil {
 		log.Printf("Inventory ACL bootstrap failed: %v", err)
 	}
+	protectedACLPrincipalIDs, err := resolveProtectedInventoryACLPrincipalIDs(
+		context.Background(),
+		server.Config,
+		server.DBPool,
+		server.ADClient,
+	)
+	if err != nil {
+		log.Printf("Inventory ACL protected group discovery failed: %v", err)
+	}
 
 	// Initialize handlers
-	inventoryService := inventory.NewService(server.DBPool, inventoryNotifier, proxmoxMirror)
+	inventoryService := inventory.NewService(
+		server.DBPool,
+		inventoryNotifier,
+		proxmoxMirror,
+		protectedACLPrincipalIDs,
+	)
+	if err := inventoryService.NormalizeInheritance(context.Background()); err != nil {
+		log.Printf("Inventory inheritance normalization failed: %v", err)
+	}
 	inventoryHandler := &handlers.InventoryHandler{
 		Service:  inventoryService,
 		Notifier: inventoryNotifier,
@@ -202,7 +317,7 @@ func main() {
 	var authService *auth.Service
 	var principalsHandler *handlers.PrincipalsHandler
 	if server.ADClient != nil {
-		authService, err := auth.NewService(server.Config.JWTSecret)
+		authService, err = auth.NewService(server.Config.JWTSecret)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -3,7 +3,7 @@
 const AUTH_REFRESH_BUFFER_MS = 60_000
 const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ??
+  import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ??
   (import.meta.env.DEV ? "http://localhost:8080" : "")
 
 let currentSession: AuthSession | null = null
@@ -81,6 +81,23 @@ export async function apiFetch(
 ): Promise<Response> {
   const retryOn401 = options?.retryOn401 ?? true
   const requestInit = { credentials: "include" as const, ...init }
+  const isProtectedRequest = retryOn401 && !isAuthEndpoint(input)
+
+  if (isProtectedRequest) {
+    try {
+      if (refreshPromise) {
+        await refreshPromise
+      } else if (currentSession !== null && isSessionExpired(currentSession)) {
+        await refreshAuth()
+      }
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        redirectToLogin()
+      }
+
+      return new Response(null, { status: 401, statusText: "Unauthorized" })
+    }
+  }
 
   const response = await fetch(apiUrl(input), requestInit)
   if (response.status !== 401 || !retryOn401 || isAuthEndpoint(input)) {
@@ -279,6 +296,41 @@ export function findTreeNode(
   return null
 }
 
+export type ApiInventoryAclEntry = {
+  id: string
+  principal_id: string
+  principal_type: "user" | "group"
+  principal_external_id: string
+  principal_name: string | null
+  effect: "allow" | "deny"
+  permissions: number
+  applies_to_self: boolean
+  applies_to_children: boolean
+  inherited_only: boolean
+  immutable: boolean
+}
+
+export type ApiInheritedInventoryAclEntry = {
+  id: string
+  source_item_id: string
+  source_item_name: string
+  principal_id: string
+  principal_type: "user" | "group"
+  principal_external_id: string
+  principal_name: string | null
+  effect: "allow" | "deny"
+  permissions: number
+  applies_to_self: boolean
+  applies_to_children: boolean
+  inherited_only: boolean
+  immutable: boolean
+}
+
+export type ApiInventoryAcl = {
+  entries: Array<ApiInventoryAclEntry>
+  inherited_entries: Array<ApiInheritedInventoryAclEntry>
+}
+
 async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
   const res = await apiFetch("/api/v1/inventory/tree")
   if (!res.ok) throw new Error(`Failed to fetch inventory: ${res.status}`)
@@ -288,6 +340,46 @@ async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
 export const inventoryTreeQueryOptions = {
   queryKey: ["inventory", "tree"] as const,
   queryFn: fetchInventoryTree,
+}
+
+export function inventoryAclQueryOptions(itemId: string) {
+  return {
+    queryKey: ["inventory", itemId, "acl"] as const,
+    queryFn: async (): Promise<ApiInventoryAcl> => {
+      const res = await apiFetch(`/api/v1/inventory/items/${itemId}/acl`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch inventory ACL: ${res.status}`)
+      }
+      return res.json()
+    },
+    enabled: !!itemId,
+  }
+}
+
+export async function updateInventoryAcl(params: {
+  itemId: string
+  entries: Array<{
+    principal_id: string
+    effect: "allow" | "deny"
+    permissions: number
+    applies_to_self: boolean
+    applies_to_children: boolean
+    inherited_only: boolean
+  }>
+}): Promise<void> {
+  const res = await apiFetch(`/api/v1/inventory/items/${params.itemId}/acl`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entries: params.entries,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to update inventory ACL: ${res.status}`
+    )
+  }
 }
 
 export async function moveInventoryItem(params: {

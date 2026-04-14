@@ -47,6 +47,16 @@ UPDATE inventory_items
 SET name = $1
 WHERE id = $2;
 
+-- name: UpdateInventoryItemInheritance :exec
+UPDATE inventory_items
+SET inherit_permissions = $1
+WHERE id = $2;
+
+-- name: NormalizeInventoryItemInheritance :execrows
+UPDATE inventory_items
+SET inherit_permissions = true
+WHERE inherit_permissions = false;
+
 -- name: GetProxmoxVMByNodeVMID :one
 SELECT pv.inventory_item_id,
        pv.cpu_count,

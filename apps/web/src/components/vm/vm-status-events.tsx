@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl, vmStatusQueryOptions } from "@/lib/queries"
+import { apiUrl, ensureAuth, vmStatusQueryOptions } from "@/lib/queries"
 
 type VmStatusEvent = {
   type: "vm.statuses.changed"
@@ -12,9 +12,8 @@ export function VmStatusEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const eventSource = new EventSource(apiUrl("/api/v1/vms/events"), {
-      withCredentials: true,
-    })
+    let eventSource: EventSource | null = null
+    let cancelled = false
 
     const handleStatusesChanged = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
@@ -22,14 +21,29 @@ export function VmStatusEvents() {
       queryClient.setQueryData(vmStatusQueryOptions.queryKey, payload.statuses)
     }
 
-    eventSource.addEventListener("vm.statuses.changed", handleStatusesChanged)
+    void ensureAuth()
+      .then(() => {
+        if (cancelled) return
+
+        eventSource = new EventSource(apiUrl("/api/v1/vms/events"), {
+          withCredentials: true,
+        })
+        eventSource.addEventListener(
+          "vm.statuses.changed",
+          handleStatusesChanged
+        )
+      })
+      .catch(() => {
+        // Route auth will handle redirect if the session cannot be refreshed.
+      })
 
     return () => {
-      eventSource.removeEventListener(
+      cancelled = true
+      eventSource?.removeEventListener(
         "vm.statuses.changed",
         handleStatusesChanged
       )
-      eventSource.close()
+      eventSource?.close()
     }
   }, [queryClient])
 

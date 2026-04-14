@@ -36,6 +36,11 @@ type authResponse struct {
 	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
 }
 
+const (
+	accessCookiePath  = "/"
+	refreshCookiePath = "/api/v1/auth"
+)
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -204,7 +209,7 @@ func setAccessCookie(c *gin.Context, accessToken string, expiresAt time.Time, se
 		auth.AccessCookieName,
 		accessToken,
 		int(time.Until(expiresAt).Seconds()),
-		"/api/v1",
+		accessCookiePath,
 		"",
 		secure,
 		true,
@@ -213,7 +218,7 @@ func setAccessCookie(c *gin.Context, accessToken string, expiresAt time.Time, se
 
 func clearAccessCookie(c *gin.Context, secure bool) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(auth.AccessCookieName, "", -1, "/api/v1", "", secure, true)
+	c.SetCookie(auth.AccessCookieName, "", -1, accessCookiePath, "", secure, true)
 }
 
 func setRefreshCookie(c *gin.Context, refreshToken string, expiresAt time.Time, secure bool) {
@@ -222,7 +227,7 @@ func setRefreshCookie(c *gin.Context, refreshToken string, expiresAt time.Time, 
 		auth.RefreshCookieName,
 		refreshToken,
 		int(time.Until(expiresAt).Seconds()),
-		"/api/v1/auth",
+		refreshCookiePath,
 		"",
 		secure,
 		true,
@@ -231,5 +236,5 @@ func setRefreshCookie(c *gin.Context, refreshToken string, expiresAt time.Time, 
 
 func clearRefreshCookie(c *gin.Context, secure bool) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(auth.RefreshCookieName, "", -1, "/api/v1/auth", "", secure, true)
+	c.SetCookie(auth.RefreshCookieName, "", -1, refreshCookiePath, "", secure, true)
 }

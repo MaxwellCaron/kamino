@@ -39,15 +39,16 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
+import { InventoryPermissionsDialog } from "./permissions-dialog/permissions-dialog"
 import { ConfirmDialog } from "./inventory-confirm-actions"
 import { RenameDialog } from "./rename-dialog"
 import { FolderDialog } from "./folder-dialog"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
 import {
+  InventoryPermissionBits,
   findTreeNode,
   hasInventoryPermission,
-  InventoryPermissionBits,
   inventoryTreeQueryOptions,
 } from "@/lib/queries"
 import { CloneDialog } from "@/components/vm/clone-dialog"
@@ -172,6 +173,7 @@ function FolderMenuItems({
   permissions,
   onCreateVm,
   onCreateFolder,
+  onManagePermissions,
   onRename,
   onDelete,
   isLoading,
@@ -179,6 +181,7 @@ function FolderMenuItems({
   permissions: ApiTreeNodePermissions
   onCreateVm: () => void
   onCreateFolder: () => void
+  onManagePermissions: () => void
   onRename: () => void
   onDelete: () => void
   isLoading?: boolean
@@ -243,7 +246,10 @@ function FolderMenuItems({
               </DropdownMenuItem>
             )}
             {canManagePermissions && (
-              <DropdownMenuItem disabled>
+              <DropdownMenuItem
+                onClick={onManagePermissions}
+                disabled={isLoading}
+              >
                 <IconLock className="text-muted-foreground" />
                 Permissions
               </DropdownMenuItem>
@@ -272,6 +278,7 @@ function VmMenuItems({
   vmid,
   name,
   onAction,
+  onManagePermissions,
   onSnapshot,
   onClone,
   onRename,
@@ -282,6 +289,7 @@ function VmMenuItems({
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
+  onManagePermissions: () => void
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
@@ -438,7 +446,11 @@ function VmMenuItems({
             canDelete) && <DropdownMenuSeparator />}
         </>
       )}
-      {(canClone || canTemplate || canSnapshot || canRename || canManagePermissions) && (
+      {(canClone ||
+        canTemplate ||
+        canSnapshot ||
+        canRename ||
+        canManagePermissions) && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
@@ -485,7 +497,10 @@ function VmMenuItems({
               </DropdownMenuItem>
             )}
             {canManagePermissions && (
-              <DropdownMenuItem disabled>
+              <DropdownMenuItem
+                onClick={onManagePermissions}
+                disabled={isLoading}
+              >
                 <IconLock className="text-muted-foreground" />
                 Permissions
               </DropdownMenuItem>
@@ -529,6 +544,7 @@ function TemplateMenuItems({
   vmid,
   name,
   onAction,
+  onManagePermissions,
   onClone,
   isLoading,
 }: {
@@ -537,6 +553,7 @@ function TemplateMenuItems({
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
+  onManagePermissions: () => void
   onClone: () => void
   isLoading?: boolean
 }) {
@@ -568,7 +585,10 @@ function TemplateMenuItems({
               </DropdownMenuItem>
             )}
             {canManagePermissions && (
-              <DropdownMenuItem disabled>
+              <DropdownMenuItem
+                onClick={onManagePermissions}
+                disabled={isLoading}
+              >
                 <IconLock className="text-muted-foreground" />
                 Permissions
               </DropdownMenuItem>
@@ -614,6 +634,7 @@ function MenuItems({
   vmid,
   name,
   onAction,
+  onManagePermissions,
   onSnapshot,
   onClone,
   onRename,
@@ -629,6 +650,7 @@ function MenuItems({
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
+  onManagePermissions: () => void
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
@@ -643,6 +665,7 @@ function MenuItems({
         permissions={permissions}
         onCreateFolder={onCreateFolder}
         onCreateVm={onCreateVm}
+        onManagePermissions={onManagePermissions}
         onRename={onRename}
         onDelete={onDeleteFolder}
         isLoading={isLoading}
@@ -656,6 +679,7 @@ function MenuItems({
         vmid={vmid}
         name={name}
         onAction={onAction}
+        onManagePermissions={onManagePermissions}
         onClone={onClone}
         isLoading={isLoading}
       />
@@ -667,6 +691,7 @@ function MenuItems({
       vmid={vmid}
       name={name}
       onAction={onAction}
+      onManagePermissions={onManagePermissions}
       onSnapshot={onSnapshot}
       onClone={onClone}
       onRename={onRename}
@@ -701,12 +726,22 @@ export function TreeNodeMenu({
   const [renameOpen, setRenameOpen] = useState(false)
   const [createVmOpen, setCreateVmOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = useState(false)
   const hasActions =
     (isFolder &&
-      (hasInventoryPermission(permissions, InventoryPermissionBits.createFolder) ||
+      (hasInventoryPermission(
+        permissions,
+        InventoryPermissionBits.createFolder
+      ) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.createVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.renameFolder) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.deleteFolder) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.renameFolder
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.deleteFolder
+        ) ||
         hasInventoryPermission(
           permissions,
           InventoryPermissionBits.managePermissions
@@ -714,10 +749,16 @@ export function TreeNodeMenu({
     (!isFolder &&
       (hasInventoryPermission(permissions, InventoryPermissionBits.powerVm) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.cloneVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.snapshotVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.snapshotVm
+        ) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.templateVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.templateVm
+        ) ||
         hasInventoryPermission(
           permissions,
           InventoryPermissionBits.managePermissions
@@ -790,6 +831,7 @@ export function TreeNodeMenu({
             vmid={vmid ?? 0}
             name={name}
             onAction={setConfirm}
+            onManagePermissions={() => setPermissionsOpen(true)}
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
             onRename={() => setRenameOpen(true)}
@@ -852,6 +894,15 @@ export function TreeNodeMenu({
           )}
         </>
       )}
+      {permissionsOpen && (
+        <InventoryPermissionsDialog
+          itemId={nodeId}
+          itemKind={isFolder ? "folder" : "vm"}
+          itemName={name ?? ""}
+          open={permissionsOpen}
+          onOpenChange={setPermissionsOpen}
+        />
+      )}
     </>
   )
 }
@@ -881,12 +932,22 @@ export function VmOptionsMenu({
   const [renameOpen, setRenameOpen] = useState(false)
   const [createVmOpen, setCreateVmOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = useState(false)
   const hasActions =
     (isFolder &&
-      (hasInventoryPermission(permissions, InventoryPermissionBits.createFolder) ||
+      (hasInventoryPermission(
+        permissions,
+        InventoryPermissionBits.createFolder
+      ) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.createVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.renameFolder) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.deleteFolder) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.renameFolder
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.deleteFolder
+        ) ||
         hasInventoryPermission(
           permissions,
           InventoryPermissionBits.managePermissions
@@ -894,10 +955,16 @@ export function VmOptionsMenu({
     (!isFolder &&
       (hasInventoryPermission(permissions, InventoryPermissionBits.powerVm) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.cloneVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.snapshotVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.snapshotVm
+        ) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.templateVm) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.templateVm
+        ) ||
         hasInventoryPermission(
           permissions,
           InventoryPermissionBits.managePermissions
@@ -924,6 +991,7 @@ export function VmOptionsMenu({
             vmid={vmid ?? 0}
             name={name}
             onAction={setConfirm}
+            onManagePermissions={() => setPermissionsOpen(true)}
             onSnapshot={() => setSnapshotOpen(true)}
             onClone={() => setCloneOpen(true)}
             onRename={() => setRenameOpen(true)}
@@ -983,6 +1051,15 @@ export function VmOptionsMenu({
             />
           )}
         </>
+      )}
+      {permissionsOpen && (
+        <InventoryPermissionsDialog
+          itemId={nodeId}
+          itemKind={isFolder ? "folder" : "vm"}
+          itemName={name ?? ""}
+          open={permissionsOpen}
+          onOpenChange={setPermissionsOpen}
+        />
       )}
     </>
   )

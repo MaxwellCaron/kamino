@@ -593,8 +593,7 @@ $$;
 --
 -- Semantics:
 --   - Applies ACEs from self and ancestors
---   - Traverses upward until first ancestor (excluding self) where
---     inherit_permissions = false, and includes that ancestor's ACEs but stops there
+--   - Always traverses the full ancestor chain to the root
 --   - Self row uses applies_to_self
 --   - Ancestor rows use applies_to_children
 --   - inherited_only = true ACEs do NOT apply on self row, only inherited descendants
@@ -620,14 +619,11 @@ AS $$
         FROM get_user_effective_principals(p_user_principal_id)
     ),
     chain AS (
-        -- Build self -> root, but stop *after including* first ancestor with inherit_permissions = false
         WITH RECURSIVE c AS (
             SELECT
                 ii.id,
                 ii.parent_id,
-                ii.inherit_permissions,
-                0::INTEGER AS depth,
-                false AS stop_after_this
+                0::INTEGER AS depth
             FROM inventory_items ii
             WHERE ii.id = p_inventory_item_id
 
@@ -636,13 +632,10 @@ AS $$
             SELECT
                 parent.id,
                 parent.parent_id,
-                parent.inherit_permissions,
-                c.depth + 1,
-                (c.depth + 1) > 0 AND parent.inherit_permissions = false
+                c.depth + 1
             FROM inventory_items parent
             JOIN c
               ON parent.id = c.parent_id
-            WHERE NOT c.stop_after_this
         )
         SELECT id, depth
         FROM c

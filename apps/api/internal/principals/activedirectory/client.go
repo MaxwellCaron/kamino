@@ -199,14 +199,75 @@ func (c *Client) FetchUsers() ([]User, error) {
 
 // FetchGroups returns all groups under the configured base DN.
 func (c *Client) FetchGroups() ([]Group, error) {
+	return c.fetchGroups(c.baseDN)
+}
+
+// FetchGroupByDN returns a single group for an exact distinguished name.
+func (c *Client) FetchGroupByDN(groupDN string) (*Group, error) {
 	conn, err := c.connect()
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
 
+	searchDN := strings.TrimSpace(groupDN)
+	if searchDN == "" {
+		return nil, fmt.Errorf("group DN is required")
+	}
+
+	result, err := conn.Search(ldap.NewSearchRequest(
+		searchDN,
+		ldap.ScopeBaseObject,
+		ldap.NeverDerefAliases, 1, 0, false,
+		"(objectClass=group)",
+		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member"},
+		nil,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("ldap search group by dn: %w", err)
+	}
+	if len(result.Entries) == 0 {
+		return nil, nil
+	}
+
+	entry := result.Entries[0]
+	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
+	if sid == "" {
+		return nil, fmt.Errorf("ad: could not decode group SID")
+	}
+
+	name := entry.GetAttributeValue("displayName")
+	if name == "" {
+		name = entry.GetAttributeValue("sAMAccountName")
+	}
+
+	return &Group{
+		DN:        entry.GetAttributeValue("distinguishedName"),
+		SID:       sid,
+		Name:      name,
+		MemberDNs: entry.GetAttributeValues("member"),
+	}, nil
+}
+
+// FetchGroupsInDN returns groups under a specific DN subtree.
+func (c *Client) FetchGroupsInDN(baseDN string) ([]Group, error) {
+	return c.fetchGroups(baseDN)
+}
+
+func (c *Client) fetchGroups(baseDN string) ([]Group, error) {
+	conn, err := c.connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	searchBase := strings.TrimSpace(baseDN)
+	if searchBase == "" {
+		searchBase = c.baseDN
+	}
+
 	result, err := conn.SearchWithPaging(ldap.NewSearchRequest(
-		c.baseDN,
+		searchBase,
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		"(objectClass=group)",

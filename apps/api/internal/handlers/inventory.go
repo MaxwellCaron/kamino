@@ -54,6 +54,41 @@ type InventoryItem struct {
 	VM                 *VMDetail          `json:"vm,omitempty"`
 }
 
+type InventoryACLEntry struct {
+	ID                  uuid.UUID `json:"id"`
+	PrincipalID         uuid.UUID `json:"principal_id"`
+	PrincipalType       string    `json:"principal_type"`
+	PrincipalExternalID string    `json:"principal_external_id"`
+	PrincipalName       *string   `json:"principal_name"`
+	Effect              string    `json:"effect"`
+	Permissions         int64     `json:"permissions"`
+	AppliesToSelf       bool      `json:"applies_to_self"`
+	AppliesToChildren   bool      `json:"applies_to_children"`
+	InheritedOnly       bool      `json:"inherited_only"`
+	Immutable           bool      `json:"immutable"`
+}
+
+type InheritedInventoryACLEntry struct {
+	ID                  uuid.UUID `json:"id"`
+	SourceItemID        uuid.UUID `json:"source_item_id"`
+	SourceItemName      string    `json:"source_item_name"`
+	PrincipalID         uuid.UUID `json:"principal_id"`
+	PrincipalType       string    `json:"principal_type"`
+	PrincipalExternalID string    `json:"principal_external_id"`
+	PrincipalName       *string   `json:"principal_name"`
+	Effect              string    `json:"effect"`
+	Permissions         int64     `json:"permissions"`
+	AppliesToSelf       bool      `json:"applies_to_self"`
+	AppliesToChildren   bool      `json:"applies_to_children"`
+	InheritedOnly       bool      `json:"inherited_only"`
+	Immutable           bool      `json:"immutable"`
+}
+
+type InventoryACL struct {
+	Entries          []InventoryACLEntry          `json:"entries"`
+	InheritedEntries []InheritedInventoryACLEntry `json:"inherited_entries"`
+}
+
 // GetTree returns the full inventory tree.
 // GET /api/v1/inventory/tree
 func (h *InventoryHandler) GetTree(c *gin.Context) {
@@ -118,6 +153,159 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, item)
+}
+
+// GetACL returns the direct ACL entries for an inventory item.
+// GET /api/v1/inventory/items/:id/acl
+func (h *InventoryHandler) GetACL(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "load inventory item ACL", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+		writeForbidden(c)
+		return
+	}
+
+	rows, err := h.Service.ListInventoryACLEntries(c.Request.Context(), id)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "list inventory ACL entries", err)
+		return
+	}
+	inheritedRows, err := h.Service.ListInheritedInventoryACLEntries(c.Request.Context(), id)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "list inherited inventory ACL entries", err)
+		return
+	}
+
+	entries := make([]InventoryACLEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, InventoryACLEntry{
+			ID:                  row.ID,
+			PrincipalID:         row.PrincipalID,
+			PrincipalType:       string(row.PrincipalType),
+			PrincipalExternalID: row.ExternalID,
+			PrincipalName:       row.Name,
+			Effect:              string(row.Effect),
+			Permissions:         row.Permissions,
+			AppliesToSelf:       row.AppliesToSelf,
+			AppliesToChildren:   row.AppliesToChildren,
+			InheritedOnly:       row.InheritedOnly,
+			Immutable:           h.Service.IsProtectedACLPrincipal(row.PrincipalID),
+		})
+	}
+	inheritedEntries := make([]InheritedInventoryACLEntry, 0, len(inheritedRows))
+	for _, row := range inheritedRows {
+		inheritedEntries = append(inheritedEntries, InheritedInventoryACLEntry{
+			ID:                  row.ID,
+			SourceItemID:        row.SourceItemID,
+			SourceItemName:      row.SourceItemName,
+			PrincipalID:         row.PrincipalID,
+			PrincipalType:       string(row.PrincipalType),
+			PrincipalExternalID: row.ExternalID,
+			PrincipalName:       row.Name,
+			Effect:              string(row.Effect),
+			Permissions:         row.Permissions,
+			AppliesToSelf:       row.AppliesToSelf,
+			AppliesToChildren:   row.AppliesToChildren,
+			InheritedOnly:       row.InheritedOnly,
+			Immutable:           h.Service.IsProtectedACLPrincipal(row.PrincipalID),
+		})
+	}
+
+	c.JSON(http.StatusOK, InventoryACL{
+		Entries:          entries,
+		InheritedEntries: inheritedEntries,
+	})
+}
+
+type inventoryACLEntryRequest struct {
+	PrincipalID       uuid.UUID `json:"principal_id" binding:"required"`
+	Effect            string    `json:"effect" binding:"required"`
+	Permissions       int64     `json:"permissions" binding:"required"`
+	AppliesToSelf     bool      `json:"applies_to_self"`
+	AppliesToChildren bool      `json:"applies_to_children"`
+	InheritedOnly     bool      `json:"inherited_only"`
+}
+
+type updateInventoryACLRequest struct {
+	Entries []inventoryACLEntryRequest `json:"entries"`
+}
+
+// UpdateACL replaces the direct ACL entries for an inventory item.
+// PUT /api/v1/inventory/items/:id/acl
+func (h *InventoryHandler) UpdateACL(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req updateInventoryACLRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to update ACL", "load inventory item ACL", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+		writeForbidden(c)
+		return
+	}
+
+	entries := make([]inventory.ACLEntryInput, 0, len(req.Entries))
+	for _, entry := range req.Entries {
+		entries = append(entries, inventory.ACLEntryInput{
+			PrincipalID:       entry.PrincipalID,
+			Effect:            database.InventoryAceEffect(entry.Effect),
+			Permissions:       entry.Permissions,
+			AppliesToSelf:     entry.AppliesToSelf,
+			AppliesToChildren: entry.AppliesToChildren,
+			InheritedOnly:     entry.InheritedOnly,
+		})
+	}
+
+	if err := h.Service.ReplaceInventoryACL(
+		c.Request.Context(),
+		id,
+		entries,
+	); err != nil {
+		writeInventoryACLError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type moveInventoryItemRequest struct {
@@ -477,5 +665,17 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)
+	}
+}
+
+func writeInventoryACLError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, inventory.ErrInventoryItemNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.Is(err, inventory.ErrInventoryPrincipalNotFound),
+		errors.Is(err, inventory.ErrInventoryInvalidACL):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+	default:
+		writeLoggedError(c, http.StatusInternalServerError, "inventory ACL update failed", "inventory ACL mutation", err)
 	}
 }

@@ -3,9 +3,11 @@ import type { ApiTreeNode } from "@/lib/queries"
 import {
   createFolder,
   deleteFolder,
+  inventoryAclQueryOptions,
   inventoryTreeQueryOptions,
   moveInventoryItem,
   renameFolder,
+  updateInventoryAcl,
 } from "@/lib/queries"
 import { sortInventoryTree } from "@/lib/inventory-tree"
 
@@ -174,6 +176,24 @@ export function useDeleteFolder() {
       await queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
+    },
+  })
+}
+
+export function useUpdateInventoryAcl() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateInventoryAcl,
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: inventoryTreeQueryOptions.queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: inventoryAclQueryOptions(variables.itemId).queryKey,
+        }),
+      ])
     },
   })
 }
