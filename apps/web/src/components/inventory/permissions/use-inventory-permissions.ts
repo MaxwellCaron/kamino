@@ -1,5 +1,5 @@
 import React from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 import {
   buildPrincipalOptions,
@@ -9,348 +9,244 @@ import {
   createInheritedPrincipals,
   getPrincipalSectionKey,
   hasPrincipalOverrides,
-  normalizeDraftAcl,
-  serializeDraftAcl,
+  normalizeScope,
   setPermissionState,
 } from "./acl-transformers"
 import type {
-  DraftAcl,
+  DraftPrincipal,
   PermissionState,
   PrincipalListItem,
   PrincipalListSectionKey,
   PrincipalOption,
 } from "./types"
-import type { ApiTreeNode } from "@/lib/queries"
+import type { ApiInventoryAcl, ApiPrincipal, ApiTreeNode } from "@/lib/queries"
 import { useUpdateInventoryAcl } from "@/hooks/use-inventory-actions"
 import { getInventoryPermissionDefinitionsByGroup } from "@/lib/inventory-permissions"
-import {
-  groupsQueryOptions,
-  inventoryAclQueryOptions,
-  usersQueryOptions,
-} from "@/lib/queries"
+
+type AclEntry = {
+  applies_to_children: boolean
+  applies_to_self: boolean
+  effect: "allow" | "deny"
+  inherited_only: boolean
+  permissions: number
+  principal_id: string
+}
 
 export function useInventoryPermissions({
   itemId,
   itemKind,
   itemName,
   onOpenChange,
-  open,
+  aclData,
+  users,
+  groups,
 }: {
   itemId: string
   itemKind: ApiTreeNode["kind"]
   itemName: string
   onOpenChange: (open: boolean) => void
-  open: boolean
+  aclData: ApiInventoryAcl
+  users: Array<ApiPrincipal>
+  groups: Array<ApiPrincipal>
 }) {
-  const aclQuery = useQuery({
-    ...inventoryAclQueryOptions(itemId),
-    enabled: open && !!itemId,
-  })
-  const usersQuery = useQuery({
-    ...usersQueryOptions,
-    enabled: open,
-  })
-  const groupsQuery = useQuery({
-    ...groupsQueryOptions,
-    enabled: open,
-  })
   const updateAcl = useUpdateInventoryAcl()
-
-  const [draft, setDraft] = React.useState<DraftAcl | null>(null)
-  const [initialSnapshot, setInitialSnapshot] = React.useState("")
   const [editingPrincipalId, setEditingPrincipalId] = React.useState<
     string | null
   >(null)
 
-  // Reset state when dialog opens/closes or itemId changes
-  React.useEffect(() => {
-    if (!open) {
-      setDraft(null)
-      setInitialSnapshot("")
-      setEditingPrincipalId(null)
-    }
-  }, [itemId, open])
+  const form = useForm({
+    defaultValues: {
+      principals: createDraftAcl(aclData).principals,
+    },
+    onSubmit: async ({ value }) => {
+      const entries: Array<AclEntry> = []
 
-  // Initialize draft from query data
-  React.useEffect(() => {
-    if (!open || !aclQuery.data || draft !== null) return
+      for (const principal of value.principals) {
+        const scope = normalizeScope(principal.self)
+        if (scope.allowMask > 0) {
+          entries.push({
+            principal_id: principal.principalId,
+            effect: "allow",
+            permissions: scope.allowMask,
+            applies_to_self: true,
+            applies_to_children: itemKind === "folder",
+            inherited_only: false,
+          })
+        }
+        if (scope.denyMask > 0) {
+          entries.push({
+            principal_id: principal.principalId,
+            effect: "deny",
+            permissions: scope.denyMask,
+            applies_to_self: true,
+            applies_to_children: itemKind === "folder",
+            inherited_only: false,
+          })
+        }
+      }
 
-    const nextDraft = createDraftAcl(aclQuery.data)
-    setDraft(nextDraft)
-    setInitialSnapshot(serializeDraftAcl(nextDraft))
-  }, [aclQuery.data, draft, open])
+      try {
+        await updateAcl.mutateAsync({ itemId, entries })
+        toast.success(`Permissions updated for ${itemName}`)
+        onOpenChange(false)
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to update permissions"
+        )
+      }
+    },
+  })
 
   const principalOptions = React.useMemo(
-    () => buildPrincipalOptions(usersQuery.data ?? [], groupsQuery.data ?? []),
-    [groupsQuery.data, usersQuery.data]
+    () => buildPrincipalOptions(users, groups),
+    [users, groups]
   )
 
   const inheritedPrincipals = React.useMemo(
-    () => createInheritedPrincipals(aclQuery.data?.inherited_entries ?? []),
-    [aclQuery.data?.inherited_entries]
-  )
-
-  const inheritedPrincipalMap = React.useMemo(
-    () =>
-      new Map(
-        inheritedPrincipals.map((principal) => [
-          principal.principalId,
-          principal,
-        ])
-      ),
-    [inheritedPrincipals]
-  )
-
-  const draftPrincipalMap = React.useMemo(
-    () =>
-      new Map(
-        (draft?.principals ?? []).map((principal) => [
-          principal.principalId,
-          principal,
-        ])
-      ),
-    [draft?.principals]
+    () => createInheritedPrincipals(aclData.inherited_entries),
+    [aclData.inherited_entries]
   )
 
   const principalMap = React.useMemo(() => {
     const map = new Map<string, PrincipalOption>()
+    principalOptions.forEach((o) => map.set(o.id, o))
 
-    for (const option of principalOptions) {
-      map.set(option.id, option)
-    }
-
-    for (const principal of draft?.principals ?? []) {
-      if (!map.has(principal.principalId)) {
-        map.set(principal.principalId, {
-          id: principal.principalId,
-          type: principal.principalType ?? "user",
-          label:
-            principal.principalName ??
-            principal.principalExternalId ??
-            principal.principalId,
-          description: principal.principalExternalId ?? principal.principalId,
+    const addToMap = (p: {
+      principalId: string
+      principalType?: "group" | "user"
+      principalName?: string | null
+      principalExternalId?: string
+    }) => {
+      if (!map.has(p.principalId)) {
+        map.set(p.principalId, {
+          id: p.principalId,
+          type: p.principalType ?? "user",
+          label: p.principalName ?? p.principalExternalId ?? p.principalId,
+          description: p.principalExternalId ?? p.principalId,
         })
       }
     }
 
-    for (const principal of inheritedPrincipals) {
-      if (!map.has(principal.principalId)) {
-        map.set(principal.principalId, {
-          id: principal.principalId,
-          type: principal.principalType ?? "user",
-          label:
-            principal.principalName ??
-            principal.principalExternalId ??
-            principal.principalId,
-          description: principal.principalExternalId ?? principal.principalId,
-        })
-      }
-    }
-
+    form.state.values.principals.forEach(addToMap)
+    inheritedPrincipals.forEach(addToMap)
     return map
-  }, [draft?.principals, inheritedPrincipals, principalOptions])
+  }, [form.state.values.principals, inheritedPrincipals, principalOptions])
 
   const principalListItems = React.useMemo(() => {
-    const inheritedIds = new Set(
-      inheritedPrincipals.map((principal) => principal.principalId)
-    )
-    const ids = new Set([...draftPrincipalMap.keys(), ...inheritedIds])
+    const inheritedIds = new Set(inheritedPrincipals.map((p) => p.principalId))
+    const draftPrincipals = form.state.values.principals
+    const draftMap = new Map(draftPrincipals.map((p) => [p.principalId, p]))
+    const allIds = new Set([...draftMap.keys(), ...inheritedIds])
 
-    return [...ids]
-      .map((principalId): PrincipalListItem => {
-        const draftPrincipal = draftPrincipalMap.get(principalId)
-        const inheritedPrincipal = inheritedPrincipalMap.get(principalId)
-        const principalType =
-          draftPrincipal?.principalType ??
-          inheritedPrincipal?.principalType ??
-          principalMap.get(principalId)?.type
+    return [...allIds]
+      .map((id): PrincipalListItem => {
+        const draftP = draftMap.get(id)
+        const inheritedP = inheritedPrincipals.find((p) => p.principalId === id)
+        const type =
+          draftP?.principalType ??
+          inheritedP?.principalType ??
+          principalMap.get(id)?.type
 
         return {
-          principalId,
-          principalType,
-          label: principalMap.get(principalId)?.label ?? principalId,
-          hasDraftEntry: draftPrincipalMap.has(principalId),
-          hasOverrides: hasPrincipalOverrides(
-            draftPrincipal ?? {
-              principalType,
-              immutable: inheritedPrincipal?.immutable,
-              principalName:
-                principalMap.get(principalId)?.label ??
-                inheritedPrincipal?.principalName,
-              principalExternalId:
-                principalMap.get(principalId)?.description ??
-                inheritedPrincipal?.principalExternalId,
-              principalId,
-              self: createEmptyScope(),
-            }
-          ),
-          hasInheritedPermissions: inheritedIds.has(principalId),
-          immutable:
-            draftPrincipal?.immutable ?? inheritedPrincipal?.immutable ?? false,
+          principalId: id,
+          principalType: type,
+          label: principalMap.get(id)?.label ?? id,
+          hasDraftEntry: !!draftP,
+          hasOverrides: draftP ? hasPrincipalOverrides(draftP) : false,
+          hasInheritedPermissions: inheritedIds.has(id),
+          immutable: draftP?.immutable ?? inheritedP?.immutable ?? false,
           section: getPrincipalSectionKey({
-            hasInheritedPermissions: inheritedIds.has(principalId),
+            hasInheritedPermissions: inheritedIds.has(id),
             principalType:
-              principalType === "user" || principalType === "group"
-                ? principalType
-                : undefined,
+              type === "user" || type === "group" ? type : undefined,
           }),
         }
       })
-      .sort((left, right) => {
-        const sectionOrder: Record<PrincipalListSectionKey, number> = {
+      .sort((a, b) => {
+        const order: Record<PrincipalListSectionKey, number> = {
           "inherited-groups": 0,
           "inherited-users": 1,
           groups: 2,
           users: 3,
         }
-        if (sectionOrder[left.section] !== sectionOrder[right.section]) {
-          return sectionOrder[left.section] - sectionOrder[right.section]
-        }
-
-        const leftLabel =
-          principalMap.get(left.principalId)?.label ?? left.principalId
-        const rightLabel =
-          principalMap.get(right.principalId)?.label ?? right.principalId
-
-        return leftLabel.localeCompare(rightLabel, undefined, {
+        if (order[a.section] !== order[b.section])
+          return order[a.section] - order[b.section]
+        return a.label.localeCompare(b.label, undefined, {
           sensitivity: "base",
         })
       })
-  }, [
-    draftPrincipalMap,
-    inheritedPrincipalMap,
-    inheritedPrincipals,
-    principalMap,
-  ])
+  }, [form.state.values.principals, inheritedPrincipals, principalMap])
 
   const principalSections = React.useMemo(
     () =>
-      [
-        {
-          key: "inherited-groups" as const,
-          label: "Inherited Groups",
-          items: principalListItems.filter(
-            (item) => item.section === "inherited-groups"
-          ),
-        },
-        {
-          key: "inherited-users" as const,
-          label: "Inherited Users",
-          items: principalListItems.filter(
-            (item) => item.section === "inherited-users"
-          ),
-        },
-        {
-          key: "groups" as const,
-          label: "Groups",
-          items: principalListItems.filter((item) => item.section === "groups"),
-        },
-        {
-          key: "users" as const,
-          label: "Users",
-          items: principalListItems.filter((item) => item.section === "users"),
-        },
-      ].filter((section) => section.items.length > 0),
+      (["inherited-groups", "inherited-users", "groups", "users"] as const)
+        .map((key) => ({
+          key,
+          label: key
+            .replace(/-/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase()),
+          items: principalListItems.filter((item) => item.section === key),
+        }))
+        .filter((s) => s.items.length > 0),
     [principalListItems]
   )
 
-  const availablePrincipalIds = React.useMemo(() => {
-    const currentIds = new Set(
-      principalListItems.map((item) => item.principalId)
-    )
-
-    return principalOptions
-      .filter((principal) => !currentIds.has(principal.id))
-      .map((principal) => principal.id)
-  }, [principalListItems, principalOptions])
+  const availablePrincipalIds = React.useMemo(
+    () =>
+      principalOptions
+        .filter(
+          (p) => !principalListItems.some((item) => item.principalId === p.id)
+        )
+        .map((p) => p.id),
+    [principalListItems, principalOptions]
+  )
 
   const editingPrincipal = React.useMemo(() => {
     if (!editingPrincipalId) return null
+    const draftP = form.state.values.principals.find(
+      (p) => p.principalId === editingPrincipalId
+    )
+    if (draftP) return draftP
 
-    const draftPrincipal =
-      draft?.principals.find(
-        (principal) => principal.principalId === editingPrincipalId
-      ) ?? null
-    if (draftPrincipal) return draftPrincipal
+    const option = principalMap.get(editingPrincipalId)
+    if (!option) return null
 
-    const principal = principalMap.get(editingPrincipalId)
-    const inheritedPrincipal = inheritedPrincipalMap.get(editingPrincipalId)
-
+    const inheritedP = inheritedPrincipals.find(
+      (p) => p.principalId === editingPrincipalId
+    )
     return {
-      immutable: inheritedPrincipal?.immutable,
-      principalId: editingPrincipalId,
-      principalType: principal?.type ?? inheritedPrincipal?.principalType,
-      principalName:
-        principal?.label ?? inheritedPrincipal?.principalName ?? null,
-      principalExternalId:
-        principal?.description ?? inheritedPrincipal?.principalExternalId,
-      self: createEmptyScope(),
+      ...createEmptyPrincipal(option),
+      immutable: inheritedP?.immutable,
     }
   }, [
-    draft?.principals,
     editingPrincipalId,
-    inheritedPrincipalMap,
+    form.state.values.principals,
     principalMap,
+    inheritedPrincipals,
   ])
 
-  const permissionGroups = React.useMemo(
-    () => getInventoryPermissionDefinitionsByGroup(itemKind),
-    [itemKind]
-  )
-
-  const hasChanges = React.useMemo(
-    () => serializeDraftAcl(draft) !== initialSnapshot,
-    [draft, initialSnapshot]
-  )
-
-  const loading =
-    open &&
-    (aclQuery.isLoading ||
-      usersQuery.isLoading ||
-      groupsQuery.isLoading ||
-      draft === null)
-
-  const loadError =
-    aclQuery.error ?? usersQuery.error ?? groupsQuery.error ?? null
-
-  const handleAddPrincipals = (selectedPrincipalIds: Array<string>) => {
-    if (!draft) return
-
-    setDraft((current) => {
-      if (!current) return current
-
-      const existingIds = new Set(
-        current.principals.map((principal) => principal.principalId)
-      )
-
-      const nextPrincipals = selectedPrincipalIds
-        .filter((principalId) => !existingIds.has(principalId))
-        .map((principalId) =>
-          createEmptyPrincipal(principalMap.get(principalId) ?? null)
+  const handleAddPrincipals = (selectedIds: Array<string>) => {
+    const existingIds = new Set(
+      form.state.values.principals.map((p) => p.principalId)
+    )
+    selectedIds
+      .filter((id) => !existingIds.has(id))
+      .forEach((id) => {
+        form.pushFieldValue(
+          "principals",
+          createEmptyPrincipal(principalMap.get(id) ?? null)
         )
-
-      return {
-        ...current,
-        principals: [...current.principals, ...nextPrincipals],
-      }
-    })
+      })
   }
 
   const handleRemovePrincipal = (principalId: string) => {
-    setDraft((current) => {
-      if (!current) return current
-
-      return {
-        ...current,
-        principals: current.principals.filter(
-          (principal) => principal.principalId !== principalId
-        ),
-      }
-    })
-
-    if (editingPrincipalId === principalId) {
-      setEditingPrincipalId(null)
-    }
+    const index = form.state.values.principals.findIndex(
+      (p) => p.principalId === principalId
+    )
+    if (index !== -1) form.removeFieldValue("principals", index)
+    if (editingPrincipalId === principalId) setEditingPrincipalId(null)
   }
 
   const handlePermissionChange = (
@@ -358,111 +254,43 @@ export function useInventoryPermissions({
     bit: number,
     state: PermissionState
   ) => {
-    setDraft((current) => {
-      if (!current) return current
-      if (
-        current.principals.find((p) => p.principalId === principalId)
-          ?.immutable ??
-        inheritedPrincipalMap.get(principalId)?.immutable
-      ) {
-        return current
-      }
+    const index = form.state.values.principals.findIndex(
+      (p) => p.principalId === principalId
+    )
 
-      const existingIndex = current.principals.findIndex(
+    if (index !== -1) {
+      const p = form.state.values.principals[index]
+      if (p.immutable) return
+      form.setFieldValue(
+        `principals[${index}].self`,
+        setPermissionState(p.self, bit, state)
+      )
+    } else {
+      const inheritedP = inheritedPrincipals.find(
         (p) => p.principalId === principalId
       )
-      const nextPrincipals = current.principals.map((p) => {
-        if (p.principalId !== principalId) return p
+      if (inheritedP?.immutable) return
 
-        return {
-          ...p,
-          self: setPermissionState(p.self, bit, state),
-        }
+      form.pushFieldValue("principals", {
+        ...createEmptyPrincipal(principalMap.get(principalId) ?? null),
+        self: setPermissionState(createEmptyScope(), bit, state),
+        immutable: inheritedP?.immutable,
       })
-
-      if (existingIndex === -1) {
-        const inheritedPrincipal = inheritedPrincipalMap.get(principalId)
-        const principal = principalMap.get(principalId)
-
-        nextPrincipals.push({
-          immutable: inheritedPrincipal?.immutable,
-          principalId,
-          principalType: principal?.type ?? inheritedPrincipal?.principalType,
-          principalName:
-            principal?.label ?? inheritedPrincipal?.principalName ?? null,
-          principalExternalId:
-            principal?.description ?? inheritedPrincipal?.principalExternalId,
-          self: setPermissionState(createEmptyScope(), bit, state),
-        })
-      }
-
-      return {
-        ...current,
-        principals: nextPrincipals.filter(hasPrincipalOverrides),
-      }
-    })
-  }
-
-  const handleSubmit = async () => {
-    const normalizedDraft = normalizeDraftAcl(draft)
-    if (!normalizedDraft) return
-
-    const entries: Array<{
-      applies_to_children: boolean
-      applies_to_self: boolean
-      effect: "allow" | "deny"
-      inherited_only: boolean
-      permissions: number
-      principal_id: string
-    }> = []
-
-    for (const principal of normalizedDraft.principals) {
-      if (principal.self.allowMask > 0) {
-        entries.push({
-          principal_id: principal.principalId,
-          effect: "allow",
-          permissions: principal.self.allowMask,
-          applies_to_self: true,
-          applies_to_children: itemKind === "folder",
-          inherited_only: false,
-        })
-      }
-
-      if (principal.self.denyMask > 0) {
-        entries.push({
-          principal_id: principal.principalId,
-          effect: "deny",
-          permissions: principal.self.denyMask,
-          applies_to_self: true,
-          applies_to_children: itemKind === "folder",
-          inherited_only: false,
-        })
-      }
-    }
-
-    try {
-      await updateAcl.mutateAsync({
-        itemId,
-        entries,
-      })
-      toast.success(`Permissions updated for ${itemName}`)
-      onOpenChange(false)
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update permissions"
-      )
     }
   }
 
   return {
     state: {
       availablePrincipalIds,
-      editingPrincipal,
-      hasChanges,
-      inheritedPrincipalMap,
-      loadError,
-      loading,
-      permissionGroups,
+      editingPrincipal: editingPrincipal as DraftPrincipal,
+      hasChanges: form.state.isDirty,
+      inheritedPrincipalMap: new Map(
+        inheritedPrincipals.map((p) => [p.principalId, p])
+      ),
+      permissionGroups: React.useMemo(
+        () => getInventoryPermissionDefinitionsByGroup(itemKind),
+        [itemKind]
+      ),
       principalMap,
       principalSections,
       isSaving: updateAcl.isPending,
@@ -471,7 +299,7 @@ export function useInventoryPermissions({
       handleAddPrincipals,
       handlePermissionChange,
       handleRemovePrincipal,
-      handleSubmit,
+      handleSubmit: form.handleSubmit,
       setEditingPrincipalId,
     },
   }

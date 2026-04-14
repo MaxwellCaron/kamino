@@ -45,27 +45,87 @@ type AddPrincipalsDialogProps = {
   principalMap: Map<string, PrincipalOption>
 }
 
-export function AddPrincipalsDialog({
+function AddPrincipalsContent({
   availablePrincipalIds,
-  disabled,
   onAdd,
-  open,
-  onOpenChange,
   principalMap,
-}: AddPrincipalsDialogProps) {
+}: Omit<AddPrincipalsDialogProps, "open" | "onOpenChange">) {
   const addAnchor = useComboboxAnchor()
   const [selectedIds, setSelectedIds] = React.useState<Array<string>>([])
 
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedIds([])
-    }
-  }, [open])
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <React.Fragment>
+      <DialogHeader>
+        <DialogTitle>Add Principals</DialogTitle>
+        <DialogDescription>
+          Select one or more users or groups to configure permissions for this
+          item.
+        </DialogDescription>
+      </DialogHeader>
+      <Field>
+        <Combobox
+          multiple
+          items={availablePrincipalIds}
+          value={selectedIds}
+          onValueChange={setSelectedIds}
+        >
+          <ComboboxChips ref={addAnchor} className="w-full">
+            <ComboboxValue>
+              {(values: Array<string>) => (
+                <React.Fragment>
+                  {values.map((id) => (
+                    <ComboboxChip key={id}>
+                      {principalMap.get(id)?.label}
+                    </ComboboxChip>
+                  ))}
+                  <ComboboxChipsInput placeholder="Search principals..." />
+                </React.Fragment>
+              )}
+            </ComboboxValue>
+          </ComboboxChips>
+          <ComboboxContent anchor={addAnchor}>
+            <ComboboxEmpty>No principals found.</ComboboxEmpty>
+            <ComboboxList>
+              {(id) => {
+                const principal = principalMap.get(id as string)
+                if (!principal) return null
+                return (
+                  <ComboboxItem key={principal.id} value={principal.id}>
+                    <Item size="xs" className="p-0">
+                      <ItemContent>
+                        <ItemTitle className="whitespace-nowrap">
+                          {principal.label}
+                        </ItemTitle>
+                        <ItemDescription>
+                          {principalTypeLabels[principal.type]}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  </ComboboxItem>
+                )
+              }}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </Field>
+      <DialogFooter>
+        <DialogClose render={<Button variant="outline">Close</Button>} />
+        <Button
+          onClick={() => onAdd(selectedIds)}
+          disabled={selectedIds.length === 0}
+        >
+          Add
+        </Button>
+      </DialogFooter>
+    </React.Fragment>
+  )
+}
+
+export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogTrigger
-        render={<Button variant="secondary" disabled={disabled} />}
+        render={<Button variant="secondary" disabled={props.disabled} />}
       >
         <IconPlus />
         Add Principals
@@ -75,73 +135,7 @@ export function AddPrincipalsDialog({
         showOverlay={false}
         className={nestedDialogAnimationClassName}
       >
-        <DialogHeader>
-          <DialogTitle>Add Principals</DialogTitle>
-          <DialogDescription>
-            Select one or more users or groups to configure permissions for this
-            item.
-          </DialogDescription>
-        </DialogHeader>
-        <Field>
-          <Combobox
-            multiple
-            items={availablePrincipalIds}
-            value={selectedIds}
-            onValueChange={(value) => setSelectedIds(value)}
-          >
-            <ComboboxChips ref={addAnchor} className="w-full">
-              <ComboboxValue>
-                {(values: Array<string>) => (
-                  <React.Fragment>
-                    {values.map((principalId) => {
-                      const principal = principalMap.get(principalId)
-
-                      return (
-                        <ComboboxChip key={principalId}>
-                          {principal?.label}
-                        </ComboboxChip>
-                      )
-                    })}
-                    <ComboboxChipsInput placeholder="Search principals..." />
-                  </React.Fragment>
-                )}
-              </ComboboxValue>
-            </ComboboxChips>
-            <ComboboxContent anchor={addAnchor}>
-              <ComboboxEmpty>No principals found.</ComboboxEmpty>
-              <ComboboxList>
-                {(principalId) => {
-                  const principal = principalMap.get(principalId as string)
-                  if (!principal) return null
-
-                  return (
-                    <ComboboxItem key={principal.id} value={principal.id}>
-                      <Item size="xs" className="p-0">
-                        <ItemContent>
-                          <ItemTitle className="whitespace-nowrap">
-                            {principal.label}
-                          </ItemTitle>
-                          <ItemDescription>
-                            {principalTypeLabels[principal.type]}
-                          </ItemDescription>
-                        </ItemContent>
-                      </Item>
-                    </ComboboxItem>
-                  )
-                }}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
-        </Field>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline">Close</Button>} />
-          <Button
-            onClick={() => onAdd(selectedIds)}
-            disabled={selectedIds.length === 0}
-          >
-            Add
-          </Button>
-        </DialogFooter>
+        {props.open && <AddPrincipalsContent {...props} />}
       </DialogContent>
     </Dialog>
   )
