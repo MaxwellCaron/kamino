@@ -315,10 +315,14 @@ export function InventoryPermissionsDialog(
       <DialogContent className={nestedDialogAnimationClassName}>
         <DialogHeader>
           <DialogTitle>Permissions</DialogTitle>
-          <DialogDescription>
-            <p>Add or remove principals from this item's ACL.</p>
-            <p>Once added, you can edit their permissions.</p>
-          </DialogDescription>
+          <DialogDescription
+            render={
+              <div>
+                <p>Add or remove principals from this item's ACL.</p>
+                <p>Once added, you can edit their permissions.</p>
+              </div>
+            }
+          ></DialogDescription>
         </DialogHeader>
 
         {loadError ? (
