@@ -18,6 +18,26 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 
+const TREE_INTERACTIVE_SELECTOR = [
+  "button",
+  "a[href]",
+  "input",
+  "select",
+  "textarea",
+  "[role='button']",
+  "[role='link']",
+  "[role='menuitem']",
+  "[contenteditable='true']",
+].join(", ")
+
+function isInteractiveTreeChild(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+
+  // React events from portals still bubble through the component tree, so this
+  // check cannot rely on DOM containment alone.
+  return target.closest(TREE_INTERACTIVE_SELECTOR) !== null
+}
+
 type TreeContextType = {
   expandedIds: Set<string>
   selectedIds: Array<string>
@@ -334,6 +354,8 @@ export const TreeNodeTrigger = ({
       )}
       onClick={(e) => {
         if (draggedId) return
+        if (isInteractiveTreeChild(e.target)) return
+
         toggleExpanded(nodeId)
         if (!isDroppableNode) {
           handleSelection(nodeId, e.ctrlKey || e.metaKey)

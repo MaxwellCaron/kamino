@@ -816,7 +816,6 @@ export function TreeNodeMenu({
               variant="ghost"
               size="icon-xs"
               className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
-              onClick={(e) => e.stopPropagation()}
             >
               <IconDots />
             </Button>
