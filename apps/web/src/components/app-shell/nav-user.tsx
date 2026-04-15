@@ -5,10 +5,8 @@ import {
   IconDotsVertical,
   IconLogout,
   IconNotification,
-  IconUser,
   IconUserCircle,
 } from "@tabler/icons-react"
-import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +22,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { logout } from "@/lib/queries"
 
 export function NavUser({
@@ -52,11 +51,7 @@ export function NavUser({
               <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
             }
           >
-            <Avatar className="size-8 rounded-lg grayscale">
-              <AvatarFallback className="rounded-lg">
-                <IconUser />
-              </AvatarFallback>
-            </Avatar>
+            <FacehashIcon name={user.username} />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user.username}</span>
             </div>
@@ -71,11 +66,7 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar className="size-8">
-                    <AvatarFallback className="rounded-lg">
-                      <IconUser className="size-4" />
-                    </AvatarFallback>
-                  </Avatar>
+                  <FacehashIcon name={user.username} size={32} />
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">
                       {user.username}
