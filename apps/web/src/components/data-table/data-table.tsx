@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { IconX } from "@tabler/icons-react"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import {
   flexRender,
@@ -169,14 +170,18 @@ export function DataTable<TData, TValue>({
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
               {isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    Loading...
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 3 }, (_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="pl-6">
+                      <Skeleton className="size-5 rounded" />
+                    </TableCell>
+                    {columns.slice(1).map((__, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-6 w-3/4 rounded" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
               ) : table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow
