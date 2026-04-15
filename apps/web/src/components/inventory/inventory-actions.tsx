@@ -35,7 +35,6 @@ import {
 } from "@workspace/ui/components/item"
 import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
-import { useTree, useTreeNode } from "@workspace/ui/components/tree"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
@@ -87,6 +86,39 @@ function formatVmIdentifier(name: string | undefined, vmid: number): string {
   const trimmedName = name?.trim()
 
   return trimmedName ? `"${trimmedName}" (${vmid})` : `${vmid}`
+}
+
+const FOLDER_ACTION_PERMISSIONS = [
+  InventoryPermissionBits.createFolder,
+  InventoryPermissionBits.createVm,
+  InventoryPermissionBits.renameFolder,
+  InventoryPermissionBits.deleteFolder,
+  InventoryPermissionBits.managePermissions,
+]
+
+const VM_ACTION_PERMISSIONS = [
+  InventoryPermissionBits.powerVm,
+  InventoryPermissionBits.cloneVm,
+  InventoryPermissionBits.snapshotVm,
+  InventoryPermissionBits.renameVm,
+  InventoryPermissionBits.deleteVm,
+  InventoryPermissionBits.templateVm,
+  InventoryPermissionBits.managePermissions,
+]
+
+function hasAnyPermission(
+  permissions: ApiTreeNodePermissions,
+  requiredPermissions: Array<number>
+) {
+  return requiredPermissions.some((permission) =>
+    hasInventoryPermission(permissions, permission)
+  )
+}
+
+function hasNodeActions(data: ApiTreeNode) {
+  return data.kind === "folder"
+    ? hasAnyPermission(data.permissions, FOLDER_ACTION_PERMISSIONS)
+    : hasAnyPermission(data.permissions, VM_ACTION_PERMISSIONS)
 }
 
 export function FolderDeletionDescription({
@@ -693,26 +725,18 @@ export function MenuItems({
   )
 }
 
-export function TreeNodeMenu({
-  permissions,
-  isFolder,
-  isTemplate,
-  vmid,
-  pveNode,
-  name,
+export function InventoryNodeMenu({
+  itemId,
+  data,
+  className,
 }: {
-  permissions: ApiTreeNodePermissions
-  isFolder: boolean
-  isTemplate?: boolean
-  vmid?: number
-  pveNode?: string
-  name?: string
+  itemId: string
+  data: ApiTreeNode
+  className?: string
 }) {
-  const { selectNode } = useTree()
-  const { nodeId } = useTreeNode()
   const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
-  const deleteFolder = useDeleteFolder()
+  const deleteFolderMutation = useDeleteFolder()
   const {
     openConfirm,
     openCreateFolder,
@@ -723,51 +747,19 @@ export function TreeNodeMenu({
     openRenameVm,
     openPermissions,
   } = useInventoryDialogs()
-  const hasActions =
-    (isFolder &&
-      (hasInventoryPermission(
-        permissions,
-        InventoryPermissionBits.createFolder
-      ) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.createVm) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.renameFolder
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.deleteFolder
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.managePermissions
-        ))) ||
-    (!isFolder &&
-      (hasInventoryPermission(permissions, InventoryPermissionBits.powerVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.cloneVm) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.snapshotVm
-        ) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.templateVm
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.managePermissions
-        )))
 
-  if (!hasActions) return null
+  const isFolder = data.kind === "folder"
+  const isTemplate = data.vm?.is_template
+
+  if (!hasNodeActions(data)) return null
 
   function handleDeleteFolder() {
     const tree =
       queryClient.getQueryData<Array<ApiTreeNode>>(
         inventoryTreeQueryOptions.queryKey
       ) ?? []
-    const folder = findTreeNode(tree, nodeId)
+
+    const folder = findTreeNode(tree, itemId)
 
     if (!folder || folder.kind !== "folder") {
       toast.error("Failed to load folder details.")
@@ -777,10 +769,10 @@ export function TreeNodeMenu({
     const summary = summarizeFolderDeletion(folder)
 
     openConfirm({
-      title: `Delete folder "${folder.name}"?`,
+      title: `Delete folder "${data.name}"?`,
       description: (
         <FolderDeletionDescription
-          folderName={folder.name}
+          folderName={data.name}
           folderCount={summary.folderCount}
           vmCount={summary.vmCount}
           templateCount={summary.templateCount}
@@ -793,8 +785,8 @@ export function TreeNodeMenu({
       variant: "destructive",
       onConfirm: async () => {
         try {
-          await deleteFolder.mutateAsync({ id: nodeId })
-          toast.success(`Folder "${folder.name}" deleted`)
+          await deleteFolderMutation.mutateAsync({ id: itemId })
+          toast.success(`Folder "${data.name}" deleted`)
         } catch (error) {
           toast.error(formatMutationError(error, "Failed to delete folder"))
           throw error
@@ -804,75 +796,71 @@ export function TreeNodeMenu({
   }
 
   return (
-    <>
-      <DropdownMenu onOpenChange={(open) => open && selectNode(nodeId)}>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
-            >
-              <IconDots />
-            </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className={className}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <IconDots />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align={isMobile ? "end" : "start"}>
+        <MenuItems
+          permissions={data.permissions}
+          isFolder={isFolder}
+          isTemplate={isTemplate}
+          node={data.vm?.node ?? ""}
+          vmid={data.vm?.vmid ?? 0}
+          name={data.name}
+          onAction={openConfirm}
+          onManagePermissions={() =>
+            openPermissions({
+              itemId,
+              itemKind: isFolder ? "folder" : "vm",
+              itemName: data.name,
+            })
           }
-        />
-        <DropdownMenuContent align={isMobile ? "end" : "start"}>
-          <MenuItems
-            permissions={permissions}
-            isFolder={isFolder}
-            isTemplate={isTemplate}
-            node={pveNode ?? ""}
-            vmid={vmid ?? 0}
-            name={name}
-            onAction={openConfirm}
-            onManagePermissions={() =>
-              openPermissions({
-                itemId: nodeId,
-                itemKind: isFolder ? "folder" : "vm",
-                itemName: name ?? "",
+          onSnapshot={() => {
+            if (!data.vm?.node) return
+
+            openSnapshot({ node: data.vm.node, vmid: data.vm.vmid })
+          }}
+          onClone={() => {
+            if (!data.vm?.node) return
+
+            openClone({
+              node: data.vm.node,
+              vmid: data.vm.vmid,
+              currentName: data.name,
+              sourceItemId: itemId,
+            })
+          }}
+          onRename={() => {
+            if (isFolder) {
+              openRenameFolder({ folderId: itemId, currentName: data.name })
+              return
+            }
+
+            if (!isTemplate && data.vm?.node) {
+              openRenameVm({
+                node: data.vm.node,
+                vmid: data.vm.vmid,
+                currentName: data.name,
               })
             }
-            onSnapshot={() => {
-              if (!pveNode || vmid === undefined) return
-
-              openSnapshot({ node: pveNode, vmid })
-            }}
-            onClone={() => {
-              if (!pveNode || vmid === undefined) return
-
-              openClone({
-                node: pveNode,
-                vmid,
-                currentName: name ?? "",
-                sourceItemId: nodeId,
-              })
-            }}
-            onRename={() => {
-              if (isFolder) {
-                openRenameFolder({
-                  folderId: nodeId,
-                  currentName: name ?? "",
-                })
-                return
-              }
-
-              if (!isTemplate && pveNode && vmid !== undefined) {
-                openRenameVm({
-                  node: pveNode,
-                  vmid,
-                  currentName: name ?? "",
-                })
-              }
-            }}
-            onCreateVm={() => openCreateVm({ initialFolderId: nodeId })}
-            onCreateFolder={() => openCreateFolder({ parentId: nodeId })}
-            onDeleteFolder={handleDeleteFolder}
-            isLoading={false}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+          }}
+          onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
+          onCreateFolder={() => openCreateFolder({ parentId: itemId })}
+          onDeleteFolder={handleDeleteFolder}
+          isLoading={false}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

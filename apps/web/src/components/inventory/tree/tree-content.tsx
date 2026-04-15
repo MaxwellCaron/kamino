@@ -5,8 +5,8 @@ import {
   TreeItem,
   TreeItemLabel,
 } from "@workspace/ui/components/reui/tree"
+import { InventoryNodeMenu } from "../inventory-actions"
 import { TREE_INDENT } from "./constants"
-import { InventoryTreeNodeMenu } from "./node-menu"
 import { VmIcon } from "./vm-icon"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "@/lib/queries"
@@ -27,7 +27,7 @@ export function InventoryTreeContent({
         const id = item.getId()
 
         return (
-          <TreeItem key={id} item={item} className="group/row">
+          <TreeItem key={id} item={item} className="group/row" render={<div />}>
             <TreeItemLabel
               className="w-full bg-sidebar group-has-[button[data-popup-open]]/row:bg-muted"
               style={data.kind === "vm" ? VM_LABEL_STYLE : undefined}
@@ -45,7 +45,11 @@ export function InventoryTreeContent({
                 />
               )}
               <span className="ml-1">{item.getItemName()}</span>
-              <InventoryTreeNodeMenu itemId={id} data={data} />
+              <InventoryNodeMenu
+                itemId={id}
+                data={data}
+                className="ml-auto opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
+              />
             </TreeItemLabel>
           </TreeItem>
         )
