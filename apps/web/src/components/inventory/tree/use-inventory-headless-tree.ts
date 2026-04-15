@@ -40,8 +40,6 @@ export function useInventoryHeadlessTree({
       target: DragTarget<ApiTreeNode>
     ) => {
       const draggedItem = draggedItems[0]
-      if (!draggedItem) return
-
       const draggedId = draggedItem.getId()
       const targetParentId = target.item.getId()
 
