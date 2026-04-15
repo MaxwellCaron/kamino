@@ -29,7 +29,7 @@ export function InventoryTree() {
   )
   const resultCount = query ? countLeaves(filteredApiTree) : null
 
-  const { items, children, folderIds } = useMemo(
+  const { items, children } = useMemo(
     () => flattenApiTree(filteredApiTree),
     [filteredApiTree]
   )
@@ -73,8 +73,6 @@ export function InventoryTree() {
   const tree = useInventoryHeadlessTree({
     activeItemId,
     children,
-    folderIds,
-    isSearching: query.length > 0,
     items,
     onMove: handleMove,
     onPrimaryAction: handlePrimaryAction,

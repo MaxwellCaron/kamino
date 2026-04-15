@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import {
   dragAndDropFeature,
+  expandAllFeature,
   selectionFeature,
   syncDataLoaderFeature,
 } from "@headless-tree/core"
@@ -13,8 +14,6 @@ import type { ApiTreeNode } from "@/lib/queries"
 interface UseInventoryHeadlessTreeOptions {
   activeItemId?: string
   children: Map<string, Array<string>>
-  folderIds: Array<string>
-  isSearching: boolean
   items: Map<string, ApiTreeNode>
   onMove: (itemId: string, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
@@ -23,8 +22,6 @@ interface UseInventoryHeadlessTreeOptions {
 export function useInventoryHeadlessTree({
   activeItemId,
   children,
-  folderIds,
-  isSearching,
   items,
   onMove,
   onPrimaryAction,
@@ -63,7 +60,12 @@ export function useInventoryHeadlessTree({
       getItem: (itemId) => itemsRef.current.get(itemId) ?? VIRTUAL_ROOT,
       getChildren: (itemId) => childrenRef.current.get(itemId) ?? [],
     },
-    features: [syncDataLoaderFeature, selectionFeature, dragAndDropFeature],
+    features: [
+      syncDataLoaderFeature,
+      selectionFeature,
+      dragAndDropFeature,
+      expandAllFeature,
+    ],
     indent: TREE_INDENT,
     canReorder: false,
     canDrop: (_items, target) => {
@@ -81,9 +83,8 @@ export function useInventoryHeadlessTree({
       const data = item.getItemData()
       onPrimaryAction(item.getId(), data)
     },
-    state: {
+    initialState: {
       selectedItems: activeItemId ? [activeItemId] : [],
-      ...(isSearching ? { expandedItems: folderIds } : {}),
     },
   })
 
@@ -93,6 +94,7 @@ export function useInventoryHeadlessTree({
     if (key !== flatKeyRef.current) {
       flatKeyRef.current = key
       tree.rebuildTree()
+      tree.expandAll()
     }
   }, [children, tree])
 

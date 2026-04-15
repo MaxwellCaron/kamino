@@ -33,6 +33,7 @@ export function flattenApiTree(roots: Array<ApiTreeNode>): FlatTree {
     VIRTUAL_ROOT.id,
     roots.map((root) => root.id)
   )
+  folderIds.push(VIRTUAL_ROOT.id)
 
   return { items, children, folderIds }
 }
