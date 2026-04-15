@@ -48,7 +48,7 @@ export function InventoryTreeContent({
               <InventoryNodeMenu
                 itemId={id}
                 data={data}
-                className="ml-auto opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
+                className="ml-auto bg-transparent! opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
               />
             </TreeItemLabel>
           </TreeItem>
