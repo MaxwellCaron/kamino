@@ -29,7 +29,7 @@ export function InventoryTree() {
   )
   const resultCount = query ? countLeaves(filteredApiTree) : null
 
-  const { items, children } = useMemo(
+  const { items, children, folderIds } = useMemo(
     () => flattenApiTree(filteredApiTree),
     [filteredApiTree]
   )
@@ -74,6 +74,7 @@ export function InventoryTree() {
     activeItemId,
     children,
     items,
+    folderIds,
     onMove: handleMove,
     onPrimaryAction: handlePrimaryAction,
   })

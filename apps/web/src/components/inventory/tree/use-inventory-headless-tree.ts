@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   dragAndDropFeature,
   expandAllFeature,
@@ -15,14 +15,18 @@ interface UseInventoryHeadlessTreeOptions {
   activeItemId?: string
   children: Map<string, Array<string>>
   items: Map<string, ApiTreeNode>
+  folderIds: Array<string>
   onMove: (itemId: string, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
 }
+
+const STORAGE_KEY = "kamino-inventory-expanded"
 
 export function useInventoryHeadlessTree({
   activeItemId,
   children,
   items,
+  folderIds,
   onMove,
   onPrimaryAction,
 }: UseInventoryHeadlessTreeOptions) {
@@ -30,6 +34,38 @@ export function useInventoryHeadlessTree({
   const childrenRef = useRef(children)
   itemsRef.current = items
   childrenRef.current = children
+
+  const [expandedItems, setExpandedItems] = useState<Array<string>>(() => {
+    if (typeof window === "undefined") return []
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return folderIds
+      }
+    }
+    return folderIds
+  })
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved && folderIds.length > 0) {
+      setExpandedItems(folderIds)
+    }
+  }, [folderIds])
+
+  const handleExpandedChange = useCallback(
+    (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
+      setExpandedItems((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+        return next
+      })
+    },
+    []
+  )
 
   const handleDrop = useCallback(
     (
@@ -83,8 +119,12 @@ export function useInventoryHeadlessTree({
       const data = item.getItemData()
       onPrimaryAction(item.getId(), data)
     },
-    initialState: {
+    state: {
+      expandedItems,
       selectedItems: activeItemId ? [activeItemId] : [],
+    },
+    setExpandedItems: (updater) => {
+      handleExpandedChange(updater)
     },
   })
 
@@ -94,7 +134,6 @@ export function useInventoryHeadlessTree({
     if (key !== flatKeyRef.current) {
       flatKeyRef.current = key
       tree.rebuildTree()
-      tree.expandAll()
     }
   }, [children, tree])
 
