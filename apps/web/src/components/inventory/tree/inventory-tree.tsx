@@ -9,6 +9,7 @@ import { buildVmIdMap, countLeaves, filterTree, flattenApiTree } from "./utils"
 import type { ApiTreeNode } from "@/lib/queries"
 import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
 import { useMoveInventoryItem } from "@/hooks/use-inventory-actions"
+import { LoadingTransition } from "@/components/loading-transition"
 
 export function InventoryTree() {
   const navigate = useNavigate()
@@ -79,19 +80,13 @@ export function InventoryTree() {
     onPrimaryAction: handlePrimaryAction,
   })
 
-  if (isLoading) {
-    return (
-      <div className="px-4 py-2 text-sm text-muted-foreground">Loading...</div>
-    )
-  }
-
   if (error) {
     return (
       <div className="px-4 py-2 text-sm text-destructive">{error.message}</div>
     )
   }
 
-  if (apiTree.length === 0) {
+  if (!isLoading && apiTree.length === 0) {
     return (
       <div className="px-4 py-2 text-sm text-muted-foreground">
         No inventory items
@@ -100,13 +95,20 @@ export function InventoryTree() {
   }
 
   return (
-    <>
+    <LoadingTransition
+      isLoading={isLoading}
+      fallback={
+        <div className="px-4 py-2 text-sm text-muted-foreground">
+          Loading...
+        </div>
+      }
+    >
       <InventoryTreeSearch
         query={query}
         resultCount={resultCount}
         setQuery={setQuery}
       />
       <InventoryTreeContent tree={tree} getStatus={getStatus} />
-    </>
+    </LoadingTransition>
   )
 }

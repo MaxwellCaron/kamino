@@ -2,8 +2,6 @@ import { AnimatePresence, motion } from "motion/react"
 import { useRef } from "react"
 import type { ReactNode } from "react"
 
-const transition = { duration: 0.33, ease: "easeInOut" } as const
-
 type LoadingTransitionProps = {
   isLoading: boolean
   fallback: ReactNode
@@ -22,18 +20,30 @@ export function LoadingTransition({
 
   return (
     <AnimatePresence mode="wait">
-      <motion.div
-        key={isLoading ? "loading" : "loaded"}
-        initial={hasBeenLoading.current ? { opacity: 0 } : false}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={transition}
-        className={className}
-      >
-        {isLoading ? fallback : children}
-      </motion.div>
+      {isLoading ? (
+        <motion.div
+          key="loading"
+          initial={false}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className={className}
+        >
+          {fallback}
+        </motion.div>
+      ) : (
+        <motion.div
+          key="loaded"
+          initial={hasBeenLoading.current ? { opacity: 0, y: 4 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className={className}
+        >
+          {children}
+        </motion.div>
+      )}
     </AnimatePresence>
   )
 }
 
-export { transition as loadingTransition }
+export const loadingTransition = { duration: 0.25, ease: "easeOut" } as const
