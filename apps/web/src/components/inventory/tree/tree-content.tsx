@@ -11,8 +11,6 @@ import { VmIcon } from "./vm-icon"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "@/lib/queries"
 
-const VM_LABEL_STYLE = { paddingInlineStart: "1rem" } as const
-
 export function InventoryTreeContent({
   getStatus,
   tree,
@@ -28,10 +26,7 @@ export function InventoryTreeContent({
 
         return (
           <TreeItem key={id} item={item} className="group/row" render={<div />}>
-            <TreeItemLabel
-              className="w-full bg-sidebar group-has-[button[data-popup-open]]/row:bg-muted"
-              style={data.kind === "vm" ? VM_LABEL_STYLE : undefined}
-            >
+            <TreeItemLabel className="w-full bg-sidebar group-has-[button[data-popup-open]]/row:bg-muted">
               {data.kind === "folder" ? (
                 item.isExpanded() ? (
                   <IconFolderOpen className="size-4 text-muted-foreground" />
