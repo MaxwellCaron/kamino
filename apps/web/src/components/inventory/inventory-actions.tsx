@@ -89,7 +89,7 @@ function formatVmIdentifier(name: string | undefined, vmid: number): string {
   return trimmedName ? `"${trimmedName}" (${vmid})` : `${vmid}`
 }
 
-function FolderDeletionDescription({
+export function FolderDeletionDescription({
   folderCount,
   vmCount,
   templateCount,
@@ -619,7 +619,7 @@ function TemplateMenuItems({
   )
 }
 
-function MenuItems({
+export function MenuItems({
   permissions,
   isFolder,
   isTemplate,
