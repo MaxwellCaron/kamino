@@ -32,7 +32,7 @@ export function NavUser({
     username: string
   }
 }) {
-  const { isMobile } = useSidebar()
+  const { isMobile, state } = useSidebar()
   const queryClient = useQueryClient()
   const router = useRouter()
   const logoutMutation = useMutation({
@@ -50,15 +50,23 @@ export function NavUser({
             render={
               <SidebarMenuButton
                 size="lg"
-                className="bg-muted/50 aria-expanded:bg-muted"
+                className={
+                  state === "collapsed"
+                    ? "rounded-md"
+                    : "bg-muted/50 aria-expanded:bg-muted"
+                }
               />
             }
           >
-            <FacehashIcon name={user.username} />
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{user.username}</span>
-            </div>
-            <IconDotsVertical className="ml-auto size-4" />
+            <FacehashIcon name={user.username} size={40} />
+            {state !== "collapsed" && (
+              <>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{user.username}</span>
+                </div>
+                <IconDotsVertical className="ml-auto size-4" />
+              </>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="min-w-56"

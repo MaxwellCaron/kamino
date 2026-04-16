@@ -101,7 +101,7 @@ export function AppSidebar({
           <InventoryTreeBody />
         </SidebarContent>
       </InventoryTreeProvider>
-      <SidebarFooter>
+      <SidebarFooter className="group-data-[collapsible=icon]:mt-auto">
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
