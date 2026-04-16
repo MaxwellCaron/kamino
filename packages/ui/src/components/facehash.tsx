@@ -13,7 +13,7 @@ export function FacehashIcon({
       size={size}
       colors={["#FFB81C"]}
       enableBlink
-      className="rotate-y-180 rounded-md **:text-background"
+      className="rotate-y-180 rounded-md text-foreground dark:**:text-background"
     />
   )
 }

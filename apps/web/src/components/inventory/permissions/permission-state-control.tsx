@@ -38,7 +38,7 @@ export function PermissionStateControl({
       <ToggleGroupItem
         value="allow"
         aria-label="Allow"
-        className="text-green-400! dark:text-green-600!"
+        className="text-green-600!"
       >
         <IconCheck className="size-4" />
       </ToggleGroupItem>

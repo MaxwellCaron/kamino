@@ -48,7 +48,10 @@ export function NavUser({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+              <SidebarMenuButton
+                size="lg"
+                className="bg-muted/50 aria-expanded:bg-muted"
+              />
             }
           >
             <FacehashIcon name={user.username} />
