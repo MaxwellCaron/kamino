@@ -85,7 +85,7 @@ export function SnapshotsTable({
         </CardAction>
       </CardHeader>
       <CardContent className="border-b px-0">
-        <Table className="table-fixed">
+        <Table className="min-w-180 table-fixed">
           <TableHeader className="bg-muted hover:bg-muted">
             <TableRow>
               <TableHead className="w-[20%] pl-6">Name</TableHead>
