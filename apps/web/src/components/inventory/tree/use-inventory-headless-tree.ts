@@ -137,5 +137,13 @@ export function useInventoryHeadlessTree({
     }
   }, [children, tree])
 
-  return tree
+  const expandAll = useCallback(() => {
+    handleExpandedChange(folderIds)
+  }, [folderIds, handleExpandedChange])
+
+  const collapseAll = useCallback(() => {
+    handleExpandedChange([])
+  }, [handleExpandedChange])
+
+  return { tree, expandAll, collapseAll }
 }

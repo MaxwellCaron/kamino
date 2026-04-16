@@ -2,6 +2,13 @@ import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
+import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import { InventoryTreeContent } from "./tree-content"
 import { InventoryTreeSearch } from "./tree-search"
 import { useInventoryHeadlessTree } from "./use-inventory-headless-tree"
@@ -71,7 +78,7 @@ export function InventoryTree() {
     [navigate]
   )
 
-  const tree = useInventoryHeadlessTree({
+  const { tree, expandAll, collapseAll } = useInventoryHeadlessTree({
     activeItemId,
     children,
     items,
@@ -95,20 +102,58 @@ export function InventoryTree() {
   }
 
   return (
-    <LoadingTransition
-      isLoading={isLoading}
-      fallback={
-        <div className="px-4 py-2 text-sm text-muted-foreground">
-          Loading...
-        </div>
-      }
-    >
-      <InventoryTreeSearch
-        query={query}
-        resultCount={resultCount}
-        setQuery={setQuery}
-      />
-      <InventoryTreeContent tree={tree} getStatus={getStatus} />
-    </LoadingTransition>
+    <>
+      <div className="absolute top-3 right-3 flex">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                onClick={expandAll}
+                disabled={isLoading}
+              >
+                <IconChevronDown />
+              </Button>
+            }
+          />
+          <TooltipContent>
+            <p>Expand all</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                onClick={collapseAll}
+                disabled={isLoading}
+              >
+                <IconChevronUp />
+              </Button>
+            }
+          />
+          <TooltipContent>
+            <p>Collapse all</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <LoadingTransition
+        isLoading={isLoading}
+        fallback={
+          <div className="px-4 py-2 text-sm text-muted-foreground">
+            Loading...
+          </div>
+        }
+      >
+        <InventoryTreeSearch
+          query={query}
+          resultCount={resultCount}
+          setQuery={setQuery}
+        />
+        <InventoryTreeContent tree={tree} getStatus={getStatus} />
+      </LoadingTransition>
+    </>
   )
 }
