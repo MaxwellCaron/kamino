@@ -42,7 +42,7 @@ export function NavUser({
     },
   })
   return (
-    <SidebarMenu>
+    <SidebarMenu className="items-center">
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -53,7 +53,7 @@ export function NavUser({
               />
             }
           >
-            <FacehashIcon name={user.username} size={40} />
+            <FacehashIcon name={user.username} />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="min-w-56"
