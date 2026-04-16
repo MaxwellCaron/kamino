@@ -29,9 +29,9 @@ export function InventoryTreeContent({
             <TreeItemLabel className="w-full bg-sidebar group-has-[button[data-popup-open]]/row:bg-muted">
               {data.kind === "folder" ? (
                 item.isExpanded() ? (
-                  <IconFolderOpen className="size-4 text-muted-foreground" />
+                  <IconFolderOpen className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
                 ) : (
-                  <IconFolder className="size-4 text-muted-foreground" />
+                  <IconFolder className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
                 )
               ) : (
                 <VmIcon

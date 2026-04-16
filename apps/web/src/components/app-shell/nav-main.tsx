@@ -22,7 +22,10 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton render={<Link to={item.url} />}>
+              <SidebarMenuButton
+                render={<Link to={item.url} />}
+                className="rounded-3xl"
+              >
                 {item.icon}
                 <span>{item.title}</span>
               </SidebarMenuButton>

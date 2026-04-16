@@ -218,7 +218,7 @@ export function SnapshotsTable({
                             })
                           }
                         >
-                          <IconTrash className="size-4" />
+                          <IconTrash className="size-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>

@@ -3,10 +3,7 @@ import { Link } from "@tanstack/react-router"
 
 import {
   IconDashboard,
-  IconHelp,
   IconNetwork,
-  IconSearch,
-  IconSettings,
   IconUser,
   IconUsersGroup,
 } from "@tabler/icons-react"
@@ -35,39 +32,22 @@ const data = {
     {
       title: "Dashboard",
       url: "/",
-      icon: <IconDashboard />,
+      icon: <IconDashboard className="text-muted-foreground" />,
     },
     {
       title: "SDN",
       url: "/sdn",
-      icon: <IconNetwork />,
+      icon: <IconNetwork className="text-muted-foreground" />,
     },
     {
       title: "Users",
       url: "/users",
-      icon: <IconUser />,
+      icon: <IconUser className="text-muted-foreground" />,
     },
     {
       title: "Groups",
       url: "/groups",
-      icon: <IconUsersGroup />,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: <IconSettings />,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: <IconHelp />,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: <IconSearch />,
+      icon: <IconUsersGroup className="text-muted-foreground" />,
     },
   ],
 }
