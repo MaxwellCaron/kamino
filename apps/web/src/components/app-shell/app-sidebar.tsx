@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Link } from "@tanstack/react-router"
+import { Link, useRouterState } from "@tanstack/react-router"
 
 import {
   IconDashboard,
@@ -12,14 +12,15 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
+import { cn } from "@workspace/ui/lib/utils"
 
 import { NavUser } from "./nav-user"
-import { NavMain } from "./nav-main"
 import type { AuthUser } from "@/lib/queries"
 import {
   InventoryTreeBody,
@@ -27,63 +28,97 @@ import {
   InventoryTreeProvider,
 } from "@/components/inventory/tree/inventory-tree"
 
-const data = {
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/",
-      icon: <IconDashboard className="text-muted-foreground" />,
-    },
-    {
-      title: "SDN",
-      url: "/sdn",
-      icon: <IconNetwork className="text-muted-foreground" />,
-    },
-    {
-      title: "Users",
-      url: "/users",
-      icon: <IconUser className="text-muted-foreground" />,
-    },
-    {
-      title: "Groups",
-      url: "/groups",
-      icon: <IconUsersGroup className="text-muted-foreground" />,
-    },
-  ],
+const navItems = [
+  { title: "Dashboard", url: "/", icon: IconDashboard },
+  { title: "SDN", url: "/sdn", icon: IconNetwork },
+  { title: "Users", url: "/users", icon: IconUser },
+  { title: "Groups", url: "/groups", icon: IconUsersGroup },
+] as const
+
+function isActivePath(pathname: string, url: string) {
+  if (url === "/") return pathname === "/"
+  return pathname === url || pathname.startsWith(url + "/")
 }
+
 export function AppSidebar({
   user,
+  className,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: AuthUser
 }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<Link to="/" />}
-            >
-              <img src="/kamino.svg" alt="Kamino" className="size-5!" />
-              <span className="text-base font-semibold">Kamino</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <NavMain items={data.navMain} />
-      <InventoryTreeProvider>
-        <SidebarGroup className="rounded-3xl border-b group-data-[collapsible=icon]:hidden">
-          <InventoryTreeHeader />
-        </SidebarGroup>
-        <SidebarContent className="group-data-[collapsible=icon]:hidden">
-          <InventoryTreeBody />
+    <Sidebar
+      collapsible="icon"
+      className={cn(
+        "overflow-hidden *:data-[sidebar=sidebar]:flex-row",
+        className
+      )}
+      {...props}
+    >
+      {/* Icon rail */}
+      <Sidebar
+        collapsible="none"
+        className="w-[calc(var(--sidebar-width-icon)+8px)]! border-r group-data-[state=collapsed]:border-r-0"
+      >
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                className="justify-center md:size-8 md:p-0"
+                tooltip={{ children: "Kamino", hidden: false }}
+                render={<Link to="/" />}
+              >
+                <img src="/kamino.svg" alt="Kamino" className="size-5!" />
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent className="px-1.5 md:px-0">
+              <SidebarMenu>
+                {navItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        tooltip={{ children: item.title, hidden: false }}
+                        isActive={isActivePath(pathname, item.url)}
+                        className="size-8 justify-center p-2"
+                        render={<Link to={item.url} />}
+                      >
+                        <Icon />
+                        <span className="sr-only">{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </SidebarContent>
-      </InventoryTreeProvider>
-      <SidebarFooter className="group-data-[collapsible=icon]:mt-auto">
-        <NavUser user={user} />
-      </SidebarFooter>
+        <SidebarFooter>
+          <NavUser user={user} />
+        </SidebarFooter>
+      </Sidebar>
+
+      {/* Inventory panel */}
+      <Sidebar collapsible="none" className="hidden flex-1 md:flex">
+        <InventoryTreeProvider>
+          <SidebarHeader className="px-1 py-0">
+            <SidebarGroup className="rounded-3xl">
+              <InventoryTreeHeader />
+            </SidebarGroup>
+          </SidebarHeader>
+          <SidebarContent>
+            <InventoryTreeBody />
+          </SidebarContent>
+        </InventoryTreeProvider>
+      </Sidebar>
     </Sidebar>
   )
 }

@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import {
   IconCreditCard,
-  IconDotsVertical,
   IconLogout,
   IconNotification,
   IconUserCircle,
@@ -32,7 +31,7 @@ export function NavUser({
     username: string
   }
 }) {
-  const { isMobile, state } = useSidebar()
+  const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
   const router = useRouter()
   const logoutMutation = useMutation({
@@ -50,23 +49,11 @@ export function NavUser({
             render={
               <SidebarMenuButton
                 size="lg"
-                className={
-                  state === "collapsed"
-                    ? "rounded-md"
-                    : "bg-muted/50 aria-expanded:bg-muted"
-                }
+                className="size-8 justify-center rounded-md p-0!"
               />
             }
           >
             <FacehashIcon name={user.username} size={40} />
-            {state !== "collapsed" && (
-              <>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.username}</span>
-                </div>
-                <IconDotsVertical className="ml-auto size-4" />
-              </>
-            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="min-w-56"
