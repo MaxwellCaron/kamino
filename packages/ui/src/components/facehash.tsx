@@ -11,7 +11,7 @@ export function FacehashIcon({
     <Facehash
       name={name}
       size={size}
-      colors={["#2c975a", "#dfa145"]}
+      colors={["#FFB81C"]}
       enableBlink
       className="rotate-y-180 rounded-md **:text-background"
     />
