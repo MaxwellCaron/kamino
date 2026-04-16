@@ -4,7 +4,7 @@ import {
   IconPlugConnected,
   IconPlugConnectedX,
   IconPower,
-  IconTerminal,
+  IconTerminal2,
   IconX,
 } from "@tabler/icons-react"
 
@@ -179,7 +179,7 @@ export function VncConsole({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconTerminal className="size-5" />
+          <IconTerminal2 className="size-5 text-muted-foreground" />
           Console
         </CardTitle>
         <CardDescription>

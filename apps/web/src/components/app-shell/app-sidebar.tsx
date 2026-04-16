@@ -7,7 +7,7 @@ import {
   IconNetwork,
   IconSearch,
   IconSettings,
-  IconUsers,
+  IconUser,
   IconUsersGroup,
 } from "@tabler/icons-react"
 import {
@@ -40,7 +40,7 @@ const data = {
     {
       title: "Users",
       url: "/users",
-      icon: <IconUsers />,
+      icon: <IconUser />,
     },
     {
       title: "Groups",

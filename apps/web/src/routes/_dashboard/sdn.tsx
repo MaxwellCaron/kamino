@@ -32,12 +32,11 @@ function getVNetLabel(vnet: ApiVNet) {
 
 function SdnPage() {
   const { data: vnets, isLoading, error } = useQuery(vnetsQueryOptions)
-
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiVNet>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-
   const queryClient = useQueryClient()
+
   const deleteMutation = useMutation({
     mutationFn: deleteVNet,
     onSuccess: (result) => {
@@ -89,7 +88,7 @@ function SdnPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconNetwork className="size-7" />
+              <IconNetwork className="size-7 text-muted-foreground" />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 VNets
               </h1>

@@ -108,9 +108,9 @@ export function VmHeader({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {isTemplate ? (
-            <IconTemplate className="size-8" />
+            <IconTemplate className="size-7 text-muted-foreground" />
           ) : (
-            <IconDeviceImac className="size-8" />
+            <IconDeviceImac className="size-7 text-muted-foreground" />
           )}
           <LoadingTransition
             isLoading={isLoading}

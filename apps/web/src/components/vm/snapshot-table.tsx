@@ -64,7 +64,7 @@ export function SnapshotsTable({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconCamera className="size-6" />
+          <IconCamera className="size-5 text-muted-foreground" />
           Snapshots
         </CardTitle>
         <CardDescription>Point in time snapshots of the VM.</CardDescription>

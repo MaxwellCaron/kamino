@@ -42,7 +42,6 @@ function GroupsPage() {
   const editDialog = useItemDialogState<ApiPrincipal>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
-
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
@@ -110,7 +109,7 @@ function GroupsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconUsersGroup className="size-7" />
+              <IconUsersGroup className="size-7 text-muted-foreground" />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Groups
               </h1>

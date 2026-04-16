@@ -6,7 +6,7 @@ import {
   IconPlus,
   IconRefresh,
   IconTrash,
-  IconUsers,
+  IconUser,
   IconUsersMinus,
   IconUsersPlus,
 } from "@tabler/icons-react"
@@ -53,7 +53,6 @@ function UsersPage() {
   }>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
-
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
@@ -119,7 +118,7 @@ function UsersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconUsers className="size-7" />
+              <IconUser className="size-7 text-muted-foreground" />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Users
               </h1>

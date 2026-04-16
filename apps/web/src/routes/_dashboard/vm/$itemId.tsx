@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/components/vm/vnc-console"
 import {
+  InventoryPermissionBits,
   findTreeNode,
   hasInventoryPermission,
-  InventoryPermissionBits,
   inventoryTreeQueryOptions,
   vmStatusQueryOptions,
 } from "@/lib/queries"
@@ -17,10 +17,8 @@ export const Route = createFileRoute("/_dashboard/vm/$itemId")({
 
 function VmPage() {
   const { itemId } = Route.useParams()
-
   const { data: tree, isLoading } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
-
   const node = tree ? findTreeNode(tree, itemId) : null
 
   if (!isLoading && !node) {
