@@ -14,16 +14,21 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { NavDocuments } from "./nav-inventory"
+
 import { NavUser } from "./nav-user"
 import { NavMain } from "./nav-main"
-import { NavSecondary } from "./nav-secondary"
 import type { AuthUser } from "@/lib/queries"
+import {
+  InventoryTreeBody,
+  InventoryTreeHeader,
+  InventoryTreeProvider,
+} from "@/components/inventory/tree/inventory-tree"
 
 const data = {
   navMain: [
@@ -68,11 +73,9 @@ const data = {
 }
 export function AppSidebar({
   user,
-  inventoryTree,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: AuthUser
-  inventoryTree?: React.ReactNode
 }) {
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -89,11 +92,15 @@ export function AppSidebar({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments>{inventoryTree}</NavDocuments>
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
-      </SidebarContent>
+      <NavMain items={data.navMain} />
+      <InventoryTreeProvider>
+        <SidebarGroup className="rounded-3xl border-b group-data-[collapsible=icon]:hidden">
+          <InventoryTreeHeader />
+        </SidebarGroup>
+        <SidebarContent className="group-data-[collapsible=icon]:hidden">
+          <InventoryTreeBody />
+        </SidebarContent>
+      </InventoryTreeProvider>
       <SidebarFooter>
         <NavUser user={user} />
       </SidebarFooter>
