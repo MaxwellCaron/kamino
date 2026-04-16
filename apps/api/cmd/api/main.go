@@ -27,23 +27,23 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port                          string `envconfig:"PORT" default:":8080"`
-	FrontendURL                   string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL                   string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL                    string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID                string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret            string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure               bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes                  string `envconfig:"PROXMOX_NODES" required:"true"`
-	JWTSecret                     string `envconfig:"JWT_SECRET" required:"true"`
-	LDAPUrl                       string `envconfig:"LDAP_URL"`
-	LDAPBindDN                    string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword              string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN              string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU                    string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU                   string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN              string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure                  bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	Port               string `envconfig:"PORT" default:":8080"`
+	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
+	LDAPUrl            string `envconfig:"LDAP_URL"`
+	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN   string `envconfig:"LDAP_ADMIN_GROUP_DN"`
+	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
 }
 
 // Server holds all application dependencies
@@ -69,10 +69,10 @@ func splitCSV(value string) []string {
 	return result
 }
 
-func resolveBootstrapAdminGroups(
+func resolveConfiguredAdminGroup(
 	config *Config,
 	adClient *activedirectory.Client,
-) ([]string, error) {
+) (*activedirectory.Group, error) {
 	if adClient == nil || strings.TrimSpace(config.LDAPAdminGroupDN) == "" {
 		return nil, nil
 	}
@@ -91,47 +91,28 @@ func resolveBootstrapAdminGroups(
 			config.LDAPAdminGroupDN,
 		)
 	}
-	return []string{group.Name}, nil
+	return group, nil
 }
 
-func resolveProtectedInventoryACLPrincipalIDs(
+func resolveProtectedAdminGroupPrincipalID(
 	ctx context.Context,
-	config *Config,
 	dbPool *pgxpool.Pool,
-	adClient *activedirectory.Client,
-) ([]uuid.UUID, error) {
-	if adClient == nil || strings.TrimSpace(config.LDAPAdminGroupDN) == "" {
-		return nil, nil
-	}
-
-	group, err := adClient.FetchGroupByDN(config.LDAPAdminGroupDN)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"fetch protected admin group from LDAP_ADMIN_GROUP_DN %q: %w",
-			config.LDAPAdminGroupDN,
-			err,
-		)
-	}
+	group *activedirectory.Group,
+) (uuid.UUID, error) {
 	if group == nil {
-		return nil, fmt.Errorf(
-			"no group found at LDAP_ADMIN_GROUP_DN %q",
-			config.LDAPAdminGroupDN,
-		)
+		return uuid.Nil, nil
 	}
 	if strings.TrimSpace(group.SID) == "" {
-		return nil, fmt.Errorf(
-			"protected admin group at LDAP_ADMIN_GROUP_DN %q does not have a SID",
-			config.LDAPAdminGroupDN,
-		)
+		return uuid.Nil, fmt.Errorf("protected admin group %q does not have a SID", group.Name)
 	}
 
 	q := database.New(dbPool)
 	providerID, err := q.GetPrincipalProvider(ctx)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return uuid.Nil, nil
 		}
-		return nil, fmt.Errorf("load principal provider: %w", err)
+		return uuid.Nil, fmt.Errorf("load principal provider: %w", err)
 	}
 
 	principal, err := q.GetPrincipalByExternalID(ctx, database.GetPrincipalByExternalIDParams{
@@ -140,12 +121,12 @@ func resolveProtectedInventoryACLPrincipalIDs(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return uuid.Nil, nil
 		}
-		return nil, fmt.Errorf("load protected admin group principal: %w", err)
+		return uuid.Nil, fmt.Errorf("load protected admin group principal: %w", err)
 	}
 
-	return []uuid.UUID{principal.ID}, nil
+	return principal.ID, nil
 }
 
 // init the environment
@@ -250,25 +231,36 @@ func main() {
 		}
 	}
 
-	authzService := authorization.NewService(server.DBPool)
-	bootstrapAdminGroups, err := resolveBootstrapAdminGroups(server.Config, server.ADClient)
+	adminGroup, err := resolveConfiguredAdminGroup(server.Config, server.ADClient)
 	if err != nil {
-		log.Printf("Inventory ACL admin group discovery failed: %v", err)
+		log.Printf("Admin group discovery failed: %v", err)
 	}
+
+	var bootstrapAdminGroups []string
+	if adminGroup != nil && strings.TrimSpace(adminGroup.Name) != "" {
+		bootstrapAdminGroups = []string{adminGroup.Name}
+	}
+
+	protectedACLPrincipalID, err := resolveProtectedAdminGroupPrincipalID(
+		context.Background(),
+		server.DBPool,
+		adminGroup,
+	)
+	if err != nil {
+		log.Printf("Protected admin group principal discovery failed: %v", err)
+	}
+
+	var protectedACLPrincipalIDs []uuid.UUID
+	if protectedACLPrincipalID != uuid.Nil {
+		protectedACLPrincipalIDs = []uuid.UUID{protectedACLPrincipalID}
+	}
+
+	authzService := authorization.NewService(server.DBPool, protectedACLPrincipalIDs)
 	if err := authzService.BootstrapRootAccess(
 		context.Background(),
 		bootstrapAdminGroups,
 	); err != nil {
 		log.Printf("Inventory ACL bootstrap failed: %v", err)
-	}
-	protectedACLPrincipalIDs, err := resolveProtectedInventoryACLPrincipalIDs(
-		context.Background(),
-		server.Config,
-		server.DBPool,
-		server.ADClient,
-	)
-	if err != nil {
-		log.Printf("Inventory ACL protected group discovery failed: %v", err)
 	}
 
 	// Initialize handlers
@@ -300,7 +292,11 @@ func main() {
 		Service: inventoryService,
 		Authz:   authzService,
 	}
-	sdnHandler := &handlers.SDNHandler{PX: server.ProxmoxClient}
+	sdnHandler := &handlers.SDNHandler{
+		PX:    server.ProxmoxClient,
+		Authz: authzService,
+	}
+	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
 
 	var authHandler *handlers.AuthHandler
 	var authService *auth.Service
@@ -315,6 +311,7 @@ func main() {
 			Auth:         authService,
 			Sessions:     auth.NewSessionManager(server.DBPool),
 			ADClient:     server.ADClient,
+			Authz:        authzService,
 			DB:           server.DBPool,
 			CookieSecure: strings.HasPrefix(server.Config.FrontendURL, "https://"),
 		}
@@ -322,6 +319,7 @@ func main() {
 		adService := activedirectory.NewService(server.DBPool, server.ADClient, server.ADSync)
 		principalsHandler = &handlers.PrincipalsHandler{
 			Provider: adService,
+			Authz:    authzService,
 		}
 	}
 
@@ -329,7 +327,7 @@ func main() {
 	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	// Register all API routes
-	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler)
+	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler, authzHandler)
 
 	r.Run(config.Port)
 }

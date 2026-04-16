@@ -17,6 +17,7 @@ func RegisterRoutes(
 	vmCreate *handlers.VMCreateHandler,
 	sdn *handlers.SDNHandler,
 	principals *handlers.PrincipalsHandler,
+	authz *handlers.AuthorizationHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -85,6 +86,12 @@ func RegisterRoutes(
 	protected.POST("/sdn/vnets", sdn.CreateVNet)
 	protected.DELETE("/sdn/vnets", sdn.DeleteVNets)
 	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
+
+	// Management authorization endpoints
+	if authz != nil {
+		protected.GET("/principals/groups/:id/management-access", authz.GetManagementACLForGroup)
+		protected.PUT("/principals/groups/:id/management-access", authz.UpdateManagementACLForGroup)
+	}
 
 	// Principals endpoints (AD users & groups)
 	if principals != nil {

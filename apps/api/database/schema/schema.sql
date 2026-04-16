@@ -38,6 +38,15 @@ CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox');
 -- 16384   = manage_permissions
 
 -- ----------------------------------------------------------------------------
+-- Management permission bit definitions (reference)
+-- ----------------------------------------------------------------------------
+-- 1       = view_sdn
+-- 2       = manage_sdn
+-- 4       = view_principals
+-- 8       = manage_principals
+-- 16      = manage_access
+
+-- ----------------------------------------------------------------------------
 -- Directory provider configuration
 -- Configured once during initial setup; exactly one row may exist.
 -- external_id format per provider:
@@ -213,6 +222,20 @@ CREATE INDEX ix_inventory_acl_entries_principal
     ON inventory_acl_entries (principal_id);
 
 -- ----------------------------------------------------------------------------
+-- Management ACL entries
+-- Applies to non-inventory management surfaces and only to group principals.
+-- ----------------------------------------------------------------------------
+CREATE TABLE management_acl_entries (
+    group_principal_id UUID PRIMARY KEY REFERENCES principals(id) ON DELETE CASCADE,
+    permissions        BIGINT NOT NULL CHECK (permissions > 0),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX ix_management_acl_entries_permissions
+    ON management_acl_entries (permissions);
+
+-- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -232,6 +255,11 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_principals_set_updated_at
 BEFORE UPDATE ON principals
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_management_acl_entries_set_updated_at
+BEFORE UPDATE ON management_acl_entries
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -517,6 +545,39 @@ FOR EACH ROW
 EXECUTE FUNCTION group_memberships_prevent_cycles();
 
 -- ----------------------------------------------------------------------------
+-- Ensure management ACL rows point to group principals
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION management_acl_entries_validate_group()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    target_type principal_type;
+BEGIN
+    SELECT principal_type
+      INTO target_type
+      FROM principals
+     WHERE id = NEW.group_principal_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Management ACL principal does not exist';
+    END IF;
+
+    IF target_type <> 'group' THEN
+        RAISE EXCEPTION 'Management ACL entries may only target group principals';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_management_acl_entries_validate_group
+BEFORE INSERT OR UPDATE OF group_principal_id
+ON management_acl_entries
+FOR EACH ROW
+EXECUTE FUNCTION management_acl_entries_validate_group();
+
+-- ----------------------------------------------------------------------------
 -- Helper: get all effective principals for a user (user + all transitive groups)
 -- Returns UUIDs of principals applicable to the user
 -- ----------------------------------------------------------------------------
@@ -541,6 +602,58 @@ AS $$
     UNION
     SELECT eg.group_id
     FROM effective_groups eg;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Core helper: effective permissions for management/non-inventory surfaces
+--
+-- Semantics:
+--   - Applies grants for the current user and all transitive groups
+--
+-- Return:
+--   allowed_mask = aggregate allow bits
+--   denied_mask  = always zero (management ACL does not support explicit deny)
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION get_effective_management_permissions(p_user_principal_id UUID)
+RETURNS TABLE (
+    allowed_mask BIGINT,
+    denied_mask  BIGINT
+)
+LANGUAGE sql
+STABLE
+AS $$
+    WITH principal_set AS (
+        SELECT principal_id
+        FROM get_user_effective_principals(p_user_principal_id)
+    ),
+    applicable_aces AS (
+        SELECT
+            ace.permissions
+        FROM management_acl_entries ace
+        JOIN principal_set ps
+          ON ps.principal_id = ace.group_principal_id
+    )
+    SELECT
+        COALESCE(bit_or(permissions), 0::BIGINT) AS allowed_mask,
+        0::BIGINT                                AS denied_mask
+    FROM applicable_aces;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Optional helper: boolean permission check for a specific management bit mask
+-- Example:
+--   SELECT has_management_permission(user_id, 4); -- view_principals
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION has_management_permission(
+    p_user_principal_id UUID,
+    p_required_mask BIGINT
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT ((gep.allowed_mask & p_required_mask) = p_required_mask)
+    FROM get_effective_management_permissions(p_user_principal_id) gep;
 $$;
 
 -- ----------------------------------------------------------------------------

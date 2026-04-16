@@ -17,16 +17,36 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/lib/queries"
 
 type UserColumnsOptions = {
+  canManage: boolean
   onEditClick: (user: ApiPrincipal) => void
   onEditGroups: (user: ApiPrincipal) => void
   onDeleteClick: (user: ApiPrincipal) => void
 }
 
 export function getUserColumns({
+  canManage,
   onEditClick,
   onEditGroups,
   onDeleteClick,
 }: UserColumnsOptions): Array<ColumnDef<ApiPrincipal>> {
+  const columns: Array<ColumnDef<ApiPrincipal>> = [
+    {
+      accessorKey: "name",
+      header: "Name",
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row: { original: user } }) => (
+        <p className="text-wrap">{user.description}</p>
+      ),
+    },
+  ]
+
+  if (!canManage) {
+    return columns
+  }
+
   return [
     {
       id: "select",
@@ -53,17 +73,7 @@ export function getUserColumns({
         </div>
       ),
     },
-    {
-      accessorKey: "name",
-      header: "Name",
-    },
-    {
-      accessorKey: "description",
-      header: "Description",
-      cell: ({ row: { original: user } }) => (
-        <p className="text-wrap">{user.description}</p>
-      ),
-    },
+    ...columns,
     {
       id: "actions",
       meta: { className: "w-0" },

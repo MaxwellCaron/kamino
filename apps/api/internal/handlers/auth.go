@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/auth"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,6 +20,7 @@ type AuthHandler struct {
 	Auth         *auth.Service
 	Sessions     *auth.SessionManager
 	ADClient     *activedirectory.Client
+	Authz        *authorization.Service
 	DB           *pgxpool.Pool
 	CookieSecure bool
 }
@@ -27,8 +31,9 @@ type loginRequest struct {
 }
 
 type authUser struct {
-	ID       any    `json:"id"`
-	Username string `json:"username"`
+	ID                    any                          `json:"id"`
+	Username              string                       `json:"username"`
+	ManagementPermissions ManagementPermissionEnvelope `json:"management_permissions"`
 }
 
 type authResponse struct {
@@ -98,10 +103,21 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	setAccessCookie(c, accessToken, accessExpiresAt, h.CookieSecure)
 	setRefreshCookie(c, refreshToken, session.ExpiresAt, h.CookieSecure)
+
+	managementPermissions, err := h.managementPermissions(c.Request.Context(), principal.ID)
+	if err != nil {
+		_ = h.Sessions.RevokeSession(c.Request.Context(), refreshToken)
+		clearAccessCookie(c, h.CookieSecure)
+		clearRefreshCookie(c, h.CookieSecure)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load access rules", "load management permissions on login", err)
+		return
+	}
+
 	c.JSON(http.StatusOK, authResponse{
 		User: authUser{
-			ID:       principal.ID,
-			Username: username,
+			ID:                    principal.ID,
+			Username:              username,
+			ManagementPermissions: managementPermissions,
 		},
 		AccessTokenExpiresAt: accessExpiresAt,
 	})
@@ -166,10 +182,21 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	setAccessCookie(c, accessToken, accessExpiresAt, h.CookieSecure)
 	setRefreshCookie(c, newRefreshToken, session.ExpiresAt, h.CookieSecure)
+
+	managementPermissions, err := h.managementPermissions(c.Request.Context(), principal.ID)
+	if err != nil {
+		_ = h.Sessions.RevokeSession(c.Request.Context(), newRefreshToken)
+		clearAccessCookie(c, h.CookieSecure)
+		clearRefreshCookie(c, h.CookieSecure)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load access rules", "load management permissions on refresh", err)
+		return
+	}
+
 	c.JSON(http.StatusOK, authResponse{
 		User: authUser{
-			ID:       principal.ID,
-			Username: username,
+			ID:                    principal.ID,
+			Username:              username,
+			ManagementPermissions: managementPermissions,
 		},
 		AccessTokenExpiresAt: accessExpiresAt,
 	})
@@ -194,13 +221,38 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 	expiresAt, _ := accessTokenExpiresAt.(time.Time)
 	usernameStr, _ := username.(string)
+	principalID, _ := userID.(uuid.UUID)
+
+	managementPermissions, err := h.managementPermissions(c.Request.Context(), principalID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load access rules", "load management permissions for current user", err)
+		return
+	}
+
 	c.JSON(http.StatusOK, authResponse{
 		User: authUser{
-			ID:       userID,
-			Username: usernameStr,
+			ID:                    userID,
+			Username:              usernameStr,
+			ManagementPermissions: managementPermissions,
 		},
 		AccessTokenExpiresAt: expiresAt,
 	})
+}
+
+func (h *AuthHandler) managementPermissions(
+	ctx context.Context,
+	principalID uuid.UUID,
+) (ManagementPermissionEnvelope, error) {
+	if h.Authz == nil || principalID == uuid.Nil {
+		return ManagementPermissionEnvelope{}, nil
+	}
+
+	perms, err := h.Authz.EffectiveManagementPermissions(ctx, principalID)
+	if err != nil {
+		return ManagementPermissionEnvelope{}, err
+	}
+
+	return toManagementPermissionEnvelope(perms), nil
 }
 
 func setAccessCookie(c *gin.Context, accessToken string, expiresAt time.Time, secure bool) {

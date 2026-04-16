@@ -102,6 +102,18 @@ func (s *Service) GetVisibleInventoryItems(
 ) ([]database.GetVisibleInventoryItemsForPrincipalRow, error) {
 	q := database.New(s.db)
 
+	isProtected, err := s.hasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+	if isProtected {
+		allRows, err := q.GetAllInventoryItems(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return toFullAccessInventoryRows(allRows), nil
+	}
+
 	visibleRows, err := q.GetVisibleInventoryItemsForPrincipal(ctx, principalID)
 	if err != nil {
 		return nil, err
@@ -195,6 +207,31 @@ func compareVisibleInventoryRows(
 	return 0
 }
 
+func toFullAccessInventoryRows(
+	rows []database.GetAllInventoryItemsRow,
+) []database.GetVisibleInventoryItemsForPrincipalRow {
+	visibleRows := make([]database.GetVisibleInventoryItemsForPrincipalRow, 0, len(rows))
+	for _, row := range rows {
+		visibleRows = append(visibleRows, database.GetVisibleInventoryItemsForPrincipalRow{
+			ID:                 row.ID,
+			ParentID:           row.ParentID,
+			Kind:               row.Kind,
+			Name:               row.Name,
+			InheritPermissions: true,
+			Node:               row.Node,
+			Vmid:               row.Vmid,
+			IsTemplate:         row.IsTemplate,
+			CpuCount:           row.CpuCount,
+			MemoryMb:           row.MemoryMb,
+			DiskGb:             row.DiskGb,
+			AllowedMask:        int64(authorization.FullAccessMask),
+			DeniedMask:         0,
+		})
+	}
+
+	return visibleRows
+}
+
 func inventoryRowSortOrder(kind database.InventoryItemKind) int {
 	if kind == database.InventoryItemKindFolder {
 		return 0
@@ -212,6 +249,33 @@ func (s *Service) GetInventoryItemWithPermissions(
 	principalID uuid.UUID,
 	id uuid.UUID,
 ) (database.GetInventoryItemWithPermissionsRow, error) {
+	isProtected, err := s.hasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return database.GetInventoryItemWithPermissionsRow{}, err
+	}
+	if isProtected {
+		row, err := database.New(s.db).GetInventoryItemByID(ctx, id)
+		if err != nil {
+			return database.GetInventoryItemWithPermissionsRow{}, err
+		}
+
+		return database.GetInventoryItemWithPermissionsRow{
+			ID:                 row.ID,
+			ParentID:           row.ParentID,
+			Kind:               row.Kind,
+			Name:               row.Name,
+			InheritPermissions: row.InheritPermissions,
+			Node:               row.Node,
+			Vmid:               row.Vmid,
+			IsTemplate:         row.IsTemplate,
+			CpuCount:           row.CpuCount,
+			MemoryMb:           row.MemoryMb,
+			DiskGb:             row.DiskGb,
+			AllowedMask:        int64(authorization.FullAccessMask),
+			DeniedMask:         0,
+		}, nil
+	}
+
 	return database.New(s.db).GetInventoryItemWithPermissions(ctx, database.GetInventoryItemWithPermissionsParams{
 		PrincipalID:     principalID,
 		InventoryItemID: id,
@@ -866,6 +930,18 @@ func validateACLEntryInput(entry ACLEntryInput) error {
 	}
 
 	return nil
+}
+
+func (s *Service) hasProtectedAccess(
+	ctx context.Context,
+	principalID uuid.UUID,
+) (bool, error) {
+	return authorization.HasProtectedPrincipalAccess(
+		ctx,
+		s.db,
+		principalID,
+		s.protectedACLPrincipalIDs,
+	)
 }
 
 func isForeignKeyViolation(err error) bool {

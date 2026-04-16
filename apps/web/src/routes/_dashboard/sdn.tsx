@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -16,7 +16,12 @@ import { Button } from "@workspace/ui/components/button"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import type { ApiVNet } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
-import { deleteVNet, vnetsQueryOptions } from "@/lib/queries"
+import {
+  ManagementPermissionBits,
+  deleteVNet,
+  hasManagementPermission,
+  vnetsQueryOptions,
+} from "@/lib/queries"
 import { useItemDialogState } from "@/hooks/use-item-dialog-state"
 import { VNetDialog } from "@/components/vnet/vnet-dialog"
 import { getVNetColumns } from "@/components/vnet/vnets-columns"
@@ -31,7 +36,23 @@ function getVNetLabel(vnet: ApiVNet) {
 }
 
 function SdnPage() {
-  const { data: vnets, isLoading, error } = useQuery(vnetsQueryOptions)
+  const { user } = Route.useRouteContext()
+  const canView = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionBits.viewSdn
+  )
+  const canManage = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionBits.manageSdn
+  )
+  const {
+    data: vnets,
+    isLoading,
+    error,
+  } = useQuery({
+    ...vnetsQueryOptions,
+    enabled: canView,
+  })
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiVNet>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -67,6 +88,7 @@ function SdnPage() {
   const columns = useMemo(
     () =>
       getVNetColumns({
+        canManage,
         onEditVnet: editDialog.openWith,
         onDeleteClick: (v) =>
           setConfirm({
@@ -79,8 +101,12 @@ function SdnPage() {
             },
           }),
       }),
-    [deleteMutation, editDialog.openWith]
+    [canManage, deleteMutation, editDialog.openWith]
   )
+
+  if (!canView) {
+    return <Navigate to="/" />
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -95,13 +121,15 @@ function SdnPage() {
             </CardTitle>
             <CardDescription>List of VNets in proxmox.</CardDescription>
             <CardAction>
-              <Button
-                onClick={() => setCreateOpen(true)}
-                disabled={isLoading || error !== null}
-              >
-                <IconPlus data-icon="inline-start" />
-                <span className="hidden lg:block">Create</span>
-              </Button>
+              {canManage && (
+                <Button
+                  onClick={() => setCreateOpen(true)}
+                  disabled={isLoading || error !== null}
+                >
+                  <IconPlus data-icon="inline-start" />
+                  <span className="hidden lg:block">Create</span>
+                </Button>
+              )}
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
@@ -111,48 +139,53 @@ function SdnPage() {
               isLoading={isLoading}
               error={error}
               getRowId={(vnet) => vnet.vnet}
-              renderSelectionActions={({
-                clearSelection: clearTableSelection,
-                selectedRows,
-              }) => (
-                <ActionBarItem
-                  variant="destructive"
-                  onSelect={(event) => event.preventDefault()}
-                  onClick={() =>
-                    setConfirm({
-                      title:
-                        selectedRows.length === 1
-                          ? "Delete VNet"
-                          : "Delete VNets",
-                      description:
-                        selectedRows.length === 1
-                          ? `Are you sure you want to delete ${getVNetLabel(selectedRows[0])}? This will apply the SDN configuration immediately.`
-                          : `Are you sure you want to delete ${selectedRows.length} VNets? This will apply the SDN configuration immediately.`,
-                      actionLabel: "Delete",
-                      variant: "destructive",
-                      onConfirm: async () => {
-                        const result = await deleteMutation.mutateAsync(
-                          selectedRows.map((selectedVNet) => selectedVNet.vnet)
-                        )
-                        if (result.failed.length === 0) {
-                          clearTableSelection()
+              renderSelectionActions={
+                canManage
+                  ? ({ clearSelection: clearTableSelection, selectedRows }) => (
+                      <ActionBarItem
+                        variant="destructive"
+                        onSelect={(event) => event.preventDefault()}
+                        onClick={() =>
+                          setConfirm({
+                            title:
+                              selectedRows.length === 1
+                                ? "Delete VNet"
+                                : "Delete VNets",
+                            description:
+                              selectedRows.length === 1
+                                ? `Are you sure you want to delete ${getVNetLabel(selectedRows[0])}? This will apply the SDN configuration immediately.`
+                                : `Are you sure you want to delete ${selectedRows.length} VNets? This will apply the SDN configuration immediately.`,
+                            actionLabel: "Delete",
+                            variant: "destructive",
+                            onConfirm: async () => {
+                              const result = await deleteMutation.mutateAsync(
+                                selectedRows.map(
+                                  (selectedVNet) => selectedVNet.vnet
+                                )
+                              )
+                              if (result.failed.length === 0) {
+                                clearTableSelection()
+                              }
+                            },
+                          })
                         }
-                      },
-                    })
-                  }
-                >
-                  <IconTrash data-icon="inline-start" />
-                  Delete
-                </ActionBarItem>
-              )}
+                      >
+                        <IconTrash data-icon="inline-start" />
+                        Delete
+                      </ActionBarItem>
+                    )
+                  : undefined
+              }
             />
           </CardContent>
         </Card>
       </div>
 
-      <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {canManage && (
+        <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
+      )}
 
-      {editDialog.data && (
+      {canManage && editDialog.data && (
         <VNetDialog
           key={editDialog.dialogKey}
           vnet={editDialog.data}

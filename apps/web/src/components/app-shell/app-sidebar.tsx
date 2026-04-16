@@ -23,6 +23,10 @@ import { cn } from "@workspace/ui/lib/utils"
 import { NavUser } from "./nav-user"
 import type { AuthUser } from "@/lib/queries"
 import {
+  ManagementPermissionBits,
+  hasManagementPermission,
+} from "@/lib/queries"
+import {
   InventoryTreeBody,
   InventoryTreeHeader,
   InventoryTreeProvider,
@@ -48,6 +52,38 @@ export function AppSidebar({
   user: AuthUser
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const visibleNavItems = React.useMemo(
+    () =>
+      navItems.filter((item) => {
+        if (item.url === "/sdn") {
+          return hasManagementPermission(
+            user.management_permissions,
+            ManagementPermissionBits.viewSdn
+          )
+        }
+        if (item.url === "/users") {
+          return hasManagementPermission(
+            user.management_permissions,
+            ManagementPermissionBits.viewPrincipals
+          )
+        }
+        if (item.url === "/groups") {
+          return (
+            hasManagementPermission(
+              user.management_permissions,
+              ManagementPermissionBits.viewPrincipals
+            ) ||
+            hasManagementPermission(
+              user.management_permissions,
+              ManagementPermissionBits.manageAccess
+            )
+          )
+        }
+
+        return true
+      }),
+    [user.management_permissions]
+  )
 
   return (
     <Sidebar
@@ -79,7 +115,7 @@ export function AppSidebar({
             <SidebarGroup>
               <SidebarGroupContent className="px-1.5 md:px-0">
                 <SidebarMenu className="items-center">
-                  {navItems.map((item) => {
+                  {visibleNavItems.map((item) => {
                     const Icon = item.icon
                     return (
                       <SidebarMenuItem key={item.title}>
@@ -108,7 +144,7 @@ export function AppSidebar({
         <Sidebar collapsible="none" className="flex flex-1">
           <InventoryTreeProvider>
             <SidebarHeader className="px-1 py-0">
-              <SidebarGroup className="rounded-3xl">
+              <SidebarGroup className="mb-1 rounded-b-3xl border-b shadow">
                 <InventoryTreeHeader />
               </SidebarGroup>
             </SidebarHeader>

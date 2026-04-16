@@ -5,13 +5,28 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 )
 
 // SDNHandler handles SDN-related API endpoints.
 type SDNHandler struct {
-	PX *proxmox.Client
+	PX    *proxmox.Client
+	Authz *authorization.Service
+}
+
+func (h *SDNHandler) requireSDNPermission(
+	c *gin.Context,
+	required authorization.ManagementMask,
+) bool {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return false
+	}
+
+	return requireManagementPermission(c, h.Authz, principalID, required)
 }
 
 type bulkDeleteVNetsRequest struct {
@@ -31,6 +46,10 @@ type bulkDeleteVNetsResponse struct {
 // GetVNets returns all SDN virtual networks.
 // GET /api/v1/sdn/vnets
 func (h *SDNHandler) GetVNets(c *gin.Context) {
+	if !h.requireSDNPermission(c, authorization.ViewSDN) {
+		return
+	}
+
 	vnets, err := h.PX.GetVNets(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VNets", "fetch vnets", err)
@@ -49,6 +68,10 @@ type createVNetRequest struct {
 // CreateVNet creates a new SDN virtual network and applies the config.
 // POST /api/v1/sdn/vnets
 func (h *SDNHandler) CreateVNet(c *gin.Context) {
+	if !h.requireSDNPermission(c, authorization.ManageSDN) {
+		return
+	}
+
 	var req createVNetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -88,6 +111,10 @@ type updateVNetRequest struct {
 // UpdateVNet updates an existing SDN virtual network and applies the config.
 // PUT /api/v1/sdn/vnets/:vnet
 func (h *SDNHandler) UpdateVNet(c *gin.Context) {
+	if !h.requireSDNPermission(c, authorization.ManageSDN) {
+		return
+	}
+
 	vnet := c.Param("vnet")
 	var req updateVNetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -122,6 +149,10 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 // DeleteVNets deletes multiple SDN virtual networks and applies the config once.
 // DELETE /api/v1/sdn/vnets
 func (h *SDNHandler) DeleteVNets(c *gin.Context) {
+	if !h.requireSDNPermission(c, authorization.ManageSDN) {
+		return
+	}
+
 	var req bulkDeleteVNetsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")

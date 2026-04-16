@@ -1,4 +1,5 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
+import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { useEffect } from "react"
 import { z } from "zod"
 import { LoginForm } from "@/components/login-form"
 import { ensureAuth } from "@/lib/queries"
@@ -7,20 +8,27 @@ export const Route = createFileRoute("/login")({
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
-  beforeLoad: async ({ search }) => {
-    try {
-      await ensureAuth()
-      throw redirect({ to: search.redirect ?? "/" })
-    } catch {
-      return
-    }
-  },
   component: LoginPage,
 })
 
 function LoginPage() {
   const router = useRouter()
   const { redirect: redirectTo } = Route.useSearch()
+
+  useEffect(() => {
+    let cancelled = false
+
+    void ensureAuth()
+      .then(() => {
+        if (cancelled) return
+        router.navigate({ to: redirectTo ?? "/" })
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [redirectTo, router])
 
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">

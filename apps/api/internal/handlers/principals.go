@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,6 +12,20 @@ import (
 // PrincipalsHandler handles user and group CRUD via a generic principal provider.
 type PrincipalsHandler struct {
 	Provider principals.Provider
+	Authz    *authorization.Service
+}
+
+func (h *PrincipalsHandler) requirePrincipalPermission(
+	c *gin.Context,
+	required authorization.ManagementMask,
+) bool {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return false
+	}
+
+	return requireManagementPermission(c, h.Authz, principalID, required)
 }
 
 type bulkDeleteRequest struct {
@@ -118,6 +133,10 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 // ListUsers returns all user principals.
 // GET /api/v1/principals/users
 func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ViewPrincipals) {
+		return
+	}
+
 	users, err := h.Provider.ListUsers(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch users", "list users", err)
@@ -139,6 +158,10 @@ type createUserRequest struct {
 // CreateUser creates a new user.
 // POST /api/v1/principals/users
 func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -161,6 +184,10 @@ type updateUserRequest struct {
 // UpdateUser updates a user's name.
 // PUT /api/v1/principals/users/:id
 func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -188,6 +215,10 @@ type setPasswordRequest struct {
 // SetPassword sets a user's password.
 // POST /api/v1/principals/users/:id/password
 func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	var req setPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -211,6 +242,10 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 // EnableUser enables a user account.
 // POST /api/v1/principals/users/:id/enable
 func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -228,6 +263,10 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 // DisableUser disables a user account.
 // POST /api/v1/principals/users/:id/disable
 func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -245,6 +284,10 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 // DeleteUsers deletes multiple users.
 // DELETE /api/v1/principals/users
 func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	rawIDs, ok := parseBulkDeleteIDs(c)
 	if !ok {
 		return
@@ -260,6 +303,35 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 // ListGroups returns all group principals.
 // GET /api/v1/principals/groups
 func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	canViewPrincipals, err := h.Authz.HasManagement(
+		c.Request.Context(),
+		principalID,
+		authorization.ViewPrincipals,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize principal group list", err)
+		return
+	}
+	canManageAccess, err := h.Authz.HasManagement(
+		c.Request.Context(),
+		principalID,
+		authorization.ManageAccess,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize principal group list", err)
+		return
+	}
+	if !canViewPrincipals && !canManageAccess {
+		writeForbidden(c)
+		return
+	}
+
 	groups, err := h.Provider.ListGroups(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch groups", "list groups", err)
@@ -280,6 +352,10 @@ type createGroupRequest struct {
 // CreateGroup creates a new group.
 // POST /api/v1/principals/groups
 func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	var req createGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -302,6 +378,10 @@ type updateGroupRequest struct {
 // UpdateGroup updates a group's name.
 // PUT /api/v1/principals/groups/:id
 func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	var req updateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
@@ -325,6 +405,10 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 // DeleteGroups deletes multiple groups.
 // DELETE /api/v1/principals/groups
 func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	rawIDs, ok := parseBulkDeleteIDs(c)
 	if !ok {
 		return
@@ -340,6 +424,10 @@ func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
 // GetGroupMembers returns the members of a group.
 // GET /api/v1/principals/groups/:id/members
 func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ViewPrincipals) {
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -361,6 +449,10 @@ func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
 // AddGroupMembers adds members to a group.
 // POST /api/v1/principals/groups/:id/members
 func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
@@ -402,6 +494,10 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 // RemoveGroupMembers removes members from a group.
 // DELETE /api/v1/principals/groups/:id/members
 func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
@@ -443,6 +539,10 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 // GetUserGroups returns the groups a user belongs to.
 // GET /api/v1/principals/users/:id/groups
 func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ViewPrincipals) {
+		return
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -466,6 +566,10 @@ func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
 // TriggerSync manually triggers a full sync.
 // POST /api/v1/principals/sync
 func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+		return
+	}
+
 	if err := h.Provider.TriggerSync(c.Request.Context()); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "sync failed", "trigger principals sync", err)
 		return

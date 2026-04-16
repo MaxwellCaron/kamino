@@ -11,14 +11,43 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/lib/queries"
 
 type VNetColumnsOptions = {
+  canManage: boolean
   onEditVnet: (vnet: ApiVNet) => void
   onDeleteClick: (vnet: ApiVNet) => void
 }
 
 export function getVNetColumns({
+  canManage,
   onEditVnet,
   onDeleteClick,
 }: VNetColumnsOptions): Array<ColumnDef<ApiVNet>> {
+  const columns: Array<ColumnDef<ApiVNet>> = [
+    {
+      accessorKey: "vnet",
+      header: "Name",
+      cell: ({ row }) => <span className="text-wrap">{row.original.vnet}</span>,
+    },
+    {
+      accessorKey: "zone",
+      header: "Zone",
+    },
+    {
+      accessorKey: "tag",
+      header: "VLAN Tag",
+    },
+    {
+      accessorKey: "alias",
+      header: "Alias",
+      cell: ({ row }) => (
+        <span className="text-wrap">{row.original.alias}</span>
+      ),
+    },
+  ]
+
+  if (!canManage) {
+    return columns
+  }
+
   return [
     {
       id: "select",
@@ -45,26 +74,7 @@ export function getVNetColumns({
         </div>
       ),
     },
-    {
-      accessorKey: "vnet",
-      header: "Name",
-      cell: ({ row }) => <span className="text-wrap">{row.original.vnet}</span>,
-    },
-    {
-      accessorKey: "zone",
-      header: "Zone",
-    },
-    {
-      accessorKey: "tag",
-      header: "VLAN Tag",
-    },
-    {
-      accessorKey: "alias",
-      header: "Alias",
-      cell: ({ row }) => (
-        <span className="text-wrap">{row.original.alias}</span>
-      ),
-    },
+    ...columns,
     {
       id: "actions",
       meta: { className: "w-0" },

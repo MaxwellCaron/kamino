@@ -5,12 +5,28 @@ FROM get_effective_permissions(
     sqlc.arg(inventory_item_id)
 ) AS gep(allowed_mask, denied_mask);
 
+-- name: GetEffectiveManagementPermissions :one
+SELECT gep.allowed_mask::BIGINT AS allowed_mask, gep.denied_mask::BIGINT AS denied_mask
+FROM get_effective_management_permissions(
+    sqlc.arg(principal_id)
+) AS gep(allowed_mask, denied_mask);
+
 -- name: HasInventoryPermission :one
 SELECT has_permission(
     sqlc.arg(principal_id),
     sqlc.arg(inventory_item_id),
     sqlc.arg(required_mask)
 );
+
+-- name: HasManagementPermission :one
+SELECT has_management_permission(
+    sqlc.arg(principal_id),
+    sqlc.arg(required_mask)
+);
+
+-- name: ListEffectivePrincipalIDs :many
+SELECT ep.principal_id::UUID
+FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id);
 
 -- name: GetVisibleInventoryItemsForPrincipal :many
 SELECT
@@ -114,6 +130,16 @@ INSERT INTO inventory_acl_entries (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT DO NOTHING;
 
+-- name: UpsertManagementACLEntry :exec
+INSERT INTO management_acl_entries (
+    group_principal_id,
+    permissions
+) VALUES ($1, $2)
+ON CONFLICT (group_principal_id)
+DO UPDATE SET
+    permissions = EXCLUDED.permissions,
+    updated_at = now();
+
 -- name: ListInventoryACLEntriesForItem :many
 SELECT
     ace.id,
@@ -173,3 +199,12 @@ ORDER BY
 -- name: DeleteInventoryACLEntriesForItem :exec
 DELETE FROM inventory_acl_entries
 WHERE inventory_item_id = $1;
+
+-- name: GetManagementACLEntryForGroup :one
+SELECT permissions
+FROM management_acl_entries
+WHERE group_principal_id = $1;
+
+-- name: DeleteManagementACLEntryForGroup :exec
+DELETE FROM management_acl_entries
+WHERE group_principal_id = $1;

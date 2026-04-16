@@ -20,6 +20,7 @@ export function apiUrl(path: string) {
 export type AuthUser = {
   id: string
   username: string
+  management_permissions: ApiManagementPermissions
 }
 
 export type AuthSession = {
@@ -240,6 +241,45 @@ export type ApiTreeNodeVM = {
   cpu_count?: number
   memory_mb?: number
   disk_gb?: number
+}
+
+export type ApiManagementPermissions = {
+  allowed_mask: number
+  denied_mask: number
+}
+
+export type ApiGroupManagementAcl = {
+  group_id: string
+  permissions: ApiManagementPermissions
+  immutable: boolean
+}
+
+export const ManagementPermissionBits = {
+  viewSdn: 1 << 0,
+  manageSdn: 1 << 1,
+  viewPrincipals: 1 << 2,
+  managePrincipals: 1 << 3,
+  manageAccess: 1 << 4,
+} as const
+
+export function hasManagementPermission(
+  permissions: ApiManagementPermissions,
+  required: number
+) {
+  return (permissions.allowed_mask & required) === required
+}
+
+export function normalizeManagementPermissionMask(mask: number) {
+  let normalized = mask
+
+  if (normalized & ManagementPermissionBits.manageSdn) {
+    normalized |= ManagementPermissionBits.viewSdn
+  }
+  if (normalized & ManagementPermissionBits.managePrincipals) {
+    normalized |= ManagementPermissionBits.viewPrincipals
+  }
+
+  return normalized
 }
 
 export const InventoryPermissionBits = {
@@ -894,6 +934,44 @@ export function groupMembersQueryOptions(groupId: string) {
       return res.json()
     },
     enabled: !!groupId,
+  }
+}
+
+export function groupManagementAclQueryOptions(groupId: string) {
+  return {
+    queryKey: ["principals", "groups", groupId, "management-access"] as const,
+    queryFn: async (): Promise<ApiGroupManagementAcl> => {
+      const res = await apiFetch(
+        `/api/v1/principals/groups/${groupId}/management-access`
+      )
+      if (!res.ok) {
+        throw new Error(`Failed to fetch management access: ${res.status}`)
+      }
+      return res.json()
+    },
+    enabled: !!groupId,
+  }
+}
+
+export async function updateGroupManagementAcl(
+  groupId: string,
+  permissions: number
+): Promise<void> {
+  const res = await apiFetch(
+    `/api/v1/principals/groups/${groupId}/management-access`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        permissions: normalizeManagementPermissionMask(permissions),
+      }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to update management access: ${res.status}`
+    )
   }
 }
 

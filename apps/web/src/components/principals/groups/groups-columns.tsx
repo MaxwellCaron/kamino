@@ -10,6 +10,7 @@ import {
 import {
   IconDots,
   IconEdit,
+  IconLockAccess,
   IconTrash,
   IconUsersGroup,
 } from "@tabler/icons-react"
@@ -17,18 +18,44 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/lib/queries"
 
 type GroupColumnsOptions = {
+  canManageGroups: boolean
+  canManageAccess: boolean
   onEditClick: (group: ApiPrincipal) => void
   onEditGroups: (group: ApiPrincipal) => void
+  onEditAccess: (group: ApiPrincipal) => void
   onDeleteClick: (group: ApiPrincipal) => void
 }
 
 export function getGroupColumns({
+  canManageGroups,
+  canManageAccess,
   onEditClick,
   onEditGroups,
+  onEditAccess,
   onDeleteClick,
 }: GroupColumnsOptions): Array<ColumnDef<ApiPrincipal>> {
-  return [
+  const columns: Array<ColumnDef<ApiPrincipal>> = [
     {
+      accessorKey: "name",
+      header: "Name",
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row: { original: group } }) => (
+        <p className="text-wrap">{group.description}</p>
+      ),
+    },
+  ]
+
+  if (!canManageGroups && !canManageAccess) {
+    return columns
+  }
+
+  const managedColumns = [...columns]
+
+  if (canManageGroups) {
+    managedColumns.unshift({
       id: "select",
       meta: { className: "w-0" },
       header: ({ table }) => (
@@ -52,42 +79,44 @@ export function getGroupColumns({
           />
         </div>
       ),
-    },
-    {
-      accessorKey: "name",
-      header: "Name",
-    },
-    {
-      accessorKey: "description",
-      header: "Description",
-      cell: ({ row: { original: group } }) => (
-        <p className="text-wrap">{group.description}</p>
-      ),
-    },
-    {
-      id: "actions",
-      meta: { className: "w-0" },
-      header: () => null,
-      cell: ({ row: { original: group } }) => (
-        <div className="flex justify-end pr-6">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="icon-xs">
-                  <IconDots className="size-4" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end">
+    })
+  }
+
+  managedColumns.push({
+    id: "actions",
+    meta: { className: "w-0" },
+    header: () => null,
+    cell: ({ row: { original: group } }) => (
+      <div className="flex justify-end pr-6">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-xs">
+                <IconDots className="size-4" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            {canManageAccess && (
+              <DropdownMenuItem onClick={() => onEditAccess(group)}>
+                <IconLockAccess className="text-muted-foreground" />
+                Edit Access
+              </DropdownMenuItem>
+            )}
+            {canManageGroups && (
               <DropdownMenuItem onClick={() => onEditClick(group)}>
                 <IconEdit className="text-muted-foreground" />
                 Edit Group
               </DropdownMenuItem>
+            )}
+            {canManageGroups && (
               <DropdownMenuItem onClick={() => onEditGroups(group)}>
                 <IconUsersGroup className="text-muted-foreground" />
                 Edit Members
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+            )}
+            {canManageGroups && canManageAccess && <DropdownMenuSeparator />}
+            {canManageGroups && (
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => onDeleteClick(group)}
@@ -95,10 +124,12 @@ export function getGroupColumns({
                 <IconTrash />
                 Delete
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
-    },
-  ]
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ),
+  })
+
+  return managedColumns
 }

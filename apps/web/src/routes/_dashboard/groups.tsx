@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -21,9 +21,16 @@ import { Button } from "@workspace/ui/components/button"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import type { ApiPrincipal } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
-import { deleteGroup, groupsQueryOptions, triggerADSync } from "@/lib/queries"
+import {
+  ManagementPermissionBits,
+  deleteGroup,
+  groupsQueryOptions,
+  hasManagementPermission,
+  triggerADSync,
+} from "@/lib/queries"
 import { useItemDialogState } from "@/hooks/use-item-dialog-state"
 import { GroupDialog } from "@/components/principals/groups/group-dialog"
+import { GroupManagementAccessDialog } from "@/components/principals/groups/group-management-access-dialog"
 import { MembershipDialog } from "@/components/principals/membership-dialog"
 import { getGroupColumns } from "@/components/principals/groups/groups-columns"
 import { DataTable } from "@/components/data-table/data-table"
@@ -37,11 +44,33 @@ function getGroupLabel(group: ApiPrincipal) {
 }
 
 function GroupsPage() {
-  const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
+  const { user } = Route.useRouteContext()
+  const canViewPrincipals = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionBits.viewPrincipals
+  )
+  const canManageGroups = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionBits.managePrincipals
+  )
+  const canManageAccess = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionBits.manageAccess
+  )
+  const canView = canViewPrincipals || canManageAccess
+  const {
+    data: groups,
+    isLoading,
+    error,
+  } = useQuery({
+    ...groupsQueryOptions,
+    enabled: canView,
+  })
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
+  const accessDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
@@ -87,8 +116,11 @@ function GroupsPage() {
   const columns = useMemo(
     () =>
       getGroupColumns({
+        canManageGroups,
+        canManageAccess,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
+        onEditAccess: accessDialog.openWith,
         onDeleteClick: (group) =>
           setConfirm({
             title: "Delete Group",
@@ -100,8 +132,19 @@ function GroupsPage() {
             },
           }),
       }),
-    [deleteMutation, editDialog.openWith, membershipDialog.openWith]
+    [
+      accessDialog.openWith,
+      canManageAccess,
+      canManageGroups,
+      deleteMutation,
+      editDialog.openWith,
+      membershipDialog.openWith,
+    ]
   )
+
+  if (!canView) {
+    return <Navigate to="/" />
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -118,18 +161,22 @@ function GroupsPage() {
               List of groups from your principal provider.
             </CardDescription>
             <CardAction className="space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => syncMutation.mutate()}
-                disabled={syncMutation.isPending}
-              >
-                <IconRefresh data-icon="inline-start" />
-                {syncMutation.isPending ? "Syncing..." : "Sync"}
-              </Button>
-              <Button onClick={() => setCreateOpen(true)}>
-                <IconPlus data-icon="inline-start" />
-                <span className="hidden lg:block">Create</span>
-              </Button>
+              {canManageGroups && (
+                <Button
+                  variant="outline"
+                  onClick={() => syncMutation.mutate()}
+                  disabled={syncMutation.isPending}
+                >
+                  <IconRefresh data-icon="inline-start" />
+                  {syncMutation.isPending ? "Syncing..." : "Sync"}
+                </Button>
+              )}
+              {canManageGroups && (
+                <Button onClick={() => setCreateOpen(true)}>
+                  <IconPlus data-icon="inline-start" />
+                  <span className="hidden lg:block">Create</span>
+                </Button>
+              )}
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
@@ -139,44 +186,52 @@ function GroupsPage() {
               isLoading={isLoading}
               error={error}
               getRowId={(group) => group.id}
-              renderSelectionActions={({ clearSelection, selectedRows }) => (
-                <ActionBarItem
-                  variant="destructive"
-                  onSelect={(event) => event.preventDefault()}
-                  onClick={() =>
-                    setConfirm({
-                      title:
-                        selectedRows.length === 1
-                          ? "Delete Group"
-                          : "Delete Groups",
-                      description:
-                        selectedRows.length === 1
-                          ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
-                          : `Are you sure you want to delete ${selectedRows.length} groups? This will permanently remove the selected groups.`,
-                      actionLabel: "Delete",
-                      variant: "destructive",
-                      onConfirm: async () => {
-                        const result = await deleteMutation.mutateAsync(
-                          selectedRows.map((selectedGroup) => selectedGroup.id)
-                        )
-                        if (result.failed.length === 0) {
-                          clearSelection()
+              renderSelectionActions={
+                canManageGroups
+                  ? ({ clearSelection, selectedRows }) => (
+                      <ActionBarItem
+                        variant="destructive"
+                        onSelect={(event) => event.preventDefault()}
+                        onClick={() =>
+                          setConfirm({
+                            title:
+                              selectedRows.length === 1
+                                ? "Delete Group"
+                                : "Delete Groups",
+                            description:
+                              selectedRows.length === 1
+                                ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
+                                : `Are you sure you want to delete ${selectedRows.length} groups? This will permanently remove the selected groups.`,
+                            actionLabel: "Delete",
+                            variant: "destructive",
+                            onConfirm: async () => {
+                              const result = await deleteMutation.mutateAsync(
+                                selectedRows.map(
+                                  (selectedGroup) => selectedGroup.id
+                                )
+                              )
+                              if (result.failed.length === 0) {
+                                clearSelection()
+                              }
+                            },
+                          })
                         }
-                      },
-                    })
-                  }
-                >
-                  <IconTrash data-icon="inline-start" />
-                  Delete
-                </ActionBarItem>
-              )}
+                      >
+                        <IconTrash data-icon="inline-start" />
+                        Delete
+                      </ActionBarItem>
+                    )
+                  : undefined
+              }
             />
           </CardContent>
         </Card>
       </div>
 
-      <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      {editDialog.data && (
+      {canManageGroups && (
+        <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+      )}
+      {canManageGroups && editDialog.data && (
         <GroupDialog
           key={editDialog.dialogKey}
           group={editDialog.data}
@@ -185,13 +240,21 @@ function GroupsPage() {
         />
       )}
 
-      {membershipDialog.data && (
+      {canManageGroups && membershipDialog.data && (
         <MembershipDialog
           key={membershipDialog.dialogKey}
           mode="group-members"
           principal={membershipDialog.data}
           open={membershipDialog.open}
           onOpenChange={membershipDialog.onOpenChange}
+        />
+      )}
+      {canManageAccess && accessDialog.data && (
+        <GroupManagementAccessDialog
+          key={accessDialog.dialogKey}
+          group={accessDialog.data}
+          open={accessDialog.open}
+          onOpenChange={accessDialog.onOpenChange}
         />
       )}
 
