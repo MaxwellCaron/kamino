@@ -13,12 +13,14 @@ import {
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
+import { Textarea } from "@workspace/ui/components/textarea"
 import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react"
 import type { ApiPrincipal } from "@/lib/queries"
 import { createUser, setUserPassword, updateUser } from "@/lib/queries"
@@ -105,7 +107,7 @@ export function UserDialog({
           <DialogDescription>
             {isEdit
               ? "Update the user account details."
-              : "Create a new Active Directory user account."}
+              : "Create a new user account."}
           </DialogDescription>
         </DialogHeader>
 
@@ -138,40 +140,8 @@ export function UserDialog({
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
+                      maxLength={255}
                       placeholder="jdoe"
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                  </FieldContent>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Field
-              name="description"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = userSchema.shape.description.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0].message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="description">Description</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="description"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="Optional description"
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
@@ -219,6 +189,42 @@ export function UserDialog({
                       }
                     />
                   </FieldContent>
+                  <FieldError>{field.state.meta.errors[0]}</FieldError>
+                </Field>
+              )}
+            </form.Field>
+
+            <form.Field
+              name="description"
+              validators={{
+                onBlur: ({ value }) => {
+                  const result = userSchema.shape.description.safeParse(value)
+                  return result.success
+                    ? undefined
+                    : result.error.issues[0].message
+                },
+              }}
+            >
+              {(field) => (
+                <Field
+                  data-invalid={field.state.meta.errors.length > 0 || undefined}
+                >
+                  <FieldLabel htmlFor="description">Description</FieldLabel>
+                  <FieldContent>
+                    <Textarea
+                      id="description"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="Optional description"
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                    />
+                  </FieldContent>
+                  <FieldDescription className="text-right font-mono">
+                    {field.state.value.length}/255
+                  </FieldDescription>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </Field>
               )}

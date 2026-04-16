@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { IconUserMinus, IconUserPlus } from "@tabler/icons-react"
@@ -21,16 +21,18 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@workspace/ui/components/combobox"
 import { Badge } from "@workspace/ui/components/badge"
 import type { ApiPrincipal } from "@/lib/queries"
 import {
@@ -56,26 +58,21 @@ export function UserGroupBulkDialog({
 }: UserGroupBulkDialogProps) {
   const queryClient = useQueryClient()
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
-  const [groupId, setGroupId] = useState("")
+  const [selectedGroup, setSelectedGroup] = useState<ApiPrincipal | null>(null)
 
   useEffect(() => {
     if (!open) {
-      setGroupId("")
+      setSelectedGroup(null)
     }
   }, [open])
-
-  const selectedGroup = useMemo(
-    () => groups?.find((group) => group.id === groupId) ?? null,
-    [groupId, groups]
-  )
 
   const mutation = useMutation({
     mutationFn: async () => {
       const userIds = users.map((user) => user.id)
       if (mode === "add") {
-        return addGroupMember(groupId, userIds)
+        return addGroupMember(selectedGroup!.id, userIds)
       }
-      return removeGroupMember(groupId, userIds)
+      return removeGroupMember(selectedGroup!.id, userIds)
     },
     onSuccess: async (result) => {
       const succeededCount = result.succeeded.length
@@ -119,10 +116,18 @@ export function UserGroupBulkDialog({
           <DialogTitle>
             {mode === "add" ? "Add Users To Group" : "Remove Users From Group"}
           </DialogTitle>
-          <DialogDescription>
-            {mode === "add"
-              ? `Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group. Users already in the group will be kept there.`
-              : `Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group. Users not in the group will remain unchanged.`}
+          <DialogDescription render={<div />}>
+            {mode === "add" ? (
+              <>
+                <p>{`Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group.`}</p>
+                <p>Users already in the group will be kept there.</p>
+              </>
+            ) : (
+              <>
+                <p>{`Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group.`}</p>
+                <p>Users not in the group will remain unchanged.</p>
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -133,7 +138,7 @@ export function UserGroupBulkDialog({
           <ItemContent>
             <ItemTitle>Users</ItemTitle>
             <ItemDescription>
-              <div className="flex flex-wrap gap-2">
+              <span className="flex flex-wrap gap-2">
                 {users.map((user) => (
                   <Badge
                     key={user.id}
@@ -142,7 +147,7 @@ export function UserGroupBulkDialog({
                     {user.name ?? user.external_id}
                   </Badge>
                 ))}
-              </div>
+              </span>
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -152,22 +157,28 @@ export function UserGroupBulkDialog({
             <Field>
               <FieldLabel htmlFor="bulk-group-target">Group</FieldLabel>
               <FieldContent>
-                <Select
-                  value={groupId || null}
-                  onValueChange={(value) => setGroupId(value ?? "")}
+                <Combobox
+                  items={groups ?? []}
+                  itemToStringLabel={(group) => group.name ?? group.external_id}
+                  value={selectedGroup}
+                  onValueChange={setSelectedGroup}
                 >
-                  <SelectTrigger id="bulk-group-target" className="w-full">
-                    <SelectValue placeholder="Select a group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups?.map((group) => (
-                      <SelectItem key={group.id} value={group.name}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <ComboboxInput placeholder="Select a group" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No groups found.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(group) => (
+                        <ComboboxItem key={group.id} value={group}>
+                          {group.name ?? group.external_id}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               </FieldContent>
+              <FieldDescription>
+                {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
+              </FieldDescription>
             </Field>
           </FieldGroup>
         </div>
@@ -176,7 +187,10 @@ export function UserGroupBulkDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={
-              !groupId || isLoading || error !== null || mutation.isPending
+              !selectedGroup ||
+              isLoading ||
+              error !== null ||
+              mutation.isPending
             }
             variant={mode === "add" ? "default" : "destructive"}
           >

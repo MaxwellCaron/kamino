@@ -59,9 +59,9 @@ export function SnapshotDialog({
       description: "",
       vmstate: false,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = snapshotSchema.parse(value)
-      await toast.promise(
+      toast.promise(
         create.mutateAsync({
           node,
           vmid,
@@ -148,7 +148,12 @@ export function SnapshotDialog({
                 <Field
                   data-invalid={field.state.meta.errors.length > 0 || undefined}
                 >
-                  <FieldLabel htmlFor="description">Description</FieldLabel>
+                  <div className="flex items-center justify-between">
+                    <FieldLabel htmlFor="description">Description</FieldLabel>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {field.state.value.length}/255
+                    </span>
+                  </div>
                   <Textarea
                     id="description"
                     placeholder="Optional description..."
@@ -158,6 +163,7 @@ export function SnapshotDialog({
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
+                    maxLength={255}
                   />
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </Field>

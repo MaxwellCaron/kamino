@@ -128,7 +128,7 @@ function GroupsPage() {
               </Button>
               <Button onClick={() => setCreateOpen(true)}>
                 <IconPlus data-icon="inline-start" />
-                Create Group
+                <span className="hidden lg:block">Create</span>
               </Button>
             </CardAction>
           </CardHeader>

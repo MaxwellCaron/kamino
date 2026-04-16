@@ -9,7 +9,6 @@ import {
   Table,
   TableCell,
   TableHead,
-  TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
 import { AnimatePresence, motion } from "motion/react"
@@ -36,10 +35,17 @@ import { DataTablePagination } from "./data-table-pagination"
 import type { ReactNode } from "react"
 import type {
   ColumnDef,
+  RowData,
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
 import { loadingTransition } from "@/components/loading-transition"
+
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> {
+    className?: string
+  }
+}
 
 type DataTableSelectionActionsContext<TData> = {
   clearSelection: () => void
@@ -130,20 +136,21 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
       <div className="overflow-hidden py-6">
-        <Table className="table-fixed border-y">
-          <TableHeader className="bg-muted hover:bg-muted">
+        <Table className="border-y">
+          <motion.thead
+            data-slot="table-header"
+            className="bg-muted hover:bg-muted [&_tr]:border-b"
+            initial={hasBeenLoading.current ? { opacity: 0 } : false}
+            animate={{ opacity: 1 }}
+            transition={loadingTransition}
+          >
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead
                       key={header.id}
-                      style={{
-                        width:
-                          header.column.getSize() === 150
-                            ? undefined
-                            : header.column.getSize(),
-                      }}
+                      className={header.column.columnDef.meta?.className}
                     >
                       {header.isPlaceholder
                         ? null
@@ -156,7 +163,7 @@ export function DataTable<TData, TValue>({
                 })}
               </TableRow>
             ))}
-          </TableHeader>
+          </motion.thead>
           <AnimatePresence mode="wait">
             <motion.tbody
               key={isLoading ? "loading" : "loaded"}
@@ -191,12 +198,7 @@ export function DataTable<TData, TValue>({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        style={{
-                          width:
-                            cell.column.getSize() === 150
-                              ? undefined
-                              : cell.column.getSize(),
-                        }}
+                        className={cell.column.columnDef.meta?.className}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

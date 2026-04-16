@@ -94,7 +94,7 @@ function MembershipEditor({
     (mode === "user-groups" ? allGroupsQuery.data : allUsersQuery.data) ?? []
 
   const serverIds = React.useMemo(
-    () => currentMembers.map((m) => m.id),
+    () => Array.from(new Set(currentMembers.map((m) => m.id))),
     [currentMembers]
   )
 
@@ -116,10 +116,10 @@ function MembershipEditor({
     return map
   }, [allOptions])
 
-  // All option IDs for the combobox, excluding self
+  // All option IDs for the combobox (deduplicated)
   const items = React.useMemo(
-    () => allOptions.filter((o) => o.id !== principal.id).map((o) => o.id),
-    [allOptions, principal.id]
+    () => Array.from(new Set(allOptions.map((o) => o.id))),
+    [allOptions]
   )
 
   const hasChanges = React.useMemo(() => {

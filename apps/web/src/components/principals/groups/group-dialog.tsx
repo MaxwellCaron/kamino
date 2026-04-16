@@ -13,12 +13,14 @@ import {
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
+import { Textarea } from "@workspace/ui/components/textarea"
 import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react"
 import type { ApiPrincipal } from "@/lib/queries"
 import { createGroup, updateGroup } from "@/lib/queries"
@@ -127,7 +129,7 @@ export function GroupDialog({
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
-                      placeholder="engineering-team"
+                      placeholder="Admins"
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
@@ -155,17 +157,21 @@ export function GroupDialog({
                 >
                   <FieldLabel htmlFor="description">Description</FieldLabel>
                   <FieldContent>
-                    <Input
+                    <Textarea
                       id="description"
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
+                      maxLength={255}
                       placeholder="Optional description"
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
                     />
                   </FieldContent>
+                  <FieldDescription className="text-right font-mono">
+                    {field.state.value.length}/255
+                  </FieldDescription>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </Field>
               )}

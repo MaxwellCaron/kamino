@@ -1,6 +1,12 @@
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import { IconEdit, IconTrash } from "@tabler/icons-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/lib/queries"
 
@@ -16,7 +22,7 @@ export function getVNetColumns({
   return [
     {
       id: "select",
-      size: 48,
+      meta: { className: "w-0" },
       header: ({ table }) => (
         <div className="pl-4">
           <Checkbox
@@ -61,37 +67,34 @@ export function getVNetColumns({
     },
     {
       id: "actions",
-      size: 100,
-      header: () => (
+      meta: { className: "w-0" },
+      header: () => null,
+      cell: ({ row: { original: vnet } }) => (
         <div className="flex justify-end pr-6">
-          <div className="w-16 text-center">Actions</div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-xs">
+                  <IconDots className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEditVnet(vnet)}>
+                <IconEdit />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDeleteClick(vnet)}
+              >
+                <IconTrash />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
-      cell: ({ row: { original: vnet } }) => {
-        return (
-          <div className="flex justify-end pr-6">
-            <div className="flex w-16 justify-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => onEditVnet(vnet)}
-                title="Edit"
-              >
-                <IconEdit className="size-4" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => onDeleteClick(vnet)}
-                title="Delete"
-              >
-                <IconTrash className="size-4" />
-              </Button>
-            </div>
-          </div>
-        )
-      },
     },
   ]
 }

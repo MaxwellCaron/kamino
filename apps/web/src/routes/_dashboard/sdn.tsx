@@ -100,7 +100,7 @@ function SdnPage() {
                 disabled={isLoading || error !== null}
               >
                 <IconPlus data-icon="inline-start" />
-                <span className="hidden lg:block">Create VNet</span>
+                <span className="hidden lg:block">Create</span>
               </Button>
             </CardAction>
           </CardHeader>

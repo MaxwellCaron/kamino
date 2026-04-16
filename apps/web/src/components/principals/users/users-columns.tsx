@@ -1,11 +1,18 @@
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
-import { IconEdit, IconTrash, IconUsersGroup } from "@tabler/icons-react"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import {
+  IconDots,
+  IconEdit,
+  IconTrash,
+  IconUsersGroup,
+} from "@tabler/icons-react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/lib/queries"
 
@@ -23,7 +30,7 @@ export function getUserColumns({
   return [
     {
       id: "select",
-      size: 48,
+      meta: { className: "w-0" },
       header: ({ table }) => (
         <div className="pl-4">
           <Checkbox
@@ -49,17 +56,6 @@ export function getUserColumns({
     {
       accessorKey: "name",
       header: "Name",
-      size: 300,
-      cell: ({ row: { original: user } }) => (
-        <Tooltip>
-          <TooltipTrigger
-            render={<span className="text-wrap">{user.name}</span>}
-          />
-          <TooltipContent>
-            <span>{user.external_id}</span>
-          </TooltipContent>
-        </Tooltip>
-      ),
     },
     {
       accessorKey: "description",
@@ -70,46 +66,39 @@ export function getUserColumns({
     },
     {
       id: "actions",
-      size: 120,
-      header: () => (
+      meta: { className: "w-0" },
+      header: () => null,
+      cell: ({ row: { original: user } }) => (
         <div className="flex justify-end pr-6">
-          <div className="w-18 text-center">Actions</div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-xs">
+                  <IconDots className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEditClick(user)}>
+                <IconEdit className="text-muted-foreground" />
+                Edit User
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEditGroups(user)}>
+                <IconUsersGroup className="text-muted-foreground" />
+                Edit Groups
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDeleteClick(user)}
+              >
+                <IconTrash />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
-      cell: ({ row: { original: user } }) => {
-        return (
-          <div className="flex justify-end pr-6">
-            <div className="flex w-18 justify-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => onEditClick(user)}
-                title="Edit User"
-              >
-                <IconEdit className="size-4" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => onEditGroups(user)}
-                title="Edit Groups"
-              >
-                <IconUsersGroup className="size-4" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => onDeleteClick(user)}
-                title="Delete"
-              >
-                <IconTrash className="size-4" />
-              </Button>
-            </div>
-          </div>
-        )
-      },
     },
   ]
 }
