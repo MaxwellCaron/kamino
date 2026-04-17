@@ -64,6 +64,14 @@ export const INVENTORY_PERMISSION_DEFINITIONS: Array<InventoryPermissionDefiniti
       group: "folder",
     },
     {
+      bit: InventoryPermissionBits.editVmHardware,
+      key: "editVmHardware",
+      label: "Edit VM Hardware",
+      description:
+        "Edit CPU, memory, disk, firmware, and network hardware for VMs covered by this rule.",
+      group: "vm",
+    },
+    {
       bit: InventoryPermissionBits.renameVm,
       key: "renameVm",
       label: "Rename VM",

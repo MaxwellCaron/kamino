@@ -18,6 +18,7 @@ const (
 	SnapshotVM
 	TemplateVM
 	ManagePermissions
+	EditVMHardware
 )
 
 const FullAccessMask = View |
@@ -34,7 +35,8 @@ const FullAccessMask = View |
 	CloneVM |
 	SnapshotVM |
 	TemplateVM |
-	ManagePermissions
+	ManagePermissions |
+	EditVMHardware
 
 type EffectivePermissions struct {
 	AllowedMask Mask `json:"allowed_mask"`

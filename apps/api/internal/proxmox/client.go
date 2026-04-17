@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -392,6 +394,503 @@ func (c *Client) UpdateVMNotes(ctx context.Context, node string, vmid int, notes
 		form["description"] = notes
 	}
 	return c.put(ctx, path, form, nil)
+}
+
+// GetVMHardwareConfig returns editable VM hardware settings from Proxmox.
+func (c *Client) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*VMHardwareConfig, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	var resp apiResponse[map[string]any]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, fmt.Errorf("fetching VM hardware config: %w", err)
+	}
+	return parseVMHardwareConfig(resp.Data)
+}
+
+// UpdateVMHardware applies editable VM hardware settings through Proxmox.
+func (c *Client) UpdateVMHardware(ctx context.Context, node string, vmid int, config VMHardwareConfig) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	current, err := c.GetVMHardwareConfig(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+
+	if config.Storage != current.Storage {
+		return fmt.Errorf("changing disk storage is not supported yet")
+	}
+	if config.DiskSize < current.DiskSize {
+		return fmt.Errorf("shrinking disks is not supported")
+	}
+	if len(config.Networks) == 0 {
+		return fmt.Errorf("at least one network interface is required")
+	}
+
+	params := map[string]string{
+		"ostype": config.OSType,
+		"bios":   config.BIOS,
+		"scsihw": config.SCSI,
+		"cpu":    config.CPUType,
+		"memory": fmt.Sprintf("%d", config.Memory*1024),
+		"balloon": fmt.Sprintf("%d",
+			config.Balloon*1024),
+		"sockets": fmt.Sprintf("%d", config.Sockets),
+		"cores":   fmt.Sprintf("%d", config.Cores),
+	}
+
+	if normalizedMachine := normalizeMachineHardwareValue(config.Machine); normalizedMachine != "" {
+		params["machine"] = normalizedMachine
+	}
+
+	usedDevices := make(map[string]struct{}, len(config.Networks))
+	for _, iface := range config.Networks {
+		device := strings.TrimSpace(iface.Device)
+		if device == "" {
+			device = nextAvailableNetworkDevice(usedDevices, current.Networks)
+		}
+		usedDevices[device] = struct{}{}
+		params[device] = formatVMHardwareNetwork(iface)
+	}
+
+	deleteDevices := make([]string, 0, len(current.Networks))
+	for _, iface := range current.Networks {
+		if _, exists := usedDevices[iface.Device]; !exists {
+			deleteDevices = append(deleteDevices, iface.Device)
+		}
+	}
+	if len(deleteDevices) > 0 {
+		slices.Sort(deleteDevices)
+		params["delete"] = strings.Join(deleteDevices, ",")
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	if err := c.put(ctx, path, params, nil); err != nil {
+		return fmt.Errorf("updating VM hardware: %w", err)
+	}
+
+	if config.DiskSize > current.DiskSize {
+		if err := c.ResizeVMDisk(ctx, node, vmid, current.DiskDevice, config.DiskSize-current.DiskSize); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ResizeVMDisk increases the size of a VM disk by the requested number of GB.
+func (c *Client) ResizeVMDisk(ctx context.Context, node string, vmid int, disk string, deltaGB int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+	if deltaGB <= 0 {
+		return nil
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/resize", node, vmid)
+	form := map[string]string{
+		"disk": disk,
+		"size": fmt.Sprintf("+%dG", deltaGB),
+	}
+
+	var resp apiResponse[string]
+	if err := c.put(ctx, path, form, &resp); err != nil {
+		return fmt.Errorf("resizing VM disk: %w", err)
+	}
+	return c.waitForTask(ctx, node, resp.Data)
+}
+
+func parseVMHardwareConfig(data map[string]any) (*VMHardwareConfig, error) {
+	config := &VMHardwareConfig{
+		OSType:  coalesceString(getStringValue(data["ostype"]), "l26"),
+		BIOS:    coalesceString(getStringValue(data["bios"]), "seabios"),
+		Machine: normalizeMachineHardwareValue(coalesceString(getStringValue(data["machine"]), "pc")),
+		SCSI:    coalesceString(getStringValue(data["scsihw"]), "virtio-scsi-single"),
+		Sockets: maxInt(getIntValue(data["sockets"]), 1),
+		Cores:   maxInt(getIntValue(data["cores"]), 1),
+		CPUType: coalesceString(getStringValue(data["cpu"]), "x86-64-v2-AES"),
+		Memory:  mbToGB(getIntValue(data["memory"]), 1),
+	}
+
+	if balloonMB := getIntValue(data["balloon"]); balloonMB > 0 {
+		config.Balloon = mbToGB(balloonMB, 0)
+	}
+
+	diskDevice, storage, diskSize, err := parseVMHardwareDiskConfig(data)
+	if err != nil {
+		return nil, err
+	}
+	config.DiskDevice = diskDevice
+	config.Storage = storage
+	config.DiskSize = diskSize
+
+	networks := make([]VMHardwareNetwork, 0)
+	for key, value := range data {
+		if !strings.HasPrefix(key, "net") {
+			continue
+		}
+
+		raw := getStringValue(value)
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+
+		network, err := parseVMHardwareNetwork(key, raw)
+		if err != nil {
+			return nil, err
+		}
+		networks = append(networks, network)
+	}
+
+	slices.SortFunc(networks, func(left, right VMHardwareNetwork) int {
+		return strings.Compare(left.Device, right.Device)
+	})
+
+	config.Networks = networks
+	return config, nil
+}
+
+func parseVMHardwareDiskConfig(data map[string]any) (string, string, int, error) {
+	if bootDevice := parseBootDiskDevice(data); bootDevice != "" {
+		if storage, sizeGB, err := parseVMHardwareDisk(bootDevice, getStringValue(data[bootDevice])); err == nil {
+			return bootDevice, storage, sizeGB, nil
+		}
+	}
+
+	diskDevices := collectEditableDiskDevices(data)
+	for _, device := range diskDevices {
+		storage, sizeGB, err := parseVMHardwareDisk(device, getStringValue(data[device]))
+		if err == nil {
+			return device, storage, sizeGB, nil
+		}
+	}
+
+	return "", "", 0, fmt.Errorf("vm does not expose an editable primary disk")
+}
+
+func parseVMHardwareDisk(device, raw string) (string, int, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", 0, fmt.Errorf("%s is empty", device)
+	}
+	if !isEditableDiskValue(raw) {
+		return "", 0, fmt.Errorf("%s is not an editable disk", device)
+	}
+
+	segments := strings.Split(raw, ",")
+	location := strings.TrimSpace(segments[0])
+	if location == "" {
+		return "", 0, fmt.Errorf("invalid %s configuration", device)
+	}
+
+	locationParts := strings.SplitN(location, ":", 2)
+	if len(locationParts) < 2 {
+		return "", 0, fmt.Errorf("invalid %s storage target", device)
+	}
+
+	storage := strings.TrimSpace(locationParts[0])
+	for _, segment := range segments[1:] {
+		key, value, ok := strings.Cut(strings.TrimSpace(segment), "=")
+		if !ok || key != "size" {
+			continue
+		}
+
+		sizeGB, err := parseSizeToGB(value)
+		if err != nil {
+			return "", 0, err
+		}
+		return storage, sizeGB, nil
+	}
+
+	return "", 0, fmt.Errorf("%s size metadata is unavailable", device)
+}
+
+func parseVMHardwareNetwork(device, raw string) (VMHardwareNetwork, error) {
+	parts := strings.Split(raw, ",")
+	if len(parts) == 0 {
+		return VMHardwareNetwork{}, fmt.Errorf("invalid %s configuration", device)
+	}
+
+	model, macAddress := parseNetworkModelAndMAC(parts[0])
+	if model == "" {
+		return VMHardwareNetwork{}, fmt.Errorf("invalid %s model", device)
+	}
+
+	network := VMHardwareNetwork{
+		Device:     device,
+		Model:      model,
+		MACAddress: macAddress,
+	}
+
+	for _, part := range parts[1:] {
+		key, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if !ok {
+			continue
+		}
+
+		switch key {
+		case "bridge":
+			network.Bridge = value
+		case "tag":
+			if vlanTag, err := strconv.Atoi(value); err == nil && vlanTag > 0 {
+				network.VLANTag = &vlanTag
+			}
+		case "firewall":
+			network.Firewall = value == "1" || strings.EqualFold(value, "true")
+		}
+	}
+
+	return network, nil
+}
+
+func parseNetworkModelAndMAC(raw string) (string, string) {
+	model, macAddress, hasMAC := strings.Cut(strings.TrimSpace(raw), "=")
+	if !hasMAC {
+		return model, ""
+	}
+	return model, strings.TrimSpace(macAddress)
+}
+
+func formatVMHardwareNetwork(network VMHardwareNetwork) string {
+	model := strings.TrimSpace(network.Model)
+	if model == "" {
+		model = "virtio"
+	}
+
+	base := model
+	if macAddress := strings.TrimSpace(network.MACAddress); macAddress != "" {
+		base = fmt.Sprintf("%s=%s", model, macAddress)
+	}
+
+	parts := []string{base}
+	if bridge := strings.TrimSpace(network.Bridge); bridge != "" {
+		parts = append(parts, "bridge="+bridge)
+	}
+	if network.Firewall {
+		parts = append(parts, "firewall=1")
+	}
+	if network.VLANTag != nil && *network.VLANTag > 0 {
+		parts = append(parts, fmt.Sprintf("tag=%d", *network.VLANTag))
+	}
+
+	return strings.Join(parts, ",")
+}
+
+func nextAvailableNetworkDevice(used map[string]struct{}, existing []VMHardwareNetwork) string {
+	candidateUsed := make(map[string]struct{}, len(used)+len(existing))
+	for key := range used {
+		candidateUsed[key] = struct{}{}
+	}
+	for _, iface := range existing {
+		candidateUsed[iface.Device] = struct{}{}
+	}
+
+	for index := 0; index < 10; index++ {
+		device := fmt.Sprintf("net%d", index)
+		if _, exists := used[device]; !exists {
+			return device
+		}
+	}
+
+	for index := 10; ; index++ {
+		device := fmt.Sprintf("net%d", index)
+		if _, exists := candidateUsed[device]; !exists {
+			return device
+		}
+	}
+}
+
+func parseBootDiskDevice(data map[string]any) string {
+	if device := strings.TrimSpace(getStringValue(data["bootdisk"])); isSupportedDiskDevice(device) {
+		return device
+	}
+
+	boot := strings.TrimSpace(getStringValue(data["boot"]))
+	if boot == "" {
+		return ""
+	}
+
+	if _, order, ok := strings.Cut(boot, "order="); ok {
+		for _, device := range strings.Split(order, ";") {
+			trimmed := strings.TrimSpace(device)
+			if isSupportedDiskDevice(trimmed) {
+				return trimmed
+			}
+		}
+	}
+
+	return ""
+}
+
+func collectEditableDiskDevices(data map[string]any) []string {
+	devices := make([]string, 0)
+	for key, value := range data {
+		if !isSupportedDiskDevice(key) || !isEditableDiskValue(getStringValue(value)) {
+			continue
+		}
+		devices = append(devices, key)
+	}
+
+	slices.SortFunc(devices, compareDiskDevices)
+	return devices
+}
+
+func compareDiskDevices(left, right string) int {
+	leftRank, leftIndex := diskDeviceRank(left)
+	rightRank, rightIndex := diskDeviceRank(right)
+
+	if leftRank != rightRank {
+		return leftRank - rightRank
+	}
+	if leftIndex != rightIndex {
+		return leftIndex - rightIndex
+	}
+	return strings.Compare(left, right)
+}
+
+func diskDeviceRank(device string) (int, int) {
+	switch {
+	case strings.HasPrefix(device, "scsi"):
+		return 0, parseDiskDeviceIndex(device, "scsi")
+	case strings.HasPrefix(device, "virtio"):
+		return 1, parseDiskDeviceIndex(device, "virtio")
+	case strings.HasPrefix(device, "sata"):
+		return 2, parseDiskDeviceIndex(device, "sata")
+	case strings.HasPrefix(device, "ide"):
+		return 3, parseDiskDeviceIndex(device, "ide")
+	default:
+		return 99, 99
+	}
+}
+
+func parseDiskDeviceIndex(device, prefix string) int {
+	value, err := strconv.Atoi(strings.TrimPrefix(device, prefix))
+	if err != nil {
+		return 99
+	}
+	return value
+}
+
+func isSupportedDiskDevice(device string) bool {
+	switch {
+	case strings.HasPrefix(device, "scsi"),
+		strings.HasPrefix(device, "virtio"),
+		strings.HasPrefix(device, "sata"),
+		strings.HasPrefix(device, "ide"):
+		return true
+	default:
+		return false
+	}
+}
+
+func isEditableDiskValue(raw string) bool {
+	trimmed := strings.TrimSpace(strings.ToLower(raw))
+	if trimmed == "" {
+		return false
+	}
+	if strings.Contains(trimmed, "media=cdrom") || strings.Contains(trimmed, "cloudinit") {
+		return false
+	}
+	return strings.Contains(trimmed, "size=")
+}
+
+func normalizeMachineHardwareValue(machine string) string {
+	switch trimmed := strings.TrimSpace(machine); {
+	case trimmed == "", trimmed == "i440fx", trimmed == "pc", strings.HasPrefix(trimmed, "pc-"):
+		return "pc"
+	case strings.HasPrefix(trimmed, "q35"):
+		return "q35"
+	default:
+		return trimmed
+	}
+}
+
+func coalesceString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+func getStringValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case json.Number:
+		return typed.String()
+	default:
+		return ""
+	}
+}
+
+func getIntValue(value any) int {
+	switch typed := value.(type) {
+	case float64:
+		return int(math.Round(typed))
+	case int:
+		return typed
+	case int32:
+		return int(typed)
+	case int64:
+		return int(typed)
+	case json.Number:
+		parsed, _ := typed.Int64()
+		return int(parsed)
+	case string:
+		parsed, _ := strconv.Atoi(strings.TrimSpace(typed))
+		return parsed
+	default:
+		return 0
+	}
+}
+
+func mbToGB(valueMB int, fallback int) int {
+	if valueMB <= 0 {
+		return fallback
+	}
+	return int(math.Ceil(float64(valueMB) / 1024))
+}
+
+func parseSizeToGB(raw string) (int, error) {
+	trimmed := strings.TrimSpace(strings.ToUpper(raw))
+	if trimmed == "" {
+		return 0, fmt.Errorf("disk size is required")
+	}
+
+	unit := trimmed[len(trimmed)-1]
+	multiplier := 1.0
+	valueString := trimmed
+
+	switch unit {
+	case 'K':
+		multiplier = 1.0 / (1024 * 1024)
+		valueString = trimmed[:len(trimmed)-1]
+	case 'M':
+		multiplier = 1.0 / 1024
+		valueString = trimmed[:len(trimmed)-1]
+	case 'G':
+		multiplier = 1
+		valueString = trimmed[:len(trimmed)-1]
+	case 'T':
+		multiplier = 1024
+		valueString = trimmed[:len(trimmed)-1]
+	}
+
+	value, err := strconv.ParseFloat(valueString, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid disk size %q", raw)
+	}
+	return int(math.Ceil(value * multiplier)), nil
+}
+
+func maxInt(value, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 // CloneVM clones a VM and waits for the task to complete.

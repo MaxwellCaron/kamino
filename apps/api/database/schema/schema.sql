@@ -36,6 +36,7 @@ CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox');
 -- 4096    = snapshot_vm
 -- 8192    = template_vm
 -- 16384   = manage_permissions
+-- 32768   = edit_vm_hardware
 
 -- ----------------------------------------------------------------------------
 -- Management permission bit definitions (reference)

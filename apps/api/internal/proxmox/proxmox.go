@@ -87,3 +87,28 @@ type Snapshot struct {
 	Parent      string  `json:"parent,omitempty"`
 	VMState     intBool `json:"vmstate,omitempty"`
 }
+
+type VMHardwareNetwork struct {
+	Device     string `json:"device"`
+	Bridge     string `json:"bridge"`
+	Model      string `json:"model"`
+	VLANTag    *int   `json:"vlan_tag,omitempty"`
+	Firewall   bool   `json:"firewall"`
+	MACAddress string `json:"mac_address,omitempty"`
+}
+
+type VMHardwareConfig struct {
+	OSType     string              `json:"ostype"`
+	BIOS       string              `json:"bios"`
+	Machine    string              `json:"machine"`
+	SCSI       string              `json:"scsi"`
+	Sockets    int                 `json:"sockets"`
+	Cores      int                 `json:"cores"`
+	CPUType    string              `json:"cpu_type"`
+	Memory     int                 `json:"memory"`
+	Balloon    int                 `json:"balloon"`
+	DiskDevice string              `json:"disk_device,omitempty"`
+	Storage    string              `json:"storage"`
+	DiskSize   int                 `json:"disk_size"`
+	Networks   []VMHardwareNetwork `json:"networks"`
+}

@@ -6,7 +6,8 @@ import { FolderDialog } from "./folder-dialog"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import { CloneDialog } from "@/components/vm/clone-dialog"
-import { CreateVmDialog } from "@/components/vm/create-vm-dialog"
+import { CreateVmDialog } from "@/components/vm/create/dialog"
+import { VmHardwareDialog } from "@/components/vm/hardware/dialog"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 
 type PermissionsDialogConfig = {
@@ -46,6 +47,12 @@ type RenameVmDialogConfig = {
   currentName: string
 }
 
+type EditVmHardwareDialogConfig = {
+  node: string
+  vmid: number
+  currentName: string
+}
+
 type InventoryDialogsContextValue = {
   openConfirm: (config: ConfirmConfig) => void
   openCreateFolder: (config: CreateFolderDialogConfig) => void
@@ -54,6 +61,7 @@ type InventoryDialogsContextValue = {
   openSnapshot: (config: SnapshotDialogConfig) => void
   openClone: (config: CloneDialogConfig) => void
   openRenameVm: (config: RenameVmDialogConfig) => void
+  openEditVmHardware: (config: EditVmHardwareDialogConfig) => void
   openPermissions: (config: PermissionsDialogConfig) => void
 }
 
@@ -78,19 +86,18 @@ export function InventoryDialogsProvider({
   children: ReactNode
 }) {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [createFolder, setCreateFolder] = useState<CreateFolderDialogConfig | null>(
-    null
-  )
-  const [renameFolder, setRenameFolder] = useState<RenameFolderDialogConfig | null>(
-    null
-  )
+  const [createFolder, setCreateFolder] =
+    useState<CreateFolderDialogConfig | null>(null)
+  const [renameFolder, setRenameFolder] =
+    useState<RenameFolderDialogConfig | null>(null)
   const [createVm, setCreateVm] = useState<CreateVmDialogConfig | null>(null)
   const [snapshot, setSnapshot] = useState<SnapshotDialogConfig | null>(null)
   const [clone, setClone] = useState<CloneDialogConfig | null>(null)
   const [renameVm, setRenameVm] = useState<RenameVmDialogConfig | null>(null)
-  const [permissions, setPermissions] = useState<PermissionsDialogConfig | null>(
-    null
-  )
+  const [editVmHardware, setEditVmHardware] =
+    useState<EditVmHardwareDialogConfig | null>(null)
+  const [permissions, setPermissions] =
+    useState<PermissionsDialogConfig | null>(null)
 
   const value = useMemo<InventoryDialogsContextValue>(
     () => ({
@@ -101,6 +108,7 @@ export function InventoryDialogsProvider({
       openSnapshot: setSnapshot,
       openClone: setClone,
       openRenameVm: setRenameVm,
+      openEditVmHardware: setEditVmHardware,
       openPermissions: setPermissions,
     }),
     []
@@ -166,6 +174,18 @@ export function InventoryDialogsProvider({
           open={true}
           onOpenChange={(open) => {
             if (!open) setRenameVm(null)
+          }}
+        />
+      )}
+      {editVmHardware && (
+        <VmHardwareDialog
+          key={`${editVmHardware.node}:${editVmHardware.vmid}`}
+          node={editVmHardware.node}
+          vmid={editVmHardware.vmid}
+          vmName={editVmHardware.currentName}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setEditVmHardware(null)
           }}
         />
       )}

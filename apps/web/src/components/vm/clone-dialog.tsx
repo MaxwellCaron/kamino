@@ -24,11 +24,11 @@ import {
   CloneNameField,
   CloneNodeField,
   CloneVmidField,
-} from "@/components/vm/create-vm/clone-form-fields"
+} from "@/components/vm/create/clone-form-fields"
 import {
   optionalVmNameSchema,
   optionalVmidSchema,
-} from "@/components/vm/create-vm/create-vm-form"
+} from "@/components/vm/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/lib/inventory-tree"
 import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
 

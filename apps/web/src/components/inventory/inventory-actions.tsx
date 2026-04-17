@@ -14,6 +14,7 @@ import {
   IconRefresh,
   IconServer,
   IconServerSpark,
+  IconSettings,
   IconTemplate,
   IconTrash,
 } from "@tabler/icons-react"
@@ -101,6 +102,7 @@ const VM_ACTION_PERMISSIONS = [
   InventoryPermissionBits.cloneVm,
   InventoryPermissionBits.snapshotVm,
   InventoryPermissionBits.renameVm,
+  InventoryPermissionBits.editVmHardware,
   InventoryPermissionBits.deleteVm,
   InventoryPermissionBits.templateVm,
   InventoryPermissionBits.managePermissions,
@@ -307,6 +309,7 @@ function VmMenuItems({
   onSnapshot,
   onClone,
   onRename,
+  onEditHardware,
   isLoading,
 }: {
   permissions: ApiTreeNodePermissions
@@ -318,6 +321,7 @@ function VmMenuItems({
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
+  onEditHardware: () => void
   isLoading?: boolean
 }) {
   const powerAction = useVmPowerAction()
@@ -343,6 +347,10 @@ function VmMenuItems({
   const canRename = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.renameVm
+  )
+  const canEditHardware = hasInventoryPermission(
+    permissions,
+    InventoryPermissionBits.editVmHardware
   )
   const canDelete = hasInventoryPermission(
     permissions,
@@ -467,6 +475,7 @@ function VmMenuItems({
             canTemplate ||
             canSnapshot ||
             canRename ||
+            canEditHardware ||
             canManagePermissions ||
             canDelete) && <DropdownMenuSeparator />}
         </>
@@ -475,6 +484,7 @@ function VmMenuItems({
         canTemplate ||
         canSnapshot ||
         canRename ||
+        canEditHardware ||
         canManagePermissions) && (
         <>
           <DropdownMenuGroup>
@@ -519,6 +529,12 @@ function VmMenuItems({
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
                 Rename
+              </DropdownMenuItem>
+            )}
+            {canEditHardware && (
+              <DropdownMenuItem onClick={onEditHardware} disabled={isLoading}>
+                <IconSettings className="text-muted-foreground" />
+                Hardware
               </DropdownMenuItem>
             )}
             {canManagePermissions && (
@@ -663,6 +679,7 @@ export function MenuItems({
   onSnapshot,
   onClone,
   onRename,
+  onEditHardware,
   onCreateVm,
   onCreateFolder,
   onDeleteFolder,
@@ -679,6 +696,7 @@ export function MenuItems({
   onSnapshot: () => void
   onClone: () => void
   onRename: () => void
+  onEditHardware: () => void
   onCreateVm: () => void
   onCreateFolder: () => void
   onDeleteFolder: () => void
@@ -720,6 +738,7 @@ export function MenuItems({
       onSnapshot={onSnapshot}
       onClone={onClone}
       onRename={onRename}
+      onEditHardware={onEditHardware}
       isLoading={isLoading}
     />
   )
@@ -745,6 +764,7 @@ export function InventoryNodeMenu({
     openSnapshot,
     openClone,
     openRenameVm,
+    openEditVmHardware,
     openPermissions,
   } = useInventoryDialogs()
 
@@ -854,6 +874,15 @@ export function InventoryNodeMenu({
               })
             }
           }}
+          onEditHardware={() => {
+            if (!isFolder && !isTemplate && data.vm?.node) {
+              openEditVmHardware({
+                node: data.vm.node,
+                vmid: data.vm.vmid,
+                currentName: data.name,
+              })
+            }
+          }}
           onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
           onCreateFolder={() => openCreateFolder({ parentId: itemId })}
           onDeleteFolder={handleDeleteFolder}
@@ -891,6 +920,7 @@ export function VmOptionsMenu({
     openSnapshot,
     openClone,
     openRenameVm,
+    openEditVmHardware,
     openPermissions,
   } = useInventoryDialogs()
   const hasActions =
@@ -918,6 +948,10 @@ export function VmOptionsMenu({
         hasInventoryPermission(
           permissions,
           InventoryPermissionBits.snapshotVm
+        ) ||
+        hasInventoryPermission(
+          permissions,
+          InventoryPermissionBits.editVmHardware
         ) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
         hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
@@ -984,6 +1018,15 @@ export function VmOptionsMenu({
 
               if (!isTemplate && pveNode && vmid !== undefined) {
                 openRenameVm({
+                  node: pveNode,
+                  vmid,
+                  currentName: name ?? "",
+                })
+              }
+            }}
+            onEditHardware={() => {
+              if (!isFolder && !isTemplate && pveNode && vmid !== undefined) {
+                openEditVmHardware({
                   node: pveNode,
                   vmid,
                   currentName: name ?? "",

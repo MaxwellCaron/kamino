@@ -34,7 +34,7 @@ import {
   CreateVmConfigurationStep,
   CreateVmMethodStep,
   CreateVmSummaryStep,
-} from "./create-vm/create-vm-steps"
+} from "./create-vm-steps"
 import {
   createVmFormOptions,
   createVmFormSchema,
@@ -42,8 +42,8 @@ import {
   getVmTemplateOptions,
   toCreateVmParams,
   useCreateVmForm,
-} from "./create-vm/create-vm-form"
-import type { CreateVmFormValues } from "./create-vm/create-vm-form"
+} from "./create-vm-form"
+import type { CreateVmFormValues } from "./create-vm-form"
 import {
   getInventoryFolderOptions,
   getSelectedFolder,

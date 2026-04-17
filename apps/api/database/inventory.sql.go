@@ -491,6 +491,33 @@ func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams
 	return err
 }
 
+const updateProxmoxVMHardwareSummaryByNodeVMID = `-- name: UpdateProxmoxVMHardwareSummaryByNodeVMID :exec
+UPDATE proxmox_vms
+SET cpu_count = $1,
+    memory_mb = $2,
+    disk_gb = $3
+WHERE node = $4 AND vmid = $5
+`
+
+type UpdateProxmoxVMHardwareSummaryByNodeVMIDParams struct {
+	CpuCount *int32   `json:"cpu_count"`
+	MemoryMb *int32   `json:"memory_mb"`
+	DiskGb   *float64 `json:"disk_gb"`
+	Node     string   `json:"node"`
+	Vmid     int32    `json:"vmid"`
+}
+
+func (q *Queries) UpdateProxmoxVMHardwareSummaryByNodeVMID(ctx context.Context, arg UpdateProxmoxVMHardwareSummaryByNodeVMIDParams) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMHardwareSummaryByNodeVMID,
+		arg.CpuCount,
+		arg.MemoryMb,
+		arg.DiskGb,
+		arg.Node,
+		arg.Vmid,
+	)
+	return err
+}
+
 const updateProxmoxVMIsTemplate = `-- name: UpdateProxmoxVMIsTemplate :exec
 UPDATE proxmox_vms SET is_template = true WHERE node = $1 AND vmid = $2
 `

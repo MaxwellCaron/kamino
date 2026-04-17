@@ -822,6 +822,31 @@ func (s *Service) UpdateProxmoxVMNotes(ctx context.Context, node string, vmid in
 	return nil
 }
 
+func (s *Service) UpdateProxmoxVMHardwareSummary(
+	ctx context.Context,
+	node string,
+	vmid int32,
+	cpuCount int32,
+	memoryMB int32,
+	diskGB float64,
+) error {
+	if err := database.New(s.db).UpdateProxmoxVMHardwareSummaryByNodeVMID(
+		ctx,
+		database.UpdateProxmoxVMHardwareSummaryByNodeVMIDParams{
+			CpuCount: &cpuCount,
+			MemoryMb: &memoryMB,
+			DiskGb:   &diskGB,
+			Node:     node,
+			Vmid:     vmid,
+		},
+	); err != nil {
+		return err
+	}
+
+	s.notify(ctx, nil)
+	return nil
+}
+
 func (s *Service) RegisterProxmoxVM(
 	ctx context.Context,
 	parentID uuid.UUID,

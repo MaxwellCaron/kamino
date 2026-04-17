@@ -97,6 +97,13 @@ WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $2 AND vmid =
 -- name: UpdateProxmoxVMIsTemplate :exec
 UPDATE proxmox_vms SET is_template = true WHERE node = $1 AND vmid = $2;
 
+-- name: UpdateProxmoxVMHardwareSummaryByNodeVMID :exec
+UPDATE proxmox_vms
+SET cpu_count = $1,
+    memory_mb = $2,
+    disk_gb = $3
+WHERE node = $4 AND vmid = $5;
+
 -- name: DeleteInventoryItemByProxmoxVM :exec
 DELETE FROM inventory_items
 WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $1 AND vmid = $2);

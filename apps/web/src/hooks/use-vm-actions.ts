@@ -10,6 +10,8 @@ import {
   renameVM,
   rollbackSnapshot,
   updateVMNotes,
+  updateVMHardware,
+  vmHardwareQueryOptions,
   vmPowerAction,
 } from "@/lib/queries"
 
@@ -68,6 +70,22 @@ export function useUpdateVMNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+    },
+  })
+}
+
+export function useUpdateVMHardware(node: string, vmid: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateVMHardware,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+      queryClient.invalidateQueries({
+        queryKey: vmHardwareQueryOptions(node, vmid).queryKey,
       })
     },
   })

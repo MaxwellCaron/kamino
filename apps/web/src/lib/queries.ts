@@ -299,6 +299,7 @@ export const InventoryPermissionBits = {
   snapshotVm: 1 << 12,
   templateVm: 1 << 13,
   managePermissions: 1 << 14,
+  editVmHardware: 1 << 15,
 } as const
 
 export type ApiTreeNodePermissions = {
@@ -576,6 +577,66 @@ export async function updateVMNotes(params: {
     throw new Error(body.error ?? `Failed to update VM notes: ${res.status}`)
   }
   return res.json()
+}
+
+export type ApiVmHardwareNetwork = {
+  device?: string
+  bridge: string
+  model: string
+  vlan_tag?: number
+  firewall: boolean
+  mac_address?: string
+}
+
+export type ApiVmHardwareConfig = {
+  ostype: string
+  bios: string
+  machine: string
+  scsi: string
+  sockets: number
+  cores: number
+  cpu_type: string
+  memory: number
+  balloon: number
+  storage: string
+  disk_size: number
+  networks: Array<ApiVmHardwareNetwork>
+}
+
+export function vmHardwareQueryOptions(node: string, vmid: number) {
+  return {
+    queryKey: ["vms", node, vmid, "hardware"] as const,
+    queryFn: async (): Promise<ApiVmHardwareConfig> => {
+      const res = await apiFetch(`/api/v1/vms/${node}/${vmid}/hardware`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(
+          body.error ?? `Failed to fetch VM hardware: ${res.status}`
+        )
+      }
+      return res.json()
+    },
+    enabled: !!node && vmid > 0,
+  }
+}
+
+export async function updateVMHardware(params: {
+  node: string
+  vmid: number
+  hardware: ApiVmHardwareConfig
+}): Promise<void> {
+  const res = await apiFetch(
+    `/api/v1/vms/${params.node}/${params.vmid}/hardware`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params.hardware),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to update VM hardware: ${res.status}`)
+  }
 }
 
 export async function cloneVM(params: {

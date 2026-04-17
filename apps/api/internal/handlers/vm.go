@@ -319,6 +319,30 @@ type updateVMNotesRequest struct {
 	Notes string `json:"notes"`
 }
 
+type updateVMHardwareNetworkRequest struct {
+	Device     string `json:"device"`
+	Bridge     string `json:"bridge"`
+	Model      string `json:"model"`
+	VLANTag    int    `json:"vlan_tag"`
+	Firewall   bool   `json:"firewall"`
+	MACAddress string `json:"mac_address"`
+}
+
+type updateVMHardwareRequest struct {
+	OSType   string                           `json:"ostype"`
+	BIOS     string                           `json:"bios"`
+	Machine  string                           `json:"machine"`
+	SCSI     string                           `json:"scsi"`
+	Sockets  int                              `json:"sockets"`
+	Cores    int                              `json:"cores"`
+	CPUType  string                           `json:"cpu_type"`
+	Memory   int                              `json:"memory"`
+	Balloon  int                              `json:"balloon"`
+	Storage  string                           `json:"storage"`
+	DiskSize int                              `json:"disk_size"`
+	Networks []updateVMHardwareNetworkRequest `json:"networks"`
+}
+
 // RenameVM renames a VM in Proxmox and updates the inventory.
 // POST /api/v1/vms/rename
 func (h *VMHandler) RenameVM(c *gin.Context) {
@@ -404,6 +428,173 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true, "synced": true})
+}
+
+// GetHardware returns the current editable hardware configuration for a VM.
+// GET /api/v1/vms/:node/:vmid/hardware
+func (h *VMHandler) GetHardware(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	node := c.Param("node")
+	vmid, err := parseIntParam(c, "vmid")
+	if err != nil {
+		return
+	}
+
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.EditVMHardware); !ok {
+		return
+	}
+
+	config, err := h.PX.GetVMHardwareConfig(c.Request.Context(), node, vmid)
+	if err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM hardware", "fetch vm hardware config", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, config)
+}
+
+// UpdateHardware updates editable hardware settings for a VM and refreshes summary metadata.
+// PUT /api/v1/vms/:node/:vmid/hardware
+func (h *VMHandler) UpdateHardware(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	node := c.Param("node")
+	vmid, err := parseIntParam(c, "vmid")
+	if err != nil {
+		return
+	}
+
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.EditVMHardware); !ok {
+		return
+	}
+
+	var req updateVMHardwareRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if err := validateVMHardwareRequest(req); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+
+	config := proxmox.VMHardwareConfig{
+		OSType:   strings.TrimSpace(req.OSType),
+		BIOS:     strings.TrimSpace(req.BIOS),
+		Machine:  strings.TrimSpace(req.Machine),
+		SCSI:     strings.TrimSpace(req.SCSI),
+		Sockets:  req.Sockets,
+		Cores:    req.Cores,
+		CPUType:  strings.TrimSpace(req.CPUType),
+		Memory:   req.Memory,
+		Balloon:  req.Balloon,
+		Storage:  strings.TrimSpace(req.Storage),
+		DiskSize: req.DiskSize,
+		Networks: make([]proxmox.VMHardwareNetwork, 0, len(req.Networks)),
+	}
+
+	for _, network := range req.Networks {
+		var vlanTag *int
+		if network.VLANTag > 0 {
+			value := network.VLANTag
+			vlanTag = &value
+		}
+
+		config.Networks = append(config.Networks, proxmox.VMHardwareNetwork{
+			Device:     strings.TrimSpace(network.Device),
+			Bridge:     strings.TrimSpace(network.Bridge),
+			Model:      strings.TrimSpace(network.Model),
+			VLANTag:    vlanTag,
+			Firewall:   network.Firewall,
+			MACAddress: strings.TrimSpace(network.MACAddress),
+		})
+	}
+
+	if err := h.PX.UpdateVMHardware(c.Request.Context(), node, vmid, config); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+
+	cpuCount := int32(req.Sockets * req.Cores)
+	memoryMB := int32(req.Memory * 1024)
+	if err := h.Service.UpdateProxmoxVMHardwareSummary(
+		c.Request.Context(),
+		node,
+		int32(vmid),
+		cpuCount,
+		memoryMB,
+		float64(req.DiskSize),
+	); err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "vm hardware updated in Proxmox but failed to refresh inventory metadata", "update vm hardware summary", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func validateVMHardwareRequest(req updateVMHardwareRequest) error {
+	if strings.TrimSpace(req.OSType) == "" {
+		return fmt.Errorf("ostype is required")
+	}
+	if strings.TrimSpace(req.BIOS) == "" {
+		return fmt.Errorf("bios is required")
+	}
+	if strings.TrimSpace(req.Machine) == "" {
+		return fmt.Errorf("machine is required")
+	}
+	if strings.TrimSpace(req.SCSI) == "" {
+		return fmt.Errorf("scsi is required")
+	}
+	if strings.TrimSpace(req.CPUType) == "" {
+		return fmt.Errorf("cpu_type is required")
+	}
+	if strings.TrimSpace(req.Storage) == "" {
+		return fmt.Errorf("storage is required")
+	}
+	if req.Sockets < 1 {
+		return fmt.Errorf("sockets must be at least 1")
+	}
+	if req.Cores < 1 {
+		return fmt.Errorf("cores must be at least 1")
+	}
+	if req.Memory < 1 {
+		return fmt.Errorf("memory must be at least 1 GB")
+	}
+	if req.Balloon < 0 {
+		return fmt.Errorf("balloon must be 0 GB or higher")
+	}
+	if req.DiskSize < 1 {
+		return fmt.Errorf("disk_size must be at least 1 GB")
+	}
+	if len(req.Networks) == 0 {
+		return fmt.Errorf("at least one network interface is required")
+	}
+	if len(req.Networks) > 5 {
+		return fmt.Errorf("no more than 5 network interfaces are permitted")
+	}
+
+	for index, network := range req.Networks {
+		if strings.TrimSpace(network.Bridge) == "" {
+			return fmt.Errorf("network %d bridge is required", index)
+		}
+		if strings.TrimSpace(network.Model) == "" {
+			return fmt.Errorf("network %d model is required", index)
+		}
+		if network.VLANTag < 0 || network.VLANTag > 4094 {
+			return fmt.Errorf("network %d vlan_tag must be between 1 and 4094", index)
+		}
+	}
+
+	return nil
 }
 
 type cloneVMRequest struct {
