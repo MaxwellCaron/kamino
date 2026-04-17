@@ -22,6 +22,7 @@ import {
   useSidebar,
 } from "@workspace/ui/components/sidebar"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { ThemeToggleMenuItems } from "./theme-toggle"
 import { logout } from "@/lib/queries"
 
 export function NavUser({
@@ -88,6 +89,8 @@ export function NavUser({
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <ThemeToggleMenuItems />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

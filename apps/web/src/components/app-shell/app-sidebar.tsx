@@ -2,7 +2,7 @@ import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 
 import {
-  IconDashboard,
+  IconHome,
   IconNetwork,
   IconUser,
   IconUsersGroup,
@@ -33,7 +33,7 @@ import {
 } from "@/components/inventory/tree/inventory-tree"
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: IconDashboard },
+  { title: "Home", url: "/", icon: IconHome },
   { title: "SDN", url: "/sdn", icon: IconNetwork },
   { title: "Users", url: "/users", icon: IconUser },
   { title: "Groups", url: "/groups", icon: IconUsersGroup },
@@ -102,19 +102,19 @@ export function AppSidebar({
               <SidebarMenuItem>
                 <SidebarMenuButton
                   size="lg"
-                  className="justify-center md:size-8 md:p-0"
+                  className="justify-center md:size-9 md:p-0"
                   tooltip={{ children: "Kamino", hidden: false }}
                   render={<Link to="/" />}
                 >
-                  <img src="/kamino.svg" alt="Kamino" className="size-5!" />
+                  <img src="/kamino.svg" alt="Kamino" className="size-6!" />
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupContent className="px-1.5 md:px-0">
-                <SidebarMenu className="items-center">
+              <SidebarGroupContent>
+                <SidebarMenu className="items-center space-y-2">
                   {visibleNavItems.map((item) => {
                     const Icon = item.icon
                     return (
@@ -122,10 +122,10 @@ export function AppSidebar({
                         <SidebarMenuButton
                           tooltip={{ children: item.title, hidden: false }}
                           isActive={isActivePath(pathname, item.url)}
-                          className="size-8 justify-center p-2"
+                          className="size-9 justify-center"
                           render={<Link to={item.url} />}
                         >
-                          <Icon />
+                          <Icon className="size-5!" />
                           <span className="sr-only">{item.title}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -143,12 +143,12 @@ export function AppSidebar({
         {/* Inventory panel */}
         <Sidebar collapsible="none" className="flex flex-1">
           <InventoryTreeProvider>
-            <SidebarHeader className="px-1 py-0">
-              <SidebarGroup className="mb-1 rounded-b-3xl border-b shadow">
+            <SidebarHeader className="py-0">
+              <SidebarGroup className="mb-1 rounded-3xl border-b">
                 <InventoryTreeHeader />
               </SidebarGroup>
             </SidebarHeader>
-            <SidebarContent>
+            <SidebarContent className="px-2">
               <InventoryTreeBody />
             </SidebarContent>
           </InventoryTreeProvider>

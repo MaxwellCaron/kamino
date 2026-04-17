@@ -336,6 +336,29 @@ export function findTreeNode(
   return null
 }
 
+export function findTreePath(
+  nodes: Array<ApiTreeNode>,
+  id: string,
+  parents: Array<ApiTreeNode> = []
+): Array<ApiTreeNode> | null {
+  for (const node of nodes) {
+    const path = [...parents, node]
+
+    if (node.id === id) {
+      return path
+    }
+
+    if (node.children) {
+      const found = findTreePath(node.children, id, path)
+      if (found) {
+        return found
+      }
+    }
+  }
+
+  return null
+}
+
 export type ApiInventoryAclEntry = {
   id: string
   principal_id: string

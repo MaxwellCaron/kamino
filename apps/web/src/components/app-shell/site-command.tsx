@@ -45,15 +45,15 @@ export function CommandManyItems() {
   const [open, setOpen] = React.useState(false)
 
   return (
-    <div className="flex flex-col gap-4">
+    <>
       <Button
         onClick={() => setOpen(true)}
         variant="secondary"
-        className="w-xs justify-start text-muted-foreground lg:w-md"
+        className="w-auto justify-start text-muted-foreground md:w-56 lg:w-72"
         size="sm"
       >
         <IconSearch />
-        Search website...
+        <span className="hidden sm:inline">Search Kamino...</span>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <Command>
@@ -184,6 +184,6 @@ export function CommandManyItems() {
           </CommandList>
         </Command>
       </CommandDialog>
-    </div>
+    </>
   )
 }
