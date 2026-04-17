@@ -63,6 +63,7 @@ func RegisterRoutes(
 	protected.POST("/vms/power", vm.PowerAction)
 	protected.POST("/vms/rename", vm.RenameVM)
 	protected.POST("/vms/clone", vm.CloneVM)
+	protected.PUT("/vms/:node/:vmid/notes", vm.UpdateNotes)
 	protected.POST("/vms/template", vm.ConvertToTemplate)
 	protected.POST("/vms/snapshot", vm.CreateSnapshot)
 	protected.POST("/vms/snapshot/rollback", vm.RollbackSnapshot)

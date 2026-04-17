@@ -107,7 +107,7 @@ WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $1 AND vmid =
 
 -- name: GetAllInventoryItems :many
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
-       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -117,7 +117,12 @@ ORDER BY
 
 -- name: GetInventoryItemByID :one
 SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
-       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1;
+
+-- name: UpdateProxmoxVMNotesByNodeVMID :exec
+UPDATE proxmox_vms
+SET notes = $1
+WHERE node = $2 AND vmid = $3;

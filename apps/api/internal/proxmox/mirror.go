@@ -92,6 +92,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 
 	desiredPools := make(map[string]string)
 	desiredVMPools := make(map[vmKey]string)
+	desiredVMNotes := make(map[vmKey]string)
 
 	var walk func(uuid.UUID, []string)
 	walk = func(id uuid.UUID, path []string) {
@@ -115,12 +116,16 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 				continue
 			}
 
+			key := vmKey{Node: *child.Node, VMID: int(*child.Vmid)}
 			desiredPool := ""
 			if len(nextPath) > 0 {
 				desiredPool = EncodePoolPath(nextPath)
 			}
 
-			desiredVMPools[vmKey{Node: *child.Node, VMID: int(*child.Vmid)}] = desiredPool
+			desiredVMPools[key] = desiredPool
+			if child.Notes != nil {
+				desiredVMNotes[key] = *child.Notes
+			}
 		}
 	}
 
@@ -176,6 +181,16 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 			if err := m.client.AddVMToPool(ctx, desiredPool, key.VMID); err != nil {
 				return fmt.Errorf("adding VM %d on %s to pool %q: %w", key.VMID, key.Node, desiredPool, err)
 			}
+		}
+	}
+
+	for key, desiredNotes := range desiredVMNotes {
+		if _, exists := currentVMPools[key]; !exists {
+			continue
+		}
+
+		if err := m.client.UpdateVMNotes(ctx, key.Node, key.VMID, desiredNotes); err != nil {
+			return fmt.Errorf("updating notes for VM %d on %s: %w", key.VMID, key.Node, err)
 		}
 	}
 

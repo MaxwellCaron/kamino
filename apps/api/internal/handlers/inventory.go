@@ -39,6 +39,7 @@ type VMDetail struct {
 	Node       string   `json:"node"`
 	VMID       int32    `json:"vmid"`
 	IsTemplate bool     `json:"is_template"`
+	Notes      *string  `json:"notes,omitempty"`
 	CPUCount   *int32   `json:"cpu_count,omitempty"`
 	MemoryMB   *int32   `json:"memory_mb,omitempty"`
 	DiskGB     *float64 `json:"disk_gb,omitempty"`
@@ -143,7 +144,7 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 	}
 
 	if row.Node != nil {
-		item.VM = toVMDetail(row.Node, row.Vmid, row.IsTemplate, row.CpuCount, row.MemoryMb, row.DiskGb)
+		item.VM = toVMDetail(row.Node, row.Vmid, row.IsTemplate, row.Notes, row.CpuCount, row.MemoryMb, row.DiskGb)
 	}
 
 	c.JSON(http.StatusOK, item)
@@ -574,7 +575,7 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 		}
 
 		if row.Node != nil {
-			node.VM = toVMDetail(row.Node, row.Vmid, row.IsTemplate, row.CpuCount, row.MemoryMb, row.DiskGb)
+			node.VM = toVMDetail(row.Node, row.Vmid, row.IsTemplate, row.Notes, row.CpuCount, row.MemoryMb, row.DiskGb)
 		}
 
 		nodes[row.ID] = node
@@ -610,8 +611,9 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 	return tree
 }
 
-func toVMDetail(node *string, vmid *int32, isTemplate *bool, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {
+func toVMDetail(node *string, vmid *int32, isTemplate *bool, notes *string, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {
 	vm := &VMDetail{
+		Notes:    notes,
 		CPUCount: cpuCount,
 		MemoryMB: memoryMB,
 		DiskGB:   diskGB,

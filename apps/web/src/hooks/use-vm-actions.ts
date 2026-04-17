@@ -9,6 +9,7 @@ import {
   inventoryTreeQueryOptions,
   renameVM,
   rollbackSnapshot,
+  updateVMNotes,
   vmPowerAction,
 } from "@/lib/queries"
 
@@ -51,6 +52,19 @@ export function useRenameVM() {
 
   return useMutation({
     mutationFn: renameVM,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+    },
+  })
+}
+
+export function useUpdateVMNotes() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateVMNotes,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,

@@ -313,6 +313,12 @@ type renameVMRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+const maxVMNotesLength = 255
+
+type updateVMNotesRequest struct {
+	Notes string `json:"notes"`
+}
+
 // RenameVM renames a VM in Proxmox and updates the inventory.
 // POST /api/v1/vms/rename
 func (h *VMHandler) RenameVM(c *gin.Context) {
@@ -346,6 +352,58 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 	_ = h.Service.UpdateInventoryItemNameByProxmoxVM(ctx, req.Node, int32(req.VMID), req.Name)
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// UpdateNotes stores VM notes in Postgres and replicates them to Proxmox.
+// PUT /api/v1/vms/:node/:vmid/notes
+func (h *VMHandler) UpdateNotes(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	node := c.Param("node")
+	vmid, err := parseIntParam(c, "vmid")
+	if err != nil {
+		return
+	}
+
+	var req updateVMNotesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	notes := strings.TrimSpace(req.Notes)
+	if len(notes) > maxVMNotesLength {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error": fmt.Sprintf("notes must be %d characters or less", maxVMNotesLength),
+		})
+		return
+	}
+
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.RenameVM); !ok {
+		return
+	}
+
+	if err := h.Service.UpdateProxmoxVMNotes(c.Request.Context(), node, int32(vmid), notes); err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to update VM notes", "update vm notes in inventory", err)
+		return
+	}
+
+	if h.PX == nil {
+		c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
+		return
+	}
+
+	if err := h.PX.UpdateVMNotes(c.Request.Context(), node, vmid, notes); err != nil {
+		log.Printf("vm notes saved to postgres but proxmox sync is pending for %s/%d: %v", node, vmid, err)
+		c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true, "synced": true})
 }
 
 type cloneVMRequest struct {

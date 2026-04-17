@@ -221,6 +221,7 @@ func toFullAccessInventoryRows(
 			Node:               row.Node,
 			Vmid:               row.Vmid,
 			IsTemplate:         row.IsTemplate,
+			Notes:              row.Notes,
 			CpuCount:           row.CpuCount,
 			MemoryMb:           row.MemoryMb,
 			DiskGb:             row.DiskGb,
@@ -268,6 +269,7 @@ func (s *Service) GetInventoryItemWithPermissions(
 			Node:               row.Node,
 			Vmid:               row.Vmid,
 			IsTemplate:         row.IsTemplate,
+			Notes:              row.Notes,
 			CpuCount:           row.CpuCount,
 			MemoryMb:           row.MemoryMb,
 			DiskGb:             row.DiskGb,
@@ -803,6 +805,20 @@ func (s *Service) UpdateProxmoxVMIsTemplate(ctx context.Context, node string, vm
 	}
 
 	s.notify(ctx, nil)
+	return nil
+}
+
+func (s *Service) UpdateProxmoxVMNotes(ctx context.Context, node string, vmid int32, notes string) error {
+	if err := database.New(s.db).UpdateProxmoxVMNotesByNodeVMID(ctx, database.UpdateProxmoxVMNotesByNodeVMIDParams{
+		Notes: &notes,
+		Node:  node,
+		Vmid:  vmid,
+	}); err != nil {
+		return err
+	}
+
+	s.notify(ctx, nil)
+	s.scheduleMirror()
 	return nil
 }
 

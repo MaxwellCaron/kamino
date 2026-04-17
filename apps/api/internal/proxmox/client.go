@@ -379,6 +379,21 @@ func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name strin
 	return c.put(ctx, path, map[string]string{"name": name}, nil)
 }
 
+// UpdateVMNotes updates the VM description field used by Proxmox for notes.
+func (c *Client) UpdateVMNotes(ctx context.Context, node string, vmid int, notes string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	form := map[string]string{}
+	if notes == "" {
+		form["delete"] = "description"
+	} else {
+		form["description"] = notes
+	}
+	return c.put(ctx, path, form, nil)
+}
+
 // CloneVM clones a VM and waits for the task to complete.
 func (c *Client) CloneVM(
 	ctx context.Context,

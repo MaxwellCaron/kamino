@@ -87,7 +87,7 @@ func (q *Queries) DeleteInventoryItemByProxmoxVM(ctx context.Context, arg Delete
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
 
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
-       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -104,6 +104,7 @@ type GetAllInventoryItemsRow struct {
 	Node       *string           `json:"node"`
 	Vmid       *int32            `json:"vmid"`
 	IsTemplate *bool             `json:"is_template"`
+	Notes      *string           `json:"notes"`
 	CpuCount   *int32            `json:"cpu_count"`
 	MemoryMb   *int32            `json:"memory_mb"`
 	DiskGb     *float64          `json:"disk_gb"`
@@ -129,6 +130,7 @@ func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryIt
 			&i.Node,
 			&i.Vmid,
 			&i.IsTemplate,
+			&i.Notes,
 			&i.CpuCount,
 			&i.MemoryMb,
 			&i.DiskGb,
@@ -228,7 +230,7 @@ func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID *uuid.UUID) ([
 
 const getInventoryItemByID = `-- name: GetInventoryItemByID :one
 SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
-       pv.node, pv.vmid, pv.is_template, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1
@@ -243,6 +245,7 @@ type GetInventoryItemByIDRow struct {
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
 	IsTemplate         *bool             `json:"is_template"`
+	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
 	MemoryMb           *int32            `json:"memory_mb"`
 	DiskGb             *float64          `json:"disk_gb"`
@@ -260,6 +263,7 @@ func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetIn
 		&i.Node,
 		&i.Vmid,
 		&i.IsTemplate,
+		&i.Notes,
 		&i.CpuCount,
 		&i.MemoryMb,
 		&i.DiskGb,
@@ -498,5 +502,22 @@ type UpdateProxmoxVMIsTemplateParams struct {
 
 func (q *Queries) UpdateProxmoxVMIsTemplate(ctx context.Context, arg UpdateProxmoxVMIsTemplateParams) error {
 	_, err := q.db.Exec(ctx, updateProxmoxVMIsTemplate, arg.Node, arg.Vmid)
+	return err
+}
+
+const updateProxmoxVMNotesByNodeVMID = `-- name: UpdateProxmoxVMNotesByNodeVMID :exec
+UPDATE proxmox_vms
+SET notes = $1
+WHERE node = $2 AND vmid = $3
+`
+
+type UpdateProxmoxVMNotesByNodeVMIDParams struct {
+	Notes *string `json:"notes"`
+	Node  string  `json:"node"`
+	Vmid  int32   `json:"vmid"`
+}
+
+func (q *Queries) UpdateProxmoxVMNotesByNodeVMID(ctx context.Context, arg UpdateProxmoxVMNotesByNodeVMIDParams) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMNotesByNodeVMID, arg.Notes, arg.Node, arg.Vmid)
 	return err
 }

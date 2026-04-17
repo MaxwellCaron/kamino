@@ -238,6 +238,7 @@ export type ApiTreeNodeVM = {
   node: string
   vmid: number
   is_template: boolean
+  notes?: string | null
   cpu_count?: number
   memory_mb?: number
   disk_gb?: number
@@ -555,6 +556,26 @@ export async function renameVM(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to rename VM: ${res.status}`)
   }
+}
+
+export async function updateVMNotes(params: {
+  node: string
+  vmid: number
+  notes: string
+}): Promise<{ synced: boolean }> {
+  const res = await apiFetch(
+    `/api/v1/vms/${params.node}/${params.vmid}/notes`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: params.notes }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to update VM notes: ${res.status}`)
+  }
+  return res.json()
 }
 
 export async function cloneVM(params: {

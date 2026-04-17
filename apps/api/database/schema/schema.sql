@@ -173,6 +173,7 @@ CREATE TABLE proxmox_vms (
     node                  TEXT NOT NULL,
     vmid                  INTEGER NOT NULL CHECK (vmid > 0),
     is_template           BOOLEAN NOT NULL DEFAULT false,
+    notes                 TEXT NULL,
     cpu_count             INTEGER NULL CHECK (cpu_count IS NULL OR cpu_count >= 0),
     memory_mb             INTEGER NULL CHECK (memory_mb IS NULL OR memory_mb >= 0),
     disk_gb               NUMERIC(12,2) NULL CHECK (disk_gb IS NULL OR disk_gb >= 0),

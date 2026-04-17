@@ -151,6 +151,7 @@ SELECT
     pv.node,
     pv.vmid,
     pv.is_template,
+    pv.notes,
     pv.cpu_count,
     pv.memory_mb,
     pv.disk_gb,
@@ -182,6 +183,7 @@ type GetInventoryItemWithPermissionsRow struct {
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
 	IsTemplate         *bool             `json:"is_template"`
+	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
 	MemoryMb           *int32            `json:"memory_mb"`
 	DiskGb             *float64          `json:"disk_gb"`
@@ -201,6 +203,7 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 		&i.Node,
 		&i.Vmid,
 		&i.IsTemplate,
+		&i.Notes,
 		&i.CpuCount,
 		&i.MemoryMb,
 		&i.DiskGb,
@@ -265,6 +268,7 @@ SELECT
     pv.node,
     pv.vmid,
     pv.is_template,
+    pv.notes,
     pv.cpu_count,
     pv.memory_mb,
     pv.disk_gb,
@@ -295,6 +299,7 @@ type GetVisibleInventoryItemsForPrincipalRow struct {
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
 	IsTemplate         *bool             `json:"is_template"`
+	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
 	MemoryMb           *int32            `json:"memory_mb"`
 	DiskGb             *float64          `json:"disk_gb"`
@@ -320,6 +325,7 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 			&i.Node,
 			&i.Vmid,
 			&i.IsTemplate,
+			&i.Notes,
 			&i.CpuCount,
 			&i.MemoryMb,
 			&i.DiskGb,
