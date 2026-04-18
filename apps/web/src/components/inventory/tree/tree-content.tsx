@@ -6,7 +6,6 @@ import {
   TreeItemLabel,
 } from "@workspace/ui/components/reui/tree"
 import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree"
 import { TREE_INDENT } from "./constants"
@@ -49,22 +48,18 @@ export function InventoryTreeContent({
               <div className="ml-auto flex items-center gap-0.5">
                 {data.kind !== "folder" && (
                   <Button
-                    variant="ghost"
                     size="icon-xs"
-                    className={cn(
-                      "bg-transparent! transition-opacity",
+                    className={
                       isFavorite
-                        ? "text-primary opacity-100! hover:text-primary/50"
+                        ? "opacity-100!"
                         : "opacity-0 group-hover/row:opacity-100"
-                    )}
+                    }
                     onClick={(e) => {
                       e.stopPropagation()
                       toggleFavorite(id)
                     }}
                   >
-                    <IconStar
-                      className={cn(isFavorite && "size-3.5 fill-primary/40")}
-                    />
+                    <IconStar className={isFavorite ? "fill-foreground" : ""} />
                   </Button>
                 )}
                 <InventoryNodeMenu
