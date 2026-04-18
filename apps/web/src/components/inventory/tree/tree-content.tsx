@@ -1,11 +1,14 @@
-import { IconFolder, IconFolderOpen } from "@tabler/icons-react"
+import { IconFolder, IconFolderOpen, IconStar } from "@tabler/icons-react"
 import {
   Tree,
   TreeDragLine,
   TreeItem,
   TreeItemLabel,
 } from "@workspace/ui/components/reui/tree"
+import { Button } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
+import { useInventoryTreeContext } from "./inventory-tree"
 import { TREE_INDENT } from "./constants"
 import { VmIcon } from "./vm-icon"
 import type { TreeInstance } from "@headless-tree/core"
@@ -18,11 +21,14 @@ export function InventoryTreeContent({
   getStatus: (itemId: string) => string | undefined
   tree: TreeInstance<ApiTreeNode>
 }) {
+  const { favoriteIds, toggleFavorite } = useInventoryTreeContext()
+
   return (
     <Tree tree={tree} indent={TREE_INDENT}>
       {tree.getItems().map((item) => {
         const data = item.getItemData()
         const id = item.getId()
+        const isFavorite = favoriteIds.has(id)
 
         return (
           <TreeItem key={id} item={item} className="group/row" render={<div />}>
@@ -39,12 +45,34 @@ export function InventoryTreeContent({
                   isTemplate={data.vm?.is_template}
                 />
               )}
-              <span className="ml-1">{item.getItemName()}</span>
-              <InventoryNodeMenu
-                itemId={id}
-                data={data}
-                className="ml-auto bg-transparent! opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
-              />
+              <span className="ml-1 flex-1 truncate">{item.getItemName()}</span>
+              <div className="ml-auto flex items-center gap-0.5">
+                {data.kind !== "folder" && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className={cn(
+                      "bg-transparent! transition-opacity",
+                      isFavorite
+                        ? "text-primary opacity-100! hover:text-primary/50"
+                        : "opacity-0 group-hover/row:opacity-100"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleFavorite(id)
+                    }}
+                  >
+                    <IconStar
+                      className={cn(isFavorite && "size-3.5 fill-primary/40")}
+                    />
+                  </Button>
+                )}
+                <InventoryNodeMenu
+                  itemId={id}
+                  data={data}
+                  className="bg-transparent! opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
+                />
+              </div>
             </TreeItemLabel>
           </TreeItem>
         )

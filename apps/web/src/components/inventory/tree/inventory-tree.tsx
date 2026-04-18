@@ -10,8 +10,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { InventoryTreeContent } from "./tree-content"
 import { InventoryTreeSearch } from "./tree-search"
+import { InventoryFavoritesSection } from "./favorites-section"
 import { useInventoryHeadlessTree } from "./use-inventory-headless-tree"
 import { buildVmIdMap, countLeaves, filterTree, flattenApiTree } from "./utils"
 import type { ReactNode } from "react"
@@ -32,13 +34,16 @@ interface InventoryTreeContextValue {
   isLoading: boolean
   error: Error | null
   isEmpty: boolean
+  favoriteIds: Set<string>
+  toggleFavorite: (itemId: string) => void
+  handlePrimaryAction: (itemId: string, data: ApiTreeNode) => void
 }
 
 const InventoryTreeContext = createContext<InventoryTreeContextValue | null>(
   null
 )
 
-function useInventoryTreeContext() {
+export function useInventoryTreeContext() {
   const ctx = use(InventoryTreeContext)
   if (!ctx) {
     throw new Error(
@@ -48,10 +53,17 @@ function useInventoryTreeContext() {
   return ctx
 }
 
+const FAVORITES_STORAGE_KEY = "kamino-favorite-inventory"
+
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
   const [query, setQuery] = useState("")
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set()
+    const stored = localStorage.getItem(FAVORITES_STORAGE_KEY)
+    return stored ? new Set(JSON.parse(stored)) : new Set()
+  })
 
   const {
     data: apiTree = [],
@@ -72,6 +84,28 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     children: treeChildren,
     folderIds,
   } = useMemo(() => flattenApiTree(filteredApiTree), [filteredApiTree])
+
+  const toggleFavorite = useCallback(
+    (itemId: string) => {
+      setFavoriteIds((prev) => {
+        const item = items.get(itemId)
+        if (item?.kind === "folder") return prev
+
+        const next = new Set(prev)
+        if (next.has(itemId)) {
+          next.delete(itemId)
+        } else {
+          next.add(itemId)
+        }
+        localStorage.setItem(
+          FAVORITES_STORAGE_KEY,
+          JSON.stringify(Array.from(next))
+        )
+        return next
+      })
+    },
+    [items]
+  )
 
   const vmIdMap = useMemo(() => buildVmIdMap(items), [items])
 
@@ -129,6 +163,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     isLoading,
     error: error,
     isEmpty: !isLoading && apiTree.length === 0,
+    favoriteIds,
+    toggleFavorite,
+    handlePrimaryAction,
   }
 
   return <InventoryTreeContext value={value}>{children}</InventoryTreeContext>
@@ -187,7 +224,7 @@ export function InventoryTreeHeader() {
 }
 
 export function InventoryTreeBody() {
-  const { tree, getStatus, isLoading, error, isEmpty } =
+  const { tree, getStatus, isLoading, error, isEmpty, favoriteIds } =
     useInventoryTreeContext()
 
   if (error) {
@@ -213,7 +250,19 @@ export function InventoryTreeBody() {
         </div>
       }
     >
-      <InventoryTreeContent tree={tree} getStatus={getStatus} />
+      <LayoutGroup>
+        <motion.div layout className="flex flex-col">
+          <AnimatePresence initial={false}>
+            {favoriteIds.size > 0 && <InventoryFavoritesSection />}
+          </AnimatePresence>
+          <div className="flex flex-col gap-1">
+            <p className="px-2 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/70">
+              All Items
+            </p>
+            <InventoryTreeContent tree={tree} getStatus={getStatus} />
+          </div>
+        </motion.div>
+      </LayoutGroup>
     </LoadingTransition>
   )
 }

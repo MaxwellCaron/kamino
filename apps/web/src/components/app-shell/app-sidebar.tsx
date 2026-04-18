@@ -29,7 +29,6 @@ import {
 import {
   InventoryTreeBody,
   InventoryTreeHeader,
-  InventoryTreeProvider,
 } from "@/components/inventory/tree/inventory-tree"
 
 const navItems = [
@@ -142,16 +141,14 @@ export function AppSidebar({
 
         {/* Inventory panel */}
         <Sidebar collapsible="none" className="flex flex-1">
-          <InventoryTreeProvider>
-            <SidebarHeader className="py-0">
-              <SidebarGroup className="mb-1 rounded-3xl border-b">
-                <InventoryTreeHeader />
-              </SidebarGroup>
-            </SidebarHeader>
-            <SidebarContent className="px-2">
-              <InventoryTreeBody />
-            </SidebarContent>
-          </InventoryTreeProvider>
+          <SidebarHeader className="py-0">
+            <SidebarGroup className="mb-1 rounded-3xl border-b">
+              <InventoryTreeHeader />
+            </SidebarGroup>
+          </SidebarHeader>
+          <SidebarContent className="px-2">
+            <InventoryTreeBody />
+          </SidebarContent>
         </Sidebar>
       </div>
     </Sidebar>

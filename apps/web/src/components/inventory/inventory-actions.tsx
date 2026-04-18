@@ -7,7 +7,6 @@ import {
   IconFolder,
   IconFolderPlus,
   IconLock,
-  IconPin,
   IconPlayerPlay,
   IconPlayerStop,
   IconPower,
@@ -15,6 +14,7 @@ import {
   IconServer,
   IconServerSpark,
   IconSettings,
+  IconStar,
   IconTemplate,
   IconTrash,
 } from "@tabler/icons-react"
@@ -39,6 +39,7 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
+import { useInventoryTreeContext } from "./tree/inventory-tree"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
 import {
@@ -262,10 +263,6 @@ function FolderMenuItems({
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem disabled={isLoading}>
-              <IconPin className="text-muted-foreground" />
-              Pin
-            </DropdownMenuItem>
             {canRename && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
@@ -301,6 +298,8 @@ function FolderMenuItems({
 
 function VmMenuItems({
   permissions,
+  isFavorite,
+  onToggleFavorite,
   node,
   vmid,
   name,
@@ -313,6 +312,8 @@ function VmMenuItems({
   isLoading,
 }: {
   permissions: ApiTreeNodePermissions
+  isFavorite?: boolean
+  onToggleFavorite?: () => void
   node: string
   vmid: number
   name?: string
@@ -489,6 +490,10 @@ function VmMenuItems({
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
+              <IconStar className="text-muted-foreground" />
+              {isFavorite ? "Unfavorite" : "Favorite"}
+            </DropdownMenuItem>
             {canClone && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
@@ -581,6 +586,8 @@ function VmMenuItems({
 
 function TemplateMenuItems({
   permissions,
+  isFavorite,
+  onToggleFavorite,
   node,
   vmid,
   name,
@@ -590,6 +597,8 @@ function TemplateMenuItems({
   isLoading,
 }: {
   permissions: ApiTreeNodePermissions
+  isFavorite?: boolean
+  onToggleFavorite?: () => void
   node: string
   vmid: number
   name?: string
@@ -619,6 +628,10 @@ function TemplateMenuItems({
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
+              <IconStar className="text-muted-foreground" />
+              {isFavorite ? "Unfavorite" : "Favorite"}
+            </DropdownMenuItem>
             {canClone && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
@@ -669,6 +682,8 @@ function TemplateMenuItems({
 
 export function MenuItems({
   permissions,
+  isFavorite,
+  onToggleFavorite,
   isFolder,
   isTemplate,
   node,
@@ -686,6 +701,8 @@ export function MenuItems({
   isLoading,
 }: {
   permissions: ApiTreeNodePermissions
+  isFavorite?: boolean
+  onToggleFavorite?: () => void
   isFolder: boolean
   isTemplate?: boolean
   node: string
@@ -718,6 +735,8 @@ export function MenuItems({
     return (
       <TemplateMenuItems
         permissions={permissions}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
         node={node}
         vmid={vmid}
         name={name}
@@ -730,6 +749,8 @@ export function MenuItems({
   return (
     <VmMenuItems
       permissions={permissions}
+      isFavorite={isFavorite}
+      onToggleFavorite={onToggleFavorite}
       node={node}
       vmid={vmid}
       name={name}
@@ -755,6 +776,7 @@ export function InventoryNodeMenu({
 }) {
   const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
+  const { favoriteIds, toggleFavorite } = useInventoryTreeContext()
   const deleteFolderMutation = useDeleteFolder()
   const {
     openConfirm,
@@ -770,6 +792,7 @@ export function InventoryNodeMenu({
 
   const isFolder = data.kind === "folder"
   const isTemplate = data.vm?.is_template
+  const isFavorite = !isFolder && favoriteIds.has(itemId)
 
   if (!hasNodeActions(data)) return null
 
@@ -832,6 +855,8 @@ export function InventoryNodeMenu({
       <DropdownMenuContent align={isMobile ? "end" : "start"}>
         <MenuItems
           permissions={data.permissions}
+          isFavorite={isFavorite}
+          onToggleFavorite={() => toggleFavorite(itemId)}
           isFolder={isFolder}
           isTemplate={isTemplate}
           node={data.vm?.node ?? ""}
@@ -912,6 +937,7 @@ export function VmOptionsMenu({
   name?: string
   isLoading?: boolean
 }) {
+  const { favoriteIds, toggleFavorite } = useInventoryTreeContext()
   const {
     openConfirm,
     openCreateFolder,
@@ -979,6 +1005,8 @@ export function VmOptionsMenu({
         <DropdownMenuContent align="end">
           <MenuItems
             permissions={permissions}
+            isFavorite={!isFolder && favoriteIds.has(nodeId)}
+            onToggleFavorite={() => toggleFavorite(nodeId)}
             isFolder={isFolder}
             isTemplate={isTemplate}
             node={pveNode ?? ""}

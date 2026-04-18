@@ -3,6 +3,7 @@ import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
+import { InventoryTreeProvider } from "@/components/inventory/tree/inventory-tree"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { InventoryEvents } from "@/components/inventory/inventory-events"
 import { VmStatusEvents } from "@/components/vm/vm-status-events"
@@ -37,15 +38,17 @@ function Layout() {
     >
       <InventoryEvents />
       <VmStatusEvents />
-      <InventoryDialogsProvider>
-        <AppSidebar user={user} variant="inset" />
-        <SidebarInset>
-          <SiteHeader command={<CommandManyItems />} />
-          <div className="flex flex-1 flex-col">
-            <Outlet />
-          </div>
-        </SidebarInset>
-      </InventoryDialogsProvider>
+      <InventoryTreeProvider>
+        <InventoryDialogsProvider>
+          <AppSidebar user={user} variant="inset" />
+          <SidebarInset>
+            <SiteHeader command={<CommandManyItems />} />
+            <div className="flex flex-1 flex-col">
+              <Outlet />
+            </div>
+          </SidebarInset>
+        </InventoryDialogsProvider>
+      </InventoryTreeProvider>
     </SidebarProvider>
   )
 }
