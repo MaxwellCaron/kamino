@@ -29,11 +29,6 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useState } from "react"
 import type { ApiTreeNode, ApiTreeNodeVM, VmResources } from "@/lib/queries"
@@ -41,7 +36,7 @@ import type { ReactNode } from "@tabler/icons-react"
 import { InventoryPermissionBits, hasInventoryPermission } from "@/lib/queries"
 import { LoadingTransition } from "@/components/loading-transition"
 import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
-import { formatBytes, formatMemory } from "@/lib/utils"
+import { formatBytes, formatMemory, formatUptime } from "@/lib/utils"
 import { VmNotesDialog } from "@/components/vm/vm-notes-dialog"
 
 type Stat = {
@@ -49,6 +44,7 @@ type Stat = {
   label: string
   value: string
   usage?: ResourceUsage | null
+  detail?: string | null
   textStyle?: string
   bgStyle?: string
 }
@@ -88,12 +84,27 @@ function getMemoryUsage(
   }
 }
 
+function getUptimeDetail(
+  isTemplate: boolean,
+  powerStatus: string | undefined,
+  resources: VmResources | undefined
+): string | null {
+  if (isTemplate || powerStatus !== "running" || resources?.uptime == null) {
+    return null
+  }
+
+  return formatUptime(resources.uptime)
+}
+
 function buildStats(
   vm: ApiTreeNodeVM | null,
   isTemplate: boolean,
   powerStatus: string | undefined,
   resources: VmResources | undefined
 ): Array<Stat> {
+  const cpuUsage = getCpuUsage(resources)
+  const memoryUsage = getMemoryUsage(resources)
+
   return [
     {
       icon: <IconPower className="size-5 text-muted-foreground" />,
@@ -117,6 +128,7 @@ function buildStats(
           : powerStatus === "stopped"
             ? "bg-destructive/5"
             : undefined,
+      detail: getUptimeDetail(isTemplate, powerStatus, resources),
     },
     {
       icon: <IconPackages className="size-5 text-muted-foreground" />,
@@ -142,7 +154,8 @@ function buildStats(
           : resources?.maxcpu != null
             ? formatCpuCount(resources.maxcpu)
             : "—",
-      usage: getCpuUsage(resources),
+      usage: cpuUsage,
+      detail: cpuUsage ? cpuUsage.label : null,
     },
     {
       icon: (
@@ -155,7 +168,8 @@ function buildStats(
           : resources?.maxmem != null
             ? formatBytes(resources.maxmem)
             : "—",
-      usage: getMemoryUsage(resources),
+      usage: memoryUsage,
+      detail: memoryUsage ? memoryUsage.label : null,
     },
   ]
 }
@@ -238,32 +252,39 @@ export function VmHeader({
                   <LoadingTransition
                     isLoading={isLoading}
                     fallback={
-                      <Skeleton
-                        className={`h-8 rounded-md ${hasUsage ? "w-20" : "w-16"}`}
-                      />
+                      <div className="space-y-2">
+                        <Skeleton
+                          className={`h-8 rounded-md ${hasUsage ? "w-20" : "w-16"}`}
+                        />
+                        <Skeleton
+                          className={`h-4 rounded-md ${stat.detail ? "w-12" : "w-0 opacity-0"}`}
+                        />
+                      </div>
                     }
                   >
-                    <h3
-                      className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
-                    >
-                      {stat.value}
-                    </h3>
+                    <div className="flex min-h-15 flex-col items-start gap-1">
+                      <h3
+                        className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
+                      >
+                        {stat.value}
+                      </h3>
+                      <div className="min-h-5">
+                        {stat.detail && (
+                          <p className="text-sm text-muted-foreground">
+                            {stat.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </LoadingTransition>
                 </ItemFooter>
                 {stat.usage && (
-                  <Tooltip>
-                    <div className="absolute right-4 flex w-2 items-center justify-center">
-                      <TooltipTrigger>
-                        <Progress
-                          className="mt-4 w-12 shrink-0 rotate-270"
-                          value={stat.usage.value}
-                        />
-                      </TooltipTrigger>
-                    </div>
-                    <TooltipContent>
-                      <p>{stat.usage.label}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="absolute right-4 flex w-2 items-center justify-center">
+                    <Progress
+                      className="mt-4 w-16 shrink-0 rotate-270"
+                      value={stat.usage.value}
+                    />
+                  </div>
                 )}
               </Item>
             )
