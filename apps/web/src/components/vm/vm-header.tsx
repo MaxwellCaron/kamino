@@ -173,7 +173,7 @@ export function VmHeader({
                 <ItemFooter>
                   <LoadingTransition
                     isLoading={isLoading}
-                    fallback={<Skeleton className="h-5 w-16 rounded-md" />}
+                    fallback={<Skeleton className="h-8 w-16 rounded-md" />}
                   >
                     <h3
                       className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
@@ -192,11 +192,16 @@ export function VmHeader({
           </ItemMedia>
           <ItemContent className="gap-3">
             <ItemTitle>Notes</ItemTitle>
-            {!notes ? (
-              <ItemDescription>No notes saved for this VM.</ItemDescription>
-            ) : (
-              <ItemDescription>{notes}</ItemDescription>
-            )}
+            <LoadingTransition
+              isLoading={isLoading}
+              fallback={<Skeleton className="h-5 w-48 rounded-md" />}
+            >
+              {!notes ? (
+                <ItemDescription>No notes saved for this VM.</ItemDescription>
+              ) : (
+                <ItemDescription>{notes}</ItemDescription>
+              )}
+            </LoadingTransition>
           </ItemContent>
           <ItemActions>
             {vm && canEditNotes && (
@@ -204,6 +209,7 @@ export function VmHeader({
                 <Button
                   variant="outline"
                   size="icon-sm"
+                  disabled={isLoading}
                   onClick={() => setIsNotesOpen(true)}
                 >
                   <IconEdit data-icon="inline-start" />
