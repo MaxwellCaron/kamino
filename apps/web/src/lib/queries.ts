@@ -324,6 +324,22 @@ export type ApiTreeNode = {
   vm?: ApiTreeNodeVM
 }
 
+export type ApiInventoryItem = {
+  id: string
+  parent_id: string | null
+  kind: "folder" | "vm"
+  name: string
+  inherit_permissions: boolean
+  permissions: ApiTreeNodePermissions
+  vm?: ApiTreeNodeVM
+}
+
+export type ApiVmMutationResult = {
+  vmid: number
+  item_id: string
+  item: ApiInventoryItem
+}
+
 export function findTreeNode(
   nodes: Array<ApiTreeNode>,
   id: string
@@ -399,6 +415,32 @@ async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
 export const inventoryTreeQueryOptions = {
   queryKey: ["inventory", "tree"] as const,
   queryFn: fetchInventoryTree,
+}
+
+export function inventoryItemQueryOptions(itemId: string) {
+  return {
+    queryKey: ["inventory", "item", itemId] as const,
+    queryFn: async (): Promise<ApiInventoryItem> => {
+      const res = await apiFetch(`/api/v1/inventory/items/${itemId}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch inventory item: ${res.status}`)
+      }
+      return res.json()
+    },
+    enabled: !!itemId,
+  }
+}
+
+// Preload the item query used by /vm/$itemId so create/clone navigation
+// can render immediately without an extra inventory item request.
+export function seedInventoryItemCache(
+  queryClient: {
+    setQueryData: <T>(queryKey: ReadonlyArray<unknown>, updater: T) => void
+  },
+  itemId: string,
+  item: ApiInventoryItem
+) {
+  queryClient.setQueryData(inventoryItemQueryOptions(itemId).queryKey, item)
 }
 
 export function inventoryAclQueryOptions(itemId: string) {
@@ -678,7 +720,7 @@ export async function cloneVM(params: {
   full: boolean
   target?: string
   target_folder_id: string
-}): Promise<{ vmid: number; item_id: string }> {
+}): Promise<ApiVmMutationResult> {
   const res = await apiFetch("/api/v1/vms/clone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -933,7 +975,7 @@ export type CreateVMParams = {
 
 export async function createVM(
   params: CreateVMParams
-): Promise<{ vmid: number; item_id: string }> {
+): Promise<ApiVmMutationResult> {
   const res = await apiFetch("/api/v1/vms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

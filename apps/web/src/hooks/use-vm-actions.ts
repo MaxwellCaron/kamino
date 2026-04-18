@@ -9,8 +9,8 @@ import {
   inventoryTreeQueryOptions,
   renameVM,
   rollbackSnapshot,
-  updateVMNotes,
   updateVMHardware,
+  updateVMNotes,
   vmHardwareQueryOptions,
   vmPowerAction,
 } from "@/lib/queries"
@@ -92,13 +92,8 @@ export function useUpdateVMHardware(node: string, vmid: number) {
 }
 
 export function useCloneVM() {
-  const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: cloneVM,
-    onSuccess: async () => {
-      await queryClient.fetchQuery(inventoryTreeQueryOptions)
-    },
   })
 }
 

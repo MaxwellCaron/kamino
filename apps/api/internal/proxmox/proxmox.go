@@ -120,3 +120,13 @@ type VMHardwareConfig struct {
 	DiskSize   int                 `json:"disk_size"`
 	Networks   []VMHardwareNetwork `json:"networks"`
 }
+
+// VMConfigSummary contains the inventory metadata we can derive from a VM's
+// config endpoint without scanning cluster-wide resources.
+type VMConfigSummary struct {
+	Name       string
+	IsTemplate bool
+	CPUCount   int32
+	MemoryMB   int32
+	DiskGB     float64
+}

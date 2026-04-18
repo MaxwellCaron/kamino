@@ -55,6 +55,7 @@ import {
   createVmIsosQueryOptions,
   createVmOptionsQueryOptions,
   inventoryTreeQueryOptions,
+  seedInventoryItemCache,
 } from "@/lib/queries"
 
 const steps = [
@@ -192,8 +193,8 @@ export function CreateVmDialog({
 
       throw new Error("Upload-backed VM creation is not implemented yet.")
     },
-    onSuccess: async (result) => {
-      await queryClient.fetchQuery(inventoryTreeQueryOptions)
+    onSuccess: (result) => {
+      seedInventoryItemCache(queryClient, result.item_id, result.item)
       onOpenChange(false)
       navigate({ to: "/vm/$itemId", params: { itemId: result.item_id } })
     },

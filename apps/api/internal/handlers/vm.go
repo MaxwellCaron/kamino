@@ -31,6 +31,7 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
 	PX       *proxmox.Client
+	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service
 	Notifier *vmstatus.Notifier
 	Authz    *authorization.Service
@@ -639,6 +640,13 @@ type cloneVMRequest struct {
 	TargetFolderID string `json:"target_folder_id" binding:"required"`
 }
 
+type vmMutationResponse struct {
+	OK     bool          `json:"ok"`
+	VMID   int           `json:"vmid"`
+	ItemID uuid.UUID     `json:"item_id"`
+	Item   InventoryItem `json:"item"`
+}
+
 // CloneVM clones a VM and waits for the Proxmox task to complete.
 // POST /api/v1/vms/clone
 func (h *VMHandler) CloneVM(c *gin.Context) {
@@ -717,20 +725,35 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	itemID, err := h.Service.RegisterProxmoxVM(
+	itemID, err := h.Importer.SyncVM(
 		c.Request.Context(),
 		placement.FolderID,
 		targetNode,
-		int32(newID),
-		req.Name,
-		false,
+		newID,
 	)
 	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to update inventory", "register cloned vm in inventory", err)
+		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to sync inventory metadata", "sync cloned vm inventory metadata", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": newID, "item_id": itemID})
+	h.Service.NotifyInventoryChanged(c.Request.Context(), itemID)
+
+	item, err := h.Service.GetInventoryItemWithPermissions(
+		c.Request.Context(),
+		principalID,
+		itemID,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to load inventory item", "load cloned vm inventory item", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, vmMutationResponse{
+		OK:     true,
+		VMID:   newID,
+		ItemID: itemID,
+		Item:   buildInventoryItem(item),
+	})
 }
 
 type convertToTemplateRequest struct {

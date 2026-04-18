@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
@@ -20,8 +21,45 @@ type InventoryImporter struct {
 	client *Client
 }
 
+const (
+	singleVMSyncTimeout      = 15 * time.Second
+	singleVMSyncPollInterval = 1 * time.Second
+)
+
 func NewInventoryImporter(db *pgxpool.Pool, client *Client) *InventoryImporter {
 	return &InventoryImporter{db: db, client: client}
+}
+
+// SyncVM waits for a specific VM config to become available in Proxmox, then
+// persists its current metadata into the inventory database.
+func (s *InventoryImporter) SyncVM(
+	ctx context.Context,
+	parentID uuid.UUID,
+	node string,
+	vmid int,
+) (uuid.UUID, error) {
+	syncCtx, cancel := context.WithTimeout(ctx, singleVMSyncTimeout)
+	defer cancel()
+
+	summary, err := s.waitForVMConfigSummary(syncCtx, node, vmid)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	q := database.New(s.db)
+	if err := syncVMConfigSummary(syncCtx, q, parentID, node, vmid, summary); err != nil {
+		return uuid.Nil, fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
+	}
+
+	row, err := q.GetProxmoxVMByNodeVMID(syncCtx, database.GetProxmoxVMByNodeVMIDParams{
+		Node: node,
+		Vmid: int32(vmid),
+	})
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("loading synced vm %d on node %s: %w", vmid, node, err)
+	}
+
+	return row.InventoryItemID, nil
 }
 
 // Run performs a full sync of pools (as folders) and VMs from Proxmox.
@@ -170,6 +208,92 @@ func syncVM(ctx context.Context, q *database.Queries, parentID uuid.UUID, vm VM)
 	}
 
 	return nil
+}
+
+func syncVMConfigSummary(
+	ctx context.Context,
+	q *database.Queries,
+	parentID uuid.UUID,
+	node string,
+	vmid int,
+	summary *VMConfigSummary,
+) error {
+	if summary == nil {
+		return fmt.Errorf("vm config summary is required")
+	}
+
+	existing, err := q.GetProxmoxVMByNodeVMID(ctx, database.GetProxmoxVMByNodeVMIDParams{
+		Node: node,
+		Vmid: int32(vmid),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
+			ParentID: &parentID,
+			Name:     summary.Name,
+		})
+		if err != nil {
+			return fmt.Errorf("creating inventory item: %w", err)
+		}
+
+		return q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
+			InventoryItemID: itemID,
+			Node:            node,
+			Vmid:            int32(vmid),
+			IsTemplate:      summary.IsTemplate,
+			CpuCount:        &summary.CPUCount,
+			MemoryMb:        &summary.MemoryMB,
+			DiskGb:          &summary.DiskGB,
+		})
+	}
+	if err != nil {
+		return fmt.Errorf("looking up VM: %w", err)
+	}
+
+	if err := q.UpdateProxmoxVM(ctx, database.UpdateProxmoxVMParams{
+		IsTemplate: summary.IsTemplate,
+		CpuCount:   &summary.CPUCount,
+		MemoryMb:   &summary.MemoryMB,
+		DiskGb:     &summary.DiskGB,
+		Node:       node,
+		Vmid:       int32(vmid),
+	}); err != nil {
+		return fmt.Errorf("updating proxmox_vms: %w", err)
+	}
+
+	if existing.Name != summary.Name {
+		if err := q.UpdateInventoryItemName(ctx, database.UpdateInventoryItemNameParams{
+			Name: summary.Name,
+			ID:   existing.InventoryItemID,
+		}); err != nil {
+			return fmt.Errorf("updating inventory item name: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *InventoryImporter) waitForVMConfigSummary(
+	ctx context.Context,
+	node string,
+	vmid int,
+) (*VMConfigSummary, error) {
+	for {
+		summary, err := s.client.GetVMConfigSummary(ctx, node, vmid)
+		if err == nil {
+			return summary, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf(
+				"waiting for vm %d on node %s config to become available in Proxmox: %w",
+				vmid,
+				node,
+				ctx.Err(),
+			)
+		case <-time.After(singleVMSyncPollInterval):
+		}
+	}
 }
 
 func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {

@@ -283,14 +283,16 @@ func main() {
 	vncHandler.Authz = authzService
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
+		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Notifier: vmStatusNotifier,
 		Authz:    authzService,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:      server.ProxmoxClient,
-		Service: inventoryService,
-		Authz:   authzService,
+		PX:       server.ProxmoxClient,
+		Importer: server.ProxmoxImport,
+		Service:  inventoryService,
+		Authz:    authzService,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,

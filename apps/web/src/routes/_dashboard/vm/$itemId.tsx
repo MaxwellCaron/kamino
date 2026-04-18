@@ -6,6 +6,7 @@ import {
   InventoryPermissionBits,
   findTreeNode,
   hasInventoryPermission,
+  inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
   vmResourcesQueryOptions,
   vmStatusQueryOptions,
@@ -20,12 +21,30 @@ export const Route = createFileRoute("/_dashboard/vm/$itemId")({
 function VmPage() {
   const navigate = useNavigate()
   const { itemId } = Route.useParams()
-  const { data: tree, isLoading } = useQuery(inventoryTreeQueryOptions)
+  const { data: tree, isLoading: isTreeLoading } = useQuery(
+    inventoryTreeQueryOptions
+  )
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
-  const node = tree ? findTreeNode(tree, itemId) : null
+  const treeNode = tree ? findTreeNode(tree, itemId) : null
+  const { data: item, isLoading: isItemLoading } = useQuery({
+    ...inventoryItemQueryOptions(itemId),
+    enabled: !treeNode,
+  })
+  const node =
+    treeNode ??
+    (item
+      ? {
+          id: item.id,
+          name: item.name,
+          kind: item.kind,
+          permissions: item.permissions,
+          vm: item.vm,
+        }
+      : null)
   const vm = node?.vm ?? null
   const isTemplate = vm?.is_template ?? false
   const powerStatus = vm ? vmStatuses?.[vm.vmid] : undefined
+  const isLoading = isTreeLoading || (!treeNode && isItemLoading)
   const { data: resources } = useQuery({
     ...vmResourcesQueryOptions(vm?.node ?? "", vm?.vmid ?? 0),
     enabled: !!vm && !isTemplate && powerStatus === "running",

@@ -901,6 +901,11 @@ func (s *Service) RegisterProxmoxVM(
 	return itemID, nil
 }
 
+func (s *Service) NotifyInventoryChanged(ctx context.Context, itemID uuid.UUID) {
+	s.notify(ctx, nil, &itemID)
+	s.scheduleMirror()
+}
+
 func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, itemID uuid.UUID) {
 	s.notify(ctx, tx, &itemID)
 }

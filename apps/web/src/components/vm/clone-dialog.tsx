@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -31,7 +31,11 @@ import {
   optionalVmidSchema,
 } from "@/components/vm/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/lib/inventory-tree"
-import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
+import {
+  inventoryTreeQueryOptions,
+  nodesQueryOptions,
+  seedInventoryItemCache,
+} from "@/lib/queries"
 
 const cloneSchema = z.object({
   target_folder_id: z
@@ -60,6 +64,7 @@ export function CloneDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const clone = useCloneVM()
   const { data: inventoryTree = [] } = useQuery({
     ...inventoryTreeQueryOptions,
@@ -98,6 +103,7 @@ export function CloneDialog({
       })
 
       const result = await promise
+      seedInventoryItemCache(queryClient, result.item_id, result.item)
       onOpenChange(false)
       form.reset()
       navigate({ to: "/vm/$itemId", params: { itemId: result.item_id } })

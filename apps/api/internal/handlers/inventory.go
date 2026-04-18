@@ -131,23 +131,7 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 		return
 	}
 
-	item := InventoryItem{
-		ID:                 row.ID,
-		ParentID:           row.ParentID,
-		Kind:               string(row.Kind),
-		Name:               row.Name,
-		InheritPermissions: row.InheritPermissions,
-		Permissions: PermissionEnvelope{
-			AllowedMask: authorization.Mask(row.AllowedMask),
-			DeniedMask:  authorization.Mask(row.DeniedMask),
-		},
-	}
-
-	if row.Node != nil {
-		item.VM = toVMDetail(row.Node, row.Vmid, row.IsTemplate, row.Notes, row.CpuCount, row.MemoryMb, row.DiskGb)
-	}
-
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, buildInventoryItem(row))
 }
 
 // GetACL returns the direct ACL entries for an inventory item.
@@ -609,6 +593,34 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 		tree = append(tree, assemble(id))
 	}
 	return tree
+}
+
+func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) InventoryItem {
+	item := InventoryItem{
+		ID:                 row.ID,
+		ParentID:           row.ParentID,
+		Kind:               string(row.Kind),
+		Name:               row.Name,
+		InheritPermissions: row.InheritPermissions,
+		Permissions: PermissionEnvelope{
+			AllowedMask: authorization.Mask(row.AllowedMask),
+			DeniedMask:  authorization.Mask(row.DeniedMask),
+		},
+	}
+
+	if row.Node != nil {
+		item.VM = toVMDetail(
+			row.Node,
+			row.Vmid,
+			row.IsTemplate,
+			row.Notes,
+			row.CpuCount,
+			row.MemoryMb,
+			row.DiskGb,
+		)
+	}
+
+	return item
 }
 
 func toVMDetail(node *string, vmid *int32, isTemplate *bool, notes *string, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {

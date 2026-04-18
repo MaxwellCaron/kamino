@@ -15,9 +15,10 @@ import (
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX      *proxmox.Client
-	Service *inventory.Service
-	Authz   *authorization.Service
+	PX       *proxmox.Client
+	Importer *proxmox.InventoryImporter
+	Service  *inventory.Service
+	Authz    *authorization.Service
 }
 
 // GetNodes returns all cluster nodes.
@@ -347,18 +348,33 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		return
 	}
 
-	itemID, err := h.Service.RegisterProxmoxVM(
+	itemID, err := h.Importer.SyncVM(
 		c.Request.Context(),
 		placement.FolderID,
 		targetNode,
-		int32(vmid),
-		req.Name,
-		false,
+		vmid,
 	)
 	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to update inventory", "register created vm in inventory", err)
+		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to sync inventory metadata", "sync created vm inventory metadata", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": vmid, "item_id": itemID})
+	h.Service.NotifyInventoryChanged(c.Request.Context(), itemID)
+
+	item, err := h.Service.GetInventoryItemWithPermissions(
+		c.Request.Context(),
+		principalID,
+		itemID,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to load inventory item", "load created vm inventory item", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, vmMutationResponse{
+		OK:     true,
+		VMID:   vmid,
+		ItemID: itemID,
+		Item:   buildInventoryItem(item),
+	})
 }

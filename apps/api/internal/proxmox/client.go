@@ -181,6 +181,21 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	return c.filterVMs(resp.Data), nil
 }
 
+// GetVMConfigSummary returns inventory metadata derived from a VM config.
+func (c *Client) GetVMConfigSummary(ctx context.Context, node string, vmid int) (*VMConfigSummary, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	var resp apiResponse[map[string]any]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, fmt.Errorf("fetching VM config summary: %w", err)
+	}
+
+	return parseVMConfigSummary(resp.Data, vmid)
+}
+
 // VNCProxyResponse holds the data returned by Proxmox's vncproxy endpoint.
 type VNCProxyResponse struct {
 	Port     string `json:"port"`
@@ -551,6 +566,29 @@ func parseVMHardwareConfig(data map[string]any) (*VMHardwareConfig, error) {
 
 	config.Networks = networks
 	return config, nil
+}
+
+func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, error) {
+	name := strings.TrimSpace(getStringValue(data["name"]))
+	if name == "" {
+		name = fmt.Sprintf("vm-%d", vmid)
+	}
+
+	sockets := maxInt(getIntValue(data["sockets"]), 1)
+	cores := maxInt(getIntValue(data["cores"]), 1)
+	memoryMB := maxInt(getIntValue(data["memory"]), 0)
+	_, _, diskSizeGB, err := parseVMHardwareDiskConfig(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &VMConfigSummary{
+		Name:       name,
+		IsTemplate: getIntValue(data["template"]) == 1,
+		CPUCount:   int32(sockets * cores),
+		MemoryMB:   int32(memoryMB),
+		DiskGB:     float64(diskSizeGB),
+	}, nil
 }
 
 func parseVMHardwareDiskConfig(data map[string]any) (string, string, int, error) {
