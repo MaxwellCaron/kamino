@@ -10,7 +10,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import { AnimatePresence, LayoutGroup, motion } from "motion/react"
+import { AnimatePresence } from "motion/react"
 import { InventoryTreeContent } from "./tree-content"
 import { InventoryTreeSearch } from "./tree-search"
 import { InventoryFavoritesSection } from "./favorites-section"
@@ -250,19 +250,17 @@ export function InventoryTreeBody() {
         </div>
       }
     >
-      <LayoutGroup>
-        <motion.div layout className="flex flex-col">
-          <AnimatePresence initial={false}>
-            {favoriteIds.size > 0 && <InventoryFavoritesSection />}
-          </AnimatePresence>
-          <div className="flex flex-col gap-1">
-            <p className="px-2 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/70">
-              All Items
-            </p>
-            <InventoryTreeContent tree={tree} getStatus={getStatus} />
-          </div>
-        </motion.div>
-      </LayoutGroup>
+      <div className="flex flex-col">
+        <AnimatePresence initial={false}>
+          {favoriteIds.size > 0 && <InventoryFavoritesSection />}
+        </AnimatePresence>
+        <div className="flex flex-col gap-1">
+          <p className="px-2 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/70">
+            All Items
+          </p>
+          <InventoryTreeContent tree={tree} getStatus={getStatus} />
+        </div>
+      </div>
     </LoadingTransition>
   )
 }
