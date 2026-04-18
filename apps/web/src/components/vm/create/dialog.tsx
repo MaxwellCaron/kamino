@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useStore } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -80,6 +81,7 @@ export function CreateVmDialog({
   onOpenChange: (open: boolean) => void
   initialFolderId: string
 }) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [step, setStep] = useState<StepValue>("method")
   const didPrefillTargetFolder = useRef(false)
@@ -190,11 +192,10 @@ export function CreateVmDialog({
 
       throw new Error("Upload-backed VM creation is not implemented yet.")
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
+    onSuccess: async (result) => {
+      await queryClient.fetchQuery(inventoryTreeQueryOptions)
       onOpenChange(false)
+      navigate({ to: "/vm/$itemId", params: { itemId: result.item_id } })
     },
   })
 

@@ -717,19 +717,20 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	if err := h.Service.RegisterProxmoxVM(
+	itemID, err := h.Service.RegisterProxmoxVM(
 		c.Request.Context(),
 		placement.FolderID,
 		targetNode,
 		int32(newID),
 		req.Name,
 		false,
-	); err != nil {
+	)
+	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to update inventory", "register cloned vm in inventory", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": newID})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": newID, "item_id": itemID})
 }
 
 type convertToTemplateRequest struct {

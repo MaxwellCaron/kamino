@@ -854,10 +854,10 @@ func (s *Service) RegisterProxmoxVM(
 	vmid int32,
 	name string,
 	isTemplate bool,
-) error {
+) (uuid.UUID, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -865,13 +865,13 @@ func (s *Service) RegisterProxmoxVM(
 
 	parent, err := q.GetInventoryItemForUpdate(ctx, parentID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrInventoryParentNotFound
+		return uuid.Nil, ErrInventoryParentNotFound
 	}
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 	if parent.Kind != database.InventoryItemKindFolder {
-		return ErrInventoryTargetNotFolder
+		return uuid.Nil, ErrInventoryTargetNotFolder
 	}
 
 	itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
@@ -879,7 +879,7 @@ func (s *Service) RegisterProxmoxVM(
 		Name:     name,
 	})
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	if err := q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
@@ -888,17 +888,17 @@ func (s *Service) RegisterProxmoxVM(
 		Vmid:            vmid,
 		IsTemplate:      isTemplate,
 	}); err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	s.notifyTx(ctx, tx, itemID)
 
 	if err := tx.Commit(ctx); err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	s.scheduleMirror()
-	return nil
+	return itemID, nil
 }
 
 func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, itemID uuid.UUID) {

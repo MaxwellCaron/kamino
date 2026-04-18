@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { z } from "zod"
 import { IconCopy } from "@tabler/icons-react"
@@ -58,6 +59,7 @@ export function CloneDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const navigate = useNavigate()
   const clone = useCloneVM()
   const { data: inventoryTree = [] } = useQuery({
     ...inventoryTreeQueryOptions,
@@ -77,28 +79,28 @@ export function CloneDialog({
       name: "",
       full: false,
     },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const parsed = cloneSchema.parse(value)
+      const promise = clone.mutateAsync({
+        node,
+        vmid,
+        newid: parsed.newid,
+        name: parsed.name.trim() || currentName,
+        full: parsed.full,
+        target: parsed.node || undefined,
+        target_folder_id: parsed.target_folder_id ?? "",
+      })
 
-      toast.promise(
-        clone.mutateAsync({
-          node,
-          vmid,
-          newid: parsed.newid,
-          name: parsed.name.trim() || currentName,
-          full: parsed.full,
-          target: parsed.node || undefined,
-          target_folder_id: parsed.target_folder_id ?? "",
-        }),
-        {
-          loading: `Cloning VM ${vmid}…`,
-          success: (result) => `VM cloned to ${result.vmid}`,
-          error: (error: Error) => error.message,
-        }
-      )
+      toast.promise(promise, {
+        loading: `Cloning VM ${vmid}…`,
+        success: (result) => `VM cloned to ${result.vmid}`,
+        error: (error: Error) => error.message,
+      })
 
+      const result = await promise
       onOpenChange(false)
       form.reset()
+      navigate({ to: "/vm/$itemId", params: { itemId: result.item_id } })
     },
   })
 

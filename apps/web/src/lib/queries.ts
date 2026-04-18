@@ -678,7 +678,7 @@ export async function cloneVM(params: {
   full: boolean
   target?: string
   target_folder_id: string
-}): Promise<{ vmid: number }> {
+}): Promise<{ vmid: number; item_id: string }> {
   const res = await apiFetch("/api/v1/vms/clone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -933,7 +933,7 @@ export type CreateVMParams = {
 
 export async function createVM(
   params: CreateVMParams
-): Promise<{ vmid: number }> {
+): Promise<{ vmid: number; item_id: string }> {
   const res = await apiFetch("/api/v1/vms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

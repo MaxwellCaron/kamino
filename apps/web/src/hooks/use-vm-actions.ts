@@ -29,7 +29,7 @@ export function useDeleteVM() {
   return useMutation({
     mutationFn: deleteVM,
     onSuccess: () => {
-      navigate({ to: "/" })
+      navigate({ to: "/", replace: true })
     },
   })
 }
@@ -97,11 +97,7 @@ export function useCloneVM() {
   return useMutation({
     mutationFn: cloneVM,
     onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
-      queryClient.invalidateQueries({
-        queryKey: inventoryTreeQueryOptions.queryKey,
-      })
+      await queryClient.fetchQuery(inventoryTreeQueryOptions)
     },
   })
 }

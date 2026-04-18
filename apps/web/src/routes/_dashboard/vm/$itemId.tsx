@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { useEffect } from "react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/components/vm/vnc-console"
 import {
@@ -17,27 +18,11 @@ export const Route = createFileRoute("/_dashboard/vm/$itemId")({
 })
 
 function VmPage() {
+  const navigate = useNavigate()
   const { itemId } = Route.useParams()
   const { data: tree, isLoading } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
   const node = tree ? findTreeNode(tree, itemId) : null
-
-  if (!isLoading && !node) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-destructive">
-        Item not found
-      </div>
-    )
-  }
-
-  if (!isLoading && node && !node.vm) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-muted-foreground">
-        This item is not a virtual machine.
-      </div>
-    )
-  }
-
   const vm = node?.vm ?? null
   const isTemplate = vm?.is_template ?? false
   const powerStatus = vm ? vmStatuses?.[vm.vmid] : undefined
@@ -53,6 +38,17 @@ function VmPage() {
     node?.permissions,
     InventoryPermissionBits.consoleVm
   )
+  const shouldRedirectHome = !isLoading && (!node || !vm)
+
+  useEffect(() => {
+    if (!shouldRedirectHome) return
+
+    navigate({ to: "/", replace: true })
+  }, [navigate, shouldRedirectHome])
+
+  if (shouldRedirectHome) {
+    return null
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">

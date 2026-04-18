@@ -347,17 +347,18 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		return
 	}
 
-	if err := h.Service.RegisterProxmoxVM(
+	itemID, err := h.Service.RegisterProxmoxVM(
 		c.Request.Context(),
 		placement.FolderID,
 		targetNode,
 		int32(vmid),
 		req.Name,
 		false,
-	); err != nil {
+	)
+	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to update inventory", "register created vm in inventory", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": vmid})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "vmid": vmid, "item_id": itemID})
 }
