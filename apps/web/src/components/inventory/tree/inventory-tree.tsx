@@ -72,12 +72,14 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
   const moveItem = useMoveInventoryItem()
+  const searchQuery = query.trim()
+  const isSearchActive = searchQuery.length >= 2
 
   const filteredApiTree = useMemo(
-    () => (query ? filterTree(apiTree, query) : apiTree),
-    [apiTree, query]
+    () => (isSearchActive ? filterTree(apiTree, searchQuery) : apiTree),
+    [apiTree, isSearchActive, searchQuery]
   )
-  const resultCount = query ? countLeaves(filteredApiTree) : null
+  const resultCount = isSearchActive ? countLeaves(filteredApiTree) : null
 
   const {
     items,
