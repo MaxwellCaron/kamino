@@ -8,6 +8,11 @@ import {
   IconUsersGroup,
 } from "@tabler/icons-react"
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@workspace/ui/components/hover-card"
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -32,11 +37,59 @@ import {
 } from "@/components/inventory/tree/inventory-tree"
 
 const navItems = [
-  { title: "Home", url: "/", icon: IconHome },
-  { title: "SDN", url: "/sdn", icon: IconNetwork },
-  { title: "Users", url: "/users", icon: IconUser },
-  { title: "Groups", url: "/groups", icon: IconUsersGroup },
+  {
+    title: "Home",
+    description: "Overview of infrastructure, activity, and recent changes.",
+    url: "/",
+    icon: IconHome,
+  },
+  {
+    title: "SDN",
+    description: "Inspect networks, topology, and software-defined resources.",
+    url: "/sdn",
+    icon: IconNetwork,
+  },
+  {
+    title: "Users",
+    description: "Browse people, identities, and account-level access details.",
+    url: "/users",
+    icon: IconUser,
+  },
+  {
+    title: "Groups",
+    description:
+      "Manage shared access, memberships, and permission boundaries.",
+    url: "/groups",
+    icon: IconUsersGroup,
+  },
 ] as const
+
+function IconRailHoverCard({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description: string
+  children: React.ReactElement
+}) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger render={children} delay={50} closeDelay={150} />
+      <HoverCardContent
+        side="right"
+        align="center"
+        sideOffset={14}
+        className="w-64"
+      >
+        <div className="flex flex-col gap-1">
+          <p className="font-medium text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
 
 function isActivePath(pathname: string, url: string) {
   if (url === "/") return pathname === "/"
@@ -99,34 +152,42 @@ export function AppSidebar({
           <SidebarHeader>
             <SidebarMenu className="items-center">
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="lg"
-                  className="justify-center md:size-9 md:p-0"
-                  tooltip={{ children: "Kamino", hidden: false }}
-                  render={<Link to="/" />}
+                <IconRailHoverCard
+                  title="Kamino"
+                  description="Return to the main workspace and infrastructure overview."
                 >
-                  <img src="/kamino.svg" alt="Kamino" className="size-6!" />
-                </SidebarMenuButton>
+                  <SidebarMenuButton
+                    size="lg"
+                    className="justify-center md:size-9 md:p-0"
+                    render={<Link to="/" />}
+                  >
+                    <img src="/kamino.svg" alt="Kamino" className="size-6!" />
+                  </SidebarMenuButton>
+                </IconRailHoverCard>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupContent>
-                <SidebarMenu className="items-center space-y-2">
+                <SidebarMenu className="flex flex-col items-center gap-2">
                   {visibleNavItems.map((item) => {
                     const Icon = item.icon
                     return (
                       <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                          tooltip={{ children: item.title, hidden: false }}
-                          isActive={isActivePath(pathname, item.url)}
-                          className="size-9 justify-center"
-                          render={<Link to={item.url} />}
+                        <IconRailHoverCard
+                          title={item.title}
+                          description={item.description}
                         >
-                          <Icon className="size-5!" />
-                          <span className="sr-only">{item.title}</span>
-                        </SidebarMenuButton>
+                          <SidebarMenuButton
+                            isActive={isActivePath(pathname, item.url)}
+                            className="size-9 justify-center"
+                            render={<Link to={item.url} />}
+                          >
+                            <Icon className="size-5!" />
+                            <span className="sr-only">{item.title}</span>
+                          </SidebarMenuButton>
+                        </IconRailHoverCard>
                       </SidebarMenuItem>
                     )
                   })}
