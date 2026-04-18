@@ -65,13 +65,15 @@ function VmPage() {
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
-        <SnapshotsTable
-          node={vm?.node ?? null}
-          vmid={vm?.vmid ?? null}
-          isTemplate={isTemplate}
-          canManageSnapshots={canManageSnapshots}
-          isLoading={isLoading}
-        />
+        {canManageSnapshots && (
+          <SnapshotsTable
+            node={vm?.node ?? null}
+            vmid={vm?.vmid ?? null}
+            isTemplate={isTemplate}
+            canManageSnapshots={canManageSnapshots}
+            isLoading={isLoading}
+          />
+        )}
         {!isTemplate && canUseConsole && (
           <VncConsole
             key={vm?.vmid ?? "loading"}
