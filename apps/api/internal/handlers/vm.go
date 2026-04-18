@@ -185,6 +185,38 @@ func (h *VMHandler) StreamEvents(c *gin.Context) {
 	}
 }
 
+// GetResources returns cached resource metrics for a single VM.
+// GET /api/v1/vms/:node/:vmid/resources
+func (h *VMHandler) GetResources(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	node := c.Param("node")
+	vmid, err := parseIntParam(c, "vmid")
+	if err != nil {
+		return
+	}
+	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.View); !ok {
+		return
+	}
+
+	if h.Notifier == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "resource metrics unavailable"})
+		return
+	}
+
+	resources, ok := h.Notifier.Resources(vmid)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no resource data available for this VM"})
+		return
+	}
+
+	c.JSON(http.StatusOK, resources)
+}
+
 type createSnapshotRequest struct {
 	Node        string `json:"node" binding:"required"`
 	VMID        int    `json:"vmid" binding:"required"`

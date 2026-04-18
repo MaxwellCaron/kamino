@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
+import { Progress } from "@workspace/ui/components/progress"
 import {
   Item,
   ItemActions,
@@ -28,27 +29,71 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useState } from "react"
-import type { ApiTreeNode, ApiTreeNodeVM } from "@/lib/queries"
+import type { ApiTreeNode, ApiTreeNodeVM, VmResources } from "@/lib/queries"
 import type { ReactNode } from "@tabler/icons-react"
 import { InventoryPermissionBits, hasInventoryPermission } from "@/lib/queries"
 import { LoadingTransition } from "@/components/loading-transition"
 import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
-import { formatMemory } from "@/lib/utils"
+import { formatBytes, formatMemory } from "@/lib/utils"
 import { VmNotesDialog } from "@/components/vm/vm-notes-dialog"
+
+type Stat = {
+  icon: ReactNode
+  label: string
+  value: string
+  usage?: ResourceUsage | null
+  textStyle?: string
+  bgStyle?: string
+}
+
+type ResourceUsage = {
+  label: string
+  value: number
+}
+
+function formatCpuCount(cpuCount: number): string {
+  return `${cpuCount} CPU${cpuCount === 1 ? "" : "s"}`
+}
+
+function clampProgress(value: number): number {
+  return Math.max(0, Math.min(100, value))
+}
+
+function getCpuUsage(resources: VmResources | undefined): ResourceUsage | null {
+  if (!resources) return null
+
+  return {
+    label: `${(resources.cpu * 100).toFixed(1)}%`,
+    value: clampProgress(resources.cpu * 100),
+  }
+}
+
+function getMemoryUsage(
+  resources: VmResources | undefined
+): ResourceUsage | null {
+  if (!resources || resources.maxmem <= 0) return null
+
+  const usage = (resources.mem / resources.maxmem) * 100
+
+  return {
+    label: `${usage.toFixed(1)}%`,
+    value: clampProgress(usage),
+  }
+}
 
 function buildStats(
   vm: ApiTreeNodeVM | null,
   isTemplate: boolean,
-  powerStatus: string | undefined
-): Array<{
-  icon: ReactNode
-  label: string
-  value: string
-  textStyle?: string
-  bgStyle?: string
-}> {
+  powerStatus: string | undefined,
+  resources: VmResources | undefined
+): Array<Stat> {
   return [
     {
       icon: <IconPower className="size-5 text-muted-foreground" />,
@@ -84,21 +129,33 @@ function buildStats(
       value: vm ? String(vm.vmid) : "—",
     },
     {
+      icon: <IconDatabase className="size-5 text-muted-foreground" />,
+      label: "Storage",
+      value: vm?.disk_gb != null ? `${vm.disk_gb} GB` : "—",
+    },
+    {
       icon: <IconCpu className="size-5 text-muted-foreground" />,
       label: "CPU",
-      value: vm?.cpu_count != null ? `${vm.cpu_count} CPUs` : "—",
+      value:
+        vm?.cpu_count != null
+          ? formatCpuCount(vm.cpu_count)
+          : resources?.maxcpu != null
+            ? formatCpuCount(resources.maxcpu)
+            : "—",
+      usage: getCpuUsage(resources),
     },
     {
       icon: (
         <IconTopologyBus className="size-5 rotate-180 text-muted-foreground" />
       ),
       label: "Memory",
-      value: vm?.memory_mb != null ? formatMemory(vm.memory_mb) : "—",
-    },
-    {
-      icon: <IconDatabase className="size-5 text-muted-foreground" />,
-      label: "Storage",
-      value: vm?.disk_gb != null ? `${vm.disk_gb} GB` : "—",
+      value:
+        vm?.memory_mb != null
+          ? formatMemory(vm.memory_mb)
+          : resources?.maxmem != null
+            ? formatBytes(resources.maxmem)
+            : "—",
+      usage: getMemoryUsage(resources),
     },
   ]
 }
@@ -107,17 +164,19 @@ export function VmHeader({
   node,
   vm,
   powerStatus,
+  resources,
   isTemplate,
   isLoading,
 }: {
   node: ApiTreeNode | null
   vm: ApiTreeNodeVM | null
   powerStatus: string | undefined
+  resources: VmResources | undefined
   isTemplate: boolean
   isLoading: boolean
 }) {
   const [isNotesOpen, setIsNotesOpen] = useState(false)
-  const stats = buildStats(vm, isTemplate, powerStatus)
+  const stats = buildStats(vm, isTemplate, powerStatus, resources)
   const canEditNotes = hasInventoryPermission(
     node?.permissions,
     InventoryPermissionBits.renameVm
@@ -159,21 +218,30 @@ export function VmHeader({
           )}
         </CardAction>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 grid-rows-3 gap-4 md:grid-cols-3 md:grid-rows-2 md:gap-6 xl:grid-cols-6 xl:grid-rows-1">
-          {stats.map((stat) => (
-            <Item key={stat.label} variant="muted" className={stat.bgStyle}>
-              <ItemMedia>{stat.icon}</ItemMedia>
-              <ItemContent>
-                <ItemTitle className="text-muted-foreground">
-                  {stat.label}
-                </ItemTitle>
-              </ItemContent>
-              <ItemFooter>
+      <CardContent className="flex flex-col gap-6">
+        <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
+          {stats.map((stat) => {
+            const hasUsage = stat.usage != null
+            return (
+              <Item
+                key={stat.label}
+                variant="muted"
+                className={`${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
+              >
+                <ItemMedia>{stat.icon}</ItemMedia>
+                <ItemContent className={hasUsage ? "w-full gap-3" : undefined}>
+                  <ItemTitle className="text-muted-foreground">
+                    {stat.label}
+                  </ItemTitle>
+                </ItemContent>
                 <ItemFooter>
                   <LoadingTransition
                     isLoading={isLoading}
-                    fallback={<Skeleton className="h-8 w-16 rounded-md" />}
+                    fallback={
+                      <Skeleton
+                        className={`h-8 rounded-md ${hasUsage ? "w-20" : "w-16"}`}
+                      />
+                    }
                   >
                     <h3
                       className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
@@ -182,9 +250,24 @@ export function VmHeader({
                     </h3>
                   </LoadingTransition>
                 </ItemFooter>
-              </ItemFooter>
-            </Item>
-          ))}
+                {stat.usage && (
+                  <Tooltip>
+                    <div className="absolute right-4 flex w-2 items-center justify-center">
+                      <TooltipTrigger>
+                        <Progress
+                          className="mt-4 w-12 shrink-0 rotate-270"
+                          value={stat.usage.value}
+                        />
+                      </TooltipTrigger>
+                    </div>
+                    <TooltipContent>
+                      <p>{stat.usage.label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </Item>
+            )
+          })}
         </div>
         <Item variant="muted" className="items-start">
           <ItemMedia variant="icon">

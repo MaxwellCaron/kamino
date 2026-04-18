@@ -512,6 +512,37 @@ export const vmStatusQueryOptions = {
   queryFn: fetchVmStatuses,
 }
 
+export type VmResources = {
+  cpu: number
+  maxcpu: number
+  mem: number
+  maxmem: number
+  disk: number
+  maxdisk: number
+  netin: number
+  netout: number
+  diskread: number
+  diskwrite: number
+  uptime: number
+}
+
+async function fetchVmResources(
+  node: string,
+  vmid: number
+): Promise<VmResources> {
+  const res = await apiFetch(`/api/v1/vms/${node}/${vmid}/resources`)
+  if (!res.ok) throw new Error(`Failed to fetch VM resources: ${res.status}`)
+  return res.json()
+}
+
+export function vmResourcesQueryOptions(node: string, vmid: number) {
+  return {
+    queryKey: ["vms", node, vmid, "resources"] as const,
+    queryFn: () => fetchVmResources(node, vmid),
+    refetchInterval: 10_000,
+  }
+}
+
 export async function vmPowerAction(params: {
   node: string
   vmid: number

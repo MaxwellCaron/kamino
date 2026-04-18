@@ -18,6 +18,21 @@ type Event struct {
 	Timestamp time.Time      `json:"timestamp"`
 }
 
+// VMResources holds live resource metrics for a single VM.
+type VMResources struct {
+	CPU       float64 `json:"cpu"`
+	MaxCPU    int     `json:"maxcpu"`
+	Mem       int64   `json:"mem"`
+	MaxMem    int64   `json:"maxmem"`
+	Disk      int64   `json:"disk"`
+	MaxDisk   int64   `json:"maxdisk"`
+	NetIn     int64   `json:"netin"`
+	NetOut    int64   `json:"netout"`
+	DiskRead  int64   `json:"diskread"`
+	DiskWrite int64   `json:"diskwrite"`
+	Uptime    int64   `json:"uptime"`
+}
+
 type Notifier struct {
 	px *proxmox.Client
 
@@ -25,6 +40,7 @@ type Notifier struct {
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}
 	last        map[int]string
+	resources   map[int]VMResources
 }
 
 func NewNotifier(px *proxmox.Client) *Notifier {
@@ -32,6 +48,7 @@ func NewNotifier(px *proxmox.Client) *Notifier {
 		px:          px,
 		subscribers: make(map[chan Event]struct{}),
 		last:        make(map[int]string),
+		resources:   make(map[int]VMResources),
 	}
 }
 
@@ -131,6 +148,15 @@ func (n *Notifier) refreshUntil(
 	}
 }
 
+// Resources returns the cached resource metrics for a single VM.
+func (n *Notifier) Resources(vmid int) (VMResources, bool) {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
+	res, ok := n.resources[vmid]
+	return res, ok
+}
+
 func (n *Notifier) pollAndBroadcast(ctx context.Context) error {
 	vms, err := n.px.GetVMs(ctx)
 	if err != nil {
@@ -138,11 +164,27 @@ func (n *Notifier) pollAndBroadcast(ctx context.Context) error {
 	}
 
 	next := make(map[int]string, len(vms))
+	nextResources := make(map[int]VMResources, len(vms))
 	for _, vm := range vms {
 		next[vm.VMID] = vm.Status
+		nextResources[vm.VMID] = VMResources{
+			CPU:       vm.CPU,
+			MaxCPU:    vm.MaxCPU,
+			Mem:       vm.Mem,
+			MaxMem:    vm.MaxMem,
+			Disk:      vm.Disk,
+			MaxDisk:   vm.MaxDisk,
+			NetIn:     vm.NetIn,
+			NetOut:    vm.NetOut,
+			DiskRead:  vm.DiskRead,
+			DiskWrite: vm.DiskWrite,
+			Uptime:    vm.Uptime,
+		}
 	}
 
 	n.mu.Lock()
+	n.resources = nextResources
+
 	if statusesEqual(n.last, next) {
 		n.mu.Unlock()
 		return nil

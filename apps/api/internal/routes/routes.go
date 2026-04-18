@@ -60,6 +60,7 @@ func RegisterRoutes(
 	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
 	protected.GET("/vms/events", vm.StreamEvents)
+	protected.GET("/vms/:node/:vmid/resources", vm.GetResources)
 	protected.GET("/vms/:node/:vmid/hardware", vm.GetHardware)
 	protected.POST("/vms/power", vm.PowerAction)
 	protected.POST("/vms/rename", vm.RenameVM)

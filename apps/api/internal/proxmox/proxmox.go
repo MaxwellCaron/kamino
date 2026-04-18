@@ -21,16 +21,24 @@ type Pool struct {
 
 // VM represents a virtual machine from the Proxmox cluster resources API.
 type VM struct {
-	VMID     int    `json:"vmid"`
-	Name     string `json:"name"`
-	Node     string `json:"node"`
-	Type     string `json:"type"`
-	MaxCPU   int    `json:"maxcpu"`
-	MaxMem   int64  `json:"maxmem"`
-	MaxDisk  int64  `json:"maxdisk"`
-	Pool     string `json:"pool"`
-	Status   string `json:"status"`
-	Template int    `json:"template"`
+	VMID      int     `json:"vmid"`
+	Name      string  `json:"name"`
+	Node      string  `json:"node"`
+	Type      string  `json:"type"`
+	CPU       float64 `json:"cpu"`
+	MaxCPU    int     `json:"maxcpu"`
+	Mem       int64   `json:"mem"`
+	MaxMem    int64   `json:"maxmem"`
+	Disk      int64   `json:"disk"`
+	MaxDisk   int64   `json:"maxdisk"`
+	NetIn     int64   `json:"netin"`
+	NetOut    int64   `json:"netout"`
+	DiskRead  int64   `json:"diskread"`
+	DiskWrite int64   `json:"diskwrite"`
+	Uptime    int64   `json:"uptime"`
+	Pool      string  `json:"pool"`
+	Status    string  `json:"status"`
+	Template  int     `json:"template"`
 }
 
 // IsTemplate returns true if the VM is a Proxmox template.

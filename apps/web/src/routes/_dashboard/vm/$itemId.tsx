@@ -6,6 +6,7 @@ import {
   findTreeNode,
   hasInventoryPermission,
   inventoryTreeQueryOptions,
+  vmResourcesQueryOptions,
   vmStatusQueryOptions,
 } from "@/lib/queries"
 import { SnapshotsTable } from "@/components/vm/snapshot-table"
@@ -40,6 +41,10 @@ function VmPage() {
   const vm = node?.vm ?? null
   const isTemplate = vm?.is_template ?? false
   const powerStatus = vm ? vmStatuses?.[vm.vmid] : undefined
+  const { data: resources } = useQuery({
+    ...vmResourcesQueryOptions(vm?.node ?? "", vm?.vmid ?? 0),
+    enabled: !!vm && !isTemplate && powerStatus === "running",
+  })
   const canManageSnapshots = hasInventoryPermission(
     node?.permissions,
     InventoryPermissionBits.snapshotVm
@@ -56,6 +61,7 @@ function VmPage() {
           node={node}
           vm={vm}
           powerStatus={powerStatus}
+          resources={resources}
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
