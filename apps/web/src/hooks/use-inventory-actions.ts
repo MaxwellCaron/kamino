@@ -62,6 +62,13 @@ export function useMoveInventoryItem() {
       }
     },
     onSettled: async () => {
+      if (
+        queryClient.getQueryState(inventoryTreeQueryOptions.queryKey)
+          ?.fetchStatus === "fetching"
+      ) {
+        return
+      }
+
       await queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
