@@ -124,6 +124,10 @@ function hasNodeActions(data: ApiTreeNode) {
     : hasAnyPermission(data.permissions, VM_ACTION_PERMISSIONS)
 }
 
+function stopTreeItemEvent(event: { stopPropagation: () => void }) {
+  event.stopPropagation()
+}
+
 export function FolderDeletionDescription({
   folderCount,
   vmCount,
@@ -842,13 +846,19 @@ export function InventoryNodeMenu({
             variant="ghost"
             size="icon-xs"
             className={className}
-            onClick={(event) => event.stopPropagation()}
+            onClick={stopTreeItemEvent}
+            onPointerDown={stopTreeItemEvent}
           >
             <IconDots />
           </Button>
         }
       />
-      <DropdownMenuContent align={isMobile ? "end" : "start"}>
+      <DropdownMenuContent
+        align={isMobile ? "end" : "start"}
+        onClick={stopTreeItemEvent}
+        onPointerDown={stopTreeItemEvent}
+        onKeyDown={stopTreeItemEvent}
+      >
         <MenuItems
           permissions={data.permissions}
           isFavorite={isFavorite}
