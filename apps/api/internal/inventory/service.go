@@ -767,11 +767,8 @@ func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *Service) DeleteInventoryItemByProxmoxVM(ctx context.Context, node string, vmid int32) error {
-	if err := database.New(s.db).DeleteInventoryItemByProxmoxVM(ctx, database.DeleteInventoryItemByProxmoxVMParams{
-		Node: node,
-		Vmid: vmid,
-	}); err != nil {
+func (s *Service) DeleteInventoryVM(ctx context.Context, itemID uuid.UUID) error {
+	if err := database.New(s.db).DeleteInventoryItem(ctx, itemID); err != nil {
 		return err
 	}
 
@@ -783,11 +780,10 @@ func isManagedRootFolder(parentID *uuid.UUID) bool {
 	return parentID == nil
 }
 
-func (s *Service) UpdateInventoryItemNameByProxmoxVM(ctx context.Context, node string, vmid int32, name string) error {
-	if err := database.New(s.db).UpdateInventoryItemNameByProxmoxVM(ctx, database.UpdateInventoryItemNameByProxmoxVMParams{
+func (s *Service) UpdateInventoryVMName(ctx context.Context, itemID uuid.UUID, name string) error {
+	if err := database.New(s.db).UpdateInventoryItemName(ctx, database.UpdateInventoryItemNameParams{
 		Name: name,
-		Node: node,
-		Vmid: vmid,
+		ID:   itemID,
 	}); err != nil {
 		return err
 	}
@@ -796,11 +792,8 @@ func (s *Service) UpdateInventoryItemNameByProxmoxVM(ctx context.Context, node s
 	return nil
 }
 
-func (s *Service) UpdateProxmoxVMIsTemplate(ctx context.Context, node string, vmid int32) error {
-	if err := database.New(s.db).UpdateProxmoxVMIsTemplate(ctx, database.UpdateProxmoxVMIsTemplateParams{
-		Node: node,
-		Vmid: vmid,
-	}); err != nil {
+func (s *Service) UpdateInventoryVMIsTemplate(ctx context.Context, itemID uuid.UUID) error {
+	if err := database.New(s.db).UpdateProxmoxVMIsTemplateByItemID(ctx, itemID); err != nil {
 		return err
 	}
 
@@ -808,11 +801,10 @@ func (s *Service) UpdateProxmoxVMIsTemplate(ctx context.Context, node string, vm
 	return nil
 }
 
-func (s *Service) UpdateProxmoxVMNotes(ctx context.Context, node string, vmid int32, notes string) error {
-	if err := database.New(s.db).UpdateProxmoxVMNotesByNodeVMID(ctx, database.UpdateProxmoxVMNotesByNodeVMIDParams{
-		Notes: &notes,
-		Node:  node,
-		Vmid:  vmid,
+func (s *Service) UpdateInventoryVMNotes(ctx context.Context, itemID uuid.UUID, notes string) error {
+	if err := database.New(s.db).UpdateProxmoxVMNotesByItemID(ctx, database.UpdateProxmoxVMNotesByItemIDParams{
+		Notes:           &notes,
+		InventoryItemID: itemID,
 	}); err != nil {
 		return err
 	}
@@ -822,22 +814,20 @@ func (s *Service) UpdateProxmoxVMNotes(ctx context.Context, node string, vmid in
 	return nil
 }
 
-func (s *Service) UpdateProxmoxVMHardwareSummary(
+func (s *Service) UpdateInventoryVMHardwareSummary(
 	ctx context.Context,
-	node string,
-	vmid int32,
+	itemID uuid.UUID,
 	cpuCount int32,
 	memoryMB int32,
 	diskGB float64,
 ) error {
-	if err := database.New(s.db).UpdateProxmoxVMHardwareSummaryByNodeVMID(
+	if err := database.New(s.db).UpdateProxmoxVMHardwareSummaryByItemID(
 		ctx,
-		database.UpdateProxmoxVMHardwareSummaryByNodeVMIDParams{
-			CpuCount: &cpuCount,
-			MemoryMb: &memoryMB,
-			DiskGb:   &diskGB,
-			Node:     node,
-			Vmid:     vmid,
+		database.UpdateProxmoxVMHardwareSummaryByItemIDParams{
+			CpuCount:        &cpuCount,
+			MemoryMb:        &memoryMB,
+			DiskGb:          &diskGB,
+			InventoryItemID: itemID,
 		},
 	); err != nil {
 		return err
@@ -852,6 +842,7 @@ func (s *Service) RegisterProxmoxVM(
 	parentID uuid.UUID,
 	node string,
 	vmid int32,
+	upstreamUUID uuid.UUID,
 	name string,
 	isTemplate bool,
 ) (uuid.UUID, error) {
@@ -886,6 +877,7 @@ func (s *Service) RegisterProxmoxVM(
 		InventoryItemID: itemID,
 		Node:            node,
 		Vmid:            vmid,
+		UpstreamUuid:    upstreamUUID,
 		IsTemplate:      isTemplate,
 	}); err != nil {
 		return uuid.Nil, err

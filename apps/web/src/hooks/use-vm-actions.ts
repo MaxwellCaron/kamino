@@ -34,7 +34,7 @@ export function useDeleteVM() {
   })
 }
 
-export function useCreateSnapshot(node: string, vmid: number) {
+export function useCreateSnapshot(itemId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -43,7 +43,7 @@ export function useCreateSnapshot(node: string, vmid: number) {
       // Wait 7 second to let the backend settle
       await delay(7000)
       queryClient.invalidateQueries({
-        queryKey: ["vms", node, vmid, "snapshots"],
+        queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
     },
   })
@@ -58,6 +58,7 @@ export function useRenameVM() {
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
+      queryClient.invalidateQueries({ queryKey: ["inventory", "item"] })
     },
   })
 }
@@ -71,11 +72,12 @@ export function useUpdateVMNotes() {
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
+      queryClient.invalidateQueries({ queryKey: ["inventory", "item"] })
     },
   })
 }
 
-export function useUpdateVMHardware(node: string, vmid: number) {
+export function useUpdateVMHardware(itemId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -85,8 +87,9 @@ export function useUpdateVMHardware(node: string, vmid: number) {
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
       queryClient.invalidateQueries({
-        queryKey: vmHardwareQueryOptions(node, vmid).queryKey,
+        queryKey: vmHardwareQueryOptions(itemId).queryKey,
       })
+      queryClient.invalidateQueries({ queryKey: ["inventory", "item", itemId] })
     },
   })
 }
@@ -108,11 +111,12 @@ export function useConvertToTemplate() {
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
+      queryClient.invalidateQueries({ queryKey: ["inventory", "item"] })
     },
   })
 }
 
-export function useRollbackSnapshot(node: string, vmid: number) {
+export function useRollbackSnapshot(itemId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -121,13 +125,13 @@ export function useRollbackSnapshot(node: string, vmid: number) {
       // Wait 7 second to let the backend settle
       await delay(7000)
       queryClient.invalidateQueries({
-        queryKey: ["vms", node, vmid, "snapshots"],
+        queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
     },
   })
 }
 
-export function useDeleteSnapshot(node: string, vmid: number) {
+export function useDeleteSnapshot(itemId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -136,7 +140,7 @@ export function useDeleteSnapshot(node: string, vmid: number) {
       // Wait 7 second to let the backend settle
       await delay(7000)
       queryClient.invalidateQueries({
-        queryKey: ["vms", node, vmid, "snapshots"],
+        queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
     },
   })

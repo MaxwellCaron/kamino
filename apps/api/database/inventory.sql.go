@@ -69,21 +69,6 @@ func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const deleteInventoryItemByProxmoxVM = `-- name: DeleteInventoryItemByProxmoxVM :exec
-DELETE FROM inventory_items
-WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $1 AND vmid = $2)
-`
-
-type DeleteInventoryItemByProxmoxVMParams struct {
-	Node string `json:"node"`
-	Vmid int32  `json:"vmid"`
-}
-
-func (q *Queries) DeleteInventoryItemByProxmoxVM(ctx context.Context, arg DeleteInventoryItemByProxmoxVMParams) error {
-	_, err := q.db.Exec(ctx, deleteInventoryItemByProxmoxVM, arg.Node, arg.Vmid)
-	return err
-}
-
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
 
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
@@ -299,8 +284,98 @@ func (q *Queries) GetInventoryItemForUpdate(ctx context.Context, id uuid.UUID) (
 	return i, err
 }
 
+const getProxmoxVMByInventoryItemID = `-- name: GetProxmoxVMByInventoryItemID :one
+SELECT inventory_item_id,
+       node,
+       vmid,
+       upstream_uuid,
+       is_template,
+       notes,
+       cpu_count,
+       memory_mb,
+       disk_gb
+FROM proxmox_vms
+WHERE inventory_item_id = $1
+`
+
+type GetProxmoxVMByInventoryItemIDRow struct {
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Node            string    `json:"node"`
+	Vmid            int32     `json:"vmid"`
+	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
+	IsTemplate      bool      `json:"is_template"`
+	Notes           *string   `json:"notes"`
+	CpuCount        *int32    `json:"cpu_count"`
+	MemoryMb        *int32    `json:"memory_mb"`
+	DiskGb          *float64  `json:"disk_gb"`
+}
+
+func (q *Queries) GetProxmoxVMByInventoryItemID(ctx context.Context, inventoryItemID uuid.UUID) (GetProxmoxVMByInventoryItemIDRow, error) {
+	row := q.db.QueryRow(ctx, getProxmoxVMByInventoryItemID, inventoryItemID)
+	var i GetProxmoxVMByInventoryItemIDRow
+	err := row.Scan(
+		&i.InventoryItemID,
+		&i.Node,
+		&i.Vmid,
+		&i.UpstreamUuid,
+		&i.IsTemplate,
+		&i.Notes,
+		&i.CpuCount,
+		&i.MemoryMb,
+		&i.DiskGb,
+	)
+	return i, err
+}
+
+const getProxmoxVMByInventoryItemIDForUpdate = `-- name: GetProxmoxVMByInventoryItemIDForUpdate :one
+SELECT inventory_item_id,
+       node,
+       vmid,
+       upstream_uuid,
+       is_template,
+       notes,
+       cpu_count,
+       memory_mb,
+       disk_gb
+FROM proxmox_vms
+WHERE inventory_item_id = $1
+FOR UPDATE
+`
+
+type GetProxmoxVMByInventoryItemIDForUpdateRow struct {
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Node            string    `json:"node"`
+	Vmid            int32     `json:"vmid"`
+	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
+	IsTemplate      bool      `json:"is_template"`
+	Notes           *string   `json:"notes"`
+	CpuCount        *int32    `json:"cpu_count"`
+	MemoryMb        *int32    `json:"memory_mb"`
+	DiskGb          *float64  `json:"disk_gb"`
+}
+
+func (q *Queries) GetProxmoxVMByInventoryItemIDForUpdate(ctx context.Context, inventoryItemID uuid.UUID) (GetProxmoxVMByInventoryItemIDForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getProxmoxVMByInventoryItemIDForUpdate, inventoryItemID)
+	var i GetProxmoxVMByInventoryItemIDForUpdateRow
+	err := row.Scan(
+		&i.InventoryItemID,
+		&i.Node,
+		&i.Vmid,
+		&i.UpstreamUuid,
+		&i.IsTemplate,
+		&i.Notes,
+		&i.CpuCount,
+		&i.MemoryMb,
+		&i.DiskGb,
+	)
+	return i, err
+}
+
 const getProxmoxVMByNodeVMID = `-- name: GetProxmoxVMByNodeVMID :one
 SELECT pv.inventory_item_id,
+       pv.node,
+       pv.vmid,
+       pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
        pv.disk_gb,
@@ -318,6 +393,9 @@ type GetProxmoxVMByNodeVMIDParams struct {
 
 type GetProxmoxVMByNodeVMIDRow struct {
 	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
+	Node            string     `json:"node"`
+	Vmid            int32      `json:"vmid"`
+	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
 	CpuCount        *int32     `json:"cpu_count"`
 	MemoryMb        *int32     `json:"memory_mb"`
 	DiskGb          *float64   `json:"disk_gb"`
@@ -330,6 +408,53 @@ func (q *Queries) GetProxmoxVMByNodeVMID(ctx context.Context, arg GetProxmoxVMBy
 	var i GetProxmoxVMByNodeVMIDRow
 	err := row.Scan(
 		&i.InventoryItemID,
+		&i.Node,
+		&i.Vmid,
+		&i.UpstreamUuid,
+		&i.CpuCount,
+		&i.MemoryMb,
+		&i.DiskGb,
+		&i.ParentID,
+		&i.Name,
+	)
+	return i, err
+}
+
+const getProxmoxVMByUpstreamUUID = `-- name: GetProxmoxVMByUpstreamUUID :one
+SELECT pv.inventory_item_id,
+       pv.node,
+       pv.vmid,
+       pv.upstream_uuid,
+       pv.cpu_count,
+       pv.memory_mb,
+       pv.disk_gb,
+       ii.parent_id,
+       ii.name
+FROM proxmox_vms pv
+JOIN inventory_items ii ON ii.id = pv.inventory_item_id
+WHERE pv.upstream_uuid = $1
+`
+
+type GetProxmoxVMByUpstreamUUIDRow struct {
+	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
+	Node            string     `json:"node"`
+	Vmid            int32      `json:"vmid"`
+	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
+	CpuCount        *int32     `json:"cpu_count"`
+	MemoryMb        *int32     `json:"memory_mb"`
+	DiskGb          *float64   `json:"disk_gb"`
+	ParentID        *uuid.UUID `json:"parent_id"`
+	Name            string     `json:"name"`
+}
+
+func (q *Queries) GetProxmoxVMByUpstreamUUID(ctx context.Context, upstreamUuid uuid.UUID) (GetProxmoxVMByUpstreamUUIDRow, error) {
+	row := q.db.QueryRow(ctx, getProxmoxVMByUpstreamUUID, upstreamUuid)
+	var i GetProxmoxVMByUpstreamUUIDRow
+	err := row.Scan(
+		&i.InventoryItemID,
+		&i.Node,
+		&i.Vmid,
+		&i.UpstreamUuid,
 		&i.CpuCount,
 		&i.MemoryMb,
 		&i.DiskGb,
@@ -359,14 +484,15 @@ func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UU
 }
 
 const insertProxmoxVM = `-- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, is_template, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertProxmoxVMParams struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	CpuCount        *int32    `json:"cpu_count"`
 	MemoryMb        *int32    `json:"memory_mb"`
@@ -378,6 +504,7 @@ func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams
 		arg.InventoryItemID,
 		arg.Node,
 		arg.Vmid,
+		arg.UpstreamUuid,
 		arg.IsTemplate,
 		arg.CpuCount,
 		arg.MemoryMb,
@@ -432,22 +559,6 @@ func (q *Queries) UpdateInventoryItemName(ctx context.Context, arg UpdateInvento
 	return err
 }
 
-const updateInventoryItemNameByProxmoxVM = `-- name: UpdateInventoryItemNameByProxmoxVM :exec
-UPDATE inventory_items SET name = $1
-WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $2 AND vmid = $3)
-`
-
-type UpdateInventoryItemNameByProxmoxVMParams struct {
-	Name string `json:"name"`
-	Node string `json:"node"`
-	Vmid int32  `json:"vmid"`
-}
-
-func (q *Queries) UpdateInventoryItemNameByProxmoxVM(ctx context.Context, arg UpdateInventoryItemNameByProxmoxVMParams) error {
-	_, err := q.db.Exec(ctx, updateInventoryItemNameByProxmoxVM, arg.Name, arg.Node, arg.Vmid)
-	return err
-}
-
 const updateInventoryItemParent = `-- name: UpdateInventoryItemParent :exec
 UPDATE inventory_items
 SET parent_id = $1
@@ -466,85 +577,89 @@ func (q *Queries) UpdateInventoryItemParent(ctx context.Context, arg UpdateInven
 
 const updateProxmoxVM = `-- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
-SET is_template = $1, cpu_count = $2, memory_mb = $3, disk_gb = $4
-WHERE node = $5 AND vmid = $6
+SET node = $2,
+    vmid = $3,
+    upstream_uuid = $4,
+    is_template = $5,
+    cpu_count = $6,
+    memory_mb = $7,
+    disk_gb = $8
+WHERE inventory_item_id = $1
 `
 
 type UpdateProxmoxVMParams struct {
-	IsTemplate bool     `json:"is_template"`
-	CpuCount   *int32   `json:"cpu_count"`
-	MemoryMb   *int32   `json:"memory_mb"`
-	DiskGb     *float64 `json:"disk_gb"`
-	Node       string   `json:"node"`
-	Vmid       int32    `json:"vmid"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Node            string    `json:"node"`
+	Vmid            int32     `json:"vmid"`
+	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
+	IsTemplate      bool      `json:"is_template"`
+	CpuCount        *int32    `json:"cpu_count"`
+	MemoryMb        *int32    `json:"memory_mb"`
+	DiskGb          *float64  `json:"disk_gb"`
 }
 
 func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams) error {
 	_, err := q.db.Exec(ctx, updateProxmoxVM,
+		arg.InventoryItemID,
+		arg.Node,
+		arg.Vmid,
+		arg.UpstreamUuid,
 		arg.IsTemplate,
 		arg.CpuCount,
 		arg.MemoryMb,
 		arg.DiskGb,
-		arg.Node,
-		arg.Vmid,
 	)
 	return err
 }
 
-const updateProxmoxVMHardwareSummaryByNodeVMID = `-- name: UpdateProxmoxVMHardwareSummaryByNodeVMID :exec
+const updateProxmoxVMHardwareSummaryByItemID = `-- name: UpdateProxmoxVMHardwareSummaryByItemID :exec
 UPDATE proxmox_vms
 SET cpu_count = $1,
     memory_mb = $2,
     disk_gb = $3
-WHERE node = $4 AND vmid = $5
+WHERE inventory_item_id = $4
 `
 
-type UpdateProxmoxVMHardwareSummaryByNodeVMIDParams struct {
-	CpuCount *int32   `json:"cpu_count"`
-	MemoryMb *int32   `json:"memory_mb"`
-	DiskGb   *float64 `json:"disk_gb"`
-	Node     string   `json:"node"`
-	Vmid     int32    `json:"vmid"`
+type UpdateProxmoxVMHardwareSummaryByItemIDParams struct {
+	CpuCount        *int32    `json:"cpu_count"`
+	MemoryMb        *int32    `json:"memory_mb"`
+	DiskGb          *float64  `json:"disk_gb"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 }
 
-func (q *Queries) UpdateProxmoxVMHardwareSummaryByNodeVMID(ctx context.Context, arg UpdateProxmoxVMHardwareSummaryByNodeVMIDParams) error {
-	_, err := q.db.Exec(ctx, updateProxmoxVMHardwareSummaryByNodeVMID,
+func (q *Queries) UpdateProxmoxVMHardwareSummaryByItemID(ctx context.Context, arg UpdateProxmoxVMHardwareSummaryByItemIDParams) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMHardwareSummaryByItemID,
 		arg.CpuCount,
 		arg.MemoryMb,
 		arg.DiskGb,
-		arg.Node,
-		arg.Vmid,
+		arg.InventoryItemID,
 	)
 	return err
 }
 
-const updateProxmoxVMIsTemplate = `-- name: UpdateProxmoxVMIsTemplate :exec
-UPDATE proxmox_vms SET is_template = true WHERE node = $1 AND vmid = $2
+const updateProxmoxVMIsTemplateByItemID = `-- name: UpdateProxmoxVMIsTemplateByItemID :exec
+UPDATE proxmox_vms
+SET is_template = true
+WHERE inventory_item_id = $1
 `
 
-type UpdateProxmoxVMIsTemplateParams struct {
-	Node string `json:"node"`
-	Vmid int32  `json:"vmid"`
-}
-
-func (q *Queries) UpdateProxmoxVMIsTemplate(ctx context.Context, arg UpdateProxmoxVMIsTemplateParams) error {
-	_, err := q.db.Exec(ctx, updateProxmoxVMIsTemplate, arg.Node, arg.Vmid)
+func (q *Queries) UpdateProxmoxVMIsTemplateByItemID(ctx context.Context, inventoryItemID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMIsTemplateByItemID, inventoryItemID)
 	return err
 }
 
-const updateProxmoxVMNotesByNodeVMID = `-- name: UpdateProxmoxVMNotesByNodeVMID :exec
+const updateProxmoxVMNotesByItemID = `-- name: UpdateProxmoxVMNotesByItemID :exec
 UPDATE proxmox_vms
 SET notes = $1
-WHERE node = $2 AND vmid = $3
+WHERE inventory_item_id = $2
 `
 
-type UpdateProxmoxVMNotesByNodeVMIDParams struct {
-	Notes *string `json:"notes"`
-	Node  string  `json:"node"`
-	Vmid  int32   `json:"vmid"`
+type UpdateProxmoxVMNotesByItemIDParams struct {
+	Notes           *string   `json:"notes"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 }
 
-func (q *Queries) UpdateProxmoxVMNotesByNodeVMID(ctx context.Context, arg UpdateProxmoxVMNotesByNodeVMIDParams) error {
-	_, err := q.db.Exec(ctx, updateProxmoxVMNotesByNodeVMID, arg.Notes, arg.Node, arg.Vmid)
+func (q *Queries) UpdateProxmoxVMNotesByItemID(ctx context.Context, arg UpdateProxmoxVMNotesByItemIDParams) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMNotesByItemID, arg.Notes, arg.InventoryItemID)
 	return err
 }

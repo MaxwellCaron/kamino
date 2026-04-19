@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -12,6 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+)
+
+var (
+	ErrVMIdentityNotConfigured = errors.New("vm upstream uuid is not configured")
+	ErrVMIdentityInvalid       = errors.New("vm upstream uuid is invalid")
 )
 
 // Client talks to the Proxmox VE API.
@@ -181,8 +189,8 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	return c.filterVMs(resp.Data), nil
 }
 
-// GetVMConfigSummary returns inventory metadata derived from a VM config.
-func (c *Client) GetVMConfigSummary(ctx context.Context, node string, vmid int) (*VMConfigSummary, error) {
+// GetVMConfig returns the raw Proxmox config for a VM.
+func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (map[string]any, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
 	}
@@ -190,10 +198,79 @@ func (c *Client) GetVMConfigSummary(ctx context.Context, node string, vmid int) 
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
 	var resp apiResponse[map[string]any]
 	if err := c.get(ctx, path, &resp); err != nil {
-		return nil, fmt.Errorf("fetching VM config summary: %w", err)
+		return nil, fmt.Errorf("fetching VM config: %w", err)
 	}
 
-	return parseVMConfigSummary(resp.Data, vmid)
+	return resp.Data, nil
+}
+
+// GetVMIdentity returns the stable identity metadata for a VM.
+func (c *Client) GetVMIdentity(ctx context.Context, node string, vmid int) (*VMIdentity, error) {
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
+		return nil, err
+	}
+
+	identity, err := parseVMIdentity(data, vmid)
+	if err != nil {
+		return nil, err
+	}
+
+	return identity, nil
+}
+
+// GetVMConfigSummary returns inventory metadata derived from a VM config.
+func (c *Client) GetVMConfigSummary(ctx context.Context, node string, vmid int) (*VMConfigSummary, error) {
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseVMConfigSummary(data, vmid)
+}
+
+// EnsureVMUpstreamUUID returns the current VM UUID, assigning one when the VM
+// config does not expose a valid SMBIOS UUID yet.
+func (c *Client) EnsureVMUpstreamUUID(ctx context.Context, node string, vmid int) (uuid.UUID, error) {
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	current, err := parseVMUpstreamUUID(getStringValue(data["smbios1"]))
+	if err == nil {
+		return current, nil
+	}
+	if !errors.Is(err, ErrVMIdentityNotConfigured) && !errors.Is(err, ErrVMIdentityInvalid) {
+		return uuid.Nil, err
+	}
+
+	upstreamUUID := uuid.New()
+	if err := c.SetVMUpstreamUUID(ctx, node, vmid, upstreamUUID); err != nil {
+		return uuid.Nil, err
+	}
+
+	return upstreamUUID, nil
+}
+
+// SetVMUpstreamUUID updates the Proxmox config so the VM exposes the provided
+// SMBIOS UUID.
+func (c *Client) SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error {
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	params := map[string]string{
+		"smbios1": withVMUpstreamUUID(getStringValue(data["smbios1"]), upstreamUUID),
+	}
+
+	if err := c.put(ctx, path, params, nil); err != nil {
+		return fmt.Errorf("setting VM upstream uuid: %w", err)
+	}
+
+	return nil
 }
 
 // VNCProxyResponse holds the data returned by Proxmox's vncproxy endpoint.
@@ -413,15 +490,11 @@ func (c *Client) UpdateVMNotes(ctx context.Context, node string, vmid int, notes
 
 // GetVMHardwareConfig returns editable VM hardware settings from Proxmox.
 func (c *Client) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*VMHardwareConfig, error) {
-	if err := c.requireAllowedNode(node); err != nil {
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
 		return nil, err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
-	var resp apiResponse[map[string]any]
-	if err := c.get(ctx, path, &resp); err != nil {
-		return nil, fmt.Errorf("fetching VM hardware config: %w", err)
-	}
-	return parseVMHardwareConfig(resp.Data)
+	return parseVMHardwareConfig(data)
 }
 
 // UpdateVMHardware applies editable VM hardware settings through Proxmox.
@@ -568,10 +641,28 @@ func parseVMHardwareConfig(data map[string]any) (*VMHardwareConfig, error) {
 	return config, nil
 }
 
-func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, error) {
+func parseVMIdentity(data map[string]any, vmid int) (*VMIdentity, error) {
 	name := strings.TrimSpace(getStringValue(data["name"]))
 	if name == "" {
 		name = fmt.Sprintf("vm-%d", vmid)
+	}
+
+	upstreamUUID, err := parseVMUpstreamUUID(getStringValue(data["smbios1"]))
+	if err != nil {
+		return nil, err
+	}
+
+	return &VMIdentity{
+		Name:         name,
+		IsTemplate:   getIntValue(data["template"]) == 1,
+		UpstreamUUID: upstreamUUID,
+	}, nil
+}
+
+func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, error) {
+	identity, err := parseVMIdentity(data, vmid)
+	if err != nil {
+		return nil, err
 	}
 
 	sockets := maxInt(getIntValue(data["sockets"]), 1)
@@ -583,12 +674,52 @@ func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, erro
 	}
 
 	return &VMConfigSummary{
-		Name:       name,
-		IsTemplate: getIntValue(data["template"]) == 1,
-		CPUCount:   int32(sockets * cores),
-		MemoryMB:   int32(memoryMB),
-		DiskGB:     float64(diskSizeGB),
+		Name:         identity.Name,
+		IsTemplate:   identity.IsTemplate,
+		UpstreamUUID: identity.UpstreamUUID,
+		CPUCount:     int32(sockets * cores),
+		MemoryMB:     int32(memoryMB),
+		DiskGB:       float64(diskSizeGB),
 	}, nil
+}
+
+func parseVMUpstreamUUID(raw string) (uuid.UUID, error) {
+	segments := strings.Split(strings.TrimSpace(raw), ",")
+	for _, segment := range segments {
+		key, value, ok := strings.Cut(strings.TrimSpace(segment), "=")
+		if !ok || key != "uuid" {
+			continue
+		}
+
+		upstreamUUID, err := uuid.Parse(strings.TrimSpace(value))
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("%w: %v", ErrVMIdentityInvalid, err)
+		}
+
+		return upstreamUUID, nil
+	}
+
+	return uuid.Nil, ErrVMIdentityNotConfigured
+}
+
+func withVMUpstreamUUID(raw string, upstreamUUID uuid.UUID) string {
+	parts := make([]string, 0, 4)
+	for _, segment := range strings.Split(strings.TrimSpace(raw), ",") {
+		trimmed := strings.TrimSpace(segment)
+		if trimmed == "" {
+			continue
+		}
+
+		key, _, ok := strings.Cut(trimmed, "=")
+		if ok && key == "uuid" {
+			continue
+		}
+
+		parts = append(parts, trimmed)
+	}
+
+	parts = append(parts, "uuid="+upstreamUUID.String())
+	return strings.Join(parts, ",")
 }
 
 func parseVMHardwareDiskConfig(data map[string]any) (string, string, int, error) {

@@ -46,7 +46,7 @@ function VmPage() {
   const powerStatus = vm ? vmStatuses?.[vm.vmid] : undefined
   const isLoading = isTreeLoading || (!treeNode && isItemLoading)
   const { data: resources } = useQuery({
-    ...vmResourcesQueryOptions(vm?.node ?? "", vm?.vmid ?? 0),
+    ...vmResourcesQueryOptions(itemId),
     enabled: !!vm && !isTemplate && powerStatus === "running",
   })
   const canManageSnapshots = hasInventoryPermission(
@@ -74,6 +74,7 @@ function VmPage() {
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <VmHeader
           node={node}
+          itemId={itemId}
           vm={vm}
           powerStatus={powerStatus}
           resources={resources}
@@ -82,7 +83,7 @@ function VmPage() {
         />
         {canManageSnapshots && (
           <SnapshotsTable
-            node={vm?.node ?? null}
+            itemId={itemId}
             vmid={vm?.vmid ?? null}
             isTemplate={isTemplate}
             canManageSnapshots={canManageSnapshots}
@@ -91,9 +92,8 @@ function VmPage() {
         )}
         {!isTemplate && canUseConsole && (
           <VncConsole
-            key={vm?.vmid ?? "loading"}
-            node={vm?.node ?? null}
-            vmid={vm?.vmid ?? null}
+            key={itemId}
+            itemId={itemId}
             powerStatus={powerStatus}
             isLoading={isLoading}
           />

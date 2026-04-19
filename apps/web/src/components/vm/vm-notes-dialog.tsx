@@ -26,13 +26,13 @@ const vmNotesSchema = z.object({
 })
 
 export function VmNotesDialog({
-  node,
+  itemId,
   vmid,
   initialNotes,
   open,
   onOpenChange,
 }: {
-  node: string
+  itemId: string
   vmid: number
   initialNotes?: string | null
   open: boolean
@@ -49,8 +49,7 @@ export function VmNotesDialog({
 
       try {
         const result = await updateNotes.mutateAsync({
-          node,
-          vmid,
+          itemId,
           notes: parsed.notes,
         })
         toast.success(

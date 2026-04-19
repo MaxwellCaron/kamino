@@ -1,5 +1,7 @@
 package proxmox
 
+import "github.com/google/uuid"
+
 // intBool is a boolean type for 0 and 1 responses from the Proxmox API.
 type intBool bool
 
@@ -121,12 +123,19 @@ type VMHardwareConfig struct {
 	Networks   []VMHardwareNetwork `json:"networks"`
 }
 
+type VMIdentity struct {
+	Name         string
+	IsTemplate   bool
+	UpstreamUUID uuid.UUID
+}
+
 // VMConfigSummary contains the inventory metadata we can derive from a VM's
 // config endpoint without scanning cluster-wide resources.
 type VMConfigSummary struct {
-	Name       string
-	IsTemplate bool
-	CPUCount   int32
-	MemoryMB   int32
-	DiskGB     float64
+	Name         string
+	IsTemplate   bool
+	UpstreamUUID uuid.UUID
+	CPUCount     int32
+	MemoryMB     int32
+	DiskGB       float64
 }

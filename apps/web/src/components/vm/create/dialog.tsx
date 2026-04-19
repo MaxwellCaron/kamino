@@ -177,8 +177,7 @@ export function CreateVmDialog({
         }
 
         return cloneVM({
-          node: selectedTemplate.node,
-          vmid: selectedTemplate.vmid,
+          itemId: selectedTemplate.id,
           newid: values.vmid,
           name: getTemplateCloneName(values, selectedTemplate.name),
           full: values.full_clone,

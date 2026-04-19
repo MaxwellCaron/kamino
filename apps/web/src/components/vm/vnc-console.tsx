@@ -45,8 +45,7 @@ import type RFB from "@novnc/novnc/core/rfb.js"
 import { apiFetch, apiUrl } from "@/lib/queries"
 
 type VncConsoleProps = {
-  node: string | null
-  vmid: number | null
+  itemId: string
   powerStatus?: string
   isLoading?: boolean
 }
@@ -54,8 +53,7 @@ type VncConsoleProps = {
 type Status = "connecting" | "connected" | "disconnected" | "error"
 
 export function VncConsole({
-  node,
-  vmid,
+  itemId,
   powerStatus,
   isLoading,
 }: VncConsoleProps) {
@@ -68,19 +66,18 @@ export function VncConsole({
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!shouldConnect || !node || vmid == null) return
+    if (!shouldConnect || !itemId) return
 
     let cancelled = false
 
     async function connect() {
       try {
-        const res = await apiFetch("/api/v1/vnc/proxy", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ node, vmid }),
-        })
+        const res = await apiFetch(
+          `/api/v1/inventory/items/${itemId}/vm/vnc/proxy`,
+          {
+            method: "POST",
+          }
+        )
 
         if (!res.ok) {
           throw new Error(`Proxy request failed: ${res.status}`)
@@ -149,7 +146,7 @@ export function VncConsole({
       rfbRef.current?.disconnect()
       rfbRef.current = null
     }
-  }, [node, vmid, connectAttempt, shouldConnect])
+  }, [itemId, connectAttempt, shouldConnect])
 
   function startConnection() {
     rfbRef.current?.disconnect()
@@ -237,8 +234,7 @@ export function VncConsole({
                   isLoading ||
                   status === "connecting" ||
                   powerStatus !== "running" ||
-                  !node ||
-                  vmid == null
+                  !itemId
                 }
               >
                 {status === "connecting" && <Spinner />}

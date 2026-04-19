@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"strings"
 	"time"
 
@@ -51,10 +50,7 @@ func (s *InventoryImporter) SyncVM(
 		return uuid.Nil, fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
 	}
 
-	row, err := q.GetProxmoxVMByNodeVMID(syncCtx, database.GetProxmoxVMByNodeVMIDParams{
-		Node: node,
-		Vmid: int32(vmid),
-	})
+	row, err := q.GetProxmoxVMByUpstreamUUID(syncCtx, summary.UpstreamUUID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("loading synced vm %d on node %s: %w", vmid, node, err)
 	}
@@ -104,7 +100,13 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 			}
 		}
 
-		if err := syncVM(ctx, q, parentID, vm); err != nil {
+		summary, err := s.ensureVMConfigSummary(ctx, vm.Node, vm.VMID)
+		if err != nil {
+			log.Printf("Warning: failed to load config summary for VM %d on node %s: %v", vm.VMID, vm.Node, err)
+			continue
+		}
+
+		if err := syncVMConfigSummary(ctx, q, parentID, vm.Node, vm.VMID, summary); err != nil {
 			log.Printf("Warning: failed to sync VM %d on node %s: %v", vm.VMID, vm.Node, err)
 			continue
 		}
@@ -145,71 +147,6 @@ func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.U
 	})
 }
 
-func syncVM(ctx context.Context, q *database.Queries, parentID uuid.UUID, vm VM) error {
-	name := vm.Name
-	if name == "" {
-		name = fmt.Sprintf("vm-%d", vm.VMID)
-	}
-
-	cpuCount := int32(vm.MaxCPU)
-	memoryMB := int32(vm.MaxMem / (1024 * 1024))
-	diskGB := math.Round(float64(vm.MaxDisk)/(1024*1024*1024)*100) / 100
-
-	// Check if this VM already exists in the database
-	existing, err := q.GetProxmoxVMByNodeVMID(ctx, database.GetProxmoxVMByNodeVMIDParams{
-		Node: vm.Node,
-		Vmid: int32(vm.VMID),
-	})
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		// New VM: create inventory item + proxmox_vms row
-		itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
-			ParentID: &parentID,
-			Name:     name,
-		})
-		if err != nil {
-			return fmt.Errorf("creating inventory item: %w", err)
-		}
-
-		return q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
-			InventoryItemID: itemID,
-			Node:            vm.Node,
-			Vmid:            int32(vm.VMID),
-			IsTemplate:      vm.IsTemplate(),
-			CpuCount:        &cpuCount,
-			MemoryMb:        &memoryMB,
-			DiskGb:          &diskGB,
-		})
-	}
-	if err != nil {
-		return fmt.Errorf("looking up VM: %w", err)
-	}
-
-	// Existing VM: update metadata
-	if err := q.UpdateProxmoxVM(ctx, database.UpdateProxmoxVMParams{
-		IsTemplate: vm.IsTemplate(),
-		CpuCount:   &cpuCount,
-		MemoryMb:   &memoryMB,
-		DiskGb:     &diskGB,
-		Node:       vm.Node,
-		Vmid:       int32(vm.VMID),
-	}); err != nil {
-		return fmt.Errorf("updating proxmox_vms: %w", err)
-	}
-
-	// Update name if changed
-	if existing.Name != name {
-		if err := q.UpdateInventoryItemName(ctx, database.UpdateInventoryItemNameParams{
-			Name: name,
-			ID:   existing.InventoryItemID,
-		}); err != nil {
-			return fmt.Errorf("updating inventory item name: %w", err)
-		}
-	}
-
-	return nil
-}
-
 func syncVMConfigSummary(
 	ctx context.Context,
 	q *database.Queries,
@@ -222,11 +159,44 @@ func syncVMConfigSummary(
 		return fmt.Errorf("vm config summary is required")
 	}
 
-	existing, err := q.GetProxmoxVMByNodeVMID(ctx, database.GetProxmoxVMByNodeVMIDParams{
+	existingByUUID, err := q.GetProxmoxVMByUpstreamUUID(ctx, summary.UpstreamUUID)
+	switch {
+	case err == nil:
+	case errors.Is(err, pgx.ErrNoRows):
+		existingByUUID = database.GetProxmoxVMByUpstreamUUIDRow{}
+	default:
+		return fmt.Errorf("looking up VM by upstream uuid: %w", err)
+	}
+
+	existingByLocator, err := q.GetProxmoxVMByNodeVMID(ctx, database.GetProxmoxVMByNodeVMIDParams{
 		Node: node,
 		Vmid: int32(vmid),
 	})
-	if errors.Is(err, pgx.ErrNoRows) {
+	switch {
+	case err == nil:
+	case errors.Is(err, pgx.ErrNoRows):
+		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
+	default:
+		return fmt.Errorf("looking up VM by node/vmid: %w", err)
+	}
+
+	if existingByUUID.InventoryItemID != uuid.Nil && existingByLocator.InventoryItemID != uuid.Nil &&
+		existingByUUID.InventoryItemID != existingByLocator.InventoryItemID {
+		if err := q.DeleteInventoryItem(ctx, existingByLocator.InventoryItemID); err != nil {
+			return fmt.Errorf("removing stale inventory item for reused locator: %w", err)
+		}
+		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
+	}
+
+	if existingByUUID.InventoryItemID == uuid.Nil && existingByLocator.InventoryItemID != uuid.Nil &&
+		existingByLocator.UpstreamUuid != summary.UpstreamUUID {
+		if err := q.DeleteInventoryItem(ctx, existingByLocator.InventoryItemID); err != nil {
+			return fmt.Errorf("removing stale inventory item for reused locator: %w", err)
+		}
+		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
+	}
+
+	if existingByUUID.InventoryItemID == uuid.Nil && existingByLocator.InventoryItemID == uuid.Nil {
 		itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
 			ParentID: &parentID,
 			Name:     summary.Name,
@@ -239,25 +209,49 @@ func syncVMConfigSummary(
 			InventoryItemID: itemID,
 			Node:            node,
 			Vmid:            int32(vmid),
+			UpstreamUuid:    summary.UpstreamUUID,
 			IsTemplate:      summary.IsTemplate,
 			CpuCount:        &summary.CPUCount,
 			MemoryMb:        &summary.MemoryMB,
 			DiskGb:          &summary.DiskGB,
 		})
 	}
-	if err != nil {
-		return fmt.Errorf("looking up VM: %w", err)
+
+	existing := existingByUUID
+	if existing.InventoryItemID == uuid.Nil {
+		existing = database.GetProxmoxVMByUpstreamUUIDRow{
+			InventoryItemID: existingByLocator.InventoryItemID,
+			Node:            existingByLocator.Node,
+			Vmid:            existingByLocator.Vmid,
+			UpstreamUuid:    existingByLocator.UpstreamUuid,
+			CpuCount:        existingByLocator.CpuCount,
+			MemoryMb:        existingByLocator.MemoryMb,
+			DiskGb:          existingByLocator.DiskGb,
+			ParentID:        existingByLocator.ParentID,
+			Name:            existingByLocator.Name,
+		}
 	}
 
 	if err := q.UpdateProxmoxVM(ctx, database.UpdateProxmoxVMParams{
-		IsTemplate: summary.IsTemplate,
-		CpuCount:   &summary.CPUCount,
-		MemoryMb:   &summary.MemoryMB,
-		DiskGb:     &summary.DiskGB,
-		Node:       node,
-		Vmid:       int32(vmid),
+		InventoryItemID: existing.InventoryItemID,
+		Node:            node,
+		Vmid:            int32(vmid),
+		UpstreamUuid:    summary.UpstreamUUID,
+		IsTemplate:      summary.IsTemplate,
+		CpuCount:        &summary.CPUCount,
+		MemoryMb:        &summary.MemoryMB,
+		DiskGb:          &summary.DiskGB,
 	}); err != nil {
 		return fmt.Errorf("updating proxmox_vms: %w", err)
+	}
+
+	if existing.ParentID == nil || *existing.ParentID != parentID {
+		if err := q.UpdateInventoryItemParent(ctx, database.UpdateInventoryItemParentParams{
+			ParentID: &parentID,
+			ID:       existing.InventoryItemID,
+		}); err != nil {
+			return fmt.Errorf("updating inventory item parent: %w", err)
+		}
 	}
 
 	if existing.Name != summary.Name {
@@ -272,13 +266,25 @@ func syncVMConfigSummary(
 	return nil
 }
 
+func (s *InventoryImporter) ensureVMConfigSummary(
+	ctx context.Context,
+	node string,
+	vmid int,
+) (*VMConfigSummary, error) {
+	if _, err := s.client.EnsureVMUpstreamUUID(ctx, node, vmid); err != nil {
+		return nil, err
+	}
+
+	return s.client.GetVMConfigSummary(ctx, node, vmid)
+}
+
 func (s *InventoryImporter) waitForVMConfigSummary(
 	ctx context.Context,
 	node string,
 	vmid int,
 ) (*VMConfigSummary, error) {
 	for {
-		summary, err := s.client.GetVMConfigSummary(ctx, node, vmid)
+		summary, err := s.ensureVMConfigSummary(ctx, node, vmid)
 		if err == nil {
 			return summary, nil
 		}

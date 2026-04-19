@@ -24,6 +24,13 @@ type Service struct {
 	protectedManagementGroupIDs map[uuid.UUID]struct{}
 }
 
+type VMRecord struct {
+	InventoryItemID uuid.UUID
+	Node            string
+	Vmid            int32
+	UpstreamUUID    uuid.UUID
+}
+
 func NewService(db *pgxpool.Pool, protectedManagementGroupIDs []uuid.UUID) *Service {
 	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedManagementGroupIDs))
 	for _, principalID := range protectedManagementGroupIDs {
@@ -187,6 +194,36 @@ func (s *Service) ResolveVMItemID(
 		Node: node,
 		Vmid: vmid,
 	})
+}
+
+func (s *Service) GetVMRecord(ctx context.Context, itemID uuid.UUID) (VMRecord, error) {
+	row, err := database.New(s.db).GetProxmoxVMByInventoryItemID(ctx, itemID)
+	if err != nil {
+		return VMRecord{}, err
+	}
+
+	return VMRecord{
+		InventoryItemID: row.InventoryItemID,
+		Node:            row.Node,
+		Vmid:            row.Vmid,
+		UpstreamUUID:    row.UpstreamUuid,
+	}, nil
+}
+
+// GetVMRecordForUpdate uses SELECT ... FOR UPDATE for mutation paths. The row
+// lock only persists for the lifetime of the surrounding transaction.
+func (s *Service) GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (VMRecord, error) {
+	row, err := database.New(s.db).GetProxmoxVMByInventoryItemIDForUpdate(ctx, itemID)
+	if err != nil {
+		return VMRecord{}, err
+	}
+
+	return VMRecord{
+		InventoryItemID: row.InventoryItemID,
+		Node:            row.Node,
+		Vmid:            row.Vmid,
+		UpstreamUUID:    row.UpstreamUuid,
+	}, nil
 }
 
 func (s *Service) FilterVisibleStatuses(

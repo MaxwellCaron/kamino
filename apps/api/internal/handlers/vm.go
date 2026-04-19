@@ -187,7 +187,7 @@ func (h *VMHandler) StreamEvents(c *gin.Context) {
 }
 
 // GetResources returns cached resource metrics for a single VM.
-// GET /api/v1/vms/:node/:vmid/resources
+// GET /api/v1/inventory/items/:id/vm/resources
 func (h *VMHandler) GetResources(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -195,12 +195,12 @@ func (h *VMHandler) GetResources(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.View); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.View, false)
+	if !ok {
 		return
 	}
 
@@ -209,7 +209,7 @@ func (h *VMHandler) GetResources(c *gin.Context) {
 		return
 	}
 
-	resources, ok := h.Notifier.Resources(vmid)
+	resources, ok := h.Notifier.Resources(target.VMID)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no resource data available for this VM"})
 		return
@@ -219,15 +219,13 @@ func (h *VMHandler) GetResources(c *gin.Context) {
 }
 
 type createSnapshotRequest struct {
-	Node        string `json:"node" binding:"required"`
-	VMID        int    `json:"vmid" binding:"required"`
 	Snapname    string `json:"snapname" binding:"required"`
 	Description string `json:"description"`
 	VMState     bool   `json:"vmstate"`
 }
 
 // CreateSnapshot creates a snapshot of a VM and waits for the Proxmox task to complete.
-// POST /api/v1/vms/snapshot
+// POST /api/v1/inventory/items/:id/vm/snapshots
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -240,11 +238,17 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.SnapshotVM); !ok {
+
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
+		return
+	}
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.SnapshotVM, true)
+	if !ok {
 		return
 	}
 
-	if err := h.PX.CreateSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname, req.Description, req.VMState); err != nil {
+	if err := h.PX.CreateSnapshot(c.Request.Context(), target.Node, target.VMID, req.Snapname, req.Description, req.VMState); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to create snapshot", "create vm snapshot", err)
 		return
 	}
@@ -253,14 +257,12 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 }
 
 type powerActionRequest struct {
-	Node   string `json:"node" binding:"required"`
-	VMID   int    `json:"vmid" binding:"required"`
 	Action string `json:"action" binding:"required,oneof=start shutdown reboot stop"`
 }
 
 // PowerAction performs a power action (start, shutdown, reboot, stop) on a VM
 // and waits for the Proxmox task to complete.
-// POST /api/v1/vms/power
+// POST /api/v1/inventory/items/:id/vm/power
 func (h *VMHandler) PowerAction(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -273,7 +275,13 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.PowerVM); !ok {
+
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
+		return
+	}
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.PowerVM, true)
+	if !ok {
 		return
 	}
 
@@ -282,13 +290,13 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 
 	switch req.Action {
 	case "start":
-		err = h.PX.StartVM(ctx, req.Node, req.VMID)
+		err = h.PX.StartVM(ctx, target.Node, target.VMID)
 	case "shutdown":
-		err = h.PX.ShutdownVM(ctx, req.Node, req.VMID)
+		err = h.PX.ShutdownVM(ctx, target.Node, target.VMID)
 	case "reboot":
-		err = h.PX.RebootVM(ctx, req.Node, req.VMID)
+		err = h.PX.RebootVM(ctx, target.Node, target.VMID)
 	case "stop":
-		err = h.PX.StopVM(ctx, req.Node, req.VMID)
+		err = h.PX.StopVM(ctx, target.Node, target.VMID)
 	}
 
 	if err != nil {
@@ -298,16 +306,16 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 
 	switch req.Action {
 	case "start", "reboot":
-		h.waitForObservedVMStatus(req.VMID, "running")
+		h.waitForObservedVMStatus(target.VMID, "running")
 	case "shutdown", "stop":
-		h.waitForObservedVMStatus(req.VMID, "stopped")
+		h.waitForObservedVMStatus(target.VMID, "stopped")
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // DeleteVM deletes a VM from Proxmox (waits for the task to complete) and
 // removes it from the inventory.
-// DELETE /api/v1/vms/:node/:vmid
+// DELETE /api/v1/inventory/items/:id/vm
 func (h *VMHandler) DeleteVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -315,34 +323,32 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.DeleteVM); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.DeleteVM, true)
+	if !ok {
 		return
 	}
 
 	ctx := c.Request.Context()
 
-	if err := h.PX.DeleteVM(ctx, node, vmid); err != nil {
+	if err := h.PX.DeleteVM(ctx, target.Node, target.VMID); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to delete VM", "delete proxmox vm", err)
 		return
 	}
 
-	if err := h.Service.DeleteInventoryItemByProxmoxVM(ctx, node, int32(vmid)); err != nil {
+	if err := h.Service.DeleteInventoryVM(ctx, target.ItemID); err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "VM deleted from Proxmox but failed to remove from inventory", "delete inventory item for vm", err)
 		return
 	}
 
-	h.waitForVMRemoval(vmid)
+	h.waitForVMRemoval(target.VMID)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type renameVMRequest struct {
-	Node string `json:"node" binding:"required"`
-	VMID int    `json:"vmid" binding:"required"`
 	Name string `json:"name" binding:"required"`
 }
 
@@ -377,7 +383,7 @@ type updateVMHardwareRequest struct {
 }
 
 // RenameVM renames a VM in Proxmox and updates the inventory.
-// POST /api/v1/vms/rename
+// POST /api/v1/inventory/items/:id/vm/rename
 func (h *VMHandler) RenameVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -395,24 +401,33 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.RenameVM); !ok {
+
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
+		return
+	}
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.RenameVM, true)
+	if !ok {
 		return
 	}
 
 	ctx := c.Request.Context()
 
-	if err := h.PX.RenameVM(ctx, req.Node, req.VMID, req.Name); err != nil {
+	if err := h.PX.RenameVM(ctx, target.Node, target.VMID, req.Name); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to rename VM", "rename vm", err)
 		return
 	}
 
-	_ = h.Service.UpdateInventoryItemNameByProxmoxVM(ctx, req.Node, int32(req.VMID), req.Name)
+	if err := h.Service.UpdateInventoryVMName(ctx, target.ItemID, req.Name); err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "vm renamed in Proxmox but failed to refresh inventory metadata", "update inventory name for vm", err)
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // UpdateNotes stores VM notes in Postgres and replicates them to Proxmox.
-// PUT /api/v1/vms/:node/:vmid/notes
+// PUT /api/v1/inventory/items/:id/vm/notes
 func (h *VMHandler) UpdateNotes(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -420,9 +435,8 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
 
@@ -440,11 +454,12 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 		return
 	}
 
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.RenameVM); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.RenameVM, true)
+	if !ok {
 		return
 	}
 
-	if err := h.Service.UpdateProxmoxVMNotes(c.Request.Context(), node, int32(vmid), notes); err != nil {
+	if err := h.Service.UpdateInventoryVMNotes(c.Request.Context(), target.ItemID, notes); err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to update VM notes", "update vm notes in inventory", err)
 		return
 	}
@@ -454,8 +469,8 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.UpdateVMNotes(c.Request.Context(), node, vmid, notes); err != nil {
-		log.Printf("vm notes saved to postgres but proxmox sync is pending for %s/%d: %v", node, vmid, err)
+	if err := h.PX.UpdateVMNotes(c.Request.Context(), target.Node, target.VMID, notes); err != nil {
+		log.Printf("vm notes saved to postgres but proxmox sync is pending for %s/%d: %v", target.Node, target.VMID, err)
 		c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
 		return
 	}
@@ -464,7 +479,7 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 }
 
 // GetHardware returns the current editable hardware configuration for a VM.
-// GET /api/v1/vms/:node/:vmid/hardware
+// GET /api/v1/inventory/items/:id/vm/hardware
 func (h *VMHandler) GetHardware(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -472,17 +487,17 @@ func (h *VMHandler) GetHardware(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
 
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.EditVMHardware); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.EditVMHardware, false)
+	if !ok {
 		return
 	}
 
-	config, err := h.PX.GetVMHardwareConfig(c.Request.Context(), node, vmid)
+	config, err := h.PX.GetVMHardwareConfig(c.Request.Context(), target.Node, target.VMID)
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM hardware", "fetch vm hardware config", err)
 		return
@@ -492,7 +507,7 @@ func (h *VMHandler) GetHardware(c *gin.Context) {
 }
 
 // UpdateHardware updates editable hardware settings for a VM and refreshes summary metadata.
-// PUT /api/v1/vms/:node/:vmid/hardware
+// PUT /api/v1/inventory/items/:id/vm/hardware
 func (h *VMHandler) UpdateHardware(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -500,13 +515,13 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
 
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.EditVMHardware); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.EditVMHardware, true)
+	if !ok {
 		return
 	}
 
@@ -552,17 +567,16 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		})
 	}
 
-	if err := h.PX.UpdateVMHardware(c.Request.Context(), node, vmid, config); err != nil {
+	if err := h.PX.UpdateVMHardware(c.Request.Context(), target.Node, target.VMID, config); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
 	cpuCount := int32(req.Sockets * req.Cores)
 	memoryMB := int32(req.Memory * 1024)
-	if err := h.Service.UpdateProxmoxVMHardwareSummary(
+	if err := h.Service.UpdateInventoryVMHardwareSummary(
 		c.Request.Context(),
-		node,
-		int32(vmid),
+		target.ItemID,
 		cpuCount,
 		memoryMB,
 		float64(req.DiskSize),
@@ -631,8 +645,6 @@ func validateVMHardwareRequest(req updateVMHardwareRequest) error {
 }
 
 type cloneVMRequest struct {
-	Node           string `json:"node" binding:"required"`
-	VMID           int    `json:"vmid" binding:"required"`
 	NewID          int    `json:"newid"`
 	Name           string `json:"name" binding:"required"`
 	Full           bool   `json:"full"`
@@ -648,7 +660,7 @@ type vmMutationResponse struct {
 }
 
 // CloneVM clones a VM and waits for the Proxmox task to complete.
-// POST /api/v1/vms/clone
+// POST /api/v1/inventory/items/:id/vm/clone
 func (h *VMHandler) CloneVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -666,7 +678,12 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.CloneVM); !ok {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
+		return
+	}
+	source, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.CloneVM, true)
+	if !ok {
 		return
 	}
 
@@ -715,8 +732,13 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.CloneVM(c.Request.Context(), req.Node, req.VMID, newID, req.Name, req.Full, targetNode); err != nil {
+	if err := h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, newID, req.Name, req.Full, targetNode); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
+		return
+	}
+
+	if err := h.PX.SetVMUpstreamUUID(c.Request.Context(), targetNode, newID, uuid.New()); err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to assign clone identity", "assign cloned vm upstream uuid", err)
 		return
 	}
 
@@ -725,7 +747,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	itemID, err := h.Importer.SyncVM(
+	clonedItemID, err := h.Importer.SyncVM(
 		c.Request.Context(),
 		placement.FolderID,
 		targetNode,
@@ -736,12 +758,12 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
-	h.Service.NotifyInventoryChanged(c.Request.Context(), itemID)
+	h.Service.NotifyInventoryChanged(c.Request.Context(), clonedItemID)
 
 	item, err := h.Service.GetInventoryItemWithPermissions(
 		c.Request.Context(),
 		principalID,
-		itemID,
+		clonedItemID,
 	)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to load inventory item", "load cloned vm inventory item", err)
@@ -751,18 +773,13 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	c.JSON(http.StatusOK, vmMutationResponse{
 		OK:     true,
 		VMID:   newID,
-		ItemID: itemID,
+		ItemID: clonedItemID,
 		Item:   buildInventoryItem(item),
 	})
 }
 
-type convertToTemplateRequest struct {
-	Node string `json:"node" binding:"required"`
-	VMID int    `json:"vmid" binding:"required"`
-}
-
 // ConvertToTemplate converts a VM to a template.
-// POST /api/v1/vms/template
+// POST /api/v1/inventory/items/:id/vm/template
 func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -770,29 +787,32 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 		return
 	}
 
-	var req convertToTemplateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.TemplateVM); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.TemplateVM, true)
+	if !ok {
 		return
 	}
 
 	ctx := c.Request.Context()
 
-	if err := h.PX.ConvertToTemplate(ctx, req.Node, req.VMID); err != nil {
+	if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to convert to template", "convert vm to template", err)
 		return
 	}
 
-	_ = h.Service.UpdateProxmoxVMIsTemplate(ctx, req.Node, int32(req.VMID))
+	if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "vm converted to template in Proxmox but failed to refresh inventory metadata", "update vm template state in inventory", err)
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // GetSnapshots returns all snapshots for a VM.
-// GET /api/v1/vms/:node/:vmid/snapshots
+// GET /api/v1/inventory/items/:id/vm/snapshots
 func (h *VMHandler) GetSnapshots(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -800,16 +820,16 @@ func (h *VMHandler) GetSnapshots(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.SnapshotVM); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.SnapshotVM, false)
+	if !ok {
 		return
 	}
 
-	snapshots, err := h.PX.GetSnapshots(c.Request.Context(), node, vmid)
+	snapshots, err := h.PX.GetSnapshots(c.Request.Context(), target.Node, target.VMID)
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch snapshots", "fetch vm snapshots", err)
 		return
@@ -823,13 +843,11 @@ func (h *VMHandler) GetSnapshots(c *gin.Context) {
 }
 
 type rollbackSnapshotRequest struct {
-	Node     string `json:"node" binding:"required"`
-	VMID     int    `json:"vmid" binding:"required"`
 	Snapname string `json:"snapname" binding:"required"`
 }
 
 // RollbackSnapshot rolls back a VM to a snapshot and waits for the Proxmox task to complete.
-// POST /api/v1/vms/snapshot/rollback
+// POST /api/v1/inventory/items/:id/vm/snapshots/rollback
 func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -842,11 +860,16 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.SnapshotVM); !ok {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
+		return
+	}
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.SnapshotVM, true)
+	if !ok {
 		return
 	}
 
-	if err := h.PX.RollbackSnapshot(c.Request.Context(), req.Node, req.VMID, req.Snapname); err != nil {
+	if err := h.PX.RollbackSnapshot(c.Request.Context(), target.Node, target.VMID, req.Snapname); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to rollback snapshot", "rollback vm snapshot", err)
 		return
 	}
@@ -855,7 +878,7 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 }
 
 // DeleteSnapshot deletes a VM snapshot and waits for the Proxmox task to complete.
-// DELETE /api/v1/vms/:node/:vmid/snapshots/:snapname
+// DELETE /api/v1/inventory/items/:id/vm/snapshots/:snapname
 func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -863,17 +886,17 @@ func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 		return
 	}
 
-	node := c.Param("node")
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
 	snapname := c.Param("snapname")
-	if _, ok := requireVMPermission(c, h.Authz, principalID, node, int32(vmid), authorization.SnapshotVM); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.SnapshotVM, true)
+	if !ok {
 		return
 	}
 
-	if err := h.PX.DeleteSnapshot(c.Request.Context(), node, vmid, snapname); err != nil {
+	if err := h.PX.DeleteSnapshot(c.Request.Context(), target.Node, target.VMID, snapname); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to delete snapshot", "delete vm snapshot", err)
 		return
 	}

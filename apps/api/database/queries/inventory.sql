@@ -59,6 +59,9 @@ WHERE inherit_permissions = false;
 
 -- name: GetProxmoxVMByNodeVMID :one
 SELECT pv.inventory_item_id,
+       pv.node,
+       pv.vmid,
+       pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
        pv.disk_gb,
@@ -68,14 +71,61 @@ FROM proxmox_vms pv
 JOIN inventory_items ii ON ii.id = pv.inventory_item_id
 WHERE pv.node = $1 AND pv.vmid = $2;
 
+-- name: GetProxmoxVMByUpstreamUUID :one
+SELECT pv.inventory_item_id,
+       pv.node,
+       pv.vmid,
+       pv.upstream_uuid,
+       pv.cpu_count,
+       pv.memory_mb,
+       pv.disk_gb,
+       ii.parent_id,
+       ii.name
+FROM proxmox_vms pv
+JOIN inventory_items ii ON ii.id = pv.inventory_item_id
+WHERE pv.upstream_uuid = $1;
+
+-- name: GetProxmoxVMByInventoryItemID :one
+SELECT inventory_item_id,
+       node,
+       vmid,
+       upstream_uuid,
+       is_template,
+       notes,
+       cpu_count,
+       memory_mb,
+       disk_gb
+FROM proxmox_vms
+WHERE inventory_item_id = $1;
+
+-- name: GetProxmoxVMByInventoryItemIDForUpdate :one
+SELECT inventory_item_id,
+       node,
+       vmid,
+       upstream_uuid,
+       is_template,
+       notes,
+       cpu_count,
+       memory_mb,
+       disk_gb
+FROM proxmox_vms
+WHERE inventory_item_id = $1
+FOR UPDATE;
+
 -- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, is_template, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
-SET is_template = $1, cpu_count = $2, memory_mb = $3, disk_gb = $4
-WHERE node = $5 AND vmid = $6;
+SET node = $2,
+    vmid = $3,
+    upstream_uuid = $4,
+    is_template = $5,
+    cpu_count = $6,
+    memory_mb = $7,
+    disk_gb = $8
+WHERE inventory_item_id = $1;
 
 -- name: GetAllProxmoxVMNodeVMIDs :many
 SELECT pv.inventory_item_id, pv.node, pv.vmid
@@ -90,23 +140,17 @@ FROM inventory_items
 WHERE parent_id = $1
   AND kind = 'folder';
 
--- name: UpdateInventoryItemNameByProxmoxVM :exec
-UPDATE inventory_items SET name = $1
-WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $2 AND vmid = $3);
+-- name: UpdateProxmoxVMIsTemplateByItemID :exec
+UPDATE proxmox_vms
+SET is_template = true
+WHERE inventory_item_id = $1;
 
--- name: UpdateProxmoxVMIsTemplate :exec
-UPDATE proxmox_vms SET is_template = true WHERE node = $1 AND vmid = $2;
-
--- name: UpdateProxmoxVMHardwareSummaryByNodeVMID :exec
+-- name: UpdateProxmoxVMHardwareSummaryByItemID :exec
 UPDATE proxmox_vms
 SET cpu_count = $1,
     memory_mb = $2,
     disk_gb = $3
-WHERE node = $4 AND vmid = $5;
-
--- name: DeleteInventoryItemByProxmoxVM :exec
-DELETE FROM inventory_items
-WHERE id = (SELECT inventory_item_id FROM proxmox_vms WHERE node = $1 AND vmid = $2);
+WHERE inventory_item_id = $4;
 
 -- ---------------------------------------------------------------------------
 -- Read queries for API endpoints
@@ -129,7 +173,7 @@ FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1;
 
--- name: UpdateProxmoxVMNotesByNodeVMID :exec
+-- name: UpdateProxmoxVMNotesByItemID :exec
 UPDATE proxmox_vms
 SET notes = $1
-WHERE node = $2 AND vmid = $3;
+WHERE inventory_item_id = $2;

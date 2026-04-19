@@ -70,6 +70,7 @@ import {
 import { useUpdateVMHardware } from "@/hooks/use-vm-actions"
 import {
   bridgesQueryOptions,
+  inventoryItemQueryOptions,
   storagesQueryOptions,
   vmHardwareQueryOptions,
 } from "@/lib/queries"
@@ -104,8 +105,7 @@ const vmHardwareFormSchema = z.object({
 type VmHardwareFormValues = z.infer<typeof vmHardwareFormSchema>
 
 type VmHardwareDialogProps = {
-  node: string
-  vmid: number
+  itemId: string
   vmName: string
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -116,8 +116,7 @@ type StorageOption = {
 }
 
 type VmHardwareDialogFormProps = {
-  node: string
-  vmid: number
+  itemId: string
   vmName: string
   hardware: ApiVmHardwareConfig
   bridgeOptions: Array<NetworkOption>
@@ -152,8 +151,7 @@ function toFormValues(hardware: ApiVmHardwareConfig): VmHardwareFormValues {
 }
 
 function VmHardwareDialogForm({
-  node,
-  vmid,
+  itemId,
   vmName,
   hardware,
   bridgeOptions,
@@ -162,7 +160,7 @@ function VmHardwareDialogForm({
   storageOptions,
   onOpenChange,
 }: VmHardwareDialogFormProps) {
-  const updateHardware = useUpdateVMHardware(node, vmid)
+  const updateHardware = useUpdateVMHardware(itemId)
   const minimumDiskSize = hardware.disk_size
 
   const form = useForm({
@@ -176,8 +174,7 @@ function VmHardwareDialogForm({
 
       try {
         await updateHardware.mutateAsync({
-          node,
-          vmid,
+          itemId,
           hardware: parsed,
         })
         toast.success(`Hardware updated for "${vmName}"`)
@@ -887,16 +884,21 @@ function VmHardwareDialogForm({
 }
 
 export function VmHardwareDialog({
-  node,
-  vmid,
+  itemId,
   vmName,
   open,
   onOpenChange,
 }: VmHardwareDialogProps) {
-  const isDialogOpen = open && node !== ""
+  const itemQuery = useQuery({
+    ...inventoryItemQueryOptions(itemId),
+    enabled: open,
+  })
+  const node = itemQuery.data?.vm?.node ?? ""
+  const vmid = itemQuery.data?.vm?.vmid ?? 0
+  const isDialogOpen = open && node !== "" && vmid > 0
   const hardwareQuery = useQuery({
-    ...vmHardwareQueryOptions(node, vmid),
-    enabled: isDialogOpen && vmid > 0,
+    ...vmHardwareQueryOptions(itemId),
+    enabled: isDialogOpen,
   })
   const storagesQuery = useQuery({
     ...storagesQueryOptions(node),
@@ -932,9 +934,8 @@ export function VmHardwareDialog({
           </div>
         ) : hardwareQuery.data ? (
           <VmHardwareDialogForm
-            key={`${node}:${vmid}`}
-            node={node}
-            vmid={vmid}
+            key={itemId}
+            itemId={itemId}
             vmName={vmName}
             hardware={hardwareQuery.data}
             bridgeOptions={bridgeOptions}

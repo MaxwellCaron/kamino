@@ -30,26 +30,23 @@ type CreateVmDialogConfig = {
 }
 
 type SnapshotDialogConfig = {
-  node: string
-  vmid: number
+  itemId: string
 }
 
 type CloneDialogConfig = {
-  node: string
-  vmid: number
+  itemId: string
   currentName: string
-  sourceItemId: string
+  currentVmid?: number
 }
 
 type RenameVmDialogConfig = {
-  node: string
-  vmid: number
+  itemId: string
   currentName: string
+  currentVmid?: number
 }
 
 type EditVmHardwareDialogConfig = {
-  node: string
-  vmid: number
+  itemId: string
   currentName: string
 }
 
@@ -146,8 +143,7 @@ export function InventoryDialogsProvider({
       )}
       {snapshot && (
         <SnapshotDialog
-          node={snapshot.node}
-          vmid={snapshot.vmid}
+          itemId={snapshot.itemId}
           open={true}
           onOpenChange={(open) => {
             if (!open) setSnapshot(null)
@@ -156,10 +152,9 @@ export function InventoryDialogsProvider({
       )}
       {clone && (
         <CloneDialog
-          node={clone.node}
-          vmid={clone.vmid}
+          itemId={clone.itemId}
           currentName={clone.currentName}
-          sourceItemId={clone.sourceItemId}
+          currentVmid={clone.currentVmid}
           open={true}
           onOpenChange={(open) => {
             if (!open) setClone(null)
@@ -168,9 +163,9 @@ export function InventoryDialogsProvider({
       )}
       {renameVm && (
         <RenameDialog
-          node={renameVm.node}
-          vmid={renameVm.vmid}
+          itemId={renameVm.itemId}
           currentName={renameVm.currentName}
+          currentVmid={renameVm.currentVmid}
           open={true}
           onOpenChange={(open) => {
             if (!open) setRenameVm(null)
@@ -179,9 +174,8 @@ export function InventoryDialogsProvider({
       )}
       {editVmHardware && (
         <VmHardwareDialog
-          key={`${editVmHardware.node}:${editVmHardware.vmid}`}
-          node={editVmHardware.node}
-          vmid={editVmHardware.vmid}
+          key={editVmHardware.itemId}
+          itemId={editVmHardware.itemId}
           vmName={editVmHardware.currentName}
           open={true}
           onOpenChange={(open) => {

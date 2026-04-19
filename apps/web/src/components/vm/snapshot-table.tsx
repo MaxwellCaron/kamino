@@ -35,27 +35,27 @@ import { snapshotsQueryOptions } from "@/lib/queries"
 import { useDeleteSnapshot, useRollbackSnapshot } from "@/hooks/use-vm-actions"
 
 export function SnapshotsTable({
-  node,
+  itemId,
   vmid,
   isTemplate,
   canManageSnapshots,
   isLoading: isVmLoading,
 }: {
-  node: string | null
+  itemId: string
   vmid: number | null
   isTemplate: boolean
   canManageSnapshots: boolean
   isLoading?: boolean
 }) {
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
-    ...snapshotsQueryOptions(node ?? "", vmid ?? 0),
-    enabled: !!node && vmid != null && canManageSnapshots,
+    ...snapshotsQueryOptions(itemId),
+    enabled: !!itemId && vmid != null && canManageSnapshots,
   })
   const isLoading = isVmLoading || isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
-  const rollback = useRollbackSnapshot(node ?? "", vmid ?? 0)
-  const remove = useDeleteSnapshot(node ?? "", vmid ?? 0)
+  const rollback = useRollbackSnapshot(itemId)
+  const remove = useDeleteSnapshot(itemId)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
   const filtered = snapshots?.filter((s) => s.name !== "current") ?? []
@@ -74,7 +74,7 @@ export function SnapshotsTable({
               isLoading ||
               isTemplate ||
               !canManageSnapshots ||
-              !node ||
+              !itemId ||
               vmid == null
             }
             onClick={() => setSnapshotOpen(true)}
@@ -174,8 +174,7 @@ export function SnapshotsTable({
                               onConfirm: () => {
                                 toast.promise(
                                   rollback.mutateAsync({
-                                    node: node!,
-                                    vmid: vmid!,
+                                    itemId,
                                     snapname: snap.name,
                                   }),
                                   {
@@ -204,8 +203,7 @@ export function SnapshotsTable({
                               onConfirm: () => {
                                 toast.promise(
                                   remove.mutateAsync({
-                                    node: node!,
-                                    vmid: vmid!,
+                                    itemId,
                                     snapname: snap.name,
                                   }),
                                   {
@@ -233,10 +231,9 @@ export function SnapshotsTable({
         {filtered.length} result{filtered.length !== 1 && "s"}
       </CardFooter>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      {node && vmid != null && (
+      {itemId && vmid != null && (
         <SnapshotDialog
-          node={node}
-          vmid={vmid}
+          itemId={itemId}
           open={snapshotOpen}
           onOpenChange={setSnapshotOpen}
         />

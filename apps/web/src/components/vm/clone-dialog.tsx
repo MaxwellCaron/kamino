@@ -49,17 +49,15 @@ const cloneSchema = z.object({
 })
 
 export function CloneDialog({
-  node,
-  vmid,
+  itemId,
   currentName,
-  sourceItemId: _sourceItemId,
+  currentVmid,
   open,
   onOpenChange,
 }: {
-  node: string
-  vmid: number
+  itemId: string
   currentName: string
-  sourceItemId: string
+  currentVmid?: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -87,8 +85,7 @@ export function CloneDialog({
     onSubmit: async ({ value }) => {
       const parsed = cloneSchema.parse(value)
       const promise = clone.mutateAsync({
-        node,
-        vmid,
+        itemId,
         newid: parsed.newid,
         name: parsed.name.trim() || currentName,
         full: parsed.full,
@@ -97,7 +94,7 @@ export function CloneDialog({
       })
 
       toast.promise(promise, {
-        loading: `Cloning VM ${vmid}…`,
+        loading: `Cloning VM ${currentVmid ?? currentName}…`,
         success: (result) => `VM cloned to ${result.vmid}`,
         error: (error: Error) => error.message,
       })

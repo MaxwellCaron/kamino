@@ -26,15 +26,15 @@ const renameSchema = z.object({
 })
 
 export function RenameDialog({
-  node,
-  vmid,
+  itemId,
   currentName,
+  currentVmid,
   open,
   onOpenChange,
 }: {
-  node: string
-  vmid: number
+  itemId: string
   currentName: string
+  currentVmid?: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -45,8 +45,12 @@ export function RenameDialog({
     onSubmit: async ({ value }) => {
       const parsed = renameSchema.parse(value)
       try {
-        await rename.mutateAsync({ node, vmid, name: parsed.name })
-        toast.success(`VM ${vmid} renamed to "${parsed.name}"`)
+        await rename.mutateAsync({ itemId, name: parsed.name })
+        toast.success(
+          currentVmid
+            ? `VM ${currentVmid} renamed to "${parsed.name}"`
+            : `VM renamed to "${parsed.name}"`
+        )
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Failed to rename VM"
@@ -69,7 +73,9 @@ export function RenameDialog({
       <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle>Rename</DialogTitle>
-          <DialogDescription>Enter a new name for VM {vmid}.</DialogDescription>
+          <DialogDescription>
+            Enter a new name for VM {currentVmid ?? "this VM"}.
+          </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {

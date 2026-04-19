@@ -250,6 +250,8 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	params := map[string]string{
 		"name": req.Name,
 	}
+	upstreamUUID := uuid.New()
+	params["smbios1"] = fmt.Sprintf("uuid=%s", upstreamUUID.String())
 
 	vmid := req.VMID
 	if vmid <= 0 {

@@ -41,17 +41,15 @@ const snapshotSchema = z.object({
 })
 
 export function SnapshotDialog({
-  node,
-  vmid,
+  itemId,
   open,
   onOpenChange,
 }: {
-  node: string
-  vmid: number
+  itemId: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const create = useCreateSnapshot(node, vmid)
+  const create = useCreateSnapshot(itemId)
 
   const form = useForm({
     defaultValues: {
@@ -63,8 +61,7 @@ export function SnapshotDialog({
       const parsed = snapshotSchema.parse(value)
       toast.promise(
         create.mutateAsync({
-          node,
-          vmid,
+          itemId,
           snapname: parsed.snapname,
           description: parsed.description || undefined,
           vmstate: parsed.vmstate,

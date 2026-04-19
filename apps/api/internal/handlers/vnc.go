@@ -99,12 +99,7 @@ func (s *sessionStore) reapLoop() {
 
 // --- HTTP handlers ---
 
-type proxyRequest struct {
-	Node string `json:"node" binding:"required"`
-	VMID int    `json:"vmid" binding:"required"`
-}
-
-// PostProxy handles POST /api/v1/vnc/proxy.
+// PostProxy handles POST /api/v1/inventory/items/:id/vm/vnc/proxy.
 // Calls the Proxmox vncproxy endpoint and returns a session ID + password.
 func (h *VNCHandler) PostProxy(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
@@ -113,24 +108,24 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 		return
 	}
 
-	var req proxyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
 		return
 	}
-	if _, ok := requireVMPermission(c, h.Authz, principalID, req.Node, int32(req.VMID), authorization.ConsoleVM); !ok {
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.ConsoleVM, false)
+	if !ok {
 		return
 	}
 
-	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), req.Node, req.VMID)
+	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), target.Node, target.VMID)
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to create VNC proxy", "create vnc proxy", err)
 		return
 	}
 
 	sessionID := h.sessions.store(&vncSession{
-		node:     req.Node,
-		vmid:     req.VMID,
+		node:     target.Node,
+		vmid:     target.VMID,
 		port:     vncResp.Port,
 		ticket:   vncResp.Ticket,
 		password: vncResp.Password,

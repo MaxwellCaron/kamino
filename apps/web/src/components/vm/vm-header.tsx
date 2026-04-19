@@ -176,6 +176,7 @@ function buildStats(
 
 export function VmHeader({
   node,
+  itemId,
   vm,
   powerStatus,
   resources,
@@ -183,6 +184,7 @@ export function VmHeader({
   isLoading,
 }: {
   node: ApiTreeNode | null
+  itemId: string
   vm: ApiTreeNodeVM | null
   powerStatus: string | undefined
   resources: VmResources | undefined
@@ -224,6 +226,7 @@ export function VmHeader({
               nodeId={node.id}
               permissions={node.permissions}
               isTemplate={isTemplate}
+              itemId={itemId}
               vmid={vm?.vmid}
               pveNode={vm?.node}
               name={node.name}
@@ -319,7 +322,7 @@ export function VmHeader({
                   <IconEdit data-icon="inline-start" />
                 </Button>
                 <VmNotesDialog
-                  node={vm.node}
+                  itemId={itemId}
                   vmid={vm.vmid}
                   initialNotes={vm.notes}
                   open={isNotesOpen}

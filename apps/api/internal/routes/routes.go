@@ -60,19 +60,19 @@ func RegisterRoutes(
 	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
 	protected.GET("/vms/events", vm.StreamEvents)
-	protected.GET("/vms/:node/:vmid/resources", vm.GetResources)
-	protected.GET("/vms/:node/:vmid/hardware", vm.GetHardware)
-	protected.POST("/vms/power", vm.PowerAction)
-	protected.POST("/vms/rename", vm.RenameVM)
-	protected.POST("/vms/clone", vm.CloneVM)
-	protected.PUT("/vms/:node/:vmid/hardware", vm.UpdateHardware)
-	protected.PUT("/vms/:node/:vmid/notes", vm.UpdateNotes)
-	protected.POST("/vms/template", vm.ConvertToTemplate)
-	protected.POST("/vms/snapshot", vm.CreateSnapshot)
-	protected.POST("/vms/snapshot/rollback", vm.RollbackSnapshot)
-	protected.GET("/vms/:node/:vmid/snapshots", vm.GetSnapshots)
-	protected.DELETE("/vms/:node/:vmid/snapshots/:snapname", vm.DeleteSnapshot)
-	protected.DELETE("/vms/:node/:vmid", vm.DeleteVM)
+	protected.GET("/inventory/items/:id/vm/resources", vm.GetResources)
+	protected.GET("/inventory/items/:id/vm/hardware", vm.GetHardware)
+	protected.POST("/inventory/items/:id/vm/power", vm.PowerAction)
+	protected.POST("/inventory/items/:id/vm/rename", vm.RenameVM)
+	protected.POST("/inventory/items/:id/vm/clone", vm.CloneVM)
+	protected.PUT("/inventory/items/:id/vm/hardware", vm.UpdateHardware)
+	protected.PUT("/inventory/items/:id/vm/notes", vm.UpdateNotes)
+	protected.POST("/inventory/items/:id/vm/template", vm.ConvertToTemplate)
+	protected.POST("/inventory/items/:id/vm/snapshots", vm.CreateSnapshot)
+	protected.POST("/inventory/items/:id/vm/snapshots/rollback", vm.RollbackSnapshot)
+	protected.GET("/inventory/items/:id/vm/snapshots", vm.GetSnapshots)
+	protected.DELETE("/inventory/items/:id/vm/snapshots/:snapname", vm.DeleteSnapshot)
+	protected.DELETE("/inventory/items/:id/vm", vm.DeleteVM)
 
 	// VM creation & Proxmox metadata endpoints
 	protected.POST("/vms", vmCreate.CreateVM)
@@ -120,6 +120,6 @@ func RegisterRoutes(
 	}
 
 	// VNC proxy endpoints
-	protected.POST("/vnc/proxy", vnc.PostProxy)
+	protected.POST("/inventory/items/:id/vm/vnc/proxy", vnc.PostProxy)
 	protected.GET("/vnc/ws", vnc.WebSocket)
 }

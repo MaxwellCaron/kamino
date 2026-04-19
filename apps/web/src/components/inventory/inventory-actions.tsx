@@ -300,7 +300,7 @@ function VmMenuItems({
   permissions,
   isFavorite,
   onToggleFavorite,
-  node,
+  itemId,
   vmid,
   name,
   onAction,
@@ -314,7 +314,7 @@ function VmMenuItems({
   permissions: ApiTreeNodePermissions
   isFavorite?: boolean
   onToggleFavorite?: () => void
-  node: string
+  itemId: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
@@ -378,7 +378,7 @@ function VmMenuItems({
                   variant: "default",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ node, vmid, action: "start" }),
+                      powerAction.mutateAsync({ itemId, action: "start" }),
                       {
                         loading: `Starting VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} started`,
@@ -403,11 +403,7 @@ function VmMenuItems({
                   variant: "destructive",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({
-                        node,
-                        vmid,
-                        action: "shutdown",
-                      }),
+                      powerAction.mutateAsync({ itemId, action: "shutdown" }),
                       {
                         loading: `Shutting down VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} shut down`,
@@ -432,7 +428,7 @@ function VmMenuItems({
                   variant: "destructive",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ node, vmid, action: "reboot" }),
+                      powerAction.mutateAsync({ itemId, action: "reboot" }),
                       {
                         loading: `Rebooting VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} rebooted`,
@@ -457,7 +453,7 @@ function VmMenuItems({
                   variant: "destructive",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ node, vmid, action: "stop" }),
+                      powerAction.mutateAsync({ itemId, action: "stop" }),
                       {
                         loading: `Stopping VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} stopped`,
@@ -511,7 +507,7 @@ function VmMenuItems({
                     actionLabel: "Convert",
                     variant: "destructive",
                     onConfirm: () => {
-                      toast.promise(toTemplate.mutateAsync({ node, vmid }), {
+                      toast.promise(toTemplate.mutateAsync({ itemId }), {
                         loading: `Converting VM ${vmIdentifier} to template…`,
                         success: `VM ${vmIdentifier} is now a template`,
                         error: (err: Error) => err.message,
@@ -567,7 +563,7 @@ function VmMenuItems({
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(deleteVm.mutateAsync({ node, vmid }), {
+                toast.promise(deleteVm.mutateAsync({ itemId }), {
                   loading: `Deleting VM ${vmIdentifier}…`,
                   success: `VM ${vmIdentifier} deleted`,
                   error: (err: Error) => err.message,
@@ -588,7 +584,7 @@ function TemplateMenuItems({
   permissions,
   isFavorite,
   onToggleFavorite,
-  node,
+  itemId,
   vmid,
   name,
   onAction,
@@ -599,7 +595,7 @@ function TemplateMenuItems({
   permissions: ApiTreeNodePermissions
   isFavorite?: boolean
   onToggleFavorite?: () => void
-  node: string
+  itemId: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
@@ -663,7 +659,7 @@ function TemplateMenuItems({
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(deleteVm.mutateAsync({ node, vmid }), {
+                toast.promise(deleteVm.mutateAsync({ itemId }), {
                   loading: `Deleting template ${vmIdentifier}…`,
                   success: `Template ${vmIdentifier} deleted`,
                   error: (err: Error) => err.message,
@@ -686,7 +682,7 @@ export function MenuItems({
   onToggleFavorite,
   isFolder,
   isTemplate,
-  node,
+  itemId,
   vmid,
   name,
   onAction,
@@ -705,7 +701,7 @@ export function MenuItems({
   onToggleFavorite?: () => void
   isFolder: boolean
   isTemplate?: boolean
-  node: string
+  itemId: string
   vmid: number
   name?: string
   onAction: (config: ConfirmConfig) => void
@@ -737,7 +733,7 @@ export function MenuItems({
         permissions={permissions}
         isFavorite={isFavorite}
         onToggleFavorite={onToggleFavorite}
-        node={node}
+        itemId={itemId}
         vmid={vmid}
         name={name}
         onAction={onAction}
@@ -751,7 +747,7 @@ export function MenuItems({
       permissions={permissions}
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}
-      node={node}
+      itemId={itemId}
       vmid={vmid}
       name={name}
       onAction={onAction}
@@ -859,7 +855,7 @@ export function InventoryNodeMenu({
           onToggleFavorite={() => toggleFavorite(itemId)}
           isFolder={isFolder}
           isTemplate={isTemplate}
-          node={data.vm?.node ?? ""}
+          itemId={itemId}
           vmid={data.vm?.vmid ?? 0}
           name={data.name}
           onAction={openConfirm}
@@ -873,16 +869,15 @@ export function InventoryNodeMenu({
           onSnapshot={() => {
             if (!data.vm?.node) return
 
-            openSnapshot({ node: data.vm.node, vmid: data.vm.vmid })
+            openSnapshot({ itemId })
           }}
           onClone={() => {
             if (!data.vm?.node) return
 
             openClone({
-              node: data.vm.node,
-              vmid: data.vm.vmid,
+              itemId,
               currentName: data.name,
-              sourceItemId: itemId,
+              currentVmid: data.vm.vmid,
             })
           }}
           onRename={() => {
@@ -893,17 +888,16 @@ export function InventoryNodeMenu({
 
             if (!isTemplate && data.vm?.node) {
               openRenameVm({
-                node: data.vm.node,
-                vmid: data.vm.vmid,
+                itemId,
                 currentName: data.name,
+                currentVmid: data.vm.vmid,
               })
             }
           }}
           onEditHardware={() => {
             if (!isFolder && !isTemplate && data.vm?.node) {
               openEditVmHardware({
-                node: data.vm.node,
-                vmid: data.vm.vmid,
+                itemId,
                 currentName: data.name,
               })
             }
@@ -920,6 +914,7 @@ export function InventoryNodeMenu({
 
 export function VmOptionsMenu({
   nodeId,
+  itemId,
   permissions,
   isFolder = false,
   isTemplate,
@@ -929,6 +924,7 @@ export function VmOptionsMenu({
   isLoading,
 }: {
   nodeId: string
+  itemId: string
   permissions: ApiTreeNodePermissions
   isFolder?: boolean
   isTemplate?: boolean
@@ -1009,7 +1005,7 @@ export function VmOptionsMenu({
             onToggleFavorite={() => toggleFavorite(nodeId)}
             isFolder={isFolder}
             isTemplate={isTemplate}
-            node={pveNode ?? ""}
+            itemId={itemId}
             vmid={vmid ?? 0}
             name={name}
             onAction={openConfirm}
@@ -1023,16 +1019,15 @@ export function VmOptionsMenu({
             onSnapshot={() => {
               if (!pveNode || vmid === undefined) return
 
-              openSnapshot({ node: pveNode, vmid })
+              openSnapshot({ itemId })
             }}
             onClone={() => {
               if (!pveNode || vmid === undefined) return
 
               openClone({
-                node: pveNode,
-                vmid,
+                itemId,
                 currentName: name ?? "",
-                sourceItemId: nodeId,
+                currentVmid: vmid,
               })
             }}
             onRename={() => {
@@ -1046,17 +1041,16 @@ export function VmOptionsMenu({
 
               if (!isTemplate && pveNode && vmid !== undefined) {
                 openRenameVm({
-                  node: pveNode,
-                  vmid,
+                  itemId,
                   currentName: name ?? "",
+                  currentVmid: vmid,
                 })
               }
             }}
             onEditHardware={() => {
               if (!isFolder && !isTemplate && pveNode && vmid !== undefined) {
                 openEditVmHardware({
-                  node: pveNode,
-                  vmid,
+                  itemId,
                   currentName: name ?? "",
                 })
               }
