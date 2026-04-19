@@ -39,7 +39,7 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
-import { useInventoryTreeContext } from "./tree/inventory-tree"
+import { useInventoryFavorites } from "./tree/inventory-tree"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
 import {
@@ -776,7 +776,7 @@ export function InventoryNodeMenu({
 }) {
   const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
-  const { favoriteIds, toggleFavorite } = useInventoryTreeContext()
+  const { favoriteIds, toggleFavorite } = useInventoryFavorites()
   const deleteFolderMutation = useDeleteFolder()
   const {
     openConfirm,
@@ -862,7 +862,9 @@ export function InventoryNodeMenu({
         <MenuItems
           permissions={data.permissions}
           isFavorite={isFavorite}
-          onToggleFavorite={() => toggleFavorite(itemId)}
+          onToggleFavorite={() =>
+            toggleFavorite(itemId, { disabled: isFolder })
+          }
           isFolder={isFolder}
           isTemplate={isTemplate}
           itemId={itemId}
@@ -943,7 +945,7 @@ export function VmOptionsMenu({
   name?: string
   isLoading?: boolean
 }) {
-  const { favoriteIds, toggleFavorite } = useInventoryTreeContext()
+  const { favoriteIds, toggleFavorite } = useInventoryFavorites()
   const {
     openConfirm,
     openCreateFolder,
@@ -1012,7 +1014,9 @@ export function VmOptionsMenu({
           <MenuItems
             permissions={permissions}
             isFavorite={!isFolder && favoriteIds.has(nodeId)}
-            onToggleFavorite={() => toggleFavorite(nodeId)}
+            onToggleFavorite={() =>
+              toggleFavorite(nodeId, { disabled: isFolder })
+            }
             isFolder={isFolder}
             isTemplate={isTemplate}
             itemId={itemId}
