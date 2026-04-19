@@ -119,11 +119,13 @@ export function GroupManagementAccessDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent initialFocus={false}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <IconLockAccess className="size-5 text-muted-foreground" />
-            Edit Access
+            <IconLockAccess className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">
+              Edit Access
+            </span>
           </DialogTitle>
           <DialogDescription>
             Configure coarse management access for {getGroupLabel(group)}. These
@@ -169,12 +171,12 @@ export function GroupManagementAccessDialog({
 
         <DialogFooter>
           <Button
-            type="button"
             onClick={() => mutation.mutate()}
             disabled={controlsDisabled}
+            className="w-full"
           >
-            <IconDeviceFloppy data-icon="inline-start" />
-            {mutation.isPending ? "Saving..." : "Save Access"}
+            <IconDeviceFloppy />
+            {mutation.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, useState } from "react"
 import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
 import { ConfirmDialog } from "./inventory-confirm-actions"
 import { RenameDialog } from "./rename-dialog"
-import { FolderDialog } from "./folder-dialog"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import { CloneDialog } from "@/components/vm/clone-dialog"
@@ -115,23 +114,27 @@ export function InventoryDialogsProvider({
     <InventoryDialogsContext.Provider value={value}>
       {children}
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      <FolderDialog
-        mode="create"
-        open={createFolder !== null}
-        onOpenChange={(open) => {
-          if (!open) setCreateFolder(null)
-        }}
-        parentId={createFolder?.parentId}
-      />
-      <FolderDialog
-        mode="rename"
-        currentName={renameFolder?.currentName ?? ""}
-        folderId={renameFolder?.folderId}
-        open={renameFolder !== null}
-        onOpenChange={(open) => {
-          if (!open) setRenameFolder(null)
-        }}
-      />
+      {createFolder && (
+        <RenameDialog
+          mode="create-folder"
+          open={true}
+          parentId={createFolder.parentId}
+          onOpenChange={(open) => {
+            if (!open) setCreateFolder(null)
+          }}
+        />
+      )}
+      {renameFolder && (
+        <RenameDialog
+          mode="rename-folder"
+          currentName={renameFolder.currentName}
+          folderId={renameFolder.folderId}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setRenameFolder(null)
+          }}
+        />
+      )}
       {createVm && (
         <CreateVmDialog
           open={true}
@@ -163,6 +166,7 @@ export function InventoryDialogsProvider({
       )}
       {renameVm && (
         <RenameDialog
+          mode="rename-item"
           itemId={renameVm.itemId}
           currentName={renameVm.currentName}
           currentVmid={renameVm.currentVmid}

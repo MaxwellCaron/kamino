@@ -197,7 +197,7 @@ function VmHardwareDialogForm({
         form.handleSubmit()
       }}
     >
-      <div className="no-scrollbar h-[40vh] overflow-y-auto border-y px-1 py-4">
+      <div className="-mb-2 no-scrollbar h-[40vh] overflow-y-auto border-t px-1 py-4">
         <div className="flex flex-col gap-6">
           <VmHardwareOperatingSystemSection
             description="Review the guest OS type, firmware, and chipset settings."
@@ -867,16 +867,9 @@ function VmHardwareDialogForm({
         </div>
       </div>
 
-      <DialogFooter className="mt-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onOpenChange(false)}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={updateHardware.isPending}>
-          {updateHardware.isPending ? "Saving..." : "Save Hardware"}
+      <DialogFooter>
+        <Button disabled={updateHardware.isPending} className="w-full">
+          {updateHardware.isPending ? "Saving..." : "Save"}
         </Button>
       </DialogFooter>
     </form>
@@ -918,8 +911,10 @@ export function VmHardwareDialog({
       <DialogContent initialFocus={false}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <IconSettings className="size-5" />
-            Edit VM Hardware
+            <IconSettings className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">
+              Edit VM Hardware
+            </span>
           </DialogTitle>
           <DialogDescription>
             Review and update the hardware profile for {vmName}.

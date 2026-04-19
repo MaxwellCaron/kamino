@@ -87,7 +87,12 @@ export function SnapshotDialog({
     >
       <DialogContent initialFocus={false}>
         <DialogHeader>
-          <DialogTitle>Create Snapshot</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <IconCamera className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">
+              Snapshot
+            </span>
+          </DialogTitle>
           <DialogDescription>
             Take a point-in-time snapshot of this virtual machine.
           </DialogDescription>
@@ -188,9 +193,9 @@ export function SnapshotDialog({
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button disabled={isSubmitting} className="w-full">
                   <IconCamera data-icon="inline-start" />
-                  {isSubmitting ? "Creating..." : "Create Snapshot"}
+                  {isSubmitting ? "Creating..." : "Create"}
                 </Button>
               )}
             </form.Subscribe>

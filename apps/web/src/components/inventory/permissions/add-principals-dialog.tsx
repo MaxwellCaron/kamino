@@ -15,7 +15,6 @@ import {
 } from "@workspace/ui/components/combobox"
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -110,10 +109,10 @@ function AddPrincipalsContent({
         </Combobox>
       </Field>
       <DialogFooter>
-        <DialogClose render={<Button variant="outline">Close</Button>} />
         <Button
           onClick={() => onAdd(selectedIds)}
           disabled={selectedIds.length === 0}
+          className="w-full"
         >
           Add
         </Button>
@@ -129,7 +128,6 @@ export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
         <IconPlus />
       </DialogTrigger>
       <DialogContent
-        showCloseButton={false}
         showOverlay={false}
         className={nestedDialogAnimationClassName}
       >

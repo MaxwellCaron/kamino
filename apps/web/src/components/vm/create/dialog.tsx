@@ -253,8 +253,10 @@ export function CreateVmDialog({
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <IconDeviceImac className="size-5" />
-              Create Virtual Machine
+              <IconDeviceImac className="text-muted-foreground" />
+              <span className="text-2xl font-semibold tracking-tight">
+                Create Virtual Machine
+              </span>
             </DialogTitle>
             <DialogDescription>
               Select a provisioning path, configure the VM, and review the final
@@ -262,7 +264,7 @@ export function CreateVmDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <StepperList className="px-2">
+          <StepperList className="px-4">
             {steps.map((entry) => (
               <StepperItem key={entry.value} value={entry.value}>
                 <StepperTrigger aria-label={entry.title}>
@@ -278,7 +280,7 @@ export function CreateVmDialog({
               event.preventDefault()
             }}
           >
-            <div className="no-scrollbar h-[40vh] overflow-y-auto border-y px-1 py-4">
+            <div className="no-scrollbar h-[40vh] overflow-y-auto border-t px-1 py-4">
               <StepperContent value="method">
                 <CreateVmMethodStep form={form} />
               </StepperContent>
@@ -304,7 +306,7 @@ export function CreateVmDialog({
               </StepperContent>
             </div>
 
-            <DialogFooter className="mt-4 grid w-full grid-cols-3 items-center">
+            <DialogFooter className="mt-0 grid grid-cols-3 items-center">
               <StepperPrev
                 render={
                   <Button type="button" size="icon" variant="outline">

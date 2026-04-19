@@ -14,8 +14,6 @@ import {
   Item,
   ItemContent,
   ItemDescription,
-  ItemMedia,
-  ItemTitle,
 } from "@workspace/ui/components/item"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -113,8 +111,15 @@ export function UserGroupBulkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {mode === "add" ? "Add Users To Group" : "Remove Users From Group"}
+          <DialogTitle className="flex items-center gap-2">
+            {mode === "add" ? (
+              <IconUserPlus className="text-muted-foreground" />
+            ) : (
+              <IconUserMinus className="text-muted-foreground" />
+            )}
+            <span className="text-2xl font-semibold tracking-tight">
+              {mode === "add" ? "Add Users" : "Remove Users"}
+            </span>
           </DialogTitle>
           <DialogDescription render={<div />}>
             {mode === "add" ? (
@@ -132,11 +137,7 @@ export function UserGroupBulkDialog({
         </DialogHeader>
 
         <Item variant="outline">
-          <ItemMedia variant="icon">
-            {mode === "add" ? <IconUserPlus /> : <IconUserMinus />}
-          </ItemMedia>
           <ItemContent>
-            <ItemTitle>Users</ItemTitle>
             <ItemDescription>
               <span className="flex flex-wrap gap-2">
                 {users.map((user) => (
@@ -193,6 +194,7 @@ export function UserGroupBulkDialog({
               mutation.isPending
             }
             variant={mode === "add" ? "default" : "destructive"}
+            className="w-full"
           >
             {mutation.isPending
               ? mode === "add"

@@ -14,9 +14,9 @@ import {
 } from "@workspace/ui/components/dialog"
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
-  FieldLabel,
 } from "@workspace/ui/components/field"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { useUpdateVMNotes } from "@/hooks/use-vm-actions"
@@ -80,11 +80,11 @@ export function VmNotesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent initialFocus={false}>
         <DialogHeader>
-          <DialogTitle>Edit Notes</DialogTitle>
-          <DialogDescription>
-            Update the notes stored in Kamino and replicated to Proxmox for VM{" "}
-            {vmid}.
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <IconEdit className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">Note</span>
+          </DialogTitle>
+          <DialogDescription>Update the note for {vmid}.</DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -108,12 +108,6 @@ export function VmNotesDialog({
                 <Field
                   data-invalid={field.state.meta.errors.length > 0 || undefined}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <FieldLabel htmlFor="notes">Notes</FieldLabel>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {field.state.value.length}/255
-                    </span>
-                  </div>
                   <Textarea
                     id="notes"
                     placeholder="Add notes for this VM..."
@@ -125,6 +119,9 @@ export function VmNotesDialog({
                     }
                     maxLength={255}
                   />
+                  <FieldDescription className="text-right font-mono">
+                    {field.state.value.length}/255
+                  </FieldDescription>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </Field>
               )}
@@ -133,8 +130,7 @@ export function VmNotesDialog({
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
-                  <IconEdit data-icon="inline-start" />
+                <Button disabled={isSubmitting} className="w-full">
                   {isSubmitting ? "Saving..." : "Save"}
                 </Button>
               )}

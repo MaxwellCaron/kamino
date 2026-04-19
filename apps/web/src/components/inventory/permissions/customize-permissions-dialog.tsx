@@ -3,7 +3,6 @@ import { IconSearch } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -29,7 +28,6 @@ import type { DraftPrincipal, PermissionState } from "./types"
 
 type CustomizePermissionsDialogProps = {
   editingPrincipal: DraftPrincipal | null
-  onClose: () => void
   onSave: () => void
   onOpenChange: (open: boolean) => void
   onPermissionChange: (bit: number, state: PermissionState) => void
@@ -38,7 +36,6 @@ type CustomizePermissionsDialogProps = {
 
 export function CustomizePermissionsDialog({
   editingPrincipal,
-  onClose,
   onSave,
   onOpenChange,
   onPermissionChange,
@@ -89,7 +86,6 @@ export function CustomizePermissionsDialog({
   return (
     <Dialog open={editingPrincipal !== null} onOpenChange={onOpenChange}>
       <DialogContent
-        showCloseButton={false}
         showOverlay={false}
         className={nestedDialogAnimationClassName}
       >
@@ -115,7 +111,7 @@ export function CustomizePermissionsDialog({
             {filteredPermissionCount === 1 ? "result" : "results"}
           </InputGroupAddon>
         </InputGroup>
-        <div className="-mx-4 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-y py-6">
+        <div className="-mx-4 -mb-6 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-t pt-6">
           {editingPrincipal ? (
             filteredPermissionCount > 0 ? (
               <PermissionScopeSection
@@ -141,14 +137,11 @@ export function CustomizePermissionsDialog({
           ) : null}
         </div>
         <DialogFooter>
-          <DialogClose
-            render={
-              <Button variant="outline" onClick={onClose}>
-                Close
-              </Button>
-            }
-          />
-          <Button onClick={onSave} disabled={editingPrincipal?.immutable}>
+          <Button
+            onClick={onSave}
+            disabled={editingPrincipal?.immutable}
+            className="w-full"
+          >
             {editingPrincipal?.immutable ? "Protected" : "Save"}
           </Button>
         </DialogFooter>

@@ -19,7 +19,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
-import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconEdit, IconPlus } from "@tabler/icons-react"
 import type { ApiVNet } from "@/lib/queries"
 import { createVNet, updateVNet } from "@/lib/queries"
 
@@ -101,7 +101,16 @@ export function VNetDialog({
     >
       <DialogContent initialFocus={false}>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit VNet" : "Create VNet"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {isEdit ? (
+              <IconEdit className="text-muted-foreground" />
+            ) : (
+              <IconPlus className="text-muted-foreground" />
+            )}
+            <span className="text-2xl font-semibold tracking-tight">
+              {isEdit ? "Edit VNet" : "Create VNet"}
+            </span>
+          </DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Update the virtual network configuration."
@@ -222,7 +231,7 @@ export function VNetDialog({
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button disabled={isSubmitting} className="w-full">
                   {isEdit ? (
                     <IconDeviceFloppy data-icon="inline-start" />
                   ) : (

@@ -120,7 +120,10 @@ export function CloneDialog({
     >
       <DialogContent initialFocus={false}>
         <DialogHeader>
-          <DialogTitle>Clone VM</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <IconCopy className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">Clone</span>
+          </DialogTitle>
           <DialogDescription>
             Clone {currentName} into a new virtual machine.
           </DialogDescription>
@@ -177,7 +180,11 @@ export function CloneDialog({
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
                   <IconCopy data-icon="inline-start" />
                   {isSubmitting ? "Cloning..." : "Clone"}
                 </Button>

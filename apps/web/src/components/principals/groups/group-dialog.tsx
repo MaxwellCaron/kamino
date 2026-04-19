@@ -21,7 +21,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
-import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconEdit, IconPlus } from "@tabler/icons-react"
 import type { ApiPrincipal } from "@/lib/queries"
 import { createGroup, updateGroup } from "@/lib/queries"
 
@@ -92,11 +92,20 @@ export function GroupDialog({
     >
       <DialogContent initialFocus={false}>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Group" : "Create Group"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {isEdit ? (
+              <IconEdit className="text-muted-foreground" />
+            ) : (
+              <IconPlus className="text-muted-foreground" />
+            )}
+            <span className="text-2xl font-semibold tracking-tight">
+              {isEdit ? "Edit Group" : "Create Group"}
+            </span>
+          </DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Update the group account details."
-              : "Create a new Active Directory security group."}
+              : "Create a new group."}
           </DialogDescription>
         </DialogHeader>
 
@@ -181,19 +190,19 @@ export function GroupDialog({
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
-                  {isEdit ? (
-                    <IconDeviceFloppy data-icon="inline-start" />
-                  ) : (
-                    <IconPlus data-icon="inline-start" />
-                  )}
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
+                  {isEdit ? <IconDeviceFloppy /> : <IconPlus />}
                   {isSubmitting
                     ? isEdit
                       ? "Saving..."
                       : "Creating..."
                     : isEdit
                       ? "Save"
-                      : "Create Group"}
+                      : "Create"}
                 </Button>
               )}
             </form.Subscribe>

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { IconDeviceFloppy } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconUsersGroup } from "@tabler/icons-react"
 import {
   Dialog,
   DialogContent,
@@ -46,8 +46,11 @@ export function MembershipDialog(props: MembershipDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {mode === "user-groups" ? "Edit Groups" : "Edit Members"}
+          <DialogTitle className="flex items-center gap-2">
+            <IconUsersGroup className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">
+              {mode === "user-groups" ? "Edit Groups" : "Edit Members"}
+            </span>
           </DialogTitle>
           <DialogDescription>
             {mode === "user-groups"
@@ -170,50 +173,49 @@ function MembershipEditor({
 
   return (
     <>
-      <div className="py-2">
-        <Combobox
-          multiple
-          autoHighlight
-          items={items}
-          value={selectedIds}
-          onValueChange={(newValue) => setLocalValue(newValue)}
-        >
-          <ComboboxChips ref={anchor} className="w-full">
-            <ComboboxValue>
-              {(values) => (
-                <React.Fragment>
-                  {(values as Array<string>).map((id) => (
-                    <ComboboxChip key={id}>
-                      {optionMap.get(id) ?? id}
-                    </ComboboxChip>
-                  ))}
-                  <ComboboxChipsInput
-                    placeholder={
-                      mode === "user-groups"
-                        ? "Search groups..."
-                        : "Search users..."
-                    }
-                  />
-                </React.Fragment>
-              )}
-            </ComboboxValue>
-          </ComboboxChips>
-          <ComboboxContent anchor={anchor}>
-            <ComboboxEmpty>No items found.</ComboboxEmpty>
-            <ComboboxList>
-              {(id) => (
-                <ComboboxItem key={id as string} value={id as string}>
-                  {optionMap.get(id as string) ?? (id as string)}
-                </ComboboxItem>
-              )}
-            </ComboboxList>
-          </ComboboxContent>
-        </Combobox>
-      </div>
+      <Combobox
+        multiple
+        autoHighlight
+        items={items}
+        value={selectedIds}
+        onValueChange={(newValue) => setLocalValue(newValue)}
+      >
+        <ComboboxChips ref={anchor} className="w-full">
+          <ComboboxValue>
+            {(values) => (
+              <React.Fragment>
+                {(values as Array<string>).map((id) => (
+                  <ComboboxChip key={id}>
+                    {optionMap.get(id) ?? id}
+                  </ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  placeholder={
+                    mode === "user-groups"
+                      ? "Search groups..."
+                      : "Search users..."
+                  }
+                />
+              </React.Fragment>
+            )}
+          </ComboboxValue>
+        </ComboboxChips>
+        <ComboboxContent anchor={anchor}>
+          <ComboboxEmpty>No items found.</ComboboxEmpty>
+          <ComboboxList>
+            {(id) => (
+              <ComboboxItem key={id as string} value={id as string}>
+                {optionMap.get(id as string) ?? (id as string)}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
       <DialogFooter>
         <Button
           onClick={() => saveMutation.mutate()}
           disabled={!hasChanges || saving}
+          className="w-full"
         >
           <IconDeviceFloppy data-icon="inline-start" />
           {saving ? "Saving..." : "Save"}

@@ -1,6 +1,7 @@
 import React from "react"
 import {
   IconChevronDown,
+  IconLock,
   IconSearch,
   IconSettings,
   IconUser,
@@ -17,7 +18,6 @@ import {
 } from "@workspace/ui/components/collapsible"
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -160,7 +160,7 @@ function InventoryPermissionsFormBody({
         />
       </div>
 
-      <div className="-mx-4 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-y px-4 py-6">
+      <div className="-mx-4 -mb-6 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-t px-4 py-6">
         {hasConfiguredPrincipals ? (
           hasVisiblePrincipals ? (
             <div className="space-y-6">
@@ -268,7 +268,6 @@ function InventoryPermissionsFormBody({
 
       <CustomizePermissionsDialog
         editingPrincipal={state.editingPrincipal}
-        onClose={actions.cancelEditing}
         onSave={actions.handleSavePermissions}
         onOpenChange={(nextOpen) => !nextOpen && actions.cancelEditing()}
         onPermissionChange={actions.handlePermissionChange}
@@ -276,10 +275,10 @@ function InventoryPermissionsFormBody({
       />
 
       <DialogFooter>
-        <DialogClose render={<Button variant="outline">Close</Button>} />
         <Button
           onClick={actions.handleSubmit}
           disabled={state.isSaving || !state.hasChanges}
+          className="w-full"
         >
           {state.isSaving ? "Submitting..." : "Submit"}
         </Button>
@@ -314,7 +313,12 @@ export function InventoryPermissionsDialog(
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={nestedDialogAnimationClassName}>
         <DialogHeader>
-          <DialogTitle>Permissions</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <IconLock className="text-muted-foreground" />
+            <span className="text-2xl font-semibold tracking-tight">
+              Permissions
+            </span>
+          </DialogTitle>
           <DialogDescription
             render={
               <div>
