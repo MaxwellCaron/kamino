@@ -103,7 +103,10 @@ export function CloneDialog({
       seedInventoryItemCache(queryClient, result.item_id, result.item)
       onOpenChange(false)
       form.reset()
-      navigate({ to: "/vm/$itemId", params: { itemId: result.item_id } })
+      navigate({
+        to: "/inventory/items/$itemId",
+        params: { itemId: result.item_id },
+      })
     },
   })
 

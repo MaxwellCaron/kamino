@@ -14,7 +14,7 @@ import {
 import { SnapshotsTable } from "@/components/vm/snapshot-table"
 import { VmHeader } from "@/components/vm/vm-header"
 
-export const Route = createFileRoute("/_dashboard/vm/$itemId")({
+export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
   component: VmPage,
 })
 

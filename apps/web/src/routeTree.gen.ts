@@ -15,7 +15,7 @@ import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as DashboardUsersRouteImport } from './routes/_dashboard/users'
 import { Route as DashboardSdnRouteImport } from './routes/_dashboard/sdn'
 import { Route as DashboardGroupsRouteImport } from './routes/_dashboard/groups'
-import { Route as DashboardVmItemIdRouteImport } from './routes/_dashboard/vm/$itemId'
+import { Route as DashboardInventoryItemsItemIdRouteImport } from './routes/_dashboard/inventory/items/$itemId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -46,11 +46,12 @@ const DashboardGroupsRoute = DashboardGroupsRouteImport.update({
   path: '/groups',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardVmItemIdRoute = DashboardVmItemIdRouteImport.update({
-  id: '/vm/$itemId',
-  path: '/vm/$itemId',
-  getParentRoute: () => DashboardRoute,
-} as any)
+const DashboardInventoryItemsItemIdRoute =
+  DashboardInventoryItemsItemIdRouteImport.update({
+    id: '/inventory/items/$itemId',
+    path: '/inventory/items/$itemId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
@@ -58,7 +59,7 @@ export interface FileRoutesByFullPath {
   '/groups': typeof DashboardGroupsRoute
   '/sdn': typeof DashboardSdnRoute
   '/users': typeof DashboardUsersRoute
-  '/vm/$itemId': typeof DashboardVmItemIdRoute
+  '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -66,7 +67,7 @@ export interface FileRoutesByTo {
   '/sdn': typeof DashboardSdnRoute
   '/users': typeof DashboardUsersRoute
   '/': typeof DashboardIndexRoute
-  '/vm/$itemId': typeof DashboardVmItemIdRoute
+  '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -76,13 +77,25 @@ export interface FileRoutesById {
   '/_dashboard/sdn': typeof DashboardSdnRoute
   '/_dashboard/users': typeof DashboardUsersRoute
   '/_dashboard/': typeof DashboardIndexRoute
-  '/_dashboard/vm/$itemId': typeof DashboardVmItemIdRoute
+  '/_dashboard/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/groups' | '/sdn' | '/users' | '/vm/$itemId'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/groups'
+    | '/sdn'
+    | '/users'
+    | '/inventory/items/$itemId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/groups' | '/sdn' | '/users' | '/' | '/vm/$itemId'
+  to:
+    | '/login'
+    | '/groups'
+    | '/sdn'
+    | '/users'
+    | '/'
+    | '/inventory/items/$itemId'
   id:
     | '__root__'
     | '/_dashboard'
@@ -91,7 +104,7 @@ export interface FileRouteTypes {
     | '/_dashboard/sdn'
     | '/_dashboard/users'
     | '/_dashboard/'
-    | '/_dashboard/vm/$itemId'
+    | '/_dashboard/inventory/items/$itemId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -143,11 +156,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardGroupsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/vm/$itemId': {
-      id: '/_dashboard/vm/$itemId'
-      path: '/vm/$itemId'
-      fullPath: '/vm/$itemId'
-      preLoaderRoute: typeof DashboardVmItemIdRouteImport
+    '/_dashboard/inventory/items/$itemId': {
+      id: '/_dashboard/inventory/items/$itemId'
+      path: '/inventory/items/$itemId'
+      fullPath: '/inventory/items/$itemId'
+      preLoaderRoute: typeof DashboardInventoryItemsItemIdRouteImport
       parentRoute: typeof DashboardRoute
     }
   }
@@ -158,7 +171,7 @@ interface DashboardRouteChildren {
   DashboardSdnRoute: typeof DashboardSdnRoute
   DashboardUsersRoute: typeof DashboardUsersRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
-  DashboardVmItemIdRoute: typeof DashboardVmItemIdRoute
+  DashboardInventoryItemsItemIdRoute: typeof DashboardInventoryItemsItemIdRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -166,7 +179,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardSdnRoute: DashboardSdnRoute,
   DashboardUsersRoute: DashboardUsersRoute,
   DashboardIndexRoute: DashboardIndexRoute,
-  DashboardVmItemIdRoute: DashboardVmItemIdRoute,
+  DashboardInventoryItemsItemIdRoute: DashboardInventoryItemsItemIdRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

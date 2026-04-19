@@ -140,7 +140,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const handlePrimaryAction = useCallback(
     (itemId: string, data: ApiTreeNode) => {
       if (data.kind !== "vm") return
-      navigate({ to: "/vm/$itemId", params: { itemId } })
+      navigate({ to: "/inventory/items/$itemId", params: { itemId } })
     },
     [navigate]
   )
