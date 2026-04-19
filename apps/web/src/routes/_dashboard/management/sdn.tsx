@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import type { ApiVNet } from "@/lib/queries"
@@ -27,7 +28,7 @@ import { VNetDialog } from "@/components/vnet/vnet-dialog"
 import { getVNetColumns } from "@/components/vnet/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 
-export const Route = createFileRoute("/_dashboard/sdn")({
+export const Route = createFileRoute("/_dashboard/management/sdn")({
   component: SdnPage,
 })
 
@@ -53,6 +54,11 @@ function SdnPage() {
     ...vnetsQueryOptions,
     enabled: canView,
   })
+  const vnetCountLabel = isLoading
+    ? "..."
+    : error
+      ? "!"
+      : String(vnets?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiVNet>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -118,6 +124,9 @@ function SdnPage() {
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 VNets
               </h1>
+              <Badge variant="outline" className="tabular-nums">
+                {vnetCountLabel}
+              </Badge>
             </CardTitle>
             <CardDescription>List of VNets in proxmox.</CardDescription>
             <CardAction>

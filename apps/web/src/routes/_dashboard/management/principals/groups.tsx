@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
+import { Badge } from "@workspace/ui/components/badge"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import type { ApiPrincipal } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
@@ -35,7 +36,9 @@ import { MembershipDialog } from "@/components/principals/membership-dialog"
 import { getGroupColumns } from "@/components/principals/groups/groups-columns"
 import { DataTable } from "@/components/data-table/data-table"
 
-export const Route = createFileRoute("/_dashboard/groups")({
+export const Route = createFileRoute(
+  "/_dashboard/management/principals/groups"
+)({
   component: GroupsPage,
 })
 
@@ -66,6 +69,11 @@ function GroupsPage() {
     ...groupsQueryOptions,
     enabled: canView,
   })
+  const groupCountLabel = isLoading
+    ? "..."
+    : error
+      ? "!"
+      : String(groups?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -156,6 +164,9 @@ function GroupsPage() {
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Groups
               </h1>
+              <Badge variant="outline" className="tabular-nums">
+                {groupCountLabel}
+              </Badge>
             </CardTitle>
             <CardDescription>
               List of groups from your principal provider.

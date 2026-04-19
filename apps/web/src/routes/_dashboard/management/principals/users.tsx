@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import type { ApiPrincipal } from "@/lib/queries"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
@@ -40,9 +41,11 @@ import { DataTable } from "@/components/data-table/data-table"
 import { getUserColumns } from "@/components/principals/users/users-columns"
 import { UserGroupBulkDialog } from "@/components/principals/users/user-group-bulk-dialog"
 
-export const Route = createFileRoute("/_dashboard/users")({
-  component: UsersPage,
-})
+export const Route = createFileRoute("/_dashboard/management/principals/users")(
+  {
+    component: UsersPage,
+  }
+)
 
 function getUserLabel(user: ApiPrincipal) {
   return user.name ?? user.external_id
@@ -66,6 +69,11 @@ function UsersPage() {
     ...usersQueryOptions,
     enabled: canView,
   })
+  const userCountLabel = isLoading
+    ? "..."
+    : error
+      ? "!"
+      : String(users?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const bulkGroupDialog = useItemDialogState<{
@@ -149,6 +157,9 @@ function UsersPage() {
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Users
               </h1>
+              <Badge variant="outline" className="tabular-nums">
+                {userCountLabel}
+              </Badge>
             </CardTitle>
             <CardDescription>
               List of users from your principal provider.

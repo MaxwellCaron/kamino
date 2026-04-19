@@ -46,20 +46,20 @@ const navItems = [
   {
     title: "SDN",
     description: "Inspect networks, topology, and software-defined resources.",
-    url: "/sdn",
+    url: "/management/sdn",
     icon: IconNetwork,
   },
   {
     title: "Users",
     description: "Browse people, identities, and account-level access details.",
-    url: "/users",
+    url: "/management/principals/users",
     icon: IconUser,
   },
   {
     title: "Groups",
     description:
       "Manage shared access, memberships, and permission boundaries.",
-    url: "/groups",
+    url: "/management/principals/groups",
     icon: IconUsersGroup,
   },
 ] as const
@@ -107,19 +107,19 @@ export function AppSidebar({
   const visibleNavItems = React.useMemo(
     () =>
       navItems.filter((item) => {
-        if (item.url === "/sdn") {
+        if (item.url === "/management/sdn") {
           return hasManagementPermission(
             user.management_permissions,
             ManagementPermissionBits.viewSdn
           )
         }
-        if (item.url === "/users") {
+        if (item.url === "/management/principals/users") {
           return hasManagementPermission(
             user.management_permissions,
             ManagementPermissionBits.viewPrincipals
           )
         }
-        if (item.url === "/groups") {
+        if (item.url === "/management/principals/groups") {
           return (
             hasManagementPermission(
               user.management_permissions,
