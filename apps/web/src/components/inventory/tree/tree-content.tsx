@@ -59,7 +59,11 @@ export function InventoryTreeContent({
                       toggleFavorite(id)
                     }}
                   >
-                    <IconStar className={isFavorite ? "fill-foreground" : ""} />
+                    <IconStar
+                      className={
+                        isFavorite ? "fill-background dark:fill-foreground" : ""
+                      }
+                    />
                   </Button>
                 )}
                 <InventoryNodeMenu
