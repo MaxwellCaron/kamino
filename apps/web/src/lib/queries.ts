@@ -1,3 +1,7 @@
+import type {
+  ApiManagementPermissionSection,
+  ManagementPermissionKey,
+} from "@/lib/management-permissions"
 import {
   ManagementPermissionKeys,
   expandManagementPermissionGrants,
@@ -8,10 +12,6 @@ import {
   InventoryPermissionBits,
   hasInventoryPermission,
 } from "@/lib/inventory-permissions"
-import type {
-  ApiManagementPermissionSection,
-  ManagementPermissionKey,
-} from "@/lib/management-permissions"
 
 export {
   InventoryPermissionBits,
