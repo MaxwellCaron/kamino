@@ -78,6 +78,7 @@ function FavoriteItemCard({
 
       <Button
         size="icon-sm"
+        variant="secondary"
         className="opacity-0 transition-opacity group-hover/favorite:opacity-100"
         onClick={(e) => {
           e.stopPropagation()

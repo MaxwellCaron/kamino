@@ -49,9 +49,10 @@ export function InventoryTreeContent({
                 {data.kind !== "folder" && (
                   <Button
                     size="icon-xs"
+                    variant="ghost"
                     className={
                       isFavorite
-                        ? "opacity-100!"
+                        ? "bg-transparent! opacity-100!"
                         : "opacity-0 group-hover/row:opacity-100"
                     }
                     onClick={(e) => {
