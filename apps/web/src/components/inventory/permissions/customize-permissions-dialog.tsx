@@ -1,14 +1,6 @@
 import React from "react"
-import { IconSearch } from "@tabler/icons-react"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { IconSearch, IconSettings } from "@tabler/icons-react"
+import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -25,6 +17,11 @@ import { nestedDialogAnimationClassName } from "./constants"
 import { PermissionScopeSection } from "./permission-scope-section"
 import type { getInventoryPermissionDefinitionsByGroup } from "@/lib/inventory-permissions"
 import type { DraftPrincipal, PermissionState } from "./types"
+import {
+  AppDialogContent,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 
 type CustomizePermissionsDialogProps = {
   editingPrincipal: DraftPrincipal | null
@@ -85,17 +82,13 @@ export function CustomizePermissionsDialog({
 
   return (
     <Dialog open={editingPrincipal !== null} onOpenChange={onOpenChange}>
-      <DialogContent
+      <AppDialogContent
+        icon={IconSettings}
+        title="Customize Permissions"
+        description={`Update permissions for ${editingPrincipal?.principalName || "this principal"}.`}
         showOverlay={false}
         className={nestedDialogAnimationClassName}
       >
-        <DialogHeader>
-          <DialogTitle>Customize Permissions</DialogTitle>
-          <DialogDescription>
-            Update permissions for{" "}
-            {editingPrincipal?.principalName || "this principal"}.
-          </DialogDescription>
-        </DialogHeader>
         <InputGroup>
           <InputGroupInput
             placeholder="Search permissions..."
@@ -111,7 +104,7 @@ export function CustomizePermissionsDialog({
             {filteredPermissionCount === 1 ? "result" : "results"}
           </InputGroupAddon>
         </InputGroup>
-        <div className="-mx-4 -mb-6 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-t pt-6">
+        <AppDialogScrollBody className="-mb-8 px-0">
           {editingPrincipal ? (
             filteredPermissionCount > 0 ? (
               <PermissionScopeSection
@@ -135,17 +128,16 @@ export function CustomizePermissionsDialog({
               </div>
             )
           ) : null}
-        </div>
+        </AppDialogScrollBody>
         <DialogFooter>
-          <Button
+          <AppDialogPrimaryButton
             onClick={onSave}
             disabled={editingPrincipal?.immutable}
-            className="w-full"
           >
             {editingPrincipal?.immutable ? "Protected" : "Save"}
-          </Button>
+          </AppDialogPrimaryButton>
         </DialogFooter>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   )
 }

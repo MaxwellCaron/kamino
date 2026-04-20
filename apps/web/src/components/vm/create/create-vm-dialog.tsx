@@ -5,20 +5,14 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   IconArrowLeft,
   IconArrowRight,
-  IconCheck,
-  IconCopy,
   IconDeviceImac,
-  IconUpload,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@workspace/ui/components/dialog"
 import {
   Stepper,
@@ -45,6 +39,11 @@ import {
   useCreateVmForm,
 } from "./create-vm-form"
 import type { CreateVmFormValues } from "./create-vm-form"
+import {
+  AppDialogHeader,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 import {
   getInventoryFolderOptions,
   getSelectedFolder,
@@ -239,6 +238,11 @@ export function CreateVmDialog({
       }}
     >
       <DialogContent initialFocus={false}>
+        <AppDialogHeader
+          icon={IconDeviceImac}
+          title="Create Virtual Machine"
+          description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
+        />
         <Stepper
           value={step}
           onValueChange={(value) => setStep(value as StepValue)}
@@ -251,19 +255,6 @@ export function CreateVmDialog({
             return Object.keys(errors).length === 0
           }}
         >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <IconDeviceImac className="text-muted-foreground" />
-              <span className="text-2xl font-semibold tracking-tight">
-                Create Virtual Machine
-              </span>
-            </DialogTitle>
-            <DialogDescription>
-              Select a provisioning path, configure the VM, and review the final
-              payload before Kamino submits it to Proxmox.
-            </DialogDescription>
-          </DialogHeader>
-
           <StepperList className="px-4">
             {steps.map((entry) => (
               <StepperItem key={entry.value} value={entry.value}>
@@ -280,7 +271,7 @@ export function CreateVmDialog({
               event.preventDefault()
             }}
           >
-            <div className="no-scrollbar h-[40vh] overflow-y-auto border-t px-1 py-4">
+            <AppDialogScrollBody className="h-[40vh]">
               <StepperContent value="method">
                 <CreateVmMethodStep form={form} />
               </StepperContent>
@@ -304,9 +295,9 @@ export function CreateVmDialog({
                   templateOptions={templateOptions}
                 />
               </StepperContent>
-            </div>
+            </AppDialogScrollBody>
 
-            <DialogFooter className="mt-0 grid grid-cols-3 items-center">
+            <DialogFooter className="grid grid-cols-3 items-center">
               <StepperPrev
                 render={
                   <Button type="button" size="icon" variant="outline">
@@ -317,21 +308,13 @@ export function CreateVmDialog({
 
               <div className="flex justify-center">
                 {step === "confirmation" ? (
-                  <Button
+                  <AppDialogPrimaryButton
                     type="button"
                     disabled={mutation.isPending || method === "upload"}
                     onClick={handleCreate}
-                    className="w-full"
                   >
-                    {method === "template" ? (
-                      <IconCopy data-icon="inline-start" />
-                    ) : method === "iso" ? (
-                      <IconCheck data-icon="inline-start" />
-                    ) : (
-                      <IconUpload data-icon="inline-start" />
-                    )}
                     {mutation.isPending ? "Creating..." : "Create"}
-                  </Button>
+                  </AppDialogPrimaryButton>
                 ) : null}
               </div>
 

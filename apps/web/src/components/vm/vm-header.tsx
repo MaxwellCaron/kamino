@@ -323,6 +323,7 @@ export function VmHeader({
                 </Button>
                 <VmNotesDialog
                   itemId={itemId}
+                  vmName={node?.name ?? `VM ${vm.vmid}`}
                   vmid={vm.vmid}
                   initialNotes={vm.notes}
                   open={isNotesOpen}

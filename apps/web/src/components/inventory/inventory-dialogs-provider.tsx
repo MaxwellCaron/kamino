@@ -5,14 +5,15 @@ import { RenameDialog } from "./rename-dialog"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import { CloneDialog } from "@/components/vm/clone-dialog"
-import { CreateVmDialog } from "@/components/vm/create/dialog"
-import { VmHardwareDialog } from "@/components/vm/hardware/dialog"
+import { CreateVmDialog } from "@/components/vm/create/create-vm-dialog"
+import { VmHardwareDialog } from "@/components/vm/hardware/hardware-dialog"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 
 type PermissionsDialogConfig = {
   itemId: string
   itemKind: "folder" | "vm"
   itemName: string
+  itemVmid?: number
 }
 
 type CreateFolderDialogConfig = {
@@ -30,6 +31,8 @@ type CreateVmDialogConfig = {
 
 type SnapshotDialogConfig = {
   itemId: string
+  currentName?: string
+  currentVmid?: number
 }
 
 type CloneDialogConfig = {
@@ -47,6 +50,7 @@ type RenameVmDialogConfig = {
 type EditVmHardwareDialogConfig = {
   itemId: string
   currentName: string
+  currentVmid?: number
 }
 
 type InventoryDialogsContextValue = {
@@ -147,6 +151,8 @@ export function InventoryDialogsProvider({
       {snapshot && (
         <SnapshotDialog
           itemId={snapshot.itemId}
+          vmid={snapshot.currentVmid}
+          vmName={snapshot.currentName}
           open={true}
           onOpenChange={(open) => {
             if (!open) setSnapshot(null)
@@ -181,6 +187,7 @@ export function InventoryDialogsProvider({
           key={editVmHardware.itemId}
           itemId={editVmHardware.itemId}
           vmName={editVmHardware.currentName}
+          vmid={editVmHardware.currentVmid}
           open={true}
           onOpenChange={(open) => {
             if (!open) setEditVmHardware(null)
@@ -192,6 +199,7 @@ export function InventoryDialogsProvider({
           itemId={permissions.itemId}
           itemKind={permissions.itemKind}
           itemName={permissions.itemName}
+          itemVmid={permissions.itemVmid}
           open={true}
           onOpenChange={(open) => {
             if (!open) setPermissions(null)

@@ -66,7 +66,7 @@ export const INVENTORY_PERMISSION_DEFINITIONS: Array<InventoryPermissionDefiniti
     {
       bit: InventoryPermissionBits.editVmHardware,
       key: "editVmHardware",
-      label: "Edit VM Hardware",
+      label: "Hardware",
       description:
         "Edit CPU, memory, disk, firmware, and network hardware for VMs covered by this rule.",
       group: "vm",
@@ -125,7 +125,7 @@ export const INVENTORY_PERMISSION_DEFINITIONS: Array<InventoryPermissionDefiniti
     {
       bit: InventoryPermissionBits.templateVm,
       key: "templateVm",
-      label: "Template VM",
+      label: "Templatize VM",
       description: "Convert VMs covered by this rule into templates.",
       group: "vm",
     },

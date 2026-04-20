@@ -1,6 +1,5 @@
 import React from "react"
 import { IconPlus } from "@tabler/icons-react"
-import { Button } from "@workspace/ui/components/button"
 import {
   Combobox,
   ComboboxChip,
@@ -15,11 +14,7 @@ import {
 } from "@workspace/ui/components/combobox"
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
 import { Field } from "@workspace/ui/components/field"
@@ -29,15 +24,21 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { Button } from "@workspace/ui/components/button"
 import {
   nestedDialogAnimationClassName,
   principalTypeLabels,
 } from "./constants"
 import type { PrincipalOption } from "./types"
+import {
+  AppDialogContent,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 
 type AddPrincipalsDialogProps = {
   availablePrincipalIds: Array<string>
   disabled?: boolean
+  itemName: string
   onAdd: (selectedIds: Array<string>) => void
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -54,13 +55,6 @@ function AddPrincipalsContent({
 
   return (
     <React.Fragment>
-      <DialogHeader>
-        <DialogTitle>Add Principals</DialogTitle>
-        <DialogDescription>
-          Select one or more users or groups to configure permissions for this
-          item.
-        </DialogDescription>
-      </DialogHeader>
       <Field>
         <Combobox
           multiple
@@ -109,13 +103,12 @@ function AddPrincipalsContent({
         </Combobox>
       </Field>
       <DialogFooter>
-        <Button
+        <AppDialogPrimaryButton
           onClick={() => onAdd(selectedIds)}
           disabled={selectedIds.length === 0}
-          className="w-full"
         >
           Add
-        </Button>
+        </AppDialogPrimaryButton>
       </DialogFooter>
     </React.Fragment>
   )
@@ -127,12 +120,15 @@ export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
       <DialogTrigger render={<Button size="icon" disabled={props.disabled} />}>
         <IconPlus />
       </DialogTrigger>
-      <DialogContent
+      <AppDialogContent
+        icon={IconPlus}
+        title="Add Principals"
+        description={`Select users or groups to configure permissions for ${props.itemName}.`}
         showOverlay={false}
         className={nestedDialogAnimationClassName}
       >
         {props.open && <AddPrincipalsContent {...props} />}
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   )
 }

@@ -16,14 +16,7 @@ import {
   ComboboxList,
   ComboboxSeparator,
 } from "@workspace/ui/components/combobox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Field,
   FieldContent,
@@ -44,6 +37,11 @@ import {
 import { z } from "zod"
 import type { ApiVmHardwareConfig } from "@/lib/queries"
 import type { NetworkOption } from "@/components/vm/hardware/sections"
+import {
+  AppDialogContent,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 import {
   getFirstIssueMessage,
   parseNumberInput,
@@ -74,6 +72,7 @@ import {
   storagesQueryOptions,
   vmHardwareQueryOptions,
 } from "@/lib/queries"
+import { formatVmReference } from "@/lib/utils"
 
 const hardwareNetworkInterfaceSchema = z.object({
   device: z.string().optional(),
@@ -107,6 +106,7 @@ type VmHardwareFormValues = z.infer<typeof vmHardwareFormSchema>
 type VmHardwareDialogProps = {
   itemId: string
   vmName: string
+  vmid?: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -197,7 +197,7 @@ function VmHardwareDialogForm({
         form.handleSubmit()
       }}
     >
-      <div className="-mb-2 no-scrollbar h-[40vh] overflow-y-auto border-t px-1 py-4">
+      <AppDialogScrollBody className="h-[40vh]">
         <div className="flex flex-col gap-6">
           <VmHardwareOperatingSystemSection
             description="Review the guest OS type, firmware, and chipset settings."
@@ -865,12 +865,12 @@ function VmHardwareDialogForm({
             </form.Field>
           </VmHardwareNetworkSection>
         </div>
-      </div>
+      </AppDialogScrollBody>
 
       <DialogFooter>
-        <Button disabled={updateHardware.isPending} className="w-full">
+        <AppDialogPrimaryButton disabled={updateHardware.isPending}>
           {updateHardware.isPending ? "Saving..." : "Save"}
-        </Button>
+        </AppDialogPrimaryButton>
       </DialogFooter>
     </form>
   )
@@ -879,6 +879,7 @@ function VmHardwareDialogForm({
 export function VmHardwareDialog({
   itemId,
   vmName,
+  vmid: initialVmid,
   open,
   onOpenChange,
 }: VmHardwareDialogProps) {
@@ -908,19 +909,15 @@ export function VmHardwareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent initialFocus={false}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <IconSettings className="text-muted-foreground" />
-            <span className="text-2xl font-semibold tracking-tight">
-              Edit VM Hardware
-            </span>
-          </DialogTitle>
-          <DialogDescription>
-            Review and update the hardware profile for {vmName}.
-          </DialogDescription>
-        </DialogHeader>
-
+      <AppDialogContent
+        initialFocus={false}
+        icon={IconSettings}
+        title="Hardware"
+        description={`Review and update the hardware profile for ${formatVmReference(
+          initialVmid ?? vmid,
+          vmName
+        )}.`}
+      >
         {hardwareQuery.isError ? (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
             {hardwareQuery.error instanceof Error
@@ -940,11 +937,11 @@ export function VmHardwareDialog({
             onOpenChange={onOpenChange}
           />
         ) : (
-          <div className="flex h-[40vh] items-center justify-center border-y text-sm text-muted-foreground">
+          <AppDialogScrollBody className="mb-0 h-[40vh] items-center justify-center px-1 py-4 text-sm text-muted-foreground">
             Loading current hardware...
-          </div>
+          </AppDialogScrollBody>
         )}
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   )
 }

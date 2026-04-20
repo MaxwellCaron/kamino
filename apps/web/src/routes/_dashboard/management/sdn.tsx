@@ -99,6 +99,7 @@ function SdnPage() {
         onDeleteClick: (v) =>
           setConfirm({
             title: "Delete VNet",
+            icon: IconTrash,
             description: `Are you sure you want to delete ${v.vnet}? This will apply the SDN configuration immediately.`,
             actionLabel: "Delete",
             variant: "destructive",
@@ -160,6 +161,7 @@ function SdnPage() {
                               selectedRows.length === 1
                                 ? "Delete VNet"
                                 : "Delete VNets",
+                            icon: IconTrash,
                             description:
                               selectedRows.length === 1
                                 ? `Are you sure you want to delete ${getVNetLabel(selectedRows[0])}? This will apply the SDN configuration immediately.`

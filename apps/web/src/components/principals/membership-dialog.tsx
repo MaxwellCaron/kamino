@@ -1,16 +1,8 @@
 import * as React from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
-import { IconDeviceFloppy, IconUsersGroup } from "@tabler/icons-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { Button } from "@workspace/ui/components/button"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Combobox,
   ComboboxChip,
@@ -24,6 +16,10 @@ import {
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
 import type { ApiGroupMember, ApiPrincipal } from "@/lib/queries"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import {
   addGroupMember,
   groupMembersQueryOptions,
@@ -43,30 +39,25 @@ export function MembershipDialog(props: MembershipDialogProps) {
   const { open, onOpenChange, mode, principal } = props
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <IconUsersGroup className="text-muted-foreground" />
-            <span className="text-2xl font-semibold tracking-tight">
-              {mode === "user-groups" ? "Edit Groups" : "Edit Members"}
-            </span>
-          </DialogTitle>
-          <DialogDescription>
-            {mode === "user-groups"
-              ? `Manage group memberships for ${principal.name ?? principal.external_id}.`
-              : `Manage members of ${principal.name ?? principal.external_id}.`}
-          </DialogDescription>
-        </DialogHeader>
-        {open && (
-          <MembershipEditor
-            mode={mode}
-            principal={principal}
-            onOpenChange={onOpenChange}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={IconUsersGroup}
+      title={mode === "user-groups" ? "Edit Groups" : "Edit Members"}
+      description={
+        mode === "user-groups"
+          ? `Manage group memberships for ${principal.name ?? principal.external_id}.`
+          : `Manage members of ${principal.name ?? principal.external_id}.`
+      }
+    >
+      {open && (
+        <MembershipEditor
+          mode={mode}
+          principal={principal}
+          onOpenChange={onOpenChange}
+        />
+      )}
+    </AppDialog>
   )
 }
 
@@ -212,14 +203,12 @@ function MembershipEditor({
         </ComboboxContent>
       </Combobox>
       <DialogFooter>
-        <Button
+        <AppDialogPrimaryButton
           onClick={() => saveMutation.mutate()}
           disabled={!hasChanges || saving}
-          className="w-full"
         >
-          <IconDeviceFloppy data-icon="inline-start" />
           {saving ? "Saving..." : "Save"}
-        </Button>
+        </AppDialogPrimaryButton>
       </DialogFooter>
     </>
   )

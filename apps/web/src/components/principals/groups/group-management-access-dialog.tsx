@@ -1,17 +1,9 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { IconDeviceFloppy, IconLockAccess } from "@tabler/icons-react"
+import { IconLockAccess } from "@tabler/icons-react"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Field,
   FieldContent,
@@ -21,6 +13,10 @@ import {
   FieldTitle,
 } from "@workspace/ui/components/field"
 import type { ApiPrincipal } from "@/lib/queries"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import {
   ManagementPermissionBits,
   groupManagementAclQueryOptions,
@@ -118,68 +114,55 @@ export function GroupManagementAccessDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <IconLockAccess className="text-muted-foreground" />
-            <span className="text-2xl font-semibold tracking-tight">
-              Edit Access
-            </span>
-          </DialogTitle>
-          <DialogDescription>
-            Configure coarse management access for {getGroupLabel(group)}. These
-            permissions only apply to groups.
-          </DialogDescription>
-        </DialogHeader>
-
-        <FieldGroup>
-          {managementOptions.map((option) => (
-            <FieldLabel
-              key={option.bit}
-              htmlFor={`management-permission-${option.bit}`}
-              className="flex items-center justify-between gap-4"
-            >
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldTitle>{option.label}</FieldTitle>
-                  <FieldDescription>{option.description}</FieldDescription>
-                </FieldContent>
-                <Checkbox
-                  id={`management-permission-${option.bit}`}
-                  checked={(normalizedMask & option.bit) === option.bit}
-                  disabled={controlsDisabled}
-                  onCheckedChange={(checked) =>
-                    togglePermission(option.bit, checked === true)
-                  }
-                />
-              </Field>
-            </FieldLabel>
-          ))}
-        </FieldGroup>
-
-        {immutable && (
-          <p className="text-sm text-muted-foreground">
-            This group is protected and always has full access.
-          </p>
-        )}
-        {accessQuery.isError && (
-          <p className="text-sm text-destructive">
-            {accessQuery.error.message}
-          </p>
-        )}
-
-        <DialogFooter>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={controlsDisabled}
-            className="w-full"
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={IconLockAccess}
+      title="Edit Access"
+      description={`Configure coarse management access for ${getGroupLabel(group)}. These permissions only apply to groups.`}
+    >
+      <FieldGroup>
+        {managementOptions.map((option) => (
+          <FieldLabel
+            key={option.bit}
+            htmlFor={`management-permission-${option.bit}`}
+            className="flex items-center justify-between gap-4"
           >
-            <IconDeviceFloppy />
-            {mutation.isPending ? "Saving..." : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldTitle>{option.label}</FieldTitle>
+                <FieldDescription>{option.description}</FieldDescription>
+              </FieldContent>
+              <Checkbox
+                id={`management-permission-${option.bit}`}
+                checked={(normalizedMask & option.bit) === option.bit}
+                disabled={controlsDisabled}
+                onCheckedChange={(checked) =>
+                  togglePermission(option.bit, checked === true)
+                }
+              />
+            </Field>
+          </FieldLabel>
+        ))}
+      </FieldGroup>
+
+      {immutable && (
+        <p className="text-sm text-muted-foreground">
+          This group is protected and always has full access.
+        </p>
+      )}
+      {accessQuery.isError && (
+        <p className="text-sm text-destructive">{accessQuery.error.message}</p>
+      )}
+
+      <DialogFooter>
+        <AppDialogPrimaryButton
+          onClick={() => mutation.mutate()}
+          disabled={controlsDisabled}
+        >
+          {mutation.isPending ? "Saving..." : "Save"}
+        </AppDialogPrimaryButton>
+      </DialogFooter>
+    </AppDialog>
   )
 }

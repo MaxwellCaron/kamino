@@ -121,6 +121,7 @@ function UsersPage() {
         onDeleteClick: (targetUser) =>
           setConfirm({
             title: "Delete User",
+            icon: IconTrash,
             description: `Are you sure you want to delete ${getUserLabel(targetUser)}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
@@ -243,6 +244,7 @@ function UsersPage() {
                                 selectedRows.length === 1
                                   ? "Delete User"
                                   : "Delete Users",
+                              icon: IconTrash,
                               description:
                                 selectedRows.length === 1
                                   ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`

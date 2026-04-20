@@ -37,12 +37,14 @@ import { useDeleteSnapshot, useRollbackSnapshot } from "@/hooks/use-vm-actions"
 export function SnapshotsTable({
   itemId,
   vmid,
+  vmName,
   isTemplate,
   canManageSnapshots,
   isLoading: isVmLoading,
 }: {
   itemId: string
   vmid: number | null
+  vmName?: string
   isTemplate: boolean
   canManageSnapshots: boolean
   isLoading?: boolean
@@ -169,6 +171,7 @@ export function SnapshotsTable({
                           onClick={() =>
                             setConfirm({
                               title: "Rollback Snapshot",
+                              icon: IconHistory,
                               description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
                               actionLabel: "Rollback",
                               onConfirm: () => {
@@ -197,6 +200,7 @@ export function SnapshotsTable({
                           onClick={() =>
                             setConfirm({
                               title: "Delete Snapshot",
+                              icon: IconTrash,
                               description: `Are you sure you want to delete snapshot "${snap.name}"? This action cannot be undone.`,
                               actionLabel: "Delete",
                               variant: "destructive",
@@ -234,6 +238,8 @@ export function SnapshotsTable({
       {itemId && vmid != null && (
         <SnapshotDialog
           itemId={itemId}
+          vmid={vmid}
+          vmName={vmName}
           open={snapshotOpen}
           onOpenChange={setSnapshotOpen}
         />

@@ -5,19 +5,16 @@ import { useForm } from "@tanstack/react-form"
 import { IconEdit, IconFolderPlus } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { z } from "zod"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import { Field, FieldError, FieldGroup } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import { useCreateFolder, useRenameFolder } from "@/hooks/use-inventory-actions"
 import { useRenameVM } from "@/hooks/use-vm-actions"
+import { formatVmReference } from "@/lib/utils"
 import { vmNameSchema } from "@/lib/vm-name"
 
 const folderNameSchema = z
@@ -75,7 +72,7 @@ export function RenameDialog(props: RenameDialogProps) {
       case "rename-folder":
         return {
           title: "Rename Folder",
-          description: "Enter a new name for this folder.",
+          description: `Enter a new name for folder "${props.currentName}".`,
           submitLabel: "Rename Folder",
           pendingLabel: "Renaming...",
           placeholder: "Folder",
@@ -85,7 +82,10 @@ export function RenameDialog(props: RenameDialogProps) {
       case "rename-item":
         return {
           title: "Rename",
-          description: `Enter a new name for ${props.currentName}.`,
+          description: `Enter a new name for ${formatVmReference(
+            props.currentVmid,
+            props.currentName
+          )}.`,
           submitLabel: "Rename",
           pendingLabel: "Renaming...",
           placeholder: "Name",
@@ -141,78 +141,60 @@ export function RenameDialog(props: RenameDialogProps) {
   const Icon = ui.icon
 
   return (
-    <Dialog
+    <AppDialog
       open={props.open}
-      onOpenChange={(isOpen) => {
-        props.onOpenChange(isOpen)
-        if (!isOpen) {
-          form.reset()
-        }
-      }}
+      onOpenChange={props.onOpenChange}
+      onClosed={() => form.reset()}
+      initialFocus={currentName ? true : false}
+      icon={Icon}
+      title={ui.title}
+      description={ui.description}
     >
-      <DialogContent initialFocus={currentName ? true : false}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon className="text-muted-foreground" />
-            <span className="text-2xl font-semibold tracking-tight">
-              {ui.title}
-            </span>
-          </DialogTitle>
-          <DialogDescription>{ui.description}</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            form.handleSubmit()
-          }}
-        >
-          <FieldGroup>
-            <form.Field
-              name="name"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = ui.schema.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0]?.message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <Input
-                    id="name"
-                    placeholder={ui.placeholder}
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-          </FieldGroup>
-          <DialogFooter className="mt-6">
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full"
-                >
-                  <Icon data-icon="inline-start" />
-                  {isSubmitting ? ui.pendingLabel : ui.submitLabel}
-                </Button>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          form.handleSubmit()
+        }}
+      >
+        <FieldGroup>
+          <form.Field
+            name="name"
+            validators={{
+              onBlur: ({ value }) => {
+                const result = ui.schema.safeParse(value)
+                return result.success
+                  ? undefined
+                  : result.error.issues[0]?.message
+              },
+            }}
+          >
+            {(field) => (
+              <Field
+                data-invalid={field.state.meta.errors.length > 0 || undefined}
+              >
+                <Input
+                  id="name"
+                  placeholder={ui.placeholder}
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                />
+                <FieldError>{field.state.meta.errors[0]}</FieldError>
+              </Field>
+            )}
+          </form.Field>
+        </FieldGroup>
+        <DialogFooter className="mt-6">
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <AppDialogPrimaryButton type="submit" disabled={isSubmitting}>
+                {isSubmitting ? ui.pendingLabel : ui.submitLabel}
+              </AppDialogPrimaryButton>
+            )}
+          </form.Subscribe>
+        </DialogFooter>
+      </form>
+    </AppDialog>
   )
 }

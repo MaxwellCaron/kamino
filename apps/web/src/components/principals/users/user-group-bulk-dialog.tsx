@@ -2,20 +2,12 @@ import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { IconUserMinus, IconUserPlus } from "@tabler/icons-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Item,
   ItemContent,
   ItemDescription,
 } from "@workspace/ui/components/item"
-import { Button } from "@workspace/ui/components/button"
 import {
   Field,
   FieldContent,
@@ -33,6 +25,10 @@ import {
 } from "@workspace/ui/components/combobox"
 import { Badge } from "@workspace/ui/components/badge"
 import type { ApiPrincipal } from "@/lib/queries"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import {
   addGroupMember,
   groupsQueryOptions,
@@ -108,104 +104,89 @@ export function UserGroupBulkDialog({
   })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {mode === "add" ? (
-              <IconUserPlus className="text-muted-foreground" />
-            ) : (
-              <IconUserMinus className="text-muted-foreground" />
-            )}
-            <span className="text-2xl font-semibold tracking-tight">
-              {mode === "add" ? "Add Users" : "Remove Users"}
-            </span>
-          </DialogTitle>
-          <DialogDescription render={<div />}>
-            {mode === "add" ? (
-              <>
-                <p>{`Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group.`}</p>
-                <p>Users already in the group will be kept there.</p>
-              </>
-            ) : (
-              <>
-                <p>{`Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group.`}</p>
-                <p>Users not in the group will remain unchanged.</p>
-              </>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        <Item variant="outline">
-          <ItemContent>
-            <ItemDescription>
-              <span className="flex flex-wrap gap-2">
-                {users.map((user) => (
-                  <Badge
-                    key={user.id}
-                    variant={mode === "add" ? "default" : "destructive"}
-                  >
-                    {user.name ?? user.external_id}
-                  </Badge>
-                ))}
-              </span>
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-
-        <div className="flex flex-col gap-4">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="bulk-group-target">Group</FieldLabel>
-              <FieldContent>
-                <Combobox
-                  items={groups ?? []}
-                  itemToStringLabel={(group) => group.name ?? group.external_id}
-                  value={selectedGroup}
-                  onValueChange={setSelectedGroup}
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={mode === "add" ? IconUserPlus : IconUserMinus}
+      title={mode === "add" ? "Add Users" : "Remove Users"}
+      description={
+        mode === "add" ? (
+          <>
+            <p>{`Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group.`}</p>
+            <p>Users already in the group will be kept there.</p>
+          </>
+        ) : (
+          <>
+            <p>{`Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group.`}</p>
+            <p>Users not in the group will remain unchanged.</p>
+          </>
+        )
+      }
+      descriptionProps={{ render: <div /> }}
+    >
+      <Item variant="outline">
+        <ItemContent>
+          <ItemDescription>
+            <span className="flex flex-wrap gap-2">
+              {users.map((user) => (
+                <Badge
+                  key={user.id}
+                  variant={mode === "add" ? "default" : "destructive"}
                 >
-                  <ComboboxInput placeholder="Select a group" />
-                  <ComboboxContent>
-                    <ComboboxEmpty>No groups found.</ComboboxEmpty>
-                    <ComboboxList>
-                      {(group) => (
-                        <ComboboxItem key={group.id} value={group}>
-                          {group.name ?? group.external_id}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </FieldContent>
-              <FieldDescription>
-                {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </div>
+                  {user.name ?? user.external_id}
+                </Badge>
+              ))}
+            </span>
+          </ItemDescription>
+        </ItemContent>
+      </Item>
 
-        <DialogFooter>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={
-              !selectedGroup ||
-              isLoading ||
-              error !== null ||
-              mutation.isPending
-            }
-            variant={mode === "add" ? "default" : "destructive"}
-            className="w-full"
-          >
-            {mutation.isPending
-              ? mode === "add"
-                ? "Adding..."
-                : "Removing..."
-              : mode === "add"
-                ? "Add"
-                : "Remove"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="bulk-group-target">Group</FieldLabel>
+          <FieldContent>
+            <Combobox
+              items={groups ?? []}
+              itemToStringLabel={(group) => group.name ?? group.external_id}
+              value={selectedGroup}
+              onValueChange={setSelectedGroup}
+            >
+              <ComboboxInput placeholder="Select a group" />
+              <ComboboxContent>
+                <ComboboxEmpty>No groups found.</ComboboxEmpty>
+                <ComboboxList>
+                  {(group) => (
+                    <ComboboxItem key={group.id} value={group}>
+                      {group.name ?? group.external_id}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          </FieldContent>
+          <FieldDescription>
+            {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
+          </FieldDescription>
+        </Field>
+      </FieldGroup>
+
+      <DialogFooter>
+        <AppDialogPrimaryButton
+          onClick={() => mutation.mutate()}
+          disabled={
+            !selectedGroup || isLoading || error !== null || mutation.isPending
+          }
+          variant={mode === "add" ? "default" : "destructive"}
+        >
+          {mutation.isPending
+            ? mode === "add"
+              ? "Adding..."
+              : "Removing..."
+            : mode === "add"
+              ? "Add"
+              : "Remove"}
+        </AppDialogPrimaryButton>
+      </DialogFooter>
+    </AppDialog>
   )
 }

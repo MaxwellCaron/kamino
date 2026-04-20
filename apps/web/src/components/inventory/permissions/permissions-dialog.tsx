@@ -10,20 +10,13 @@ import {
 } from "@tabler/icons-react"
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { Button } from "@workspace/ui/components/button"
+import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -59,6 +52,12 @@ import {
   inventoryAclQueryOptions,
   usersQueryOptions,
 } from "@/lib/queries"
+import {
+  AppDialogContent,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+import { formatVmReference } from "@/lib/utils"
 
 function InventoryPermissionsFormBody({
   props,
@@ -150,6 +149,7 @@ function InventoryPermissionsFormBody({
         <AddPrincipalsDialog
           availablePrincipalIds={state.availablePrincipalIds}
           disabled={false}
+          itemName={props.itemName}
           onAdd={(ids) => {
             actions.handleAddPrincipals(ids)
             setAddDialogOpen(false)
@@ -160,13 +160,13 @@ function InventoryPermissionsFormBody({
         />
       </div>
 
-      <div className="-mx-4 -mb-6 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-t px-4 py-6">
+      <AppDialogScrollBody className="-mb-6">
         {hasConfiguredPrincipals ? (
           hasVisiblePrincipals ? (
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               {filteredPrincipalSections.map((section) => (
                 <Collapsible key={section.key} defaultOpen={true}>
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <CollapsibleTrigger className="group/collapsible-trigger flex w-full items-center justify-between rounded-2xl px-1 py-1 text-left">
                       <span className="flex items-center gap-2">
                         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -264,7 +264,7 @@ function InventoryPermissionsFormBody({
             </EmptyHeader>
           </Empty>
         )}
-      </div>
+      </AppDialogScrollBody>
 
       <CustomizePermissionsDialog
         editingPrincipal={state.editingPrincipal}
@@ -274,14 +274,13 @@ function InventoryPermissionsFormBody({
         permissionGroups={state.permissionGroups}
       />
 
-      <DialogFooter>
-        <Button
+      <DialogFooter className="mt-0">
+        <AppDialogPrimaryButton
           onClick={actions.handleSubmit}
           disabled={state.isSaving || !state.hasChanges}
-          className="w-full"
         >
           {state.isSaving ? "Submitting..." : "Submit"}
-        </Button>
+        </AppDialogPrimaryButton>
       </DialogFooter>
     </React.Fragment>
   )
@@ -311,24 +310,25 @@ export function InventoryPermissionsDialog(
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={nestedDialogAnimationClassName}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <IconLock className="text-muted-foreground" />
-            <span className="text-2xl font-semibold tracking-tight">
-              Permissions
-            </span>
-          </DialogTitle>
-          <DialogDescription
-            render={
-              <div>
-                <p>Add or remove principals from this item's ACL.</p>
-                <p>Once added, you can edit their permissions.</p>
-              </div>
-            }
-          ></DialogDescription>
-        </DialogHeader>
-
+      <AppDialogContent
+        icon={IconLock}
+        title="Permissions"
+        description={
+          <>
+            <p>
+              {props.itemKind === "vm"
+                ? `Add or remove principals from ${formatVmReference(
+                    props.itemVmid,
+                    props.itemName
+                  )}.`
+                : `Add or remove principals from the ${props.itemKind} "${props.itemName}".`}
+            </p>
+            <p>Once added, you can edit their permissions.</p>
+          </>
+        }
+        descriptionProps={{ render: <div /> }}
+        className={nestedDialogAnimationClassName}
+      >
         {loadError ? (
           <Item variant="muted">
             <ItemContent>
@@ -358,7 +358,7 @@ export function InventoryPermissionsDialog(
             groups={groupsQuery.data ?? []}
           />
         )}
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   )
 }

@@ -85,6 +85,7 @@ function VmPage() {
           <SnapshotsTable
             itemId={itemId}
             vmid={vm?.vmid ?? null}
+            vmName={node?.name}
             isTemplate={isTemplate}
             canManageSnapshots={canManageSnapshots}
             isLoading={isLoading}

@@ -1,20 +1,21 @@
 import { useRef, useState } from "react"
+import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react"
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import type { ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
+import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 export type ConfirmConfig = {
   title: string
   description: ReactNode
   actionLabel: string
+  icon?: ComponentType<{
+    className?: string
+  }>
   variant?: "default" | "destructive"
   onConfirm: () => Promise<void> | void
 }
@@ -31,6 +32,9 @@ export function ConfirmDialog({
   if (config) lastConfig.current = config
 
   const display = config ?? lastConfig.current
+  const HeaderIcon =
+    display?.icon ??
+    (display?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
 
   return (
     <AlertDialog
@@ -39,16 +43,15 @@ export function ConfirmDialog({
         if (!open && !isPending) onClose()
       }}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{display?.title}</AlertDialogTitle>
-          <AlertDialogDescription
-            render={<div />}
-            className="space-y-3 text-sm text-muted-foreground"
-          >
-            {display?.description}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+      <AppAlertDialogContent
+        icon={HeaderIcon}
+        title={display?.title ?? ""}
+        description={display?.description ?? null}
+        descriptionProps={{
+          render: <div />,
+          className: "space-y-3 text-sm text-muted-foreground",
+        }}
+      >
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending} />
           <AlertDialogAction
@@ -72,7 +75,7 @@ export function ConfirmDialog({
             {display?.actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
-      </AlertDialogContent>
+      </AppAlertDialogContent>
     </AlertDialog>
   )
 }

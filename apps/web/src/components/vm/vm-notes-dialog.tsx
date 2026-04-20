@@ -3,15 +3,7 @@ import { useForm } from "@tanstack/react-form"
 import { IconEdit } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { z } from "zod"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Field,
   FieldDescription,
@@ -19,7 +11,12 @@ import {
   FieldGroup,
 } from "@workspace/ui/components/field"
 import { Textarea } from "@workspace/ui/components/textarea"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import { useUpdateVMNotes } from "@/hooks/use-vm-actions"
+import { formatVmReference } from "@/lib/utils"
 
 const vmNotesSchema = z.object({
   notes: z.string().max(255, "Notes must be 255 characters or less"),
@@ -27,12 +24,14 @@ const vmNotesSchema = z.object({
 
 export function VmNotesDialog({
   itemId,
+  vmName,
   vmid,
   initialNotes,
   open,
   onOpenChange,
 }: {
   itemId: string
+  vmName: string
   vmid: number
   initialNotes?: string | null
   open: boolean
@@ -77,67 +76,63 @@ export function VmNotesDialog({
   }, [form, initialNotes, open])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent initialFocus={false}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <IconEdit className="text-muted-foreground" />
-            <span className="text-2xl font-semibold tracking-tight">Note</span>
-          </DialogTitle>
-          <DialogDescription>Update the note for {vmid}.</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
-          }}
-        >
-          <FieldGroup>
-            <form.Field
-              name="notes"
-              validators={{
-                onBlur: ({ value }) => {
-                  const result = vmNotesSchema.shape.notes.safeParse(value)
-                  return result.success
-                    ? undefined
-                    : result.error.issues[0].message
-                },
-              }}
-            >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <Textarea
-                    id="notes"
-                    placeholder="Add notes for this VM..."
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    maxLength={255}
-                  />
-                  <FieldDescription className="text-right font-mono">
-                    {field.state.value.length}/255
-                  </FieldDescription>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
-            </form.Field>
-          </FieldGroup>
-          <DialogFooter className="mt-6">
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? "Saving..." : "Save"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      initialFocus={false}
+      icon={IconEdit}
+      title="Note"
+      description={`Update the note for ${formatVmReference(vmid, vmName)}.`}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          form.handleSubmit()
+        }}
+      >
+        <FieldGroup>
+          <form.Field
+            name="notes"
+            validators={{
+              onBlur: ({ value }) => {
+                const result = vmNotesSchema.shape.notes.safeParse(value)
+                return result.success
+                  ? undefined
+                  : result.error.issues[0].message
+              },
+            }}
+          >
+            {(field) => (
+              <Field
+                data-invalid={field.state.meta.errors.length > 0 || undefined}
+              >
+                <Textarea
+                  id="notes"
+                  placeholder={`Add notes for ${vmName}...`}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  maxLength={255}
+                />
+                <FieldDescription className="text-right font-mono text-xs">
+                  {field.state.value.length}/255
+                </FieldDescription>
+                <FieldError>{field.state.meta.errors[0]}</FieldError>
+              </Field>
+            )}
+          </form.Field>
+        </FieldGroup>
+        <DialogFooter className="mt-6">
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <AppDialogPrimaryButton disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save"}
+              </AppDialogPrimaryButton>
+            )}
+          </form.Subscribe>
+        </DialogFooter>
+      </form>
+    </AppDialog>
   )
 }

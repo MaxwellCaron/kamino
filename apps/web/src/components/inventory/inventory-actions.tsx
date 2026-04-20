@@ -49,6 +49,7 @@ import {
   inventoryTreeQueryOptions,
 } from "@/lib/queries"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
+import { formatVmReference } from "@/lib/utils"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"
 import {
   useConvertToTemplate,
@@ -82,12 +83,6 @@ function formatAffectedItems(
   return remainingCount > 0
     ? `${listedItems}, and ${pluralize(remainingCount, "other item")}`
     : listedItems
-}
-
-function formatVmIdentifier(name: string | undefined, vmid: number): string {
-  const trimmedName = name?.trim()
-
-  return trimmedName ? `"${trimmedName}" (${vmid})` : `${vmid}`
 }
 
 const FOLDER_ACTION_PERMISSIONS = [
@@ -332,7 +327,7 @@ function VmMenuItems({
   const powerAction = useVmPowerAction()
   const deleteVm = useDeleteVM()
   const toTemplate = useConvertToTemplate()
-  const vmIdentifier = formatVmIdentifier(name, vmid)
+  const vmIdentifier = formatVmReference(vmid, name)
   const canPower = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.powerVm
@@ -376,8 +371,9 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Start VM?",
-                  description: "This will power on the virtual machine.",
+                  title: "Start",
+                  icon: IconPlayerPlay,
+                  description: `This will power on ${vmIdentifier}.`,
                   actionLabel: "Start",
                   variant: "default",
                   onConfirm: () => {
@@ -400,9 +396,9 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Shutdown VM?",
-                  description:
-                    "This will send a shutdown signal to the virtual machine. The guest OS will attempt a graceful shutdown.",
+                  title: "Shutdown",
+                  icon: IconPower,
+                  description: `This will send a shutdown signal to ${vmIdentifier}.`,
                   actionLabel: "Shutdown",
                   variant: "destructive",
                   onConfirm: () => {
@@ -425,9 +421,9 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Reboot VM?",
-                  description:
-                    "This will send a reboot signal to the virtual machine.",
+                  title: "Reboot",
+                  icon: IconRefresh,
+                  description: `This will send a reboot signal to ${vmIdentifier}.`,
                   actionLabel: "Reboot",
                   variant: "destructive",
                   onConfirm: () => {
@@ -450,9 +446,9 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Stop VM?",
-                  description:
-                    "This will immediately stop the virtual machine. Unsaved data may be lost.",
+                  title: "Stop",
+                  icon: IconPlayerStop,
+                  description: `This will immediately stop ${vmIdentifier}.`,
                   actionLabel: "Stop",
                   variant: "destructive",
                   onConfirm: () => {
@@ -505,15 +501,15 @@ function VmMenuItems({
                 disabled={isLoading}
                 onClick={() =>
                   onAction({
-                    title: "Convert to Template?",
-                    description:
-                      "This will convert the VM to a template, making it available for cloning.",
-                    actionLabel: "Convert",
+                    title: "Templatize",
+                    icon: IconTemplate,
+                    description: `This will convert ${vmIdentifier} to a template. Once a VM is converted to a template, you will not be able to make any additional edits to this VM.`,
+                    actionLabel: "Templatize",
                     variant: "destructive",
                     onConfirm: () => {
                       toast.promise(toTemplate.mutateAsync({ itemId }), {
-                        loading: `Converting VM ${vmIdentifier} to template…`,
-                        success: `VM ${vmIdentifier} is now a template`,
+                        loading: `Templatizing VM ${vmIdentifier}…`,
+                        success: `VM ${vmIdentifier} templatized`,
                         error: (err: Error) => err.message,
                       })
                     },
@@ -521,7 +517,7 @@ function VmMenuItems({
                 }
               >
                 <IconTemplate className="text-muted-foreground" />
-                Template
+                Templatize
               </DropdownMenuItem>
             )}
             {canSnapshot && (
@@ -561,9 +557,9 @@ function VmMenuItems({
           disabled={isLoading}
           onClick={() =>
             onAction({
-              title: "Delete VM?",
-              description:
-                "This will permanently delete the virtual machine. This action cannot be undone.",
+              title: "Delete",
+              icon: IconTrash,
+              description: `This will permanently delete ${vmIdentifier}. This action cannot be undone.`,
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -608,7 +604,7 @@ function TemplateMenuItems({
   isLoading?: boolean
 }) {
   const deleteVm = useDeleteVM()
-  const vmIdentifier = formatVmIdentifier(name, vmid)
+  const vmIdentifier = formatVmReference(vmid, name)
   const canClone = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.cloneVm
@@ -658,8 +654,8 @@ function TemplateMenuItems({
           onClick={() =>
             onAction({
               title: "Delete Template?",
-              description:
-                "This will permanently delete the template. This action cannot be undone.",
+              icon: IconTrash,
+              description: `This will permanently delete template ${vmIdentifier}. This action cannot be undone.`,
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -813,6 +809,7 @@ export function InventoryNodeMenu({
 
     openConfirm({
       title: `Delete folder "${data.name}"?`,
+      icon: IconTrash,
       description: (
         <FolderDeletionDescription
           folderName={data.name}
@@ -876,12 +873,17 @@ export function InventoryNodeMenu({
               itemId,
               itemKind: isFolder ? "folder" : "vm",
               itemName: data.name,
+              itemVmid: data.vm?.vmid,
             })
           }
           onSnapshot={() => {
             if (!data.vm?.node) return
 
-            openSnapshot({ itemId })
+            openSnapshot({
+              itemId,
+              currentName: data.name,
+              currentVmid: data.vm.vmid,
+            })
           }}
           onClone={() => {
             if (!data.vm?.node) return
@@ -911,6 +913,7 @@ export function InventoryNodeMenu({
               openEditVmHardware({
                 itemId,
                 currentName: data.name,
+                currentVmid: data.vm.vmid,
               })
             }
           }}
@@ -1028,12 +1031,17 @@ export function VmOptionsMenu({
                 itemId: nodeId,
                 itemKind: isFolder ? "folder" : "vm",
                 itemName: name ?? "",
+                itemVmid: vmid,
               })
             }
             onSnapshot={() => {
               if (!pveNode || vmid === undefined) return
 
-              openSnapshot({ itemId })
+              openSnapshot({
+                itemId,
+                currentName: name,
+                currentVmid: vmid,
+              })
             }}
             onClone={() => {
               if (!pveNode || vmid === undefined) return
@@ -1066,6 +1074,7 @@ export function VmOptionsMenu({
                 openEditVmHardware({
                   itemId,
                   currentName: name ?? "",
+                  currentVmid: vmid,
                 })
               }
             }}

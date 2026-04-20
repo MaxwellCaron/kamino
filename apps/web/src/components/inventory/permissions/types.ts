@@ -4,6 +4,7 @@ export type InventoryPermissionsDialogProps = {
   itemId: string
   itemKind: ApiTreeNode["kind"]
   itemName: string
+  itemVmid?: number
   onOpenChange: (open: boolean) => void
   open: boolean
 }

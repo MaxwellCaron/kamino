@@ -132,6 +132,7 @@ function GroupsPage() {
         onDeleteClick: (group) =>
           setConfirm({
             title: "Delete Group",
+            icon: IconTrash,
             description: `Are you sure you want to delete ${getGroupLabel(group)}? This will permanently remove the group.`,
             actionLabel: "Delete",
             variant: "destructive",
@@ -209,6 +210,7 @@ function GroupsPage() {
                               selectedRows.length === 1
                                 ? "Delete Group"
                                 : "Delete Groups",
+                            icon: IconTrash,
                             description:
                               selectedRows.length === 1
                                 ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
