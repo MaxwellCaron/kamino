@@ -28,7 +28,7 @@ import type { ApiPrincipal } from "@/lib/queries"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
-  ManagementPermissionBits,
+  ManagementPermissionKeys,
   deleteUser,
   hasManagementPermission,
   triggerADSync,
@@ -55,11 +55,11 @@ function UsersPage() {
   const { user } = Route.useRouteContext()
   const canView = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.viewPrincipals
+    ManagementPermissionKeys.principalsView
   )
   const canManage = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.managePrincipals
+    ManagementPermissionKeys.principalsManage
   )
   const {
     data: users,

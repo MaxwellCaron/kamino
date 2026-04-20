@@ -18,7 +18,7 @@ type SDNHandler struct {
 
 func (h *SDNHandler) requireSDNPermission(
 	c *gin.Context,
-	required authorization.ManagementMask,
+	required authorization.ManagementPermission,
 ) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -46,7 +46,7 @@ type bulkDeleteVNetsResponse struct {
 // GetVNets returns all SDN virtual networks.
 // GET /api/v1/sdn/vnets
 func (h *SDNHandler) GetVNets(c *gin.Context) {
-	if !h.requireSDNPermission(c, authorization.ViewSDN) {
+	if !h.requireSDNPermission(c, authorization.ManagementPermissionInfrastructureView) {
 		return
 	}
 
@@ -68,7 +68,7 @@ type createVNetRequest struct {
 // CreateVNet creates a new SDN virtual network and applies the config.
 // POST /api/v1/sdn/vnets
 func (h *SDNHandler) CreateVNet(c *gin.Context) {
-	if !h.requireSDNPermission(c, authorization.ManageSDN) {
+	if !h.requireSDNPermission(c, authorization.ManagementPermissionInfrastructureManage) {
 		return
 	}
 
@@ -111,7 +111,7 @@ type updateVNetRequest struct {
 // UpdateVNet updates an existing SDN virtual network and applies the config.
 // PUT /api/v1/sdn/vnets/:vnet
 func (h *SDNHandler) UpdateVNet(c *gin.Context) {
-	if !h.requireSDNPermission(c, authorization.ManageSDN) {
+	if !h.requireSDNPermission(c, authorization.ManagementPermissionInfrastructureManage) {
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 // DeleteVNets deletes multiple SDN virtual networks and applies the config once.
 // DELETE /api/v1/sdn/vnets
 func (h *SDNHandler) DeleteVNets(c *gin.Context) {
-	if !h.requireSDNPermission(c, authorization.ManageSDN) {
+	if !h.requireSDNPermission(c, authorization.ManagementPermissionInfrastructureManage) {
 		return
 	}
 

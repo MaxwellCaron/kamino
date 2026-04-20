@@ -33,7 +33,10 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useState } from "react"
 import type { ApiTreeNode, ApiTreeNodeVM, VmResources } from "@/lib/queries"
 import type { ReactNode } from "@tabler/icons-react"
-import { InventoryPermissionBits, hasInventoryPermission } from "@/lib/queries"
+import {
+  InventoryPermissionBits,
+  hasInventoryPermission,
+} from "@/lib/inventory-permissions"
 import { LoadingTransition } from "@/components/loading-transition"
 import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
 import { formatBytes, formatMemory, formatUptime } from "@/lib/utils"

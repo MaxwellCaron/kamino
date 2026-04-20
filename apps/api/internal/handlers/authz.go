@@ -17,8 +17,7 @@ type PermissionEnvelope struct {
 }
 
 type ManagementPermissionEnvelope struct {
-	AllowedMask authorization.ManagementMask `json:"allowed_mask"`
-	DeniedMask  authorization.ManagementMask `json:"denied_mask"`
+	Grants []authorization.ManagementPermission `json:"grants"`
 }
 
 func currentPrincipalID(c *gin.Context) (uuid.UUID, bool) {
@@ -42,8 +41,7 @@ func toManagementPermissionEnvelope(
 	value authorization.EffectiveManagementPermissions,
 ) ManagementPermissionEnvelope {
 	return ManagementPermissionEnvelope{
-		AllowedMask: value.AllowedMask,
-		DeniedMask:  value.DeniedMask,
+		Grants: value.Grants,
 	}
 }
 
@@ -185,7 +183,7 @@ func requireManagementPermission(
 	c *gin.Context,
 	authzService *authorization.Service,
 	principalID uuid.UUID,
-	required authorization.ManagementMask,
+	required authorization.ManagementPermission,
 ) bool {
 	err := authzService.RequireManagement(c.Request.Context(), principalID, required)
 	switch {
@@ -205,13 +203,30 @@ type AuthorizationHandler struct {
 }
 
 type updateManagementACLRequest struct {
-	Permissions authorization.ManagementMask `json:"permissions"`
+	Grants []authorization.ManagementPermission `json:"grants"`
+}
+
+type managementPermissionDefinitionResponse struct {
+	BootstrapOnly bool                               `json:"bootstrap_only"`
+	Dangerous     bool                               `json:"dangerous"`
+	Description   string                             `json:"description"`
+	Key           authorization.ManagementPermission `json:"key"`
+	Label         string                             `json:"label"`
+}
+
+type managementPermissionSectionResponse struct {
+	Key         string                                   `json:"key"`
+	Label       string                                   `json:"label"`
+	Permissions []managementPermissionDefinitionResponse `json:"permissions"`
 }
 
 type managementACLResponse struct {
-	GroupID     uuid.UUID                    `json:"group_id"`
-	Permissions ManagementPermissionEnvelope `json:"permissions"`
-	Immutable   bool                         `json:"immutable"`
+	CanEditBootstrapOnly bool                                  `json:"can_edit_bootstrap_only"`
+	EffectiveGrants      []authorization.ManagementPermission  `json:"effective_grants"`
+	Grants               []authorization.ManagementPermission  `json:"grants"`
+	GroupID              uuid.UUID                             `json:"group_id"`
+	Immutable            bool                                  `json:"immutable"`
+	Sections             []managementPermissionSectionResponse `json:"sections"`
 }
 
 func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
@@ -221,7 +236,7 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 		return
 	}
 
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManageAccess) {
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAccessManage) {
 		return
 	}
 
@@ -231,7 +246,11 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 		return
 	}
 
-	permissions, immutable, err := h.Authz.GetManagementPermissionsForGroup(c.Request.Context(), groupID)
+	permissions, err := h.Authz.GetManagementPermissionsForGroup(
+		c.Request.Context(),
+		principalID,
+		groupID,
+	)
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
@@ -246,12 +265,12 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, managementACLResponse{
-		GroupID: groupID,
-		Permissions: ManagementPermissionEnvelope{
-			AllowedMask: permissions,
-			DeniedMask:  0,
-		},
-		Immutable: immutable,
+		CanEditBootstrapOnly: permissions.CanEditBootstrapOnly,
+		EffectiveGrants:      permissions.EffectiveGrants,
+		Grants:               permissions.Grants,
+		GroupID:              groupID,
+		Immutable:            permissions.Immutable,
+		Sections:             managementPermissionSectionsResponse(),
 	})
 }
 
@@ -262,7 +281,7 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 		return
 	}
 
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManageAccess) {
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAccessManage) {
 		return
 	}
 
@@ -280,8 +299,9 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 
 	err = h.Authz.SetManagementPermissionsForGroup(
 		c.Request.Context(),
+		principalID,
 		groupID,
-		req.Permissions,
+		req.Grants,
 	)
 	switch {
 	case err == nil:
@@ -300,4 +320,36 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func managementPermissionSectionsResponse() []managementPermissionSectionResponse {
+	catalog := authorization.ManagementPermissionCatalog()
+	sections := make([]managementPermissionSectionResponse, 0, len(catalog))
+	sectionIndexByKey := make(map[string]int, len(catalog))
+
+	for _, definition := range catalog {
+		index, ok := sectionIndexByKey[definition.SectionKey]
+		if !ok {
+			index = len(sections)
+			sectionIndexByKey[definition.SectionKey] = index
+			sections = append(sections, managementPermissionSectionResponse{
+				Key:         definition.SectionKey,
+				Label:       definition.SectionLabel,
+				Permissions: make([]managementPermissionDefinitionResponse, 0),
+			})
+		}
+
+		sections[index].Permissions = append(
+			sections[index].Permissions,
+			managementPermissionDefinitionResponse{
+				BootstrapOnly: definition.BootstrapOnly,
+				Dangerous:     definition.Dangerous,
+				Description:   definition.Description,
+				Key:           definition.Key,
+				Label:         definition.Label,
+			},
+		)
+	}
+
+	return sections
 }

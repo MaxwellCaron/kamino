@@ -9,11 +9,11 @@ import {
 import { getPermissionState } from "./acl-transformers"
 import { PermissionStateControl } from "./permission-state-control"
 import type { DraftPrincipal, PermissionState } from "./types"
-import type { getInventoryPermissionDefinitionsByGroup } from "@/lib/inventory-permissions"
+import type { InventoryPermissionSection } from "@/lib/inventory-permissions"
 
 type PermissionScopeSectionProps = {
   onPermissionChange: (bit: number, state: PermissionState) => void
-  permissionGroups: ReturnType<typeof getInventoryPermissionDefinitionsByGroup>
+  permissionGroups: Array<InventoryPermissionSection>
   principal: DraftPrincipal
 }
 
@@ -23,9 +23,9 @@ export function PermissionScopeSection({
   principal,
 }: PermissionScopeSectionProps) {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {permissionGroups.map((group) => (
-        <div key={group.group} className="space-y-3">
+        <div key={group.key} className="flex flex-col gap-3">
           <div className="px-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {group.label}
           </div>

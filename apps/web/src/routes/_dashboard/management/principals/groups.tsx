@@ -23,7 +23,7 @@ import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-act
 import type { ApiPrincipal } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
-  ManagementPermissionBits,
+  ManagementPermissionKeys,
   deleteGroup,
   groupsQueryOptions,
   hasManagementPermission,
@@ -50,15 +50,15 @@ function GroupsPage() {
   const { user } = Route.useRouteContext()
   const canViewPrincipals = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.viewPrincipals
+    ManagementPermissionKeys.principalsView
   )
   const canManageGroups = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.managePrincipals
+    ManagementPermissionKeys.principalsManage
   )
   const canManageAccess = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.manageAccess
+    ManagementPermissionKeys.accessManage
   )
   const canView = canViewPrincipals || canManageAccess
   const {

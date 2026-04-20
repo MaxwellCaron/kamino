@@ -15,7 +15,7 @@ import {
 } from "@workspace/ui/components/input-group"
 import { nestedDialogAnimationClassName } from "./constants"
 import { PermissionScopeSection } from "./permission-scope-section"
-import type { getInventoryPermissionDefinitionsByGroup } from "@/lib/inventory-permissions"
+import type { InventoryPermissionSection } from "@/lib/inventory-permissions"
 import type { DraftPrincipal, PermissionState } from "./types"
 import {
   AppDialogContent,
@@ -28,7 +28,7 @@ type CustomizePermissionsDialogProps = {
   onSave: () => void
   onOpenChange: (open: boolean) => void
   onPermissionChange: (bit: number, state: PermissionState) => void
-  permissionGroups: ReturnType<typeof getInventoryPermissionDefinitionsByGroup>
+  permissionGroups: Array<InventoryPermissionSection>
 }
 
 export function CustomizePermissionsDialog({
@@ -58,7 +58,7 @@ export function CustomizePermissionsDialog({
         ...group,
         permissions: group.permissions.filter((permission) =>
           [
-            group.group,
+            group.key,
             group.label,
             permission.key,
             permission.label,

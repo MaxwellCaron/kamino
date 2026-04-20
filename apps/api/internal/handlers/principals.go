@@ -17,7 +17,7 @@ type PrincipalsHandler struct {
 
 func (h *PrincipalsHandler) requirePrincipalPermission(
 	c *gin.Context,
-	required authorization.ManagementMask,
+	required authorization.ManagementPermission,
 ) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -133,7 +133,7 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 // ListUsers returns all user principals.
 // GET /api/v1/principals/users
 func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ViewPrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsView) {
 		return
 	}
 
@@ -158,7 +158,7 @@ type createUserRequest struct {
 // CreateUser creates a new user.
 // POST /api/v1/principals/users
 func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -184,7 +184,7 @@ type updateUserRequest struct {
 // UpdateUser updates a user's name.
 // PUT /api/v1/principals/users/:id
 func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -215,7 +215,7 @@ type setPasswordRequest struct {
 // SetPassword sets a user's password.
 // POST /api/v1/principals/users/:id/password
 func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 // EnableUser enables a user account.
 // POST /api/v1/principals/users/:id/enable
 func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -263,7 +263,7 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 // DisableUser disables a user account.
 // POST /api/v1/principals/users/:id/disable
 func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -284,7 +284,7 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 // DeleteUsers deletes multiple users.
 // DELETE /api/v1/principals/users
 func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -312,7 +312,7 @@ func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
 	canViewPrincipals, err := h.Authz.HasManagement(
 		c.Request.Context(),
 		principalID,
-		authorization.ViewPrincipals,
+		authorization.ManagementPermissionPrincipalsView,
 	)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize principal group list", err)
@@ -321,7 +321,7 @@ func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
 	canManageAccess, err := h.Authz.HasManagement(
 		c.Request.Context(),
 		principalID,
-		authorization.ManageAccess,
+		authorization.ManagementPermissionAccessManage,
 	)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize principal group list", err)
@@ -352,7 +352,7 @@ type createGroupRequest struct {
 // CreateGroup creates a new group.
 // POST /api/v1/principals/groups
 func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -378,7 +378,7 @@ type updateGroupRequest struct {
 // UpdateGroup updates a group's name.
 // PUT /api/v1/principals/groups/:id
 func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -405,7 +405,7 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 // DeleteGroups deletes multiple groups.
 // DELETE /api/v1/principals/groups
 func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -424,7 +424,7 @@ func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
 // GetGroupMembers returns the members of a group.
 // GET /api/v1/principals/groups/:id/members
 func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ViewPrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsView) {
 		return
 	}
 
@@ -449,7 +449,7 @@ func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
 // AddGroupMembers adds members to a group.
 // POST /api/v1/principals/groups/:id/members
 func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -494,7 +494,7 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 // RemoveGroupMembers removes members from a group.
 // DELETE /api/v1/principals/groups/:id/members
 func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 
@@ -539,7 +539,7 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 // GetUserGroups returns the groups a user belongs to.
 // GET /api/v1/principals/users/:id/groups
 func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ViewPrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsView) {
 		return
 	}
 
@@ -566,7 +566,7 @@ func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
 // TriggerSync manually triggers a full sync.
 // POST /api/v1/principals/sync
 func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagePrincipals) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionPrincipalsManage) {
 		return
 	}
 

@@ -42,12 +42,11 @@ import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import { useInventoryFavorites } from "./tree/inventory-tree"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
 import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
+import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
 import {
   InventoryPermissionBits,
-  findTreeNode,
   hasInventoryPermission,
-  inventoryTreeQueryOptions,
-} from "@/lib/queries"
+} from "@/lib/inventory-permissions"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
 import { formatVmReference } from "@/lib/utils"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"

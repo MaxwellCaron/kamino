@@ -18,7 +18,7 @@ import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-act
 import type { ApiVNet } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
-  ManagementPermissionBits,
+  ManagementPermissionKeys,
   deleteVNet,
   hasManagementPermission,
   vnetsQueryOptions,
@@ -40,11 +40,11 @@ function SdnPage() {
   const { user } = Route.useRouteContext()
   const canView = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.viewSdn
+    ManagementPermissionKeys.infrastructureView
   )
   const canManage = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionBits.manageSdn
+    ManagementPermissionKeys.infrastructureManage
   )
   const {
     data: vnets,

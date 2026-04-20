@@ -106,7 +106,7 @@ export function getGroupColumns({
             {canManageAccess && (
               <DropdownMenuItem onClick={() => onEditAccess(group)}>
                 <IconLockAccess className="text-muted-foreground" />
-                Access
+                Permissions
               </DropdownMenuItem>
             )}
             {canManageGroups && (

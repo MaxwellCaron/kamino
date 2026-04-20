@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/components/vm/vnc-console"
 import {
   InventoryPermissionBits,
-  findTreeNode,
   hasInventoryPermission,
+} from "@/lib/inventory-permissions"
+import {
+  findTreeNode,
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
   vmResourcesQueryOptions,

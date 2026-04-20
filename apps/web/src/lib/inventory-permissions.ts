@@ -1,177 +1,304 @@
-import type { ApiTreeNode } from "@/lib/queries"
-import { InventoryPermissionBits } from "@/lib/queries"
+export const InventoryPermissionKeys = {
+  consoleVm: "consoleVm",
+  createFolder: "createFolder",
+  createVm: "createVm",
+  deleteFolder: "deleteFolder",
+  deleteVm: "deleteVm",
+  editVmHardware: "editVmHardware",
+  cloneVm: "cloneVm",
+  managePermissions: "managePermissions",
+  moveFolder: "moveFolder",
+  moveVm: "moveVm",
+  powerVm: "powerVm",
+  renameFolder: "renameFolder",
+  renameVm: "renameVm",
+  snapshotVm: "snapshotVm",
+  templateVm: "templateVm",
+  view: "view",
+} as const
 
-export type InventoryPermissionGroup = "general" | "folder" | "vm"
+export type InventoryPermissionKey =
+  (typeof InventoryPermissionKeys)[keyof typeof InventoryPermissionKeys]
+
+export type InventoryPermissionTargetKind = "folder" | "vm"
+
+export type InventoryPermissionSectionKey = "general" | "folder" | "vm"
 
 export type InventoryPermissionDefinition = {
+  appliesToKinds: Array<InventoryPermissionTargetKind>
   bit: number
   description: string
-  group: InventoryPermissionGroup
-  key: keyof typeof InventoryPermissionBits
+  key: InventoryPermissionKey
   label: string
+  order: number
+  sectionKey: InventoryPermissionSectionKey
+  sectionLabel: string
+  sectionOrder: number
 }
 
-export const INVENTORY_PERMISSION_DEFINITIONS: Array<InventoryPermissionDefinition> =
-  [
-    {
-      bit: InventoryPermissionBits.view,
-      key: "view",
-      label: "View",
-      description:
-        "Show inventory items covered by this rule in tree and details views.",
-      group: "general",
-    },
-    {
-      bit: InventoryPermissionBits.managePermissions,
-      key: "managePermissions",
-      label: "Manage Permissions",
-      description: "Edit direct ACL overrides for items covered by this rule.",
-      group: "general",
-    },
-    {
-      bit: InventoryPermissionBits.createVm,
-      key: "createVm",
-      label: "Create VM",
-      description: "Create new VMs inside this folder.",
-      group: "folder",
-    },
-    {
-      bit: InventoryPermissionBits.createFolder,
-      key: "createFolder",
-      label: "Create Folder",
-      description: "Create child folders inside this folder.",
-      group: "folder",
-    },
-    {
-      bit: InventoryPermissionBits.renameFolder,
-      key: "renameFolder",
-      label: "Rename Folder",
-      description: "Rename this folder.",
-      group: "folder",
-    },
-    {
-      bit: InventoryPermissionBits.deleteFolder,
-      key: "deleteFolder",
-      label: "Delete Folder",
-      description: "Delete this folder and its subtree.",
-      group: "folder",
-    },
-    {
-      bit: InventoryPermissionBits.moveFolder,
-      key: "moveFolder",
-      label: "Move Folder",
-      description: "Move this folder within the inventory tree.",
-      group: "folder",
-    },
-    {
-      bit: InventoryPermissionBits.editVmHardware,
-      key: "editVmHardware",
-      label: "Hardware",
-      description:
-        "Edit CPU, memory, disk, firmware, and network hardware for VMs covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.renameVm,
-      key: "renameVm",
-      label: "Rename VM",
-      description: "Rename VMs or templates covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.deleteVm,
-      key: "deleteVm",
-      label: "Delete VM",
-      description: "Delete VMs or templates covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.moveVm,
-      key: "moveVm",
-      label: "Move VM",
-      description: "Move VMs covered by this rule between folders.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.powerVm,
-      key: "powerVm",
-      label: "Power VM",
-      description:
-        "Start, stop, reboot, and shut down VMs covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.consoleVm,
-      key: "consoleVm",
-      label: "Console VM",
-      description: "Open the VNC console for VMs covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.cloneVm,
-      key: "cloneVm",
-      label: "Clone VM",
-      description: "Clone VMs or templates covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.snapshotVm,
-      key: "snapshotVm",
-      label: "Snapshot VM",
-      description:
-        "Create, delete, and roll back snapshots for VMs covered by this rule.",
-      group: "vm",
-    },
-    {
-      bit: InventoryPermissionBits.templateVm,
-      key: "templateVm",
-      label: "Templatize VM",
-      description: "Convert VMs covered by this rule into templates.",
-      group: "vm",
-    },
-  ]
-
-export const INVENTORY_PERMISSION_GROUP_LABELS: Record<
-  InventoryPermissionGroup,
-  string
-> = {
-  general: "General",
-  folder: "Folder",
-  vm: "VM",
+export type InventoryPermissionSection = {
+  key: InventoryPermissionSectionKey
+  label: string
+  permissions: Array<InventoryPermissionDefinition>
 }
 
-const PERMISSION_GROUPS_BY_KIND: Record<
-  ApiTreeNode["kind"],
-  Array<InventoryPermissionGroup>
-> = {
-  folder: ["general", "folder", "vm"],
-  vm: ["general", "vm"],
+export const InventoryPermissionBits: Record<InventoryPermissionKey, number> = {
+  [InventoryPermissionKeys.view]: 1 << 0,
+  [InventoryPermissionKeys.createVm]: 1 << 1,
+  [InventoryPermissionKeys.createFolder]: 1 << 2,
+  [InventoryPermissionKeys.renameVm]: 1 << 3,
+  [InventoryPermissionKeys.renameFolder]: 1 << 4,
+  [InventoryPermissionKeys.deleteVm]: 1 << 5,
+  [InventoryPermissionKeys.deleteFolder]: 1 << 6,
+  [InventoryPermissionKeys.moveVm]: 1 << 7,
+  [InventoryPermissionKeys.moveFolder]: 1 << 8,
+  [InventoryPermissionKeys.powerVm]: 1 << 9,
+  [InventoryPermissionKeys.consoleVm]: 1 << 10,
+  [InventoryPermissionKeys.cloneVm]: 1 << 11,
+  [InventoryPermissionKeys.snapshotVm]: 1 << 12,
+  [InventoryPermissionKeys.templateVm]: 1 << 13,
+  [InventoryPermissionKeys.managePermissions]: 1 << 14,
+  [InventoryPermissionKeys.editVmHardware]: 1 << 15,
 }
 
-export function getInventoryPermissionDefinitions(kind: ApiTreeNode["kind"]) {
-  const groups = new Set(PERMISSION_GROUPS_BY_KIND[kind])
+const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.view,
+    key: InventoryPermissionKeys.view,
+    label: "View",
+    description:
+      "Show inventory items covered by this rule in tree and details views.",
+    sectionKey: "general",
+    sectionLabel: "General",
+    sectionOrder: 0,
+    order: 0,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.managePermissions,
+    key: InventoryPermissionKeys.managePermissions,
+    label: "Manage Permissions",
+    description: "Edit direct ACL overrides for items covered by this rule.",
+    sectionKey: "general",
+    sectionLabel: "General",
+    sectionOrder: 0,
+    order: 1,
+  },
+  {
+    appliesToKinds: ["folder"],
+    bit: InventoryPermissionBits.createVm,
+    key: InventoryPermissionKeys.createVm,
+    label: "Create VM",
+    description: "Create new VMs inside this folder.",
+    sectionKey: "folder",
+    sectionLabel: "Folder",
+    sectionOrder: 1,
+    order: 0,
+  },
+  {
+    appliesToKinds: ["folder"],
+    bit: InventoryPermissionBits.createFolder,
+    key: InventoryPermissionKeys.createFolder,
+    label: "Create Folder",
+    description: "Create child folders inside this folder.",
+    sectionKey: "folder",
+    sectionLabel: "Folder",
+    sectionOrder: 1,
+    order: 1,
+  },
+  {
+    appliesToKinds: ["folder"],
+    bit: InventoryPermissionBits.renameFolder,
+    key: InventoryPermissionKeys.renameFolder,
+    label: "Rename Folder",
+    description: "Rename this folder.",
+    sectionKey: "folder",
+    sectionLabel: "Folder",
+    sectionOrder: 1,
+    order: 2,
+  },
+  {
+    appliesToKinds: ["folder"],
+    bit: InventoryPermissionBits.deleteFolder,
+    key: InventoryPermissionKeys.deleteFolder,
+    label: "Delete Folder",
+    description: "Delete this folder and its subtree.",
+    sectionKey: "folder",
+    sectionLabel: "Folder",
+    sectionOrder: 1,
+    order: 3,
+  },
+  {
+    appliesToKinds: ["folder"],
+    bit: InventoryPermissionBits.moveFolder,
+    key: InventoryPermissionKeys.moveFolder,
+    label: "Move Folder",
+    description: "Move this folder within the inventory tree.",
+    sectionKey: "folder",
+    sectionLabel: "Folder",
+    sectionOrder: 1,
+    order: 4,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.editVmHardware,
+    key: InventoryPermissionKeys.editVmHardware,
+    label: "Hardware",
+    description:
+      "Edit CPU, memory, disk, firmware, and network hardware for VMs covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 0,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.renameVm,
+    key: InventoryPermissionKeys.renameVm,
+    label: "Rename VM",
+    description: "Rename VMs or templates covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 1,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.deleteVm,
+    key: InventoryPermissionKeys.deleteVm,
+    label: "Delete VM",
+    description: "Delete VMs or templates covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 2,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.moveVm,
+    key: InventoryPermissionKeys.moveVm,
+    label: "Move VM",
+    description: "Move VMs covered by this rule between folders.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 3,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.powerVm,
+    key: InventoryPermissionKeys.powerVm,
+    label: "Power VM",
+    description: "Start, stop, reboot, and shut down VMs covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 4,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.consoleVm,
+    key: InventoryPermissionKeys.consoleVm,
+    label: "Console VM",
+    description: "Open the VNC console for VMs covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 5,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.cloneVm,
+    key: InventoryPermissionKeys.cloneVm,
+    label: "Clone VM",
+    description: "Clone VMs or templates covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 6,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.snapshotVm,
+    key: InventoryPermissionKeys.snapshotVm,
+    label: "Snapshot VM",
+    description:
+      "Create, delete, and roll back snapshots for VMs covered by this rule.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 7,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.templateVm,
+    key: InventoryPermissionKeys.templateVm,
+    label: "Templatize VM",
+    description: "Convert VMs covered by this rule into templates.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 8,
+  },
+]
 
-  return INVENTORY_PERMISSION_DEFINITIONS.filter((permission) =>
-    groups.has(permission.group)
+export const FullInventoryPermissionMask =
+  inventoryPermissionDefinitions.reduce(
+    (mask, permission) => mask | permission.bit,
+    0
+  )
+
+export function inventoryPermissionCatalog() {
+  return [...inventoryPermissionDefinitions]
+}
+
+export function getInventoryPermissionDefinitions(
+  kind: InventoryPermissionTargetKind
+) {
+  return inventoryPermissionDefinitions.filter((permission) =>
+    permission.appliesToKinds.includes(kind)
   )
 }
 
 export function getInventoryPermissionDefinitionsByGroup(
-  kind: ApiTreeNode["kind"]
-) {
-  const definitions = getInventoryPermissionDefinitions(kind)
-  return PERMISSION_GROUPS_BY_KIND[kind].map((group) => ({
-    group,
-    label: INVENTORY_PERMISSION_GROUP_LABELS[group],
-    permissions: definitions.filter((permission) => permission.group === group),
-  }))
+  kind: InventoryPermissionTargetKind
+): Array<InventoryPermissionSection> {
+  const sections = new Map<
+    InventoryPermissionSectionKey,
+    InventoryPermissionSection
+  >()
+
+  for (const permission of getInventoryPermissionDefinitions(kind)) {
+    const section = sections.get(permission.sectionKey) ?? {
+      key: permission.sectionKey,
+      label: permission.sectionLabel,
+      permissions: [],
+    }
+    section.permissions.push(permission)
+    sections.set(permission.sectionKey, section)
+  }
+
+  return [...sections.values()].sort((left, right) => {
+    const leftDefinition = left.permissions[0]
+    const rightDefinition = right.permissions[0]
+    return leftDefinition.sectionOrder - rightDefinition.sectionOrder
+  })
 }
 
 export function getInventoryPermissionLabels(
-  kind: ApiTreeNode["kind"],
+  kind: InventoryPermissionTargetKind,
   mask: number
 ) {
   return getInventoryPermissionDefinitions(kind).filter(
     (permission) => (mask & permission.bit) === permission.bit
   )
+}
+
+export function hasInventoryPermission(
+  permissions: { allowed_mask: number } | undefined,
+  required: number
+) {
+  if (!permissions) return false
+  return (permissions.allowed_mask & required) === required
 }

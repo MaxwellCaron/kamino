@@ -1,5 +1,8 @@
 import type { ApiTreeNode } from "@/lib/queries"
-import { InventoryPermissionBits, hasInventoryPermission } from "@/lib/queries"
+import {
+  InventoryPermissionBits,
+  hasInventoryPermission,
+} from "@/lib/inventory-permissions"
 
 export const INVENTORY_KIND_SORT_ORDER = {
   folder: 0,

@@ -28,7 +28,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { NavUser } from "./nav-user"
 import type { AuthUser } from "@/lib/queries"
 import {
-  ManagementPermissionBits,
+  ManagementPermissionKeys,
   hasManagementPermission,
 } from "@/lib/queries"
 import {
@@ -110,24 +110,24 @@ export function AppSidebar({
         if (item.url === "/management/sdn") {
           return hasManagementPermission(
             user.management_permissions,
-            ManagementPermissionBits.viewSdn
+            ManagementPermissionKeys.infrastructureView
           )
         }
         if (item.url === "/management/principals/users") {
           return hasManagementPermission(
             user.management_permissions,
-            ManagementPermissionBits.viewPrincipals
+            ManagementPermissionKeys.principalsView
           )
         }
         if (item.url === "/management/principals/groups") {
           return (
             hasManagementPermission(
               user.management_permissions,
-              ManagementPermissionBits.viewPrincipals
+              ManagementPermissionKeys.principalsView
             ) ||
             hasManagementPermission(
               user.management_permissions,
-              ManagementPermissionBits.manageAccess
+              ManagementPermissionKeys.accessManage
             )
           )
         }

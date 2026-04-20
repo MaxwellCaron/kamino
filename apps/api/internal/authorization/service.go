@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrForbidden                  = errors.New("forbidden")
-	ErrManagementACLRequiresGroup = errors.New("management ACL requires a group principal")
+	ErrForbidden                   = errors.New("forbidden")
+	ErrManagementACLRequiresGroup  = errors.New("management ACL requires a group principal")
+	ErrUnknownManagementPermission = errors.New("unknown management permission")
 )
 
 type Service struct {
@@ -129,50 +130,47 @@ func (s *Service) EffectiveManagementPermissions(
 	}
 	if isAdmin {
 		return EffectiveManagementPermissions{
-			AllowedMask: FullManagementAccessMask,
-			DeniedMask:  0,
+			Grants: AllManagementPermissions(),
 		}, nil
 	}
 
-	row, err := database.New(s.db).GetEffectiveManagementPermissions(ctx, principalID)
+	keys, err := database.New(s.db).ListEffectiveManagementPermissionKeys(ctx, principalID)
+	if err != nil {
+		return EffectiveManagementPermissions{}, err
+	}
+
+	permissions := make([]ManagementPermission, 0, len(keys))
+	for _, key := range keys {
+		permissions = append(permissions, ManagementPermission(key))
+	}
+
+	effective, err := ExpandEffectiveManagementPermissions(permissions)
 	if err != nil {
 		return EffectiveManagementPermissions{}, err
 	}
 
 	return EffectiveManagementPermissions{
-		AllowedMask: ManagementMask(row.AllowedMask),
-		DeniedMask:  ManagementMask(row.DeniedMask),
+		Grants: effective,
 	}, nil
 }
 
 func (s *Service) HasManagement(
 	ctx context.Context,
 	principalID uuid.UUID,
-	required ManagementMask,
+	required ManagementPermission,
 ) (bool, error) {
-	isAdmin, err := s.HasProtectedAccess(ctx, principalID)
-	if err != nil {
-		return false, err
-	}
-	if isAdmin {
-		return true, nil
-	}
-
-	allowed, err := database.New(s.db).HasManagementPermission(ctx, database.HasManagementPermissionParams{
-		PrincipalID:  principalID,
-		RequiredMask: int64(required),
-	})
+	effective, err := s.EffectiveManagementPermissions(ctx, principalID)
 	if err != nil {
 		return false, err
 	}
 
-	return allowed, nil
+	return effective.Has(required), nil
 }
 
 func (s *Service) RequireManagement(
 	ctx context.Context,
 	principalID uuid.UUID,
-	required ManagementMask,
+	required ManagementPermission,
 ) error {
 	allowed, err := s.HasManagement(ctx, principalID, required)
 	if err != nil {
@@ -318,37 +316,70 @@ func (s *Service) BootstrapRootAccess(
 	return nil
 }
 
+type GroupManagementPermissions struct {
+	CanEditBootstrapOnly bool
+	EffectiveGrants      []ManagementPermission
+	Grants               []ManagementPermission
+	Immutable            bool
+}
+
 func (s *Service) GetManagementPermissionsForGroup(
 	ctx context.Context,
+	actorPrincipalID uuid.UUID,
 	groupID uuid.UUID,
-) (ManagementMask, bool, error) {
+) (GroupManagementPermissions, error) {
 	if err := s.requireGroupPrincipal(ctx, groupID); err != nil {
-		return 0, false, err
+		return GroupManagementPermissions{}, err
+	}
+
+	actorHasProtectedAccess, err := s.HasProtectedAccess(ctx, actorPrincipalID)
+	if err != nil {
+		return GroupManagementPermissions{}, err
 	}
 
 	if s.IsProtectedManagementGroup(groupID) {
-		return FullManagementAccessMask, true, nil
+		fullAccess := AllManagementPermissions()
+		return GroupManagementPermissions{
+			CanEditBootstrapOnly: actorHasProtectedAccess,
+			EffectiveGrants:      fullAccess,
+			Grants:               fullAccess,
+			Immutable:            true,
+		}, nil
 	}
 
-	permissions, err := database.New(s.db).GetManagementACLEntryForGroup(ctx, groupID)
+	keys, err := database.New(s.db).ListManagementPermissionGrantsForGroup(ctx, groupID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, false, nil
-		}
-		return 0, false, err
+		return GroupManagementPermissions{}, err
 	}
 
-	return ManagementMask(permissions), false, nil
+	grants := make([]ManagementPermission, 0, len(keys))
+	for _, key := range keys {
+		grants = append(grants, ManagementPermission(key))
+	}
+
+	directGrants, err := NormalizeDirectManagementPermissions(grants)
+	if err != nil {
+		return GroupManagementPermissions{}, err
+	}
+	effectiveGrants, err := ExpandEffectiveManagementPermissions(directGrants)
+	if err != nil {
+		return GroupManagementPermissions{}, err
+	}
+
+	return GroupManagementPermissions{
+		CanEditBootstrapOnly: actorHasProtectedAccess,
+		EffectiveGrants:      effectiveGrants,
+		Grants:               directGrants,
+		Immutable:            false,
+	}, nil
 }
 
 func (s *Service) SetManagementPermissionsForGroup(
 	ctx context.Context,
+	actorPrincipalID uuid.UUID,
 	groupID uuid.UUID,
-	permissions ManagementMask,
+	permissions []ManagementPermission,
 ) error {
-	if err := validateManagementMask(permissions); err != nil {
-		return err
-	}
 	if err := s.requireGroupPrincipal(ctx, groupID); err != nil {
 		return err
 	}
@@ -356,15 +387,64 @@ func (s *Service) SetManagementPermissionsForGroup(
 		return ErrForbidden
 	}
 
-	q := database.New(s.db)
-	if permissions == 0 {
-		return q.DeleteManagementACLEntryForGroup(ctx, groupID)
+	directGrants, err := NormalizeDirectManagementPermissions(permissions)
+	if err != nil {
+		return err
 	}
 
-	return q.UpsertManagementACLEntry(ctx, database.UpsertManagementACLEntryParams{
-		GroupPrincipalID: groupID,
-		Permissions:      int64(permissions),
-	})
+	actorHasProtectedAccess, err := s.HasProtectedAccess(ctx, actorPrincipalID)
+	if err != nil {
+		return err
+	}
+
+	currentKeys, err := database.New(s.db).ListManagementPermissionGrantsForGroup(ctx, groupID)
+	if err != nil {
+		return err
+	}
+
+	currentPermissions := make([]ManagementPermission, 0, len(currentKeys))
+	for _, key := range currentKeys {
+		currentPermissions = append(currentPermissions, ManagementPermission(key))
+	}
+
+	currentGrants, err := NormalizeDirectManagementPermissions(currentPermissions)
+	if err != nil {
+		return err
+	}
+
+	currentHasAdministrator := managementPermissionSliceHas(
+		currentGrants,
+		ManagementPermissionAdministrator,
+	)
+	nextHasAdministrator := managementPermissionSliceHas(
+		directGrants,
+		ManagementPermissionAdministrator,
+	)
+	if currentHasAdministrator != nextHasAdministrator && !actorHasProtectedAccess {
+		return ErrForbidden
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	txq := database.New(tx)
+	if err := txq.DeleteManagementPermissionGrantsForGroup(ctx, groupID); err != nil {
+		return err
+	}
+
+	for _, permission := range directGrants {
+		if err := txq.CreateManagementPermissionGrant(ctx, database.CreateManagementPermissionGrantParams{
+			GroupPrincipalID: groupID,
+			PermissionKey:    string(permission),
+		}); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (s *Service) HasProtectedAccess(
@@ -411,17 +491,6 @@ func deref(value *string) string {
 	return *value
 }
 
-func validateManagementMask(mask ManagementMask) error {
-	if mask < 0 {
-		return fmt.Errorf("invalid management ACL: permissions must be zero or greater")
-	}
-	if mask&^FullManagementAccessMask != 0 {
-		return fmt.Errorf("invalid management ACL: permissions include unknown bits")
-	}
-
-	return nil
-}
-
 func IsForbidden(err error) bool {
 	return errors.Is(err, ErrForbidden)
 }
@@ -461,4 +530,17 @@ func HasProtectedPrincipalAccess(
 func isForeignKeyViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
+}
+
+func managementPermissionSliceHas(
+	permissions []ManagementPermission,
+	required ManagementPermission,
+) bool {
+	for _, permission := range permissions {
+		if permission == required {
+			return true
+		}
+	}
+
+	return false
 }

@@ -1,3 +1,27 @@
+import {
+  ManagementPermissionKeys,
+  expandManagementPermissionGrants,
+  hasManagementPermission,
+  normalizeManagementPermissionGrants,
+} from "@/lib/management-permissions"
+import {
+  InventoryPermissionBits,
+  hasInventoryPermission,
+} from "@/lib/inventory-permissions"
+import type {
+  ApiManagementPermissionSection,
+  ManagementPermissionKey,
+} from "@/lib/management-permissions"
+
+export {
+  InventoryPermissionBits,
+  ManagementPermissionKeys,
+  expandManagementPermissionGrants,
+  hasInventoryPermission,
+  hasManagementPermission,
+  normalizeManagementPermissionGrants,
+}
+
 // --- Auth & fetch wrapper ---
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
@@ -245,74 +269,21 @@ export type ApiTreeNodeVM = {
 }
 
 export type ApiManagementPermissions = {
-  allowed_mask: number
-  denied_mask: number
+  grants: Array<ManagementPermissionKey>
 }
 
 export type ApiGroupManagementAcl = {
+  can_edit_bootstrap_only: boolean
+  effective_grants: Array<ManagementPermissionKey>
+  grants: Array<ManagementPermissionKey>
   group_id: string
-  permissions: ApiManagementPermissions
   immutable: boolean
+  sections: Array<ApiManagementPermissionSection>
 }
-
-export const ManagementPermissionBits = {
-  viewSdn: 1 << 0,
-  manageSdn: 1 << 1,
-  viewPrincipals: 1 << 2,
-  managePrincipals: 1 << 3,
-  manageAccess: 1 << 4,
-} as const
-
-export function hasManagementPermission(
-  permissions: ApiManagementPermissions,
-  required: number
-) {
-  return (permissions.allowed_mask & required) === required
-}
-
-export function normalizeManagementPermissionMask(mask: number) {
-  let normalized = mask
-
-  if (normalized & ManagementPermissionBits.manageSdn) {
-    normalized |= ManagementPermissionBits.viewSdn
-  }
-  if (normalized & ManagementPermissionBits.managePrincipals) {
-    normalized |= ManagementPermissionBits.viewPrincipals
-  }
-
-  return normalized
-}
-
-export const InventoryPermissionBits = {
-  view: 1 << 0,
-  createVm: 1 << 1,
-  createFolder: 1 << 2,
-  renameVm: 1 << 3,
-  renameFolder: 1 << 4,
-  deleteVm: 1 << 5,
-  deleteFolder: 1 << 6,
-  moveVm: 1 << 7,
-  moveFolder: 1 << 8,
-  powerVm: 1 << 9,
-  consoleVm: 1 << 10,
-  cloneVm: 1 << 11,
-  snapshotVm: 1 << 12,
-  templateVm: 1 << 13,
-  managePermissions: 1 << 14,
-  editVmHardware: 1 << 15,
-} as const
 
 export type ApiTreeNodePermissions = {
   allowed_mask: number
   denied_mask: number
-}
-
-export function hasInventoryPermission(
-  permissions: ApiTreeNodePermissions | undefined,
-  required: number
-) {
-  if (!permissions) return false
-  return (permissions.allowed_mask & required) === required
 }
 
 export type ApiTreeNode = {
@@ -1150,7 +1121,7 @@ export function groupManagementAclQueryOptions(groupId: string) {
 
 export async function updateGroupManagementAcl(
   groupId: string,
-  permissions: number
+  grants: Array<ManagementPermissionKey>
 ): Promise<void> {
   const res = await apiFetch(
     `/api/v1/principals/groups/${groupId}/management-access`,
@@ -1158,7 +1129,7 @@ export async function updateGroupManagementAcl(
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        permissions: normalizeManagementPermissionMask(permissions),
+        grants: normalizeManagementPermissionGrants(grants),
       }),
     }
   )

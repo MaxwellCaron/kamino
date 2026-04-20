@@ -59,6 +59,24 @@ func (q *Queries) CreateInventoryACLEntry(ctx context.Context, arg CreateInvento
 	return err
 }
 
+const createManagementPermissionGrant = `-- name: CreateManagementPermissionGrant :exec
+INSERT INTO management_permission_grants (
+    group_principal_id,
+    permission_key
+) VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type CreateManagementPermissionGrantParams struct {
+	GroupPrincipalID uuid.UUID `json:"group_principal_id"`
+	PermissionKey    string    `json:"permission_key"`
+}
+
+func (q *Queries) CreateManagementPermissionGrant(ctx context.Context, arg CreateManagementPermissionGrantParams) error {
+	_, err := q.db.Exec(ctx, createManagementPermissionGrant, arg.GroupPrincipalID, arg.PermissionKey)
+	return err
+}
+
 const deleteInventoryACLEntriesForItem = `-- name: DeleteInventoryACLEntriesForItem :exec
 DELETE FROM inventory_acl_entries
 WHERE inventory_item_id = $1
@@ -69,13 +87,13 @@ func (q *Queries) DeleteInventoryACLEntriesForItem(ctx context.Context, inventor
 	return err
 }
 
-const deleteManagementACLEntryForGroup = `-- name: DeleteManagementACLEntryForGroup :exec
-DELETE FROM management_acl_entries
+const deleteManagementPermissionGrantsForGroup = `-- name: DeleteManagementPermissionGrantsForGroup :exec
+DELETE FROM management_permission_grants
 WHERE group_principal_id = $1
 `
 
-func (q *Queries) DeleteManagementACLEntryForGroup(ctx context.Context, groupPrincipalID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteManagementACLEntryForGroup, groupPrincipalID)
+func (q *Queries) DeleteManagementPermissionGrantsForGroup(ctx context.Context, groupPrincipalID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteManagementPermissionGrantsForGroup, groupPrincipalID)
 	return err
 }
 
@@ -100,25 +118,6 @@ type GetEffectiveInventoryPermissionsRow struct {
 func (q *Queries) GetEffectiveInventoryPermissions(ctx context.Context, arg GetEffectiveInventoryPermissionsParams) (GetEffectiveInventoryPermissionsRow, error) {
 	row := q.db.QueryRow(ctx, getEffectiveInventoryPermissions, arg.PrincipalID, arg.InventoryItemID)
 	var i GetEffectiveInventoryPermissionsRow
-	err := row.Scan(&i.AllowedMask, &i.DeniedMask)
-	return i, err
-}
-
-const getEffectiveManagementPermissions = `-- name: GetEffectiveManagementPermissions :one
-SELECT gep.allowed_mask::BIGINT AS allowed_mask, gep.denied_mask::BIGINT AS denied_mask
-FROM get_effective_management_permissions(
-    $1
-) AS gep(allowed_mask, denied_mask)
-`
-
-type GetEffectiveManagementPermissionsRow struct {
-	AllowedMask int64 `json:"allowed_mask"`
-	DeniedMask  int64 `json:"denied_mask"`
-}
-
-func (q *Queries) GetEffectiveManagementPermissions(ctx context.Context, principalID uuid.UUID) (GetEffectiveManagementPermissionsRow, error) {
-	row := q.db.QueryRow(ctx, getEffectiveManagementPermissions, principalID)
-	var i GetEffectiveManagementPermissionsRow
 	err := row.Scan(&i.AllowedMask, &i.DeniedMask)
 	return i, err
 }
@@ -211,19 +210,6 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 		&i.DeniedMask,
 	)
 	return i, err
-}
-
-const getManagementACLEntryForGroup = `-- name: GetManagementACLEntryForGroup :one
-SELECT permissions
-FROM management_acl_entries
-WHERE group_principal_id = $1
-`
-
-func (q *Queries) GetManagementACLEntryForGroup(ctx context.Context, groupPrincipalID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, getManagementACLEntryForGroup, groupPrincipalID)
-	var permissions int64
-	err := row.Scan(&permissions)
-	return permissions, err
 }
 
 const getPrincipalGroupsByName = `-- name: GetPrincipalGroupsByName :many
@@ -363,23 +349,31 @@ func (q *Queries) HasInventoryPermission(ctx context.Context, arg HasInventoryPe
 	return has_permission, err
 }
 
-const hasManagementPermission = `-- name: HasManagementPermission :one
-SELECT has_management_permission(
-    $1,
-    $2
-)
+const listEffectiveManagementPermissionKeys = `-- name: ListEffectiveManagementPermissionKeys :many
+SELECT gep.permission_key::TEXT AS permission_key
+FROM get_effective_management_permissions(
+    $1
+) AS gep(permission_key)
 `
 
-type HasManagementPermissionParams struct {
-	PrincipalID  uuid.UUID `json:"principal_id"`
-	RequiredMask int64     `json:"required_mask"`
-}
-
-func (q *Queries) HasManagementPermission(ctx context.Context, arg HasManagementPermissionParams) (bool, error) {
-	row := q.db.QueryRow(ctx, hasManagementPermission, arg.PrincipalID, arg.RequiredMask)
-	var has_management_permission bool
-	err := row.Scan(&has_management_permission)
-	return has_management_permission, err
+func (q *Queries) ListEffectiveManagementPermissionKeys(ctx context.Context, principalID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listEffectiveManagementPermissionKeys, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var permission_key string
+		if err := rows.Scan(&permission_key); err != nil {
+			return nil, err
+		}
+		items = append(items, permission_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listEffectivePrincipalIDs = `-- name: ListEffectivePrincipalIDs :many
@@ -561,6 +555,32 @@ func (q *Queries) ListInventoryACLEntriesForItem(ctx context.Context, inventoryI
 	return items, nil
 }
 
+const listManagementPermissionGrantsForGroup = `-- name: ListManagementPermissionGrantsForGroup :many
+SELECT permission_key
+FROM management_permission_grants
+WHERE group_principal_id = $1
+`
+
+func (q *Queries) ListManagementPermissionGrantsForGroup(ctx context.Context, groupPrincipalID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listManagementPermissionGrantsForGroup, groupPrincipalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var permission_key string
+		if err := rows.Scan(&permission_key); err != nil {
+			return nil, err
+		}
+		items = append(items, permission_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRootInventoryFolderIDs = `-- name: ListRootInventoryFolderIDs :many
 SELECT id
 FROM inventory_items
@@ -620,25 +640,4 @@ func (q *Queries) ListVisibleVMIDsForPrincipal(ctx context.Context, principalID 
 		return nil, err
 	}
 	return items, nil
-}
-
-const upsertManagementACLEntry = `-- name: UpsertManagementACLEntry :exec
-INSERT INTO management_acl_entries (
-    group_principal_id,
-    permissions
-) VALUES ($1, $2)
-ON CONFLICT (group_principal_id)
-DO UPDATE SET
-    permissions = EXCLUDED.permissions,
-    updated_at = now()
-`
-
-type UpsertManagementACLEntryParams struct {
-	GroupPrincipalID uuid.UUID `json:"group_principal_id"`
-	Permissions      int64     `json:"permissions"`
-}
-
-func (q *Queries) UpsertManagementACLEntry(ctx context.Context, arg UpsertManagementACLEntryParams) error {
-	_, err := q.db.Exec(ctx, upsertManagementACLEntry, arg.GroupPrincipalID, arg.Permissions)
-	return err
 }
