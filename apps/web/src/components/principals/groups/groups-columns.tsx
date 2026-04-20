@@ -43,7 +43,7 @@ export function getGroupColumns({
       accessorKey: "description",
       header: "Description",
       cell: ({ row: { original: group } }) => (
-        <p className="text-wrap">{group.description}</p>
+        <p className="text-wrap text-muted-foreground">{group.description}</p>
       ),
     },
   ]

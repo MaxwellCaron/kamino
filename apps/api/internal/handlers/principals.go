@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
@@ -54,6 +56,31 @@ type bulkMembershipFailure struct {
 type bulkMembershipResponse struct {
 	Succeeded []string                `json:"succeeded"`
 	Failed    []bulkMembershipFailure `json:"failed"`
+}
+
+type bulkCreateFailure struct {
+	Name  string `json:"name"`
+	Error string `json:"error"`
+}
+
+type bulkCreateResponse struct {
+	Successful int                 `json:"successful"`
+	Total      int                 `json:"total"`
+	Failures   []bulkCreateFailure `json:"failures"`
+}
+
+func uniqueUUIDs(ids []uuid.UUID) []uuid.UUID {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	deduped := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		deduped = append(deduped, id)
+	}
+
+	return deduped
 }
 
 func parseBulkDeleteIDs(c *gin.Context) ([]string, bool) {
@@ -150,9 +177,10 @@ func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
 }
 
 type createUserRequest struct {
-	Username    string `json:"username" binding:"required"`
-	Description string `json:"description"`
-	Password    string `json:"password" binding:"required"`
+	Username    string      `json:"username" binding:"required"`
+	Description string      `json:"description"`
+	Password    string      `json:"password" binding:"required"`
+	GroupIDs    []uuid.UUID `json:"group_ids"`
 }
 
 // CreateUser creates a new user.
@@ -162,18 +190,108 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	var req createUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var reqs []createUserRequest
+	if err := c.ShouldBindJSON(&reqs); err != nil {
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-
-	if err := h.Provider.CreateUser(c.Request.Context(), req.Username, req.Password, req.Description); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to create user", "create user", err)
+	if len(reqs) == 0 {
+		writeInvalidRequest(c, "at least one user is required")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	type userCreateOutcome struct {
+		assignmentErrors []string
+		createdID        uuid.UUID
+		createErr        error
+		groupIDs         []uuid.UUID
+		username         string
+	}
+
+	outcomes := make([]userCreateOutcome, len(reqs))
+	groupAssignments := make(map[uuid.UUID][]int)
+
+	for index, req := range reqs {
+		outcomes[index].username = req.Username
+		outcomes[index].groupIDs = uniqueUUIDs(req.GroupIDs)
+
+		createdID, err := h.Provider.CreateUser(
+			c.Request.Context(),
+			req.Username,
+			req.Password,
+			req.Description,
+		)
+		if err != nil {
+			logRequestError(c, "create user username="+req.Username, err)
+			outcomes[index].createErr = err
+			continue
+		}
+
+		outcomes[index].createdID = createdID
+		for _, groupID := range outcomes[index].groupIDs {
+			groupAssignments[groupID] = append(groupAssignments[groupID], index)
+		}
+	}
+
+	for groupID, indexes := range groupAssignments {
+		memberIDs := make([]uuid.UUID, 0, len(indexes))
+		for _, index := range indexes {
+			memberIDs = append(memberIDs, outcomes[index].createdID)
+		}
+
+		failed, err := h.Provider.AddGroupMembers(c.Request.Context(), groupID, memberIDs)
+		if err != nil {
+			logRequestError(c, "add created users to group id="+groupID.String(), err)
+			for _, index := range indexes {
+				outcomes[index].assignmentErrors = append(
+					outcomes[index].assignmentErrors,
+					fmt.Sprintf("group %s: %v", groupID, err),
+				)
+			}
+			continue
+		}
+
+		for _, index := range indexes {
+			if memberErr, hasFailed := failed[outcomes[index].createdID]; hasFailed {
+				logRequestError(
+					c,
+					"add created user to group username="+outcomes[index].username+" group_id="+groupID.String(),
+					memberErr,
+				)
+				outcomes[index].assignmentErrors = append(
+					outcomes[index].assignmentErrors,
+					fmt.Sprintf("group %s: %v", groupID, memberErr),
+				)
+			}
+		}
+	}
+
+	response := bulkCreateResponse{
+		Total:    len(reqs),
+		Failures: make([]bulkCreateFailure, 0),
+	}
+
+	for _, outcome := range outcomes {
+		switch {
+		case outcome.createErr != nil:
+			response.Failures = append(response.Failures, bulkCreateFailure{
+				Name:  outcome.username,
+				Error: outcome.createErr.Error(),
+			})
+		case len(outcome.assignmentErrors) > 0:
+			response.Failures = append(response.Failures, bulkCreateFailure{
+				Name: outcome.username,
+				Error: fmt.Sprintf(
+					"user created, but group assignment failed: %s",
+					strings.Join(outcome.assignmentErrors, "; "),
+				),
+			})
+		default:
+			response.Successful++
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 type updateUserRequest struct {
@@ -356,18 +474,35 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 		return
 	}
 
-	var req createGroupRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var reqs []createGroupRequest
+	if err := c.ShouldBindJSON(&reqs); err != nil {
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-
-	if err := h.Provider.CreateGroup(c.Request.Context(), req.Name, req.Description); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to create group", "create group", err)
+	if len(reqs) == 0 {
+		writeInvalidRequest(c, "at least one group is required")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	response := bulkCreateResponse{
+		Total:    len(reqs),
+		Failures: make([]bulkCreateFailure, 0),
+	}
+
+	for _, req := range reqs {
+		if _, err := h.Provider.CreateGroup(c.Request.Context(), req.Name, req.Description); err != nil {
+			logRequestError(c, "create group name="+req.Name, err)
+			response.Failures = append(response.Failures, bulkCreateFailure{
+				Name:  req.Name,
+				Error: err.Error(),
+			})
+			continue
+		}
+
+		response.Successful++
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 type updateGroupRequest struct {

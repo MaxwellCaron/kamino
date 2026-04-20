@@ -197,6 +197,56 @@ func (c *Client) FetchUsers() ([]User, error) {
 	return users, nil
 }
 
+// FetchUserByDN returns a single user for an exact distinguished name.
+func (c *Client) FetchUserByDN(userDN string) (*User, error) {
+	conn, err := c.connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	return c.fetchUserByDN(conn, userDN)
+}
+
+func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
+	searchDN := strings.TrimSpace(userDN)
+	if searchDN == "" {
+		return nil, fmt.Errorf("user DN is required")
+	}
+
+	result, err := conn.Search(ldap.NewSearchRequest(
+		searchDN,
+		ldap.ScopeBaseObject,
+		ldap.NeverDerefAliases, 1, 0, false,
+		"(objectClass=user)",
+		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName"},
+		nil,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("ldap search user by dn: %w", err)
+	}
+	if len(result.Entries) == 0 {
+		return nil, nil
+	}
+
+	entry := result.Entries[0]
+	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
+	if sid == "" {
+		return nil, fmt.Errorf("ad: could not decode user SID")
+	}
+
+	name := entry.GetAttributeValue("displayName")
+	if name == "" {
+		name = entry.GetAttributeValue("sAMAccountName")
+	}
+
+	return &User{
+		DN:   entry.GetAttributeValue("distinguishedName"),
+		SID:  sid,
+		Name: name,
+	}, nil
+}
+
 // FetchGroups returns all groups under the configured base DN.
 func (c *Client) FetchGroups() ([]Group, error) {
 	return c.fetchGroups(c.baseDN)
@@ -210,6 +260,10 @@ func (c *Client) FetchGroupByDN(groupDN string) (*Group, error) {
 	}
 	defer conn.Close()
 
+	return c.fetchGroupByDN(conn, groupDN)
+}
+
+func (c *Client) fetchGroupByDN(conn *ldap.Conn, groupDN string) (*Group, error) {
 	searchDN := strings.TrimSpace(groupDN)
 	if searchDN == "" {
 		return nil, fmt.Errorf("group DN is required")
@@ -345,10 +399,10 @@ func encodePassword(password string) []byte {
 }
 
 // CreateUser creates a new user account in Active Directory.
-func (c *Client) CreateUser(username, password string) error {
+func (c *Client) CreateUser(username, password string) (User, error) {
 	conn, err := c.connect()
 	if err != nil {
-		return err
+		return User{}, err
 	}
 	defer conn.Close()
 
@@ -364,9 +418,18 @@ func (c *Client) CreateUser(username, password string) error {
 	addReq.Attribute("userAccountControl", []string{"512"})
 
 	if err := conn.Add(addReq); err != nil {
-		return fmt.Errorf("ldap create user: %w", err)
+		return User{}, fmt.Errorf("ldap create user: %w", err)
 	}
-	return nil
+
+	user, err := c.fetchUserByDN(conn, dn)
+	if err != nil {
+		return User{}, err
+	}
+	if user == nil {
+		return User{}, fmt.Errorf("ldap create user: created user %q could not be reloaded", username)
+	}
+
+	return *user, nil
 }
 
 // UpdateUser modifies the display name of an existing user.
@@ -453,10 +516,10 @@ func (c *Client) DeleteUser(dn string) error {
 }
 
 // CreateGroup creates a new security group in Active Directory.
-func (c *Client) CreateGroup(name string) error {
+func (c *Client) CreateGroup(name string) (Group, error) {
 	conn, err := c.connect()
 	if err != nil {
-		return err
+		return Group{}, err
 	}
 	defer conn.Close()
 
@@ -470,9 +533,18 @@ func (c *Client) CreateGroup(name string) error {
 	addReq.Attribute("groupType", []string{"-2147483646"})
 
 	if err := conn.Add(addReq); err != nil {
-		return fmt.Errorf("ldap create group: %w", err)
+		return Group{}, fmt.Errorf("ldap create group: %w", err)
 	}
-	return nil
+
+	group, err := c.fetchGroupByDN(conn, dn)
+	if err != nil {
+		return Group{}, err
+	}
+	if group == nil {
+		return Group{}, fmt.Errorf("ldap create group: created group %q could not be reloaded", name)
+	}
+
+	return *group, nil
 }
 
 // UpdateGroup modifies the display name of an existing group.

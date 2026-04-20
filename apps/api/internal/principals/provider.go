@@ -9,7 +9,7 @@ import (
 
 type Provider interface {
 	ListUsers(ctx context.Context) ([]database.GetAllUsersRow, error)
-	CreateUser(ctx context.Context, username, password, description string) error
+	CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, username, description string) error
 	SetPassword(ctx context.Context, id uuid.UUID, password string) error
 	EnableUser(ctx context.Context, id uuid.UUID) error
@@ -17,7 +17,7 @@ type Provider interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 
 	ListGroups(ctx context.Context) ([]database.GetAllGroupsRow, error)
-	CreateGroup(ctx context.Context, name, description string) error
+	CreateGroup(ctx context.Context, name, description string) (uuid.UUID, error)
 	UpdateGroup(ctx context.Context, id uuid.UUID, name, description string) error
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 

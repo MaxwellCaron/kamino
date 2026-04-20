@@ -13,7 +13,6 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
-import { nestedDialogAnimationClassName } from "./constants"
 import { PermissionScopeSection } from "./permission-scope-section"
 import type { InventoryPermissionSection } from "@/lib/inventory-permissions"
 import type { DraftPrincipal, PermissionState } from "./types"
@@ -21,6 +20,7 @@ import {
   AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
+  nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 
 type CustomizePermissionsDialogProps = {

@@ -3,7 +3,7 @@ package activedirectory
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
@@ -58,10 +58,47 @@ func (s *Service) lookupDN(sid string, objectType string) (string, error) {
 	return "", errors.New("principal not found in AD")
 }
 
-func (s *Service) syncBeforeResponse(ctx context.Context) {
-	if err := s.sync.Run(ctx); err != nil {
-		log.Printf("AD sync after mutation failed: %v", err)
+func (s *Service) upsertCreatedPrincipal(
+	ctx context.Context,
+	principalType database.PrincipalType,
+	externalID string,
+	name string,
+	description string,
+) (uuid.UUID, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
 	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	providerID, err := ensureProvider(ctx, q)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	principalID, err := q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
+		ProviderID:    providerID,
+		PrincipalType: principalType,
+		ExternalID:    externalID,
+		Name:          &name,
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if err := q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+		Description: &description,
+		ID:          principalID,
+	}); err != nil {
+		return uuid.Nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+
+	return principalID, nil
 }
 
 func (s *Service) ListUsers(ctx context.Context) ([]database.GetAllUsersRow, error) {
@@ -72,26 +109,19 @@ func (s *Service) ListUsers(ctx context.Context) ([]database.GetAllUsersRow, err
 	return database.New(s.db).GetAllUsers(ctx, providerID)
 }
 
-func (s *Service) CreateUser(ctx context.Context, username, password, description string) error {
-	if err := s.client.CreateUser(username, password); err != nil {
-		return err
-	}
-	s.syncBeforeResponse(ctx)
-
-	users, err := s.ListUsers(ctx)
-	if err == nil {
-		for _, u := range users {
-			if u.Name != nil && *u.Name == username {
-				_ = database.New(s.db).UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
-					Description: &description,
-					ID:          u.ID,
-				})
-				break
-			}
-		}
+func (s *Service) CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error) {
+	createdUser, err := s.client.CreateUser(username, password)
+	if err != nil {
+		return uuid.Nil, err
 	}
 
-	return nil
+	return s.upsertCreatedPrincipal(
+		ctx,
+		database.PrincipalTypeUser,
+		createdUser.SID,
+		createdUser.Name,
+		description,
+	)
 }
 
 func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, description string) error {
@@ -203,26 +233,19 @@ func (s *Service) ListGroups(ctx context.Context) ([]database.GetAllGroupsRow, e
 	return database.New(s.db).GetAllGroups(ctx, providerID)
 }
 
-func (s *Service) CreateGroup(ctx context.Context, name, description string) error {
-	if err := s.client.CreateGroup(name); err != nil {
-		return err
-	}
-	s.syncBeforeResponse(ctx)
-
-	groups, err := s.ListGroups(ctx)
-	if err == nil {
-		for _, g := range groups {
-			if g.Name != nil && *g.Name == name {
-				_ = database.New(s.db).UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
-					Description: &description,
-					ID:          g.ID,
-				})
-				break
-			}
-		}
+func (s *Service) CreateGroup(ctx context.Context, name, description string) (uuid.UUID, error) {
+	createdGroup, err := s.client.CreateGroup(name)
+	if err != nil {
+		return uuid.Nil, err
 	}
 
-	return nil
+	return s.upsertCreatedPrincipal(
+		ctx,
+		database.PrincipalTypeGroup,
+		createdGroup.SID,
+		createdGroup.Name,
+		description,
+	)
 }
 
 func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, name, description string) error {
@@ -328,7 +351,6 @@ func (s *Service) updateGroupMembers(
 	}
 
 	failed := make(map[uuid.UUID]error)
-	changed := false
 
 	for _, memberID := range dedupeUUIDs(memberIDs) {
 		_, isMember := currentMemberSet[memberID]
@@ -361,11 +383,24 @@ func (s *Service) updateGroupMembers(
 			continue
 		}
 
-		changed = true
-	}
+		if add {
+			if err := q.InsertGroupMembership(ctx, database.InsertGroupMembershipParams{
+				GroupID:  groupID,
+				MemberID: memberID,
+			}); err != nil {
+				return failed, fmt.Errorf("persist added group membership: %w", err)
+			}
+			currentMemberSet[memberID] = struct{}{}
+			continue
+		}
 
-	if changed {
-		s.syncBeforeResponse(ctx)
+		if err := q.DeleteGroupMembership(ctx, database.DeleteGroupMembershipParams{
+			GroupID:  groupID,
+			MemberID: memberID,
+		}); err != nil {
+			return failed, fmt.Errorf("persist removed group membership: %w", err)
+		}
+		delete(currentMemberSet, memberID)
 	}
 
 	return failed, nil

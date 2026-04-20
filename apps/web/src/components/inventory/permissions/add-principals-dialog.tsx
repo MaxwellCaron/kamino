@@ -25,14 +25,12 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Button } from "@workspace/ui/components/button"
-import {
-  nestedDialogAnimationClassName,
-  principalTypeLabels,
-} from "./constants"
+import { principalTypeLabels } from "./constants"
 import type { PrincipalOption } from "./types"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
+  nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 
 type AddPrincipalsDialogProps = {

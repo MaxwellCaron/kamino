@@ -187,12 +187,12 @@ function ActionBar(props: ActionBarProps) {
         "aria-orientation": orientation,
         ref: composedRef,
         className: cn(
-          "fixed z-50 rounded-lg border bg-card shadow-lg outline-none",
+          "fixed z-50 rounded-4xl border bg-card shadow-lg outline-none",
           "animate-in duration-250 fade-in-0 zoom-in-95 [animation-timing-function:cubic-bezier(0.16,1,0.3,1)]",
           "data-[side=bottom]:slide-in-from-bottom-4 data-[side=top]:slide-in-from-top-4",
           "motion-reduce:animate-none motion-reduce:transition-none",
           orientation === "horizontal"
-            ? "flex flex-row items-center gap-2 px-2 py-1.5"
+            ? "flex flex-row items-center gap-2 px-5 py-3"
             : "flex flex-col items-start gap-2 px-1.5 py-2",
           className
         ),
@@ -235,7 +235,7 @@ function ActionBarSelection(props: DivProps) {
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex items-center gap-1 rounded-sm border px-2 py-1 text-sm font-medium tabular-nums",
+          "flex items-center gap-1 rounded-4xl border px-3 py-1.5 text-sm font-medium tabular-nums",
           className
         ),
       },
@@ -642,7 +642,7 @@ function ActionBarClose({
       {
         type: "button" as const,
         className: cn(
-          "rounded-xs opacity-70 outline-none hover:opacity-100 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+          "ml-1 rounded-xs opacity-70 outline-none hover:opacity-100 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
           className
         ),
         onClick: onCloseClick,

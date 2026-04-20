@@ -1073,6 +1073,29 @@ export type ApiBulkMembershipResponse = {
   failed: Array<ApiBulkDeleteFailure>
 }
 
+export type ApiBulkCreateFailure = {
+  name: string
+  error: string
+}
+
+export type ApiBulkCreateResponse = {
+  successful: number
+  total: number
+  failures: Array<ApiBulkCreateFailure>
+}
+
+export type CreateUserInput = {
+  username: string
+  password: string
+  description?: string
+  group_ids?: Array<string>
+}
+
+export type CreateGroupInput = {
+  name: string
+  description?: string
+}
+
 export const usersQueryOptions = {
   queryKey: ["principals", "users"] as const,
   queryFn: async (): Promise<Array<ApiPrincipal>> => {
@@ -1141,11 +1164,9 @@ export async function updateGroupManagementAcl(
   }
 }
 
-export async function createUser(params: {
-  username: string
-  password: string
-  description?: string
-}): Promise<void> {
+export async function createUser(
+  params: Array<CreateUserInput>
+): Promise<ApiBulkCreateResponse> {
   const res = await apiFetch("/api/v1/principals/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1155,6 +1176,8 @@ export async function createUser(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create user: ${res.status}`)
   }
+
+  return res.json()
 }
 
 export async function updateUser(
@@ -1222,10 +1245,9 @@ export async function disableUser(id: string): Promise<void> {
   }
 }
 
-export async function createGroup(params: {
-  name: string
-  description?: string
-}): Promise<void> {
+export async function createGroup(
+  params: Array<CreateGroupInput>
+): Promise<ApiBulkCreateResponse> {
   const res = await apiFetch("/api/v1/principals/groups", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1235,6 +1257,8 @@ export async function createGroup(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create group: ${res.status}`)
   }
+
+  return res.json()
 }
 
 export async function updateGroup(

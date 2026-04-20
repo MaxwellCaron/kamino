@@ -39,10 +39,7 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { AddPrincipalsDialog } from "./add-principals-dialog"
-import {
-  nestedDialogAnimationClassName,
-  principalTypeLabels,
-} from "./constants"
+import { principalTypeLabels } from "./constants"
 import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
 import { useInventoryPermissions } from "./use-inventory-permissions"
 import type { InventoryPermissionsDialogProps } from "./types"
@@ -56,6 +53,7 @@ import {
   AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
+  nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import { formatVmReference } from "@/lib/utils"
 

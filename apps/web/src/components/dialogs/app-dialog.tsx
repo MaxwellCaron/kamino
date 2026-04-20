@@ -19,14 +19,20 @@ type AppDialogIcon = ComponentType<{
   className?: string
 }>
 
+type AppDialogVariant = "default" | "child"
+
+export const nestedDialogAnimationClassName =
+  "top-[calc(50%+1.25rem*var(--nested-dialogs))] scale-[calc(1-0.1*var(--nested-dialogs))] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[nested-dialog-open]:after:absolute data-[nested-dialog-open]:after:inset-0 data-[nested-dialog-open]:after:rounded-[inherit] data-[nested-dialog-open]:after:bg-black/5 data-[starting-style]:scale-90 data-[starting-style]:opacity-0"
+
 type AppAlertDialogHeaderProps = {
   description: ReactNode
   descriptionProps?: Omit<
     ComponentProps<typeof AlertDialogDescription>,
     "children"
   >
-  icon: AppDialogIcon
+  icon?: AppDialogIcon
   title: string
+  variant?: AppDialogVariant
 }
 
 export function AppAlertDialogHeader({
@@ -34,12 +40,24 @@ export function AppAlertDialogHeader({
   descriptionProps,
   icon: Icon,
   title,
+  variant = "default",
 }: AppAlertDialogHeaderProps) {
   return (
     <AlertDialogHeader>
       <AlertDialogTitle className="flex items-center gap-2">
-        <Icon className="text-muted-foreground" />
-        <span className="text-2xl font-semibold tracking-tight">{title}</span>
+        {variant === "child" ? (
+          <>
+            {Icon ? <Icon /> : null}
+            <span>{title}</span>
+          </>
+        ) : (
+          <>
+            {Icon ? <Icon className="text-muted-foreground" /> : null}
+            <span className="text-2xl font-semibold tracking-tight">
+              {title}
+            </span>
+          </>
+        )}
       </AlertDialogTitle>
       <AlertDialogDescription {...descriptionProps}>
         {description}
@@ -57,6 +75,7 @@ export function AppAlertDialogContent({
   descriptionProps,
   icon,
   title,
+  variant = "default",
   ...props
 }: AppAlertDialogContentProps) {
   return (
@@ -66,6 +85,7 @@ export function AppAlertDialogContent({
         descriptionProps={descriptionProps}
         icon={icon}
         title={title}
+        variant={variant}
       />
       {children}
     </AlertDialogContent>
@@ -75,8 +95,9 @@ export function AppAlertDialogContent({
 type AppDialogHeaderProps = {
   description: ReactNode
   descriptionProps?: Omit<ComponentProps<typeof DialogDescription>, "children">
-  icon: AppDialogIcon
+  icon?: AppDialogIcon
   title: string
+  variant?: AppDialogVariant
 }
 
 export function AppDialogHeader({
@@ -84,12 +105,24 @@ export function AppDialogHeader({
   descriptionProps,
   icon: Icon,
   title,
+  variant = "default",
 }: AppDialogHeaderProps) {
   return (
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
-        <Icon className="text-muted-foreground" />
-        <span className="text-2xl font-semibold tracking-tight">{title}</span>
+        {variant === "child" ? (
+          <>
+            {Icon ? <Icon /> : null}
+            <span>{title}</span>
+          </>
+        ) : (
+          <>
+            {Icon ? <Icon className="text-muted-foreground" /> : null}
+            <span className="text-2xl font-semibold tracking-tight">
+              {title}
+            </span>
+          </>
+        )}
       </DialogTitle>
       <DialogDescription {...descriptionProps}>{description}</DialogDescription>
     </DialogHeader>
@@ -105,6 +138,7 @@ export function AppDialogContent({
   descriptionProps,
   icon,
   title,
+  variant = "default",
   ...props
 }: AppDialogContentProps) {
   return (
@@ -114,6 +148,7 @@ export function AppDialogContent({
         descriptionProps={descriptionProps}
         icon={icon}
         title={title}
+        variant={variant}
       />
       {children}
     </DialogContent>
