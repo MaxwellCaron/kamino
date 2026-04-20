@@ -79,10 +79,9 @@ export function VmNotesDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
-      initialFocus={false}
       icon={IconEdit}
-      title="Note"
-      description={`Update the note for ${formatVmReference(vmid, vmName)}.`}
+      title="Notes"
+      description={`Update notes for ${formatVmReference(vmid, vmName)}.`}
     >
       <form
         onSubmit={(e) => {
