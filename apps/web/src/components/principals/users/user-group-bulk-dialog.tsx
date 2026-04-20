@@ -107,6 +107,7 @@ export function UserGroupBulkDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      initialFocus={false}
       icon={mode === "add" ? IconUserPlus : IconUserMinus}
       title={mode === "add" ? "Add Users" : "Remove Users"}
       description={

@@ -35,6 +35,10 @@ type MembershipDialogProps = {
   principal: ApiPrincipal
 } & ({ mode: "user-groups" } | { mode: "group-members" })
 
+function uniqueIds(ids: Array<string>): Array<string> {
+  return Array.from(new Set(ids))
+}
+
 export function MembershipDialog(props: MembershipDialogProps) {
   const { open, onOpenChange, mode, principal } = props
 
@@ -42,6 +46,7 @@ export function MembershipDialog(props: MembershipDialogProps) {
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      initialFocus={false}
       icon={IconUsersGroup}
       title={mode === "user-groups" ? "Groups" : "Members"}
       description={
@@ -50,22 +55,23 @@ export function MembershipDialog(props: MembershipDialogProps) {
           : `Manage members of ${principal.name ?? principal.external_id}.`
       }
     >
-      {open && (
-        <MembershipEditor
-          mode={mode}
-          principal={principal}
-          onOpenChange={onOpenChange}
-        />
-      )}
+      <MembershipEditor
+        open={open}
+        mode={mode}
+        principal={principal}
+        onOpenChange={onOpenChange}
+      />
     </AppDialog>
   )
 }
 
 function MembershipEditor({
+  open,
   mode,
   principal,
   onOpenChange,
 }: {
+  open: boolean
   mode: "user-groups" | "group-members"
   principal: ApiPrincipal
   onOpenChange: (open: boolean) => void
@@ -88,18 +94,28 @@ function MembershipEditor({
     (mode === "user-groups" ? allGroupsQuery.data : allUsersQuery.data) ?? []
 
   const serverIds = React.useMemo(
-    () => Array.from(new Set(currentMembers.map((m) => m.id))),
+    () => uniqueIds(currentMembers.map((m) => m.id)),
     [currentMembers]
   )
 
+  React.useEffect(() => {
+    if (!open) {
+      setLocalValue(null)
+      setSaving(false)
+    }
+  }, [open])
+
   // Initialize local value from server data once loaded
   React.useEffect(() => {
-    if (localValue === null && activeQuery.isSuccess) {
+    if (open && localValue === null && activeQuery.isSuccess) {
       setLocalValue(serverIds)
     }
-  }, [localValue, activeQuery.isSuccess, serverIds])
+  }, [open, localValue, activeQuery.isSuccess, serverIds])
 
-  const selectedIds = localValue ?? serverIds
+  const selectedIds = React.useMemo(
+    () => uniqueIds(localValue ?? serverIds),
+    [localValue, serverIds]
+  )
 
   // Build lookup for display names
   const optionMap = React.useMemo(() => {
@@ -169,7 +185,7 @@ function MembershipEditor({
         autoHighlight
         items={items}
         value={selectedIds}
-        onValueChange={(newValue) => setLocalValue(newValue)}
+        onValueChange={(newValue) => setLocalValue(uniqueIds(newValue))}
       >
         <ComboboxChips ref={anchor} className="w-full">
           <ComboboxValue>

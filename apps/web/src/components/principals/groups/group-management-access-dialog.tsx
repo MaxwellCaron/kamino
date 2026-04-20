@@ -117,6 +117,7 @@ export function GroupManagementAccessDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      initialFocus={false}
       icon={IconLockAccess}
       title="Edit Access"
       description={`Configure coarse management access for ${getGroupLabel(group)}. These permissions only apply to groups.`}
