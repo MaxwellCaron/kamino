@@ -72,7 +72,7 @@ function buildPermissionSearchValues(
   ]
 }
 
-export function GroupManagementAccessDialog({
+export function GroupPermissionsDialog({
   group,
   open,
   onOpenChange,
@@ -318,13 +318,6 @@ export function GroupManagementAccessDialog({
             </div>
           )}
         </AppDialogScrollBody>
-
-        {immutable ? (
-          <p className="text-sm text-muted-foreground">
-            This bootstrap group is protected and always has every management
-            permission.
-          </p>
-        ) : null}
 
         <DialogFooter>
           <AppDialogPrimaryButton

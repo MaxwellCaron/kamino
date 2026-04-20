@@ -31,7 +31,7 @@ import {
 } from "@/lib/queries"
 import { useItemDialogState } from "@/hooks/use-item-dialog-state"
 import { GroupDialog } from "@/components/principals/groups/group-dialog"
-import { GroupManagementAccessDialog } from "@/components/principals/groups/group-management-access-dialog"
+import { GroupPermissionsDialog } from "@/components/principals/groups/group-permissions-dialog"
 import { MembershipDialog } from "@/components/principals/membership-dialog"
 import { getGroupColumns } from "@/components/principals/groups/groups-columns"
 import { DataTable } from "@/components/data-table/data-table"
@@ -263,7 +263,7 @@ function GroupsPage() {
         />
       )}
       {canManageAccess && accessDialog.data && (
-        <GroupManagementAccessDialog
+        <GroupPermissionsDialog
           key={accessDialog.dialogKey}
           group={accessDialog.data}
           open={accessDialog.open}
