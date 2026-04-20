@@ -2,6 +2,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import {
   IconCamera,
   IconCopy,
+  IconDeviceDesktop,
+  IconDeviceDesktopPlus,
   IconDots,
   IconEdit,
   IconFolder,
@@ -11,8 +13,6 @@ import {
   IconPlayerStop,
   IconPower,
   IconRefresh,
-  IconServer,
-  IconServerSpark,
   IconSettings,
   IconStar,
   IconTemplate,
@@ -93,17 +93,6 @@ const FOLDER_ACTION_PERMISSIONS = [
   InventoryPermissionBits.managePermissions,
 ]
 
-const VM_ACTION_PERMISSIONS = [
-  InventoryPermissionBits.powerVm,
-  InventoryPermissionBits.cloneVm,
-  InventoryPermissionBits.snapshotVm,
-  InventoryPermissionBits.renameVm,
-  InventoryPermissionBits.editVmHardware,
-  InventoryPermissionBits.deleteVm,
-  InventoryPermissionBits.templateVm,
-  InventoryPermissionBits.managePermissions,
-]
-
 function hasAnyPermission(
   permissions: ApiTreeNodePermissions,
   requiredPermissions: Array<number>
@@ -116,11 +105,15 @@ function hasAnyPermission(
 function hasNodeActions(data: ApiTreeNode) {
   return data.kind === "folder"
     ? hasAnyPermission(data.permissions, FOLDER_ACTION_PERMISSIONS)
-    : hasAnyPermission(data.permissions, VM_ACTION_PERMISSIONS)
+    : true
 }
 
 function stopTreeItemEvent(event: { stopPropagation: () => void }) {
   event.stopPropagation()
+}
+
+function hasFavoriteAction(onToggleFavorite?: () => void) {
+  return typeof onToggleFavorite === "function"
 }
 
 export function FolderDeletionDescription({
@@ -161,7 +154,7 @@ export function FolderDeletionDescription({
         </Item>
         <Item variant="muted">
           <ItemMedia variant="icon">
-            <IconServer />
+            <IconDeviceDesktop />
           </ItemMedia>
           <ItemContent>
             <ItemTitle className="text-foreground">
@@ -248,7 +241,7 @@ function FolderMenuItems({
             )}
             {canCreateVm && (
               <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
-                <IconServerSpark className="text-muted-foreground" />
+                <IconDeviceDesktopPlus className="text-muted-foreground" />
                 New VM
               </DropdownMenuItem>
             )}
@@ -261,7 +254,7 @@ function FolderMenuItems({
       {(canRename || canManagePermissions) && (
         <>
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {canRename && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
@@ -360,6 +353,11 @@ function VmMenuItems({
     permissions,
     InventoryPermissionBits.managePermissions
   )
+  const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
+  const hasActionItems =
+    canToggleFavorite || canClone || canSnapshot || canTemplate
+  const hasEditItems = canRename || canEditHardware || canManagePermissions
+  const hasTrailingItems = hasActionItems || hasEditItems || canDelete
 
   return (
     <>
@@ -468,32 +466,29 @@ function VmMenuItems({
               Stop
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          {(canClone ||
-            canTemplate ||
-            canSnapshot ||
-            canRename ||
-            canEditHardware ||
-            canManagePermissions ||
-            canDelete) && <DropdownMenuSeparator />}
+          {hasTrailingItems && <DropdownMenuSeparator />}
         </>
       )}
-      {(canClone ||
-        canTemplate ||
-        canSnapshot ||
-        canRename ||
-        canEditHardware ||
-        canManagePermissions) && (
+      {hasActionItems && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
-              <IconStar className="text-muted-foreground" />
-              {isFavorite ? "Unfavorite" : "Favorite"}
-            </DropdownMenuItem>
+            {canToggleFavorite && (
+              <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
+                <IconStar className="text-muted-foreground" />
+                {isFavorite ? "Unfavorite" : "Favorite"}
+              </DropdownMenuItem>
+            )}
             {canClone && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
                 Clone
+              </DropdownMenuItem>
+            )}
+            {canSnapshot && (
+              <DropdownMenuItem onClick={onSnapshot} disabled={isLoading}>
+                <IconCamera className="text-muted-foreground" />
+                Snapshot
               </DropdownMenuItem>
             )}
             {canTemplate && (
@@ -520,12 +515,14 @@ function VmMenuItems({
                 Templatize
               </DropdownMenuItem>
             )}
-            {canSnapshot && (
-              <DropdownMenuItem onClick={onSnapshot} disabled={isLoading}>
-                <IconCamera className="text-muted-foreground" />
-                Snapshot
-              </DropdownMenuItem>
-            )}
+          </DropdownMenuGroup>
+          {(hasEditItems || canDelete) && <DropdownMenuSeparator />}
+        </>
+      )}
+      {hasEditItems && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {canRename && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
@@ -559,7 +556,7 @@ function VmMenuItems({
             onAction({
               title: "Delete",
               icon: IconTrash,
-              description: `This will permanently delete ${vmIdentifier}. This action cannot be undone.`,
+              description: `This will permanently delete ${vmIdentifier}.`,
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -617,32 +614,43 @@ function TemplateMenuItems({
     permissions,
     InventoryPermissionBits.managePermissions
   )
+  const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
+  const hasActionItems = canToggleFavorite || canClone
+  const hasEditItems = canManagePermissions
 
   return (
     <>
-      {(canClone || canManagePermissions) && (
+      {hasActionItems && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
-              <IconStar className="text-muted-foreground" />
-              {isFavorite ? "Unfavorite" : "Favorite"}
-            </DropdownMenuItem>
+            {canToggleFavorite && (
+              <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
+                <IconStar className="text-muted-foreground" />
+                {isFavorite ? "Unfavorite" : "Favorite"}
+              </DropdownMenuItem>
+            )}
             {canClone && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
                 Clone
               </DropdownMenuItem>
             )}
-            {canManagePermissions && (
-              <DropdownMenuItem
-                onClick={onManagePermissions}
-                disabled={isLoading}
-              >
-                <IconLock className="text-muted-foreground" />
-                Permissions
-              </DropdownMenuItem>
-            )}
+          </DropdownMenuGroup>
+          {(hasEditItems || canDelete) && <DropdownMenuSeparator />}
+        </>
+      )}
+      {hasEditItems && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Edit</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={onManagePermissions}
+              disabled={isLoading}
+            >
+              <IconLock className="text-muted-foreground" />
+              Permissions
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           {canDelete && <DropdownMenuSeparator />}
         </>
@@ -655,7 +663,7 @@ function TemplateMenuItems({
             onAction({
               title: "Delete Template?",
               icon: IconTrash,
-              description: `This will permanently delete template ${vmIdentifier}. This action cannot be undone.`,
+              description: `This will permanently delete template ${vmIdentifier}.`,
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -960,46 +968,9 @@ export function VmOptionsMenu({
     openEditVmHardware,
     openPermissions,
   } = useInventoryDialogs()
-  const hasActions =
-    (isFolder &&
-      (hasInventoryPermission(
-        permissions,
-        InventoryPermissionBits.createFolder
-      ) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.createVm) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.renameFolder
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.deleteFolder
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.managePermissions
-        ))) ||
-    (!isFolder &&
-      (hasInventoryPermission(permissions, InventoryPermissionBits.powerVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.cloneVm) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.snapshotVm
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.editVmHardware
-        ) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.renameVm) ||
-        hasInventoryPermission(permissions, InventoryPermissionBits.deleteVm) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.templateVm
-        ) ||
-        hasInventoryPermission(
-          permissions,
-          InventoryPermissionBits.managePermissions
-        )))
+  const hasActions = isFolder
+    ? hasAnyPermission(permissions, FOLDER_ACTION_PERMISSIONS)
+    : true
 
   if (!hasActions) return null
 

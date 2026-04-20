@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   IconArrowLeft,
   IconArrowRight,
-  IconDeviceImac,
+  IconDeviceDesktop,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
@@ -239,7 +239,7 @@ export function CreateVmDialog({
     >
       <DialogContent initialFocus={false}>
         <AppDialogHeader
-          icon={IconDeviceImac}
+          icon={IconDeviceDesktop}
           title="Create Virtual Machine"
           description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
         />

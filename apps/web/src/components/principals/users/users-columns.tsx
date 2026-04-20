@@ -91,11 +91,11 @@ export function getUserColumns({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEditClick(user)}>
                 <IconEdit className="text-muted-foreground" />
-                Edit User
+                Edit
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEditGroups(user)}>
                 <IconUsersGroup className="text-muted-foreground" />
-                Edit Groups
+                Groups
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

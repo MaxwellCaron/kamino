@@ -1,4 +1,4 @@
-import { IconDeviceImac, IconMoon, IconSun } from "@tabler/icons-react"
+import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react"
 import {
   DropdownMenuGroup,
   DropdownMenuLabel,
@@ -30,7 +30,7 @@ export function ThemeToggleMenuItems() {
           Dark
         </DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="system">
-          <IconDeviceImac className="text-muted-foreground" />
+          <IconDeviceDesktop className="text-muted-foreground" />
           System
         </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>

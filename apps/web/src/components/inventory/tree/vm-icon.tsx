@@ -1,4 +1,4 @@
-import { IconDeviceImac, IconTemplate } from "@tabler/icons-react"
+import { IconDeviceDesktop, IconTemplate } from "@tabler/icons-react"
 
 export function VmIcon({
   status,
@@ -21,7 +21,7 @@ export function VmIcon({
 
   return (
     <span className="relative">
-      <IconDeviceImac className="size-4 text-muted-foreground" />
+      <IconDeviceDesktop className="size-4 text-muted-foreground" />
       {color && (
         <span
           className={`absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full ring-1 ring-background ${color}`}

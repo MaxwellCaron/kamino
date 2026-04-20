@@ -201,7 +201,7 @@ export function SnapshotsTable({
                             setConfirm({
                               title: "Delete Snapshot",
                               icon: IconTrash,
-                              description: `Are you sure you want to delete snapshot "${snap.name}"? This action cannot be undone.`,
+                              description: `Are you sure you want to delete snapshot "${snap.name}"?`,
                               actionLabel: "Delete",
                               variant: "destructive",
                               onConfirm: () => {

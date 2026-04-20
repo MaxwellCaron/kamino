@@ -1,4 +1,4 @@
-import { IconServer, IconTemplate, IconUpload } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconTemplate, IconUpload } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Field,
@@ -34,7 +34,7 @@ const createMethodCards: Array<{
     title: "ISO",
     description:
       "Build a new virtual machine from an ISO already stored in Proxmox.",
-    icon: IconServer,
+    icon: IconDeviceFloppy,
   },
   {
     value: "upload",

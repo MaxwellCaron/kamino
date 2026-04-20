@@ -1,7 +1,7 @@
 import {
   IconCpu,
   IconDatabase,
-  IconDeviceImac,
+  IconDeviceDesktop,
   IconEdit,
   IconId,
   IconInfoCircle,
@@ -206,7 +206,7 @@ export function VmHeader({
           {isTemplate ? (
             <IconTemplate className="size-7 text-muted-foreground" />
           ) : (
-            <IconDeviceImac className="size-7 text-muted-foreground" />
+            <IconDeviceDesktop className="size-7 text-muted-foreground" />
           )}
           <LoadingTransition
             isLoading={isLoading}

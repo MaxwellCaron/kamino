@@ -43,7 +43,7 @@ export function MembershipDialog(props: MembershipDialogProps) {
       open={open}
       onOpenChange={onOpenChange}
       icon={IconUsersGroup}
-      title={mode === "user-groups" ? "Edit Groups" : "Edit Members"}
+      title={mode === "user-groups" ? "Groups" : "Members"}
       description={
         mode === "user-groups"
           ? `Manage group memberships for ${principal.name ?? principal.external_id}.`

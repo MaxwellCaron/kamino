@@ -97,22 +97,22 @@ export function getGroupColumns({
             }
           />
           <DropdownMenuContent align="end">
-            {canManageAccess && (
-              <DropdownMenuItem onClick={() => onEditAccess(group)}>
-                <IconLockAccess className="text-muted-foreground" />
-                Edit Access
-              </DropdownMenuItem>
-            )}
             {canManageGroups && (
               <DropdownMenuItem onClick={() => onEditClick(group)}>
                 <IconEdit className="text-muted-foreground" />
-                Edit Group
+                Edit
+              </DropdownMenuItem>
+            )}
+            {canManageAccess && (
+              <DropdownMenuItem onClick={() => onEditAccess(group)}>
+                <IconLockAccess className="text-muted-foreground" />
+                Access
               </DropdownMenuItem>
             )}
             {canManageGroups && (
               <DropdownMenuItem onClick={() => onEditGroups(group)}>
                 <IconUsersGroup className="text-muted-foreground" />
-                Edit Members
+                Members
               </DropdownMenuItem>
             )}
             {canManageGroups && canManageAccess && <DropdownMenuSeparator />}
