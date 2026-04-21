@@ -46,10 +46,12 @@ function VmPage() {
   const vm = node?.vm ?? null
   const isTemplate = vm?.is_template ?? false
   const powerStatus = vm ? vmStatuses?.[vm.vmid] : undefined
+  const isVmRunning = powerStatus === "running"
   const isLoading = isTreeLoading || (!treeNode && isItemLoading)
+  const shouldFetchResources = !!vm && !isTemplate && isVmRunning
   const { data: resources } = useQuery({
     ...vmResourcesQueryOptions(itemId),
-    enabled: !!vm && !isTemplate && powerStatus === "running",
+    enabled: shouldFetchResources,
   })
   const canManageSnapshots = hasInventoryPermission(
     node?.permissions,
@@ -79,7 +81,7 @@ function VmPage() {
           itemId={itemId}
           vm={vm}
           powerStatus={powerStatus}
-          resources={resources}
+          resources={shouldFetchResources ? resources : undefined}
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
