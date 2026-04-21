@@ -23,6 +23,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
+import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { NavUser } from "./nav-user"
@@ -203,9 +204,10 @@ export function AppSidebar({
         {/* Inventory panel */}
         <Sidebar collapsible="none" className="flex flex-1">
           <SidebarHeader className="py-0">
-            <SidebarGroup className="mb-1 rounded-3xl border-b">
+            <SidebarGroup>
               <InventoryTreeHeader />
             </SidebarGroup>
+            <Separator className="-mt-2" />
           </SidebarHeader>
           <SidebarContent className="px-2">
             <InventoryTreeBody />

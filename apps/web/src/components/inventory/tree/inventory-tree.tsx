@@ -331,7 +331,7 @@ export function InventoryTreeHeader() {
 
   return (
     <>
-      <SidebarGroupLabel>Inventory</SidebarGroupLabel>
+      <SidebarGroupLabel className="-ml-1">Inventory</SidebarGroupLabel>
       <div className="absolute top-3 right-3 flex">
         <Tooltip>
           <TooltipTrigger
@@ -407,10 +407,7 @@ export function InventoryTreeBody() {
         </div>
       }
     >
-      <div className="flex flex-col gap-1">
-        <p className="px-2 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/70">
-          All Items
-        </p>
+      <div className="flex flex-col gap-1 pt-1">
         <InventoryTreeContent tree={tree} getStatus={getStatus} />
         <InventorySelectionActionBar />
       </div>
