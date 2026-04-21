@@ -4,18 +4,18 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
-import { useMemo } from "react"
+import { useCallback, useMemo, useSyncExternalStore } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { IconChevronDown, IconFolder, IconStar } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
-import {
-  useInventoryFavoritesSectionState,
-  useInventoryTreeContext,
-} from "./inventory-tree"
+import { useInventoryTreeContext } from "./inventory-tree"
 import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
 import type { ApiTreeNode } from "@/lib/queries"
+
+const FAVORITES_COLLAPSED_STORAGE_KEY = "kamino-favorite-inventory-collapsed"
+const favoritesCollapsedListeners = new Set<() => void>()
 
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 4 },
@@ -40,6 +40,66 @@ const sectionVariants: Variants = {
     opacity: 0,
     transition: { duration: 0.15, ease: "easeIn" },
   },
+}
+
+function subscribeToFavoritesCollapsed(onStoreChange: () => void) {
+  favoritesCollapsedListeners.add(onStoreChange)
+
+  if (typeof window === "undefined") {
+    return () => {
+      favoritesCollapsedListeners.delete(onStoreChange)
+    }
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === FAVORITES_COLLAPSED_STORAGE_KEY) {
+      onStoreChange()
+    }
+  }
+
+  window.addEventListener("storage", handleStorage)
+
+  return () => {
+    favoritesCollapsedListeners.delete(onStoreChange)
+    window.removeEventListener("storage", handleStorage)
+  }
+}
+
+function emitFavoritesCollapsedChange() {
+  for (const listener of favoritesCollapsedListeners) {
+    listener()
+  }
+}
+
+function readFavoritesCollapsedSnapshot() {
+  if (typeof window === "undefined") return "false"
+  return localStorage.getItem(FAVORITES_COLLAPSED_STORAGE_KEY) ?? "false"
+}
+
+function parseFavoritesCollapsed(snapshot: string) {
+  return snapshot === "true"
+}
+
+function writeFavoritesCollapsed(collapsed: boolean) {
+  if (typeof window === "undefined") return
+  localStorage.setItem(FAVORITES_COLLAPSED_STORAGE_KEY, String(collapsed))
+  emitFavoritesCollapsedChange()
+}
+
+function useFavoritesSectionState() {
+  const snapshot = useSyncExternalStore(
+    subscribeToFavoritesCollapsed,
+    readFavoritesCollapsedSnapshot,
+    () => "false"
+  )
+
+  const favoritesCollapsed = parseFavoritesCollapsed(snapshot)
+
+  const setFavoritesCollapsed = useCallback((collapsed: boolean) => {
+    writeFavoritesCollapsed(collapsed)
+  }, [])
+
+  return { favoritesCollapsed, setFavoritesCollapsed }
 }
 
 function FavoriteItemCard({
@@ -116,7 +176,7 @@ export function InventoryFavoritesSection() {
     handleFavoritePrimaryAction,
   } = useInventoryTreeContext()
   const { favoritesCollapsed, setFavoritesCollapsed } =
-    useInventoryFavoritesSectionState()
+    useFavoritesSectionState()
 
   const favoriteItems = useMemo(() => {
     const result: Array<ApiTreeNode> = []

@@ -68,26 +68,20 @@ export function useInventoryTreeContext() {
 }
 
 const FAVORITES_STORAGE_KEY = "kamino-favorite-inventory"
-const FAVORITES_COLLAPSED_STORAGE_KEY = "kamino-favorite-inventory-collapsed"
 
 const favoriteListeners = new Set<() => void>()
-const favoritesCollapsedListeners = new Set<() => void>()
 
-function subscribeToStorage(
-  storageKey: string,
-  listeners: Set<() => void>,
-  onStoreChange: () => void
-) {
-  listeners.add(onStoreChange)
+function subscribeToFavorites(onStoreChange: () => void) {
+  favoriteListeners.add(onStoreChange)
 
   if (typeof window === "undefined") {
     return () => {
-      listeners.delete(onStoreChange)
+      favoriteListeners.delete(onStoreChange)
     }
   }
 
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === storageKey) {
+    if (event.key === FAVORITES_STORAGE_KEY) {
       onStoreChange()
     }
   }
@@ -95,13 +89,13 @@ function subscribeToStorage(
   window.addEventListener("storage", handleStorage)
 
   return () => {
-    listeners.delete(onStoreChange)
+    favoriteListeners.delete(onStoreChange)
     window.removeEventListener("storage", handleStorage)
   }
 }
 
-function emitStorageChange(listeners: Set<() => void>) {
-  for (const listener of listeners) {
+function emitFavoritesChange() {
+  for (const listener of favoriteListeners) {
     listener()
   }
 }
@@ -123,32 +117,12 @@ function parseFavoriteIds(snapshot: string) {
 function writeFavoriteIds(next: Set<string>) {
   if (typeof window === "undefined") return
   localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(next)))
-  emitStorageChange(favoriteListeners)
-}
-
-function readFavoritesCollapsedSnapshot() {
-  if (typeof window === "undefined") return "false"
-  return localStorage.getItem(FAVORITES_COLLAPSED_STORAGE_KEY) ?? "false"
-}
-
-function parseFavoritesCollapsed(snapshot: string) {
-  return snapshot === "true"
-}
-
-function writeFavoritesCollapsed(collapsed: boolean) {
-  if (typeof window === "undefined") return
-  localStorage.setItem(FAVORITES_COLLAPSED_STORAGE_KEY, String(collapsed))
-  emitStorageChange(favoritesCollapsedListeners)
+  emitFavoritesChange()
 }
 
 export function useInventoryFavorites() {
   const snapshot = useSyncExternalStore(
-    (onStoreChange) =>
-      subscribeToStorage(
-        FAVORITES_STORAGE_KEY,
-        favoriteListeners,
-        onStoreChange
-      ),
+    subscribeToFavorites,
     readFavoritesSnapshot,
     () => "[]"
   )
@@ -174,27 +148,6 @@ export function useInventoryFavorites() {
   )
 
   return { favoriteIds, toggleFavorite }
-}
-
-export function useInventoryFavoritesSectionState() {
-  const snapshot = useSyncExternalStore(
-    (onStoreChange) =>
-      subscribeToStorage(
-        FAVORITES_COLLAPSED_STORAGE_KEY,
-        favoritesCollapsedListeners,
-        onStoreChange
-      ),
-    readFavoritesCollapsedSnapshot,
-    () => "false"
-  )
-
-  const favoritesCollapsed = parseFavoritesCollapsed(snapshot)
-
-  const setFavoritesCollapsed = useCallback((collapsed: boolean) => {
-    writeFavoritesCollapsed(collapsed)
-  }, [])
-
-  return { favoritesCollapsed, setFavoritesCollapsed }
 }
 
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {
