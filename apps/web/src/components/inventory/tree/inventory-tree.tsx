@@ -2,6 +2,7 @@ import {
   createContext,
   use,
   useCallback,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -154,6 +155,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
   const [query, setQuery] = useState("")
+  const [selectedItemIds, setSelectedItemIds] = useState<Array<string>>(() =>
+    activeItemId ? [activeItemId] : []
+  )
   const [pendingRevealRequest, setPendingRevealRequest] =
     useState<PendingRevealRequest | null>(null)
   const { favoriteIds, toggleFavorite: toggleSharedFavorite } =
@@ -186,6 +190,17 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     () => (isSearchActive ? flattenApiTree(filteredApiTree) : fullTree),
     [filteredApiTree, fullTree, isSearchActive]
   )
+
+  useEffect(() => {
+    setSelectedItemIds(activeItemId ? [activeItemId] : [])
+  }, [activeItemId])
+
+  useEffect(() => {
+    setSelectedItemIds((current) => {
+      const next = current.filter((itemId) => items.has(itemId))
+      return next.length === current.length ? current : next
+    })
+  }, [items])
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
@@ -255,7 +270,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const { tree, expandAll, collapseAll } = useInventoryHeadlessTree({
-    activeItemId,
     children: treeChildren,
     items,
     folderIds,
@@ -264,6 +278,8 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     onPrimaryAction: handlePrimaryAction,
     pendingRevealRequest,
     onRevealComplete: handleRevealComplete,
+    selectedItemIds,
+    setSelectedItemIds,
   })
 
   const value: InventoryTreeContextValue = {

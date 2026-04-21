@@ -25,6 +25,31 @@ function useTreeContext<T = any>() {
   return useContext(TreeContext) as TreeContextValue<T>
 }
 
+function renderToggleIcon(
+  isExpanded: boolean,
+  toggleIconType: ToggleIconType
+) {
+  if (toggleIconType === "plus-minus") {
+    return isExpanded ? (
+      <IconMinus
+        className="size-3.5 text-muted-foreground"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+    ) : (
+      <IconPlus
+        className="size-3.5 text-muted-foreground"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+    )
+  }
+
+  return (
+    <IconChevronDown className="size-4 text-muted-foreground in-aria-[expanded=false]:-rotate-90" />
+  )
+}
+
 interface TreeProps extends React.HTMLAttributes<HTMLDivElement> {
   indent?: number
   tree?: any
@@ -84,7 +109,7 @@ function TreeItem<T = any>({
   const { indent } = parentContext
 
   const itemProps = typeof item.getProps === "function" ? item.getProps() : {}
-  const mergedProps = { ...props, children, ...itemProps }
+  const mergedProps = mergeProps<"button">(itemProps, { ...props, children })
 
   // Extract style from mergedProps to merge with our custom styles
   const { style: propStyle, ...otherProps } = mergedProps
@@ -139,10 +164,12 @@ function TreeItem<T = any>({
 interface TreeItemLabelProps<
   T = any,
 > extends React.HTMLAttributes<HTMLSpanElement> {
+  hideToggle?: boolean
   item?: ItemInstance<T>
 }
 
 function TreeItemLabel<T = any>({
+  hideToggle = false,
   item: propItem,
   children,
   className,
@@ -169,26 +196,71 @@ function TreeItemLabel<T = any>({
       {...props}
     >
       {item.isFolder() &&
-        (toggleIconType === "plus-minus" ? (
-          item.isExpanded() ? (
-            <IconMinus
-              className="size-3.5 text-muted-foreground"
-              stroke="currentColor"
-              strokeWidth="1"
-            />
-          ) : (
-            <IconPlus
-              className="size-3.5 text-muted-foreground"
-              stroke="currentColor"
-              strokeWidth="1"
-            />
-          )
-        ) : (
-          <IconChevronDown className="size-4 text-muted-foreground in-aria-[expanded=false]:-rotate-90" />
-        ))}
+        !hideToggle &&
+        renderToggleIcon(item.isExpanded(), toggleIconType ?? "plus-minus")}
       {children ||
         (typeof item.getItemName === "function" ? item.getItemName() : null)}
     </span>
+  )
+}
+
+interface TreeItemToggleProps<
+  T = any,
+> extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  item?: ItemInstance<T>
+}
+
+function TreeItemToggle<T = any>({
+  item: propItem,
+  className,
+  onClick,
+  onDoubleClick,
+  onMouseDown,
+  ...props
+}: TreeItemToggleProps<T>) {
+  const { currentItem, toggleIconType } = useTreeContext<T>()
+  const item = propItem || currentItem
+
+  if (!item || !item.isFolder()) {
+    return null
+  }
+
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={`${item.isExpanded() ? "Collapse" : "Expand"} ${item.getItemName()}`}
+      className={cn(
+        "flex size-4 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted/80",
+        className
+      )}
+      onMouseDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onMouseDown?.(event)
+      }}
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick?.(event)
+        if (event.defaultPrevented) {
+          return
+        }
+
+        if (item.isExpanded()) {
+          item.collapse()
+          return
+        }
+
+        item.expand()
+      }}
+      onDoubleClick={(event) => {
+        event.stopPropagation()
+        onDoubleClick?.(event)
+      }}
+      {...props}
+    >
+      {renderToggleIcon(item.isExpanded(), toggleIconType ?? "plus-minus")}
+    </button>
   )
 }
 
@@ -219,4 +291,4 @@ function TreeDragLine({
   )
 }
 
-export { Tree, TreeItem, TreeItemLabel, TreeDragLine }
+export { Tree, TreeItem, TreeItemLabel, TreeItemToggle, TreeDragLine }

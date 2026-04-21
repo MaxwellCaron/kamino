@@ -12,7 +12,6 @@ import type { DragTarget, ItemInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "@/lib/queries"
 
 interface UseInventoryHeadlessTreeOptions {
-  activeItemId?: string
   children: Map<string, Array<string>>
   items: Map<string, ApiTreeNode>
   folderIds: Array<string>
@@ -21,12 +20,19 @@ interface UseInventoryHeadlessTreeOptions {
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
   pendingRevealRequest: { itemId: string; requestId: number } | null
   onRevealComplete: (requestId: number) => void
+  selectedItemIds: Array<string>
+  setSelectedItemIds: (
+    updater: Array<string> | ((prev: Array<string>) => Array<string>)
+  ) => void
+}
+
+interface SelectionDataRef {
+  selectUpToAnchorId?: string | null
 }
 
 const STORAGE_KEY = "kamino-inventory-expanded"
 
 export function useInventoryHeadlessTree({
-  activeItemId,
   children,
   items,
   folderIds,
@@ -35,6 +41,8 @@ export function useInventoryHeadlessTree({
   onPrimaryAction,
   pendingRevealRequest,
   onRevealComplete,
+  selectedItemIds,
+  setSelectedItemIds,
 }: UseInventoryHeadlessTreeOptions) {
   const itemsRef = useRef(items)
   const childrenRef = useRef(children)
@@ -110,6 +118,7 @@ export function useInventoryHeadlessTree({
     ],
     indent: TREE_INDENT,
     canReorder: false,
+    canDrag: (draggedItems) => draggedItems.length === 1,
     canDrop: (_items, target) => {
       const data = target.item.getItemData()
       return data.kind === "folder"
@@ -127,10 +136,15 @@ export function useInventoryHeadlessTree({
     },
     state: {
       expandedItems,
-      selectedItems: activeItemId ? [activeItemId] : [],
+      selectedItems: selectedItemIds,
     },
     setExpandedItems: (updater) => {
       handleExpandedChange(updater)
+    },
+    setSelectedItems: (updater) => {
+      setSelectedItemIds((prev) =>
+        typeof updater === "function" ? updater(prev) : updater
+      )
     },
   })
 
@@ -142,6 +156,24 @@ export function useInventoryHeadlessTree({
       tree.rebuildTree()
     }
   }, [children, tree])
+
+  useEffect(() => {
+    const dataRef = tree.getDataRef<SelectionDataRef>()
+    const anchorId = dataRef.current.selectUpToAnchorId
+
+    if (anchorId && !items.has(anchorId)) {
+      dataRef.current.selectUpToAnchorId = null
+    }
+
+    if (selectedItemIds.length === 0) {
+      dataRef.current.selectUpToAnchorId = null
+      return
+    }
+
+    if (selectedItemIds.length === 1 && items.has(selectedItemIds[0])) {
+      dataRef.current.selectUpToAnchorId = selectedItemIds[0]
+    }
+  }, [items, selectedItemIds, tree])
 
   const expandAll = useCallback(() => {
     handleExpandedChange(folderIds)
