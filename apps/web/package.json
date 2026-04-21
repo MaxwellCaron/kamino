@@ -15,11 +15,11 @@
     "@dot-loaders/react": "^0.1.0",
     "@novnc/novnc": "github:novnc/noVNC#v1.6.0",
     "@tabler/icons-react": "^3.41.1",
-    "@tailwindcss/vite": "^4.2.2",
-    "@tanstack/react-form": "^1.29.0",
-    "@tanstack/react-query": "^5.99.0",
-    "@tanstack/react-router": "^1.168.22",
-    "@tanstack/react-start": "^1.167.41",
+    "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/react-form": "^1.29.1",
+    "@tanstack/react-query": "^5.99.2",
+    "@tanstack/react-router": "^1.168.23",
+    "@tanstack/react-start": "^1.167.42",
     "@tanstack/router-plugin": "^1.167.22",
     "@workspace/ui": "workspace:*",
     "motion": "^12.38.0",
@@ -27,7 +27,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.2.2",
+    "tailwindcss": "^4.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -38,6 +38,6 @@
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.8"
+    "vite": "^8.0.9"
   }
 }
