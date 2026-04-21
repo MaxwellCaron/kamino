@@ -43,7 +43,14 @@ interface InventoryTreeContextValue {
   isEmpty: boolean
   favoriteIds: Set<string>
   toggleFavorite: (itemId: string) => void
+  getItemData: (itemId: string) => ApiTreeNode | undefined
   handlePrimaryAction: (itemId: string, data: ApiTreeNode) => void
+  handleFavoritePrimaryAction: (itemId: string, data: ApiTreeNode) => void
+}
+
+interface PendingRevealRequest {
+  itemId: string
+  requestId: number
 }
 
 const InventoryTreeContext = createContext<InventoryTreeContextValue | null>(
@@ -109,10 +116,7 @@ function parseFavoriteIds(snapshot: string) {
 
 function writeFavoriteIds(next: Set<string>) {
   if (typeof window === "undefined") return
-  localStorage.setItem(
-    FAVORITES_STORAGE_KEY,
-    JSON.stringify(Array.from(next))
-  )
+  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(next)))
   emitFavoritesChange()
 }
 
@@ -150,6 +154,8 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
   const [query, setQuery] = useState("")
+  const [pendingRevealRequest, setPendingRevealRequest] =
+    useState<PendingRevealRequest | null>(null)
   const { favoriteIds, toggleFavorite: toggleSharedFavorite } =
     useInventoryFavorites()
 
@@ -169,21 +175,27 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   )
   const resultCount = isSearchActive ? countLeaves(filteredApiTree) : null
 
+  const fullTree = useMemo(() => flattenApiTree(apiTree), [apiTree])
+
   const {
     items,
     children: treeChildren,
     folderIds,
-  } = useMemo(() => flattenApiTree(filteredApiTree), [filteredApiTree])
+    parentIds,
+  } = useMemo(
+    () => (isSearchActive ? flattenApiTree(filteredApiTree) : fullTree),
+    [filteredApiTree, fullTree, isSearchActive]
+  )
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
-      const item = items.get(itemId)
+      const item = fullTree.items.get(itemId)
       toggleSharedFavorite(itemId, { disabled: item?.kind === "folder" })
     },
-    [items, toggleSharedFavorite]
+    [fullTree.items, toggleSharedFavorite]
   )
 
-  const vmIdMap = useMemo(() => buildVmIdMap(items), [items])
+  const vmIdMap = useMemo(() => buildVmIdMap(fullTree.items), [fullTree.items])
 
   const getStatus = useCallback(
     (itemId: string): string | undefined => {
@@ -193,6 +205,11 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       return vmStatuses[vmid]
     },
     [vmStatuses, vmIdMap]
+  )
+
+  const getItemData = useCallback(
+    (itemId: string) => fullTree.items.get(itemId),
+    [fullTree.items]
   )
 
   const handleMove = useCallback(
@@ -219,13 +236,34 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [navigate]
   )
 
+  const handleFavoritePrimaryAction = useCallback(
+    (itemId: string, data: ApiTreeNode) => {
+      setQuery("")
+      setPendingRevealRequest((current) => ({
+        itemId,
+        requestId: current ? current.requestId + 1 : 1,
+      }))
+      handlePrimaryAction(itemId, data)
+    },
+    [handlePrimaryAction]
+  )
+
+  const handleRevealComplete = useCallback((requestId: number) => {
+    setPendingRevealRequest((current) =>
+      current?.requestId === requestId ? null : current
+    )
+  }, [])
+
   const { tree, expandAll, collapseAll } = useInventoryHeadlessTree({
     activeItemId,
     children: treeChildren,
     items,
     folderIds,
+    parentIds,
     onMove: handleMove,
     onPrimaryAction: handlePrimaryAction,
+    pendingRevealRequest,
+    onRevealComplete: handleRevealComplete,
   })
 
   const value: InventoryTreeContextValue = {
@@ -241,7 +279,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     isEmpty: !isLoading && apiTree.length === 0,
     favoriteIds,
     toggleFavorite,
+    getItemData,
     handlePrimaryAction,
+    handleFavoritePrimaryAction,
   }
 
   return <InventoryTreeContext value={value}>{children}</InventoryTreeContext>

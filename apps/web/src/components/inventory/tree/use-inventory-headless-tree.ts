@@ -16,8 +16,11 @@ interface UseInventoryHeadlessTreeOptions {
   children: Map<string, Array<string>>
   items: Map<string, ApiTreeNode>
   folderIds: Array<string>
+  parentIds: Map<string, string>
   onMove: (itemId: string, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
+  pendingRevealRequest: { itemId: string; requestId: number } | null
+  onRevealComplete: (requestId: number) => void
 }
 
 const STORAGE_KEY = "kamino-inventory-expanded"
@@ -27,8 +30,11 @@ export function useInventoryHeadlessTree({
   children,
   items,
   folderIds,
+  parentIds,
   onMove,
   onPrimaryAction,
+  pendingRevealRequest,
+  onRevealComplete,
 }: UseInventoryHeadlessTreeOptions) {
   const itemsRef = useRef(items)
   const childrenRef = useRef(children)
@@ -144,6 +150,46 @@ export function useInventoryHeadlessTree({
   const collapseAll = useCallback(() => {
     handleExpandedChange([])
   }, [handleExpandedChange])
+
+  useEffect(() => {
+    if (!pendingRevealRequest) return
+
+    const { itemId, requestId } = pendingRevealRequest
+    if (!items.has(itemId)) return
+
+    let canceled = false
+
+    async function revealItem() {
+      const ancestorIds: Array<string> = []
+      let parentId = parentIds.get(itemId)
+
+      while (parentId && parentId !== VIRTUAL_ROOT.id) {
+        ancestorIds.unshift(parentId)
+        parentId = parentIds.get(parentId)
+      }
+
+      for (const ancestorId of ancestorIds) {
+        const ancestor = tree.getItemInstance(ancestorId)
+        if (!ancestor.isExpanded()) {
+          ancestor.expand()
+        }
+      }
+
+      await tree
+        .getItemInstance(itemId)
+        .scrollTo({ block: "center", inline: "nearest" })
+
+      if (!canceled) {
+        onRevealComplete(requestId)
+      }
+    }
+
+    void revealItem()
+
+    return () => {
+      canceled = true
+    }
+  }, [items, onRevealComplete, parentIds, pendingRevealRequest, tree])
 
   return { tree, expandAll, collapseAll }
 }

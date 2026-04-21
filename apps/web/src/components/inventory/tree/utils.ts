@@ -5,15 +5,18 @@ export interface FlatTree {
   items: Map<string, ApiTreeNode>
   children: Map<string, Array<string>>
   folderIds: Array<string>
+  parentIds: Map<string, string>
 }
 
 export function flattenApiTree(roots: Array<ApiTreeNode>): FlatTree {
   const items = new Map<string, ApiTreeNode>()
   const children = new Map<string, Array<string>>()
   const folderIds: Array<string> = []
+  const parentIds = new Map<string, string>()
 
-  function walk(node: ApiTreeNode) {
+  function walk(node: ApiTreeNode, parentId: string) {
     items.set(node.id, node)
+    parentIds.set(node.id, parentId)
     if (node.kind === "folder") {
       folderIds.push(node.id)
     }
@@ -22,11 +25,11 @@ export function flattenApiTree(roots: Array<ApiTreeNode>): FlatTree {
         node.id,
         node.children.map((child) => child.id)
       )
-      for (const child of node.children) walk(child)
+      for (const child of node.children) walk(child, node.id)
     }
   }
 
-  for (const root of roots) walk(root)
+  for (const root of roots) walk(root, VIRTUAL_ROOT.id)
 
   items.set(VIRTUAL_ROOT.id, VIRTUAL_ROOT)
   children.set(
@@ -35,7 +38,7 @@ export function flattenApiTree(roots: Array<ApiTreeNode>): FlatTree {
   )
   folderIds.push(VIRTUAL_ROOT.id)
 
-  return { items, children, folderIds }
+  return { items, children, folderIds, parentIds }
 }
 
 export function filterTree(

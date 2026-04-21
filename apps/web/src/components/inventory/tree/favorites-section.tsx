@@ -3,6 +3,7 @@ import { useMemo } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { IconFolder, IconStar } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
+import { InventoryNodeMenu } from "../inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree"
 import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
@@ -76,36 +77,47 @@ function FavoriteItemCard({
         </p>
       </div>
 
-      <Button
-        size="icon-sm"
-        variant="secondary"
-        className="opacity-0 transition-opacity group-hover/favorite:opacity-100"
-        onClick={(e) => {
-          e.stopPropagation()
-          onToggle()
-        }}
-      >
-        <IconStar className="size-4 fill-current" />
-      </Button>
+      <div className="ml-auto flex items-center gap-0.5">
+        <Button
+          size="icon-sm"
+          variant="secondary"
+          className="opacity-0 transition-opacity group-hover/favorite:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle()
+          }}
+        >
+          <IconStar className="size-4 fill-current" />
+        </Button>
+        <InventoryNodeMenu
+          itemId={item.id}
+          data={item}
+          className="bg-transparent! opacity-0 transition-opacity group-hover/favorite:opacity-100 data-popup-open:opacity-100"
+        />
+      </div>
     </motion.div>
   )
 }
 
 export function InventoryFavoritesSection() {
-  const { tree, favoriteIds, toggleFavorite, getStatus, handlePrimaryAction } =
-    useInventoryTreeContext()
+  const {
+    favoriteIds,
+    toggleFavorite,
+    getStatus,
+    getItemData,
+    handleFavoritePrimaryAction,
+  } = useInventoryTreeContext()
 
   const favoriteItems = useMemo(() => {
     const result: Array<ApiTreeNode> = []
-    const allItems = tree.getItems()
     for (const id of favoriteIds) {
-      const item = allItems.find((i) => i.getId() === id)
+      const item = getItemData(id)
       if (item) {
-        result.push(item.getItemData())
+        result.push(item)
       }
     }
     return result
-  }, [tree, favoriteIds])
+  }, [favoriteIds, getItemData])
 
   return (
     <div className="flex flex-col">
@@ -130,7 +142,7 @@ export function InventoryFavoritesSection() {
               item={item}
               status={getStatus(item.id)}
               onToggle={() => toggleFavorite(item.id)}
-              onClick={() => handlePrimaryAction(item.id, item)}
+              onClick={() => handleFavoritePrimaryAction(item.id, item)}
             />
           ))}
         </AnimatePresence>
