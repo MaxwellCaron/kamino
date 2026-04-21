@@ -224,6 +224,89 @@ type createSnapshotRequest struct {
 	VMState     bool   `json:"vmstate"`
 }
 
+type bulkVMItemsRequest struct {
+	ItemIDs []string `json:"item_ids" binding:"required,min=1"`
+}
+
+type bulkVMActionFailure struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type bulkVMActionResponse struct {
+	Succeeded []string              `json:"succeeded"`
+	Failed    []bulkVMActionFailure `json:"failed"`
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+
+	return unique
+}
+
+func parseBulkVMItemIDs(rawItemIDs []string) ([]uuid.UUID, error) {
+	itemIDs := make([]uuid.UUID, 0, len(rawItemIDs))
+	for _, rawItemID := range uniqueStrings(rawItemIDs) {
+		itemID, err := uuid.Parse(rawItemID)
+		if err != nil {
+			return nil, err
+		}
+
+		itemIDs = append(itemIDs, itemID)
+	}
+
+	return itemIDs, nil
+}
+
+func (h *VMHandler) collectVerifiedVMTargets(
+	c *gin.Context,
+	principalID uuid.UUID,
+	itemIDs []uuid.UUID,
+	required authorization.Mask,
+	lock bool,
+) ([]verifiedVMTarget, bulkVMActionResponse) {
+	response := bulkVMActionResponse{
+		Succeeded: make([]string, 0, len(itemIDs)),
+		Failed:    make([]bulkVMActionFailure, 0),
+	}
+	targets := make([]verifiedVMTarget, 0, len(itemIDs))
+
+	for _, itemID := range itemIDs {
+		target, reqErr := resolveVerifiedVMItemPermission(
+			c.Request.Context(),
+			h.Authz,
+			h.PX,
+			principalID,
+			itemID,
+			required,
+			lock,
+		)
+		if reqErr != nil {
+			if reqErr.Err != nil {
+				logRequestError(c, reqErr.Operation+" item_id="+itemID.String(), reqErr.Err)
+			}
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: reqErr.UserMessage,
+			})
+			continue
+		}
+
+		targets = append(targets, target)
+	}
+
+	return targets, response
+}
+
 // CreateSnapshot creates a snapshot of a VM and waits for the Proxmox task to complete.
 // POST /api/v1/inventory/items/:id/vm/snapshots
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
@@ -257,12 +340,13 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 }
 
 type powerActionRequest struct {
-	Action string `json:"action" binding:"required,oneof=start shutdown reboot stop"`
+	Action  string   `json:"action" binding:"required,oneof=start shutdown reboot stop"`
+	ItemIDs []string `json:"item_ids" binding:"required,min=1"`
 }
 
-// PowerAction performs a power action (start, shutdown, reboot, stop) on a VM
+// PowerAction performs a power action (start, shutdown, reboot, stop) on one or more VMs
 // and waits for the Proxmox task to complete.
-// POST /api/v1/inventory/items/:id/vm/power
+// POST /api/v1/inventory/vms/power
 func (h *VMHandler) PowerAction(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -276,46 +360,60 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		return
 	}
 
-	itemID, ok := parseItemIDParam(c)
-	if !ok {
+	itemIDs, err := parseBulkVMItemIDs(req.ItemIDs)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.PowerVM, true)
-	if !ok {
-		return
-	}
+
+	targets, response := h.collectVerifiedVMTargets(
+		c,
+		principalID,
+		itemIDs,
+		authorization.PowerVM,
+		true,
+	)
 
 	ctx := c.Request.Context()
-	var err error
+	for _, target := range targets {
+		var actionErr error
 
-	switch req.Action {
-	case "start":
-		err = h.PX.StartVM(ctx, target.Node, target.VMID)
-	case "shutdown":
-		err = h.PX.ShutdownVM(ctx, target.Node, target.VMID)
-	case "reboot":
-		err = h.PX.RebootVM(ctx, target.Node, target.VMID)
-	case "stop":
-		err = h.PX.StopVM(ctx, target.Node, target.VMID)
+		switch req.Action {
+		case "start":
+			actionErr = h.PX.StartVM(ctx, target.Node, target.VMID)
+		case "shutdown":
+			actionErr = h.PX.ShutdownVM(ctx, target.Node, target.VMID)
+		case "reboot":
+			actionErr = h.PX.RebootVM(ctx, target.Node, target.VMID)
+		case "stop":
+			actionErr = h.PX.StopVM(ctx, target.Node, target.VMID)
+		}
+
+		if actionErr != nil {
+			logRequestError(c, fmt.Sprintf("vm power action=%s item_id=%s", req.Action, target.ItemID), actionErr)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: fmt.Sprintf("%s failed", req.Action),
+			})
+			continue
+		}
+
+		switch req.Action {
+		case "start", "reboot":
+			go h.waitForObservedVMStatus(target.VMID, "running")
+		case "shutdown", "stop":
+			go h.waitForObservedVMStatus(target.VMID, "stopped")
+		}
+
+		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to perform VM power action", "vm power action", err)
-		return
-	}
-
-	switch req.Action {
-	case "start", "reboot":
-		h.waitForObservedVMStatus(target.VMID, "running")
-	case "shutdown", "stop":
-		h.waitForObservedVMStatus(target.VMID, "stopped")
-	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	c.JSON(http.StatusOK, response)
 }
 
-// DeleteVM deletes a VM from Proxmox (waits for the task to complete) and
+// DeleteVM deletes one or more VMs from Proxmox (waits for the task to complete) and
 // removes it from the inventory.
-// DELETE /api/v1/inventory/items/:id/vm
+// DELETE /api/v1/inventory/vms
 func (h *VMHandler) DeleteVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -323,29 +421,51 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		return
 	}
 
-	itemID, ok := parseItemIDParam(c)
-	if !ok {
+	var req bulkVMItemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.DeleteVM, true)
-	if !ok {
+
+	itemIDs, err := parseBulkVMItemIDs(req.ItemIDs)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+
+	targets, response := h.collectVerifiedVMTargets(
+		c,
+		principalID,
+		itemIDs,
+		authorization.DeleteVM,
+		true,
+	)
 
 	ctx := c.Request.Context()
+	for _, target := range targets {
+		if err := h.PX.DeleteVM(ctx, target.Node, target.VMID); err != nil {
+			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), err)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "delete failed",
+			})
+			continue
+		}
 
-	if err := h.PX.DeleteVM(ctx, target.Node, target.VMID); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to delete VM", "delete proxmox vm", err)
-		return
+		if err := h.Service.DeleteInventoryVM(ctx, target.ItemID); err != nil {
+			logRequestError(c, "delete inventory item for vm item_id="+target.ItemID.String(), err)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "inventory cleanup failed",
+			})
+			continue
+		}
+
+		go h.waitForVMRemoval(target.VMID)
+		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
-	if err := h.Service.DeleteInventoryVM(ctx, target.ItemID); err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "VM deleted from Proxmox but failed to remove from inventory", "delete inventory item for vm", err)
-		return
-	}
-
-	h.waitForVMRemoval(target.VMID)
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	c.JSON(http.StatusOK, response)
 }
 
 type renameVMRequest struct {
@@ -778,8 +898,8 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	})
 }
 
-// ConvertToTemplate converts a VM to a template.
-// POST /api/v1/inventory/items/:id/vm/template
+// ConvertToTemplate converts one or more VMs to templates.
+// POST /api/v1/inventory/vms/template
 func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -787,28 +907,50 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 		return
 	}
 
-	itemID, ok := parseItemIDParam(c)
-	if !ok {
+	var req bulkVMItemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
 		return
 	}
-	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.TemplateVM, true)
-	if !ok {
+
+	itemIDs, err := parseBulkVMItemIDs(req.ItemIDs)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+
+	targets, response := h.collectVerifiedVMTargets(
+		c,
+		principalID,
+		itemIDs,
+		authorization.TemplateVM,
+		true,
+	)
 
 	ctx := c.Request.Context()
+	for _, target := range targets {
+		if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
+			logRequestError(c, "convert vm to template item_id="+target.ItemID.String(), err)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "templatize failed",
+			})
+			continue
+		}
 
-	if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to convert to template", "convert vm to template", err)
-		return
+		if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
+			logRequestError(c, "update vm template state in inventory item_id="+target.ItemID.String(), err)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "inventory sync failed",
+			})
+			continue
+		}
+
+		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
-	if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm converted to template in Proxmox but failed to refresh inventory metadata", "update vm template state in inventory", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	c.JSON(http.StatusOK, response)
 }
 
 // GetSnapshots returns all snapshots for a VM.

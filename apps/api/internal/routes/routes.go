@@ -60,19 +60,19 @@ func RegisterRoutes(
 	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
 	protected.GET("/vms/events", vm.StreamEvents)
+	protected.POST("/inventory/vms/power", vm.PowerAction)
+	protected.POST("/inventory/vms/template", vm.ConvertToTemplate)
+	protected.DELETE("/inventory/vms", vm.DeleteVM)
 	protected.GET("/inventory/items/:id/vm/resources", vm.GetResources)
 	protected.GET("/inventory/items/:id/vm/hardware", vm.GetHardware)
-	protected.POST("/inventory/items/:id/vm/power", vm.PowerAction)
 	protected.POST("/inventory/items/:id/vm/rename", vm.RenameVM)
 	protected.POST("/inventory/items/:id/vm/clone", vm.CloneVM)
 	protected.PUT("/inventory/items/:id/vm/hardware", vm.UpdateHardware)
 	protected.PUT("/inventory/items/:id/vm/notes", vm.UpdateNotes)
-	protected.POST("/inventory/items/:id/vm/template", vm.ConvertToTemplate)
 	protected.POST("/inventory/items/:id/vm/snapshots", vm.CreateSnapshot)
 	protected.POST("/inventory/items/:id/vm/snapshots/rollback", vm.RollbackSnapshot)
 	protected.GET("/inventory/items/:id/vm/snapshots", vm.GetSnapshots)
 	protected.DELETE("/inventory/items/:id/vm/snapshots/:snapname", vm.DeleteSnapshot)
-	protected.DELETE("/inventory/items/:id/vm", vm.DeleteVM)
 
 	// VM creation & Proxmox metadata endpoints
 	protected.POST("/vms", vmCreate.CreateVM)

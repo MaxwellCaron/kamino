@@ -2,11 +2,9 @@ import { useQueryClient } from "@tanstack/react-query"
 import {
   IconCamera,
   IconCopy,
-  IconDeviceDesktop,
   IconDeviceDesktopPlus,
   IconDots,
   IconEdit,
-  IconFolder,
   IconFolderPlus,
   IconLock,
   IconPlayerPlay,
@@ -27,21 +25,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
 import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
-import { Badge } from "@workspace/ui/components/badge"
+import { InventoryDeletionDescription } from "./inventory-deletion-description"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import { useInventoryFavorites } from "./tree/inventory-tree"
 import type { ConfirmConfig } from "./inventory-confirm-actions"
-import type { ApiTreeNode, ApiTreeNodePermissions } from "@/lib/queries"
+import type {
+  ApiBulkVmMutationResponse,
+  ApiTreeNode,
+  ApiTreeNodePermissions,
+} from "@/lib/queries"
 import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
 import {
   InventoryPermissionBits,
@@ -60,28 +55,15 @@ function formatMutationError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
-function pluralize(
-  count: number,
-  singular: string,
-  plural = `${singular}s`
-): string {
-  return `${count} ${count === 1 ? singular : plural}`
-}
+function assertSingleItemMutationSucceeded(
+  result: ApiBulkVmMutationResponse,
+  fallback: string
+) {
+  if (result.failed.length > 0 || result.succeeded.length === 0) {
+    throw new Error(result.failed[0]?.error ?? fallback)
+  }
 
-function formatAffectedItems(
-  items: Array<string>,
-  totalCount: number,
-  emptyLabel: string
-): string {
-  if (totalCount === 0) return emptyLabel
-  if (items.length === 0) return pluralize(totalCount, "item")
-
-  const remainingCount = Math.max(totalCount - items.length, 0)
-  const listedItems = items.join(", ")
-
-  return remainingCount > 0
-    ? `${listedItems}, and ${pluralize(remainingCount, "other item")}`
-    : listedItems
+  return result
 }
 
 const FOLDER_ACTION_PERMISSIONS = [
@@ -113,79 +95,6 @@ function stopTreeItemEvent(event: { stopPropagation: () => void }) {
 
 function hasFavoriteAction(onToggleFavorite?: () => void) {
   return typeof onToggleFavorite === "function"
-}
-
-export function FolderDeletionDescription({
-  folderCount,
-  vmCount,
-  templateCount,
-  folderNames,
-  vmNames,
-  templateNames,
-}: {
-  folderName: string
-  folderCount: number
-  vmCount: number
-  templateCount: number
-  folderNames: Array<string>
-  vmNames: Array<string>
-  templateNames: Array<string>
-}) {
-  return (
-    <>
-      <p>The following items will be permanently deleted.</p>
-      <div className="space-y-4 pt-4">
-        <Item variant="muted">
-          <ItemMedia variant="icon">
-            <IconFolder />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle className="text-foreground">
-              <span>Folders</span>
-              <Badge variant={folderCount !== 0 ? "destructive" : "outline"}>
-                {folderCount}
-              </Badge>
-            </ItemTitle>
-            <ItemDescription>
-              {formatAffectedItems(folderNames, folderCount, "—")}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-        <Item variant="muted">
-          <ItemMedia variant="icon">
-            <IconDeviceDesktop />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle className="text-foreground">
-              <span>VMs</span>
-              <Badge variant={vmCount !== 0 ? "destructive" : "outline"}>
-                {vmCount}
-              </Badge>
-            </ItemTitle>
-            <ItemDescription>
-              {formatAffectedItems(vmNames, vmCount, "—")}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-        <Item variant="muted">
-          <ItemMedia variant="icon">
-            <IconTemplate />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle className="text-foreground">
-              <span>Templates</span>
-              <Badge variant={templateCount !== 0 ? "destructive" : "outline"}>
-                {templateCount}
-              </Badge>
-            </ItemTitle>
-            <ItemDescription>
-              {formatAffectedItems(templateNames, templateCount, "—")}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-      </div>
-    </>
-  )
 }
 
 function FolderMenuItems({
@@ -375,7 +284,14 @@ function VmMenuItems({
                   variant: "default",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ itemId, action: "start" }),
+                      powerAction
+                        .mutateAsync({ itemIds: [itemId], action: "start" })
+                        .then((result) =>
+                          assertSingleItemMutationSucceeded(
+                            result,
+                            `Failed to start VM ${vmIdentifier}`
+                          )
+                        ),
                       {
                         loading: `Starting VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} started`,
@@ -400,7 +316,17 @@ function VmMenuItems({
                   variant: "destructive",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ itemId, action: "shutdown" }),
+                      powerAction
+                        .mutateAsync({
+                          itemIds: [itemId],
+                          action: "shutdown",
+                        })
+                        .then((result) =>
+                          assertSingleItemMutationSucceeded(
+                            result,
+                            `Failed to shut down VM ${vmIdentifier}`
+                          )
+                        ),
                       {
                         loading: `Shutting down VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} shut down`,
@@ -425,7 +351,14 @@ function VmMenuItems({
                   variant: "destructive",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ itemId, action: "reboot" }),
+                      powerAction
+                        .mutateAsync({ itemIds: [itemId], action: "reboot" })
+                        .then((result) =>
+                          assertSingleItemMutationSucceeded(
+                            result,
+                            `Failed to reboot VM ${vmIdentifier}`
+                          )
+                        ),
                       {
                         loading: `Rebooting VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} rebooted`,
@@ -450,7 +383,14 @@ function VmMenuItems({
                   variant: "destructive",
                   onConfirm: () => {
                     toast.promise(
-                      powerAction.mutateAsync({ itemId, action: "stop" }),
+                      powerAction
+                        .mutateAsync({ itemIds: [itemId], action: "stop" })
+                        .then((result) =>
+                          assertSingleItemMutationSucceeded(
+                            result,
+                            `Failed to stop VM ${vmIdentifier}`
+                          )
+                        ),
                       {
                         loading: `Stopping VM ${vmIdentifier}…`,
                         success: `VM ${vmIdentifier} stopped`,
@@ -501,11 +441,21 @@ function VmMenuItems({
                     actionLabel: "Templatize",
                     variant: "destructive",
                     onConfirm: () => {
-                      toast.promise(toTemplate.mutateAsync({ itemId }), {
-                        loading: `Templatizing VM ${vmIdentifier}…`,
-                        success: `VM ${vmIdentifier} templatized`,
-                        error: (err: Error) => err.message,
-                      })
+                      toast.promise(
+                        toTemplate
+                          .mutateAsync({ itemIds: [itemId] })
+                          .then((result) =>
+                            assertSingleItemMutationSucceeded(
+                              result,
+                              `Failed to templatize VM ${vmIdentifier}`
+                            )
+                          ),
+                        {
+                          loading: `Templatizing VM ${vmIdentifier}…`,
+                          success: `VM ${vmIdentifier} templatized`,
+                          error: (err: Error) => err.message,
+                        }
+                      )
                     },
                   })
                 }
@@ -559,11 +509,21 @@ function VmMenuItems({
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(deleteVm.mutateAsync({ itemId }), {
-                  loading: `Deleting VM ${vmIdentifier}…`,
-                  success: `VM ${vmIdentifier} deleted`,
-                  error: (err: Error) => err.message,
-                })
+                toast.promise(
+                  deleteVm
+                    .mutateAsync({ itemIds: [itemId] })
+                    .then((result) =>
+                      assertSingleItemMutationSucceeded(
+                        result,
+                        `Failed to delete VM ${vmIdentifier}`
+                      )
+                    ),
+                  {
+                    loading: `Deleting VM ${vmIdentifier}…`,
+                    success: `VM ${vmIdentifier} deleted`,
+                    error: (err: Error) => err.message,
+                  }
+                )
               },
             })
           }
@@ -666,11 +626,21 @@ function TemplateMenuItems({
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(deleteVm.mutateAsync({ itemId }), {
-                  loading: `Deleting template ${vmIdentifier}…`,
-                  success: `Template ${vmIdentifier} deleted`,
-                  error: (err: Error) => err.message,
-                })
+                toast.promise(
+                  deleteVm
+                    .mutateAsync({ itemIds: [itemId] })
+                    .then((result) =>
+                      assertSingleItemMutationSucceeded(
+                        result,
+                        `Failed to delete template ${vmIdentifier}`
+                      )
+                    ),
+                  {
+                    loading: `Deleting template ${vmIdentifier}…`,
+                    success: `Template ${vmIdentifier} deleted`,
+                    error: (err: Error) => err.message,
+                  }
+                )
               },
             })
           }
@@ -818,8 +788,7 @@ export function InventoryNodeMenu({
       title: `Delete folder "${data.name}"?`,
       icon: IconTrash,
       description: (
-        <FolderDeletionDescription
-          folderName={data.name}
+        <InventoryDeletionDescription
           folderCount={summary.folderCount}
           vmCount={summary.vmCount}
           templateCount={summary.templateCount}

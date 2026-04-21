@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -101,6 +102,13 @@ type verifiedVMTarget struct {
 	UpstreamUUID uuid.UUID
 }
 
+type requestError struct {
+	Status      int
+	UserMessage string
+	Operation   string
+	Err         error
+}
+
 func parseItemIDParam(c *gin.Context) (uuid.UUID, bool) {
 	itemID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -109,6 +117,105 @@ func parseItemIDParam(c *gin.Context) (uuid.UUID, bool) {
 	}
 
 	return itemID, true
+}
+
+func writeRequestError(c *gin.Context, reqErr *requestError) {
+	if reqErr == nil {
+		return
+	}
+
+	if reqErr.Err != nil {
+		writeLoggedError(c, reqErr.Status, reqErr.UserMessage, reqErr.Operation, reqErr.Err)
+		return
+	}
+
+	c.JSON(reqErr.Status, gin.H{"error": reqErr.UserMessage})
+}
+
+func resolveVerifiedVMItemPermission(
+	ctx context.Context,
+	authzService *authorization.Service,
+	px *proxmox.Client,
+	principalID uuid.UUID,
+	itemID uuid.UUID,
+	required authorization.Mask,
+	lock bool,
+) (verifiedVMTarget, *requestError) {
+	err := authzService.Require(ctx, principalID, itemID, required)
+	switch {
+	case err == nil:
+	case errors.Is(err, pgx.ErrNoRows):
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "item not found",
+		}
+	case authorization.IsForbidden(err):
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusForbidden,
+			UserMessage: "forbidden",
+		}
+	default:
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "authorization failed",
+			Operation:   "authorize inventory resource",
+			Err:         err,
+		}
+	}
+
+	var record authorization.VMRecord
+	if lock {
+		record, err = authzService.GetVMRecordForUpdate(ctx, itemID)
+	} else {
+		record, err = authzService.GetVMRecord(ctx, itemID)
+	}
+
+	switch {
+	case err == nil:
+	case errors.Is(err, pgx.ErrNoRows):
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "vm not found",
+		}
+	default:
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "authorization failed",
+			Operation:   "resolve vm inventory mapping",
+			Err:         err,
+		}
+	}
+
+	identity, err := px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+	switch {
+	case err == nil:
+	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusConflict,
+			UserMessage: "vm identity is not initialized in Proxmox",
+		}
+	default:
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to verify VM identity",
+			Operation:   "verify proxmox vm identity",
+			Err:         err,
+		}
+	}
+
+	if identity.UpstreamUUID != record.UpstreamUUID {
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusConflict,
+			UserMessage: "inventory mapping is stale; upstream VM identity no longer matches",
+		}
+	}
+
+	return verifiedVMTarget{
+		ItemID:       record.InventoryItemID,
+		Node:         record.Node,
+		VMID:         int(record.Vmid),
+		UpstreamUUID: record.UpstreamUUID,
+	}, nil
 }
 
 // requireVerifiedVMItemPermission keeps sensitive VM actions bound to the
@@ -130,53 +237,21 @@ func requireVerifiedVMItemPermission(
 	required authorization.Mask,
 	lock bool,
 ) (verifiedVMTarget, bool) {
-	if !requireInventoryPermission(c, authzService, principalID, itemID, required) {
-		return verifiedVMTarget{}, false
-	}
-
-	var (
-		record authorization.VMRecord
-		err    error
+	target, reqErr := resolveVerifiedVMItemPermission(
+		c.Request.Context(),
+		authzService,
+		px,
+		principalID,
+		itemID,
+		required,
+		lock,
 	)
-	if lock {
-		record, err = authzService.GetVMRecordForUpdate(c.Request.Context(), itemID)
-	} else {
-		record, err = authzService.GetVMRecord(c.Request.Context(), itemID)
-	}
-	switch {
-	case err == nil:
-	case errors.Is(err, pgx.ErrNoRows):
-		c.JSON(http.StatusNotFound, gin.H{"error": "vm not found"})
-		return verifiedVMTarget{}, false
-	default:
-		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "resolve vm inventory mapping", err)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
 		return verifiedVMTarget{}, false
 	}
 
-	identity, err := px.GetVMIdentity(c.Request.Context(), record.Node, int(record.Vmid))
-	switch {
-	case err == nil:
-	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
-		c.JSON(http.StatusConflict, gin.H{"error": "vm identity is not initialized in Proxmox"})
-		return verifiedVMTarget{}, false
-	default:
-		writeLoggedError(c, http.StatusBadGateway, "failed to verify VM identity", "verify proxmox vm identity", err)
-		return verifiedVMTarget{}, false
-	}
-
-	if identity.UpstreamUUID != record.UpstreamUUID {
-		c.JSON(http.StatusConflict, gin.H{
-			"error": "inventory mapping is stale; upstream VM identity no longer matches",
-		})
-		return verifiedVMTarget{}, false
-	}
-
-	return verifiedVMTarget{
-		ItemID:       record.InventoryItemID,
-		Node:         record.Node,
-		VMID:         int(record.Vmid),
-		UpstreamUUID: record.UpstreamUUID,
-	}, true
+	return target, true
 }
 
 func requireManagementPermission(

@@ -554,34 +554,62 @@ export function vmResourcesQueryOptions(itemId: string) {
   }
 }
 
-export async function vmPowerAction(params: {
-  itemId: string
-  action: "start" | "shutdown" | "reboot" | "stop"
-}): Promise<void> {
-  const res = await apiFetch(
-    `/api/v1/inventory/items/${params.itemId}/vm/power`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: params.action }),
-    }
-  )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to ${params.action} VM: ${res.status}`
-    )
-  }
+export type ApiBulkVmMutationFailure = {
+  id: string
+  error: string
 }
 
-export async function deleteVM(params: { itemId: string }): Promise<void> {
-  const res = await apiFetch(`/api/v1/inventory/items/${params.itemId}/vm`, {
-    method: "DELETE",
+export type ApiBulkVmMutationResponse = {
+  succeeded: Array<string>
+  failed: Array<ApiBulkVmMutationFailure>
+}
+
+export async function vmPowerAction(params: {
+  itemIds: Array<string>
+  action: "start" | "shutdown" | "reboot" | "stop"
+}): Promise<ApiBulkVmMutationResponse> {
+  if (params.itemIds.length === 0) {
+    throw new Error("At least one VM is required")
+  }
+
+  const res = await apiFetch(`/api/v1/inventory/vms/power`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: params.action,
+      item_ids: params.itemIds,
+    }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete VM: ${res.status}`)
+    throw new Error(
+      body.error ?? `Failed to ${params.action} selected VMs: ${res.status}`
+    )
   }
+
+  return res.json()
+}
+
+export async function deleteVM(params: {
+  itemIds: Array<string>
+}): Promise<ApiBulkVmMutationResponse> {
+  if (params.itemIds.length === 0) {
+    throw new Error("At least one VM is required")
+  }
+
+  const res = await apiFetch(`/api/v1/inventory/vms`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ item_ids: params.itemIds }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to delete selected VMs: ${res.status}`
+    )
+  }
+
+  return res.json()
 }
 
 export async function renameVM(params: {
@@ -712,20 +740,25 @@ export async function cloneVM(params: {
 }
 
 export async function convertToTemplate(params: {
-  itemId: string
-}): Promise<void> {
-  const res = await apiFetch(
-    `/api/v1/inventory/items/${params.itemId}/vm/template`,
-    {
-      method: "POST",
-    }
-  )
+  itemIds: Array<string>
+}): Promise<ApiBulkVmMutationResponse> {
+  if (params.itemIds.length === 0) {
+    throw new Error("At least one VM is required")
+  }
+
+  const res = await apiFetch(`/api/v1/inventory/vms/template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ item_ids: params.itemIds }),
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(
-      body.error ?? `Failed to convert to template: ${res.status}`
+      body.error ?? `Failed to convert selected VMs to templates: ${res.status}`
     )
   }
+
+  return res.json()
 }
 
 export type ApiSnapshot = {

@@ -22,6 +22,7 @@ import { AnimatePresence } from "motion/react"
 import { InventoryTreeContent } from "./tree-content"
 import { InventoryTreeSearch } from "./tree-search"
 import { InventoryFavoritesSection } from "./favorites-section"
+import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
 import { useInventoryHeadlessTree } from "./use-inventory-headless-tree"
 import { buildVmIdMap, countLeaves, filterTree, flattenApiTree } from "./utils"
 import type { ReactNode } from "react"
@@ -47,6 +48,9 @@ interface InventoryTreeContextValue {
   getItemData: (itemId: string) => ApiTreeNode | undefined
   handlePrimaryAction: (itemId: string, data: ApiTreeNode) => void
   handleFavoritePrimaryAction: (itemId: string, data: ApiTreeNode) => void
+  selectedItemIds: Array<string>
+  replaceSelection: (itemIds: Array<string>) => void
+  clearSelection: () => void
 }
 
 interface PendingRevealRequest {
@@ -202,6 +206,14 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     })
   }, [items])
 
+  const clearSelection = useCallback(() => {
+    setSelectedItemIds([])
+  }, [])
+
+  const replaceSelection = useCallback((itemIds: Array<string>) => {
+    setSelectedItemIds(itemIds)
+  }, [])
+
   const toggleFavorite = useCallback(
     (itemId: string) => {
       const item = fullTree.items.get(itemId)
@@ -298,6 +310,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     getItemData,
     handlePrimaryAction,
     handleFavoritePrimaryAction,
+    selectedItemIds,
+    replaceSelection,
+    clearSelection,
   }
 
   return <InventoryTreeContext value={value}>{children}</InventoryTreeContext>
@@ -397,6 +412,7 @@ export function InventoryTreeBody() {
           All Items
         </p>
         <InventoryTreeContent tree={tree} getStatus={getStatus} />
+        <InventorySelectionActionBar />
       </div>
     </LoadingTransition>
   )
