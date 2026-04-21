@@ -15,10 +15,13 @@ import {
   ActionBarSelection,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import { toast } from "sonner"
 import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import { useInventoryDialogs } from "../inventory-dialogs-provider"
 import { useInventoryTreeContext } from "./inventory-tree"
+import type {
+  ConfirmDialogControls,
+  ConfirmStatusItem,
+} from "../inventory-confirm-actions"
 import type { FolderDeletionSummary } from "@/lib/inventory-tree"
 import type { ApiBulkVmMutationResponse, ApiTreeNode } from "@/lib/queries"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"
@@ -32,6 +35,7 @@ import {
   hasInventoryPermission,
 } from "@/lib/inventory-permissions"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
+import { formatVmReference } from "@/lib/utils"
 
 type SelectedVmItem = ApiTreeNode & {
   kind: "vm"
@@ -45,6 +49,12 @@ type SelectedFolderItem = ApiTreeNode & {
 type MutationFailure = {
   id: string
   error: string
+}
+
+function getPowerSuccessStatus(
+  action: "start" | "shutdown" | "reboot" | "stop"
+) {
+  return action === "shutdown" || action === "stop" ? "stopped" : "running"
 }
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
@@ -64,18 +74,6 @@ function getVmSelectionLabel(items: Array<SelectedVmItem>) {
   }
 
   return `${pluralize(vmCount, "VM")} and ${pluralize(templateCount, "template")}`
-}
-
-function getFailureMessage(failures: Array<MutationFailure>, fallback: string) {
-  if (failures.length === 0) {
-    return null
-  }
-
-  if (failures.length === 1) {
-    return `${fallback}: ${failures[0].error}`
-  }
-
-  return `${fallback} for ${failures.length} items`
 }
 
 function collectDescendantIds(node: ApiTreeNode, descendants: Set<string>) {
@@ -147,9 +145,152 @@ function summarizeSelectionDeletion(
   return summary
 }
 
+function getResultItemLabel(item: SelectedFolderItem | SelectedVmItem) {
+  return item.kind === "vm"
+    ? formatVmReference(item.vm.vmid, item.name)
+    : item.name
+}
+
+function createConfirmStatusItems(
+  items: Array<SelectedFolderItem | SelectedVmItem>
+): Array<ConfirmStatusItem> {
+  return items.map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    label: getResultItemLabel(item),
+    status: "idle",
+  }))
+}
+
+function createPowerConfirmStatusItems(
+  items: Array<SelectedVmItem>,
+  action: "start" | "shutdown" | "reboot" | "stop",
+  getStatus: (itemId: string) => string | undefined
+): Array<ConfirmStatusItem> {
+  return items.map((item) => ({
+    id: item.id,
+    kind: "vm",
+    label: getResultItemLabel(item),
+    status: "idle",
+    vmid: item.vm.vmid,
+    vmStatus: getStatus(item.id),
+    isTemplate: false,
+    successVmStatus: getPowerSuccessStatus(action),
+    successIsTemplate: false,
+    successDisplay: "vm",
+  }))
+}
+
+function createTemplateConfirmStatusItems(
+  items: Array<SelectedVmItem>,
+  getStatus: (itemId: string) => string | undefined
+): Array<ConfirmStatusItem> {
+  return items.map((item) => ({
+    id: item.id,
+    kind: "vm",
+    label: getResultItemLabel(item),
+    status: "idle",
+    vmid: item.vm.vmid,
+    vmStatus: getStatus(item.id),
+    isTemplate: false,
+    successVmStatus: getStatus(item.id),
+    successIsTemplate: true,
+    successDisplay: "vm",
+  }))
+}
+
+function createDeleteConfirmStatusItems(
+  folderTargets: Array<SelectedFolderItem>,
+  vmTargets: Array<SelectedVmItem>,
+  getStatus: (itemId: string) => string | undefined
+): Array<ConfirmStatusItem> {
+  return [
+    ...createConfirmStatusItems(folderTargets),
+    ...vmTargets.map((item) => ({
+      id: item.id,
+      kind: "vm" as const,
+      label: getResultItemLabel(item),
+      status: "idle" as const,
+      vmid: item.vm.vmid,
+      vmStatus: getStatus(item.id),
+      isTemplate: item.vm.is_template,
+      successDisplay: "deleted" as const,
+    })),
+  ]
+}
+
+function markStatusItems(
+  items: Array<ConfirmStatusItem>,
+  itemIds: Array<string>,
+  status: ConfirmStatusItem["status"],
+  error?: string
+) {
+  const targetIds = new Set(itemIds)
+
+  return items.map((item) =>
+    targetIds.has(item.id) ? { ...item, status, error } : item
+  )
+}
+
+function applyVmMutationStatuses(
+  items: Array<ConfirmStatusItem>,
+  itemIds: Array<string>,
+  result: ApiBulkVmMutationResponse
+) {
+  const targetIds = new Set(itemIds)
+  const failedById = new Map(
+    result.failed.map((failure) => [failure.id, failure.error])
+  )
+
+  return items.map((item) => {
+    if (!targetIds.has(item.id)) {
+      return item
+    }
+
+    const error = failedById.get(item.id)
+    return error
+      ? { ...item, status: "error" as const, error }
+      : { ...item, status: "success" as const, error: undefined }
+  })
+}
+
+function applyPowerMutationStatuses(
+  items: Array<ConfirmStatusItem>,
+  itemIds: Array<string>,
+  result: ApiBulkVmMutationResponse
+) {
+  const targetIds = new Set(itemIds)
+  const failedById = new Map(
+    result.failed.map((failure) => [failure.id, failure.error])
+  )
+
+  return items.map((item) => {
+    if (!targetIds.has(item.id)) {
+      return item
+    }
+
+    const error = failedById.get(item.id)
+    return error ? { ...item, status: "error" as const, error } : item
+  })
+}
+
+function getPendingStatusItems(
+  items: Array<ConfirmStatusItem>,
+  kind?: ConfirmStatusItem["kind"]
+) {
+  return items.filter(
+    (item) => item.status !== "success" && (!kind || item.kind === kind)
+  )
+}
+
 export function InventorySelectionActionBar() {
-  const { clearSelection, getItemData, replaceSelection, selectedItemIds } =
-    useInventoryTreeContext()
+  const {
+    clearSelection,
+    getItemData,
+    getStatus,
+    replaceSelection,
+    selectedItemIds,
+  } = useInventoryTreeContext()
   const { openConfirm } = useInventoryDialogs()
   const powerAction = useVmPowerAction()
   const deleteVm = useDeleteVM()
@@ -184,9 +325,7 @@ export function InventorySelectionActionBar() {
 
   const powerVmItems = Array.from(powerVmTargets.values())
   const powerSelectionLabel = getVmSelectionLabel(powerVmItems)
-  const powerVmItemIds = powerVmItems.map((item) => item.id)
   const templateSelectionLabel = getVmSelectionLabel(selectedVmItems)
-  const templateVmItemIds = selectedVmItems.map((item) => item.id)
 
   const coveredBySelectedFolders = new Set<string>()
   for (const folder of selectedFolderItems) {
@@ -231,171 +370,179 @@ export function InventorySelectionActionBar() {
       )
     )
 
-  if (!canDelete && !canPower && !canTemplate) {
-    return null
-  }
-
   const open =
     selectedItemIds.length > 1 &&
     selectedItems.length === selectedItemIds.length
 
-  if (!open) {
-    return null
-  }
-
-  function handleVmMutationResult(
-    result: ApiBulkVmMutationResponse,
-    options: {
-      successMessage: (count: number) => string
-      failureMessage: string
-    }
-  ) {
+  function handleVmMutationSelection(result: ApiBulkVmMutationResponse) {
     if (result.failed.length === 0) {
       clearSelection()
     } else {
       replaceSelection(result.failed.map((failure) => failure.id))
     }
-
-    if (result.succeeded.length > 0) {
-      toast.success(options.successMessage(result.succeeded.length))
-    }
-
-    const failureMessage = getFailureMessage(
-      result.failed,
-      options.failureMessage
-    )
-    if (failureMessage) {
-      toast.error(failureMessage)
-    }
   }
 
   async function runPowerAction(
-    action: "start" | "shutdown" | "reboot" | "stop"
+    action: "start" | "shutdown" | "reboot" | "stop",
+    controls: ConfirmDialogControls
   ) {
-    const loadingMessage = {
-      start: `Starting ${powerSelectionLabel}…`,
-      shutdown: `Shutting down ${powerSelectionLabel}…`,
-      reboot: `Rebooting ${powerSelectionLabel}…`,
-      stop: `Stopping ${powerSelectionLabel}…`,
-    }[action]
+    const targetItemIds = getPendingStatusItems(
+      controls.getStatusItems(),
+      "vm"
+    ).map((item) => item.id)
+
+    if (targetItemIds.length === 0) {
+      return
+    }
+
     const failureMessage = {
       start: "Failed to start selected VMs",
       shutdown: "Failed to shut down selected VMs",
       reboot: "Failed to reboot selected VMs",
       stop: "Failed to stop selected VMs",
     }[action]
-    const successMessage = {
-      start: (count: number) => `${pluralize(count, "VM")} started`,
-      shutdown: (count: number) => `${pluralize(count, "VM")} shut down`,
-      reboot: (count: number) => `${pluralize(count, "VM")} rebooted`,
-      stop: (count: number) => `${pluralize(count, "VM")} stopped`,
-    }[action]
 
-    const loadingToastId = toast.loading(loadingMessage)
+    controls.setStatusItems((items) =>
+      markStatusItems(items, targetItemIds, "pending")
+    )
 
     try {
       const result = await powerAction.mutateAsync({
         action,
-        itemIds: powerVmItemIds,
+        itemIds: targetItemIds,
       })
-      toast.dismiss(loadingToastId)
-      handleVmMutationResult(result, { successMessage, failureMessage })
+      handleVmMutationSelection(result)
+      controls.setStatusItems((items) =>
+        applyPowerMutationStatuses(items, targetItemIds, result)
+      )
     } catch (error) {
-      toast.dismiss(loadingToastId)
-      toast.error(error instanceof Error ? error.message : failureMessage)
-      throw error
+      replaceSelection(targetItemIds)
+      controls.setStatusItems((items) =>
+        markStatusItems(
+          items,
+          targetItemIds,
+          "error",
+          error instanceof Error ? error.message : failureMessage
+        )
+      )
     }
   }
 
-  async function runTemplateAction() {
-    const loadingToastId = toast.loading(
-      `Templatizing ${templateSelectionLabel}…`
+  async function runTemplateAction(controls: ConfirmDialogControls) {
+    const targetItemIds = getPendingStatusItems(
+      controls.getStatusItems(),
+      "vm"
+    ).map((item) => item.id)
+
+    if (targetItemIds.length === 0) {
+      return
+    }
+
+    controls.setStatusItems((items) =>
+      markStatusItems(items, targetItemIds, "pending")
     )
 
     try {
       const result = await convertToTemplate.mutateAsync({
-        itemIds: templateVmItemIds,
+        itemIds: targetItemIds,
       })
-      toast.dismiss(loadingToastId)
-      handleVmMutationResult(result, {
-        successMessage: (count) => `${pluralize(count, "VM")} templatized`,
-        failureMessage: "Failed to templatize selected VMs",
-      })
-    } catch (error) {
-      toast.dismiss(loadingToastId)
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to templatize selected VMs"
+      handleVmMutationSelection(result)
+      controls.setStatusItems((items) =>
+        applyVmMutationStatuses(items, targetItemIds, result)
       )
-      throw error
+    } catch (error) {
+      replaceSelection(targetItemIds)
+      controls.setStatusItems((items) =>
+        markStatusItems(
+          items,
+          targetItemIds,
+          "error",
+          error instanceof Error
+            ? error.message
+            : "Failed to templatize selected VMs"
+        )
+      )
     }
   }
 
-  async function runDeleteAction() {
-    const loadingToastId = toast.loading("Deleting selected items…")
+  async function runDeleteAction(controls: ConfirmDialogControls) {
+    const pendingStatusItems = getPendingStatusItems(controls.getStatusItems())
+    const targetFolderIds = pendingStatusItems
+      .filter((item) => item.kind === "folder")
+      .map((item) => item.id)
+    const targetVmItemIds = pendingStatusItems
+      .filter((item) => item.kind === "vm")
+      .map((item) => item.id)
+
+    if (targetFolderIds.length === 0 && targetVmItemIds.length === 0) {
+      return
+    }
+
+    controls.setStatusItems((items) =>
+      markStatusItems(
+        items,
+        [...targetFolderIds, ...targetVmItemIds],
+        "pending"
+      )
+    )
     const failures: Array<MutationFailure> = []
-    let successCount = 0
 
-    try {
-      for (const folder of deleteFolderTargets) {
-        try {
-          await deleteFolder.mutateAsync({ id: folder.id })
-          successCount += 1
-        } catch (error) {
-          failures.push({
-            id: folder.id,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to delete folder",
-          })
-        }
-      }
-
-      if (deleteVmTargets.length > 0) {
-        const result = await deleteVm.mutateAsync({
-          itemIds: deleteVmTargets.map((item) => item.id),
+    for (const folderId of targetFolderIds) {
+      try {
+        await deleteFolder.mutateAsync({ id: folderId })
+        controls.setStatusItems((items) =>
+          markStatusItems(items, [folderId], "success")
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to delete folder"
+        failures.push({
+          id: folderId,
+          error: message,
         })
-        successCount += result.succeeded.length
+        controls.setStatusItems((items) =>
+          markStatusItems(items, [folderId], "error", message)
+        )
+      }
+    }
+
+    if (targetVmItemIds.length > 0) {
+      try {
+        const result = await deleteVm.mutateAsync({
+          itemIds: targetVmItemIds,
+        })
         failures.push(...result.failed)
+        controls.setStatusItems((items) =>
+          applyVmMutationStatuses(items, targetVmItemIds, result)
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete selected VMs"
+        failures.push(
+          ...targetVmItemIds.map((id) => ({
+            id,
+            error: message,
+          }))
+        )
+        controls.setStatusItems((items) =>
+          markStatusItems(items, targetVmItemIds, "error", message)
+        )
       }
+    }
 
-      toast.dismiss(loadingToastId)
-
-      if (failures.length === 0) {
-        clearSelection()
-      } else {
-        replaceSelection(failures.map((failure) => failure.id))
-      }
-
-      if (successCount > 0) {
-        toast.success(`${pluralize(successCount, "selected item")} deleted`)
-      }
-
-      const failureMessage = getFailureMessage(
-        failures,
-        "Failed to delete selected items"
-      )
-      if (failureMessage) {
-        toast.error(failureMessage)
-      }
-    } catch (error) {
-      toast.dismiss(loadingToastId)
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to delete selected items"
-      )
-      throw error
+    const failedIds = Array.from(new Set(failures.map((failure) => failure.id)))
+    if (failedIds.length === 0) {
+      clearSelection()
+    } else {
+      replaceSelection(failedIds)
     }
   }
 
-  const ignoredFoldersNote = hasSelectedFolders ? (
-    <p>
-      Selected folders will be resolved to their contained VMs for this action.
-    </p>
-  ) : null
+  if (!(open && (canDelete || canPower || canTemplate))) {
+    return null
+  }
 
   return (
     <ActionBar
@@ -419,14 +566,15 @@ export function InventorySelectionActionBar() {
                 openConfirm({
                   title: "Start",
                   icon: IconPlayerPlay,
-                  description: (
-                    <>
-                      <p>This will power on {powerSelectionLabel}.</p>
-                      {ignoredFoldersNote}
-                    </>
-                  ),
+                  description: <p>This will power on {powerSelectionLabel}.</p>,
                   actionLabel: "Start",
-                  onConfirm: () => runPowerAction("start"),
+                  closeOnSuccess: false,
+                  statusItems: createPowerConfirmStatusItems(
+                    powerVmItems,
+                    "start",
+                    getStatus
+                  ),
+                  onConfirm: (controls) => runPowerAction("start", controls),
                 })
               }
               aria-label="Start selected VMs"
@@ -442,17 +590,19 @@ export function InventorySelectionActionBar() {
                   title: "Shutdown",
                   icon: IconPower,
                   description: (
-                    <>
-                      <p>
-                        This will send a shutdown signal to{" "}
-                        {powerSelectionLabel}.
-                      </p>
-                      {ignoredFoldersNote}
-                    </>
+                    <p>
+                      This will send a shutdown signal to {powerSelectionLabel}.
+                    </p>
                   ),
                   actionLabel: "Shutdown",
+                  closeOnSuccess: false,
+                  statusItems: createPowerConfirmStatusItems(
+                    powerVmItems,
+                    "shutdown",
+                    getStatus
+                  ),
                   variant: "destructive",
-                  onConfirm: () => runPowerAction("shutdown"),
+                  onConfirm: (controls) => runPowerAction("shutdown", controls),
                 })
               }
               aria-label="Shut down selected VMs"
@@ -467,16 +617,19 @@ export function InventorySelectionActionBar() {
                   title: "Reboot",
                   icon: IconRefresh,
                   description: (
-                    <>
-                      <p>
-                        This will send a reboot signal to {powerSelectionLabel}.
-                      </p>
-                      {ignoredFoldersNote}
-                    </>
+                    <p>
+                      This will send a reboot signal to {powerSelectionLabel}.
+                    </p>
                   ),
                   actionLabel: "Reboot",
+                  closeOnSuccess: false,
+                  statusItems: createPowerConfirmStatusItems(
+                    powerVmItems,
+                    "reboot",
+                    getStatus
+                  ),
                   variant: "destructive",
-                  onConfirm: () => runPowerAction("reboot"),
+                  onConfirm: (controls) => runPowerAction("reboot", controls),
                 })
               }
               aria-label="Reboot selected VMs"
@@ -491,14 +644,17 @@ export function InventorySelectionActionBar() {
                   title: "Stop",
                   icon: IconPlayerStop,
                   description: (
-                    <>
-                      <p>This will immediately stop {powerSelectionLabel}.</p>
-                      {ignoredFoldersNote}
-                    </>
+                    <p>This will immediately stop {powerSelectionLabel}.</p>
                   ),
                   actionLabel: "Stop",
+                  closeOnSuccess: false,
+                  statusItems: createPowerConfirmStatusItems(
+                    powerVmItems,
+                    "stop",
+                    getStatus
+                  ),
                   variant: "destructive",
-                  onConfirm: () => runPowerAction("stop"),
+                  onConfirm: (controls) => runPowerAction("stop", controls),
                 })
               }
               aria-label="Stop selected VMs"
@@ -518,15 +674,17 @@ export function InventorySelectionActionBar() {
                   title: "Templatize",
                   icon: IconTemplate,
                   description: (
-                    <>
-                      <p>
-                        This will convert {templateSelectionLabel} to templates.
-                        Once converted, they can no longer be edited as VMs.
-                      </p>
-                      {ignoredFoldersNote}
-                    </>
+                    <p>
+                      This will convert {templateSelectionLabel} to templates.
+                      Once converted, they can no longer be edited as VMs.
+                    </p>
                   ),
                   actionLabel: "Templatize",
+                  closeOnSuccess: false,
+                  statusItems: createTemplateConfirmStatusItems(
+                    selectedVmItems,
+                    getStatus
+                  ),
                   variant: "destructive",
                   onConfirm: runTemplateAction,
                 })
@@ -557,6 +715,12 @@ export function InventorySelectionActionBar() {
                   />
                 ),
                 actionLabel: "Delete",
+                closeOnSuccess: false,
+                statusItems: createDeleteConfirmStatusItems(
+                  deleteFolderTargets,
+                  deleteVmTargets,
+                  getStatus
+                ),
                 variant: "destructive",
                 onConfirm: runDeleteAction,
               })

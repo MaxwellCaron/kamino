@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dot-loaders/react": "^0.1.0",
     "@novnc/novnc": "github:novnc/noVNC#v1.6.0",
     "@tabler/icons-react": "^3.41.1",
     "@tailwindcss/vite": "^4.2.2",
