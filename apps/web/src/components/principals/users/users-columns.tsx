@@ -38,7 +38,7 @@ export function getUserColumns({
       accessorKey: "description",
       header: "Description",
       cell: ({ row: { original: user } }) => (
-        <p className="text-wrap">{user.description}</p>
+        <p className="text-wrap text-muted-foreground">{user.description}</p>
       ),
     },
   ]
