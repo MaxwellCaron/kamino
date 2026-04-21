@@ -8,7 +8,11 @@ import {
 import { useTree } from "@headless-tree/react"
 import { toast } from "sonner"
 import { TREE_INDENT, VIRTUAL_ROOT } from "./constants"
-import type { DragTarget, ItemInstance } from "@headless-tree/core"
+import type {
+  DragTarget,
+  ItemInstance,
+  TreeInstance,
+} from "@headless-tree/core"
 import type { ApiTreeNode } from "@/lib/queries"
 
 interface UseInventoryHeadlessTreeOptions {
@@ -31,6 +35,14 @@ interface SelectionDataRef {
 }
 
 const STORAGE_KEY = "kamino-inventory-expanded"
+
+function updateExpandedItems(
+  tree: TreeInstance<ApiTreeNode>,
+  nextExpandedItems: Array<string>
+) {
+  tree.applySubStateUpdate("expandedItems", nextExpandedItems)
+  tree.rebuildTree()
+}
 
 export function useInventoryHeadlessTree({
   children,
@@ -61,14 +73,6 @@ export function useInventoryHeadlessTree({
     }
     return folderIds
   })
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved && folderIds.length > 0) {
-      setExpandedItems(folderIds)
-    }
-  }, [folderIds])
 
   const handleExpandedChange = useCallback(
     (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
@@ -175,13 +179,22 @@ export function useInventoryHeadlessTree({
     }
   }, [items, selectedItemIds, tree])
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved && folderIds.length > 0) {
+      updateExpandedItems(tree, folderIds)
+    }
+  }, [folderIds, tree])
+
   const expandAll = useCallback(() => {
-    handleExpandedChange(folderIds)
-  }, [folderIds, handleExpandedChange])
+    updateExpandedItems(tree, folderIds)
+  }, [folderIds, tree])
 
   const collapseAll = useCallback(() => {
-    handleExpandedChange([])
-  }, [handleExpandedChange])
+    updateExpandedItems(tree, [])
+  }, [tree])
 
   useEffect(() => {
     if (!pendingRevealRequest) return

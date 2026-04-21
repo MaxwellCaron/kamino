@@ -201,10 +201,12 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSelectedItemIds((current) => {
-      const next = current.filter((itemId) => items.has(itemId))
+      const next = current.filter(
+        (itemId) => itemId === activeItemId || items.has(itemId)
+      )
       return next.length === current.length ? current : next
     })
-  }, [items])
+  }, [activeItemId, items])
 
   const clearSelection = useCallback(() => {
     setSelectedItemIds([])
