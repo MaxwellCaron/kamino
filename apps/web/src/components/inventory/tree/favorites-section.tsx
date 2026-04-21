@@ -1,10 +1,18 @@
 import { Button } from "@workspace/ui/components/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui/components/collapsible"
 import { useMemo } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { IconFolder, IconStar } from "@tabler/icons-react"
+import { IconChevronDown, IconFolder, IconStar } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
-import { useInventoryTreeContext } from "./inventory-tree"
+import {
+  useInventoryFavoritesSectionState,
+  useInventoryTreeContext,
+} from "./inventory-tree"
 import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
 import type { ApiTreeNode } from "@/lib/queries"
@@ -57,7 +65,7 @@ function FavoriteItemCard({
       animate="visible"
       exit="exit"
       className={cn(
-        "group/favorite relative flex cursor-default items-center gap-2 rounded-3xl px-2 py-1.5",
+        "group/favorite relative flex cursor-pointer items-center gap-2 rounded-3xl px-2 py-1.5",
         "transition-colors hover:bg-muted/50"
       )}
       onClick={onClick}
@@ -107,6 +115,8 @@ export function InventoryFavoritesSection() {
     getItemData,
     handleFavoritePrimaryAction,
   } = useInventoryTreeContext()
+  const { favoritesCollapsed, setFavoritesCollapsed } =
+    useInventoryFavoritesSectionState()
 
   const favoriteItems = useMemo(() => {
     const result: Array<ApiTreeNode> = []
@@ -120,33 +130,47 @@ export function InventoryFavoritesSection() {
   }, [favoriteIds, getItemData])
 
   return (
-    <div className="flex flex-col">
-      <motion.div layout="position" className="px-2 pt-2">
-        <p className="text-xs font-medium text-sidebar-foreground/70">
-          Favorites
-        </p>
-        <div className="mt-1" />
-      </motion.div>
-      <motion.div
-        layout
-        variants={sectionVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        className="mb-2 flex flex-col gap-1 px-1 py-2"
-      >
-        <AnimatePresence mode="popLayout">
-          {favoriteItems.map((item) => (
-            <FavoriteItemCard
-              key={item.id}
-              item={item}
-              status={getStatus(item.id)}
-              onToggle={() => toggleFavorite(item.id)}
-              onClick={() => handleFavoritePrimaryAction(item.id, item)}
-            />
-          ))}
+    <Collapsible
+      open={!favoritesCollapsed}
+      onOpenChange={(open) => setFavoritesCollapsed(!open)}
+    >
+      <div className="flex flex-col">
+        <CollapsibleTrigger
+          className={cn(
+            "group/collapsible-trigger flex w-full items-center gap-1 rounded-2xl px-2 pt-2 text-left text-xs font-medium text-sidebar-foreground/70 transition-colors hover:bg-muted/50",
+            favoritesCollapsed ? "pb-2" : "pb-1"
+          )}
+        >
+          <span>Favorites ({favoriteItems.length})</span>
+          <IconChevronDown className="ml-auto size-3.5 transition-transform group-data-panel-open/collapsible-trigger:rotate-180" />
+        </CollapsibleTrigger>
+        <AnimatePresence initial={false}>
+          {!favoritesCollapsed && (
+            <CollapsibleContent>
+              <motion.div
+                layout
+                variants={sectionVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="mb-2 flex flex-col gap-1 px-1 py-2"
+              >
+                <AnimatePresence mode="popLayout">
+                  {favoriteItems.map((item) => (
+                    <FavoriteItemCard
+                      key={item.id}
+                      item={item}
+                      status={getStatus(item.id)}
+                      onToggle={() => toggleFavorite(item.id)}
+                      onClick={() => handleFavoritePrimaryAction(item.id, item)}
+                    />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            </CollapsibleContent>
+          )}
         </AnimatePresence>
-      </motion.div>
-    </div>
+      </div>
+    </Collapsible>
   )
 }

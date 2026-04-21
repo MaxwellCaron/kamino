@@ -68,20 +68,26 @@ export function useInventoryTreeContext() {
 }
 
 const FAVORITES_STORAGE_KEY = "kamino-favorite-inventory"
+const FAVORITES_COLLAPSED_STORAGE_KEY = "kamino-favorite-inventory-collapsed"
 
 const favoriteListeners = new Set<() => void>()
+const favoritesCollapsedListeners = new Set<() => void>()
 
-function subscribeToFavorites(onStoreChange: () => void) {
-  favoriteListeners.add(onStoreChange)
+function subscribeToStorage(
+  storageKey: string,
+  listeners: Set<() => void>,
+  onStoreChange: () => void
+) {
+  listeners.add(onStoreChange)
 
   if (typeof window === "undefined") {
     return () => {
-      favoriteListeners.delete(onStoreChange)
+      listeners.delete(onStoreChange)
     }
   }
 
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === FAVORITES_STORAGE_KEY) {
+    if (event.key === storageKey) {
       onStoreChange()
     }
   }
@@ -89,13 +95,13 @@ function subscribeToFavorites(onStoreChange: () => void) {
   window.addEventListener("storage", handleStorage)
 
   return () => {
-    favoriteListeners.delete(onStoreChange)
+    listeners.delete(onStoreChange)
     window.removeEventListener("storage", handleStorage)
   }
 }
 
-function emitFavoritesChange() {
-  for (const listener of favoriteListeners) {
+function emitStorageChange(listeners: Set<() => void>) {
+  for (const listener of listeners) {
     listener()
   }
 }
@@ -117,12 +123,32 @@ function parseFavoriteIds(snapshot: string) {
 function writeFavoriteIds(next: Set<string>) {
   if (typeof window === "undefined") return
   localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(next)))
-  emitFavoritesChange()
+  emitStorageChange(favoriteListeners)
+}
+
+function readFavoritesCollapsedSnapshot() {
+  if (typeof window === "undefined") return "false"
+  return localStorage.getItem(FAVORITES_COLLAPSED_STORAGE_KEY) ?? "false"
+}
+
+function parseFavoritesCollapsed(snapshot: string) {
+  return snapshot === "true"
+}
+
+function writeFavoritesCollapsed(collapsed: boolean) {
+  if (typeof window === "undefined") return
+  localStorage.setItem(FAVORITES_COLLAPSED_STORAGE_KEY, String(collapsed))
+  emitStorageChange(favoritesCollapsedListeners)
 }
 
 export function useInventoryFavorites() {
   const snapshot = useSyncExternalStore(
-    subscribeToFavorites,
+    (onStoreChange) =>
+      subscribeToStorage(
+        FAVORITES_STORAGE_KEY,
+        favoriteListeners,
+        onStoreChange
+      ),
     readFavoritesSnapshot,
     () => "[]"
   )
@@ -148,6 +174,27 @@ export function useInventoryFavorites() {
   )
 
   return { favoriteIds, toggleFavorite }
+}
+
+export function useInventoryFavoritesSectionState() {
+  const snapshot = useSyncExternalStore(
+    (onStoreChange) =>
+      subscribeToStorage(
+        FAVORITES_COLLAPSED_STORAGE_KEY,
+        favoritesCollapsedListeners,
+        onStoreChange
+      ),
+    readFavoritesCollapsedSnapshot,
+    () => "false"
+  )
+
+  const favoritesCollapsed = parseFavoritesCollapsed(snapshot)
+
+  const setFavoritesCollapsed = useCallback((collapsed: boolean) => {
+    writeFavoritesCollapsed(collapsed)
+  }, [])
+
+  return { favoritesCollapsed, setFavoritesCollapsed }
 }
 
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {
@@ -288,8 +335,15 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 }
 
 export function InventoryTreeHeader() {
-  const { query, setQuery, resultCount, expandAll, collapseAll, isLoading } =
-    useInventoryTreeContext()
+  const {
+    query,
+    setQuery,
+    resultCount,
+    expandAll,
+    collapseAll,
+    isLoading,
+    favoriteIds,
+  } = useInventoryTreeContext()
 
   return (
     <>
@@ -335,12 +389,15 @@ export function InventoryTreeHeader() {
         resultCount={resultCount}
         setQuery={setQuery}
       />
+      <AnimatePresence initial={false}>
+        {favoriteIds.size > 0 && <InventoryFavoritesSection />}
+      </AnimatePresence>
     </>
   )
 }
 
 export function InventoryTreeBody() {
-  const { tree, getStatus, isLoading, error, isEmpty, favoriteIds } =
+  const { tree, getStatus, isLoading, error, isEmpty } =
     useInventoryTreeContext()
 
   if (error) {
@@ -366,16 +423,11 @@ export function InventoryTreeBody() {
         </div>
       }
     >
-      <div className="flex flex-col">
-        <AnimatePresence initial={false}>
-          {favoriteIds.size > 0 && <InventoryFavoritesSection />}
-        </AnimatePresence>
-        <div className="flex flex-col gap-1">
-          <p className="px-2 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/70">
-            All Items
-          </p>
-          <InventoryTreeContent tree={tree} getStatus={getStatus} />
-        </div>
+      <div className="flex flex-col gap-1">
+        <p className="px-2 pt-2 pb-1 text-xs font-medium text-sidebar-foreground/70">
+          All Items
+        </p>
+        <InventoryTreeContent tree={tree} getStatus={getStatus} />
       </div>
     </LoadingTransition>
   )
