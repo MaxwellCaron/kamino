@@ -15,6 +15,7 @@ import (
 type PermissionEnvelope struct {
 	AllowedMask authorization.Mask `json:"allowed_mask"`
 	DeniedMask  authorization.Mask `json:"denied_mask"`
+	RequestMask authorization.Mask `json:"request_mask"`
 }
 
 type ManagementPermissionEnvelope struct {
@@ -35,6 +36,7 @@ func toPermissionEnvelope(value authorization.EffectivePermissions) PermissionEn
 	return PermissionEnvelope{
 		AllowedMask: value.AllowedMask,
 		DeniedMask:  value.DeniedMask,
+		RequestMask: value.RequestMask,
 	}
 }
 
@@ -311,7 +313,7 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 		return
 	}
 
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAccessManage) {
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
 		return
 	}
 
@@ -356,7 +358,7 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 		return
 	}
 
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAccessManage) {
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
 		return
 	}
 
