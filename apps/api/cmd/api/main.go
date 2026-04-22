@@ -18,6 +18,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/MaxwellCaron/kamino/internal/routes"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -282,12 +283,18 @@ func main() {
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
 	vncHandler.Authz = authzService
+	vmActionExecutor := vmactions.NewExecutor(
+		server.ProxmoxClient,
+		inventoryService,
+		vmStatusNotifier,
+	)
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Notifier: vmStatusNotifier,
 		Authz:    authzService,
+		Actions:  vmActionExecutor,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:       server.ProxmoxClient,
@@ -305,7 +312,7 @@ func main() {
 		authzService,
 		inventoryService,
 		server.ProxmoxClient,
-		vmStatusNotifier,
+		vmActionExecutor,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 

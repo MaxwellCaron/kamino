@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,6 +15,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -35,6 +35,7 @@ type VMHandler struct {
 	Service  *inventory.Service
 	Notifier *vmstatus.Notifier
 	Authz    *authorization.Service
+	Actions  *vmactions.Executor
 }
 
 // GetStatuses returns a map of vmid -> status directly from Proxmox.
@@ -69,37 +70,6 @@ func (h *VMHandler) GetStatuses(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, filtered)
-}
-
-func (h *VMHandler) waitForObservedVMStatus(vmid int, expectedStatus string) {
-	if h.Notifier == nil {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	if err := h.Notifier.RefreshUntilStatus(ctx, vmid, expectedStatus); err != nil {
-		log.Printf(
-			"vm status catch-up failed for vmid=%d expected=%s: %v",
-			vmid,
-			expectedStatus,
-			err,
-		)
-	}
-}
-
-func (h *VMHandler) waitForVMRemoval(vmid int) {
-	if h.Notifier == nil {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	if err := h.Notifier.RefreshUntilAbsent(ctx, vmid); err != nil {
-		log.Printf("vm removal catch-up failed for vmid=%d: %v", vmid, err)
-	}
 }
 
 // StreamEvents pushes VM status updates to connected browsers.
@@ -331,7 +301,13 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.CreateSnapshot(c.Request.Context(), target.Node, target.VMID, req.Snapname, req.Description, req.VMState); err != nil {
+	if err := h.Actions.CreateSnapshot(
+		c.Request.Context(),
+		vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+		req.Snapname,
+		req.Description,
+		req.VMState,
+	); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to create snapshot", "create vm snapshot", err)
 		return
 	}
@@ -376,19 +352,11 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	for _, target := range targets {
-		var actionErr error
-
-		switch req.Action {
-		case "start":
-			actionErr = h.PX.StartVM(ctx, target.Node, target.VMID)
-		case "shutdown":
-			actionErr = h.PX.ShutdownVM(ctx, target.Node, target.VMID)
-		case "reboot":
-			actionErr = h.PX.RebootVM(ctx, target.Node, target.VMID)
-		case "stop":
-			actionErr = h.PX.StopVM(ctx, target.Node, target.VMID)
-		}
-
+		actionErr := h.Actions.PowerAction(
+			ctx,
+			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+			vmactions.PowerAction(req.Action),
+		)
 		if actionErr != nil {
 			logRequestError(c, fmt.Sprintf("vm power action=%s item_id=%s", req.Action, target.ItemID), actionErr)
 			response.Failed = append(response.Failed, bulkVMActionFailure{
@@ -396,13 +364,6 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 				Error: fmt.Sprintf("%s failed", req.Action),
 			})
 			continue
-		}
-
-		switch req.Action {
-		case "start", "reboot":
-			go h.waitForObservedVMStatus(target.VMID, "running")
-		case "shutdown", "stop":
-			go h.waitForObservedVMStatus(target.VMID, "stopped")
 		}
 
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
@@ -443,7 +404,10 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	for _, target := range targets {
-		if err := h.PX.DeleteVM(ctx, target.Node, target.VMID); err != nil {
+		if err := h.Actions.DeleteVM(
+			ctx,
+			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+		); err != nil {
 			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), err)
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
@@ -451,17 +415,6 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 			})
 			continue
 		}
-
-		if err := h.Service.DeleteInventoryVM(ctx, target.ItemID); err != nil {
-			logRequestError(c, "delete inventory item for vm item_id="+target.ItemID.String(), err)
-			response.Failed = append(response.Failed, bulkVMActionFailure{
-				ID:    target.ItemID.String(),
-				Error: "inventory cleanup failed",
-			})
-			continue
-		}
-
-		go h.waitForVMRemoval(target.VMID)
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -1011,7 +964,11 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.RollbackSnapshot(c.Request.Context(), target.Node, target.VMID, req.Snapname); err != nil {
+	if err := h.Actions.RollbackSnapshot(
+		c.Request.Context(),
+		vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+		req.Snapname,
+	); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to rollback snapshot", "rollback vm snapshot", err)
 		return
 	}

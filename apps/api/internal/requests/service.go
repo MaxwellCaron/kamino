@@ -11,7 +11,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
-	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,7 +42,7 @@ type Service struct {
 	authz     *authorization.Service
 	inventory *inventory.Service
 	px        *proxmox.Client
-	notifier  *vmstatus.Notifier
+	actions   *vmactions.Executor
 }
 
 type vmTarget struct {
@@ -57,14 +57,14 @@ func NewService(
 	authz *authorization.Service,
 	inventoryService *inventory.Service,
 	px *proxmox.Client,
-	notifier *vmstatus.Notifier,
+	actions *vmactions.Executor,
 ) *Service {
 	return &Service{
 		db:        db,
 		authz:     authz,
 		inventory: inventoryService,
 		px:        px,
-		notifier:  notifier,
+		actions:   actions,
 	}
 }
 
@@ -552,6 +552,9 @@ func (s *Service) executeApprovedRequest(
 	if s.px == nil || s.inventory == nil || s.authz == nil {
 		return ErrRequestServiceUnavailable
 	}
+	if s.actions == nil {
+		return ErrRequestServiceUnavailable
+	}
 	if requestRow.InventoryItemID == nil {
 		return ErrRequestMissingPayload
 	}
@@ -637,44 +640,11 @@ func (s *Service) executePowerAction(
 	target vmTarget,
 	action database.InventoryRequestPowerAction,
 ) error {
-	switch action {
-	case database.InventoryRequestPowerActionPowerOn:
-		if err := s.px.StartVM(ctx, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go s.waitForObservedVMStatus(target.VMID, "running")
-	case database.InventoryRequestPowerActionShutdown:
-		if err := s.px.ShutdownVM(ctx, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go s.waitForObservedVMStatus(target.VMID, "stopped")
-	case database.InventoryRequestPowerActionReboot:
-		if err := s.px.RebootVM(ctx, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go s.waitForObservedVMStatus(target.VMID, "running")
-	case database.InventoryRequestPowerActionStop:
-		if err := s.px.StopVM(ctx, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go s.waitForObservedVMStatus(target.VMID, "stopped")
-	default:
-		return ErrRequestInvalidPowerAction
-	}
-
-	return nil
+	return s.actions.PowerAction(ctx, toActionTarget(target), powerActionForRequest(action))
 }
 
 func (s *Service) executeDeleteVM(ctx context.Context, target vmTarget) error {
-	if err := s.px.DeleteVM(ctx, target.Node, target.VMID); err != nil {
-		return err
-	}
-	if err := s.inventory.DeleteInventoryVM(ctx, target.ItemID); err != nil {
-		return err
-	}
-
-	go s.waitForVMRemoval(target.VMID)
-	return nil
+	return s.actions.DeleteVM(ctx, toActionTarget(target))
 }
 
 func (s *Service) executeCreateSnapshot(
@@ -682,10 +652,9 @@ func (s *Service) executeCreateSnapshot(
 	target vmTarget,
 	snapshotName string,
 ) error {
-	return s.px.CreateSnapshot(
+	return s.actions.CreateSnapshot(
 		ctx,
-		target.Node,
-		target.VMID,
+		toActionTarget(target),
 		strings.TrimSpace(snapshotName),
 		"",
 		false,
@@ -714,7 +683,7 @@ func (s *Service) executeRollbackSnapshot(
 		return ErrRequestStale
 	}
 
-	return s.px.RollbackSnapshot(ctx, target.Node, target.VMID, snapshotName)
+	return s.actions.RollbackSnapshot(ctx, toActionTarget(target), snapshotName)
 }
 
 func (s *Service) markExecuted(
@@ -779,28 +748,6 @@ func (s *Service) markExecutionFailed(
 	return tx.Commit(ctx)
 }
 
-func (s *Service) waitForObservedVMStatus(vmid int, expectedStatus string) {
-	if s.notifier == nil {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	_ = s.notifier.RefreshUntilStatus(ctx, vmid, expectedStatus)
-}
-
-func (s *Service) waitForVMRemoval(vmid int) {
-	if s.notifier == nil {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	_ = s.notifier.RefreshUntilAbsent(ctx, vmid)
-}
-
 func requiredPermissionForRequestKind(kind string) (authorization.Mask, error) {
 	switch kind {
 	case RequestKindInventoryVMPower:
@@ -849,5 +796,28 @@ func validRequestStatus(status database.RequestStatus) database.NullRequestStatu
 	return database.NullRequestStatus{
 		RequestStatus: status,
 		Valid:         true,
+	}
+}
+
+func powerActionForRequest(action database.InventoryRequestPowerAction) vmactions.PowerAction {
+	switch action {
+	case database.InventoryRequestPowerActionPowerOn:
+		return vmactions.PowerActionStart
+	case database.InventoryRequestPowerActionShutdown:
+		return vmactions.PowerActionShutdown
+	case database.InventoryRequestPowerActionReboot:
+		return vmactions.PowerActionReboot
+	case database.InventoryRequestPowerActionStop:
+		return vmactions.PowerActionStop
+	default:
+		return ""
+	}
+}
+
+func toActionTarget(target vmTarget) vmactions.Target {
+	return vmactions.Target{
+		ItemID: target.ItemID,
+		Node:   target.Node,
+		VMID:   target.VMID,
 	}
 }
