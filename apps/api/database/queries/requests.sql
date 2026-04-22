@@ -90,7 +90,7 @@ SELECT
     r.created_at,
     r.updated_at,
     COALESCE(requester.name, requester.external_id) AS requester_username,
-    COALESCE(reviewer.name, reviewer.external_id) AS reviewer_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
     ir.inventory_item_id,
     ir.power_action,
     ir.snapshot_name,
@@ -129,7 +129,7 @@ SELECT
     r.created_at,
     r.updated_at,
     COALESCE(requester.name, requester.external_id) AS requester_username,
-    COALESCE(reviewer.name, reviewer.external_id) AS reviewer_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
     ir.inventory_item_id,
     ir.power_action,
     ir.snapshot_name,
@@ -168,7 +168,7 @@ SELECT
     r.created_at,
     r.updated_at,
     COALESCE(requester.name, requester.external_id) AS requester_username,
-    COALESCE(reviewer.name, reviewer.external_id) AS reviewer_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
     ir.inventory_item_id,
     ir.power_action,
     ir.snapshot_name,
@@ -206,7 +206,7 @@ SELECT
     r.created_at,
     r.updated_at,
     COALESCE(requester.name, requester.external_id) AS requester_username,
-    COALESCE(reviewer.name, reviewer.external_id) AS reviewer_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
     ir.inventory_item_id,
     ir.power_action,
     ir.snapshot_name,
@@ -260,7 +260,7 @@ SELECT
     re.to_status,
     re.error_message,
     re.created_at,
-    COALESCE(actor.name, actor.external_id) AS actor_username
+    COALESCE(actor.name, actor.external_id, '') AS actor_username
 FROM request_events re
 LEFT JOIN principals actor
   ON actor.id = re.actor_principal_id
