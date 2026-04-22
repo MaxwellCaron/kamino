@@ -37,7 +37,7 @@ export function formatRequestKind(kind: string) {
 }
 
 export function formatRequestScope(scope: ApiRequestScope) {
-  return scope === "pending" ? "Pending" : "History"
+  return scope === "pending" ? "Pending" : "Completed"
 }
 
 export function formatRequestStatus(status: ApiRequestStatus) {

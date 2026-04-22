@@ -114,7 +114,7 @@ LEFT JOIN proxmox_vms pv
 WHERE r.status = 'pending'
 ORDER BY r.created_at ASC, r.id ASC;
 
--- name: ListRequestHistory :many
+-- name: ListCompletedRequests :many
 SELECT
     r.id,
     r.family,

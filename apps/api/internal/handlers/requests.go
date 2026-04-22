@@ -100,16 +100,16 @@ func (h *RequestsHandler) List(c *gin.Context) {
 			response = append(response, pendingRequestRowToResponse(row))
 		}
 		c.JSON(http.StatusOK, response)
-	case "history":
-		rows, err := h.Service.ListRequestHistory(c.Request.Context(), principalID)
+	case "completed", "history":
+		rows, err := h.Service.ListCompletedRequests(c.Request.Context(), principalID)
 		if err != nil {
-			writeRequestServiceError(c, err, "list request history")
+			writeRequestServiceError(c, err, "list completed requests")
 			return
 		}
 
 		response := make([]requestSummaryResponse, 0, len(rows))
 		for _, row := range rows {
-			response = append(response, historyRequestRowToResponse(row))
+			response = append(response, completedRequestRowToResponse(row))
 		}
 		c.JSON(http.StatusOK, response)
 	default:
@@ -426,7 +426,7 @@ func pendingRequestRowToResponse(row database.ListPendingRequestsRow) requestSum
 	)
 }
 
-func historyRequestRowToResponse(row database.ListRequestHistoryRow) requestSummaryResponse {
+func completedRequestRowToResponse(row database.ListCompletedRequestsRow) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
 		string(row.Family),

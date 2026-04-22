@@ -2,12 +2,15 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import {
-  IconChecklist,
-  IconHistory,
-  IconTimelineEvent,
-} from "@tabler/icons-react"
+import { IconChecklist, IconHistory, IconTicket } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@workspace/ui/components/item"
 import {
   Card,
   CardContent,
@@ -20,7 +23,6 @@ import type { ApiRequestScope, ApiRequestStatus } from "@/lib/queries"
 import {
   ManagementPermissionKeys,
   approveRequest,
-  canAccessAdmin,
   canAccessRequestQueue,
   denyRequest,
   hasManagementPermission,
@@ -72,21 +74,18 @@ function RequestsPage() {
     user.management_permissions,
     ManagementPermissionKeys.manager
   )
-  const roleLabel = canAccessAdmin(user.management_permissions)
-    ? "Administrator"
-    : "Manager"
 
   const pendingQuery = useQuery(requestsQueryOptions("pending"))
-  const historyQuery = useQuery(requestsQueryOptions("history"))
+  const completedQuery = useQuery(requestsQueryOptions("completed"))
   const detailQuery = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
     enabled: !!selectedRequestId,
   })
 
-  const activeQuery = scope === "pending" ? pendingQuery : historyQuery
+  const activeQuery = scope === "pending" ? pendingQuery : completedQuery
   const activeRequests = activeQuery.data ?? []
   const pendingCount = pendingQuery.data?.length ?? 0
-  const historyCount = historyQuery.data?.length ?? 0
+  const completedCount = completedQuery.data?.length ?? 0
   const openRequest = (requestId: string) => setSelectedRequestId(requestId)
 
   const columns = useMemo(
@@ -135,47 +134,47 @@ function RequestsPage() {
           <CardHeader className="gap-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex max-w-2xl flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-                  <IconTimelineEvent />
-                  Review Queue
-                </div>
-                <CardTitle className="text-4xl font-black tracking-tight">
+                <CardTitle className="flex items-center gap-2 text-4xl font-black tracking-tight">
+                  <IconTicket className="size-7 text-muted-foreground" />
                   Requests
                 </CardTitle>
                 <CardDescription className="max-w-2xl text-sm/relaxed">
-                  Managers and administrators review queued work here and every
-                  decision is tracked automatically.
+                  Managers and administrators review queued user requests.
                 </CardDescription>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{roleLabel}</Badge>
-                <Badge variant="secondary">{pendingCount} pending</Badge>
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <Card className="border-dashed bg-background/80">
-                <CardHeader className="gap-1 pb-3">
-                  <CardDescription>Pending review</CardDescription>
-                  <CardTitle className="text-3xl tabular-nums">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Item variant="muted">
+                <ItemContent>
+                  <ItemTitle className="text-xl font-semibold tracking-tight">
+                    Pending
+                  </ItemTitle>
+                  <ItemDescription>
+                    Items that still need a manager or administrator outcome.
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <h1 className="text-4xl font-black tracking-tight">
                     {pendingQuery.isLoading ? "..." : pendingCount}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 text-sm text-muted-foreground">
-                  Items that still need a manager or administrator outcome.
-                </CardContent>
-              </Card>
-              <Card className="border-dashed bg-background/80">
-                <CardHeader className="gap-1 pb-3">
-                  <CardDescription>Recorded history</CardDescription>
-                  <CardTitle className="text-3xl tabular-nums">
-                    {historyQuery.isLoading ? "..." : historyCount}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 text-sm text-muted-foreground">
-                  Approved, denied, canceled, and executed queue items.
-                </CardContent>
-              </Card>
+                  </h1>
+                </ItemActions>
+              </Item>
+              <Item variant="muted">
+                <ItemContent>
+                  <ItemTitle className="text-xl font-semibold tracking-tight">
+                    Completed
+                  </ItemTitle>
+                  <ItemDescription>
+                    Approved, denied, canceled, and executed queue items.
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <h3 className="text-4xl font-black tracking-tight">
+                    {completedQuery.isLoading ? "..." : completedCount}
+                  </h3>
+                </ItemActions>
+              </Item>
             </div>
           </CardHeader>
         </Card>
@@ -207,9 +206,9 @@ function RequestsPage() {
                     Pending
                     <Badge variant="outline">{pendingCount}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="history">
-                    History
-                    <Badge variant="outline">{historyCount}</Badge>
+                  <TabsTrigger value="completed">
+                    Completed
+                    <Badge variant="outline">{completedCount}</Badge>
                   </TabsTrigger>
                 </TabsList>
               </Tabs>

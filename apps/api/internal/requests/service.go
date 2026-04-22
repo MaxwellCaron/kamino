@@ -90,21 +90,21 @@ func (s *Service) ListPendingRequests(
 	return filtered, nil
 }
 
-func (s *Service) ListRequestHistory(
+func (s *Service) ListCompletedRequests(
 	ctx context.Context,
 	actorPrincipalID uuid.UUID,
-) ([]database.ListRequestHistoryRow, error) {
+) ([]database.ListCompletedRequestsRow, error) {
 	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := database.New(s.db).ListRequestHistory(ctx)
+	rows, err := database.New(s.db).ListCompletedRequests(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	filtered := make([]database.ListRequestHistoryRow, 0, len(rows))
+	filtered := make([]database.ListCompletedRequestsRow, 0, len(rows))
 	for _, row := range rows {
 		if canReviewRequestKind(reviewerPermissions, row.Kind) {
 			filtered = append(filtered, row)

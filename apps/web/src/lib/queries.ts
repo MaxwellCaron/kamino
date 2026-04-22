@@ -56,7 +56,7 @@ export type AuthSession = {
   access_token_expires_at: string
 }
 
-export type ApiRequestScope = "pending" | "history"
+export type ApiRequestScope = "pending" | "completed"
 
 export type ApiRequestStatus =
   | "pending"
