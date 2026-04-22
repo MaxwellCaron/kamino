@@ -1,10 +1,12 @@
+import { useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   IconCamera,
   IconHistory,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react"
-import { useQuery } from "@tanstack/react-query"
+import { AnimatePresence, motion } from "motion/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -17,6 +19,14 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import {
   Table,
   TableCell,
   TableHead,
@@ -24,15 +34,12 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
-import { useRef, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
-import { loadingTransition } from "@/components/loading-transition"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import { loadingTransition } from "@/components/loading-transition"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
-import { snapshotsQueryOptions } from "@/lib/queries"
 import { useDeleteSnapshot, useRollbackSnapshot } from "@/hooks/use-vm-actions"
+import { snapshotsQueryOptions } from "@/lib/queries"
 
 export function SnapshotsTable({
   itemId,
@@ -40,6 +47,7 @@ export function SnapshotsTable({
   vmName,
   isTemplate,
   canManageSnapshots,
+  canRequestSnapshots,
   isLoading: isVmLoading,
 }: {
   itemId: string
@@ -47,8 +55,10 @@ export function SnapshotsTable({
   vmName?: string
   isTemplate: boolean
   canManageSnapshots: boolean
+  canRequestSnapshots: boolean
   isLoading?: boolean
 }) {
+  const requestOnly = canRequestSnapshots && !canManageSnapshots
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     ...snapshotsQueryOptions(itemId),
     enabled: !!itemId && vmid != null && canManageSnapshots,
@@ -60,7 +70,62 @@ export function SnapshotsTable({
   const remove = useDeleteSnapshot(itemId)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
-  const filtered = snapshots?.filter((s) => s.name !== "current") ?? []
+  const filtered = snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
+
+  if (requestOnly) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <IconCamera className="size-5 text-muted-foreground" />
+            Snapshots
+          </CardTitle>
+          <CardDescription>
+            Snapshot requests stay available even when direct snapshot execution
+            is not.
+          </CardDescription>
+          <CardAction>
+            <Button
+              disabled={isLoading || isTemplate || !itemId || vmid == null}
+              onClick={() => setSnapshotOpen(true)}
+            >
+              <IconPlus />
+              <span className="hidden lg:block">Open Request Flow</span>
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="border-t">
+          <Empty className="border border-dashed bg-muted/30">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconHistory />
+              </EmptyMedia>
+              <EmptyTitle>Request-only snapshot access</EmptyTitle>
+              <EmptyDescription>
+                Snapshot browsing still requires direct snapshot permission. Use
+                the request flow to create a snapshot or submit a rollback by
+                exact snapshot name.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </CardContent>
+        <CardFooter className="justify-between text-muted-foreground">
+          <span>Reviewers see the immutable request payload.</span>
+          <Badge variant="secondary">Request queue</Badge>
+        </CardFooter>
+        {itemId && vmid != null && (
+          <SnapshotDialog
+            itemId={itemId}
+            vmid={vmid}
+            vmName={vmName}
+            mode="request"
+            open={snapshotOpen}
+            onOpenChange={setSnapshotOpen}
+          />
+        )}
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -110,8 +175,8 @@ export function SnapshotsTable({
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
               {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
+                Array.from({ length: 3 }).map((_, index) => (
+                  <TableRow key={index}>
                     <TableCell className="pl-6">
                       <Skeleton className="h-4 w-3/4 rounded-md" />
                     </TableCell>
@@ -135,27 +200,25 @@ export function SnapshotsTable({
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center">
-                    {canManageSnapshots
-                      ? "No snapshots found."
-                      : "You do not have access to snapshots for this VM."}
+                    No snapshots found.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((snap) => (
-                  <TableRow key={snap.name}>
+                filtered.map((snapshot) => (
+                  <TableRow key={snapshot.name}>
                     <TableCell className="pl-6 font-medium text-wrap">
-                      {snap.name}
+                      {snapshot.name}
                     </TableCell>
                     <TableCell className="text-wrap text-muted-foreground">
-                      {snap.description || "—"}
+                      {snapshot.description || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {snap.snaptime
-                        ? new Date(snap.snaptime * 1000).toLocaleString()
+                      {snapshot.snaptime
+                        ? new Date(snapshot.snaptime * 1000).toLocaleString()
                         : "—"}
                     </TableCell>
                     <TableCell>
-                      {snap.vmstate ? (
+                      {snapshot.vmstate ? (
                         <Badge variant="secondary">Yes</Badge>
                       ) : (
                         "No"
@@ -172,20 +235,19 @@ export function SnapshotsTable({
                             setConfirm({
                               title: "Rollback Snapshot",
                               icon: IconHistory,
-                              description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
+                              description: `Are you sure you want to rollback to snapshot "${snapshot.name}"? The current VM state will be lost.`,
                               actionLabel: "Rollback",
                               onConfirm: () => {
-                                toast.promise(
-                                  rollback.mutateAsync({
-                                    itemId,
-                                    snapname: snap.name,
-                                  }),
-                                  {
-                                    loading: `Rolling back to "${snap.name}"…`,
-                                    success: `Rolled back to "${snap.name}"`,
-                                    error: (err: Error) => err.message,
-                                  }
-                                )
+                                const promise = rollback.mutateAsync({
+                                  itemId,
+                                  snapname: snapshot.name,
+                                })
+
+                                toast.promise(promise, {
+                                  loading: `Rolling back to "${snapshot.name}"…`,
+                                  success: `Rolled back to "${snapshot.name}"`,
+                                  error: (err: Error) => err.message,
+                                })
                               },
                             })
                           }
@@ -201,21 +263,20 @@ export function SnapshotsTable({
                             setConfirm({
                               title: "Delete Snapshot",
                               icon: IconTrash,
-                              description: `Are you sure you want to delete snapshot "${snap.name}"?`,
+                              description: `Are you sure you want to delete snapshot "${snapshot.name}"?`,
                               actionLabel: "Delete",
                               variant: "destructive",
                               onConfirm: () => {
-                                toast.promise(
-                                  remove.mutateAsync({
-                                    itemId,
-                                    snapname: snap.name,
-                                  }),
-                                  {
-                                    loading: `Deleting snapshot "${snap.name}"…`,
-                                    success: `Snapshot "${snap.name}" deleted`,
-                                    error: (err: Error) => err.message,
-                                  }
-                                )
+                                const promise = remove.mutateAsync({
+                                  itemId,
+                                  snapname: snapshot.name,
+                                })
+
+                                toast.promise(promise, {
+                                  loading: `Deleting snapshot "${snapshot.name}"…`,
+                                  success: `Snapshot "${snapshot.name}" deleted`,
+                                  error: (err: Error) => err.message,
+                                })
                               },
                             })
                           }
@@ -240,6 +301,7 @@ export function SnapshotsTable({
           itemId={itemId}
           vmid={vmid}
           vmName={vmName}
+          mode="direct"
           open={snapshotOpen}
           onOpenChange={setSnapshotOpen}
         />

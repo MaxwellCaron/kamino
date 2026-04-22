@@ -322,6 +322,10 @@ export function InventoryPermissionsDialog(
                 : `Add or remove principals from the ${props.itemKind} "${props.itemName}".`}
             </p>
             <p>Once added, you can edit their permissions.</p>
+            <p>
+              Allow runs immediately. Inherit requires a request by default for
+              requestable actions. Deny hides and blocks the action.
+            </p>
           </>
         }
         descriptionProps={{ render: <div /> }}

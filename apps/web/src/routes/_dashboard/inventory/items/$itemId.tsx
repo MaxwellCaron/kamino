@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/components/vm/vnc-console"
 import {
   InventoryPermissionBits,
+  canRequestInventoryPermission,
   hasInventoryPermission,
 } from "@/lib/inventory-permissions"
 import {
@@ -57,6 +58,10 @@ function VmPage() {
     node?.permissions,
     InventoryPermissionBits.snapshotVm
   )
+  const canRequestSnapshots = canRequestInventoryPermission(
+    node?.permissions,
+    InventoryPermissionBits.snapshotVm
+  )
   const canUseConsole = hasInventoryPermission(
     node?.permissions,
     InventoryPermissionBits.consoleVm
@@ -85,13 +90,14 @@ function VmPage() {
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
-        {canManageSnapshots && (
+        {(canManageSnapshots || canRequestSnapshots) && (
           <SnapshotsTable
             itemId={itemId}
             vmid={vm?.vmid ?? null}
             vmName={node?.name}
             isTemplate={isTemplate}
             canManageSnapshots={canManageSnapshots}
+            canRequestSnapshots={canRequestSnapshots}
             isLoading={isLoading}
           />
         )}

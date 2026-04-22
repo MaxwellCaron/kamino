@@ -168,7 +168,8 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     bit: InventoryPermissionBits.deleteVm,
     key: InventoryPermissionKeys.deleteVm,
     label: "Delete VM",
-    description: "Delete VMs or templates covered by this rule.",
+    description:
+      "Delete VMs or templates. Allow deletes immediately, Inherit requires a request by default, and Deny hides and blocks it.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -190,7 +191,8 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     bit: InventoryPermissionBits.powerVm,
     key: InventoryPermissionKeys.powerVm,
     label: "Power VM",
-    description: "Start, stop, reboot, and shut down VMs covered by this rule.",
+    description:
+      "Start, stop, reboot, and shut down VMs. Allow runs immediately, Inherit requires a request by default, and Deny hides and blocks it.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -224,7 +226,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.snapshotVm,
     label: "Snapshot VM",
     description:
-      "Create, delete, and roll back snapshots for VMs covered by this rule.",
+      "Create and roll back snapshots by request when inherited; snapshot delete still requires explicit allow. Deny hides and blocks all snapshot actions.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -301,4 +303,12 @@ export function hasInventoryPermission(
 ) {
   if (!permissions) return false
   return (permissions.allowed_mask & required) === required
+}
+
+export function canRequestInventoryPermission(
+  permissions: { request_mask: number } | undefined,
+  required: number
+) {
+  if (!permissions) return false
+  return (permissions.request_mask & required) === required
 }

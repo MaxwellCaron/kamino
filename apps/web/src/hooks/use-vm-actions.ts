@@ -9,6 +9,10 @@ import {
   inventoryTreeQueryOptions,
   renameVM,
   rollbackSnapshot,
+  submitInventoryDeleteRequest,
+  submitInventoryPowerRequest,
+  submitInventorySnapshotCreateRequest,
+  submitInventorySnapshotRollbackRequest,
   updateVMHardware,
   updateVMNotes,
   vmHardwareQueryOptions,
@@ -62,6 +66,28 @@ export function useDeleteVM() {
   })
 }
 
+export function useSubmitInventoryPowerRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventoryPowerRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
+    },
+  })
+}
+
+export function useSubmitInventoryDeleteRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventoryDeleteRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
+    },
+  })
+}
+
 export function useCreateSnapshot(itemId: string) {
   const queryClient = useQueryClient()
 
@@ -73,6 +99,17 @@ export function useCreateSnapshot(itemId: string) {
       queryClient.invalidateQueries({
         queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
+    },
+  })
+}
+
+export function useSubmitInventorySnapshotCreateRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventorySnapshotCreateRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
 }
@@ -159,6 +196,17 @@ export function useRollbackSnapshot(itemId: string) {
       queryClient.invalidateQueries({
         queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
+    },
+  })
+}
+
+export function useSubmitInventorySnapshotRollbackRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventorySnapshotRollbackRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
 }

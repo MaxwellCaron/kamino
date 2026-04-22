@@ -7,7 +7,10 @@ import type { ConfirmConfig } from "./inventory-confirm-actions"
 import { CloneDialog } from "@/components/vm/clone-dialog"
 import { CreateVmDialog } from "@/components/vm/create/create-vm-dialog"
 import { VmHardwareDialog } from "@/components/vm/hardware/hardware-dialog"
-import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
+import {
+  SnapshotDialog,
+  type SnapshotDialogMode,
+} from "@/components/vm/snapshot-dialog"
 
 type PermissionsDialogConfig = {
   itemId: string
@@ -33,6 +36,7 @@ type SnapshotDialogConfig = {
   itemId: string
   currentName?: string
   currentVmid?: number
+  mode?: SnapshotDialogMode
 }
 
 type CloneDialogConfig = {
@@ -153,6 +157,7 @@ export function InventoryDialogsProvider({
           itemId={snapshot.itemId}
           vmid={snapshot.currentVmid}
           vmName={snapshot.currentName}
+          mode={snapshot.mode}
           open={true}
           onOpenChange={(open) => {
             if (!open) setSnapshot(null)

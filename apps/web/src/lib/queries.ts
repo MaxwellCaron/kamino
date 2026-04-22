@@ -343,6 +343,7 @@ export type ApiGroupManagementAcl = {
 export type ApiTreeNodePermissions = {
   allowed_mask: number
   denied_mask: number
+  request_mask: number
 }
 
 export type ApiTreeNode = {
@@ -649,6 +650,28 @@ export async function vmPowerAction(params: {
   return res.json()
 }
 
+export async function submitInventoryPowerRequest(params: {
+  itemId: string
+  action: "start" | "shutdown" | "reboot" | "stop"
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/power`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: params.action }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit power request: ${res.status}`
+    )
+  }
+
+  return res.json()
+}
+
 export async function deleteVM(params: {
   itemIds: Array<string>
 }): Promise<ApiBulkVmMutationResponse> {
@@ -665,6 +688,25 @@ export async function deleteVM(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(
       body.error ?? `Failed to delete selected VMs: ${res.status}`
+    )
+  }
+
+  return res.json()
+}
+
+export async function submitInventoryDeleteRequest(params: {
+  itemId: string
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/delete`,
+    {
+      method: "POST",
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit delete request: ${res.status}`
     )
   }
 
@@ -860,6 +902,28 @@ export async function rollbackSnapshot(params: {
   }
 }
 
+export async function submitInventorySnapshotRollbackRequest(params: {
+  itemId: string
+  snapname: string
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/snapshots/rollback`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ snapname: params.snapname }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit snapshot rollback request: ${res.status}`
+    )
+  }
+
+  return res.json()
+}
+
 export async function deleteSnapshot(params: {
   itemId: string
   snapname: string
@@ -896,6 +960,25 @@ export async function createSnapshot(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create snapshot: ${res.status}`)
   }
+}
+
+export async function submitInventorySnapshotCreateRequest(params: {
+  itemId: string
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/snapshots`,
+    {
+      method: "POST",
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit snapshot request: ${res.status}`
+    )
+  }
+
+  return res.json()
 }
 
 // --- VM Creation metadata ---
