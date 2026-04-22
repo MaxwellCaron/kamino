@@ -16,6 +16,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -299,6 +300,14 @@ func main() {
 		Authz: authzService,
 	}
 	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
+	requestService := requestqueue.NewService(
+		server.DBPool,
+		authzService,
+		inventoryService,
+		server.ProxmoxClient,
+		vmStatusNotifier,
+	)
+	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 
 	var authHandler *handlers.AuthHandler
 	var authService *auth.Service
@@ -329,7 +338,19 @@ func main() {
 	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	// Register all API routes
-	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler, authzHandler)
+	routes.RegisterRoutes(
+		r,
+		authHandler,
+		authService,
+		inventoryHandler,
+		vncHandler,
+		vmHandler,
+		vmCreateHandler,
+		sdnHandler,
+		principalsHandler,
+		authzHandler,
+		requestsHandler,
+	)
 
 	r.Run(config.Port)
 }

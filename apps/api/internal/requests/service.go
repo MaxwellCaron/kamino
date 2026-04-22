@@ -1,0 +1,853 @@
+package requests
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	RequestKindInventoryVMPower            = "inventory.vm.power"
+	RequestKindInventoryVMDelete           = "inventory.vm.delete"
+	RequestKindInventoryVMSnapshotCreate   = "inventory.vm.snapshot.create"
+	RequestKindInventoryVMSnapshotRollback = "inventory.vm.snapshot.rollback"
+)
+
+var (
+	ErrRequestNotFound           = errors.New("request not found")
+	ErrRequestNotPending         = errors.New("request is not pending")
+	ErrRequestForbidden          = errors.New("forbidden")
+	ErrRequestDirectExecution    = errors.New("action must be executed directly")
+	ErrRequestInvalidPowerAction = errors.New("invalid power action")
+	ErrRequestInvalidSnapshot    = errors.New("snapshot name is required")
+	ErrRequestUnsupportedKind    = errors.New("unsupported request kind")
+	ErrRequestMissingPayload     = errors.New("request payload is invalid")
+	ErrRequestStale              = errors.New("request target is stale")
+	ErrRequestServiceUnavailable = errors.New("request execution service unavailable")
+)
+
+type Service struct {
+	db        *pgxpool.Pool
+	authz     *authorization.Service
+	inventory *inventory.Service
+	px        *proxmox.Client
+	notifier  *vmstatus.Notifier
+}
+
+type vmTarget struct {
+	ItemID       uuid.UUID
+	Node         string
+	VMID         int
+	UpstreamUUID uuid.UUID
+}
+
+func NewService(
+	db *pgxpool.Pool,
+	authz *authorization.Service,
+	inventoryService *inventory.Service,
+	px *proxmox.Client,
+	notifier *vmstatus.Notifier,
+) *Service {
+	return &Service{
+		db:        db,
+		authz:     authz,
+		inventory: inventoryService,
+		px:        px,
+		notifier:  notifier,
+	}
+}
+
+func (s *Service) ListPendingRequests(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+) ([]database.ListPendingRequestsRow, error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := database.New(s.db).ListPendingRequests(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]database.ListPendingRequestsRow, 0, len(rows))
+	for _, row := range rows {
+		if canReviewRequestKind(reviewerPermissions, row.Kind) {
+			filtered = append(filtered, row)
+		}
+	}
+
+	return filtered, nil
+}
+
+func (s *Service) ListRequestHistory(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+) ([]database.ListRequestHistoryRow, error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := database.New(s.db).ListRequestHistory(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]database.ListRequestHistoryRow, 0, len(rows))
+	for _, row := range rows {
+		if canReviewRequestKind(reviewerPermissions, row.Kind) {
+			filtered = append(filtered, row)
+		}
+	}
+
+	return filtered, nil
+}
+
+func (s *Service) GetRequest(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+	requestID uuid.UUID,
+) (database.GetRequestByIDRow, []database.ListRequestEventsByRequestIDRow, error) {
+	row, err := database.New(s.db).GetRequestByID(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotFound
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if err := s.ensureRequestAccess(ctx, actorPrincipalID, row.RequesterPrincipalID, row.Kind); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	events, err := database.New(s.db).ListRequestEventsByRequestID(ctx, requestID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	return row, events, nil
+}
+
+func (s *Service) SubmitInventoryPowerRequest(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	itemID uuid.UUID,
+	action database.InventoryRequestPowerAction,
+) (database.GetRequestByIDRow, error) {
+	if !isValidPowerAction(action) {
+		return database.GetRequestByIDRow{}, ErrRequestInvalidPowerAction
+	}
+	if err := s.ensureInventoryRequestSubmissionAllowed(ctx, requesterPrincipalID, itemID, authorization.PowerVM); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	return s.createInventoryRequest(
+		ctx,
+		requesterPrincipalID,
+		RequestKindInventoryVMPower,
+		itemID,
+		validPowerAction(action),
+		nil,
+	)
+}
+
+func (s *Service) SubmitInventoryDeleteRequest(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	itemID uuid.UUID,
+) (database.GetRequestByIDRow, error) {
+	if err := s.ensureInventoryRequestSubmissionAllowed(ctx, requesterPrincipalID, itemID, authorization.DeleteVM); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	return s.createInventoryRequest(
+		ctx,
+		requesterPrincipalID,
+		RequestKindInventoryVMDelete,
+		itemID,
+		invalidPowerAction(),
+		nil,
+	)
+}
+
+func (s *Service) SubmitInventorySnapshotCreateRequest(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	itemID uuid.UUID,
+) (database.GetRequestByIDRow, error) {
+	if err := s.ensureInventoryRequestSubmissionAllowed(ctx, requesterPrincipalID, itemID, authorization.SnapshotVM); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	snapshotName := generatedSnapshotName(time.Now().UTC())
+	return s.createInventoryRequest(
+		ctx,
+		requesterPrincipalID,
+		RequestKindInventoryVMSnapshotCreate,
+		itemID,
+		invalidPowerAction(),
+		&snapshotName,
+	)
+}
+
+func (s *Service) SubmitInventorySnapshotRollbackRequest(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	itemID uuid.UUID,
+	snapshotName string,
+) (database.GetRequestByIDRow, error) {
+	if err := s.ensureInventoryRequestSubmissionAllowed(ctx, requesterPrincipalID, itemID, authorization.SnapshotVM); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	snapshotName = strings.TrimSpace(snapshotName)
+	if snapshotName == "" {
+		return database.GetRequestByIDRow{}, ErrRequestInvalidSnapshot
+	}
+
+	return s.createInventoryRequest(
+		ctx,
+		requesterPrincipalID,
+		RequestKindInventoryVMSnapshotRollback,
+		itemID,
+		invalidPowerAction(),
+		&snapshotName,
+	)
+}
+
+func (s *Service) ApproveRequest(
+	ctx context.Context,
+	reviewerPrincipalID uuid.UUID,
+	requestID uuid.UUID,
+) (database.GetRequestByIDRow, []database.ListRequestEventsByRequestIDRow, error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, reviewerPrincipalID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	locked, err := q.GetRequestForExecution(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotFound
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+	if locked.Status != database.RequestStatusPending {
+		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+	}
+	if !canReviewRequestKind(reviewerPermissions, locked.Kind) {
+		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
+	}
+
+	approved, err := q.ApproveRequest(ctx, database.ApproveRequestParams{
+		ID:                  requestID,
+		ReviewerPrincipalID: &reviewerPrincipalID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindApproved,
+		ActorPrincipalID: &reviewerPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusPending),
+		ToStatus:         database.RequestStatusApproved,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if executeErr := s.executeApprovedRequest(ctx, locked); executeErr != nil {
+		if err := s.markExecutionFailed(ctx, requestID, reviewerPrincipalID, executeErr.Error()); err != nil {
+			return database.GetRequestByIDRow{}, nil, err
+		}
+	} else {
+		if err := s.markExecuted(ctx, requestID, reviewerPrincipalID); err != nil {
+			return database.GetRequestByIDRow{}, nil, err
+		}
+	}
+
+	return s.GetRequest(ctx, reviewerPrincipalID, approved.ID)
+}
+
+func (s *Service) DenyRequest(
+	ctx context.Context,
+	reviewerPrincipalID uuid.UUID,
+	requestID uuid.UUID,
+) (database.GetRequestByIDRow, []database.ListRequestEventsByRequestIDRow, error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, reviewerPrincipalID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	locked, err := q.GetRequestForExecution(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotFound
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+	if locked.Status != database.RequestStatusPending {
+		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+	}
+	if !canReviewRequestKind(reviewerPermissions, locked.Kind) {
+		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
+	}
+
+	denied, err := q.DenyRequest(ctx, database.DenyRequestParams{
+		ID:                  requestID,
+		ReviewerPrincipalID: &reviewerPrincipalID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindDenied,
+		ActorPrincipalID: &reviewerPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusPending),
+		ToStatus:         database.RequestStatusDenied,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	return s.GetRequest(ctx, reviewerPrincipalID, denied.ID)
+}
+
+func (s *Service) CancelRequest(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+	requestID uuid.UUID,
+) (database.GetRequestByIDRow, []database.ListRequestEventsByRequestIDRow, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	locked, err := q.GetRequestForExecution(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotFound
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+	if locked.Status != database.RequestStatusPending {
+		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+	}
+
+	if err := s.ensureRequestAccess(ctx, actorPrincipalID, locked.RequesterPrincipalID, locked.Kind); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	canceled, err := q.CancelRequest(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+		}
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindCanceled,
+		ActorPrincipalID: &actorPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusPending),
+		ToStatus:         database.RequestStatusCanceled,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	return s.GetRequest(ctx, actorPrincipalID, canceled.ID)
+}
+
+func (s *Service) createInventoryRequest(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	kind string,
+	itemID uuid.UUID,
+	powerAction database.NullInventoryRequestPowerAction,
+	snapshotName *string,
+) (database.GetRequestByIDRow, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	requestRow, err := q.CreateRequest(ctx, database.CreateRequestParams{
+		Family:               database.RequestFamilyInventory,
+		Kind:                 kind,
+		RequesterPrincipalID: requesterPrincipalID,
+	})
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	if _, err := q.CreateInventoryRequest(ctx, database.CreateInventoryRequestParams{
+		RequestID:       requestRow.ID,
+		InventoryItemID: itemID,
+		PowerAction:     powerAction,
+		SnapshotName:    snapshotName,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestRow.ID,
+		EventKind:        database.RequestEventKindSubmitted,
+		ActorPrincipalID: &requesterPrincipalID,
+		FromStatus:       invalidRequestStatus(),
+		ToStatus:         database.RequestStatusPending,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	row, err := database.New(s.db).GetRequestByID(ctx, requestRow.ID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	return row, nil
+}
+
+func (s *Service) ensureInventoryRequestSubmissionAllowed(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	itemID uuid.UUID,
+	required authorization.Mask,
+) error {
+	item, err := s.inventory.GetInventoryItemByID(ctx, itemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrRequestNotFound
+		}
+		return err
+	}
+	if item.Kind != database.InventoryItemKindVm {
+		return ErrRequestForbidden
+	}
+
+	perms, err := s.authz.EffectivePermissions(ctx, requesterPrincipalID, itemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrRequestNotFound
+		}
+		return err
+	}
+
+	if perms.Has(required) {
+		return ErrRequestDirectExecution
+	}
+	if !perms.CanRequest(required) {
+		return ErrRequestForbidden
+	}
+
+	return nil
+}
+
+func (s *Service) ensureRequestAccess(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+	requesterPrincipalID uuid.UUID,
+	requestKind string,
+) error {
+	if actorPrincipalID == requesterPrincipalID {
+		return nil
+	}
+
+	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return err
+	}
+	if !canReviewRequestKind(reviewerPermissions, requestKind) {
+		return ErrRequestForbidden
+	}
+
+	return nil
+}
+
+func (s *Service) reviewerPermissions(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+) (authorization.EffectiveManagementPermissions, error) {
+	perms, err := s.authz.EffectiveManagementPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return authorization.EffectiveManagementPermissions{}, err
+	}
+	if !perms.Has(authorization.ManagementPermissionManager) {
+		return authorization.EffectiveManagementPermissions{}, ErrRequestForbidden
+	}
+
+	return perms, nil
+}
+
+func canReviewRequestKind(
+	perms authorization.EffectiveManagementPermissions,
+	_ string,
+) bool {
+	return perms.Has(authorization.ManagementPermissionManager)
+}
+
+func (s *Service) executeApprovedRequest(
+	ctx context.Context,
+	requestRow database.GetRequestForExecutionRow,
+) error {
+	if s.px == nil || s.inventory == nil || s.authz == nil {
+		return ErrRequestServiceUnavailable
+	}
+	if requestRow.InventoryItemID == nil {
+		return ErrRequestMissingPayload
+	}
+
+	itemID := *requestRow.InventoryItemID
+	required, err := requiredPermissionForRequestKind(requestRow.Kind)
+	if err != nil {
+		return err
+	}
+
+	perms, err := s.authz.EffectivePermissions(ctx, requestRow.RequesterPrincipalID, itemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrRequestStale
+		}
+		return err
+	}
+	if !perms.Has(required) && !perms.CanRequest(required) {
+		return ErrRequestStale
+	}
+
+	target, err := s.resolveVMTarget(ctx, itemID)
+	if err != nil {
+		return err
+	}
+
+	switch requestRow.Kind {
+	case RequestKindInventoryVMPower:
+		if !requestRow.PowerAction.Valid {
+			return ErrRequestMissingPayload
+		}
+		return s.executePowerAction(ctx, target, requestRow.PowerAction.InventoryRequestPowerAction)
+	case RequestKindInventoryVMDelete:
+		return s.executeDeleteVM(ctx, target)
+	case RequestKindInventoryVMSnapshotCreate:
+		if requestRow.SnapshotName == nil || strings.TrimSpace(*requestRow.SnapshotName) == "" {
+			return ErrRequestMissingPayload
+		}
+		return s.executeCreateSnapshot(ctx, target, *requestRow.SnapshotName)
+	case RequestKindInventoryVMSnapshotRollback:
+		if requestRow.SnapshotName == nil || strings.TrimSpace(*requestRow.SnapshotName) == "" {
+			return ErrRequestMissingPayload
+		}
+		return s.executeRollbackSnapshot(ctx, target, *requestRow.SnapshotName)
+	default:
+		return ErrRequestUnsupportedKind
+	}
+}
+
+func (s *Service) resolveVMTarget(ctx context.Context, itemID uuid.UUID) (vmTarget, error) {
+	record, err := s.authz.GetVMRecord(ctx, itemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return vmTarget{}, ErrRequestStale
+		}
+		return vmTarget{}, err
+	}
+
+	identity, err := s.px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+	if err != nil {
+		switch {
+		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured),
+			errors.Is(err, proxmox.ErrVMIdentityInvalid):
+			return vmTarget{}, ErrRequestStale
+		default:
+			return vmTarget{}, err
+		}
+	}
+	if identity.UpstreamUUID != record.UpstreamUUID {
+		return vmTarget{}, ErrRequestStale
+	}
+
+	return vmTarget{
+		ItemID:       record.InventoryItemID,
+		Node:         record.Node,
+		VMID:         int(record.Vmid),
+		UpstreamUUID: record.UpstreamUUID,
+	}, nil
+}
+
+func (s *Service) executePowerAction(
+	ctx context.Context,
+	target vmTarget,
+	action database.InventoryRequestPowerAction,
+) error {
+	switch action {
+	case database.InventoryRequestPowerActionPowerOn:
+		if err := s.px.StartVM(ctx, target.Node, target.VMID); err != nil {
+			return err
+		}
+		go s.waitForObservedVMStatus(target.VMID, "running")
+	case database.InventoryRequestPowerActionShutdown:
+		if err := s.px.ShutdownVM(ctx, target.Node, target.VMID); err != nil {
+			return err
+		}
+		go s.waitForObservedVMStatus(target.VMID, "stopped")
+	case database.InventoryRequestPowerActionReboot:
+		if err := s.px.RebootVM(ctx, target.Node, target.VMID); err != nil {
+			return err
+		}
+		go s.waitForObservedVMStatus(target.VMID, "running")
+	case database.InventoryRequestPowerActionStop:
+		if err := s.px.StopVM(ctx, target.Node, target.VMID); err != nil {
+			return err
+		}
+		go s.waitForObservedVMStatus(target.VMID, "stopped")
+	default:
+		return ErrRequestInvalidPowerAction
+	}
+
+	return nil
+}
+
+func (s *Service) executeDeleteVM(ctx context.Context, target vmTarget) error {
+	if err := s.px.DeleteVM(ctx, target.Node, target.VMID); err != nil {
+		return err
+	}
+	if err := s.inventory.DeleteInventoryVM(ctx, target.ItemID); err != nil {
+		return err
+	}
+
+	go s.waitForVMRemoval(target.VMID)
+	return nil
+}
+
+func (s *Service) executeCreateSnapshot(
+	ctx context.Context,
+	target vmTarget,
+	snapshotName string,
+) error {
+	return s.px.CreateSnapshot(
+		ctx,
+		target.Node,
+		target.VMID,
+		strings.TrimSpace(snapshotName),
+		"",
+		false,
+	)
+}
+
+func (s *Service) executeRollbackSnapshot(
+	ctx context.Context,
+	target vmTarget,
+	snapshotName string,
+) error {
+	snapshotName = strings.TrimSpace(snapshotName)
+	snapshots, err := s.px.GetSnapshots(ctx, target.Node, target.VMID)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for _, snapshot := range snapshots {
+		if snapshot.Name == snapshotName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrRequestStale
+	}
+
+	return s.px.RollbackSnapshot(ctx, target.Node, target.VMID, snapshotName)
+}
+
+func (s *Service) markExecuted(
+	ctx context.Context,
+	requestID uuid.UUID,
+	actorPrincipalID uuid.UUID,
+) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	if _, err := q.MarkRequestExecuted(ctx, requestID); err != nil {
+		return err
+	}
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindExecuted,
+		ActorPrincipalID: &actorPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		ToStatus:         database.RequestStatusExecuted,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (s *Service) markExecutionFailed(
+	ctx context.Context,
+	requestID uuid.UUID,
+	actorPrincipalID uuid.UUID,
+	errorMessage string,
+) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	if _, err := q.MarkRequestExecutionFailed(ctx, database.MarkRequestExecutionFailedParams{
+		ID:             requestID,
+		ExecutionError: &errorMessage,
+	}); err != nil {
+		return err
+	}
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindExecutionFailed,
+		ActorPrincipalID: &actorPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		ToStatus:         database.RequestStatusExecutionFailed,
+		ErrorMessage:     &errorMessage,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (s *Service) waitForObservedVMStatus(vmid int, expectedStatus string) {
+	if s.notifier == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	_ = s.notifier.RefreshUntilStatus(ctx, vmid, expectedStatus)
+}
+
+func (s *Service) waitForVMRemoval(vmid int) {
+	if s.notifier == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	_ = s.notifier.RefreshUntilAbsent(ctx, vmid)
+}
+
+func requiredPermissionForRequestKind(kind string) (authorization.Mask, error) {
+	switch kind {
+	case RequestKindInventoryVMPower:
+		return authorization.PowerVM, nil
+	case RequestKindInventoryVMDelete:
+		return authorization.DeleteVM, nil
+	case RequestKindInventoryVMSnapshotCreate, RequestKindInventoryVMSnapshotRollback:
+		return authorization.SnapshotVM, nil
+	default:
+		return 0, ErrRequestUnsupportedKind
+	}
+}
+
+func generatedSnapshotName(now time.Time) string {
+	return fmt.Sprintf("request-%s", now.UTC().Format("20060102T150405Z"))
+}
+
+func isValidPowerAction(action database.InventoryRequestPowerAction) bool {
+	switch action {
+	case database.InventoryRequestPowerActionPowerOn,
+		database.InventoryRequestPowerActionShutdown,
+		database.InventoryRequestPowerActionReboot,
+		database.InventoryRequestPowerActionStop:
+		return true
+	default:
+		return false
+	}
+}
+
+func invalidPowerAction() database.NullInventoryRequestPowerAction {
+	return database.NullInventoryRequestPowerAction{}
+}
+
+func validPowerAction(action database.InventoryRequestPowerAction) database.NullInventoryRequestPowerAction {
+	return database.NullInventoryRequestPowerAction{
+		InventoryRequestPowerAction: action,
+		Valid:                       true,
+	}
+}
+
+func invalidRequestStatus() database.NullRequestStatus {
+	return database.NullRequestStatus{}
+}
+
+func validRequestStatus(status database.RequestStatus) database.NullRequestStatus {
+	return database.NullRequestStatus{
+		RequestStatus: status,
+		Valid:         true,
+	}
+}
