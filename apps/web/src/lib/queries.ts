@@ -3,9 +3,9 @@ import type {
   ManagementPermissionKey,
 } from "@/lib/management-permissions"
 import {
+  ManagementPermissionKeys,
   canAccessAdmin,
   canAccessRequestQueue,
-  ManagementPermissionKeys,
   expandManagementPermissionGrants,
   hasManagementPermission,
   normalizeManagementPermissionGrants,
@@ -964,11 +964,14 @@ export async function createSnapshot(params: {
 
 export async function submitInventorySnapshotCreateRequest(params: {
   itemId: string
+  snapname: string
 }): Promise<ApiRequestDetail> {
   const res = await apiFetch(
     `/api/v1/requests/inventory/items/${params.itemId}/vm/snapshots`,
     {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ snapname: params.snapname }),
     }
   )
   if (!res.ok) {

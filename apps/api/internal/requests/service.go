@@ -3,9 +3,7 @@ package requests
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -187,12 +185,17 @@ func (s *Service) SubmitInventorySnapshotCreateRequest(
 	ctx context.Context,
 	requesterPrincipalID uuid.UUID,
 	itemID uuid.UUID,
+	snapshotName string,
 ) (database.GetRequestByIDRow, error) {
 	if err := s.ensureInventoryRequestSubmissionAllowed(ctx, requesterPrincipalID, itemID, authorization.SnapshotVM); err != nil {
 		return database.GetRequestByIDRow{}, err
 	}
 
-	snapshotName := generatedSnapshotName(time.Now().UTC())
+	snapshotName = strings.TrimSpace(snapshotName)
+	if snapshotName == "" {
+		return database.GetRequestByIDRow{}, ErrRequestInvalidSnapshot
+	}
+
 	return s.createInventoryRequest(
 		ctx,
 		requesterPrincipalID,
@@ -759,10 +762,6 @@ func requiredPermissionForRequestKind(kind string) (authorization.Mask, error) {
 	default:
 		return 0, ErrRequestUnsupportedKind
 	}
-}
-
-func generatedSnapshotName(now time.Time) string {
-	return fmt.Sprintf("request-%s", now.UTC().Format("20060102T150405Z"))
 }
 
 func isValidPowerAction(action database.InventoryRequestPowerAction) bool {

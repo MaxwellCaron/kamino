@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   IconCamera,
@@ -78,9 +78,45 @@ export function SnapshotsTable({
   const [requestRollbackSnapshot, setRequestRollbackSnapshot] = useState<
     string | null
   >(null)
+  const [requestRollbackOpen, setRequestRollbackOpen] = useState(false)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
+  const requestRollbackResetTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null)
   const filtered =
     snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
+
+  const clearRequestRollbackResetTimeout = () => {
+    if (requestRollbackResetTimeoutRef.current !== null) {
+      clearTimeout(requestRollbackResetTimeoutRef.current)
+      requestRollbackResetTimeoutRef.current = null
+    }
+  }
+
+  const scheduleRequestRollbackReset = () => {
+    clearRequestRollbackResetTimeout()
+    requestRollbackResetTimeoutRef.current = setTimeout(() => {
+      setRequestRollbackSnapshot(null)
+      requestRollbackResetTimeoutRef.current = null
+    }, 100)
+  }
+
+  const openRequestRollbackDialog = (snapshotName: string) => {
+    clearRequestRollbackResetTimeout()
+    setRequestRollbackSnapshot(snapshotName)
+    setRequestRollbackOpen(true)
+  }
+
+  const closeRequestRollbackDialog = () => {
+    setRequestRollbackOpen(false)
+    scheduleRequestRollbackReset()
+  }
+
+  useEffect(() => {
+    return () => {
+      clearRequestRollbackResetTimeout()
+    }
+  }, [])
 
   if (!canViewSnapshots) {
     return null
@@ -107,9 +143,7 @@ export function SnapshotsTable({
               onClick={() => setSnapshotOpen(true)}
             >
               <IconPlus />
-              <span className="hidden lg:block">
-                {canManageSnapshots ? "Create" : "Create Request"}
-              </span>
+              <span className="hidden lg:block">Create</span>
             </Button>
           </CardAction>
         )}
@@ -256,7 +290,7 @@ export function SnapshotsTable({
                             title="Request rollback"
                             disabled={submitRollbackRequest.isPending}
                             onClick={() =>
-                              setRequestRollbackSnapshot(snapshot.name)
+                              openRequestRollbackDialog(snapshot.name)
                             }
                           >
                             <IconHistory className="size-4" />
@@ -278,11 +312,19 @@ export function SnapshotsTable({
       </CardFooter>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       <AlertDialog
-        open={requestRollbackSnapshot !== null}
+        open={requestRollbackOpen}
         onOpenChange={(open) => {
-          if (!open && !submitRollbackRequest.isPending) {
-            setRequestRollbackSnapshot(null)
+          if (!open) {
+            if (submitRollbackRequest.isPending) {
+              return
+            }
+
+            closeRequestRollbackDialog()
+            return
           }
+
+          clearRequestRollbackResetTimeout()
+          setRequestRollbackOpen(true)
         }}
       >
         <AppAlertDialogContent
@@ -292,10 +334,8 @@ export function SnapshotsTable({
             requestRollbackSnapshot ? (
               <>
                 Submit a rollback request for snapshot{" "}
-                <span className="font-medium text-foreground">
-                  {requestRollbackSnapshot}
-                </span>
-                ? A reviewer must approve it before the VM is reverted.
+                <span className="font-medium">{requestRollbackSnapshot}</span>?
+                A reviewer must approve it before the VM is reverted.
               </>
             ) : null
           }
@@ -325,7 +365,7 @@ export function SnapshotsTable({
 
                 try {
                   await promise
-                  setRequestRollbackSnapshot(null)
+                  closeRequestRollbackDialog()
                 } catch {
                   // Error feedback is handled by the mutation toast.
                 }

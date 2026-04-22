@@ -297,8 +297,7 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title:
-                    powerMode === "direct" ? "Start" : "Request Start",
+                  title: powerMode === "direct" ? "Start" : "Request Start",
                   icon: IconPlayerPlay,
                   description:
                     powerMode === "direct"
@@ -396,8 +395,7 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title:
-                    powerMode === "direct" ? "Reboot" : "Request Reboot",
+                  title: powerMode === "direct" ? "Reboot" : "Request Reboot",
                   icon: IconRefresh,
                   description:
                     powerMode === "direct"
@@ -410,7 +408,10 @@ function VmMenuItems({
                     const promise: Promise<unknown> =
                       powerMode === "direct"
                         ? powerAction
-                            .mutateAsync({ itemIds: [itemId], action: "reboot" })
+                            .mutateAsync({
+                              itemIds: [itemId],
+                              action: "reboot",
+                            })
                             .then((result) =>
                               assertSingleItemMutationSucceeded(
                                 result,
@@ -513,7 +514,9 @@ function VmMenuItems({
                 disabled={isLoading}
               >
                 <IconCamera className="text-muted-foreground" />
-                {snapshotMode === "direct" ? "Snapshot" : "Snapshot Request"}
+                {snapshotMode === "direct"
+                  ? "Snapshot"
+                  : "Create Snapshot Request"}
               </DropdownMenuItem>
             )}
             {canTemplate && (
@@ -589,8 +592,7 @@ function VmMenuItems({
           disabled={isLoading}
           onClick={() =>
             onAction({
-              title:
-                deleteMode === "direct" ? "Delete" : "Request Delete",
+              title: deleteMode === "direct" ? "Delete" : "Request Delete",
               icon: IconTrash,
               description:
                 deleteMode === "direct"

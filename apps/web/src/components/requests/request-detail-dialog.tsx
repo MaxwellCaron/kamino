@@ -28,11 +28,6 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
-  AppDialogContent,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
-import type { ApiRequestDetail } from "@/lib/queries"
-import {
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
@@ -41,6 +36,11 @@ import {
   getRequestTargetLabel,
   requestStatusVariant,
 } from "./request-presenters"
+import type { ApiRequestDetail } from "@/lib/queries"
+import {
+  AppDialogContent,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 
 type RequestDetailDialogProps = {
   approvePending: boolean
@@ -203,7 +203,7 @@ export function RequestDetailDialog({
                       {request.inventory?.snapshot_name ? (
                         <p>Snapshot: {request.inventory.snapshot_name}</p>
                       ) : null}
-                      {request.inventory?.vm_node && request.inventory?.vmid ? (
+                      {request.inventory?.vm_node && request.inventory.vmid ? (
                         <p>
                           {request.inventory.vm_node} / VM{" "}
                           {request.inventory.vmid}

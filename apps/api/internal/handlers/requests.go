@@ -25,6 +25,10 @@ type submitRollbackSnapshotRequest struct {
 	Snapname string `json:"snapname" binding:"required"`
 }
 
+type submitCreateSnapshotRequest struct {
+	Snapname string `json:"snapname" binding:"required"`
+}
+
 type requestSummaryResponse struct {
 	ID                   uuid.UUID                `json:"id"`
 	Family               string                   `json:"family"`
@@ -285,7 +289,18 @@ func (h *RequestsHandler) SubmitInventorySnapshotCreate(c *gin.Context) {
 		return
 	}
 
-	row, err := h.Service.SubmitInventorySnapshotCreateRequest(c.Request.Context(), principalID, itemID)
+	var req submitCreateSnapshotRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	row, err := h.Service.SubmitInventorySnapshotCreateRequest(
+		c.Request.Context(),
+		principalID,
+		itemID,
+		req.Snapname,
+	)
 	if err != nil {
 		writeRequestServiceError(c, err, "submit inventory snapshot create request")
 		return

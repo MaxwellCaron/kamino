@@ -16,13 +16,6 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import { DataTable } from "@/components/data-table/data-table"
-import { RequestDetailDialog } from "@/components/requests/request-detail-dialog"
-import { getRequestColumns } from "@/components/requests/requests-columns"
-import {
-  formatRequestScope,
-  formatRequestStatus,
-} from "@/components/requests/request-presenters"
 import type { ApiRequestScope, ApiRequestStatus } from "@/lib/queries"
 import {
   ManagementPermissionKeys,
@@ -34,6 +27,13 @@ import {
   requestDetailQueryOptions,
   requestsQueryOptions,
 } from "@/lib/queries"
+import { DataTable } from "@/components/data-table/data-table"
+import { RequestDetailDialog } from "@/components/requests/request-detail-dialog"
+import { getRequestColumns } from "@/components/requests/requests-columns"
+import {
+  formatRequestScope,
+  formatRequestStatus,
+} from "@/components/requests/request-presenters"
 
 export const Route = createFileRoute("/_dashboard/requests")({
   beforeLoad: ({ context }) => {
@@ -143,9 +143,8 @@ function RequestsPage() {
                   Requests
                 </CardTitle>
                 <CardDescription className="max-w-2xl text-sm/relaxed">
-                  Managers and administrators review queued work here. Payloads
-                  stay immutable, reviewer edits are out of scope, and every
-                  decision is written into the audit trail automatically.
+                  Managers and administrators review queued work here and every
+                  decision is tracked automatically.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
