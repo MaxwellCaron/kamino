@@ -906,6 +906,28 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func (h *VMHandler) requireVerifiedVMSnapshotReadAccess(
+	c *gin.Context,
+	principalID uuid.UUID,
+	itemID uuid.UUID,
+) (verifiedVMTarget, bool) {
+	target, reqErr := resolveVerifiedVMItemPermission(
+		c.Request.Context(),
+		h.Authz,
+		h.PX,
+		principalID,
+		itemID,
+		authorization.ViewSnapshots,
+		false,
+	)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return verifiedVMTarget{}, false
+	}
+
+	return target, true
+}
+
 // GetSnapshots returns all snapshots for a VM.
 // GET /api/v1/inventory/items/:id/vm/snapshots
 func (h *VMHandler) GetSnapshots(c *gin.Context) {
@@ -919,7 +941,7 @@ func (h *VMHandler) GetSnapshots(c *gin.Context) {
 	if !ok {
 		return
 	}
-	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.SnapshotVM, false)
+	target, ok := h.requireVerifiedVMSnapshotReadAccess(c, principalID, itemID)
 	if !ok {
 		return
 	}

@@ -58,6 +58,10 @@ function VmPage() {
     node?.permissions,
     InventoryPermissionBits.snapshotVm
   )
+  const canViewSnapshots = hasInventoryPermission(
+    node?.permissions,
+    InventoryPermissionBits.viewSnapshots
+  )
   const canRequestSnapshots = canRequestInventoryPermission(
     node?.permissions,
     InventoryPermissionBits.snapshotVm
@@ -90,12 +94,13 @@ function VmPage() {
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
-        {(canManageSnapshots || canRequestSnapshots) && (
+        {canViewSnapshots && (
           <SnapshotsTable
             itemId={itemId}
             vmid={vm?.vmid ?? null}
             vmName={node?.name}
             isTemplate={isTemplate}
+            canViewSnapshots={canViewSnapshots}
             canManageSnapshots={canManageSnapshots}
             canRequestSnapshots={canRequestSnapshots}
             isLoading={isLoading}

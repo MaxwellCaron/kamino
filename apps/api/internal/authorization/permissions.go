@@ -17,6 +17,7 @@ const (
 	InventoryPermissionPowerVM           InventoryPermission = "powerVm"
 	InventoryPermissionConsoleVM         InventoryPermission = "consoleVm"
 	InventoryPermissionCloneVM           InventoryPermission = "cloneVm"
+	InventoryPermissionViewSnapshots     InventoryPermission = "viewSnapshots"
 	InventoryPermissionSnapshotVM        InventoryPermission = "snapshotVm"
 	InventoryPermissionTemplateVM        InventoryPermission = "templateVm"
 	InventoryPermissionManagePermissions InventoryPermission = "managePermissions"
@@ -49,6 +50,7 @@ const (
 	TemplateVM
 	ManagePermissions
 	EditVMHardware
+	ViewSnapshots
 )
 
 type InventoryPermissionDefinition struct {
@@ -219,13 +221,24 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
 	},
 	{
-		Key:            InventoryPermissionSnapshotVM,
-		Label:          "Snapshot VM",
-		Description:    "Create, delete, and roll back snapshots for VMs covered by this rule.",
+		Key:            InventoryPermissionViewSnapshots,
+		Label:          "View Snapshots",
+		Description:    "Browse existing VM snapshots and inspect rollback targets. This permission never creates request-queue actions by itself.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
 		Order:          7,
+		Bit:            ViewSnapshots,
+		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
+	},
+	{
+		Key:            InventoryPermissionSnapshotVM,
+		Label:          "Snapshot VM",
+		Description:    "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete still requires explicit allow.",
+		SectionKey:     "vm",
+		SectionLabel:   "VM",
+		SectionOrder:   2,
+		Order:          8,
 		Bit:            SnapshotVM,
 		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
 	},
@@ -236,7 +249,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
-		Order:          8,
+		Order:          9,
 		Bit:            TemplateVM,
 		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
 	},

@@ -12,6 +12,7 @@ export const InventoryPermissionKeys = {
   powerVm: "powerVm",
   renameFolder: "renameFolder",
   renameVm: "renameVm",
+  viewSnapshots: "viewSnapshots",
   snapshotVm: "snapshotVm",
   templateVm: "templateVm",
   view: "view",
@@ -59,6 +60,7 @@ export const InventoryPermissionBits: Record<InventoryPermissionKey, number> = {
   [InventoryPermissionKeys.templateVm]: 1 << 13,
   [InventoryPermissionKeys.managePermissions]: 1 << 14,
   [InventoryPermissionKeys.editVmHardware]: 1 << 15,
+  [InventoryPermissionKeys.viewSnapshots]: 1 << 16,
 }
 
 const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
@@ -222,15 +224,27 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
   },
   {
     appliesToKinds: ["folder", "vm"],
-    bit: InventoryPermissionBits.snapshotVm,
-    key: InventoryPermissionKeys.snapshotVm,
-    label: "Snapshot VM",
+    bit: InventoryPermissionBits.viewSnapshots,
+    key: InventoryPermissionKeys.viewSnapshots,
+    label: "View Snapshots",
     description:
-      "Create and roll back snapshots by request when inherited; snapshot delete still requires explicit allow. Deny hides and blocks all snapshot actions.",
+      "Browse existing VM snapshots and inspect rollback targets. This permission never creates request-queue actions by itself.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
     order: 7,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.snapshotVm,
+    key: InventoryPermissionKeys.snapshotVm,
+    label: "Snapshot VM",
+    description:
+      "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete still requires explicit allow.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 8,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -241,7 +255,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 8,
+    order: 9,
   },
 ]
 

@@ -61,6 +61,7 @@ CREATE TYPE inventory_request_power_action AS ENUM (
 -- 8192    = template_vm
 -- 16384   = manage_permissions
 -- 32768   = edit_vm_hardware
+-- 65536   = view_snapshots
 
 -- ----------------------------------------------------------------------------
 -- Management permission definitions (reference)

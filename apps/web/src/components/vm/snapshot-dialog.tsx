@@ -130,9 +130,8 @@ function DirectSnapshotDialog({
             name="snapname"
             validators={{
               onBlur: ({ value }) => {
-                const result = directSnapshotSchema.shape.snapname.safeParse(
-                  value
-                )
+                const result =
+                  directSnapshotSchema.shape.snapname.safeParse(value)
                 return result.success
                   ? undefined
                   : result.error.issues[0].message
@@ -299,9 +298,7 @@ function RequestSnapshotDialog({
     >
       <Tabs
         value={activeTab}
-        onValueChange={(value) =>
-          setActiveTab((value as "create" | "rollback") ?? "create")
-        }
+        onValueChange={(value) => setActiveTab(value as "create" | "rollback")}
         className="flex flex-col gap-4"
       >
         <TabsList variant="line" className="w-full">
@@ -323,7 +320,9 @@ function RequestSnapshotDialog({
             <div className="rounded-2xl border bg-muted/40 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">Queue</Badge>
-                <p className="text-sm font-medium">Create a point-in-time snapshot</p>
+                <p className="text-sm font-medium">
+                  Create a point-in-time snapshot
+                </p>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
                 Reviewers approve the request against the current VM state, then
@@ -355,9 +354,9 @@ function RequestSnapshotDialog({
                 <IconHistory />
                 <AlertTitle>Exact snapshot name required</AlertTitle>
                 <AlertDescription>
-                  Snapshot listing still needs direct snapshot access. For
-                  request-only access, enter the snapshot name exactly as it
-                  appears in Proxmox.
+                  If snapshot browsing is available on the VM page, pick the
+                  name directly from that list. Otherwise, enter the snapshot
+                  name exactly as it appears in Proxmox.
                 </AlertDescription>
               </Alert>
               <FieldGroup>
@@ -397,7 +396,8 @@ function RequestSnapshotDialog({
                         onBlur={field.handleBlur}
                       />
                       <FieldDescription>
-                        This value becomes part of the immutable request payload.
+                        This value becomes part of the immutable request
+                        payload.
                       </FieldDescription>
                       <FieldError>{field.state.meta.errors[0]}</FieldError>
                     </Field>
@@ -405,7 +405,9 @@ function RequestSnapshotDialog({
                 </rollbackForm.Field>
               </FieldGroup>
               <DialogFooter>
-                <rollbackForm.Subscribe selector={(state) => state.isSubmitting}>
+                <rollbackForm.Subscribe
+                  selector={(state) => state.isSubmitting}
+                >
                   {(isSubmitting) => (
                     <AppDialogPrimaryButton disabled={isSubmitting}>
                       {isSubmitting
