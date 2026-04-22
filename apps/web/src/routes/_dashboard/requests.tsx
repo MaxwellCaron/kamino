@@ -153,7 +153,7 @@ function RequestsPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               <Card className="border-dashed bg-background/80">
                 <CardHeader className="gap-1 pb-3">
                   <CardDescription>Pending review</CardDescription>
@@ -176,22 +176,12 @@ function RequestsPage() {
                   Approved, denied, canceled, and executed queue items.
                 </CardContent>
               </Card>
-              <Card className="border-dashed bg-background/80">
-                <CardHeader className="gap-1 pb-3">
-                  <CardDescription>Review model</CardDescription>
-                  <CardTitle className="text-3xl">Simple</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 text-sm text-muted-foreground">
-                  No threaded comments, no justification forms, and no editable
-                  request variables.
-                </CardContent>
-              </Card>
             </div>
           </CardHeader>
         </Card>
 
         <Card>
-          <CardHeader className="gap-4">
+          <CardHeader>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-col gap-1">
                 <CardTitle className="flex items-center gap-2">
@@ -212,7 +202,7 @@ function RequestsPage() {
                 onValueChange={(value) => setScope(value as ApiRequestScope)}
                 className="w-full lg:w-auto"
               >
-                <TabsList variant="line" className="w-full lg:w-auto">
+                <TabsList className="w-full lg:w-auto">
                   <TabsTrigger value="pending">
                     Pending
                     <Badge variant="outline">{pendingCount}</Badge>

@@ -1,8 +1,6 @@
-import type { ColumnDef } from "@tanstack/react-table"
 import { IconArrowUpRight } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import type { ApiRequestSummary } from "@/lib/queries"
 import {
   formatRequestKind,
   formatRequestStatus,
@@ -11,6 +9,8 @@ import {
   getRequestTargetLabel,
   requestStatusVariant,
 } from "./request-presenters"
+import type { ApiRequestSummary } from "@/lib/queries"
+import type { ColumnDef } from "@tanstack/react-table"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
@@ -22,12 +22,12 @@ export function getRequestColumns({
   return [
     {
       accessorKey: "kind",
-      header: "Request",
+      header: () => <p className="pl-4">Request</p>,
       cell: ({ row: { original: request } }) => {
         const context = getRequestTargetContext(request)
 
         return (
-          <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1 pl-4">
             <p className="font-medium">{getRequestTargetLabel(request)}</p>
             <p className="text-xs text-muted-foreground">
               {formatRequestKind(request.kind)}

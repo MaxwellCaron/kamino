@@ -41,7 +41,7 @@ export function formatRequestScope(scope: ApiRequestScope) {
 }
 
 export function formatRequestStatus(status: ApiRequestStatus) {
-  return requestStatusLabels[status] ?? startCase(status)
+  return requestStatusLabels[status]
 }
 
 export function requestStatusVariant(status: ApiRequestStatus) {

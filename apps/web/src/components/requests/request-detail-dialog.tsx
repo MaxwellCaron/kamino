@@ -2,8 +2,14 @@ import { Link } from "@tanstack/react-router"
 import {
   IconAlertTriangle,
   IconCheck,
-  IconClock,
+  IconCheckbox,
+  IconExternalLink,
+  IconHandClick,
+  IconTargetArrow,
+  IconUserQuestion,
+  IconUserSearch,
   IconX,
+  IconZoom,
 } from "@tabler/icons-react"
 import {
   Alert,
@@ -12,13 +18,6 @@ import {
 } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -28,12 +27,19 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
+import {
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
   formatRequestTimestamp,
-  getRequestTargetContext,
-  getRequestTargetLabel,
   requestStatusVariant,
 } from "./request-presenters"
 import type { ApiRequestDetail } from "@/lib/queries"
@@ -41,6 +47,7 @@ import {
   AppDialogContent,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { formatVmReference } from "@/lib/utils"
 
 type RequestDetailDialogProps = {
   approvePending: boolean
@@ -55,28 +62,6 @@ type RequestDetailDialogProps = {
   request: ApiRequestDetail | null
 }
 
-function RequestMetadataCard({
-  description,
-  title,
-  value,
-}: {
-  description: string
-  title: string
-  value: string
-}) {
-  return (
-    <Card className="border-dashed">
-      <CardHeader className="gap-1 pb-3">
-        <CardDescription>{title}</CardDescription>
-        <CardTitle className="text-base">{value}</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0 text-sm text-muted-foreground">
-        {description}
-      </CardContent>
-    </Card>
-  )
-}
-
 export function RequestDetailDialog({
   approvePending,
   canReview,
@@ -89,23 +74,16 @@ export function RequestDetailDialog({
   open,
   request,
 }: RequestDetailDialogProps) {
-  const pending = approvePending || denyPending
-  const requestContext = request ? getRequestTargetContext(request) : null
   const powerAction = formatRequestPowerAction(request?.inventory?.power_action)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
-        className="sm:max-w-4xl"
-        icon={IconClock}
-        title={request ? getRequestTargetLabel(request) : "Request detail"}
-        description={
-          request
-            ? `${formatRequestKind(request.kind)} submitted by ${request.requester_username}.`
-            : "Inspect the queued payload and audit trail."
-        }
+        icon={IconZoom}
+        title="Review"
+        description="Review the request and determine the outcome."
       >
-        <AppDialogScrollBody className="-mb-6 bg-muted/20 px-6">
+        <AppDialogScrollBody className="-mb-8 px-4">
           {isLoading ? (
             <div className="py-8 text-sm text-muted-foreground">
               Loading request details...
@@ -122,188 +100,151 @@ export function RequestDetailDialog({
             </Empty>
           ) : request ? (
             <div className="flex flex-col gap-5">
-              {request.execution_error ? (
+              {request.execution_error && (
                 <Alert variant="destructive">
                   <IconAlertTriangle />
                   <AlertTitle>Execution Failed</AlertTitle>
                   <AlertDescription>{request.execution_error}</AlertDescription>
                 </Alert>
-              ) : null}
+              )}
 
-              <div className="flex flex-col gap-3 rounded-3xl border bg-background/95 p-4 shadow-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={requestStatusVariant(request.status)}>
-                    {formatRequestStatus(request.status)}
-                  </Badge>
-                  <Badge variant="outline">
-                    {formatRequestKind(request.kind)}
-                  </Badge>
-                  {requestContext ? (
-                    <span className="text-sm text-muted-foreground">
-                      {requestContext}
-                    </span>
-                  ) : null}
+              <div className="space-y-4">
+                <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Request
                 </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Request payloads are read-only once submitted. Reviews record
-                  an outcome and immediately execute approved work.
-                </p>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <RequestMetadataCard
-                  title={request.requester_username}
-                  description={`Submitted ${formatRequestTimestamp(request.created_at)}`}
-                  value="Requester"
-                />
-                <RequestMetadataCard
-                  title={
-                    request.reviewer_username?.trim() || "Not reviewed yet"
-                  }
-                  description={
-                    request.reviewed_at
-                      ? `Reviewed ${formatRequestTimestamp(request.reviewed_at)}`
-                      : "No review has been recorded."
-                  }
-                  value="Reviewer"
-                />
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payload</CardTitle>
-                  <CardDescription>
-                    Immutable request values captured at submission time.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      Target
-                    </p>
-                    <p className="mt-2 font-medium">
-                      {getRequestTargetLabel(request)}
-                    </p>
-                    {request.inventory?.item_id ? (
-                      <Link
-                        to="/inventory/items/$itemId"
-                        params={{ itemId: request.inventory.item_id }}
-                        className="mt-2 inline-flex text-sm text-primary underline underline-offset-4"
-                      >
-                        Open inventory item
-                      </Link>
-                    ) : null}
-                  </div>
-                  <div className="rounded-2xl border bg-muted/30 p-4">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      Operation
-                    </p>
-                    <div className="mt-2 flex flex-col gap-2 text-sm">
-                      {powerAction ? <p>{powerAction}</p> : null}
-                      {request.inventory?.snapshot_name ? (
-                        <p>Snapshot: {request.inventory.snapshot_name}</p>
-                      ) : null}
-                      {request.inventory?.vm_node && request.inventory.vmid ? (
+                <Item variant="muted">
+                  <ItemMedia variant="icon">
+                    <IconUserQuestion />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{request.requester_username}</ItemTitle>
+                    <ItemDescription>
+                      {`Submitted ${formatRequestTimestamp(request.created_at)}`}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <FacehashIcon name={request.requester_username} />
+                  </ItemActions>
+                </Item>
+                <Item variant="muted">
+                  <ItemMedia variant="icon">
+                    <IconHandClick />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>Action</ItemTitle>
+                    <ItemDescription>
+                      {powerAction && <p>{powerAction}</p>}
+                      {request.inventory?.snapshot_name && (
                         <p>
-                          {request.inventory.vm_node} / VM{" "}
-                          {request.inventory.vmid}
+                          {formatRequestKind(request.kind)}:{" "}
+                          {request.inventory.snapshot_name}
                         </p>
-                      ) : null}
-                      {request.inventory?.is_template ? (
-                        <p>Template target</p>
-                      ) : null}
-                      {!powerAction &&
-                      !request.inventory?.snapshot_name &&
-                      !request.inventory?.vm_node ? (
-                        <p className="text-muted-foreground">
-                          No extra variables.
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Audit trail</CardTitle>
-                  <CardDescription>
-                    Submission, review, and execution events in order.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {request.events.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {request.events.map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex flex-col gap-2 rounded-2xl border bg-muted/20 p-4"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">{event.event_kind}</Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {formatRequestTimestamp(event.created_at)}
-                            </span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">
-                              {event.actor_username?.trim() || "System"}
-                            </span>
-                            {event.from_status ? (
-                              <span>
-                                {" "}
-                                moved the request from {
-                                  event.from_status
-                                } to {event.to_status}.
-                              </span>
-                            ) : (
-                              <span>
-                                {" "}
-                                set the request to {event.to_status}.
-                              </span>
+                      )}
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
+                <Item
+                  variant="muted"
+                  className="cursor-default"
+                  render={
+                    <Link
+                      to="/inventory/items/$itemId"
+                      params={{ itemId: request.inventory?.item_id || "" }}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ItemMedia variant="icon">
+                        <IconTargetArrow />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>Target</ItemTitle>
+                        <ItemDescription>
+                          {request.inventory?.vmid &&
+                            formatVmReference(
+                              request.inventory.vmid,
+                              request.inventory.item_name
                             )}
-                          </div>
-                          {event.error_message ? (
-                            <p className="text-sm text-destructive">
-                              {event.error_message}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty className="border bg-muted/10 p-8">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <IconClock />
-                        </EmptyMedia>
-                        <EmptyTitle>No Events Recorded</EmptyTitle>
-                        <EmptyDescription>
-                          This request has not generated an audit timeline yet.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  )}
-                </CardContent>
-              </Card>
+                          {request.inventory?.is_template && (
+                            <p>Template target</p>
+                          )}
+                          {!powerAction &&
+                            !request.inventory?.snapshot_name &&
+                            !request.inventory?.vm_node && (
+                              <p className="text-muted-foreground">
+                                No extra variables.
+                              </p>
+                            )}
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions>
+                        <IconExternalLink className="size-4" />
+                      </ItemActions>
+                    </Link>
+                  }
+                />
+              </div>
+
+              {request.reviewer_username && (
+                <div className="space-y-4">
+                  <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    Response
+                  </div>
+                  <Item variant="muted">
+                    <ItemMedia variant="icon">
+                      <IconUserSearch />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{request.reviewer_username}</ItemTitle>
+                      <ItemDescription>
+                        {`Reviewed ${formatRequestTimestamp(request.reviewed_at)}`}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <FacehashIcon name={request.reviewer_username} />
+                    </ItemActions>
+                  </Item>
+                  <Item variant="muted">
+                    <ItemMedia variant="icon">
+                      <IconCheckbox />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>Status</ItemTitle>
+                      <ItemDescription>
+                        <Badge variant={requestStatusVariant(request.status)}>
+                          {formatRequestStatus(request.status)}
+                        </Badge>
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
+                </div>
+              )}
             </div>
           ) : null}
         </AppDialogScrollBody>
 
-        <DialogFooter showCloseButton>
-          {request?.status === "pending" && canReview ? (
+        {request?.status === "pending" && canReview && (
+          <DialogFooter>
             <>
-              <Button variant="destructive" disabled={pending} onClick={onDeny}>
+              <Button
+                variant="destructive"
+                disabled={approvePending || denyPending}
+                onClick={onDeny}
+                className="w-[50%]"
+              >
                 <IconX data-icon="inline-start" />
                 {denyPending ? "Denying..." : "Deny"}
               </Button>
-              <Button disabled={pending} onClick={onApprove}>
+              <Button
+                disabled={approvePending || denyPending}
+                onClick={onApprove}
+                className="w-[50%]"
+              >
                 <IconCheck data-icon="inline-start" />
                 {approvePending ? "Approving..." : "Approve"}
               </Button>
             </>
-          ) : null}
-        </DialogFooter>
+          </DialogFooter>
+        )}
       </AppDialogContent>
     </Dialog>
   )
