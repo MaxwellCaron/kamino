@@ -29,6 +29,7 @@ import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-act
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
   ManagementPermissionKeys,
+  canAccessAdmin,
   deleteUser,
   hasManagementPermission,
   triggerADSync,
@@ -41,11 +42,9 @@ import { DataTable } from "@/components/data-table/data-table"
 import { getUserColumns } from "@/components/principals/users/users-columns"
 import { UserGroupBulkDialog } from "@/components/principals/users/user-group-bulk-dialog"
 
-export const Route = createFileRoute("/_dashboard/management/principals/users")(
-  {
-    component: UsersPage,
-  }
-)
+export const Route = createFileRoute("/_dashboard/admin/principals/users")({
+  component: UsersPage,
+})
 
 function getUserLabel(user: ApiPrincipal) {
   return user.name ?? user.external_id
@@ -53,13 +52,9 @@ function getUserLabel(user: ApiPrincipal) {
 
 function UsersPage() {
   const { user } = Route.useRouteContext()
-  const canView = hasManagementPermission(
+  const canAdminister = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionKeys.principalsView
-  )
-  const canManage = hasManagementPermission(
-    user.management_permissions,
-    ManagementPermissionKeys.principalsManage
+    ManagementPermissionKeys.administrator
   )
   const {
     data: users,
@@ -67,7 +62,7 @@ function UsersPage() {
     error,
   } = useQuery({
     ...usersQueryOptions,
-    enabled: canView,
+    enabled: canAdminister,
   })
   const userCountLabel = isLoading
     ? "..."
@@ -115,7 +110,7 @@ function UsersPage() {
   const columns = useMemo(
     () =>
       getUserColumns({
-        canManage,
+        canManage: canAdminister,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onDeleteClick: (targetUser) =>
@@ -130,7 +125,12 @@ function UsersPage() {
             },
           }),
       }),
-    [canManage, deleteMutation, editDialog.openWith, membershipDialog.openWith]
+    [
+      canAdminister,
+      deleteMutation,
+      editDialog.openWith,
+      membershipDialog.openWith,
+    ]
   )
 
   const syncMutation = useMutation({
@@ -144,7 +144,7 @@ function UsersPage() {
     },
   })
 
-  if (!canView) {
+  if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
   }
 
@@ -165,8 +165,8 @@ function UsersPage() {
             <CardDescription>
               List of users from your principal provider.
             </CardDescription>
-            <CardAction className="space-x-2">
-              {canManage && (
+            <CardAction className="flex items-center gap-2">
+              {canAdminister ? (
                 <Button
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
@@ -179,8 +179,8 @@ function UsersPage() {
                     {syncMutation.isPending ? "Syncing..." : "Sync"}
                   </span>
                 </Button>
-              )}
-              {canManage && (
+              ) : null}
+              {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
                   disabled={isLoading || error !== null}
@@ -188,7 +188,7 @@ function UsersPage() {
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
-              )}
+              ) : null}
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
@@ -199,7 +199,7 @@ function UsersPage() {
               error={error}
               getRowId={(tableUser) => tableUser.id}
               renderSelectionActions={
-                canManage
+                canAdminister
                   ? ({ clearSelection, selectedRows }) => (
                       <>
                         <ActionBarItem
@@ -275,19 +275,19 @@ function UsersPage() {
         </Card>
       </div>
 
-      {canManage && (
+      {canAdminister ? (
         <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
-      )}
-      {canManage && editDialog.data && (
+      ) : null}
+      {canAdminister && editDialog.data ? (
         <UserDialog
           key={editDialog.dialogKey}
           user={editDialog.data}
           open={editDialog.open}
           onOpenChange={editDialog.onOpenChange}
         />
-      )}
+      ) : null}
 
-      {canManage && membershipDialog.data && (
+      {canAdminister && membershipDialog.data ? (
         <MembershipDialog
           key={membershipDialog.dialogKey}
           mode="user-groups"
@@ -295,9 +295,9 @@ function UsersPage() {
           open={membershipDialog.open}
           onOpenChange={membershipDialog.onOpenChange}
         />
-      )}
+      ) : null}
 
-      {canManage && bulkGroupDialog.data && (
+      {canAdminister && bulkGroupDialog.data ? (
         <UserGroupBulkDialog
           key={bulkGroupDialog.dialogKey}
           clearSelection={bulkGroupDialog.data.clearSelection}
@@ -306,7 +306,7 @@ function UsersPage() {
           open={bulkGroupDialog.open}
           users={bulkGroupDialog.data.users}
         />
-      )}
+      ) : null}
 
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
     </div>

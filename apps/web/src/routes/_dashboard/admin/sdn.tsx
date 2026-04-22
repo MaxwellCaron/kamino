@@ -19,6 +19,7 @@ import type { ApiVNet } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
   ManagementPermissionKeys,
+  canAccessAdmin,
   deleteVNet,
   hasManagementPermission,
   vnetsQueryOptions,
@@ -28,7 +29,7 @@ import { VNetDialog } from "@/components/vnet/vnet-dialog"
 import { getVNetColumns } from "@/components/vnet/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 
-export const Route = createFileRoute("/_dashboard/management/sdn")({
+export const Route = createFileRoute("/_dashboard/admin/sdn")({
   component: SdnPage,
 })
 
@@ -38,13 +39,9 @@ function getVNetLabel(vnet: ApiVNet) {
 
 function SdnPage() {
   const { user } = Route.useRouteContext()
-  const canView = hasManagementPermission(
+  const canAdminister = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionKeys.infrastructureView
-  )
-  const canManage = hasManagementPermission(
-    user.management_permissions,
-    ManagementPermissionKeys.infrastructureManage
+    ManagementPermissionKeys.administrator
   )
   const {
     data: vnets,
@@ -52,7 +49,7 @@ function SdnPage() {
     error,
   } = useQuery({
     ...vnetsQueryOptions,
-    enabled: canView,
+    enabled: canAdminister,
   })
   const vnetCountLabel = isLoading
     ? "..."
@@ -94,7 +91,7 @@ function SdnPage() {
   const columns = useMemo(
     () =>
       getVNetColumns({
-        canManage,
+        canManage: canAdminister,
         onEditVnet: editDialog.openWith,
         onDeleteClick: (v) =>
           setConfirm({
@@ -108,10 +105,10 @@ function SdnPage() {
             },
           }),
       }),
-    [canManage, deleteMutation, editDialog.openWith]
+    [canAdminister, deleteMutation, editDialog.openWith]
   )
 
-  if (!canView) {
+  if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
   }
 
@@ -131,7 +128,7 @@ function SdnPage() {
             </CardTitle>
             <CardDescription>List of VNets in proxmox.</CardDescription>
             <CardAction>
-              {canManage && (
+              {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
                   disabled={isLoading || error !== null}
@@ -139,7 +136,7 @@ function SdnPage() {
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
-              )}
+              ) : null}
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
@@ -150,7 +147,7 @@ function SdnPage() {
               error={error}
               getRowId={(vnet) => vnet.vnet}
               renderSelectionActions={
-                canManage
+                canAdminister
                   ? ({ clearSelection: clearTableSelection, selectedRows }) => (
                       <ActionBarItem
                         variant="destructive"
@@ -192,18 +189,18 @@ function SdnPage() {
         </Card>
       </div>
 
-      {canManage && (
+      {canAdminister ? (
         <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
-      )}
+      ) : null}
 
-      {canManage && editDialog.data && (
+      {canAdminister && editDialog.data ? (
         <VNetDialog
           key={editDialog.dialogKey}
           vnet={editDialog.data}
           open={editDialog.open}
           onOpenChange={editDialog.onOpenChange}
         />
-      )}
+      ) : null}
 
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
     </div>

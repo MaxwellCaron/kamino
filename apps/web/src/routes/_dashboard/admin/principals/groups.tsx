@@ -24,6 +24,7 @@ import type { ApiPrincipal } from "@/lib/queries"
 import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
   ManagementPermissionKeys,
+  canAccessAdmin,
   deleteGroup,
   groupsQueryOptions,
   hasManagementPermission,
@@ -36,9 +37,7 @@ import { MembershipDialog } from "@/components/principals/membership-dialog"
 import { getGroupColumns } from "@/components/principals/groups/groups-columns"
 import { DataTable } from "@/components/data-table/data-table"
 
-export const Route = createFileRoute(
-  "/_dashboard/management/principals/groups"
-)({
+export const Route = createFileRoute("/_dashboard/admin/principals/groups")({
   component: GroupsPage,
 })
 
@@ -48,26 +47,17 @@ function getGroupLabel(group: ApiPrincipal) {
 
 function GroupsPage() {
   const { user } = Route.useRouteContext()
-  const canViewPrincipals = hasManagementPermission(
+  const canAdminister = hasManagementPermission(
     user.management_permissions,
-    ManagementPermissionKeys.principalsView
+    ManagementPermissionKeys.administrator
   )
-  const canManageGroups = hasManagementPermission(
-    user.management_permissions,
-    ManagementPermissionKeys.principalsManage
-  )
-  const canManageAccess = hasManagementPermission(
-    user.management_permissions,
-    ManagementPermissionKeys.accessManage
-  )
-  const canView = canViewPrincipals || canManageAccess
   const {
     data: groups,
     isLoading,
     error,
   } = useQuery({
     ...groupsQueryOptions,
-    enabled: canView,
+    enabled: canAdminister,
   })
   const groupCountLabel = isLoading
     ? "..."
@@ -124,8 +114,8 @@ function GroupsPage() {
   const columns = useMemo(
     () =>
       getGroupColumns({
-        canManageGroups,
-        canManageAccess,
+        canManageGroups: canAdminister,
+        canManageAccess: canAdminister,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onEditAccess: accessDialog.openWith,
@@ -143,15 +133,14 @@ function GroupsPage() {
       }),
     [
       accessDialog.openWith,
-      canManageAccess,
-      canManageGroups,
+      canAdminister,
       deleteMutation,
       editDialog.openWith,
       membershipDialog.openWith,
     ]
   )
 
-  if (!canView) {
+  if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
   }
 
@@ -172,8 +161,8 @@ function GroupsPage() {
             <CardDescription>
               List of groups from your principal provider.
             </CardDescription>
-            <CardAction className="space-x-2">
-              {canManageGroups && (
+            <CardAction className="flex items-center gap-2">
+              {canAdminister ? (
                 <Button
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
@@ -182,13 +171,13 @@ function GroupsPage() {
                   <IconRefresh data-icon="inline-start" />
                   {syncMutation.isPending ? "Syncing..." : "Sync"}
                 </Button>
-              )}
-              {canManageGroups && (
+              ) : null}
+              {canAdminister ? (
                 <Button onClick={() => setCreateOpen(true)}>
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
-              )}
+              ) : null}
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
@@ -199,7 +188,7 @@ function GroupsPage() {
               error={error}
               getRowId={(group) => group.id}
               renderSelectionActions={
-                canManageGroups
+                canAdminister
                   ? ({ clearSelection, selectedRows }) => (
                       <ActionBarItem
                         variant="destructive"
@@ -241,19 +230,19 @@ function GroupsPage() {
         </Card>
       </div>
 
-      {canManageGroups && (
+      {canAdminister ? (
         <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      )}
-      {canManageGroups && editDialog.data && (
+      ) : null}
+      {canAdminister && editDialog.data ? (
         <GroupDialog
           key={editDialog.dialogKey}
           group={editDialog.data}
           open={editDialog.open}
           onOpenChange={editDialog.onOpenChange}
         />
-      )}
+      ) : null}
 
-      {canManageGroups && membershipDialog.data && (
+      {canAdminister && membershipDialog.data ? (
         <MembershipDialog
           key={membershipDialog.dialogKey}
           mode="group-members"
@@ -261,15 +250,15 @@ function GroupsPage() {
           open={membershipDialog.open}
           onOpenChange={membershipDialog.onOpenChange}
         />
-      )}
-      {canManageAccess && accessDialog.data && (
+      ) : null}
+      {canAdminister && accessDialog.data ? (
         <GroupPermissionsDialog
           key={accessDialog.dialogKey}
           group={accessDialog.data}
           open={accessDialog.open}
           onOpenChange={accessDialog.onOpenChange}
         />
-      )}
+      ) : null}
 
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
     </div>

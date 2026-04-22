@@ -3,6 +3,8 @@ import type {
   ManagementPermissionKey,
 } from "@/lib/management-permissions"
 import {
+  canAccessAdmin,
+  canAccessRequestQueue,
   ManagementPermissionKeys,
   expandManagementPermissionGrants,
   hasManagementPermission,
@@ -14,6 +16,8 @@ import {
 } from "@/lib/inventory-permissions"
 
 export {
+  canAccessAdmin,
+  canAccessRequestQueue,
   InventoryPermissionBits,
   ManagementPermissionKeys,
   expandManagementPermissionGrants,
@@ -50,6 +54,61 @@ export type AuthUser = {
 export type AuthSession = {
   user: AuthUser
   access_token_expires_at: string
+}
+
+export type ApiRequestScope = "pending" | "history"
+
+export type ApiRequestStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "executed"
+  | "execution_failed"
+  | "canceled"
+
+export type ApiRequestInventoryPayload = {
+  item_id?: string | null
+  item_name?: string | null
+  item_kind?: "folder" | "vm" | null
+  item_parent_id?: string | null
+  vm_node?: string | null
+  vmid?: number | null
+  is_template?: boolean | null
+  power_action?: string | null
+  snapshot_name?: string | null
+}
+
+export type ApiRequestSummary = {
+  id: string
+  family: string
+  kind: string
+  status: ApiRequestStatus
+  requester_principal_id: string
+  requester_username: string
+  reviewer_principal_id?: string | null
+  reviewer_username?: string | null
+  reviewed_at?: string | null
+  executed_at?: string | null
+  canceled_at?: string | null
+  execution_error?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  inventory?: ApiRequestInventoryPayload | null
+}
+
+export type ApiRequestEvent = {
+  id: number
+  event_kind: string
+  actor_principal_id?: string | null
+  actor_username?: string | null
+  from_status?: string | null
+  to_status: string
+  error_message?: string | null
+  created_at?: string | null
+}
+
+export type ApiRequestDetail = ApiRequestSummary & {
+  events: Array<ApiRequestEvent>
 }
 
 function clearRefreshTimer() {
@@ -1115,6 +1174,61 @@ export type ApiBulkCreateResponse = {
   successful: number
   total: number
   failures: Array<ApiBulkCreateFailure>
+}
+
+export function requestsQueryOptions(scope: ApiRequestScope) {
+  return {
+    queryKey: ["requests", scope] as const,
+    queryFn: async (): Promise<Array<ApiRequestSummary>> => {
+      const res = await apiFetch(`/api/v1/requests?scope=${scope}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
+      }
+      return res.json()
+    },
+  }
+}
+
+export function requestDetailQueryOptions(requestId: string) {
+  return {
+    queryKey: ["requests", requestId] as const,
+    queryFn: async (): Promise<ApiRequestDetail> => {
+      const res = await apiFetch(`/api/v1/requests/${requestId}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch request: ${res.status}`)
+      }
+      return res.json()
+    },
+    enabled: !!requestId,
+  }
+}
+
+export async function approveRequest(
+  requestId: string
+): Promise<ApiRequestDetail> {
+  const res = await apiFetch(`/api/v1/requests/${requestId}/approve`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to approve request: ${res.status}`)
+  }
+
+  return res.json()
+}
+
+export async function denyRequest(
+  requestId: string
+): Promise<ApiRequestDetail> {
+  const res = await apiFetch(`/api/v1/requests/${requestId}/deny`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to deny request: ${res.status}`)
+  }
+
+  return res.json()
 }
 
 export type CreateUserInput = {

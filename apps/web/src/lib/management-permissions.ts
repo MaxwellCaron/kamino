@@ -1,10 +1,6 @@
 export const ManagementPermissionKeys = {
-  accessManage: "access.manage",
   administrator: "administrator",
-  infrastructureManage: "infrastructure.manage",
-  infrastructureView: "infrastructure.view",
-  principalsManage: "principals.manage",
-  principalsView: "principals.view",
+  manager: "manager",
 } as const
 
 export type ManagementPermissionKey =
@@ -24,24 +20,9 @@ export type ApiManagementPermissionSection = {
   permissions: Array<ApiManagementPermissionDefinition>
 }
 
-const directImplications: Partial<
-  Record<ManagementPermissionKey, Array<ManagementPermissionKey>>
-> = {
-  [ManagementPermissionKeys.infrastructureManage]: [
-    ManagementPermissionKeys.infrastructureView,
-  ],
-  [ManagementPermissionKeys.principalsManage]: [
-    ManagementPermissionKeys.principalsView,
-  ],
-}
-
 const permissionOrder = [
-  ManagementPermissionKeys.infrastructureView,
-  ManagementPermissionKeys.infrastructureManage,
-  ManagementPermissionKeys.principalsView,
-  ManagementPermissionKeys.principalsManage,
-  ManagementPermissionKeys.accessManage,
   ManagementPermissionKeys.administrator,
+  ManagementPermissionKeys.manager,
 ] as const
 
 function sortManagementPermissionGrants(
@@ -60,35 +41,22 @@ function sortManagementPermissionGrants(
 export function normalizeManagementPermissionGrants(
   grants: Array<ManagementPermissionKey>
 ) {
-  const directGrants = new Set<ManagementPermissionKey>(grants)
-
-  for (let changed = true; changed; ) {
-    changed = false
-
-    for (const grant of [...directGrants]) {
-      for (const implied of directImplications[grant] ?? []) {
-        if (directGrants.has(implied)) {
-          continue
-        }
-        directGrants.add(implied)
-        changed = true
-      }
-    }
-  }
-
-  return sortManagementPermissionGrants(directGrants)
+  return sortManagementPermissionGrants(grants)
 }
 
 export function expandManagementPermissionGrants(
   grants: Array<ManagementPermissionKey>,
-  allPermissions: Array<ManagementPermissionKey>
+  _allPermissions: Array<ManagementPermissionKey>
 ) {
   const directGrants = normalizeManagementPermissionGrants(grants)
   if (!directGrants.includes(ManagementPermissionKeys.administrator)) {
     return directGrants
   }
 
-  return sortManagementPermissionGrants([...directGrants, ...allPermissions])
+  return sortManagementPermissionGrants([
+    ...directGrants,
+    ManagementPermissionKeys.manager,
+  ])
 }
 
 export function hasManagementPermission(
@@ -107,4 +75,27 @@ export function hasManagementPermission(
     permissions.grants.includes(ManagementPermissionKeys.administrator) ||
     permissions.grants.includes(required)
   )
+}
+
+export function canAccessAdmin(
+  permissions:
+    | {
+        grants: Array<ManagementPermissionKey>
+      }
+    | undefined
+) {
+  return hasManagementPermission(
+    permissions,
+    ManagementPermissionKeys.administrator
+  )
+}
+
+export function canAccessRequestQueue(
+  permissions:
+    | {
+        grants: Array<ManagementPermissionKey>
+      }
+    | undefined
+) {
+  return hasManagementPermission(permissions, ManagementPermissionKeys.manager)
 }
