@@ -16,7 +16,31 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TYPE inventory_item_kind AS ENUM ('folder', 'vm');
 CREATE TYPE inventory_ace_effect AS ENUM ('allow', 'deny');
 CREATE TYPE principal_type AS ENUM ('user', 'group');
-CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox');
+CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox', 'system');
+CREATE TYPE reserved_principal_key AS ENUM ('all-users');
+CREATE TYPE request_family AS ENUM ('inventory');
+CREATE TYPE request_status AS ENUM (
+    'pending',
+    'approved',
+    'denied',
+    'executed',
+    'execution_failed',
+    'canceled'
+);
+CREATE TYPE request_event_kind AS ENUM (
+    'submitted',
+    'approved',
+    'denied',
+    'executed',
+    'execution_failed',
+    'canceled'
+);
+CREATE TYPE inventory_request_power_action AS ENUM (
+    'power_on',
+    'shutdown',
+    'reboot',
+    'stop'
+);
 
 -- ----------------------------------------------------------------------------
 -- Permission bit definitions (reference)
@@ -41,19 +65,17 @@ CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox');
 -- ----------------------------------------------------------------------------
 -- Management permission definitions (reference)
 -- ----------------------------------------------------------------------------
--- infrastructure.view
--- infrastructure.manage
--- principals.view
--- principals.manage
--- access.manage
 -- administrator
+-- manager
 
 -- ----------------------------------------------------------------------------
 -- Directory provider configuration
--- Configured once during initial setup; exactly one row may exist.
+-- Configured once during initial setup for the directory provider.
+-- A reserved system provider row also exists for built-in principals.
 -- external_id format per provider:
 --   active_directory  — Windows SID string (e.g. S-1-5-21-...)
 --   proxmox           — user@realm (e.g. root@pam) or group name
+--   system            — reserved internal keys (e.g. system:all-users)
 -- ----------------------------------------------------------------------------
 CREATE TABLE principal_providers (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -65,9 +87,15 @@ CREATE TABLE principal_providers (
         CHECK (length(trim(name)) > 0)
 );
 
--- Enforce: exactly one provider row may ever exist
-CREATE UNIQUE INDEX ux_principal_providers_single_row
-    ON principal_providers ((true));
+-- Enforce:
+--   - only one system provider row may exist
+--   - only one non-system directory provider row may exist
+CREATE UNIQUE INDEX ux_principal_providers_provider_type
+    ON principal_providers (provider_type);
+
+CREATE UNIQUE INDEX ux_principal_providers_single_directory_row
+    ON principal_providers ((true))
+    WHERE provider_type <> 'system';
 
 -- ----------------------------------------------------------------------------
 -- Directory principals (users + groups)
@@ -87,6 +115,15 @@ CREATE TABLE principals (
 -- Prevent duplicate principals within the same provider
 CREATE UNIQUE INDEX ux_principals_provider_external_id
     ON principals (provider_id, external_id);
+
+-- ----------------------------------------------------------------------------
+-- Reserved / system principals
+-- ----------------------------------------------------------------------------
+CREATE TABLE reserved_principals (
+    principal_id    UUID PRIMARY KEY REFERENCES principals(id) ON DELETE RESTRICT,
+    reserved_key    reserved_principal_key NOT NULL UNIQUE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- ----------------------------------------------------------------------------
 -- Group memberships
@@ -245,6 +282,76 @@ CREATE INDEX ix_management_permission_grants_permission_key
     ON management_permission_grants (permission_key);
 
 -- ----------------------------------------------------------------------------
+-- Requests
+-- ----------------------------------------------------------------------------
+CREATE TABLE requests (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family                  request_family NOT NULL,
+    kind                    TEXT NOT NULL,
+    requester_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    reviewer_principal_id   UUID NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    status                  request_status NOT NULL DEFAULT 'pending',
+    reviewed_at             TIMESTAMPTZ NULL,
+    executed_at             TIMESTAMPTZ NULL,
+    canceled_at             TIMESTAMPTZ NULL,
+    execution_error         TEXT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT requests_kind_not_empty
+        CHECK (length(trim(kind)) > 0),
+    CONSTRAINT requests_inventory_kind_known
+        CHECK (
+            family <> 'inventory'
+            OR kind IN (
+                'inventory.vm.power',
+                'inventory.vm.delete',
+                'inventory.vm.snapshot.create',
+                'inventory.vm.snapshot.rollback'
+            )
+        ),
+    CONSTRAINT requests_reviewer_required_when_reviewed
+        CHECK (reviewed_at IS NULL OR reviewer_principal_id IS NOT NULL),
+    CONSTRAINT requests_canceled_at_requires_canceled
+        CHECK ((status = 'canceled') = (canceled_at IS NOT NULL))
+);
+
+CREATE INDEX ix_requests_status_created_at
+    ON requests (status, created_at DESC);
+
+CREATE INDEX ix_requests_requester_created_at
+    ON requests (requester_principal_id, created_at DESC);
+
+CREATE INDEX ix_requests_reviewer_created_at
+    ON requests (reviewer_principal_id, created_at DESC);
+
+CREATE TABLE request_events (
+    id                  BIGSERIAL PRIMARY KEY,
+    request_id          UUID NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+    event_kind          request_event_kind NOT NULL,
+    actor_principal_id  UUID NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    from_status         request_status NULL,
+    to_status           request_status NOT NULL,
+    error_message       TEXT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX ix_request_events_request_id_created_at
+    ON request_events (request_id, created_at ASC, id ASC);
+
+CREATE TABLE inventory_requests (
+    request_id          UUID PRIMARY KEY REFERENCES requests(id) ON DELETE CASCADE,
+    inventory_item_id   UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+    power_action        inventory_request_power_action NULL,
+    snapshot_name       TEXT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT inventory_requests_snapshot_name_not_blank
+        CHECK (snapshot_name IS NULL OR length(trim(snapshot_name)) > 0)
+);
+
+CREATE INDEX ix_inventory_requests_inventory_item_id
+    ON inventory_requests (inventory_item_id);
+
+-- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -274,6 +381,11 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_proxmox_vms_set_updated_at
 BEFORE UPDATE ON proxmox_vms
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_requests_set_updated_at
+BEFORE UPDATE ON requests
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -582,6 +694,198 @@ FOR EACH ROW
 EXECUTE FUNCTION management_permission_grants_validate_group();
 
 -- ----------------------------------------------------------------------------
+-- Ensure reserved principals point to system-backed group principals
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION reserved_principals_validate_principal()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    target_type          principal_type;
+    target_provider_type principal_provider_type;
+BEGIN
+    SELECT p.principal_type, pp.provider_type
+      INTO target_type, target_provider_type
+      FROM principals p
+      JOIN principal_providers pp
+        ON pp.id = p.provider_id
+     WHERE p.id = NEW.principal_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Reserved principal does not exist';
+    END IF;
+
+    IF target_type <> 'group' THEN
+        RAISE EXCEPTION 'Reserved principals must reference group principals';
+    END IF;
+
+    IF target_provider_type <> 'system' THEN
+        RAISE EXCEPTION 'Reserved principals must reference the system provider';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_reserved_principals_validate_principal
+BEFORE INSERT OR UPDATE OF principal_id
+ON reserved_principals
+FOR EACH ROW
+EXECUTE FUNCTION reserved_principals_validate_principal();
+
+-- ----------------------------------------------------------------------------
+-- Restrict management permission grants to the supported application catalog
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION management_permission_grants_validate_key()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.permission_key NOT IN ('administrator', 'manager') THEN
+        RAISE EXCEPTION 'Unsupported management permission key: %', NEW.permission_key;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_management_permission_grants_validate_key
+BEFORE INSERT OR UPDATE OF permission_key
+ON management_permission_grants
+FOR EACH ROW
+EXECUTE FUNCTION management_permission_grants_validate_key();
+
+-- ----------------------------------------------------------------------------
+-- Prevent mutating immutable request payload columns after submission
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION requests_prevent_payload_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.family <> OLD.family THEN
+        RAISE EXCEPTION 'Request family is immutable';
+    END IF;
+
+    IF NEW.kind <> OLD.kind THEN
+        RAISE EXCEPTION 'Request kind is immutable';
+    END IF;
+
+    IF NEW.requester_principal_id <> OLD.requester_principal_id THEN
+        RAISE EXCEPTION 'Request requester is immutable';
+    END IF;
+
+    IF NEW.created_at <> OLD.created_at THEN
+        RAISE EXCEPTION 'Request creation timestamp is immutable';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_requests_prevent_payload_mutation
+BEFORE UPDATE ON requests
+FOR EACH ROW
+EXECUTE FUNCTION requests_prevent_payload_mutation();
+
+CREATE OR REPLACE FUNCTION inventory_requests_validate_parent_and_payload()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    request_family_value request_family;
+    request_kind_value   TEXT;
+    item_kind_value      inventory_item_kind;
+BEGIN
+    SELECT family, kind
+      INTO request_family_value, request_kind_value
+      FROM requests
+     WHERE id = NEW.request_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Inventory request parent row does not exist';
+    END IF;
+
+    IF request_family_value <> 'inventory' THEN
+        RAISE EXCEPTION 'Inventory request rows require an inventory request parent';
+    END IF;
+
+    SELECT kind
+      INTO item_kind_value
+      FROM inventory_items
+     WHERE id = NEW.inventory_item_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Inventory request target does not exist';
+    END IF;
+
+    IF item_kind_value <> 'vm' THEN
+        RAISE EXCEPTION 'Inventory requests currently only support VM or template targets';
+    END IF;
+
+    CASE request_kind_value
+        WHEN 'inventory.vm.power' THEN
+            IF NEW.power_action IS NULL OR NEW.snapshot_name IS NOT NULL THEN
+                RAISE EXCEPTION 'Power requests require only a power action payload';
+            END IF;
+        WHEN 'inventory.vm.delete' THEN
+            IF NEW.power_action IS NOT NULL OR NEW.snapshot_name IS NOT NULL THEN
+                RAISE EXCEPTION 'Delete requests do not accept extra payload values';
+            END IF;
+        WHEN 'inventory.vm.snapshot.create' THEN
+            IF NEW.power_action IS NOT NULL OR NEW.snapshot_name IS NULL THEN
+                RAISE EXCEPTION 'Snapshot create requests require only an immutable snapshot name';
+            END IF;
+        WHEN 'inventory.vm.snapshot.rollback' THEN
+            IF NEW.power_action IS NOT NULL OR NEW.snapshot_name IS NULL THEN
+                RAISE EXCEPTION 'Snapshot rollback requests require only a target snapshot name';
+            END IF;
+        ELSE
+            RAISE EXCEPTION 'Unsupported inventory request kind: %', request_kind_value;
+    END CASE;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_inventory_requests_validate_parent_and_payload
+BEFORE INSERT ON inventory_requests
+FOR EACH ROW
+EXECUTE FUNCTION inventory_requests_validate_parent_and_payload();
+
+CREATE OR REPLACE FUNCTION inventory_requests_prevent_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'Inventory request payloads are immutable';
+    END IF;
+
+    RAISE EXCEPTION 'Inventory request payloads are immutable';
+END;
+$$;
+
+CREATE TRIGGER trg_inventory_requests_prevent_update
+BEFORE UPDATE OR DELETE ON inventory_requests
+FOR EACH ROW
+EXECUTE FUNCTION inventory_requests_prevent_mutation();
+
+CREATE OR REPLACE FUNCTION request_events_prevent_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'Request events are append-only';
+END;
+$$;
+
+CREATE TRIGGER trg_request_events_prevent_update
+BEFORE UPDATE OR DELETE ON request_events
+FOR EACH ROW
+EXECUTE FUNCTION request_events_prevent_mutation();
+
+-- ----------------------------------------------------------------------------
 -- Helper: get all effective principals for a user (user + all transitive groups)
 -- Returns UUIDs of principals applicable to the user
 -- ----------------------------------------------------------------------------
@@ -601,11 +905,19 @@ AS $$
         FROM group_memberships gm
         JOIN effective_groups eg
           ON gm.member_id = eg.group_id
+    ),
+    reserved_groups AS (
+        SELECT rp.principal_id
+        FROM reserved_principals rp
+        WHERE rp.reserved_key = 'all-users'
     )
     SELECT p_user_principal_id
     UNION
     SELECT eg.group_id
-    FROM effective_groups eg;
+    FROM effective_groups eg
+    UNION
+    SELECT rg.principal_id
+    FROM reserved_groups rg;
 $$;
 
 -- ----------------------------------------------------------------------------
@@ -816,5 +1128,37 @@ AS $$
     SELECT string_agg(name, '/' ORDER BY depth DESC)
     FROM chain;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- Seed reserved system principals
+-- ----------------------------------------------------------------------------
+INSERT INTO principal_providers (provider_type, name)
+VALUES ('system', 'System')
+ON CONFLICT (provider_type) DO NOTHING;
+
+WITH system_provider AS (
+    SELECT id
+    FROM principal_providers
+    WHERE provider_type = 'system'
+),
+all_users_group AS (
+    INSERT INTO principals (provider_id, principal_type, external_id, name, description)
+    SELECT
+        sp.id,
+        'group',
+        'system:all-users',
+        'All Users',
+        'Reserved system group automatically applied to every authenticated user.'
+    FROM system_provider sp
+    ON CONFLICT (provider_id, external_id)
+    DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description
+    RETURNING id
+)
+INSERT INTO reserved_principals (principal_id, reserved_key)
+SELECT aug.id, 'all-users'
+FROM all_users_group aug
+ON CONFLICT (reserved_key) DO NOTHING;
 
 COMMIT;

@@ -109,10 +109,13 @@ WHERE parent_id IS NULL
   AND kind = 'folder';
 
 -- name: GetPrincipalGroupsByName :many
-SELECT id, name
-FROM principals
-WHERE principal_type = 'group'
-  AND name = ANY($1::TEXT[]);
+SELECT p.id, p.name
+FROM principals p
+JOIN principal_providers pp
+  ON pp.id = p.provider_id
+WHERE p.principal_type = 'group'
+  AND pp.provider_type <> 'system'
+  AND p.name = ANY($1::TEXT[]);
 
 -- name: CreateInventoryACLEntry :exec
 INSERT INTO inventory_acl_entries (

@@ -3,7 +3,10 @@
 -- ---------------------------------------------------------------------------
 
 -- name: GetPrincipalProvider :one
-SELECT id FROM principal_providers LIMIT 1;
+SELECT id
+FROM principal_providers
+WHERE provider_type <> 'system'
+LIMIT 1;
 
 -- name: CreatePrincipalProvider :one
 INSERT INTO principal_providers (provider_type, name)

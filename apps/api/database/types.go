@@ -96,11 +96,56 @@ func (ns NullInventoryItemKind) Value() (driver.Value, error) {
 	return string(ns.InventoryItemKind), nil
 }
 
+type InventoryRequestPowerAction string
+
+const (
+	InventoryRequestPowerActionPowerOn  InventoryRequestPowerAction = "power_on"
+	InventoryRequestPowerActionShutdown InventoryRequestPowerAction = "shutdown"
+	InventoryRequestPowerActionReboot   InventoryRequestPowerAction = "reboot"
+	InventoryRequestPowerActionStop     InventoryRequestPowerAction = "stop"
+)
+
+func (e *InventoryRequestPowerAction) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InventoryRequestPowerAction(s)
+	case string:
+		*e = InventoryRequestPowerAction(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InventoryRequestPowerAction: %T", src)
+	}
+	return nil
+}
+
+type NullInventoryRequestPowerAction struct {
+	InventoryRequestPowerAction InventoryRequestPowerAction `json:"inventory_request_power_action"`
+	Valid                       bool                        `json:"valid"` // Valid is true if InventoryRequestPowerAction is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInventoryRequestPowerAction) Scan(value interface{}) error {
+	if value == nil {
+		ns.InventoryRequestPowerAction, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InventoryRequestPowerAction.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInventoryRequestPowerAction) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InventoryRequestPowerAction), nil
+}
+
 type PrincipalProviderType string
 
 const (
 	PrincipalProviderTypeActiveDirectory PrincipalProviderType = "active_directory"
 	PrincipalProviderTypeProxmox         PrincipalProviderType = "proxmox"
+	PrincipalProviderTypeSystem          PrincipalProviderType = "system"
 )
 
 func (e *PrincipalProviderType) Scan(src interface{}) error {
@@ -180,6 +225,139 @@ func (ns NullPrincipalType) Value() (driver.Value, error) {
 	return string(ns.PrincipalType), nil
 }
 
+type RequestEventKind string
+
+const (
+	RequestEventKindSubmitted       RequestEventKind = "submitted"
+	RequestEventKindApproved        RequestEventKind = "approved"
+	RequestEventKindDenied          RequestEventKind = "denied"
+	RequestEventKindExecuted        RequestEventKind = "executed"
+	RequestEventKindExecutionFailed RequestEventKind = "execution_failed"
+	RequestEventKindCanceled        RequestEventKind = "canceled"
+)
+
+func (e *RequestEventKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RequestEventKind(s)
+	case string:
+		*e = RequestEventKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RequestEventKind: %T", src)
+	}
+	return nil
+}
+
+type NullRequestEventKind struct {
+	RequestEventKind RequestEventKind `json:"request_event_kind"`
+	Valid            bool             `json:"valid"` // Valid is true if RequestEventKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRequestEventKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.RequestEventKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RequestEventKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRequestEventKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RequestEventKind), nil
+}
+
+type RequestFamily string
+
+const (
+	RequestFamilyInventory RequestFamily = "inventory"
+)
+
+func (e *RequestFamily) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RequestFamily(s)
+	case string:
+		*e = RequestFamily(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RequestFamily: %T", src)
+	}
+	return nil
+}
+
+type NullRequestFamily struct {
+	RequestFamily RequestFamily `json:"request_family"`
+	Valid         bool          `json:"valid"` // Valid is true if RequestFamily is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRequestFamily) Scan(value interface{}) error {
+	if value == nil {
+		ns.RequestFamily, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RequestFamily.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRequestFamily) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RequestFamily), nil
+}
+
+type RequestStatus string
+
+const (
+	RequestStatusPending         RequestStatus = "pending"
+	RequestStatusApproved        RequestStatus = "approved"
+	RequestStatusDenied          RequestStatus = "denied"
+	RequestStatusExecuted        RequestStatus = "executed"
+	RequestStatusExecutionFailed RequestStatus = "execution_failed"
+	RequestStatusCanceled        RequestStatus = "canceled"
+)
+
+func (e *RequestStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RequestStatus(s)
+	case string:
+		*e = RequestStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RequestStatus: %T", src)
+	}
+	return nil
+}
+
+type NullRequestStatus struct {
+	RequestStatus RequestStatus `json:"request_status"`
+	Valid         bool          `json:"valid"` // Valid is true if RequestStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRequestStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.RequestStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RequestStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRequestStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RequestStatus), nil
+}
+
 type AuthSessions struct {
 	ID                  uuid.UUID          `json:"id"`
 	PrincipalID         uuid.UUID          `json:"principal_id"`
@@ -192,4 +370,38 @@ type AuthSessions struct {
 	LastUsedAt          pgtype.Timestamptz `json:"last_used_at"`
 	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
 	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type InventoryRequests struct {
+	RequestID       uuid.UUID                       `json:"request_id"`
+	InventoryItemID uuid.UUID                       `json:"inventory_item_id"`
+	PowerAction     NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName    *string                         `json:"snapshot_name"`
+	CreatedAt       pgtype.Timestamptz              `json:"created_at"`
+}
+
+type RequestEvents struct {
+	ID               int64              `json:"id"`
+	RequestID        uuid.UUID          `json:"request_id"`
+	EventKind        RequestEventKind   `json:"event_kind"`
+	ActorPrincipalID *uuid.UUID         `json:"actor_principal_id"`
+	FromStatus       NullRequestStatus  `json:"from_status"`
+	ToStatus         RequestStatus      `json:"to_status"`
+	ErrorMessage     *string            `json:"error_message"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type Requests struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }

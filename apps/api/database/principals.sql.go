@@ -278,7 +278,10 @@ func (q *Queries) GetPrincipalByID(ctx context.Context, id uuid.UUID) (GetPrinci
 
 const getPrincipalProvider = `-- name: GetPrincipalProvider :one
 
-SELECT id FROM principal_providers LIMIT 1
+SELECT id
+FROM principal_providers
+WHERE provider_type <> 'system'
+LIMIT 1
 `
 
 // ---------------------------------------------------------------------------

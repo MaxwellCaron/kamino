@@ -213,10 +213,13 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 }
 
 const getPrincipalGroupsByName = `-- name: GetPrincipalGroupsByName :many
-SELECT id, name
-FROM principals
-WHERE principal_type = 'group'
-  AND name = ANY($1::TEXT[])
+SELECT p.id, p.name
+FROM principals p
+JOIN principal_providers pp
+  ON pp.id = p.provider_id
+WHERE p.principal_type = 'group'
+  AND pp.provider_type <> 'system'
+  AND p.name = ANY($1::TEXT[])
 `
 
 type GetPrincipalGroupsByNameRow struct {
