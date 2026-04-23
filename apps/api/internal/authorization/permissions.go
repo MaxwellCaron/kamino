@@ -168,7 +168,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 	{
 		Key:            InventoryPermissionDeleteVM,
 		Label:          "Delete VM",
-		Description:    "Delete VMs or templates covered by this rule.",
+		Description:    "Delete VMs or templates covered by this rule. This action is never requestable and always requires explicit allow.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
@@ -234,7 +234,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 	{
 		Key:            InventoryPermissionSnapshotVM,
 		Label:          "Snapshot VM",
-		Description:    "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete still requires explicit allow.",
+		Description:    "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete always requires explicit allow.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
@@ -285,7 +285,7 @@ func (p EffectivePermissions) CanRequest(required Mask) bool {
 }
 
 var defaultRequestableInventoryMaskByTargetKind = map[InventoryPermissionTargetKind]Mask{
-	InventoryPermissionTargetKindVM: PowerVM | SnapshotVM | DeleteVM,
+	InventoryPermissionTargetKindVM: PowerVM | SnapshotVM,
 }
 
 func EffectivePermissionsForTargetKind(

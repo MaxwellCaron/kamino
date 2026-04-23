@@ -49,7 +49,6 @@ import { useDeleteFolder } from "@/hooks/use-inventory-actions"
 import {
   useConvertToTemplate,
   useDeleteVM,
-  useSubmitInventoryDeleteRequest,
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "@/hooks/use-vm-actions"
@@ -246,7 +245,6 @@ function VmMenuItems({
   const powerAction = useVmPowerAction()
   const submitPowerRequest = useSubmitInventoryPowerRequest()
   const deleteVm = useDeleteVM()
-  const submitDeleteRequest = useSubmitInventoryDeleteRequest()
   const toTemplate = useConvertToTemplate()
   const vmIdentifier = formatVmReference(vmid, name)
   const powerMode = getPermissionMode(
@@ -273,7 +271,7 @@ function VmMenuItems({
     permissions,
     InventoryPermissionBits.editVmHardware
   )
-  const deleteMode = getPermissionMode(
+  const canDelete = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.deleteVm
   )
@@ -285,7 +283,7 @@ function VmMenuItems({
   const hasActionItems =
     canToggleFavorite || canClone || snapshotMode !== null || canTemplate
   const hasEditItems = canRename || canEditHardware || canManagePermissions
-  const hasTrailingItems = hasActionItems || hasEditItems || deleteMode !== null
+  const hasTrailingItems = hasActionItems || hasEditItems || canDelete
 
   return (
     <>
@@ -554,7 +552,7 @@ function VmMenuItems({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {(hasEditItems || deleteMode !== null) && <DropdownMenuSeparator />}
+          {(hasEditItems || canDelete) && <DropdownMenuSeparator />}
         </>
       )}
       {hasEditItems && (
@@ -583,46 +581,33 @@ function VmMenuItems({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {deleteMode !== null && <DropdownMenuSeparator />}
+          {canDelete && <DropdownMenuSeparator />}
         </>
       )}
-      {deleteMode !== null && (
+      {canDelete && (
         <DropdownMenuItem
           variant="destructive"
           disabled={isLoading}
           onClick={() =>
             onAction({
-              title: deleteMode === "direct" ? "Delete" : "Request Delete",
+              title: "Delete",
               icon: IconTrash,
-              description:
-                deleteMode === "direct"
-                  ? `This will permanently delete ${vmIdentifier}.`
-                  : `Submit a request to delete ${vmIdentifier}. A reviewer must approve it before execution.`,
-              actionLabel:
-                deleteMode === "direct" ? "Delete" : "Submit Request",
+              description: `This will permanently delete ${vmIdentifier}.`,
+              actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                const promise: Promise<unknown> =
-                  deleteMode === "direct"
-                    ? deleteVm
-                        .mutateAsync({ itemIds: [itemId] })
-                        .then((result) =>
-                          assertSingleItemMutationSucceeded(
-                            result,
-                            `Failed to delete VM ${vmIdentifier}`
-                          )
-                        )
-                    : submitDeleteRequest.mutateAsync({ itemId })
+                const promise = deleteVm
+                  .mutateAsync({ itemIds: [itemId] })
+                  .then((result) =>
+                    assertSingleItemMutationSucceeded(
+                      result,
+                      `Failed to delete VM ${vmIdentifier}`
+                    )
+                  )
 
                 toast.promise(promise, {
-                  loading:
-                    deleteMode === "direct"
-                      ? `Deleting VM ${vmIdentifier}…`
-                      : `Submitting delete request for ${vmIdentifier}…`,
-                  success:
-                    deleteMode === "direct"
-                      ? `VM ${vmIdentifier} deleted`
-                      : `Delete request for ${vmIdentifier} submitted`,
+                  loading: `Deleting VM ${vmIdentifier}…`,
+                  success: `VM ${vmIdentifier} deleted`,
                   error: (err: Error) => err.message,
                 })
               },
@@ -630,7 +615,7 @@ function VmMenuItems({
           }
         >
           <IconTrash />
-          {deleteMode === "direct" ? "Delete" : "Delete Request"}
+          Delete
         </DropdownMenuItem>
       )}
     </>
@@ -661,13 +646,12 @@ function TemplateMenuItems({
   isLoading?: boolean
 }) {
   const deleteVm = useDeleteVM()
-  const submitDeleteRequest = useSubmitInventoryDeleteRequest()
   const vmIdentifier = formatVmReference(vmid, name)
   const canClone = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.cloneVm
   )
-  const deleteMode = getPermissionMode(
+  const canDelete = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.deleteVm
   )
@@ -698,7 +682,7 @@ function TemplateMenuItems({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {(hasEditItems || deleteMode !== null) && <DropdownMenuSeparator />}
+          {(hasEditItems || canDelete) && <DropdownMenuSeparator />}
         </>
       )}
       {hasEditItems && (
@@ -713,49 +697,33 @@ function TemplateMenuItems({
               Permissions
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          {deleteMode !== null && <DropdownMenuSeparator />}
+          {canDelete && <DropdownMenuSeparator />}
         </>
       )}
-      {deleteMode !== null && (
+      {canDelete && (
         <DropdownMenuItem
           variant="destructive"
           disabled={isLoading}
           onClick={() =>
             onAction({
-              title:
-                deleteMode === "direct"
-                  ? "Delete Template?"
-                  : "Request Template Deletion",
+              title: "Delete Template?",
               icon: IconTrash,
-              description:
-                deleteMode === "direct"
-                  ? `This will permanently delete template ${vmIdentifier}.`
-                  : `Submit a request to delete template ${vmIdentifier}. A reviewer must approve it before execution.`,
-              actionLabel:
-                deleteMode === "direct" ? "Delete" : "Submit Request",
+              description: `This will permanently delete template ${vmIdentifier}.`,
+              actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                const promise: Promise<unknown> =
-                  deleteMode === "direct"
-                    ? deleteVm
-                        .mutateAsync({ itemIds: [itemId] })
-                        .then((result) =>
-                          assertSingleItemMutationSucceeded(
-                            result,
-                            `Failed to delete template ${vmIdentifier}`
-                          )
-                        )
-                    : submitDeleteRequest.mutateAsync({ itemId })
+                const promise = deleteVm
+                  .mutateAsync({ itemIds: [itemId] })
+                  .then((result) =>
+                    assertSingleItemMutationSucceeded(
+                      result,
+                      `Failed to delete template ${vmIdentifier}`
+                    )
+                  )
 
                 toast.promise(promise, {
-                  loading:
-                    deleteMode === "direct"
-                      ? `Deleting template ${vmIdentifier}…`
-                      : `Submitting delete request for template ${vmIdentifier}…`,
-                  success:
-                    deleteMode === "direct"
-                      ? `Template ${vmIdentifier} deleted`
-                      : `Delete request for template ${vmIdentifier} submitted`,
+                  loading: `Deleting template ${vmIdentifier}…`,
+                  success: `Template ${vmIdentifier} deleted`,
                   error: (err: Error) => err.message,
                 })
               },
@@ -763,7 +731,7 @@ function TemplateMenuItems({
           }
         >
           <IconTrash />
-          {deleteMode === "direct" ? "Delete" : "Delete Request"}
+          Delete
         </DropdownMenuItem>
       )}
     </>

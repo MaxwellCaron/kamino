@@ -9,7 +9,6 @@ import type { ApiRequestScope, ApiRequestStatus } from "@/lib/queries"
 
 const requestKindLabels: Record<string, string> = {
   "inventory.vm.power": "Power change",
-  "inventory.vm.delete": "Delete VM",
   "inventory.vm.snapshot.create": "Create snapshot",
   "inventory.vm.snapshot.rollback": "Rollback snapshot",
 }

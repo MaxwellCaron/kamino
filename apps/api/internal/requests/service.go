@@ -17,7 +17,6 @@ import (
 
 const (
 	RequestKindInventoryVMPower            = "inventory.vm.power"
-	RequestKindInventoryVMDelete           = "inventory.vm.delete"
 	RequestKindInventoryVMSnapshotCreate   = "inventory.vm.snapshot.create"
 	RequestKindInventoryVMSnapshotRollback = "inventory.vm.snapshot.rollback"
 )
@@ -158,25 +157,6 @@ func (s *Service) SubmitInventoryPowerRequest(
 		RequestKindInventoryVMPower,
 		itemID,
 		validPowerAction(action),
-		nil,
-	)
-}
-
-func (s *Service) SubmitInventoryDeleteRequest(
-	ctx context.Context,
-	requesterPrincipalID uuid.UUID,
-	itemID uuid.UUID,
-) (database.GetRequestByIDRow, error) {
-	if err := s.ensureInventoryRequestSubmissionAllowed(ctx, requesterPrincipalID, itemID, authorization.DeleteVM); err != nil {
-		return database.GetRequestByIDRow{}, err
-	}
-
-	return s.createInventoryRequest(
-		ctx,
-		requesterPrincipalID,
-		RequestKindInventoryVMDelete,
-		itemID,
-		invalidPowerAction(),
 		nil,
 	)
 }
@@ -543,9 +523,20 @@ func (s *Service) reviewerPermissions(
 
 func canReviewRequestKind(
 	perms authorization.EffectiveManagementPermissions,
-	_ string,
+	requestKind string,
 ) bool {
-	return perms.Has(authorization.ManagementPermissionManager)
+	if !perms.Has(authorization.ManagementPermissionManager) {
+		return false
+	}
+
+	switch requestKind {
+	case RequestKindInventoryVMPower,
+		RequestKindInventoryVMSnapshotCreate,
+		RequestKindInventoryVMSnapshotRollback:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) executeApprovedRequest(
@@ -590,8 +581,6 @@ func (s *Service) executeApprovedRequest(
 			return ErrRequestMissingPayload
 		}
 		return s.executePowerAction(ctx, target, requestRow.PowerAction.InventoryRequestPowerAction)
-	case RequestKindInventoryVMDelete:
-		return s.executeDeleteVM(ctx, target)
 	case RequestKindInventoryVMSnapshotCreate:
 		if requestRow.SnapshotName == nil || strings.TrimSpace(*requestRow.SnapshotName) == "" {
 			return ErrRequestMissingPayload
@@ -644,10 +633,6 @@ func (s *Service) executePowerAction(
 	action database.InventoryRequestPowerAction,
 ) error {
 	return s.actions.PowerAction(ctx, toActionTarget(target), powerActionForRequest(action))
-}
-
-func (s *Service) executeDeleteVM(ctx context.Context, target vmTarget) error {
-	return s.actions.DeleteVM(ctx, toActionTarget(target))
 }
 
 func (s *Service) executeCreateSnapshot(
@@ -755,8 +740,6 @@ func requiredPermissionForRequestKind(kind string) (authorization.Mask, error) {
 	switch kind {
 	case RequestKindInventoryVMPower:
 		return authorization.PowerVM, nil
-	case RequestKindInventoryVMDelete:
-		return authorization.DeleteVM, nil
 	case RequestKindInventoryVMSnapshotCreate, RequestKindInventoryVMSnapshotRollback:
 		return authorization.SnapshotVM, nil
 	default:

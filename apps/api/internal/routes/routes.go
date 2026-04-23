@@ -101,7 +101,6 @@ func RegisterRoutes(
 	if requests != nil {
 		protected.GET("/requests", requests.List)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
-		protected.POST("/requests/inventory/items/:id/vm/delete", requests.SubmitInventoryDelete)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots", requests.SubmitInventorySnapshotCreate)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots/rollback", requests.SubmitInventorySnapshotRollback)
 		protected.GET("/requests/:id", requests.Get)

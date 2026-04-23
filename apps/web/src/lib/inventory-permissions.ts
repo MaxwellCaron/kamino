@@ -171,7 +171,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.deleteVm,
     label: "Delete VM",
     description:
-      "Delete VMs or templates. Allow deletes immediately, Inherit requires a request by default, and Deny hides and blocks it.",
+      "Delete VMs or templates. This action is never requestable and always requires explicit Allow.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -240,7 +240,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.snapshotVm,
     label: "Snapshot VM",
     description:
-      "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete still requires explicit allow.",
+      "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete always requires explicit Allow.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,

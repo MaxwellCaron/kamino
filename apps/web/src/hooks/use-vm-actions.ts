@@ -9,7 +9,6 @@ import {
   inventoryTreeQueryOptions,
   renameVM,
   rollbackSnapshot,
-  submitInventoryDeleteRequest,
   submitInventoryPowerRequest,
   submitInventorySnapshotCreateRequest,
   submitInventorySnapshotRollbackRequest,
@@ -71,17 +70,6 @@ export function useSubmitInventoryPowerRequest() {
 
   return useMutation({
     mutationFn: submitInventoryPowerRequest,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["requests"] })
-    },
-  })
-}
-
-export function useSubmitInventoryDeleteRequest() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: submitInventoryDeleteRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["requests"] })
     },

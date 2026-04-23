@@ -323,8 +323,9 @@ export function InventoryPermissionsDialog(
             </p>
             <p>Once added, you can edit their permissions.</p>
             <p>
-              Allow runs immediately. Inherit requires a request by default for
-              requestable actions. Deny hides and blocks the action.
+              Allow runs immediately. Inherit can submit requests for power
+              changes and snapshot create or rollback. Delete actions always
+              require explicit Allow. Deny hides and blocks the action.
             </p>
           </>
         }

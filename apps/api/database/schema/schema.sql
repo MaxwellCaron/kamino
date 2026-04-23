@@ -305,7 +305,6 @@ CREATE TABLE requests (
             family <> 'inventory'
             OR kind IN (
                 'inventory.vm.power',
-                'inventory.vm.delete',
                 'inventory.vm.snapshot.create',
                 'inventory.vm.snapshot.rollback'
             )
@@ -828,10 +827,6 @@ BEGIN
         WHEN 'inventory.vm.power' THEN
             IF NEW.power_action IS NULL OR NEW.snapshot_name IS NOT NULL THEN
                 RAISE EXCEPTION 'Power requests require only a power action payload';
-            END IF;
-        WHEN 'inventory.vm.delete' THEN
-            IF NEW.power_action IS NOT NULL OR NEW.snapshot_name IS NOT NULL THEN
-                RAISE EXCEPTION 'Delete requests do not accept extra payload values';
             END IF;
         WHEN 'inventory.vm.snapshot.create' THEN
             IF NEW.power_action IS NOT NULL OR NEW.snapshot_name IS NULL THEN

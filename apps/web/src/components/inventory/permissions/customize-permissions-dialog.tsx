@@ -113,8 +113,9 @@ export function CustomizePermissionsDialog({
           <IconInfoCircle />
           <AlertTitle>Allow, Inherit, Deny</AlertTitle>
           <AlertDescription>
-            Allow runs the action immediately. Inherit requires a request by
-            default for requestable actions. Deny hides and blocks the action.
+            Allow runs the action immediately. Inherit can submit requests for
+            power changes and snapshot create or rollback. Delete actions always
+            require explicit Allow. Deny hides and blocks the action.
           </AlertDescription>
         </Alert>
         <AppDialogScrollBody className="-mb-8 px-0">

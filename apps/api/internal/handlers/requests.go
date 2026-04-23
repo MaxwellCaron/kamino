@@ -295,30 +295,6 @@ func (h *RequestsHandler) SubmitInventoryPower(c *gin.Context) {
 	})
 }
 
-func (h *RequestsHandler) SubmitInventoryDelete(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	itemID, ok := parseItemIDParam(c)
-	if !ok {
-		return
-	}
-
-	row, err := h.Service.SubmitInventoryDeleteRequest(c.Request.Context(), principalID, itemID)
-	if err != nil {
-		writeRequestServiceError(c, err, "submit inventory delete request")
-		return
-	}
-
-	c.JSON(http.StatusCreated, requestDetailResponse{
-		requestSummaryResponse: requestDetailRowToResponse(row),
-		Events:                 []requestEventResponse{},
-	})
-}
-
 func (h *RequestsHandler) SubmitInventorySnapshotCreate(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {

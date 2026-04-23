@@ -718,25 +718,6 @@ export async function deleteVM(params: {
   return res.json()
 }
 
-export async function submitInventoryDeleteRequest(params: {
-  itemId: string
-}): Promise<ApiRequestDetail> {
-  const res = await apiFetch(
-    `/api/v1/requests/inventory/items/${params.itemId}/vm/delete`,
-    {
-      method: "POST",
-    }
-  )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to submit delete request: ${res.status}`
-    )
-  }
-
-  return res.json()
-}
-
 export async function renameVM(params: {
   itemId: string
   name: string
