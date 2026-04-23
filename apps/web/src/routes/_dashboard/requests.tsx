@@ -44,6 +44,7 @@ import {
   canAccessRequestQueue,
   denyRequest,
   hasManagementPermission,
+  inventoryTreeQueryOptions,
   requestDetailQueryOptions,
   requestsQueryOptions,
 } from "@/lib/queries"
@@ -94,6 +95,7 @@ function RequestsPage() {
     ManagementPermissionKeys.manager
   )
 
+  const treeQuery = useQuery(inventoryTreeQueryOptions)
   const pendingQuery = useQuery(requestsQueryOptions("pending"))
   const completedQuery = useQuery(requestsQueryOptions("completed"))
   const detailQuery = useQuery({
@@ -130,8 +132,9 @@ function RequestsPage() {
     () =>
       getRequestColumns({
         onOpen: (request) => openRequest(request.id),
+        tree: treeQuery.data,
       }),
-    []
+    [treeQuery.data]
   )
 
   const approveMutation = useMutation({
@@ -413,6 +416,7 @@ function RequestsPage() {
         }}
         open={selectedRequestId !== null}
         request={detailQuery.data ?? null}
+        tree={treeQuery.data}
       />
 
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />

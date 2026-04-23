@@ -4,7 +4,6 @@ import {
   IconCheck,
   IconCheckbox,
   IconExternalLink,
-  IconHandClick,
   IconTargetArrow,
   IconUserQuestion,
   IconUserSearch,
@@ -41,9 +40,12 @@ import {
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
+  getRequestIcon,
   getRequestStatusClassName,
 } from "./request-presenters"
-import type { ApiRequestDetail } from "@/lib/queries"
+import type { ApiRequestDetail, ApiTreeNode } from "@/lib/queries"
+import { findTreePath } from "@/lib/queries"
+
 import {
   AppDialogContent,
   AppDialogScrollBody,
@@ -59,6 +61,7 @@ type RequestDetailDialogProps = {
   onOpenChange: (open: boolean) => void
   open: boolean
   request: ApiRequestDetail | null
+  tree?: Array<ApiTreeNode>
 }
 
 export function RequestDetailDialog({
@@ -70,8 +73,25 @@ export function RequestDetailDialog({
   onOpenChange,
   open,
   request,
+  tree,
 }: RequestDetailDialogProps) {
   const powerAction = formatRequestPowerAction(request?.inventory?.power_action)
+
+  const Icon = request
+    ? getRequestIcon(request.kind, request.inventory?.power_action)
+    : null
+
+  const path =
+    tree && request?.inventory?.item_id
+      ? findTreePath(tree, request.inventory.item_id)
+      : null
+
+  const pathLabel = path
+    ? path
+        .slice(1, -1)
+        .map((n) => n.name)
+        .join(" / ")
+    : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,18 +154,19 @@ export function RequestDetailDialog({
                   </ItemActions>
                 </Item>
                 <Item variant="muted">
-                  <ItemMedia variant="icon">
-                    <IconHandClick />
-                  </ItemMedia>
+                  <ItemMedia variant="icon">{Icon && <Icon />}</ItemMedia>
                   <ItemContent>
                     <ItemTitle>Action</ItemTitle>
                     <ItemDescription>
-                      {powerAction && <p>{powerAction}</p>}
+                      {powerAction && <div>{powerAction}</div>}
                       {request.inventory?.snapshot_name && (
-                        <p>
+                        <div>
                           {formatRequestKind(request.kind)}:{" "}
                           {request.inventory.snapshot_name}
-                        </p>
+                        </div>
+                      )}
+                      {!powerAction && !request.inventory?.snapshot_name && (
+                        <div>{formatRequestKind(request.kind)}</div>
                       )}
                     </ItemDescription>
                   </ItemContent>
@@ -166,6 +187,8 @@ export function RequestDetailDialog({
                       <ItemContent>
                         <ItemTitle>Target</ItemTitle>
                         <ItemDescription>
+                          {pathLabel}
+                          {" / "}
                           {request.inventory?.vmid &&
                             formatVmReference(
                               request.inventory.vmid,

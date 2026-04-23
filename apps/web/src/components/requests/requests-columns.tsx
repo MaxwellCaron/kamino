@@ -9,18 +9,22 @@ import {
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
+  getRequestIcon,
   getRequestStatusClassName,
 } from "./request-presenters"
-import type { ApiRequestSummary } from "@/lib/queries"
+import type { ApiRequestSummary, ApiTreeNode } from "@/lib/queries"
 import type { ColumnDef } from "@tanstack/react-table"
+import { findTreePath } from "@/lib/queries"
 import { formatVmReference } from "@/lib/utils"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
+  tree?: Array<ApiTreeNode>
 }
 
 export function getRequestColumns({
   onOpen,
+  tree,
 }: RequestColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
   return [
     {
@@ -56,24 +60,52 @@ export function getRequestColumns({
           request.inventory?.power_action
         )
 
+        const Icon = getRequestIcon(
+          request.kind,
+          request.inventory?.power_action
+        )
+
+        const path =
+          tree && request.inventory?.item_id
+            ? findTreePath(tree, request.inventory.item_id)
+            : null
+
+        const pathLabel = path
+          ? path
+              .slice(1, -1)
+              .map((n) => n.name)
+              .join(" / ")
+          : null
+
         return (
-          <div className="flex min-w-0 flex-col gap-1 pl-4">
-            <p className="font-medium">
-              {request.inventory?.vmid &&
-                formatVmReference(
-                  request.inventory.vmid,
-                  request.inventory.item_name
-                )}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {powerAction && <p>{powerAction}</p>}
-              {request.inventory?.snapshot_name && (
-                <p>
-                  {formatRequestKind(request.kind)}:{" "}
-                  {request.inventory.snapshot_name}
-                </p>
-              )}
-            </p>
+          <div className="flex items-center gap-3 pl-4">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
+              <Icon className="size-5" />
+            </div>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="flex flex-col">
+                <div className="font-medium">
+                  {powerAction ||
+                    (request.inventory?.snapshot_name ? (
+                      <span>
+                        {formatRequestKind(request.kind)}:{" "}
+                        {request.inventory.snapshot_name}
+                      </span>
+                    ) : (
+                      formatRequestKind(request.kind)
+                    ))}
+                </div>
+              </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {pathLabel}
+                {" / "}
+                {request.inventory?.vmid &&
+                  formatVmReference(
+                    request.inventory.vmid,
+                    request.inventory.item_name
+                  )}
+              </p>
+            </div>
           </div>
         )
       },

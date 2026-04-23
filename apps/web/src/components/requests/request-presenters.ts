@@ -1,8 +1,15 @@
 import {
   IconAlertCircle,
+  IconCamera,
   IconCheck,
   IconCircleCheck,
   IconClock,
+  IconHistory,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconPower,
+  IconRefresh,
+  IconSettings,
   IconX,
 } from "@tabler/icons-react"
 import type { ApiRequestScope, ApiRequestStatus } from "@/lib/queries"
@@ -21,14 +28,6 @@ const requestStatusLabels: Record<ApiRequestStatus, string> = {
   execution_failed: "Execution failed",
 }
 
-export const STATUS_DESCRIPTIONS: Record<ApiRequestStatus, string> = {
-  pending: "Awaiting outcome.",
-  approved: "Awaiting execution.",
-  denied: "Request rejected.",
-  executed: "Task completed.",
-  execution_failed: "System error.",
-}
-
 export const STATUS_ICONS: Record<ApiRequestStatus, typeof IconClock> = {
   pending: IconClock,
   approved: IconCheck,
@@ -37,11 +36,31 @@ export const STATUS_ICONS: Record<ApiRequestStatus, typeof IconClock> = {
   execution_failed: IconAlertCircle,
 }
 
+export const POWER_ICONS: Record<string, typeof IconClock> = {
+  power_on: IconPlayerPlay,
+  shutdown: IconPower,
+  reboot: IconRefresh,
+  stop: IconPlayerStop,
+}
+
+export const REQUEST_ICONS: Record<string, typeof IconClock> = {
+  "inventory.vm.power": IconPower,
+  "inventory.vm.snapshot.create": IconCamera,
+  "inventory.vm.snapshot.rollback": IconHistory,
+}
+
 function startCase(value: string) {
   return value
     .replace(/[._-]+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+export function getRequestIcon(kind: string, powerAction?: string | null) {
+  if (kind === "inventory.vm.power" && powerAction) {
+    return POWER_ICONS[powerAction] ?? REQUEST_ICONS[kind]
+  }
+  return REQUEST_ICONS[kind] ?? IconSettings
 }
 
 export function formatRequestKind(kind: string) {
