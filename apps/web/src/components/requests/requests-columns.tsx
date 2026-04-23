@@ -2,12 +2,13 @@ import { IconArrowUpRight } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
+  STATUS_ICONS,
   formatRequestKind,
   formatRequestStatus,
   formatRequestTimestamp,
+  getRequestStatusClassName,
   getRequestTargetContext,
   getRequestTargetLabel,
-  requestStatusVariant,
 } from "./request-presenters"
 import type { ApiRequestSummary } from "@/lib/queries"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -44,11 +45,16 @@ export function getRequestColumns({
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row: { original: request } }) => (
-        <Badge variant={requestStatusVariant(request.status)}>
-          {formatRequestStatus(request.status)}
-        </Badge>
-      ),
+      cell: ({ row: { original: request } }) => {
+        const StatusIcon = STATUS_ICONS[request.status]
+
+        return (
+          <Badge className={getRequestStatusClassName(request.status)}>
+            <StatusIcon className="size-3.5!" />
+            {formatRequestStatus(request.status)}
+          </Badge>
+        )
+      },
     },
     {
       accessorKey: "requester_username",

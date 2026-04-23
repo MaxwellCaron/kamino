@@ -36,11 +36,12 @@ import {
 } from "@workspace/ui/components/item"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
+  STATUS_ICONS,
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
   formatRequestTimestamp,
-  requestStatusVariant,
+  getRequestStatusClassName,
 } from "./request-presenters"
 import type { ApiRequestDetail } from "@/lib/queries"
 import {
@@ -210,7 +211,13 @@ export function RequestDetailDialog({
                     <ItemContent>
                       <ItemTitle>Status</ItemTitle>
                       <ItemDescription>
-                        <Badge variant={requestStatusVariant(request.status)}>
+                        <Badge
+                          className={getRequestStatusClassName(request.status)}
+                        >
+                          {(() => {
+                            const StatusIcon = STATUS_ICONS[request.status]
+                            return <StatusIcon className="size-3.5!" />
+                          })()}
                           {formatRequestStatus(request.status)}
                         </Badge>
                       </ItemDescription>

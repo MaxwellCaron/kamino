@@ -3,14 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { IconChecklist, IconHistory, IconTicket } from "@tabler/icons-react"
+import { cn } from "@workspace/ui/lib/utils"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Item,
-  ItemActions,
   ItemContent,
-  ItemDescription,
+  ItemFooter,
+  ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Card,
   CardContent,
@@ -33,9 +35,12 @@ import { DataTable } from "@/components/data-table/data-table"
 import { RequestDetailDialog } from "@/components/requests/request-detail-dialog"
 import { getRequestColumns } from "@/components/requests/requests-columns"
 import {
+  STATUS_ICONS,
   formatRequestScope,
   formatRequestStatus,
+  getRequestStatusClassName,
 } from "@/components/requests/request-presenters"
+import { LoadingTransition } from "@/components/loading-transition"
 
 export const Route = createFileRoute("/_dashboard/requests")({
   beforeLoad: ({ context }) => {
@@ -86,6 +91,25 @@ function RequestsPage() {
   const activeRequests = activeQuery.data ?? []
   const pendingCount = pendingQuery.data?.length ?? 0
   const completedCount = completedQuery.data?.length ?? 0
+  const statusCounts = useMemo(() => {
+    const counts: Record<ApiRequestStatus, number> = {
+      pending: 0,
+      approved: 0,
+      denied: 0,
+      executed: 0,
+      execution_failed: 0,
+    }
+
+    pendingQuery.data?.forEach((r) => {
+      counts[r.status]++
+    })
+    completedQuery.data?.forEach((r) => {
+      counts[r.status]++
+    })
+
+    return counts
+  }, [pendingQuery.data, completedQuery.data])
+
   const openRequest = (requestId: string) => setSelectedRequestId(requestId)
 
   const columns = useMemo(
@@ -144,37 +168,59 @@ function RequestsPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Item variant="muted">
-                <ItemContent>
-                  <ItemTitle className="text-xl font-semibold tracking-tight">
-                    Pending
-                  </ItemTitle>
-                  <ItemDescription>
-                    Items that still need a manager or administrator outcome.
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <h1 className="text-4xl font-black tracking-tight">
-                    {pendingQuery.isLoading ? "..." : pendingCount}
-                  </h1>
-                </ItemActions>
-              </Item>
-              <Item variant="muted">
-                <ItemContent>
-                  <ItemTitle className="text-xl font-semibold tracking-tight">
-                    Completed
-                  </ItemTitle>
-                  <ItemDescription>
-                    Approved, denied, canceled, and executed queue items.
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <h3 className="text-4xl font-black tracking-tight">
-                    {completedQuery.isLoading ? "..." : completedCount}
-                  </h3>
-                </ItemActions>
-              </Item>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6 2xl:grid-cols-5">
+              {(
+                [
+                  "pending",
+                  "approved",
+                  "denied",
+                  "executed",
+                  "execution_failed",
+                ] as Array<ApiRequestStatus>
+              ).map((status) => {
+                const StatusIcon = STATUS_ICONS[status]
+
+                return (
+                  <Item
+                    key={status}
+                    variant="muted"
+                    className={cn(
+                      status === "pending" && "col-span-2 2xl:col-span-1"
+                    )}
+                  >
+                    <ItemMedia
+                      className={cn(
+                        "size-6 rounded-full border-transparent!",
+                        getRequestStatusClassName(status)
+                      )}
+                    >
+                      <StatusIcon className="size-4" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{formatRequestStatus(status)}</ItemTitle>
+                    </ItemContent>
+                    <ItemFooter>
+                      <LoadingTransition
+                        isLoading={
+                          pendingQuery.isLoading || completedQuery.isLoading
+                        }
+                        fallback={
+                          <div className="space-y-2">
+                            <Skeleton className="h-8 w-12 rounded-md" />
+                            <Skeleton className="h-4 w-20 rounded-md" />
+                          </div>
+                        }
+                      >
+                        <div>
+                          <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                            {statusCounts[status]}
+                          </h3>
+                        </div>
+                      </LoadingTransition>
+                    </ItemFooter>
+                  </Item>
+                )
+              })}
             </div>
           </CardHeader>
         </Card>

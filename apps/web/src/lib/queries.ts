@@ -65,7 +65,6 @@ export type ApiRequestStatus =
   | "denied"
   | "executed"
   | "execution_failed"
-  | "canceled"
 
 export type ApiRequestInventoryPayload = {
   item_id?: string | null
@@ -90,7 +89,6 @@ export type ApiRequestSummary = {
   reviewer_username?: string | null
   reviewed_at?: string | null
   executed_at?: string | null
-  canceled_at?: string | null
   execution_error?: string | null
   created_at?: string | null
   updated_at?: string | null

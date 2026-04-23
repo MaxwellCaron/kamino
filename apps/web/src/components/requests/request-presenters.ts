@@ -1,3 +1,10 @@
+import {
+  IconAlertCircle,
+  IconCheck,
+  IconCircleCheck,
+  IconClock,
+  IconX,
+} from "@tabler/icons-react"
 import type {
   ApiRequestScope,
   ApiRequestStatus,
@@ -17,7 +24,22 @@ const requestStatusLabels: Record<ApiRequestStatus, string> = {
   denied: "Denied",
   executed: "Executed",
   execution_failed: "Execution failed",
-  canceled: "Canceled",
+}
+
+export const STATUS_DESCRIPTIONS: Record<ApiRequestStatus, string> = {
+  pending: "Awaiting outcome.",
+  approved: "Awaiting execution.",
+  denied: "Request rejected.",
+  executed: "Task completed.",
+  execution_failed: "System error.",
+}
+
+export const STATUS_ICONS: Record<ApiRequestStatus, typeof IconClock> = {
+  pending: IconClock,
+  approved: IconCheck,
+  denied: IconX,
+  executed: IconCircleCheck,
+  execution_failed: IconAlertCircle,
 }
 
 const requestTimestampFormatter = new Intl.DateTimeFormat(undefined, {
@@ -44,20 +66,20 @@ export function formatRequestStatus(status: ApiRequestStatus) {
   return requestStatusLabels[status]
 }
 
-export function requestStatusVariant(status: ApiRequestStatus) {
+export function getRequestStatusClassName(status: ApiRequestStatus) {
   switch (status) {
     case "executed":
-      return "default" as const
+      return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400 dark:text-purple-400"
     case "denied":
+      return "bg-red-600/10 border-red-600 text-red-600 dark:bg-red-400/10 dark:border-red-400 dark:text-red-400"
     case "execution_failed":
-      return "destructive" as const
+      return "bg-orange-600/10 border-orange-600 text-orange-600 dark:bg-orange-400/10 dark:border-orange-400 dark:text-orange-400"
     case "pending":
-      return "secondary" as const
+      return "bg-yellow-600/10 border-yellow-600 text-yellow-600 dark:bg-yellow-400/10 dark:border-yellow-400 dark:text-yellow-400"
     case "approved":
-    case "canceled":
-      return "outline" as const
+      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400 dark:text-green-400"
     default:
-      return "outline" as const
+      return "bg-slate-600/10 border-slate-600 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400 dark:text-slate-400"
   }
 }
 
