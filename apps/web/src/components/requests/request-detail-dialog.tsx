@@ -35,12 +35,12 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import {
   STATUS_ICONS,
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
-  formatRequestTimestamp,
   getRequestStatusClassName,
 } from "./request-presenters"
 import type { ApiRequestDetail } from "@/lib/queries"
@@ -51,9 +51,7 @@ import {
 import { formatVmReference } from "@/lib/utils"
 
 type RequestDetailDialogProps = {
-  approvePending: boolean
   canReview: boolean
-  denyPending: boolean
   error: Error | null
   isLoading: boolean
   onApprove: () => void
@@ -64,9 +62,7 @@ type RequestDetailDialogProps = {
 }
 
 export function RequestDetailDialog({
-  approvePending,
   canReview,
-  denyPending,
   error,
   isLoading,
   onApprove,
@@ -120,7 +116,17 @@ export function RequestDetailDialog({
                   <ItemContent>
                     <ItemTitle>{request.requester_username}</ItemTitle>
                     <ItemDescription>
-                      {`Submitted ${formatRequestTimestamp(request.created_at)}`}
+                      {request.created_at && (
+                        <div className="flex gap-1">
+                          <span>Requested</span>
+                          <RelativeTimeCard
+                            date={request.created_at}
+                            timezones={["UTC"]}
+                            delay={50}
+                            closeDelay={150}
+                          />
+                        </div>
+                      )}
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions>
@@ -197,7 +203,17 @@ export function RequestDetailDialog({
                     <ItemContent>
                       <ItemTitle>{request.reviewer_username}</ItemTitle>
                       <ItemDescription>
-                        {`Reviewed ${formatRequestTimestamp(request.reviewed_at)}`}
+                        {request.reviewed_at && (
+                          <div className="flex gap-1">
+                            <span>Reviewed</span>
+                            <RelativeTimeCard
+                              date={request.reviewed_at}
+                              timezones={["UTC"]}
+                              delay={50}
+                              closeDelay={150}
+                            />
+                          </div>
+                        )}
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
@@ -234,20 +250,15 @@ export function RequestDetailDialog({
             <>
               <Button
                 variant="destructive"
-                disabled={approvePending || denyPending}
                 onClick={onDeny}
                 className="w-[50%]"
               >
                 <IconX data-icon="inline-start" />
-                {denyPending ? "Denying..." : "Deny"}
+                Deny
               </Button>
-              <Button
-                disabled={approvePending || denyPending}
-                onClick={onApprove}
-                className="w-[50%]"
-              >
+              <Button onClick={onApprove} className="w-[50%]">
                 <IconCheck data-icon="inline-start" />
-                {approvePending ? "Approving..." : "Approve"}
+                Approve
               </Button>
             </>
           </DialogFooter>

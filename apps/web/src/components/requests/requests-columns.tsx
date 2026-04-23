@@ -6,13 +6,13 @@ import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   STATUS_ICONS,
   formatRequestKind,
+  formatRequestPowerAction,
   formatRequestStatus,
   getRequestStatusClassName,
-  getRequestTargetContext,
-  getRequestTargetLabel,
 } from "./request-presenters"
 import type { ApiRequestSummary } from "@/lib/queries"
 import type { ColumnDef } from "@tanstack/react-table"
+import { formatVmReference } from "@/lib/utils"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
@@ -26,19 +26,28 @@ export function getRequestColumns({
       accessorKey: "kind",
       header: () => <p className="pl-4">Request</p>,
       cell: ({ row: { original: request } }) => {
-        const context = getRequestTargetContext(request)
+        const powerAction = formatRequestPowerAction(
+          request.inventory?.power_action
+        )
 
         return (
           <div className="flex min-w-0 flex-col gap-1 pl-4">
-            <p className="font-medium">{getRequestTargetLabel(request)}</p>
-            <p className="text-xs text-muted-foreground">
-              {formatRequestKind(request.kind)}
+            <p className="font-medium">
+              {request.inventory?.vmid &&
+                formatVmReference(
+                  request.inventory.vmid,
+                  request.inventory.item_name
+                )}
             </p>
-            {context ? (
-              <p className="truncate text-xs text-muted-foreground">
-                {context}
-              </p>
-            ) : null}
+            <p className="text-xs text-muted-foreground">
+              {powerAction && <p>{powerAction}</p>}
+              {request.inventory?.snapshot_name && (
+                <p>
+                  {formatRequestKind(request.kind)}:{" "}
+                  {request.inventory.snapshot_name}
+                </p>
+              )}
+            </p>
           </div>
         )
       },
@@ -68,6 +77,22 @@ export function getRequestColumns({
       ),
     },
     {
+      accessorKey: "created_at",
+      header: "Requested",
+      cell: ({ row: { original: request } }) => {
+        const date = request.created_at
+        if (!date) return "—"
+        return (
+          <RelativeTimeCard
+            date={date}
+            timezones={["UTC"]}
+            delay={50}
+            closeDelay={150}
+          />
+        )
+      },
+    },
+    {
       accessorKey: "reviewer_username",
       header: "Reviewer",
       cell: ({ row: { original: request } }) =>
@@ -82,15 +107,14 @@ export function getRequestColumns({
     },
     {
       accessorKey: "updated_at",
-      header: "Updated",
+      header: "Reviewed",
       cell: ({ row: { original: request } }) => {
-        const date = request.updated_at ?? request.created_at
-        if (!date) return "—"
+        const date = request.updated_at
+        if (!date || request.status === "pending") return "—"
         return (
           <RelativeTimeCard
             date={date}
             timezones={["UTC"]}
-            align="start"
             delay={50}
             closeDelay={150}
           />

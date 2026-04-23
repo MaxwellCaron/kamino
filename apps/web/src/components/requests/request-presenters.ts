@@ -5,11 +5,7 @@ import {
   IconClock,
   IconX,
 } from "@tabler/icons-react"
-import type {
-  ApiRequestScope,
-  ApiRequestStatus,
-  ApiRequestSummary,
-} from "@/lib/queries"
+import type { ApiRequestScope, ApiRequestStatus } from "@/lib/queries"
 
 const requestKindLabels: Record<string, string> = {
   "inventory.vm.power": "Power change",
@@ -42,11 +38,6 @@ export const STATUS_ICONS: Record<ApiRequestStatus, typeof IconClock> = {
   execution_failed: IconAlertCircle,
 }
 
-const requestTimestampFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-})
-
 function startCase(value: string) {
   return value
     .replace(/[._-]+/g, " ")
@@ -69,7 +60,7 @@ export function formatRequestStatus(status: ApiRequestStatus) {
 export function getRequestStatusClassName(status: ApiRequestStatus) {
   switch (status) {
     case "executed":
-      return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400 dark:text-purple-400"
+      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400 dark:text-green-400"
     case "denied":
       return "bg-red-600/10 border-red-600 text-red-600 dark:bg-red-400/10 dark:border-red-400 dark:text-red-400"
     case "execution_failed":
@@ -77,23 +68,10 @@ export function getRequestStatusClassName(status: ApiRequestStatus) {
     case "pending":
       return "bg-yellow-600/10 border-yellow-600 text-yellow-600 dark:bg-yellow-400/10 dark:border-yellow-400 dark:text-yellow-400"
     case "approved":
-      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400 dark:text-green-400"
+      return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400 dark:text-purple-400"
     default:
       return "bg-slate-600/10 border-slate-600 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400 dark:text-slate-400"
   }
-}
-
-export function formatRequestTimestamp(value?: string | null) {
-  if (!value) {
-    return "—"
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return requestTimestampFormatter.format(date)
 }
 
 export function formatRequestPowerAction(action?: string | null) {
@@ -102,46 +80,4 @@ export function formatRequestPowerAction(action?: string | null) {
   }
 
   return action === "power_on" ? "Power on" : startCase(action)
-}
-
-export function getRequestTargetLabel(
-  request: Pick<ApiRequestSummary, "kind" | "inventory">
-) {
-  return (
-    request.inventory?.item_name?.trim() ||
-    request.inventory?.snapshot_name?.trim() ||
-    formatRequestKind(request.kind)
-  )
-}
-
-export function getRequestTargetContext(
-  request: Pick<ApiRequestSummary, "inventory">
-) {
-  const parts: Array<string> = []
-  const inventory = request.inventory
-
-  if (!inventory) {
-    return null
-  }
-
-  if (inventory.item_kind === "vm") {
-    parts.push(inventory.is_template ? "Template" : "VM")
-  } else if (inventory.item_kind) {
-    parts.push(startCase(inventory.item_kind))
-  }
-
-  if (inventory.vm_node && inventory.vmid) {
-    parts.push(`${inventory.vm_node} / VM ${inventory.vmid}`)
-  }
-
-  const powerAction = formatRequestPowerAction(inventory.power_action)
-  if (powerAction) {
-    parts.push(powerAction)
-  }
-
-  if (inventory.snapshot_name) {
-    parts.push(`Snapshot ${inventory.snapshot_name}`)
-  }
-
-  return parts.length > 0 ? parts.join(" • ") : null
 }

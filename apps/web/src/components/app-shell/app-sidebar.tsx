@@ -4,7 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import {
   IconHome,
   IconNetwork,
-  IconTimelineEvent,
+  IconReceipt,
   IconUser,
   IconUsersGroup,
 } from "@tabler/icons-react"
@@ -48,7 +48,7 @@ const navItems = [
     description:
       "Review pending work, decisions, and recently completed queue items.",
     url: "/requests",
-    icon: IconTimelineEvent,
+    icon: IconReceipt,
     visibility: "requests",
   },
   {

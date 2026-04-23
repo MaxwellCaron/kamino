@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { IconChecklist, IconHistory, IconTicket } from "@tabler/icons-react"
+import { IconCheckbox, IconClock, IconReceipt } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Badge } from "@workspace/ui/components/badge"
 import {
@@ -123,19 +123,8 @@ function RequestsPage() {
   const approveMutation = useMutation({
     mutationFn: approveRequest,
     onSuccess: (result) => {
-      const summary = summarizeApprovalStatus(result.status)
-
       queryClient.setQueryData(["requests", result.id], result)
       queryClient.invalidateQueries({ queryKey: ["requests"] })
-
-      if (summary.variant === "error") {
-        toast.error(summary.message)
-      } else {
-        toast.success(summary.message)
-      }
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 
@@ -144,10 +133,6 @@ function RequestsPage() {
     onSuccess: (result) => {
       queryClient.setQueryData(["requests", result.id], result)
       queryClient.invalidateQueries({ queryKey: ["requests"] })
-      toast.success("Request denied")
-    },
-    onError: (error) => {
-      toast.error(error.message)
     },
   })
 
@@ -159,7 +144,7 @@ function RequestsPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex max-w-2xl flex-col gap-3">
                 <CardTitle className="flex items-center gap-2 text-4xl font-black tracking-tight">
-                  <IconTicket className="size-7 text-muted-foreground" />
+                  <IconReceipt className="size-7 text-muted-foreground" />
                   Requests
                 </CardTitle>
                 <CardDescription className="max-w-2xl text-sm/relaxed">
@@ -231,9 +216,9 @@ function RequestsPage() {
               <div className="flex flex-col gap-1">
                 <CardTitle className="flex items-center gap-2">
                   {scope === "pending" ? (
-                    <IconChecklist className="size-5 text-muted-foreground" />
+                    <IconClock className="size-5 text-muted-foreground" />
                   ) : (
-                    <IconHistory className="size-5 text-muted-foreground" />
+                    <IconCheckbox className="size-5 text-muted-foreground" />
                   )}
                   {formatRequestScope(scope)}
                 </CardTitle>
@@ -273,22 +258,32 @@ function RequestsPage() {
       </div>
 
       <RequestDetailDialog
-        approvePending={approveMutation.isPending}
         canReview={canReview}
-        denyPending={denyMutation.isPending}
         error={detailQuery.error}
         isLoading={detailQuery.isLoading}
         onApprove={() => {
           if (!selectedRequestId) {
             return
           }
-          approveMutation.mutate(selectedRequestId)
+          const id = selectedRequestId
+          setSelectedRequestId(null)
+          toast.promise(approveMutation.mutateAsync(id), {
+            loading: "Approving request...",
+            success: (result) => summarizeApprovalStatus(result.status).message,
+            error: (err: Error) => err.message,
+          })
         }}
         onDeny={() => {
           if (!selectedRequestId) {
             return
           }
-          denyMutation.mutate(selectedRequestId)
+          const id = selectedRequestId
+          setSelectedRequestId(null)
+          toast.promise(denyMutation.mutateAsync(id), {
+            loading: "Denying request...",
+            success: "Request denied",
+            error: (err: Error) => err.message,
+          })
         }}
         onOpenChange={(open) => {
           if (!open) {
