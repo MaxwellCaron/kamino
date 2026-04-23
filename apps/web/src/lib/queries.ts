@@ -38,6 +38,7 @@ let currentSession: AuthSession | null = null
 let refreshPromise: Promise<AuthSession> | null = null
 let bootstrapPromise: Promise<AuthSession> | null = null
 let refreshTimer: number | null = null
+let authFailure: AuthenticationError | null = null
 
 class AuthenticationError extends Error {}
 
@@ -135,15 +136,26 @@ function scheduleRefresh(expiresAt: string) {
 
 function applyAuthSession(session: AuthSession): AuthSession {
   currentSession = session
+  authFailure = null
   scheduleRefresh(session.access_token_expires_at)
   return session
 }
 
-function clearAuthState() {
+function resetAuthState() {
   currentSession = null
   bootstrapPromise = null
   clearRefreshTimer()
   refreshPromise = null
+}
+
+function clearAuthState() {
+  resetAuthState()
+  authFailure = null
+}
+
+function invalidateAuthState(message = "authentication failed") {
+  resetAuthState()
+  authFailure = new AuthenticationError(message)
 }
 
 function redirectToLogin() {
@@ -168,6 +180,11 @@ export async function apiFetch(
   const isProtectedRequest = retryOn401 && !isAuthEndpoint(input)
 
   if (isProtectedRequest) {
+    if (authFailure) {
+      redirectToLogin()
+      return new Response(null, { status: 401, statusText: "Unauthorized" })
+    }
+
     try {
       if (refreshPromise) {
         await refreshPromise
@@ -199,7 +216,7 @@ export async function apiFetch(
 
   const retried = await fetch(apiUrl(input), requestInit)
   if (retried.status === 401) {
-    clearAuthState()
+    invalidateAuthState("request retry failed")
     redirectToLogin()
   }
 
@@ -213,6 +230,11 @@ async function fetchAuthSession(): Promise<AuthSession> {
 }
 
 export async function ensureAuth(): Promise<AuthSession> {
+  if (authFailure) {
+    redirectToLogin()
+    throw authFailure
+  }
+
   if (isSessionUsable(currentSession)) {
     return currentSession
   }
@@ -282,9 +304,13 @@ export async function refreshAuth(): Promise<AuthSession> {
       credentials: "include",
     })
     if (!res.ok) {
-      clearAuthState()
       if (res.status === 401) {
-        throw new AuthenticationError("refresh failed")
+        try {
+          return await fetchAuthSession()
+        } catch {
+          invalidateAuthState("refresh failed")
+          throw authFailure ?? new AuthenticationError("refresh failed")
+        }
       }
       throw new Error("refresh failed")
     }

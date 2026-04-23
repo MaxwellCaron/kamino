@@ -106,6 +106,13 @@ func (m *SessionManager) RotateSession(
 		return "", Session{}, ErrInvalidSession
 	}
 	if current.RevokedAt.Valid {
+		if current.ReplacedBySessionID != nil {
+			if err := tx.Commit(ctx); err != nil {
+				return "", Session{}, fmt.Errorf("commit rotated auth session replay: %w", err)
+			}
+			return "", Session{}, ErrInvalidSession
+		}
+
 		if _, revokeErr := q.RevokeAuthSessionFamily(ctx, current.FamilyID); revokeErr != nil {
 			return "", Session{}, fmt.Errorf("revoke replayed auth session family: %w", revokeErr)
 		}
