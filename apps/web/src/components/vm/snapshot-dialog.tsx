@@ -202,7 +202,7 @@ function DirectSnapshotDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
+              <AppDialogPrimaryButton type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Creating..." : "Create"}
               </AppDialogPrimaryButton>
             )}
@@ -303,7 +303,7 @@ function RequestSnapshotDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
+              <AppDialogPrimaryButton type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Submitting..." : "Submit Request"}
               </AppDialogPrimaryButton>
             )}
