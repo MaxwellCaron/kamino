@@ -2,7 +2,13 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { IconCheckbox, IconClock, IconReceipt } from "@tabler/icons-react"
+import {
+  IconCheck,
+  IconCheckbox,
+  IconClock,
+  IconReceipt,
+  IconX,
+} from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Badge } from "@workspace/ui/components/badge"
 import {
@@ -21,7 +27,17 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import type { ApiRequestScope, ApiRequestStatus } from "@/lib/queries"
+import {
+  ActionBarItem,
+  ActionBarSeparator,
+} from "@workspace/ui/components/action-bar"
+import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import type {
+  ApiRequestScope,
+  ApiRequestStatus,
+  ApiRequestSummary,
+} from "@/lib/queries"
+import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import {
   ManagementPermissionKeys,
   approveRequest,
@@ -36,11 +52,13 @@ import { RequestDetailDialog } from "@/components/requests/request-detail-dialog
 import { getRequestColumns } from "@/components/requests/requests-columns"
 import {
   STATUS_ICONS,
+  formatRequestKind,
   formatRequestScope,
   formatRequestStatus,
   getRequestStatusClassName,
 } from "@/components/requests/request-presenters"
 import { LoadingTransition } from "@/components/loading-transition"
+import { formatVmReference } from "@/lib/utils"
 
 export const Route = createFileRoute("/_dashboard/requests")({
   beforeLoad: ({ context }) => {
@@ -51,21 +69,16 @@ export const Route = createFileRoute("/_dashboard/requests")({
   component: RequestsPage,
 })
 
-function summarizeApprovalStatus(status: ApiRequestStatus) {
-  if (status === "executed") {
-    return { message: "Request approved", variant: "success" as const }
-  }
-  if (status === "execution_failed") {
-    return {
-      message: "Request approved, but execution failed",
-      variant: "error" as const,
-    }
+function getRequestLabel(request: ApiRequestSummary) {
+  const itemName = request.inventory?.item_name
+  const vmid = request.inventory?.vmid
+  const kind = formatRequestKind(request.kind)
+
+  if (vmid && itemName) {
+    return `${formatVmReference(vmid, itemName)} (${kind})`
   }
 
-  return {
-    message: `Request moved to ${formatRequestStatus(status).toLowerCase()}`,
-    variant: "success" as const,
-  }
+  return kind
 }
 
 function RequestsPage() {
@@ -74,6 +87,7 @@ function RequestsPage() {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null
   )
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const queryClient = useQueryClient()
   const canReview = hasManagementPermission(
     user.management_permissions,
@@ -122,19 +136,77 @@ function RequestsPage() {
 
   const approveMutation = useMutation({
     mutationFn: approveRequest,
-    onSuccess: (result) => {
-      queryClient.setQueryData(["requests", result.id], result)
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
 
   const denyMutation = useMutation({
     mutationFn: denyRequest,
-    onSuccess: (result) => {
-      queryClient.setQueryData(["requests", result.id], result)
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
+
+  const handleBulkAction = (
+    action: "approve" | "deny",
+    requests: Array<ApiRequestSummary>,
+    clearSelection: () => void
+  ) => {
+    const isApprove = action === "approve"
+    const mutation = isApprove ? approveMutation : denyMutation
+    const title = isApprove ? "Approve Requests" : "Deny Requests"
+    const icon = isApprove ? IconCheck : IconX
+    const actionLabel = isApprove ? "Approve" : "Deny"
+    const variant = isApprove ? "default" : ("destructive" as const)
+
+    setConfirm({
+      title,
+      icon,
+      actionLabel,
+      variant,
+      description: `Are you sure you want to ${action} ${requests.length} requests?`,
+      statusItems: requests.map((r) => ({
+        id: r.id,
+        kind: "vm",
+        label: getRequestLabel(r),
+        status: "idle",
+      })),
+      onConfirm: async (controls) => {
+        const items = controls.getStatusItems()
+        const ids = items.map((i) => i.id)
+
+        controls.setStatusItems((prev) =>
+          prev.map((i) => ({ ...i, status: "pending" }))
+        )
+
+        try {
+          const result = await mutation.mutateAsync(ids)
+          const failedMap = new Map(result.failed.map((f) => [f.id, f.error]))
+
+          controls.setStatusItems((prev) =>
+            prev.map((i) => {
+              const error = failedMap.get(i.id)
+              return {
+                ...i,
+                status: error ? ("error" as const) : ("success" as const),
+                error,
+              }
+            })
+          )
+
+          if (result.failed.length === 0) {
+            clearSelection()
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Action failed"
+          controls.setStatusItems((prev) =>
+            prev.map((i) => ({ ...i, status: "error", error: message }))
+          )
+        }
+      },
+    })
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -252,6 +324,45 @@ function RequestsPage() {
               isLoading={activeQuery.isLoading}
               error={activeQuery.error}
               getRowId={(request) => request.id}
+              renderSelectionActions={
+                canReview && scope === "pending"
+                  ? ({ clearSelection, selectedRows }) => (
+                      <>
+                        <ActionBarItem
+                          onSelect={(event) => event.preventDefault()}
+                          onClick={() =>
+                            handleBulkAction(
+                              "approve",
+                              selectedRows,
+                              clearSelection
+                            )
+                          }
+                          aria-label="Approve selected requests"
+                          tooltip="Approve"
+                          variant="default"
+                        >
+                          <IconCheck />
+                        </ActionBarItem>
+                        <ActionBarSeparator />
+                        <ActionBarItem
+                          onSelect={(event) => event.preventDefault()}
+                          onClick={() =>
+                            handleBulkAction(
+                              "deny",
+                              selectedRows,
+                              clearSelection
+                            )
+                          }
+                          aria-label="Deny selected requests"
+                          tooltip="Deny"
+                          variant="destructive"
+                        >
+                          <IconX />
+                        </ActionBarItem>
+                      </>
+                    )
+                  : undefined
+              }
             />
           </CardContent>
         </Card>
@@ -267,9 +378,14 @@ function RequestsPage() {
           }
           const id = selectedRequestId
           setSelectedRequestId(null)
-          toast.promise(approveMutation.mutateAsync(id), {
+          toast.promise(approveMutation.mutateAsync([id]), {
             loading: "Approving request...",
-            success: (result) => summarizeApprovalStatus(result.status).message,
+            success: (result) => {
+              if (result.failed.length > 0) {
+                throw new Error(result.failed[0].error)
+              }
+              return "Request approved"
+            },
             error: (err: Error) => err.message,
           })
         }}
@@ -279,9 +395,14 @@ function RequestsPage() {
           }
           const id = selectedRequestId
           setSelectedRequestId(null)
-          toast.promise(denyMutation.mutateAsync(id), {
+          toast.promise(denyMutation.mutateAsync([id]), {
             loading: "Denying request...",
-            success: "Request denied",
+            success: (result) => {
+              if (result.failed.length > 0) {
+                throw new Error(result.failed[0].error)
+              }
+              return "Request denied"
+            },
             error: (err: Error) => err.message,
           })
         }}
@@ -293,6 +414,8 @@ function RequestsPage() {
         open={selectedRequestId !== null}
         request={detailQuery.data ?? null}
       />
+
+      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
     </div>
   )
 }

@@ -1313,29 +1313,43 @@ export function requestDetailQueryOptions(requestId: string) {
   }
 }
 
+export type ApiRequestActionFailure = {
+  id: string
+  error: string
+}
+
+export type ApiRequestActionResponse = {
+  processed: Array<string>
+  failed: Array<ApiRequestActionFailure>
+}
+
 export async function approveRequest(
-  requestId: string
-): Promise<ApiRequestDetail> {
-  const res = await apiFetch(`/api/v1/requests/${requestId}/approve`, {
+  requestIds: Array<string>
+): Promise<ApiRequestActionResponse> {
+  const res = await apiFetch(`/api/v1/requests/approve`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: requestIds }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to approve request: ${res.status}`)
+    throw new Error(body.error ?? `Failed to approve requests: ${res.status}`)
   }
 
   return res.json()
 }
 
 export async function denyRequest(
-  requestId: string
-): Promise<ApiRequestDetail> {
-  const res = await apiFetch(`/api/v1/requests/${requestId}/deny`, {
+  requestIds: Array<string>
+): Promise<ApiRequestActionResponse> {
+  const res = await apiFetch(`/api/v1/requests/deny`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: requestIds }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to deny request: ${res.status}`)
+    throw new Error(body.error ?? `Failed to deny requests: ${res.status}`)
   }
 
   return res.json()

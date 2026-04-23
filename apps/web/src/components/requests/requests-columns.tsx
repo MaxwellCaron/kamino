@@ -1,6 +1,7 @@
 import { IconArrowUpRight } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
@@ -22,6 +23,31 @@ export function getRequestColumns({
   onOpen,
 }: RequestColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
   return [
+    {
+      id: "select",
+      meta: { className: "w-0" },
+      header: ({ table }) => (
+        <div className="pl-4">
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            indeterminate={table.getIsSomePageRowsSelected()}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="pl-4">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        </div>
+      ),
+    },
     {
       accessorKey: "kind",
       header: () => <p className="pl-4">Request</p>,
