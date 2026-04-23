@@ -1,11 +1,12 @@
 import { IconArrowUpRight } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   STATUS_ICONS,
   formatRequestKind,
   formatRequestStatus,
-  formatRequestTimestamp,
   getRequestStatusClassName,
   getRequestTargetContext,
   getRequestTargetLabel,
@@ -59,18 +60,42 @@ export function getRequestColumns({
     {
       accessorKey: "requester_username",
       header: "Requester",
+      cell: ({ row: { original: request } }) => (
+        <div className="flex items-center gap-2">
+          <FacehashIcon name={request.requester_username} size={24} />
+          <span>{request.requester_username}</span>
+        </div>
+      ),
     },
     {
       accessorKey: "reviewer_username",
       header: "Reviewer",
       cell: ({ row: { original: request } }) =>
-        request.reviewer_username?.trim() || "—",
+        request.reviewer_username ? (
+          <div className="flex items-center gap-2">
+            <FacehashIcon name={request.reviewer_username} size={24} />
+            <span>{request.reviewer_username}</span>
+          </div>
+        ) : (
+          "—"
+        ),
     },
     {
       accessorKey: "updated_at",
       header: "Updated",
-      cell: ({ row: { original: request } }) =>
-        formatRequestTimestamp(request.updated_at ?? request.created_at),
+      cell: ({ row: { original: request } }) => {
+        const date = request.updated_at ?? request.created_at
+        if (!date) return "—"
+        return (
+          <RelativeTimeCard
+            date={date}
+            timezones={["UTC"]}
+            align="start"
+            delay={50}
+            closeDelay={150}
+          />
+        )
+      },
     },
     {
       id: "actions",
