@@ -223,8 +223,9 @@ function RequestsPage() {
                   {formatRequestScope(scope)}
                 </CardTitle>
                 <CardDescription>
-                  Requester and reviewer usernames are shown directly in the
-                  queue.
+                  {scope === "pending"
+                    ? "Pending requests are those that have not been approved or denied yet."
+                    : "Completed requests are those that have been approved or denied."}
                 </CardDescription>
               </div>
               <Tabs
