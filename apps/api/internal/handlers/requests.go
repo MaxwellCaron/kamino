@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -129,6 +130,42 @@ func (h *RequestsHandler) List(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+	}
+}
+
+// StreamEvents pushes request change events to connected browsers.
+func (h *RequestsHandler) StreamEvents(c *gin.Context) {
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	fmt.Fprint(c.Writer, ": request stream connected\n\n")
+	flusher.Flush()
+
+	events, unsubscribe := h.Service.Subscribe()
+	defer unsubscribe()
+
+	heartbeat := time.NewTicker(20 * time.Second)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(c.Writer, ": heartbeat\n\n")
+			flusher.Flush()
+		case event := <-events:
+			c.SSEvent("message", event)
+			flusher.Flush()
+		}
 	}
 }
 

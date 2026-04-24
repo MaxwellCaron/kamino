@@ -223,6 +223,8 @@ func main() {
 
 	inventoryNotifier := inventory.NewNotifier(server.DBPool)
 	go inventoryNotifier.Start(context.Background())
+	requestsNotifier := requestqueue.NewNotifier(server.DBPool)
+	go requestsNotifier.Start(context.Background())
 	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient)
 	go vmStatusNotifier.Start(context.Background())
 
@@ -313,6 +315,7 @@ func main() {
 		inventoryService,
 		server.ProxmoxClient,
 		vmActionExecutor,
+		requestsNotifier,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 

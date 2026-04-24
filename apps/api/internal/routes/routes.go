@@ -100,6 +100,7 @@ func RegisterRoutes(
 
 	if requests != nil {
 		protected.GET("/requests", requests.List)
+		protected.GET("/requests/events", requests.StreamEvents)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots", requests.SubmitInventorySnapshotCreate)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots/rollback", requests.SubmitInventorySnapshotRollback)

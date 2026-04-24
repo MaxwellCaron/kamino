@@ -168,44 +168,66 @@ function RequestsPage() {
       icon,
       actionLabel,
       variant,
+      closeOnSuccess: !isApprove,
       description: `Are you sure you want to ${action} ${requests.length} requests?`,
-      statusItems: requests.map((r) => ({
-        id: r.id,
-        kind: "vm",
-        label: getRequestLabel(r),
-        status: "idle",
-      })),
+      statusItems: isApprove
+        ? requests.map((r) => ({
+            id: r.id,
+            kind: "vm",
+            label: getRequestLabel(r),
+            status: "idle",
+          }))
+        : undefined,
       onConfirm: async (controls) => {
+        if (!isApprove) {
+          const ids = requests.map((r) => r.id)
+          mutation.mutate(ids)
+          clearSelection()
+          return
+        }
+
         const items = controls.getStatusItems()
-        const ids = items.map((i) => i.id)
 
         controls.setStatusItems((prev) =>
           prev.map((i) => ({ ...i, status: "pending" }))
         )
 
-        try {
-          const result = await mutation.mutateAsync(ids)
-          const failedMap = new Map(result.failed.map((f) => [f.id, f.error]))
+        await Promise.allSettled(
+          items.map(async (item) => {
+            try {
+              const result = await mutation.mutateAsync([item.id])
+              const failed = result.failed.find((f) => f.id === item.id)
 
-          controls.setStatusItems((prev) =>
-            prev.map((i) => {
-              const error = failedMap.get(i.id)
-              return {
-                ...i,
-                status: error ? ("error" as const) : ("success" as const),
-                error,
-              }
-            })
-          )
+              controls.setStatusItems((prev) =>
+                prev.map((i) =>
+                  i.id === item.id
+                    ? {
+                        ...i,
+                        status: failed
+                          ? ("error" as const)
+                          : ("success" as const),
+                        error: failed?.error,
+                      }
+                    : i
+                )
+              )
+            } catch (err) {
+              const message =
+                err instanceof Error ? err.message : "Action failed"
+              controls.setStatusItems((prev) =>
+                prev.map((i) =>
+                  i.id === item.id
+                    ? { ...i, status: "error", error: message }
+                    : i
+                )
+              )
+            }
+          })
+        )
 
-          if (result.failed.length === 0) {
-            clearSelection()
-          }
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Action failed"
-          controls.setStatusItems((prev) =>
-            prev.map((i) => ({ ...i, status: "error", error: message }))
-          )
+        const finalItems = controls.getStatusItems()
+        if (finalItems.every((i) => i.status === "success")) {
+          clearSelection()
         }
       },
     })

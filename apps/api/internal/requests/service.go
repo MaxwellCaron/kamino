@@ -3,6 +3,7 @@ package requests
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -40,6 +41,7 @@ type Service struct {
 	inventory *inventory.Service
 	px        *proxmox.Client
 	actions   *vmactions.Executor
+	notifier  *Notifier
 }
 
 type vmTarget struct {
@@ -55,6 +57,7 @@ func NewService(
 	inventoryService *inventory.Service,
 	px *proxmox.Client,
 	actions *vmactions.Executor,
+	notifier *Notifier,
 ) *Service {
 	return &Service{
 		db:        db,
@@ -62,7 +65,36 @@ func NewService(
 		inventory: inventoryService,
 		px:        px,
 		actions:   actions,
+		notifier:  notifier,
 	}
+}
+
+func (s *Service) Subscribe() (<-chan Event, func()) {
+	return s.notifier.Subscribe()
+}
+
+func (s *Service) notify(ctx context.Context, exec database.DBTX, requestID ...*uuid.UUID) {
+	if s.notifier == nil {
+		return
+	}
+
+	var target database.DBTX = s.db
+	if exec != nil {
+		target = exec
+	}
+
+	for _, id := range requestID {
+		event := Event{
+			RequestID: id,
+		}
+		if err := s.notifier.Notify(ctx, target, event); err != nil {
+			log.Printf("request notify failed: %v", err)
+		}
+	}
+}
+
+func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, requestID uuid.UUID) {
+	s.notify(ctx, tx, &requestID)
 }
 
 func (s *Service) ListPendingRequests(
@@ -268,6 +300,8 @@ func (s *Service) ApproveRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	s.notify(ctx, nil, &requestID)
+
 	if executeErr := s.executeApprovedRequest(ctx, locked); executeErr != nil {
 		if err := s.markExecutionFailed(ctx, requestID, reviewerPrincipalID, executeErr.Error()); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
@@ -338,6 +372,8 @@ func (s *Service) DenyRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	s.notify(ctx, nil, &requestID)
+
 	return s.GetRequest(ctx, reviewerPrincipalID, denied.ID)
 }
 
@@ -391,6 +427,8 @@ func (s *Service) CancelRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	s.notify(ctx, nil, &requestID)
+
 	return s.GetRequest(ctx, actorPrincipalID, canceled.ID)
 }
 
@@ -441,6 +479,8 @@ func (s *Service) createInventoryRequest(
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, err
 	}
+
+	s.notify(ctx, nil, &requestRow.ID)
 
 	row, err := database.New(s.db).GetRequestByID(ctx, requestRow.ID)
 	if err != nil {
@@ -700,7 +740,13 @@ func (s *Service) markExecuted(
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	s.notify(ctx, nil, &requestID)
+
+	return nil
 }
 
 func (s *Service) markExecutionFailed(
@@ -733,7 +779,13 @@ func (s *Service) markExecutionFailed(
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	s.notify(ctx, nil, &requestID)
+
+	return nil
 }
 
 func requiredPermissionForRequestKind(kind string) (authorization.Mask, error) {
