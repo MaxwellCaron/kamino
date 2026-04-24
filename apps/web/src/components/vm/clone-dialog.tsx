@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
 import { IconCopy } from "@tabler/icons-react"
@@ -27,11 +26,7 @@ import {
   optionalVmidSchema,
 } from "@/components/vm/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/lib/inventory-tree"
-import {
-  inventoryTreeQueryOptions,
-  nodesQueryOptions,
-  seedInventoryItemCache,
-} from "@/lib/queries"
+import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
 import { formatVmReference } from "@/lib/utils"
 
 const cloneSchema = z.object({
@@ -58,8 +53,6 @@ export function CloneDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const clone = useCloneVM()
   const { data: inventoryTree = [] } = useQuery({
     ...inventoryTreeQueryOptions,
@@ -79,31 +72,25 @@ export function CloneDialog({
       name: "",
       full: false,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = cloneSchema.parse(value)
-      const promise = clone.mutateAsync({
-        itemId,
-        newid: parsed.newid,
-        name: parsed.name.trim() || currentName,
-        full: parsed.full,
-        target: parsed.node || undefined,
-        target_folder_id: parsed.target_folder_id ?? "",
-      })
-
-      toast.promise(promise, {
-        loading: `Cloning VM ${currentVmid ?? currentName}…`,
-        success: (result) => `VM cloned to ${result.vmid}`,
-        error: (error: Error) => error.message,
-      })
-
-      const result = await promise
-      seedInventoryItemCache(queryClient, result.item_id, result.item)
       onOpenChange(false)
-      form.reset()
-      navigate({
-        to: "/inventory/items/$itemId",
-        params: { itemId: result.item_id },
-      })
+
+      toast.promise(
+        clone.mutateAsync({
+          itemId,
+          newid: parsed.newid,
+          name: parsed.name.trim() || currentName,
+          full: parsed.full,
+          target: parsed.node || undefined,
+          target_folder_id: parsed.target_folder_id ?? "",
+        }),
+        {
+          loading: `Cloning VM ${currentVmid ?? currentName}…`,
+          success: (result) => `VM cloned to ${result.vmid}`,
+          error: (error: Error) => error.message,
+        }
+      )
     },
   })
 

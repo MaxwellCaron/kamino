@@ -278,7 +278,13 @@ export function ConfirmDialog({
               if (!config) return
 
               setHasSubmitted(true)
-              setIsPending(true)
+              const closeOnSuccess = config.closeOnSuccess ?? true
+
+              if (closeOnSuccess) {
+                onClose()
+              } else {
+                setIsPending(true)
+              }
 
               try {
                 await config.onConfirm({
@@ -289,14 +295,12 @@ export function ConfirmDialog({
                     )
                   },
                 })
-
-                if (config.closeOnSuccess ?? true) {
-                  onClose()
-                }
               } catch {
                 // Error feedback is handled by the caller.
               } finally {
-                setIsPending(false)
+                if (!closeOnSuccess) {
+                  setIsPending(false)
+                }
               }
             }}
           >

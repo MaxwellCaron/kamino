@@ -43,27 +43,24 @@ export function VmNotesDialog({
     defaultValues: {
       notes: initialNotes ?? "",
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = vmNotesSchema.parse(value)
+      onOpenChange(false)
 
-      try {
-        const result = await updateNotes.mutateAsync({
+      toast.promise(
+        updateNotes.mutateAsync({
           itemId,
           notes: parsed.notes,
-        })
-        toast.success(
-          result.synced
-            ? "VM notes updated"
-            : "VM notes saved. Proxmox sync is pending."
-        )
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to update VM notes"
-        )
-        return
-      }
-
-      onOpenChange(false)
+        }),
+        {
+          loading: "Updating VM notes...",
+          success: (result) =>
+            result.synced
+              ? "VM notes updated"
+              : "VM notes saved. Proxmox sync is pending.",
+          error: (error: Error) => error.message,
+        }
+      )
     },
   })
 

@@ -95,6 +95,8 @@ export function CreateVmDialog({
         parsed.template_id ?? ""
       )
 
+      onOpenChange(false)
+
       const promise =
         parsed.method === "template"
           ? (() => {

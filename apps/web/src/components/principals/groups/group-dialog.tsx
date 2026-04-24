@@ -187,17 +187,72 @@ export function GroupDialog({
   const [resultSummary, setResultSummary] =
     React.useState<ApiBulkCreateResponse | null>(null)
 
+  const mutation = useMutation({
+    mutationFn: async (
+      values: Array<CreateGroupInput> | z.infer<typeof groupSchema>
+    ) => {
+      if (isEdit) {
+        const parsed = values as z.infer<typeof groupSchema>
+        await updateGroup(group.id, {
+          name: parsed.name,
+          description: normalizeDescription(parsed.description ?? ""),
+        })
+        return null
+      }
+
+      return createGroup(values as Array<CreateGroupInput>)
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["principals"] })
+
+      if (isEdit || result === null) {
+        return
+      }
+
+      if (result.failures.length > 0) {
+        if (result.successful > 0) {
+          toast.success(
+            `Successfully created ${result.successful} group${result.successful === 1 ? "" : "s"}`
+          )
+        }
+        setResultSummary(result)
+      } else {
+        toast.success(
+          `Successfully created ${result.successful} group${result.successful === 1 ? "" : "s"}`
+        )
+      }
+    },
+    onError: (err) => {
+      toast.error(err.message)
+    },
+  })
+
   const form = useForm({
     defaultValues: getDefaultGroupFormValues(group),
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
+      onOpenChange(false)
+
       if (isEdit) {
         const parsed = groupSchema.parse(value)
-        await mutation.mutateAsync(parsed)
+        toast.promise(mutation.mutateAsync(parsed), {
+          loading: "Updating group...",
+          success: "Group updated",
+          error: (err: Error) => err.message,
+        })
         return
       }
 
       const payload = buildCreateGroups(mode, value)
-      await mutation.mutateAsync(payload)
+      toast.promise(mutation.mutateAsync(payload), {
+        loading: "Creating groups...",
+        success: (result) => {
+          if (result && result.failures.length > 0) {
+            return `Created ${result.successful} group${result.successful === 1 ? "" : "s"} with some failures`
+          }
+          return "Groups created successfully"
+        },
+        error: (err: Error) => err.message,
+      })
     },
   })
 
@@ -217,57 +272,6 @@ export function GroupDialog({
     resetFields()
     setResultSummary(null)
   }, [open, resetFields])
-
-  const mutation = useMutation({
-    mutationFn: async (
-      values: Array<CreateGroupInput> | z.infer<typeof groupSchema>
-    ) => {
-      if (isEdit) {
-        const parsed = values as z.infer<typeof groupSchema>
-        await updateGroup(group.id, {
-          name: parsed.name,
-          description: normalizeDescription(parsed.description ?? ""),
-        })
-        return null
-      }
-
-      return createGroup(values as Array<CreateGroupInput>)
-    },
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ["principals"] })
-
-      if (isEdit) {
-        resetFields()
-        toast.success("Group updated")
-        onOpenChange(false)
-        return
-      }
-
-      if (result === null) {
-        return
-      }
-
-      if (result.failures.length === 0) {
-        resetFields()
-        toast.success(
-          `Successfully created ${result.successful} group${result.successful === 1 ? "" : "s"}`
-        )
-        onOpenChange(false)
-        return
-      }
-
-      if (result.successful > 0) {
-        toast.success(
-          `Successfully created ${result.successful} group${result.successful === 1 ? "" : "s"}`
-        )
-      }
-
-      setResultSummary(result)
-    },
-    onError: (err) => {
-      toast.error(err.message)
-    },
-  })
 
   return (
     <AppDialog

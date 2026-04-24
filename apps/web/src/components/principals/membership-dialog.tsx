@@ -79,7 +79,6 @@ function MembershipEditor({
   const queryClient = useQueryClient()
   const anchor = useComboboxAnchor()
   const [localValue, setLocalValue] = React.useState<Array<string> | null>(null)
-  const [saving, setSaving] = React.useState(false)
 
   // Current memberships
   const membersQuery = useQuery(groupMembersQueryOptions(principal.id))
@@ -101,7 +100,6 @@ function MembershipEditor({
   React.useEffect(() => {
     if (!open) {
       setLocalValue(null)
-      setSaving(false)
     }
   }, [open])
 
@@ -168,15 +166,19 @@ function MembershipEditor({
         await removeGroupMember(principal.id, toRemove)
       }
     },
-    onMutate: () => setSaving(true),
-    onSettled: () => setSaving(false),
     onSuccess: () => {
-      toast.success("Memberships updated")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
-      onOpenChange(false)
     },
-    onError: (err) => toast.error(err.message),
   })
+
+  const handleSave = () => {
+    onOpenChange(false)
+    toast.promise(saveMutation.mutateAsync(), {
+      loading: "Updating memberships...",
+      success: "Memberships updated",
+      error: (err: Error) => err.message,
+    })
+  }
 
   return (
     <>
@@ -220,10 +222,10 @@ function MembershipEditor({
       </Combobox>
       <DialogFooter>
         <AppDialogPrimaryButton
-          onClick={() => saveMutation.mutate()}
-          disabled={!hasChanges || saving}
+          onClick={handleSave}
+          disabled={!hasChanges || saveMutation.isPending}
         >
-          {saving ? "Saving..." : "Save"}
+          {saveMutation.isPending ? "Saving..." : "Save"}
         </AppDialogPrimaryButton>
       </DialogFooter>
     </>

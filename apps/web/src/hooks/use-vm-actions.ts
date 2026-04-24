@@ -9,6 +9,7 @@ import {
   inventoryTreeQueryOptions,
   renameVM,
   rollbackSnapshot,
+  seedInventoryItemCache,
   submitInventoryPowerRequest,
   submitInventorySnapshotCreateRequest,
   submitInventorySnapshotRollbackRequest,
@@ -148,8 +149,18 @@ export function useUpdateVMHardware(itemId: string) {
 }
 
 export function useCloneVM() {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
   return useMutation({
     mutationFn: cloneVM,
+    onSuccess: (result) => {
+      seedInventoryItemCache(queryClient, result.item_id, result.item)
+      navigate({
+        to: "/inventory/items/$itemId",
+        params: { itemId: result.item_id },
+      })
+    },
   })
 }
 

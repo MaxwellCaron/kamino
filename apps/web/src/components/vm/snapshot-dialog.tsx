@@ -75,23 +75,21 @@ function DirectSnapshotDialog({
     },
     onSubmit: ({ value }) => {
       const parsed = directSnapshotSchema.parse(value)
-      const promise = create.mutateAsync({
-        itemId,
-        snapname: parsed.snapname,
-        description: parsed.description || undefined,
-        vmstate: parsed.vmstate,
-      })
+      onOpenChange(false)
 
-      toast.promise(promise, {
-        loading: `Creating snapshot "${parsed.snapname}"…`,
-        success: `Snapshot "${parsed.snapname}" created`,
-        error: (err: Error) => err.message,
-      })
-
-      return promise.then(() => {
-        onOpenChange(false)
-        form.reset()
-      })
+      toast.promise(
+        create.mutateAsync({
+          itemId,
+          snapname: parsed.snapname,
+          description: parsed.description || undefined,
+          vmstate: parsed.vmstate,
+        }),
+        {
+          loading: `Creating snapshot "${parsed.snapname}"…`,
+          success: `Snapshot "${parsed.snapname}" created`,
+          error: (err: Error) => err.message,
+        }
+      )
     },
   })
 
@@ -229,24 +227,22 @@ function RequestSnapshotDialog({
     },
     onSubmit: ({ value }) => {
       const parsed = createSnapshotRequestSchema.parse(value)
-      const promise = submitCreateRequest.mutateAsync({
-        itemId,
-        snapname: parsed.snapname,
-      })
+      onOpenChange(false)
 
-      toast.promise(promise, {
-        loading: `Submitting snapshot request for "${parsed.snapname}"…`,
-        success: (request) => {
-          const name = request.inventory?.snapshot_name || parsed.snapname
-          return `Snapshot request "${name}" submitted`
-        },
-        error: (err: Error) => err.message,
-      })
-
-      return promise.then(() => {
-        onOpenChange(false)
-        form.reset()
-      })
+      toast.promise(
+        submitCreateRequest.mutateAsync({
+          itemId,
+          snapname: parsed.snapname,
+        }),
+        {
+          loading: `Submitting snapshot request for "${parsed.snapname}"…`,
+          success: (request) => {
+            const name = request.inventory?.snapshot_name || parsed.snapname
+            return `Snapshot request "${name}" submitted`
+          },
+          error: (err: Error) => err.message,
+        }
+      )
     },
   })
 
