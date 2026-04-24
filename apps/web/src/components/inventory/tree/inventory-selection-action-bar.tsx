@@ -15,8 +15,8 @@ import {
   ActionBarSelection,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import { useInventoryDialogs } from "../inventory-dialogs-provider"
+import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import { useInventoryTreeContext } from "./inventory-tree"
 import type {
   ConfirmDialogControls,

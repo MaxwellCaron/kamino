@@ -28,9 +28,9 @@ import {
 import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
-import { InventoryDeletionDescription } from "./inventory-deletion-description"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
-import { useInventoryFavorites } from "./tree/inventory-tree"
+import { InventoryDeletionDescription } from "./inventory-deletion-description"
+import { useInventoryFavorites } from "./tree/use-inventory-favorites"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
   ApiBulkVmMutationResponse,
