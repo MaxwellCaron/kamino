@@ -26,6 +26,7 @@ export function BulkCreateResultsSummary({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         title={`${entityLabel[0].toUpperCase()}${entityLabel.slice(1)} Creation Results`}
         description={`Successfully created ${result.successful} of ${result.total} ${entityLabel}s.`}
         variant="child"

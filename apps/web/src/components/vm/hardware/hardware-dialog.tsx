@@ -910,6 +910,7 @@ export function VmHardwareDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         initialFocus={false}
         icon={IconSettings}
         title="Hardware"

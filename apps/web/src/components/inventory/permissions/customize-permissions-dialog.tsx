@@ -88,6 +88,7 @@ export function CustomizePermissionsDialog({
   return (
     <Dialog open={editingPrincipal !== null} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={editingPrincipal !== null}
         icon={IconSettings}
         title="Customize Permissions"
         description={`Update permissions for ${editingPrincipal?.principalName || "this principal"}.`}

@@ -309,6 +309,7 @@ export function InventoryPermissionsDialog(
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         icon={IconLock}
         title="Permissions"
         description={

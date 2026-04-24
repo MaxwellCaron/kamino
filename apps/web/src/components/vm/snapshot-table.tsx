@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   IconCamera,
@@ -80,43 +80,18 @@ export function SnapshotsTable({
   >(null)
   const [requestRollbackOpen, setRequestRollbackOpen] = useState(false)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
-  const requestRollbackResetTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null)
   const filtered =
     snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
 
-  const clearRequestRollbackResetTimeout = () => {
-    if (requestRollbackResetTimeoutRef.current !== null) {
-      clearTimeout(requestRollbackResetTimeoutRef.current)
-      requestRollbackResetTimeoutRef.current = null
-    }
-  }
-
-  const scheduleRequestRollbackReset = () => {
-    clearRequestRollbackResetTimeout()
-    requestRollbackResetTimeoutRef.current = setTimeout(() => {
-      setRequestRollbackSnapshot(null)
-      requestRollbackResetTimeoutRef.current = null
-    }, 100)
-  }
-
   const openRequestRollbackDialog = (snapshotName: string) => {
-    clearRequestRollbackResetTimeout()
     setRequestRollbackSnapshot(snapshotName)
     setRequestRollbackOpen(true)
   }
 
   const closeRequestRollbackDialog = () => {
     setRequestRollbackOpen(false)
-    scheduleRequestRollbackReset()
+    setRequestRollbackSnapshot(null)
   }
-
-  useEffect(() => {
-    return () => {
-      clearRequestRollbackResetTimeout()
-    }
-  }, [])
 
   if (!canViewSnapshots) {
     return null
@@ -320,14 +295,11 @@ export function SnapshotsTable({
             }
 
             closeRequestRollbackDialog()
-            return
           }
-
-          clearRequestRollbackResetTimeout()
-          setRequestRollbackOpen(true)
         }}
       >
         <AppAlertDialogContent
+          open={requestRollbackOpen}
           icon={IconHistory}
           title="Submit Rollback Request"
           description={

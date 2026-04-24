@@ -181,6 +181,7 @@ export function GroupPermissionsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         icon={IconLockAccess}
         title="Management Roles"
         description={`Choose the management role for ${getGroupLabel(group)}.`}

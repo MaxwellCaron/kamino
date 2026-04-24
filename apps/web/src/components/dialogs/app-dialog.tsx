@@ -13,7 +13,31 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
-import type { ComponentProps, ComponentType, ReactNode } from "react"
+import {
+  type ComponentProps,
+  type ComponentType,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react"
+
+function Freeze({
+  freeze,
+  children,
+}: {
+  freeze: boolean
+  children: ReactNode
+}) {
+  const [frozen, setFrozen] = useState(children)
+
+  useEffect(() => {
+    if (!freeze) {
+      setFrozen(children)
+    }
+  }, [children, freeze])
+
+  return <>{freeze ? frozen : children}</>
+}
 
 type AppDialogIcon = ComponentType<{
   className?: string
@@ -67,7 +91,9 @@ export function AppAlertDialogHeader({
 }
 
 type AppAlertDialogContentProps = ComponentProps<typeof AlertDialogContent> &
-  AppAlertDialogHeaderProps
+  AppAlertDialogHeaderProps & {
+    open?: boolean
+  }
 
 export function AppAlertDialogContent({
   children,
@@ -76,18 +102,21 @@ export function AppAlertDialogContent({
   icon,
   title,
   variant = "default",
+  open,
   ...props
 }: AppAlertDialogContentProps) {
   return (
     <AlertDialogContent {...props}>
-      <AppAlertDialogHeader
-        description={description}
-        descriptionProps={descriptionProps}
-        icon={icon}
-        title={title}
-        variant={variant}
-      />
-      {children}
+      <Freeze freeze={open === false}>
+        <AppAlertDialogHeader
+          description={description}
+          descriptionProps={descriptionProps}
+          icon={icon}
+          title={title}
+          variant={variant}
+        />
+        {children}
+      </Freeze>
     </AlertDialogContent>
   )
 }
@@ -130,7 +159,9 @@ export function AppDialogHeader({
 }
 
 type AppDialogContentProps = ComponentProps<typeof DialogContent> &
-  AppDialogHeaderProps
+  AppDialogHeaderProps & {
+    open?: boolean
+  }
 
 export function AppDialogContent({
   children,
@@ -139,18 +170,21 @@ export function AppDialogContent({
   icon,
   title,
   variant = "default",
+  open,
   ...props
 }: AppDialogContentProps) {
   return (
     <DialogContent {...props}>
-      <AppDialogHeader
-        description={description}
-        descriptionProps={descriptionProps}
-        icon={icon}
-        title={title}
-        variant={variant}
-      />
-      {children}
+      <Freeze freeze={open === false}>
+        <AppDialogHeader
+          description={description}
+          descriptionProps={descriptionProps}
+          icon={icon}
+          title={title}
+          variant={variant}
+        />
+        {children}
+      </Freeze>
     </DialogContent>
   )
 }
@@ -177,7 +211,7 @@ export function AppDialog({
         }
       }}
     >
-      <AppDialogContent {...props} />
+      <AppDialogContent open={open} {...props} />
     </Dialog>
   )
 }

@@ -179,18 +179,15 @@ export function ConfirmDialog({
   config: ConfirmConfig | null
   onClose: () => void
 }) {
-  const lastConfig = useRef<ConfirmConfig | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>([])
   const statusItemsRef = useRef<Array<ConfirmStatusItem>>([])
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
-  if (config) lastConfig.current = config
 
-  const display = config ?? lastConfig.current
   const HeaderIcon =
-    display?.icon ??
-    (display?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
+    config?.icon ??
+    (config?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
   const hasStatusItems = statusItems.length > 0
   const allActionsSucceeded =
     hasStatusItems && statusItems.every((item) => item.status === "success")
@@ -256,9 +253,10 @@ export function ConfirmDialog({
       }}
     >
       <AppAlertDialogContent
+        open={config !== null}
         icon={HeaderIcon}
-        title={display?.title ?? ""}
-        description={display?.description ?? null}
+        title={config?.title ?? ""}
+        description={config?.description ?? null}
         descriptionProps={{
           render: <div />,
           className: "space-y-3 text-sm text-muted-foreground",
@@ -270,11 +268,11 @@ export function ConfirmDialog({
             {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}
           </AlertDialogCancel>
           <AlertDialogAction
-            variant={display?.variant ?? "default"}
+            variant={config?.variant ?? "default"}
             disabled={
               isPending ||
               allActionsSucceeded ||
-              display?.actionDisabled === true
+              config?.actionDisabled === true
             }
             onClick={async () => {
               if (!config) return
@@ -302,7 +300,7 @@ export function ConfirmDialog({
               }
             }}
           >
-            {display?.actionLabel}
+            {config?.actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AppAlertDialogContent>

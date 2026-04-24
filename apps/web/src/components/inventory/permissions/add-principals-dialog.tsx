@@ -119,6 +119,7 @@ export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
         <IconPlus />
       </DialogTrigger>
       <AppDialogContent
+        open={props.open}
         icon={IconPlus}
         title="Add Principals"
         description={`Select users or groups to configure permissions for ${props.itemName}.`}

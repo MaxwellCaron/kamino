@@ -96,6 +96,7 @@ export function RequestDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         icon={IconZoom}
         title="Review"
         description="Review the request and determine the outcome."
