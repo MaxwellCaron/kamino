@@ -93,8 +93,6 @@ export function RequestDetailDialog({
         .join(" / ")
     : null
 
-  // isLoading = true
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
@@ -120,12 +118,15 @@ export function RequestDetailDialog({
               </div>
             </div>
           ) : error ? (
-            <Empty className="border bg-background">
+            <Empty className="border border-dashed">
               <EmptyHeader>
-                <EmptyMedia variant="icon">
+                <EmptyMedia
+                  variant="icon"
+                  className="bg-destructive/10 text-destructive"
+                >
                   <IconAlertTriangle />
                 </EmptyMedia>
-                <EmptyTitle>Could Not Load Request</EmptyTitle>
+                <EmptyTitle>Error Loading Request</EmptyTitle>
                 <EmptyDescription>{error.message}</EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -289,11 +290,16 @@ export function RequestDetailDialog({
                 variant="destructive"
                 onClick={onDeny}
                 className="w-[50%]"
+                disabled={isLoading || error !== null}
               >
                 <IconX data-icon="inline-start" />
                 Deny
               </Button>
-              <Button onClick={onApprove} className="w-[50%]">
+              <Button
+                onClick={onApprove}
+                className="w-[50%]"
+                disabled={isLoading || error !== null}
+              >
                 <IconCheck data-icon="inline-start" />
                 Approve
               </Button>
