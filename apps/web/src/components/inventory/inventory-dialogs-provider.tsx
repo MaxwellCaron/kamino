@@ -1,16 +1,14 @@
 import { createContext, useContext, useMemo, useState } from "react"
 import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
-import { ConfirmDialog } from "./inventory-confirm-actions"
 import { RenameDialog } from "./rename-dialog"
 import type { ReactNode } from "react"
-import type { ConfirmConfig } from "./inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { SnapshotDialogMode } from "@/components/vm/snapshot-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { CloneDialog } from "@/components/vm/clone-dialog"
 import { CreateVmDialog } from "@/components/vm/create/create-vm-dialog"
 import { VmHardwareDialog } from "@/components/vm/hardware/hardware-dialog"
-import {
-  SnapshotDialog,
-  type SnapshotDialogMode,
-} from "@/components/vm/snapshot-dialog"
+import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 
 type PermissionsDialogConfig = {
   itemId: string

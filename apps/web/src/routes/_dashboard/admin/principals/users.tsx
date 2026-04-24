@@ -25,8 +25,8 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import type { ApiPrincipal } from "@/lib/queries"
-import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
-import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,

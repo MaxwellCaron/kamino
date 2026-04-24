@@ -1,6 +1,6 @@
 import { Loader } from "@dot-loaders/react"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect, useRef, useState } from "react"
+import { isValidElement, useEffect, useRef, useState } from "react"
 import {
   IconAlertTriangle,
   IconDeviceDesktopX,
@@ -13,6 +13,7 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
+import { cn } from "@workspace/ui/lib/utils"
 import {
   Item,
   ItemContent,
@@ -26,12 +27,15 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { VmIcon } from "@/components/inventory/tree/vm-icon"
+import { getRequestStatusClassName } from "@/components/requests/request-presenters"
 import { vmStatusQueryOptions } from "@/lib/queries"
 
 export type ConfirmStatusItem = {
   id: string
   kind: "folder" | "vm"
-  label: string
+  label: ReactNode
+  description?: ReactNode
+  icon?: ComponentType<{ className?: string }> | ReactNode
   status: "idle" | "pending" | "success" | "error"
   error?: string
   vmid?: number
@@ -43,14 +47,50 @@ export type ConfirmStatusItem = {
 }
 
 function renderStatusIcon(item: ConfirmStatusItem) {
-  if (item.status === "pending") {
-    return (
-      <Loader
-        loader="braille"
-        renderer="svg-grid"
-        rendererOptions={{ shape: "circle", cellSize: 6, gap: 2 }}
-      />
-    )
+  const isPending = item.status === "pending"
+
+  if (item.icon) {
+    const Icon = item.icon
+
+    if (isValidElement(Icon)) {
+      return Icon
+    }
+
+    if (
+      typeof Icon === "function" ||
+      (typeof Icon === "object" && "render" in Icon)
+    ) {
+      let statusClasses = "bg-secondary text-secondary-foreground"
+
+      if (item.status === "success") {
+        statusClasses = getRequestStatusClassName("executed")
+      } else if (item.status === "error") {
+        statusClasses = getRequestStatusClassName("denied")
+      }
+
+      const IconComponent = Icon as ComponentType<{ className?: string }>
+
+      return (
+        <div
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-full border transition-colors",
+            statusClasses
+          )}
+        >
+          {isPending ? (
+            <Loader loader="braille" renderer="svg-grid" />
+          ) : (
+            <IconComponent className="size-5" />
+          )}
+        </div>
+      )
+    }
+
+    return Icon as ReactNode
+  }
+
+  if (isPending) {
+    return <Loader loader="braille" renderer="svg-grid" />
   }
 
   if (item.kind === "folder") {
@@ -114,10 +154,16 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
             >
               {item.label}
             </ItemTitle>
-            {item.error && (
+            {item.error ? (
               <ItemDescription className="text-xs text-destructive">
                 {item.error}
               </ItemDescription>
+            ) : (
+              item.description && (
+                <ItemDescription className="text-xs">
+                  {item.description}
+                </ItemDescription>
+              )
             )}
           </ItemContent>
         </Item>
@@ -218,7 +264,7 @@ export function ConfirmDialog({
           className: "space-y-3 text-sm text-muted-foreground",
         }}
       >
-        {hasStatusItems ? <ConfirmStatusList items={statusItems} /> : null}
+        {hasStatusItems && <ConfirmStatusList items={statusItems} />}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>
             {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}

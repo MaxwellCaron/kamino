@@ -31,7 +31,7 @@ import { Button } from "@workspace/ui/components/button"
 import { InventoryDeletionDescription } from "./inventory-deletion-description"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import { useInventoryFavorites } from "./tree/inventory-tree"
-import type { ConfirmConfig } from "./inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
   ApiBulkVmMutationResponse,
   ApiTreeNode,

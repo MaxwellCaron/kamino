@@ -21,7 +21,7 @@ import { useInventoryTreeContext } from "./inventory-tree"
 import type {
   ConfirmDialogControls,
   ConfirmStatusItem,
-} from "../inventory-confirm-actions"
+} from "@/components/dialogs/confirm-dialog"
 import type { FolderDeletionSummary } from "@/lib/inventory-tree"
 import type { ApiBulkVmMutationResponse, ApiTreeNode } from "@/lib/queries"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"

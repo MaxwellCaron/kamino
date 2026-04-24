@@ -31,18 +31,20 @@ import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
   ApiRequestScope,
   ApiRequestStatus,
   ApiRequestSummary,
+  ApiTreeNode,
 } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   approveRequest,
   canAccessRequestQueue,
   denyRequest,
+  findTreePath,
   hasManagementPermission,
   inventoryTreeQueryOptions,
   requestDetailQueryOptions,
@@ -54,8 +56,10 @@ import { getRequestColumns } from "@/components/requests/requests-columns"
 import {
   STATUS_ICONS,
   formatRequestKind,
+  formatRequestPowerAction,
   formatRequestScope,
   formatRequestStatus,
+  getRequestIcon,
   getRequestStatusClassName,
 } from "@/components/requests/request-presenters"
 import { LoadingTransition } from "@/components/loading-transition"
@@ -69,18 +73,6 @@ export const Route = createFileRoute("/_dashboard/requests")({
   },
   component: RequestsPage,
 })
-
-function getRequestLabel(request: ApiRequestSummary) {
-  const itemName = request.inventory?.item_name
-  const vmid = request.inventory?.vmid
-  const kind = formatRequestKind(request.kind)
-
-  if (vmid && itemName) {
-    return `${formatVmReference(vmid, itemName)} (${kind})`
-  }
-
-  return kind
-}
 
 function RequestsPage() {
   const { user } = Route.useRouteContext()
@@ -171,12 +163,50 @@ function RequestsPage() {
       closeOnSuccess: !isApprove,
       description: `Are you sure you want to ${action} ${requests.length} requests?`,
       statusItems: isApprove
-        ? requests.map((r) => ({
-            id: r.id,
-            kind: "vm",
-            label: getRequestLabel(r),
-            status: "idle",
-          }))
+        ? requests.map((r) => {
+            const powerAction = formatRequestPowerAction(
+              r.inventory?.power_action
+            )
+            const Icon = getRequestIcon(r.kind, r.inventory?.power_action)
+            const tree = treeQuery.data ?? []
+            const path = r.inventory?.item_id
+              ? findTreePath(tree, r.inventory.item_id)
+              : null
+
+            const pathLabel = path
+              ? path
+                  .slice(1, -1)
+                  .map((n: ApiTreeNode) => n.name)
+                  .join(" / ")
+              : null
+
+            return {
+              id: r.id,
+              kind: "vm",
+              icon: Icon,
+              label: (
+                <div className="font-medium">
+                  {powerAction ||
+                    (r.inventory?.snapshot_name ? (
+                      <span>
+                        {formatRequestKind(r.kind)}: {r.inventory.snapshot_name}
+                      </span>
+                    ) : (
+                      formatRequestKind(r.kind)
+                    ))}
+                </div>
+              ),
+              description: (
+                <span className="truncate">
+                  {pathLabel}
+                  {" / "}
+                  {r.inventory?.vmid &&
+                    formatVmReference(r.inventory.vmid, r.inventory.item_name)}
+                </span>
+              ),
+              status: "idle",
+            }
+          })
         : undefined,
       onConfirm: async (controls) => {
         if (!isApprove) {
@@ -224,11 +254,7 @@ function RequestsPage() {
             }
           })
         )
-
-        const finalItems = controls.getStatusItems()
-        if (finalItems.every((i) => i.status === "success")) {
-          clearSelection()
-        }
+        clearSelection()
       },
     })
   }

@@ -33,9 +33,9 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
-import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
-import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { loadingTransition } from "@/components/loading-transition"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
 import {
