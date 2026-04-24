@@ -44,6 +44,7 @@ import {
   useSubmitInventorySnapshotRollbackRequest,
 } from "@/hooks/use-vm-actions"
 import { snapshotsQueryOptions } from "@/lib/queries"
+import { formatVmReference } from "@/lib/utils"
 
 export function SnapshotsTable({
   itemId,
@@ -80,6 +81,7 @@ export function SnapshotsTable({
   >(null)
   const [requestRollbackOpen, setRequestRollbackOpen] = useState(false)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
+  const vmReference = formatVmReference(vmid, vmName)
   const filtered =
     snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
 
@@ -262,7 +264,7 @@ export function SnapshotsTable({
                           <Button
                             variant="ghost"
                             size="icon-xs"
-                            title="Request rollback"
+                            title="Rollback"
                             disabled={submitRollbackRequest.isPending}
                             onClick={() =>
                               openRequestRollbackDialog(snapshot.name)
@@ -301,13 +303,13 @@ export function SnapshotsTable({
         <AppAlertDialogContent
           open={requestRollbackOpen}
           icon={IconHistory}
-          title="Submit Rollback Request"
+          title="Rollback"
           description={
             requestRollbackSnapshot ? (
               <>
-                Submit a rollback request for snapshot{" "}
-                <span className="font-medium">{requestRollbackSnapshot}</span>?
-                A reviewer must approve it before the VM is reverted.
+                Approval required. Rolling back {vmReference} to snapshot{" "}
+                <span className="font-medium">{requestRollbackSnapshot}</span>{" "}
+                will be added to the queue for review.
               </>
             ) : null
           }
@@ -343,9 +345,7 @@ export function SnapshotsTable({
                 }
               }}
             >
-              {submitRollbackRequest.isPending
-                ? "Submitting..."
-                : "Submit Request"}
+              {submitRollbackRequest.isPending ? "Submitting..." : "Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AppAlertDialogContent>

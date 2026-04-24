@@ -257,8 +257,8 @@ function RequestSnapshotDialog({
       onClosed={resetState}
       initialFocus={false}
       icon={IconCamera}
-      title="Create Snapshot Request"
-      description={`Submit a snapshot request for ${vmReference}.`}
+      title="Snapshot"
+      description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
     >
       <form
         onSubmit={(event) => {
@@ -300,7 +300,7 @@ function RequestSnapshotDialog({
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit Request"}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>

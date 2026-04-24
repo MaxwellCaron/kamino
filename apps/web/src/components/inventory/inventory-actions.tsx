@@ -295,14 +295,13 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Start" : "Request Start",
+                  title: powerMode === "direct" ? "Start" : "Start",
                   icon: IconPlayerPlay,
                   description:
                     powerMode === "direct"
                       ? `This will power on ${vmIdentifier}.`
-                      : `Submit a request to power on ${vmIdentifier}. A reviewer must approve it before execution.`,
-                  actionLabel:
-                    powerMode === "direct" ? "Start" : "Submit Request",
+                      : `Approval required. Powering on ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Start" : "Submit",
                   variant: "default",
                   onConfirm: () => {
                     const promise: Promise<unknown> =
@@ -336,21 +335,19 @@ function VmMenuItems({
               }
             >
               <IconPlayerPlay className="text-muted-foreground" />
-              {powerMode === "direct" ? "Start" : "Request Start"}
+              {powerMode === "direct" ? "Start" : "Start"}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title:
-                    powerMode === "direct" ? "Shutdown" : "Request Shutdown",
+                  title: powerMode === "direct" ? "Shutdown" : "Shutdown",
                   icon: IconPower,
                   description:
                     powerMode === "direct"
                       ? `This will send a shutdown signal to ${vmIdentifier}.`
-                      : `Submit a request to shut down ${vmIdentifier}. A reviewer must approve it before execution.`,
-                  actionLabel:
-                    powerMode === "direct" ? "Shutdown" : "Submit Request",
+                      : `Approval required. Shutting down ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Shutdown" : "Submit",
                   variant: "destructive",
                   onConfirm: () => {
                     const promise: Promise<unknown> =
@@ -387,20 +384,19 @@ function VmMenuItems({
               }
             >
               <IconPower className="text-muted-foreground" />
-              {powerMode === "direct" ? "Shutdown" : "Request Shutdown"}
+              {powerMode === "direct" ? "Shutdown" : "Shutdown"}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Reboot" : "Request Reboot",
+                  title: powerMode === "direct" ? "Reboot" : "Reboot",
                   icon: IconRefresh,
                   description:
                     powerMode === "direct"
                       ? `This will send a reboot signal to ${vmIdentifier}.`
-                      : `Submit a request to reboot ${vmIdentifier}. A reviewer must approve it before execution.`,
-                  actionLabel:
-                    powerMode === "direct" ? "Reboot" : "Submit Request",
+                      : `Approval required. Rebooting ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Reboot" : "Submit",
                   variant: "destructive",
                   onConfirm: () => {
                     const promise: Promise<unknown> =
@@ -437,20 +433,19 @@ function VmMenuItems({
               }
             >
               <IconRefresh className="text-muted-foreground" />
-              {powerMode === "direct" ? "Reboot" : "Request Reboot"}
+              {powerMode === "direct" ? "Reboot" : "Reboot"}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Stop" : "Request Stop",
+                  title: powerMode === "direct" ? "Stop" : "Stop",
                   icon: IconPlayerStop,
                   description:
                     powerMode === "direct"
                       ? `This will immediately stop ${vmIdentifier}.`
-                      : `Submit a request to stop ${vmIdentifier}. A reviewer must approve it before execution.`,
-                  actionLabel:
-                    powerMode === "direct" ? "Stop" : "Submit Request",
+                      : `Approval required. Stopping ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Stop" : "Submit",
                   variant: "destructive",
                   onConfirm: () => {
                     const promise: Promise<unknown> =
@@ -484,7 +479,7 @@ function VmMenuItems({
               }
             >
               <IconPlayerStop className="text-muted-foreground" />
-              {powerMode === "direct" ? "Stop" : "Request Stop"}
+              {powerMode === "direct" ? "Stop" : "Stop"}
             </DropdownMenuItem>
           </DropdownMenuGroup>
           {hasTrailingItems && <DropdownMenuSeparator />}
@@ -512,9 +507,7 @@ function VmMenuItems({
                 disabled={isLoading}
               >
                 <IconCamera className="text-muted-foreground" />
-                {snapshotMode === "direct"
-                  ? "Snapshot"
-                  : "Create Snapshot Request"}
+                {snapshotMode === "direct" ? "Snapshot" : "Snapshot"}
               </DropdownMenuItem>
             )}
             {canTemplate && (

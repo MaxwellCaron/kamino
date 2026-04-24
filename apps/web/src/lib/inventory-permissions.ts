@@ -171,7 +171,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.deleteVm,
     label: "Delete VM",
     description:
-      "Delete VMs or templates. This action is never requestable and always requires explicit Allow.",
+      "Delete VMs or templates. This action always requires explicit Allow.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -194,7 +194,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.powerVm,
     label: "Power VM",
     description:
-      "Start, stop, reboot, and shut down VMs. Allow runs immediately, Inherit requires a request by default, and Deny hides and blocks it.",
+      "Start, stop, reboot, and shut down VMs. Allow runs immediately, Inherit requires approval, and Deny hides and blocks it.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -228,7 +228,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.viewSnapshots,
     label: "View Snapshots",
     description:
-      "Browse existing VM snapshots and inspect rollback targets. This permission never creates request-queue actions by itself.",
+      "Browse existing VM snapshots and inspect rollback targets. This permission never requires approval by itself.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -240,7 +240,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     key: InventoryPermissionKeys.snapshotVm,
     label: "Snapshot VM",
     description:
-      "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete always requires explicit Allow.",
+      "Create, roll back, and delete snapshots. Allow executes directly, inherit requires approval for create and rollback, and delete always requires explicit Allow.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
