@@ -97,8 +97,9 @@ export function RenameDialog(props: RenameDialogProps) {
 
   const form = useForm({
     defaultValues: { name: currentName },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = ui.schema.parse(value.name)
+      props.onOpenChange(false)
 
       if (props.mode === "create-folder") {
         toast.promise(
@@ -119,22 +120,17 @@ export function RenameDialog(props: RenameDialogProps) {
           }
         )
       } else {
-        try {
-          await renameVm.mutateAsync({ itemId: props.itemId, name: parsed })
-          toast.success(
-            props.currentVmid
+        toast.promise(
+          renameVm.mutateAsync({ itemId: props.itemId, name: parsed }),
+          {
+            loading: `Renaming ${props.currentVmid ? `VM ${props.currentVmid}` : "VM"} to "${parsed}"...`,
+            success: props.currentVmid
               ? `VM ${props.currentVmid} renamed to "${parsed}"`
-              : `VM renamed to "${parsed}"`
-          )
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : "Failed to rename VM"
-          )
-          return
-        }
+              : `VM renamed to "${parsed}"`,
+            error: (error: Error) => error.message,
+          }
+        )
       }
-
-      props.onOpenChange(false)
     },
   })
 
@@ -188,7 +184,7 @@ export function RenameDialog(props: RenameDialogProps) {
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton type="submit" disabled={isSubmitting}>
+              <AppDialogPrimaryButton disabled={isSubmitting}>
                 {isSubmitting ? ui.pendingLabel : ui.submitLabel}
               </AppDialogPrimaryButton>
             )}

@@ -12,6 +12,7 @@ export const InventoryPermissionKeys = {
   powerVm: "powerVm",
   renameFolder: "renameFolder",
   renameVm: "renameVm",
+  viewSnapshots: "viewSnapshots",
   snapshotVm: "snapshotVm",
   templateVm: "templateVm",
   view: "view",
@@ -59,6 +60,7 @@ export const InventoryPermissionBits: Record<InventoryPermissionKey, number> = {
   [InventoryPermissionKeys.templateVm]: 1 << 13,
   [InventoryPermissionKeys.managePermissions]: 1 << 14,
   [InventoryPermissionKeys.editVmHardware]: 1 << 15,
+  [InventoryPermissionKeys.viewSnapshots]: 1 << 16,
 }
 
 const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
@@ -168,7 +170,8 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     bit: InventoryPermissionBits.deleteVm,
     key: InventoryPermissionKeys.deleteVm,
     label: "Delete VM",
-    description: "Delete VMs or templates covered by this rule.",
+    description:
+      "Delete VMs or templates. This action always requires explicit Allow.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -190,7 +193,8 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     bit: InventoryPermissionBits.powerVm,
     key: InventoryPermissionKeys.powerVm,
     label: "Power VM",
-    description: "Start, stop, reboot, and shut down VMs covered by this rule.",
+    description:
+      "Start, stop, reboot, and shut down VMs. Allow runs immediately, Inherit requires approval, and Deny hides and blocks it.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
@@ -220,15 +224,27 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
   },
   {
     appliesToKinds: ["folder", "vm"],
-    bit: InventoryPermissionBits.snapshotVm,
-    key: InventoryPermissionKeys.snapshotVm,
-    label: "Snapshot VM",
+    bit: InventoryPermissionBits.viewSnapshots,
+    key: InventoryPermissionKeys.viewSnapshots,
+    label: "View Snapshots",
     description:
-      "Create, delete, and roll back snapshots for VMs covered by this rule.",
+      "Browse existing VM snapshots and inspect rollback targets. This permission never requires approval by itself.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
     order: 7,
+  },
+  {
+    appliesToKinds: ["folder", "vm"],
+    bit: InventoryPermissionBits.snapshotVm,
+    key: InventoryPermissionKeys.snapshotVm,
+    label: "Snapshot VM",
+    description:
+      "Create, roll back, and delete snapshots. Allow executes directly, inherit requires approval for create and rollback, and delete always requires explicit Allow.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 8,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -239,7 +255,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 8,
+    order: 9,
   },
 ]
 
@@ -301,4 +317,12 @@ export function hasInventoryPermission(
 ) {
   if (!permissions) return false
   return (permissions.allowed_mask & required) === required
+}
+
+export function canRequestInventoryPermission(
+  permissions: { request_mask: number } | undefined,
+  required: number
+) {
+  if (!permissions) return false
+  return (permissions.request_mask & required) === required
 }

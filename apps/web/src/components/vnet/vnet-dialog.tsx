@@ -64,9 +64,7 @@ export function VNetDialog({
       }
     },
     onSuccess: () => {
-      toast.success(isEdit ? "VNet updated" : "VNet created")
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
-      onOpenChange(false)
       form.reset()
     },
     onError: (err) => {
@@ -81,9 +79,14 @@ export function VNetDialog({
       tag: vnet?.tag?.toString() ?? "",
       alias: vnet?.alias ?? "",
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = vnetSchema.parse(value)
-      await mutation.mutateAsync(parsed)
+      onOpenChange(false)
+      toast.promise(mutation.mutateAsync(parsed), {
+        loading: isEdit ? "Updating VNet..." : "Creating VNet...",
+        success: isEdit ? "VNet updated" : "VNet created",
+        error: (err: Error) => err.message,
+      })
     },
   })
 

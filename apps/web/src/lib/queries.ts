@@ -4,6 +4,8 @@ import type {
 } from "@/lib/management-permissions"
 import {
   ManagementPermissionKeys,
+  canAccessAdmin,
+  canAccessRequestQueue,
   expandManagementPermissionGrants,
   hasManagementPermission,
   normalizeManagementPermissionGrants,
@@ -14,6 +16,8 @@ import {
 } from "@/lib/inventory-permissions"
 
 export {
+  canAccessAdmin,
+  canAccessRequestQueue,
   InventoryPermissionBits,
   ManagementPermissionKeys,
   expandManagementPermissionGrants,
@@ -34,6 +38,7 @@ let currentSession: AuthSession | null = null
 let refreshPromise: Promise<AuthSession> | null = null
 let bootstrapPromise: Promise<AuthSession> | null = null
 let refreshTimer: number | null = null
+let authFailure: AuthenticationError | null = null
 
 class AuthenticationError extends Error {}
 
@@ -50,6 +55,59 @@ export type AuthUser = {
 export type AuthSession = {
   user: AuthUser
   access_token_expires_at: string
+}
+
+export type ApiRequestScope = "pending" | "completed"
+
+export type ApiRequestStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "executed"
+  | "execution_failed"
+
+export type ApiRequestInventoryPayload = {
+  item_id?: string | null
+  item_name?: string | null
+  item_kind?: "folder" | "vm" | null
+  item_parent_id?: string | null
+  vm_node?: string | null
+  vmid?: number | null
+  is_template?: boolean | null
+  power_action?: string | null
+  snapshot_name?: string | null
+}
+
+export type ApiRequestSummary = {
+  id: string
+  family: string
+  kind: string
+  status: ApiRequestStatus
+  requester_principal_id: string
+  requester_username: string
+  reviewer_principal_id?: string | null
+  reviewer_username?: string | null
+  reviewed_at?: string | null
+  executed_at?: string | null
+  execution_error?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  inventory?: ApiRequestInventoryPayload | null
+}
+
+export type ApiRequestEvent = {
+  id: number
+  event_kind: string
+  actor_principal_id?: string | null
+  actor_username?: string | null
+  from_status?: string | null
+  to_status: string
+  error_message?: string | null
+  created_at?: string | null
+}
+
+export type ApiRequestDetail = ApiRequestSummary & {
+  events: Array<ApiRequestEvent>
 }
 
 function clearRefreshTimer() {
@@ -76,15 +134,26 @@ function scheduleRefresh(expiresAt: string) {
 
 function applyAuthSession(session: AuthSession): AuthSession {
   currentSession = session
+  authFailure = null
   scheduleRefresh(session.access_token_expires_at)
   return session
 }
 
-function clearAuthState() {
+function resetAuthState() {
   currentSession = null
   bootstrapPromise = null
   clearRefreshTimer()
   refreshPromise = null
+}
+
+function clearAuthState() {
+  resetAuthState()
+  authFailure = null
+}
+
+function invalidateAuthState(message = "authentication failed") {
+  resetAuthState()
+  authFailure = new AuthenticationError(message)
 }
 
 function redirectToLogin() {
@@ -109,6 +178,11 @@ export async function apiFetch(
   const isProtectedRequest = retryOn401 && !isAuthEndpoint(input)
 
   if (isProtectedRequest) {
+    if (authFailure) {
+      redirectToLogin()
+      return new Response(null, { status: 401, statusText: "Unauthorized" })
+    }
+
     try {
       if (refreshPromise) {
         await refreshPromise
@@ -140,7 +214,7 @@ export async function apiFetch(
 
   const retried = await fetch(apiUrl(input), requestInit)
   if (retried.status === 401) {
-    clearAuthState()
+    invalidateAuthState("request retry failed")
     redirectToLogin()
   }
 
@@ -154,6 +228,11 @@ async function fetchAuthSession(): Promise<AuthSession> {
 }
 
 export async function ensureAuth(): Promise<AuthSession> {
+  if (authFailure) {
+    redirectToLogin()
+    throw authFailure
+  }
+
   if (isSessionUsable(currentSession)) {
     return currentSession
   }
@@ -223,9 +302,13 @@ export async function refreshAuth(): Promise<AuthSession> {
       credentials: "include",
     })
     if (!res.ok) {
-      clearAuthState()
       if (res.status === 401) {
-        throw new AuthenticationError("refresh failed")
+        try {
+          return await fetchAuthSession()
+        } catch {
+          invalidateAuthState("refresh failed")
+          throw authFailure ?? new AuthenticationError("refresh failed")
+        }
       }
       throw new Error("refresh failed")
     }
@@ -284,6 +367,7 @@ export type ApiGroupManagementAcl = {
 export type ApiTreeNodePermissions = {
   allowed_mask: number
   denied_mask: number
+  request_mask: number
 }
 
 export type ApiTreeNode = {
@@ -590,6 +674,28 @@ export async function vmPowerAction(params: {
   return res.json()
 }
 
+export async function submitInventoryPowerRequest(params: {
+  itemId: string
+  action: "start" | "shutdown" | "reboot" | "stop"
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/power`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: params.action }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit power request: ${res.status}`
+    )
+  }
+
+  return res.json()
+}
+
 export async function deleteVM(params: {
   itemIds: Array<string>
 }): Promise<ApiBulkVmMutationResponse> {
@@ -801,6 +907,28 @@ export async function rollbackSnapshot(params: {
   }
 }
 
+export async function submitInventorySnapshotRollbackRequest(params: {
+  itemId: string
+  snapname: string
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/snapshots/rollback`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ snapname: params.snapname }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit snapshot rollback request: ${res.status}`
+    )
+  }
+
+  return res.json()
+}
+
 export async function deleteSnapshot(params: {
   itemId: string
   snapname: string
@@ -837,6 +965,28 @@ export async function createSnapshot(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to create snapshot: ${res.status}`)
   }
+}
+
+export async function submitInventorySnapshotCreateRequest(params: {
+  itemId: string
+  snapname: string
+}): Promise<ApiRequestDetail> {
+  const res = await apiFetch(
+    `/api/v1/requests/inventory/items/${params.itemId}/vm/snapshots`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ snapname: params.snapname }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to submit snapshot request: ${res.status}`
+    )
+  }
+
+  return res.json()
 }
 
 // --- VM Creation metadata ---
@@ -1115,6 +1265,75 @@ export type ApiBulkCreateResponse = {
   successful: number
   total: number
   failures: Array<ApiBulkCreateFailure>
+}
+
+export function requestsQueryOptions(scope: ApiRequestScope) {
+  return {
+    queryKey: ["requests", scope] as const,
+    queryFn: async (): Promise<Array<ApiRequestSummary>> => {
+      const res = await apiFetch(`/api/v1/requests?scope=${scope}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
+      }
+      return res.json()
+    },
+  }
+}
+
+export function requestDetailQueryOptions(requestId: string) {
+  return {
+    queryKey: ["requests", requestId] as const,
+    queryFn: async (): Promise<ApiRequestDetail> => {
+      const res = await apiFetch(`/api/v1/requests/${requestId}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch request: ${res.status}`)
+      }
+      return res.json()
+    },
+    enabled: !!requestId,
+  }
+}
+
+export type ApiRequestActionFailure = {
+  id: string
+  error: string
+}
+
+export type ApiRequestActionResponse = {
+  processed: Array<string>
+  failed: Array<ApiRequestActionFailure>
+}
+
+export async function approveRequest(
+  requestIds: Array<string>
+): Promise<ApiRequestActionResponse> {
+  const res = await apiFetch(`/api/v1/requests/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: requestIds }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to approve requests: ${res.status}`)
+  }
+
+  return res.json()
+}
+
+export async function denyRequest(
+  requestIds: Array<string>
+): Promise<ApiRequestActionResponse> {
+  const res = await apiFetch(`/api/v1/requests/deny`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: requestIds }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to deny requests: ${res.status}`)
+  }
+
+  return res.json()
 }
 
 export type CreateUserInput = {

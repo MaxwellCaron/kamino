@@ -7,6 +7,7 @@ import { InventoryTreeProvider } from "@/components/inventory/tree/inventory-tre
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { InventoryEvents } from "@/components/inventory/inventory-events"
 import { VmStatusEvents } from "@/components/vm/vm-status-events"
+import { RequestEvents } from "@/components/requests/request-events"
 import { ensureAuth } from "@/lib/queries"
 
 export const Route = createFileRoute("/_dashboard")({
@@ -38,6 +39,7 @@ function Layout() {
     >
       <InventoryEvents />
       <VmStatusEvents />
+      <RequestEvents />
       <InventoryTreeProvider>
         <InventoryDialogsProvider>
           <AppSidebar user={user} variant="inset" />

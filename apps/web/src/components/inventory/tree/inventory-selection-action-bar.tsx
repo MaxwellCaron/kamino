@@ -15,13 +15,13 @@ import {
   ActionBarSelection,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import { useInventoryDialogs } from "../inventory-dialogs-provider"
+import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import { useInventoryTreeContext } from "./inventory-tree"
 import type {
   ConfirmDialogControls,
   ConfirmStatusItem,
-} from "../inventory-confirm-actions"
+} from "@/components/dialogs/confirm-dialog"
 import type { FolderDeletionSummary } from "@/lib/inventory-tree"
 import type { ApiBulkVmMutationResponse, ApiTreeNode } from "@/lib/queries"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"

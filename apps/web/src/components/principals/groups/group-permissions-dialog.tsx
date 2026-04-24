@@ -4,10 +4,23 @@ import { toast } from "sonner"
 import {
   IconAlertTriangle,
   IconLockAccess,
-  IconSearch,
+  IconShieldCheck,
+  IconUserCog,
 } from "@tabler/icons-react"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
-import { Checkbox } from "@workspace/ui/components/checkbox"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -17,33 +30,22 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldTitle,
-} from "@workspace/ui/components/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@workspace/ui/components/toggle-group"
 import type { ApiPrincipal } from "@/lib/queries"
 import type {
   ApiManagementPermissionDefinition,
   ApiManagementPermissionSection,
   ManagementPermissionKey,
 } from "@/lib/management-permissions"
+import { ManagementPermissionKeys } from "@/lib/management-permissions"
 import {
   AppDialogContent,
-  AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import {
-  expandManagementPermissionGrants,
   groupManagementAclQueryOptions,
-  normalizeManagementPermissionGrants,
   updateGroupManagementAcl,
 } from "@/lib/queries"
 
@@ -51,25 +53,63 @@ function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id
 }
 
-function getAllPermissionKeys(
+function flattenDefinitions(
   sections: Array<ApiManagementPermissionSection>
-): Array<ManagementPermissionKey> {
-  return sections.flatMap((section) =>
-    section.permissions.map((permission) => permission.key)
-  )
+): Array<ApiManagementPermissionDefinition> {
+  return sections.flatMap((section) => section.permissions)
 }
 
-function buildPermissionSearchValues(
-  section: ApiManagementPermissionSection,
-  permission: ApiManagementPermissionDefinition
-) {
+function getRoleDefinitions(
+  sections: Array<ApiManagementPermissionSection>
+): Array<ApiManagementPermissionDefinition> {
+  const byKey = new Map(
+    flattenDefinitions(sections).map((definition) => [
+      definition.key,
+      definition,
+    ])
+  )
+
   return [
-    section.key,
-    section.label,
-    permission.key,
-    permission.label,
-    permission.description,
+    byKey.get(ManagementPermissionKeys.manager) ?? {
+      key: ManagementPermissionKeys.manager,
+      label: "Manager",
+      description: "Can review and determine outcomes of request queue items.",
+      dangerous: false,
+      bootstrap_only: false,
+    },
+    byKey.get(ManagementPermissionKeys.administrator) ?? {
+      key: ManagementPermissionKeys.administrator,
+      label: "Administrator",
+      description:
+        "Full management access, including administration surfaces and management role assignment.",
+      dangerous: true,
+      bootstrap_only: true,
+    },
   ]
+}
+
+function directRoleFromGrants(
+  grants: Array<ManagementPermissionKey>
+): ManagementPermissionKey | "" {
+  if (grants.includes(ManagementPermissionKeys.administrator)) {
+    return ManagementPermissionKeys.administrator
+  }
+  if (grants.includes(ManagementPermissionKeys.manager)) {
+    return ManagementPermissionKeys.manager
+  }
+
+  return ""
+}
+
+function formatRoleLabel(role: ManagementPermissionKey | "") {
+  switch (role) {
+    case ManagementPermissionKeys.administrator:
+      return "Administrator"
+    case ManagementPermissionKeys.manager:
+      return "Manager"
+    default:
+      return "No management role"
+  }
 }
 
 export function GroupPermissionsDialog({
@@ -82,10 +122,9 @@ export function GroupPermissionsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const [draftGrants, setDraftGrants] = React.useState<
-    Array<ManagementPermissionKey>
-  >([])
-  const [permissionSearch, setPermissionSearch] = React.useState("")
+  const [selectedRole, setSelectedRole] = React.useState<
+    ManagementPermissionKey | ""
+  >("")
 
   const accessQuery = useQuery({
     ...groupManagementAclQueryOptions(group.id),
@@ -94,8 +133,7 @@ export function GroupPermissionsDialog({
 
   React.useEffect(() => {
     if (!open) {
-      setDraftGrants([])
-      setPermissionSearch("")
+      setSelectedRole("")
       return
     }
 
@@ -103,15 +141,18 @@ export function GroupPermissionsDialog({
       return
     }
 
-    setDraftGrants(accessQuery.data.grants)
+    setSelectedRole(directRoleFromGrants(accessQuery.data.grants))
   }, [accessQuery.data, open])
 
   const mutation = useMutation({
     mutationFn: async () => {
-      await updateGroupManagementAcl(group.id, draftGrants)
+      await updateGroupManagementAcl(
+        group.id,
+        selectedRole ? [selectedRole] : []
+      )
     },
     onSuccess: () => {
-      toast.success("Group permissions updated")
+      toast.success("Management role updated")
       queryClient.invalidateQueries({
         queryKey: ["principals", "groups", group.id, "management-access"],
       })
@@ -122,210 +163,190 @@ export function GroupPermissionsDialog({
     },
   })
 
-  const allPermissionKeys = React.useMemo(
-    () => getAllPermissionKeys(accessQuery.data?.sections ?? []),
+  const roleDefinitions = React.useMemo(
+    () => getRoleDefinitions(accessQuery.data?.sections ?? []),
     [accessQuery.data?.sections]
   )
-  const effectiveDraftGrants = React.useMemo(
-    () => expandManagementPermissionGrants(draftGrants, allPermissionKeys),
-    [allPermissionKeys, draftGrants]
-  )
-  const effectiveDraftGrantSet = React.useMemo(
-    () => new Set(effectiveDraftGrants),
-    [effectiveDraftGrants]
-  )
-
   const immutable = accessQuery.data?.immutable ?? false
   const canEditBootstrapOnly =
     accessQuery.data?.can_edit_bootstrap_only ?? false
   const controlsDisabled =
     accessQuery.isLoading || accessQuery.isError || mutation.isPending
-
-  const normalizedPermissionSearch = permissionSearch.trim().toLocaleLowerCase()
-  const filteredPermissionSections = React.useMemo(() => {
-    const sections = accessQuery.data?.sections ?? []
-    if (normalizedPermissionSearch === "") {
-      return sections
-    }
-
-    return sections
-      .map((section) => ({
-        ...section,
-        permissions: section.permissions.filter((permission) =>
-          buildPermissionSearchValues(section, permission).some((value) =>
-            value.toLocaleLowerCase().includes(normalizedPermissionSearch)
-          )
-        ),
-      }))
-      .filter((section) => section.permissions.length > 0)
-  }, [accessQuery.data?.sections, normalizedPermissionSearch])
-
-  const filteredPermissionCount = React.useMemo(
-    () =>
-      filteredPermissionSections.reduce(
-        (count, section) => count + section.permissions.length,
-        0
-      ),
-    [filteredPermissionSections]
+  const initialRole = React.useMemo(
+    () => directRoleFromGrants(accessQuery.data?.grants ?? []),
+    [accessQuery.data?.grants]
   )
-  const hasChanges = React.useMemo(() => {
-    const initial = normalizeManagementPermissionGrants(
-      accessQuery.data?.grants ?? []
-    )
-    const current = normalizeManagementPermissionGrants(draftGrants)
-    return initial.join("|") !== current.join("|")
-  }, [accessQuery.data?.grants, draftGrants])
-
-  function setPermissionChecked(
-    permissionKey: ManagementPermissionKey,
-    checked: boolean
-  ) {
-    setDraftGrants((currentGrants) => {
-      if (checked) {
-        return normalizeManagementPermissionGrants([
-          ...currentGrants,
-          permissionKey,
-        ])
-      }
-
-      return normalizeManagementPermissionGrants(
-        currentGrants.filter((grant) => grant !== permissionKey)
-      )
-    })
-  }
+  const hasChanges = initialRole !== selectedRole
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         icon={IconLockAccess}
-        title="Customize Permissions"
-        description={`Update global management permissions for ${getGroupLabel(group)}.`}
+        title="Management Roles"
+        description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
-        <InputGroup>
-          <InputGroupInput
-            placeholder="Search permissions..."
-            value={permissionSearch}
-            onChange={(event) => setPermissionSearch(event.target.value)}
-            aria-label="Search permissions"
-          />
-          <InputGroupAddon>
-            <IconSearch />
-          </InputGroupAddon>
-          <InputGroupAddon align="inline-end">
-            {filteredPermissionCount}{" "}
-            {filteredPermissionCount === 1 ? "result" : "results"}
-          </InputGroupAddon>
-        </InputGroup>
-
-        <AppDialogScrollBody className="-mb-8 px-0">
+        <AppDialogScrollBody className="-mb-6 bg-muted/20 px-6">
           {accessQuery.isLoading ? (
-            <div className="px-4 py-2 text-sm text-muted-foreground">
-              Loading permissions...
+            <div className="py-8 text-sm text-muted-foreground">
+              Loading management roles...
             </div>
           ) : accessQuery.isError ? (
-            <div className="px-4">
-              <Empty className="border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconAlertTriangle />
-                  </EmptyMedia>
-                  <EmptyTitle>Could Not Load Permissions</EmptyTitle>
-                  <EmptyDescription>
-                    {accessQuery.error.message}
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </div>
-          ) : filteredPermissionCount > 0 ? (
-            <div className="flex flex-col gap-6">
-              {filteredPermissionSections.map((section) => (
-                <div key={section.key} className="flex flex-col gap-3 px-4">
-                  <div className="px-1">
-                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      {section.label}
-                    </span>
-                  </div>
-                  <FieldGroup className="gap-3">
-                    {section.permissions.map((permission) => {
-                      const rowDisabled =
-                        immutable ||
-                        controlsDisabled ||
-                        (permission.bootstrap_only && !canEditBootstrapOnly)
-
-                      return (
-                        <FieldLabel
-                          key={permission.key}
-                          htmlFor={`management-permission-${permission.key}`}
-                          className="flex items-center justify-between gap-4"
-                        >
-                          <Field
-                            orientation="horizontal"
-                            data-disabled={rowDisabled || undefined}
-                          >
-                            <FieldContent>
-                              <FieldTitle className="justify-between gap-3">
-                                <span>{permission.label}</span>
-                                <span className="flex items-center gap-2">
-                                  {permission.dangerous && (
-                                    <Badge variant="destructive">
-                                      Dangerous
-                                    </Badge>
-                                  )}
-                                </span>
-                              </FieldTitle>
-                              <FieldDescription>
-                                {permission.description}
-                                {permission.bootstrap_only &&
-                                !canEditBootstrapOnly
-                                  ? " Only the bootstrap admin group can change this permission."
-                                  : ""}
-                              </FieldDescription>
-                            </FieldContent>
-                            <Checkbox
-                              id={`management-permission-${permission.key}`}
-                              checked={effectiveDraftGrantSet.has(
-                                permission.key
-                              )}
-                              disabled={rowDisabled}
-                              onCheckedChange={(checked) =>
-                                setPermissionChecked(
-                                  permission.key,
-                                  checked === true
-                                )
-                              }
-                            />
-                          </Field>
-                        </FieldLabel>
-                      )
-                    })}
-                  </FieldGroup>
-                </div>
-              ))}
-            </div>
+            <Empty className="border bg-background">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconAlertTriangle />
+                </EmptyMedia>
+                <EmptyTitle>Could Not Load Roles</EmptyTitle>
+                <EmptyDescription>{accessQuery.error.message}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <div className="px-4">
-              <Empty className="border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconSearch />
-                  </EmptyMedia>
-                  <EmptyTitle>No Matching Permissions</EmptyTitle>
-                  <EmptyDescription>
-                    No permissions match your search.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+            <div className="flex flex-col gap-5">
+              {immutable ? (
+                <Alert>
+                  <IconShieldCheck />
+                  <AlertTitle>Protected bootstrap group</AlertTitle>
+                  <AlertDescription>
+                    This group stays administrator-owned and cannot be edited
+                    here.
+                  </AlertDescription>
+                </Alert>
+              ) : !canEditBootstrapOnly ? (
+                <Alert>
+                  <IconUserCog />
+                  <AlertTitle>Administrator role is restricted</AlertTitle>
+                  <AlertDescription>
+                    You can assign the manager role here, but administrator
+                    remains reserved for the bootstrap admin group.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="border-dashed">
+                  <CardHeader className="gap-1 pb-3">
+                    <CardDescription>Direct grant</CardDescription>
+                    <CardTitle className="text-base">
+                      {formatRoleLabel(selectedRole)}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 text-sm text-muted-foreground">
+                    Direct grants control what gets written back to the backend.
+                  </CardContent>
+                </Card>
+                <Card className="border-dashed">
+                  <CardHeader className="gap-1 pb-3">
+                    <CardDescription>Effective access</CardDescription>
+                    <CardTitle className="flex flex-wrap gap-2 text-base">
+                      {accessQuery.data?.effective_grants.length ? (
+                        accessQuery.data.effective_grants.map((grant) => (
+                          <Badge key={grant} variant="outline">
+                            {grant}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span>No management access</span>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 text-sm text-muted-foreground">
+                    Administrator implies request queue access automatically.
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="px-1">
+                  <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    Available roles
+                  </span>
+                </div>
+                <ToggleGroup
+                  value={selectedRole ? [selectedRole] : []}
+                  onValueChange={(nextValue) => {
+                    const nextRole = nextValue[0] as
+                      | ManagementPermissionKey
+                      | undefined
+                    setSelectedRole(nextRole ?? "")
+                  }}
+                  orientation="vertical"
+                  spacing={2}
+                  className="w-full"
+                >
+                  {roleDefinitions.map((role) => {
+                    const roleDisabled =
+                      immutable ||
+                      controlsDisabled ||
+                      (role.bootstrap_only && !canEditBootstrapOnly)
+
+                    return (
+                      <ToggleGroupItem
+                        key={role.key}
+                        value={role.key}
+                        disabled={roleDisabled}
+                        variant="outline"
+                        className="h-auto w-full justify-start rounded-3xl border bg-background px-4 py-4 text-left data-[state=on]:border-primary/30 data-[state=on]:bg-muted"
+                      >
+                        <div className="flex w-full flex-col gap-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{role.label}</span>
+                              {role.dangerous ? (
+                                <Badge variant="destructive">Dangerous</Badge>
+                              ) : null}
+                              {role.bootstrap_only ? (
+                                <Badge variant="outline">Reserved</Badge>
+                              ) : null}
+                            </div>
+                            {selectedRole === role.key ? (
+                              <Badge variant="secondary">Selected</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {role.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {role.key === ManagementPermissionKeys.administrator
+                              ? "Access: request queue, all /admin pages, and management role assignment."
+                              : "Access: request queue only. No /admin access and no principal or SDN administration."}
+                          </p>
+                        </div>
+                      </ToggleGroupItem>
+                    )
+                  })}
+                </ToggleGroup>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-3xl border bg-background/90 p-4">
+                <div className="flex flex-col gap-1">
+                  <p className="font-medium">Need to clear access?</p>
+                  <p className="text-sm text-muted-foreground">
+                    Remove both roles and leave the group without management
+                    permissions.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={
+                    controlsDisabled || immutable || selectedRole === ""
+                  }
+                  onClick={() => setSelectedRole("")}
+                >
+                  Clear role
+                </Button>
+              </div>
             </div>
           )}
         </AppDialogScrollBody>
 
-        <DialogFooter>
-          <AppDialogPrimaryButton
-            onClick={() => mutation.mutate()}
+        <DialogFooter showCloseButton>
+          <Button
             disabled={controlsDisabled || immutable || !hasChanges}
+            onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "Saving..." : "Save"}
-          </AppDialogPrimaryButton>
+          </Button>
         </DialogFooter>
       </AppDialogContent>
     </Dialog>

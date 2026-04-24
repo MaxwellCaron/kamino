@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl, ensureAuth, inventoryTreeQueryOptions } from "@/lib/queries"
+import { apiUrl, inventoryTreeQueryOptions } from "@/lib/queries"
 
 type InventoryChangedEvent = {
   type: "inventory.changed"
@@ -13,12 +13,11 @@ export function InventoryEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    let eventSource: EventSource | null = null
-    let cancelled = false
+    const source = new EventSource(apiUrl("/api/v1/inventory/events"), {
+      withCredentials: true,
+    })
 
-    const handleInventoryChanged = (event: Event) => {
-      if (!(event instanceof MessageEvent)) return
-
+    source.addEventListener("inventory.changed", (event) => {
       const payload = JSON.parse(event.data) as InventoryChangedEvent
       if (payload.scope && payload.scope !== "tree") return
 
@@ -40,31 +39,10 @@ export function InventoryEvents() {
       void queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
-    }
-
-    void ensureAuth()
-      .then(() => {
-        if (cancelled) return
-
-        eventSource = new EventSource(apiUrl("/api/v1/inventory/events"), {
-          withCredentials: true,
-        })
-        eventSource.addEventListener(
-          "inventory.changed",
-          handleInventoryChanged
-        )
-      })
-      .catch(() => {
-        // Route auth will handle redirect if the session cannot be refreshed.
-      })
+    })
 
     return () => {
-      cancelled = true
-      eventSource?.removeEventListener(
-        "inventory.changed",
-        handleInventoryChanged
-      )
-      eventSource?.close()
+      source.close()
     }
   }, [queryClient])
 

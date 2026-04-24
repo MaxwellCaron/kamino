@@ -309,6 +309,7 @@ export function InventoryPermissionsDialog(
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         icon={IconLock}
         title="Permissions"
         description={
@@ -321,7 +322,6 @@ export function InventoryPermissionsDialog(
                   )}.`
                 : `Add or remove principals from the ${props.itemKind} "${props.itemName}".`}
             </p>
-            <p>Once added, you can edit their permissions.</p>
           </>
         }
         descriptionProps={{ render: <div /> }}

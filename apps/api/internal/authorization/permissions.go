@@ -17,6 +17,7 @@ const (
 	InventoryPermissionPowerVM           InventoryPermission = "powerVm"
 	InventoryPermissionConsoleVM         InventoryPermission = "consoleVm"
 	InventoryPermissionCloneVM           InventoryPermission = "cloneVm"
+	InventoryPermissionViewSnapshots     InventoryPermission = "viewSnapshots"
 	InventoryPermissionSnapshotVM        InventoryPermission = "snapshotVm"
 	InventoryPermissionTemplateVM        InventoryPermission = "templateVm"
 	InventoryPermissionManagePermissions InventoryPermission = "managePermissions"
@@ -49,6 +50,7 @@ const (
 	TemplateVM
 	ManagePermissions
 	EditVMHardware
+	ViewSnapshots
 )
 
 type InventoryPermissionDefinition struct {
@@ -166,7 +168,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 	{
 		Key:            InventoryPermissionDeleteVM,
 		Label:          "Delete VM",
-		Description:    "Delete VMs or templates covered by this rule.",
+		Description:    "Delete VMs or templates covered by this rule. This action is never requestable and always requires explicit allow.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
@@ -219,13 +221,24 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
 	},
 	{
-		Key:            InventoryPermissionSnapshotVM,
-		Label:          "Snapshot VM",
-		Description:    "Create, delete, and roll back snapshots for VMs covered by this rule.",
+		Key:            InventoryPermissionViewSnapshots,
+		Label:          "View Snapshots",
+		Description:    "Browse existing VM snapshots and inspect rollback targets. This permission never creates request-queue actions by itself.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
 		Order:          7,
+		Bit:            ViewSnapshots,
+		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
+	},
+	{
+		Key:            InventoryPermissionSnapshotVM,
+		Label:          "Snapshot VM",
+		Description:    "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete always requires explicit allow.",
+		SectionKey:     "vm",
+		SectionLabel:   "VM",
+		SectionOrder:   2,
+		Order:          8,
 		Bit:            SnapshotVM,
 		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
 	},
@@ -236,7 +249,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,
-		Order:          8,
+		Order:          9,
 		Bit:            TemplateVM,
 		AppliesToKinds: []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder, InventoryPermissionTargetKindVM},
 	},
@@ -260,10 +273,48 @@ func KnownInventoryPermissionMask() Mask {
 type EffectivePermissions struct {
 	AllowedMask Mask `json:"allowed_mask"`
 	DeniedMask  Mask `json:"denied_mask"`
+	RequestMask Mask `json:"request_mask"`
 }
 
 func (p EffectivePermissions) Has(required Mask) bool {
 	return (p.AllowedMask & required) == required
+}
+
+func (p EffectivePermissions) CanRequest(required Mask) bool {
+	return (p.RequestMask & required) == required
+}
+
+var defaultRequestableInventoryMaskByTargetKind = map[InventoryPermissionTargetKind]Mask{
+	InventoryPermissionTargetKindVM: PowerVM | SnapshotVM,
+}
+
+func EffectivePermissionsForTargetKind(
+	targetKind InventoryPermissionTargetKind,
+	allowedMask Mask,
+	deniedMask Mask,
+) EffectivePermissions {
+	return EffectivePermissions{
+		AllowedMask: allowedMask,
+		DeniedMask:  deniedMask,
+		RequestMask: requestableInventoryMask(targetKind, allowedMask, deniedMask),
+	}
+}
+
+func requestableInventoryMask(
+	targetKind InventoryPermissionTargetKind,
+	allowedMask Mask,
+	deniedMask Mask,
+) Mask {
+	if (allowedMask & View) != View {
+		return 0
+	}
+
+	requestableMask, ok := defaultRequestableInventoryMaskByTargetKind[targetKind]
+	if !ok || requestableMask == 0 {
+		return 0
+	}
+
+	return requestableMask &^ allowedMask &^ deniedMask
 }
 
 type EffectiveManagementPermissions struct {
@@ -283,12 +334,8 @@ func (p EffectiveManagementPermissions) Has(required ManagementPermission) bool 
 type ManagementPermission string
 
 const (
-	ManagementPermissionInfrastructureView   ManagementPermission = "infrastructure.view"
-	ManagementPermissionInfrastructureManage ManagementPermission = "infrastructure.manage"
-	ManagementPermissionPrincipalsView       ManagementPermission = "principals.view"
-	ManagementPermissionPrincipalsManage     ManagementPermission = "principals.manage"
-	ManagementPermissionAccessManage         ManagementPermission = "access.manage"
-	ManagementPermissionAdministrator        ManagementPermission = "administrator"
+	ManagementPermissionAdministrator ManagementPermission = "administrator"
+	ManagementPermissionManager       ManagementPermission = "manager"
 )
 
 type ManagementPermissionDefinition struct {
@@ -306,62 +353,25 @@ type ManagementPermissionDefinition struct {
 
 var managementPermissionDefinitions = []ManagementPermissionDefinition{
 	{
-		Key:          ManagementPermissionInfrastructureView,
-		Label:        "View Infrastructure",
-		Description:  "View infrastructure such as SDN.",
-		SectionKey:   "infrastructure",
-		SectionLabel: "Infrastructure",
-		SectionOrder: 0,
-		Order:        0,
-	},
-	{
-		Key:          ManagementPermissionInfrastructureManage,
-		Label:        "Manage Infrastructure",
-		Description:  "Create, edit, and delete infrastructure resources.",
-		SectionKey:   "infrastructure",
-		SectionLabel: "Infrastructure",
-		SectionOrder: 0,
-		Order:        1,
-		Implies:      []ManagementPermission{ManagementPermissionInfrastructureView},
-	},
-	{
-		Key:          ManagementPermissionPrincipalsView,
-		Label:        "View Principals",
-		Description:  "Read users, groups, and membership data from the principal provider.",
-		SectionKey:   "principals",
-		SectionLabel: "Principals",
-		SectionOrder: 1,
-		Order:        0,
-	},
-	{
-		Key:          ManagementPermissionPrincipalsManage,
-		Label:        "Manage Principals",
-		Description:  "Create, edit, and delete users or groups and manage memberships.",
-		SectionKey:   "principals",
-		SectionLabel: "Principals",
-		SectionOrder: 1,
-		Order:        1,
-		Implies:      []ManagementPermission{ManagementPermissionPrincipalsView},
-	},
-	{
-		Key:          ManagementPermissionAccessManage,
-		Label:        "Manage Permissions",
-		Description:  "Edit a group's management permissions.",
-		SectionKey:   "access",
-		SectionLabel: "Access",
-		SectionOrder: 2,
-		Order:        0,
-	},
-	{
 		Key:           ManagementPermissionAdministrator,
 		Label:         "Administrator",
-		Description:   "Grant every current and future management permission. This is a dangerous permission to grant.",
-		SectionKey:    "advanced",
-		SectionLabel:  "Advanced",
-		SectionOrder:  3,
+		Description:   "Full management access, including administration surfaces and management role assignment.",
+		SectionKey:    "roles",
+		SectionLabel:  "Roles",
+		SectionOrder:  0,
 		Order:         0,
 		Dangerous:     true,
 		BootstrapOnly: true,
+		Implies:       []ManagementPermission{ManagementPermissionManager},
+	},
+	{
+		Key:          ManagementPermissionManager,
+		Label:        "Manager",
+		Description:  "Can review and determine outcomes of request queue items.",
+		SectionKey:   "roles",
+		SectionLabel: "Roles",
+		SectionOrder: 0,
+		Order:        1,
 	},
 }
 
@@ -399,20 +409,6 @@ func NormalizeDirectManagementPermissions(
 		set[definition.Key] = struct{}{}
 	}
 
-	for changed := true; changed; {
-		changed = false
-		for permission := range set {
-			definition := managementPermissionDefinitionsByKey[permission]
-			for _, implied := range definition.Implies {
-				if _, ok := set[implied]; ok {
-					continue
-				}
-				set[implied] = struct{}{}
-				changed = true
-			}
-		}
-	}
-
 	return sortManagementPermissions(set), nil
 }
 
@@ -429,9 +425,17 @@ func ExpandEffectiveManagementPermissions(
 		set[permission] = struct{}{}
 	}
 
-	if _, ok := set[ManagementPermissionAdministrator]; ok {
-		for _, permission := range AllManagementPermissions() {
-			set[permission] = struct{}{}
+	for changed := true; changed; {
+		changed = false
+		for permission := range set {
+			definition := managementPermissionDefinitionsByKey[permission]
+			for _, implied := range definition.Implies {
+				if _, ok := set[implied]; ok {
+					continue
+				}
+				set[implied] = struct{}{}
+				changed = true
+			}
 		}
 	}
 

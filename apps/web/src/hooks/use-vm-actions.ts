@@ -9,6 +9,10 @@ import {
   inventoryTreeQueryOptions,
   renameVM,
   rollbackSnapshot,
+  seedInventoryItemCache,
+  submitInventoryPowerRequest,
+  submitInventorySnapshotCreateRequest,
+  submitInventorySnapshotRollbackRequest,
   updateVMHardware,
   updateVMNotes,
   vmHardwareQueryOptions,
@@ -62,6 +66,17 @@ export function useDeleteVM() {
   })
 }
 
+export function useSubmitInventoryPowerRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventoryPowerRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
+    },
+  })
+}
+
 export function useCreateSnapshot(itemId: string) {
   const queryClient = useQueryClient()
 
@@ -73,6 +88,17 @@ export function useCreateSnapshot(itemId: string) {
       queryClient.invalidateQueries({
         queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
+    },
+  })
+}
+
+export function useSubmitInventorySnapshotCreateRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventorySnapshotCreateRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
 }
@@ -123,8 +149,18 @@ export function useUpdateVMHardware(itemId: string) {
 }
 
 export function useCloneVM() {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
   return useMutation({
     mutationFn: cloneVM,
+    onSuccess: (result) => {
+      seedInventoryItemCache(queryClient, result.item_id, result.item)
+      navigate({
+        to: "/inventory/items/$itemId",
+        params: { itemId: result.item_id },
+      })
+    },
   })
 }
 
@@ -159,6 +195,17 @@ export function useRollbackSnapshot(itemId: string) {
       queryClient.invalidateQueries({
         queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
       })
+    },
+  })
+}
+
+export function useSubmitInventorySnapshotRollbackRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: submitInventorySnapshotRollbackRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
 }

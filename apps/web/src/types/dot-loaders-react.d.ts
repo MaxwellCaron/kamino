@@ -4,17 +4,16 @@ declare module "@dot-loaders/react" {
   export type LoaderProps = ComponentPropsWithoutRef<"span"> & {
     loader: string
     renderer?: "text" | "svg-grid"
+    speed?: number
+    effects?: Array<{
+      name: string
+      config?: Record<string, any>
+    }>
     rendererOptions?: {
       cellSize?: number
       gap?: number
       inactiveOpacity?: number
-      shape?:
-        | "circle"
-        | "square"
-        | "diamond"
-        | "triangle"
-        | "star"
-        | "heart"
+      shape?: "circle" | "square" | "diamond" | "triangle" | "star" | "heart"
     }
   }
 

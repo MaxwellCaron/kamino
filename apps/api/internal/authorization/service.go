@@ -57,13 +57,19 @@ func (s *Service) EffectivePermissions(
 		return EffectivePermissions{}, err
 	}
 	if isAdmin {
-		return EffectivePermissions{
-			AllowedMask: FullAccessMask,
-			DeniedMask:  0,
-		}, nil
+		row, err := database.New(s.db).GetInventoryItemByID(ctx, itemID)
+		if err != nil {
+			return EffectivePermissions{}, err
+		}
+
+		return EffectivePermissionsForTargetKind(
+			targetKindForInventoryItemKind(row.Kind),
+			FullAccessMask,
+			0,
+		), nil
 	}
 
-	row, err := database.New(s.db).GetEffectiveInventoryPermissions(ctx, database.GetEffectiveInventoryPermissionsParams{
+	row, err := database.New(s.db).GetInventoryItemWithPermissions(ctx, database.GetInventoryItemWithPermissionsParams{
 		PrincipalID:     principalID,
 		InventoryItemID: itemID,
 	})
@@ -71,10 +77,11 @@ func (s *Service) EffectivePermissions(
 		return EffectivePermissions{}, err
 	}
 
-	return EffectivePermissions{
-		AllowedMask: Mask(row.AllowedMask),
-		DeniedMask:  Mask(row.DeniedMask),
-	}, nil
+	return EffectivePermissionsForTargetKind(
+		targetKindForInventoryItemKind(row.Kind),
+		Mask(row.AllowedMask),
+		Mask(row.DeniedMask),
+	), nil
 }
 
 func (s *Service) Has(
@@ -129,9 +136,14 @@ func (s *Service) EffectiveManagementPermissions(
 		return EffectiveManagementPermissions{}, err
 	}
 	if isAdmin {
-		return EffectiveManagementPermissions{
-			Grants: AllManagementPermissions(),
-		}, nil
+		grants, err := ExpandEffectiveManagementPermissions([]ManagementPermission{
+			ManagementPermissionAdministrator,
+		})
+		if err != nil {
+			return EffectiveManagementPermissions{}, err
+		}
+
+		return EffectiveManagementPermissions{Grants: grants}, nil
 	}
 
 	keys, err := database.New(s.db).ListEffectiveManagementPermissionKeys(ctx, principalID)
@@ -338,11 +350,16 @@ func (s *Service) GetManagementPermissionsForGroup(
 	}
 
 	if s.IsProtectedManagementGroup(groupID) {
-		fullAccess := AllManagementPermissions()
+		directGrants := []ManagementPermission{ManagementPermissionAdministrator}
+		effectiveGrants, err := ExpandEffectiveManagementPermissions(directGrants)
+		if err != nil {
+			return GroupManagementPermissions{}, err
+		}
+
 		return GroupManagementPermissions{
 			CanEditBootstrapOnly: actorHasProtectedAccess,
-			EffectiveGrants:      fullAccess,
-			Grants:               fullAccess,
+			EffectiveGrants:      effectiveGrants,
+			Grants:               directGrants,
 			Immutable:            true,
 		}, nil
 	}
@@ -396,31 +413,7 @@ func (s *Service) SetManagementPermissionsForGroup(
 	if err != nil {
 		return err
 	}
-
-	currentKeys, err := database.New(s.db).ListManagementPermissionGrantsForGroup(ctx, groupID)
-	if err != nil {
-		return err
-	}
-
-	currentPermissions := make([]ManagementPermission, 0, len(currentKeys))
-	for _, key := range currentKeys {
-		currentPermissions = append(currentPermissions, ManagementPermission(key))
-	}
-
-	currentGrants, err := NormalizeDirectManagementPermissions(currentPermissions)
-	if err != nil {
-		return err
-	}
-
-	currentHasAdministrator := managementPermissionSliceHas(
-		currentGrants,
-		ManagementPermissionAdministrator,
-	)
-	nextHasAdministrator := managementPermissionSliceHas(
-		directGrants,
-		ManagementPermissionAdministrator,
-	)
-	if currentHasAdministrator != nextHasAdministrator && !actorHasProtectedAccess {
+	if !actorHasProtectedAccess {
 		return ErrForbidden
 	}
 
@@ -543,4 +536,12 @@ func managementPermissionSliceHas(
 	}
 
 	return false
+}
+
+func targetKindForInventoryItemKind(kind database.InventoryItemKind) InventoryPermissionTargetKind {
+	if kind == database.InventoryItemKindFolder {
+		return InventoryPermissionTargetKindFolder
+	}
+
+	return InventoryPermissionTargetKindVM
 }

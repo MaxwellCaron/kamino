@@ -321,38 +321,6 @@ export function UserDialog({
     [groupOptions]
   )
 
-  const form = useForm({
-    defaultValues: getDefaultUserFormValues(user),
-    onSubmit: async ({ value }) => {
-      if (isEdit) {
-        const parsed = userSchema.parse(value)
-        await mutation.mutateAsync(parsed)
-        return
-      }
-
-      const payload = buildCreateUsers(mode, value, selectedGroupIds)
-      await mutation.mutateAsync(payload)
-    },
-  })
-
-  const resetFields = React.useCallback(() => {
-    form.reset(getDefaultUserFormValues(user))
-    setMode("single")
-    setSelectedGroupIds([])
-  }, [form, user])
-
-  const resetDialog = React.useCallback(() => {
-    resetFields()
-    setResultSummary(null)
-  }, [resetFields])
-
-  React.useEffect(() => {
-    if (!open) return
-
-    resetFields()
-    setResultSummary(null)
-  }, [open, resetFields])
-
   const mutation = useMutation({
     mutationFn: async (
       values: Array<CreateUserInput> | z.infer<typeof userSchema>
@@ -374,38 +342,74 @@ export function UserDialog({
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["principals"] })
 
-      if (isEdit) {
-        resetFields()
-        toast.success("User updated")
-        onOpenChange(false)
+      if (isEdit || result === null) {
         return
       }
 
-      if (result === null) {
-        return
-      }
-
-      if (result.failures.length === 0) {
-        resetFields()
-        toast.success(
-          `Successfully created ${result.successful} user${result.successful === 1 ? "" : "s"}`
-        )
-        onOpenChange(false)
-        return
-      }
-
-      if (result.successful > 0) {
+      if (result.failures.length > 0) {
+        if (result.successful > 0) {
+          toast.success(
+            `Successfully created ${result.successful} user${result.successful === 1 ? "" : "s"}`
+          )
+        }
+        setResultSummary(result)
+      } else {
         toast.success(
           `Successfully created ${result.successful} user${result.successful === 1 ? "" : "s"}`
         )
       }
-
-      setResultSummary(result)
     },
     onError: (err) => {
       toast.error(err.message)
     },
   })
+
+  const form = useForm({
+    defaultValues: getDefaultUserFormValues(user),
+    onSubmit: ({ value }) => {
+      onOpenChange(false)
+
+      if (isEdit) {
+        const parsed = userSchema.parse(value)
+        toast.promise(mutation.mutateAsync(parsed), {
+          loading: "Updating user...",
+          success: "User updated",
+          error: (err: Error) => err.message,
+        })
+        return
+      }
+
+      const payload = buildCreateUsers(mode, value, selectedGroupIds)
+      toast.promise(mutation.mutateAsync(payload), {
+        loading: "Creating users...",
+        success: (result) => {
+          if (result && result.failures.length > 0) {
+            return `Created ${result.successful} user${result.successful === 1 ? "" : "s"} with some failures`
+          }
+          return "Users created successfully"
+        },
+        error: (err: Error) => err.message,
+      })
+    },
+  })
+
+  const resetFields = React.useCallback(() => {
+    form.reset(getDefaultUserFormValues(user))
+    setMode("single")
+    setSelectedGroupIds([])
+  }, [form, user])
+
+  const resetDialog = React.useCallback(() => {
+    resetFields()
+    setResultSummary(null)
+  }, [resetFields])
+
+  React.useEffect(() => {
+    if (!open) return
+
+    resetFields()
+    setResultSummary(null)
+  }, [open, resetFields])
 
   return (
     <AppDialog
@@ -944,7 +948,7 @@ export function UserDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton type="submit" disabled={isSubmitting}>
+              <AppDialogPrimaryButton disabled={isSubmitting}>
                 {isSubmitting
                   ? isEdit
                     ? "Saving..."

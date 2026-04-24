@@ -4,6 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import {
   IconHome,
   IconNetwork,
+  IconReceipt,
   IconUser,
   IconUsersGroup,
 } from "@tabler/icons-react"
@@ -28,10 +29,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { NavUser } from "./nav-user"
 import type { AuthUser } from "@/lib/queries"
-import {
-  ManagementPermissionKeys,
-  hasManagementPermission,
-} from "@/lib/queries"
+import { canAccessAdmin, canAccessRequestQueue } from "@/lib/queries"
 import {
   InventoryTreeBody,
   InventoryTreeHeader,
@@ -43,25 +41,36 @@ const navItems = [
     description: "Overview of infrastructure, activity, and recent changes.",
     url: "/",
     icon: IconHome,
+    visibility: "all",
+  },
+  {
+    title: "Requests",
+    description:
+      "Review pending and completed user requests for VM power changes or snapshots.",
+    url: "/manager/requests",
+    icon: IconReceipt,
+    visibility: "requests",
   },
   {
     title: "SDN",
     description: "Inspect networks, topology, and software-defined resources.",
-    url: "/management/sdn",
+    url: "/admin/sdn",
     icon: IconNetwork,
+    visibility: "admin",
   },
   {
     title: "Users",
     description: "Browse people, identities, and account-level access details.",
-    url: "/management/principals/users",
+    url: "/admin/principals/users",
     icon: IconUser,
+    visibility: "admin",
   },
   {
     title: "Groups",
-    description:
-      "Manage shared access, memberships, and permission boundaries.",
-    url: "/management/principals/groups",
+    description: "Manage shared access, memberships, and management roles.",
+    url: "/admin/principals/groups",
     icon: IconUsersGroup,
+    visibility: "admin",
   },
 ] as const
 
@@ -105,37 +114,20 @@ export function AppSidebar({
   user: AuthUser
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const canReviewRequests = canAccessRequestQueue(user.management_permissions)
+  const canAdminister = canAccessAdmin(user.management_permissions)
   const visibleNavItems = React.useMemo(
     () =>
       navItems.filter((item) => {
-        if (item.url === "/management/sdn") {
-          return hasManagementPermission(
-            user.management_permissions,
-            ManagementPermissionKeys.infrastructureView
-          )
+        if (item.visibility === "admin") {
+          return canAdminister
         }
-        if (item.url === "/management/principals/users") {
-          return hasManagementPermission(
-            user.management_permissions,
-            ManagementPermissionKeys.principalsView
-          )
+        if (item.visibility === "requests") {
+          return canReviewRequests
         }
-        if (item.url === "/management/principals/groups") {
-          return (
-            hasManagementPermission(
-              user.management_permissions,
-              ManagementPermissionKeys.principalsView
-            ) ||
-            hasManagementPermission(
-              user.management_permissions,
-              ManagementPermissionKeys.accessManage
-            )
-          )
-        }
-
         return true
       }),
-    [user.management_permissions]
+    [canAdminister, canReviewRequests]
   )
 
   return (

@@ -62,7 +62,7 @@ export function useInventoryPermissions({
     defaultValues: {
       principals: createDraftAcl(aclData).principals,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const entries: Array<AclEntry> = []
 
       for (const principal of value.principals) {
@@ -83,17 +83,12 @@ export function useInventoryPermissions({
         }
       }
 
-      try {
-        await updateAcl.mutateAsync({ itemId, entries })
-        toast.success(`Permissions updated for ${itemName}`)
-        onOpenChange(false)
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to update permissions"
-        )
-      }
+      onOpenChange(false)
+      toast.promise(updateAcl.mutateAsync({ itemId, entries }), {
+        loading: `Updating permissions for ${itemName}...`,
+        success: `Permissions updated for ${itemName}`,
+        error: (error: Error) => error.message,
+      })
     },
   })
 

@@ -1,6 +1,6 @@
 import { Loader } from "@dot-loaders/react"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect, useRef, useState } from "react"
+import { isValidElement, useEffect, useRef, useState } from "react"
 import {
   IconAlertTriangle,
   IconDeviceDesktopX,
@@ -13,6 +13,7 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
+import { cn } from "@workspace/ui/lib/utils"
 import {
   Item,
   ItemContent,
@@ -26,12 +27,15 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { VmIcon } from "@/components/inventory/tree/vm-icon"
+import { getRequestStatusClassName } from "@/components/requests/request-presenters"
 import { vmStatusQueryOptions } from "@/lib/queries"
 
 export type ConfirmStatusItem = {
   id: string
   kind: "folder" | "vm"
-  label: string
+  label: ReactNode
+  description?: ReactNode
+  icon?: ComponentType<{ className?: string }> | ReactNode
   status: "idle" | "pending" | "success" | "error"
   error?: string
   vmid?: number
@@ -43,14 +47,50 @@ export type ConfirmStatusItem = {
 }
 
 function renderStatusIcon(item: ConfirmStatusItem) {
-  if (item.status === "pending") {
-    return (
-      <Loader
-        loader="braille"
-        renderer="svg-grid"
-        rendererOptions={{ shape: "circle", cellSize: 6, gap: 2 }}
-      />
-    )
+  const isPending = item.status === "pending"
+
+  if (item.icon) {
+    const Icon = item.icon
+
+    if (isValidElement(Icon)) {
+      return Icon
+    }
+
+    if (
+      typeof Icon === "function" ||
+      (typeof Icon === "object" && "render" in Icon)
+    ) {
+      let statusClasses = "bg-secondary text-secondary-foreground"
+
+      if (item.status === "success") {
+        statusClasses = getRequestStatusClassName("executed")
+      } else if (item.status === "error") {
+        statusClasses = getRequestStatusClassName("denied")
+      }
+
+      const IconComponent = Icon as ComponentType<{ className?: string }>
+
+      return (
+        <div
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-full border transition-colors",
+            statusClasses
+          )}
+        >
+          {isPending ? (
+            <Loader loader="braille" renderer="svg-grid" />
+          ) : (
+            <IconComponent className="size-5" />
+          )}
+        </div>
+      )
+    }
+
+    return Icon as ReactNode
+  }
+
+  if (isPending) {
+    return <Loader loader="braille" renderer="svg-grid" />
   }
 
   if (item.kind === "folder") {
@@ -114,10 +154,16 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
             >
               {item.label}
             </ItemTitle>
-            {item.error && (
+            {item.error ? (
               <ItemDescription className="text-xs text-destructive">
                 {item.error}
               </ItemDescription>
+            ) : (
+              item.description && (
+                <ItemDescription className="text-xs">
+                  {item.description}
+                </ItemDescription>
+              )
             )}
           </ItemContent>
         </Item>
@@ -133,18 +179,15 @@ export function ConfirmDialog({
   config: ConfirmConfig | null
   onClose: () => void
 }) {
-  const lastConfig = useRef<ConfirmConfig | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>([])
   const statusItemsRef = useRef<Array<ConfirmStatusItem>>([])
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
-  if (config) lastConfig.current = config
 
-  const display = config ?? lastConfig.current
   const HeaderIcon =
-    display?.icon ??
-    (display?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
+    config?.icon ??
+    (config?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
   const hasStatusItems = statusItems.length > 0
   const allActionsSucceeded =
     hasStatusItems && statusItems.every((item) => item.status === "success")
@@ -210,31 +253,38 @@ export function ConfirmDialog({
       }}
     >
       <AppAlertDialogContent
+        open={config !== null}
         icon={HeaderIcon}
-        title={display?.title ?? ""}
-        description={display?.description ?? null}
+        title={config?.title ?? ""}
+        description={config?.description ?? null}
         descriptionProps={{
           render: <div />,
           className: "space-y-3 text-sm text-muted-foreground",
         }}
       >
-        {hasStatusItems ? <ConfirmStatusList items={statusItems} /> : null}
+        {hasStatusItems && <ConfirmStatusList items={statusItems} />}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>
             {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}
           </AlertDialogCancel>
           <AlertDialogAction
-            variant={display?.variant ?? "default"}
+            variant={config?.variant ?? "default"}
             disabled={
               isPending ||
               allActionsSucceeded ||
-              display?.actionDisabled === true
+              config?.actionDisabled === true
             }
             onClick={async () => {
               if (!config) return
 
               setHasSubmitted(true)
-              setIsPending(true)
+              const closeOnSuccess = config.closeOnSuccess ?? true
+
+              if (closeOnSuccess) {
+                onClose()
+              } else {
+                setIsPending(true)
+              }
 
               try {
                 await config.onConfirm({
@@ -245,18 +295,16 @@ export function ConfirmDialog({
                     )
                   },
                 })
-
-                if (config.closeOnSuccess ?? true) {
-                  onClose()
-                }
               } catch {
                 // Error feedback is handled by the caller.
               } finally {
-                setIsPending(false)
+                if (!closeOnSuccess) {
+                  setIsPending(false)
+                }
               }
             }}
           >
-            {display?.actionLabel}
+            {config?.actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AppAlertDialogContent>

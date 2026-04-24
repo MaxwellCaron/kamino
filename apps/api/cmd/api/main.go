@@ -16,7 +16,9 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/MaxwellCaron/kamino/internal/routes"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -221,6 +223,8 @@ func main() {
 
 	inventoryNotifier := inventory.NewNotifier(server.DBPool)
 	go inventoryNotifier.Start(context.Background())
+	requestsNotifier := requestqueue.NewNotifier(server.DBPool)
+	go requestsNotifier.Start(context.Background())
 	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient)
 	go vmStatusNotifier.Start(context.Background())
 
@@ -281,12 +285,18 @@ func main() {
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
 	vncHandler.Authz = authzService
+	vmActionExecutor := vmactions.NewExecutor(
+		server.ProxmoxClient,
+		inventoryService,
+		vmStatusNotifier,
+	)
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Notifier: vmStatusNotifier,
 		Authz:    authzService,
+		Actions:  vmActionExecutor,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:       server.ProxmoxClient,
@@ -299,6 +309,15 @@ func main() {
 		Authz: authzService,
 	}
 	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
+	requestService := requestqueue.NewService(
+		server.DBPool,
+		authzService,
+		inventoryService,
+		server.ProxmoxClient,
+		vmActionExecutor,
+		requestsNotifier,
+	)
+	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 
 	var authHandler *handlers.AuthHandler
 	var authService *auth.Service
@@ -329,7 +348,19 @@ func main() {
 	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	// Register all API routes
-	routes.RegisterRoutes(r, authHandler, authService, inventoryHandler, vncHandler, vmHandler, vmCreateHandler, sdnHandler, principalsHandler, authzHandler)
+	routes.RegisterRoutes(
+		r,
+		authHandler,
+		authService,
+		inventoryHandler,
+		vncHandler,
+		vmHandler,
+		vmCreateHandler,
+		sdnHandler,
+		principalsHandler,
+		authzHandler,
+		requestsHandler,
+	)
 
 	r.Run(config.Port)
 }

@@ -549,13 +549,10 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 
 	for _, row := range rows {
 		node := &TreeNode{
-			ID:   row.ID,
-			Name: row.Name,
-			Kind: string(row.Kind),
-			Permissions: PermissionEnvelope{
-				AllowedMask: authorization.Mask(row.AllowedMask),
-				DeniedMask:  authorization.Mask(row.DeniedMask),
-			},
+			ID:          row.ID,
+			Name:        row.Name,
+			Kind:        string(row.Kind),
+			Permissions: inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
 		}
 
 		if row.Node != nil {
@@ -602,10 +599,7 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 		Kind:               string(row.Kind),
 		Name:               row.Name,
 		InheritPermissions: row.InheritPermissions,
-		Permissions: PermissionEnvelope{
-			AllowedMask: authorization.Mask(row.AllowedMask),
-			DeniedMask:  authorization.Mask(row.DeniedMask),
-		},
+		Permissions:        inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
 	}
 
 	if row.Node != nil {
@@ -640,6 +634,25 @@ func toVMDetail(node *string, vmid *int32, isTemplate *bool, notes *string, cpuC
 		vm.IsTemplate = *isTemplate
 	}
 	return vm
+}
+
+func inventoryPermissionEnvelope(
+	kind database.InventoryItemKind,
+	allowedMask int64,
+	deniedMask int64,
+) PermissionEnvelope {
+	targetKind := authorization.InventoryPermissionTargetKindVM
+	if kind == database.InventoryItemKindFolder {
+		targetKind = authorization.InventoryPermissionTargetKindFolder
+	}
+
+	return toPermissionEnvelope(
+		authorization.EffectivePermissionsForTargetKind(
+			targetKind,
+			authorization.Mask(allowedMask),
+			authorization.Mask(deniedMask),
+		),
+	)
 }
 
 func writeInventoryError(c *gin.Context, err error) {

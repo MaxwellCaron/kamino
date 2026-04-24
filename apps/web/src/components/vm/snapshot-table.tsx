@@ -1,10 +1,18 @@
+import { useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   IconCamera,
   IconHistory,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react"
-import { useQuery } from "@tanstack/react-query"
+import { AnimatePresence, motion } from "motion/react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+} from "@workspace/ui/components/alert-dialog"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -16,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Table,
   TableCell,
@@ -24,43 +33,71 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
-import { useRef, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
-import { Skeleton } from "@workspace/ui/components/skeleton"
-import type { ConfirmConfig } from "@/components/inventory/inventory-confirm-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { loadingTransition } from "@/components/loading-transition"
-import { ConfirmDialog } from "@/components/inventory/inventory-confirm-actions"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
+import {
+  useDeleteSnapshot,
+  useRollbackSnapshot,
+  useSubmitInventorySnapshotRollbackRequest,
+} from "@/hooks/use-vm-actions"
 import { snapshotsQueryOptions } from "@/lib/queries"
-import { useDeleteSnapshot, useRollbackSnapshot } from "@/hooks/use-vm-actions"
+import { formatVmReference } from "@/lib/utils"
 
 export function SnapshotsTable({
   itemId,
   vmid,
   vmName,
   isTemplate,
+  canViewSnapshots,
   canManageSnapshots,
+  canRequestSnapshots,
   isLoading: isVmLoading,
 }: {
   itemId: string
   vmid: number | null
   vmName?: string
   isTemplate: boolean
+  canViewSnapshots: boolean
   canManageSnapshots: boolean
+  canRequestSnapshots: boolean
   isLoading?: boolean
 }) {
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     ...snapshotsQueryOptions(itemId),
-    enabled: !!itemId && vmid != null && canManageSnapshots,
+    enabled: !!itemId && vmid != null && canViewSnapshots,
   })
   const isLoading = isVmLoading || isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
   const rollback = useRollbackSnapshot(itemId)
+  const submitRollbackRequest = useSubmitInventorySnapshotRollbackRequest()
   const remove = useDeleteSnapshot(itemId)
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+  const [requestRollbackSnapshot, setRequestRollbackSnapshot] = useState<
+    string | null
+  >(null)
+  const [requestRollbackOpen, setRequestRollbackOpen] = useState(false)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
-  const filtered = snapshots?.filter((s) => s.name !== "current") ?? []
+  const vmReference = formatVmReference(vmid, vmName)
+  const filtered =
+    snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
+
+  const openRequestRollbackDialog = (snapshotName: string) => {
+    setRequestRollbackSnapshot(snapshotName)
+    setRequestRollbackOpen(true)
+  }
+
+  const closeRequestRollbackDialog = () => {
+    setRequestRollbackOpen(false)
+    setRequestRollbackSnapshot(null)
+  }
+
+  if (!canViewSnapshots) {
+    return null
+  }
 
   return (
     <Card>
@@ -69,22 +106,24 @@ export function SnapshotsTable({
           <IconCamera className="size-5 text-muted-foreground" />
           Snapshots
         </CardTitle>
-        <CardDescription>Point in time snapshots of the VM.</CardDescription>
-        <CardAction>
-          <Button
-            disabled={
-              isLoading ||
-              isTemplate ||
-              !canManageSnapshots ||
-              !itemId ||
-              vmid == null
-            }
-            onClick={() => setSnapshotOpen(true)}
-          >
-            <IconPlus />
-            <span className="hidden lg:block">Create</span>
-          </Button>
-        </CardAction>
+        <CardDescription>
+          {canManageSnapshots
+            ? "Point in time snapshots of the VM."
+            : canRequestSnapshots
+              ? "Browse snapshots and submit rollback requests."
+              : "Browse point in time snapshots of the VM."}
+        </CardDescription>
+        {(canManageSnapshots || canRequestSnapshots) && (
+          <CardAction>
+            <Button
+              disabled={isLoading || isTemplate || !itemId || vmid == null}
+              onClick={() => setSnapshotOpen(true)}
+            >
+              <IconPlus />
+              <span className="hidden lg:block">Create</span>
+            </Button>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="border-b px-0">
         <Table className="min-w-180 table-fixed">
@@ -110,8 +149,8 @@ export function SnapshotsTable({
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
               {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
+                Array.from({ length: 3 }).map((_, index) => (
+                  <TableRow key={index}>
                     <TableCell className="pl-6">
                       <Skeleton className="h-4 w-3/4 rounded-md" />
                     </TableCell>
@@ -135,27 +174,25 @@ export function SnapshotsTable({
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center">
-                    {canManageSnapshots
-                      ? "No snapshots found."
-                      : "You do not have access to snapshots for this VM."}
+                    No snapshots found.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((snap) => (
-                  <TableRow key={snap.name}>
+                filtered.map((snapshot) => (
+                  <TableRow key={snapshot.name}>
                     <TableCell className="pl-6 font-medium text-wrap">
-                      {snap.name}
+                      {snapshot.name}
                     </TableCell>
                     <TableCell className="text-wrap text-muted-foreground">
-                      {snap.description || "—"}
+                      {snapshot.description || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {snap.snaptime
-                        ? new Date(snap.snaptime * 1000).toLocaleString()
+                      {snapshot.snaptime
+                        ? new Date(snapshot.snaptime * 1000).toLocaleString()
                         : "—"}
                     </TableCell>
                     <TableCell>
-                      {snap.vmstate ? (
+                      {snapshot.vmstate ? (
                         <Badge variant="secondary">Yes</Badge>
                       ) : (
                         "No"
@@ -163,65 +200,81 @@ export function SnapshotsTable({
                     </TableCell>
                     <TableCell className="pr-6 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          title="Rollback"
-                          disabled={!canManageSnapshots}
-                          onClick={() =>
-                            setConfirm({
-                              title: "Rollback Snapshot",
-                              icon: IconHistory,
-                              description: `Are you sure you want to rollback to snapshot "${snap.name}"? The current VM state will be lost.`,
-                              actionLabel: "Rollback",
-                              onConfirm: () => {
-                                toast.promise(
-                                  rollback.mutateAsync({
-                                    itemId,
-                                    snapname: snap.name,
-                                  }),
-                                  {
-                                    loading: `Rolling back to "${snap.name}"…`,
-                                    success: `Rolled back to "${snap.name}"`,
-                                    error: (err: Error) => err.message,
-                                  }
-                                )
-                              },
-                            })
-                          }
-                        >
-                          <IconHistory className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          title="Delete"
-                          disabled={!canManageSnapshots}
-                          onClick={() =>
-                            setConfirm({
-                              title: "Delete Snapshot",
-                              icon: IconTrash,
-                              description: `Are you sure you want to delete snapshot "${snap.name}"?`,
-                              actionLabel: "Delete",
-                              variant: "destructive",
-                              onConfirm: () => {
-                                toast.promise(
-                                  remove.mutateAsync({
-                                    itemId,
-                                    snapname: snap.name,
-                                  }),
-                                  {
-                                    loading: `Deleting snapshot "${snap.name}"…`,
-                                    success: `Snapshot "${snap.name}" deleted`,
-                                    error: (err: Error) => err.message,
-                                  }
-                                )
-                              },
-                            })
-                          }
-                        >
-                          <IconTrash className="size-4 text-destructive" />
-                        </Button>
+                        {canManageSnapshots ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              title="Rollback"
+                              disabled={!canManageSnapshots}
+                              onClick={() =>
+                                setConfirm({
+                                  title: "Rollback Snapshot",
+                                  icon: IconHistory,
+                                  description: `Are you sure you want to rollback to snapshot "${snapshot.name}"? The current VM state will be lost.`,
+                                  actionLabel: "Rollback",
+                                  onConfirm: () => {
+                                    const promise = rollback.mutateAsync({
+                                      itemId,
+                                      snapname: snapshot.name,
+                                    })
+
+                                    toast.promise(promise, {
+                                      loading: `Rolling back to "${snapshot.name}"…`,
+                                      success: `Rolled back to "${snapshot.name}"`,
+                                      error: (err: Error) => err.message,
+                                    })
+                                  },
+                                })
+                              }
+                            >
+                              <IconHistory className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              title="Delete"
+                              disabled={!canManageSnapshots}
+                              onClick={() =>
+                                setConfirm({
+                                  title: "Delete Snapshot",
+                                  icon: IconTrash,
+                                  description: `Are you sure you want to delete snapshot "${snapshot.name}"?`,
+                                  actionLabel: "Delete",
+                                  variant: "destructive",
+                                  onConfirm: () => {
+                                    const promise = remove.mutateAsync({
+                                      itemId,
+                                      snapname: snapshot.name,
+                                    })
+
+                                    toast.promise(promise, {
+                                      loading: `Deleting snapshot "${snapshot.name}"…`,
+                                      success: `Snapshot "${snapshot.name}" deleted`,
+                                      error: (err: Error) => err.message,
+                                    })
+                                  },
+                                })
+                              }
+                            >
+                              <IconTrash className="size-4 text-destructive" />
+                            </Button>
+                          </>
+                        ) : canRequestSnapshots ? (
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            title="Rollback"
+                            disabled={submitRollbackRequest.isPending}
+                            onClick={() =>
+                              openRequestRollbackDialog(snapshot.name)
+                            }
+                          >
+                            <IconHistory className="size-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -235,15 +288,80 @@ export function SnapshotsTable({
         {filtered.length} result{filtered.length !== 1 && "s"}
       </CardFooter>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      {itemId && vmid != null && (
-        <SnapshotDialog
-          itemId={itemId}
-          vmid={vmid}
-          vmName={vmName}
-          open={snapshotOpen}
-          onOpenChange={setSnapshotOpen}
-        />
-      )}
+      <AlertDialog
+        open={requestRollbackOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            if (submitRollbackRequest.isPending) {
+              return
+            }
+
+            closeRequestRollbackDialog()
+          }
+        }}
+      >
+        <AppAlertDialogContent
+          open={requestRollbackOpen}
+          icon={IconHistory}
+          title="Rollback"
+          description={
+            requestRollbackSnapshot ? (
+              <>
+                Approval required. Rolling back {vmReference} to snapshot{" "}
+                <span className="font-medium">{requestRollbackSnapshot}</span>{" "}
+                will be added to the queue for review.
+              </>
+            ) : null
+          }
+        >
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitRollbackRequest.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                submitRollbackRequest.isPending ||
+                requestRollbackSnapshot === null
+              }
+              onClick={async () => {
+                if (requestRollbackSnapshot === null) return
+
+                const promise = submitRollbackRequest.mutateAsync({
+                  itemId,
+                  snapname: requestRollbackSnapshot,
+                })
+
+                toast.promise(promise, {
+                  loading: `Submitting rollback request for "${requestRollbackSnapshot}"…`,
+                  success: `Rollback request for "${requestRollbackSnapshot}" submitted`,
+                  error: (err: Error) => err.message,
+                })
+
+                try {
+                  await promise
+                  closeRequestRollbackDialog()
+                } catch {
+                  // Error feedback is handled by the mutation toast.
+                }
+              }}
+            >
+              {submitRollbackRequest.isPending ? "Submitting..." : "Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AppAlertDialogContent>
+      </AlertDialog>
+      {(canManageSnapshots || canRequestSnapshots) &&
+        itemId &&
+        vmid != null && (
+          <SnapshotDialog
+            itemId={itemId}
+            vmid={vmid}
+            vmName={vmName}
+            mode={canManageSnapshots ? "direct" : "request"}
+            open={snapshotOpen}
+            onOpenChange={setSnapshotOpen}
+          />
+        )}
     </Card>
   )
 }

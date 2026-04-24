@@ -28,10 +28,10 @@ import {
 import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
-import { InventoryDeletionDescription } from "./inventory-deletion-description"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
-import { useInventoryFavorites } from "./tree/inventory-tree"
-import type { ConfirmConfig } from "./inventory-confirm-actions"
+import { InventoryDeletionDescription } from "./inventory-deletion-description"
+import { useInventoryFavorites } from "./tree/use-inventory-favorites"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
   ApiBulkVmMutationResponse,
   ApiTreeNode,
@@ -40,6 +40,7 @@ import type {
 import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
 import {
   InventoryPermissionBits,
+  canRequestInventoryPermission,
   hasInventoryPermission,
 } from "@/lib/inventory-permissions"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
@@ -48,6 +49,7 @@ import { useDeleteFolder } from "@/hooks/use-inventory-actions"
 import {
   useConvertToTemplate,
   useDeleteVM,
+  useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "@/hooks/use-vm-actions"
 
@@ -81,6 +83,21 @@ function hasAnyPermission(
   return requiredPermissions.some((permission) =>
     hasInventoryPermission(permissions, permission)
   )
+}
+
+function getPermissionMode(
+  permissions: ApiTreeNodePermissions,
+  requiredPermission: number
+): "direct" | "request" | null {
+  if (hasInventoryPermission(permissions, requiredPermission)) {
+    return "direct"
+  }
+
+  if (canRequestInventoryPermission(permissions, requiredPermission)) {
+    return "request"
+  }
+
+  return null
 }
 
 function hasNodeActions(data: ApiTreeNode) {
@@ -219,17 +236,18 @@ function VmMenuItems({
   name?: string
   onAction: (config: ConfirmConfig) => void
   onManagePermissions: () => void
-  onSnapshot: () => void
+  onSnapshot: (mode: "direct" | "request") => void
   onClone: () => void
   onRename: () => void
   onEditHardware: () => void
   isLoading?: boolean
 }) {
   const powerAction = useVmPowerAction()
+  const submitPowerRequest = useSubmitInventoryPowerRequest()
   const deleteVm = useDeleteVM()
   const toTemplate = useConvertToTemplate()
   const vmIdentifier = formatVmReference(vmid, name)
-  const canPower = hasInventoryPermission(
+  const powerMode = getPermissionMode(
     permissions,
     InventoryPermissionBits.powerVm
   )
@@ -241,7 +259,7 @@ function VmMenuItems({
     permissions,
     InventoryPermissionBits.templateVm
   )
-  const canSnapshot = hasInventoryPermission(
+  const snapshotMode = getPermissionMode(
     permissions,
     InventoryPermissionBits.snapshotVm
   )
@@ -263,13 +281,13 @@ function VmMenuItems({
   )
   const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
   const hasActionItems =
-    canToggleFavorite || canClone || canSnapshot || canTemplate
+    canToggleFavorite || canClone || snapshotMode !== null || canTemplate
   const hasEditItems = canRename || canEditHardware || canManagePermissions
   const hasTrailingItems = hasActionItems || hasEditItems || canDelete
 
   return (
     <>
-      {canPower && (
+      {powerMode !== null && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Power</DropdownMenuLabel>
@@ -277,132 +295,191 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Start",
+                  title: powerMode === "direct" ? "Start" : "Start",
                   icon: IconPlayerPlay,
-                  description: `This will power on ${vmIdentifier}.`,
-                  actionLabel: "Start",
+                  description:
+                    powerMode === "direct"
+                      ? `This will power on ${vmIdentifier}.`
+                      : `Approval required. Powering on ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Start" : "Submit",
                   variant: "default",
                   onConfirm: () => {
-                    toast.promise(
-                      powerAction
-                        .mutateAsync({ itemIds: [itemId], action: "start" })
-                        .then((result) =>
-                          assertSingleItemMutationSucceeded(
-                            result,
-                            `Failed to start VM ${vmIdentifier}`
-                          )
-                        ),
-                      {
-                        loading: `Starting VM ${vmIdentifier}…`,
-                        success: `VM ${vmIdentifier} started`,
-                        error: (err: Error) => err.message,
-                      }
-                    )
+                    const promise: Promise<unknown> =
+                      powerMode === "direct"
+                        ? powerAction
+                            .mutateAsync({ itemIds: [itemId], action: "start" })
+                            .then((result) =>
+                              assertSingleItemMutationSucceeded(
+                                result,
+                                `Failed to start VM ${vmIdentifier}`
+                              )
+                            )
+                        : submitPowerRequest.mutateAsync({
+                            itemId,
+                            action: "start",
+                          })
+
+                    toast.promise(promise, {
+                      loading:
+                        powerMode === "direct"
+                          ? `Starting VM ${vmIdentifier}…`
+                          : `Submitting start request for ${vmIdentifier}…`,
+                      success:
+                        powerMode === "direct"
+                          ? `VM ${vmIdentifier} started`
+                          : `Start request for ${vmIdentifier} submitted`,
+                      error: (err: Error) => err.message,
+                    })
                   },
                 })
               }
             >
               <IconPlayerPlay className="text-muted-foreground" />
-              Start
+              {powerMode === "direct" ? "Start" : "Start"}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Shutdown",
+                  title: powerMode === "direct" ? "Shutdown" : "Shutdown",
                   icon: IconPower,
-                  description: `This will send a shutdown signal to ${vmIdentifier}.`,
-                  actionLabel: "Shutdown",
+                  description:
+                    powerMode === "direct"
+                      ? `This will send a shutdown signal to ${vmIdentifier}.`
+                      : `Approval required. Shutting down ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Shutdown" : "Submit",
                   variant: "destructive",
                   onConfirm: () => {
-                    toast.promise(
-                      powerAction
-                        .mutateAsync({
-                          itemIds: [itemId],
-                          action: "shutdown",
-                        })
-                        .then((result) =>
-                          assertSingleItemMutationSucceeded(
-                            result,
-                            `Failed to shut down VM ${vmIdentifier}`
-                          )
-                        ),
-                      {
-                        loading: `Shutting down VM ${vmIdentifier}…`,
-                        success: `VM ${vmIdentifier} shut down`,
-                        error: (err: Error) => err.message,
-                      }
-                    )
+                    const promise: Promise<unknown> =
+                      powerMode === "direct"
+                        ? powerAction
+                            .mutateAsync({
+                              itemIds: [itemId],
+                              action: "shutdown",
+                            })
+                            .then((result) =>
+                              assertSingleItemMutationSucceeded(
+                                result,
+                                `Failed to shut down VM ${vmIdentifier}`
+                              )
+                            )
+                        : submitPowerRequest.mutateAsync({
+                            itemId,
+                            action: "shutdown",
+                          })
+
+                    toast.promise(promise, {
+                      loading:
+                        powerMode === "direct"
+                          ? `Shutting down VM ${vmIdentifier}…`
+                          : `Submitting shutdown request for ${vmIdentifier}…`,
+                      success:
+                        powerMode === "direct"
+                          ? `VM ${vmIdentifier} shut down`
+                          : `Shutdown request for ${vmIdentifier} submitted`,
+                      error: (err: Error) => err.message,
+                    })
                   },
                 })
               }
             >
               <IconPower className="text-muted-foreground" />
-              Shutdown
+              {powerMode === "direct" ? "Shutdown" : "Shutdown"}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Reboot",
+                  title: powerMode === "direct" ? "Reboot" : "Reboot",
                   icon: IconRefresh,
-                  description: `This will send a reboot signal to ${vmIdentifier}.`,
-                  actionLabel: "Reboot",
+                  description:
+                    powerMode === "direct"
+                      ? `This will send a reboot signal to ${vmIdentifier}.`
+                      : `Approval required. Rebooting ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Reboot" : "Submit",
                   variant: "destructive",
                   onConfirm: () => {
-                    toast.promise(
-                      powerAction
-                        .mutateAsync({ itemIds: [itemId], action: "reboot" })
-                        .then((result) =>
-                          assertSingleItemMutationSucceeded(
-                            result,
-                            `Failed to reboot VM ${vmIdentifier}`
-                          )
-                        ),
-                      {
-                        loading: `Rebooting VM ${vmIdentifier}…`,
-                        success: `VM ${vmIdentifier} rebooted`,
-                        error: (err: Error) => err.message,
-                      }
-                    )
+                    const promise: Promise<unknown> =
+                      powerMode === "direct"
+                        ? powerAction
+                            .mutateAsync({
+                              itemIds: [itemId],
+                              action: "reboot",
+                            })
+                            .then((result) =>
+                              assertSingleItemMutationSucceeded(
+                                result,
+                                `Failed to reboot VM ${vmIdentifier}`
+                              )
+                            )
+                        : submitPowerRequest.mutateAsync({
+                            itemId,
+                            action: "reboot",
+                          })
+
+                    toast.promise(promise, {
+                      loading:
+                        powerMode === "direct"
+                          ? `Rebooting VM ${vmIdentifier}…`
+                          : `Submitting reboot request for ${vmIdentifier}…`,
+                      success:
+                        powerMode === "direct"
+                          ? `VM ${vmIdentifier} rebooted`
+                          : `Reboot request for ${vmIdentifier} submitted`,
+                      error: (err: Error) => err.message,
+                    })
                   },
                 })
               }
             >
               <IconRefresh className="text-muted-foreground" />
-              Reboot
+              {powerMode === "direct" ? "Reboot" : "Reboot"}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: "Stop",
+                  title: powerMode === "direct" ? "Stop" : "Stop",
                   icon: IconPlayerStop,
-                  description: `This will immediately stop ${vmIdentifier}.`,
-                  actionLabel: "Stop",
+                  description:
+                    powerMode === "direct"
+                      ? `This will immediately stop ${vmIdentifier}.`
+                      : `Approval required. Stopping ${vmIdentifier} will be added to the queue for review.`,
+                  actionLabel: powerMode === "direct" ? "Stop" : "Submit",
                   variant: "destructive",
                   onConfirm: () => {
-                    toast.promise(
-                      powerAction
-                        .mutateAsync({ itemIds: [itemId], action: "stop" })
-                        .then((result) =>
-                          assertSingleItemMutationSucceeded(
-                            result,
-                            `Failed to stop VM ${vmIdentifier}`
-                          )
-                        ),
-                      {
-                        loading: `Stopping VM ${vmIdentifier}…`,
-                        success: `VM ${vmIdentifier} stopped`,
-                        error: (err: Error) => err.message,
-                      }
-                    )
+                    const promise: Promise<unknown> =
+                      powerMode === "direct"
+                        ? powerAction
+                            .mutateAsync({ itemIds: [itemId], action: "stop" })
+                            .then((result) =>
+                              assertSingleItemMutationSucceeded(
+                                result,
+                                `Failed to stop VM ${vmIdentifier}`
+                              )
+                            )
+                        : submitPowerRequest.mutateAsync({
+                            itemId,
+                            action: "stop",
+                          })
+
+                    toast.promise(promise, {
+                      loading:
+                        powerMode === "direct"
+                          ? `Stopping VM ${vmIdentifier}…`
+                          : `Submitting stop request for ${vmIdentifier}…`,
+                      success:
+                        powerMode === "direct"
+                          ? `VM ${vmIdentifier} stopped`
+                          : `Stop request for ${vmIdentifier} submitted`,
+                      error: (err: Error) => err.message,
+                    })
                   },
                 })
               }
             >
               <IconPlayerStop className="text-muted-foreground" />
-              Stop
+              {powerMode === "direct" ? "Stop" : "Stop"}
             </DropdownMenuItem>
           </DropdownMenuGroup>
           {hasTrailingItems && <DropdownMenuSeparator />}
@@ -424,10 +501,13 @@ function VmMenuItems({
                 Clone
               </DropdownMenuItem>
             )}
-            {canSnapshot && (
-              <DropdownMenuItem onClick={onSnapshot} disabled={isLoading}>
+            {snapshotMode !== null && (
+              <DropdownMenuItem
+                onClick={() => onSnapshot(snapshotMode)}
+                disabled={isLoading}
+              >
                 <IconCamera className="text-muted-foreground" />
-                Snapshot
+                {snapshotMode === "direct" ? "Snapshot" : "Snapshot"}
               </DropdownMenuItem>
             )}
             {canTemplate && (
@@ -509,21 +589,20 @@ function VmMenuItems({
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(
-                  deleteVm
-                    .mutateAsync({ itemIds: [itemId] })
-                    .then((result) =>
-                      assertSingleItemMutationSucceeded(
-                        result,
-                        `Failed to delete VM ${vmIdentifier}`
-                      )
-                    ),
-                  {
-                    loading: `Deleting VM ${vmIdentifier}…`,
-                    success: `VM ${vmIdentifier} deleted`,
-                    error: (err: Error) => err.message,
-                  }
-                )
+                const promise = deleteVm
+                  .mutateAsync({ itemIds: [itemId] })
+                  .then((result) =>
+                    assertSingleItemMutationSucceeded(
+                      result,
+                      `Failed to delete VM ${vmIdentifier}`
+                    )
+                  )
+
+                toast.promise(promise, {
+                  loading: `Deleting VM ${vmIdentifier}…`,
+                  success: `VM ${vmIdentifier} deleted`,
+                  error: (err: Error) => err.message,
+                })
               },
             })
           }
@@ -626,21 +705,20 @@ function TemplateMenuItems({
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
-                toast.promise(
-                  deleteVm
-                    .mutateAsync({ itemIds: [itemId] })
-                    .then((result) =>
-                      assertSingleItemMutationSucceeded(
-                        result,
-                        `Failed to delete template ${vmIdentifier}`
-                      )
-                    ),
-                  {
-                    loading: `Deleting template ${vmIdentifier}…`,
-                    success: `Template ${vmIdentifier} deleted`,
-                    error: (err: Error) => err.message,
-                  }
-                )
+                const promise = deleteVm
+                  .mutateAsync({ itemIds: [itemId] })
+                  .then((result) =>
+                    assertSingleItemMutationSucceeded(
+                      result,
+                      `Failed to delete template ${vmIdentifier}`
+                    )
+                  )
+
+                toast.promise(promise, {
+                  loading: `Deleting template ${vmIdentifier}…`,
+                  success: `Template ${vmIdentifier} deleted`,
+                  error: (err: Error) => err.message,
+                })
               },
             })
           }
@@ -683,7 +761,7 @@ export function MenuItems({
   name?: string
   onAction: (config: ConfirmConfig) => void
   onManagePermissions: () => void
-  onSnapshot: () => void
+  onSnapshot: (mode: "direct" | "request") => void
   onClone: () => void
   onRename: () => void
   onEditHardware: () => void
@@ -852,13 +930,14 @@ export function InventoryNodeMenu({
               itemVmid: data.vm?.vmid,
             })
           }
-          onSnapshot={() => {
-            if (!data.vm?.node) return
+          onSnapshot={(mode) => {
+            if (data.vm?.vmid == null) return
 
             openSnapshot({
               itemId,
               currentName: data.name,
               currentVmid: data.vm.vmid,
+              mode,
             })
           }}
           onClone={() => {
@@ -973,13 +1052,14 @@ export function VmOptionsMenu({
                 itemVmid: vmid,
               })
             }
-            onSnapshot={() => {
-              if (!pveNode || vmid === undefined) return
+            onSnapshot={(mode) => {
+              if (vmid === undefined) return
 
               openSnapshot({
                 itemId,
                 currentName: name,
                 currentVmid: vmid,
+                mode,
               })
             }}
             onClone={() => {

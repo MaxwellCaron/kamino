@@ -165,27 +165,26 @@ function VmHardwareDialogForm({
 
   const form = useForm({
     defaultValues: toFormValues(hardware),
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = vmHardwareFormSchema.parse(value)
       if (parsed.disk_size < minimumDiskSize) {
         toast.error("Shrinking disks is not supported.")
         return
       }
 
-      try {
-        await updateHardware.mutateAsync({
+      onOpenChange(false)
+
+      toast.promise(
+        updateHardware.mutateAsync({
           itemId,
           hardware: parsed,
-        })
-        toast.success(`Hardware updated for "${vmName}"`)
-        onOpenChange(false)
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to update VM hardware"
-        )
-      }
+        }),
+        {
+          loading: `Updating hardware for "${vmName}"...`,
+          success: `Hardware updated for "${vmName}"`,
+          error: (error: Error) => error.message,
+        }
+      )
     },
   })
 
@@ -910,6 +909,7 @@ export function VmHardwareDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
+        open={open}
         initialFocus={false}
         icon={IconSettings}
         title="Hardware"

@@ -18,6 +18,7 @@ func RegisterRoutes(
 	sdn *handlers.SDNHandler,
 	principals *handlers.PrincipalsHandler,
 	authz *handlers.AuthorizationHandler,
+	requests *handlers.RequestsHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -95,6 +96,18 @@ func RegisterRoutes(
 	if authz != nil {
 		protected.GET("/principals/groups/:id/management-access", authz.GetManagementACLForGroup)
 		protected.PUT("/principals/groups/:id/management-access", authz.UpdateManagementACLForGroup)
+	}
+
+	if requests != nil {
+		protected.GET("/requests", requests.List)
+		protected.GET("/requests/events", requests.StreamEvents)
+		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
+		protected.POST("/requests/inventory/items/:id/vm/snapshots", requests.SubmitInventorySnapshotCreate)
+		protected.POST("/requests/inventory/items/:id/vm/snapshots/rollback", requests.SubmitInventorySnapshotRollback)
+		protected.GET("/requests/:id", requests.Get)
+		protected.POST("/requests/approve", requests.Approve)
+		protected.POST("/requests/deny", requests.Deny)
+		protected.POST("/requests/:id/cancel", requests.Cancel)
 	}
 
 	// Principals endpoints (AD users & groups)
