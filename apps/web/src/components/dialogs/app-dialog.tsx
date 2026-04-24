@@ -228,7 +228,8 @@ export function AppDialogScrollBody({
 
 export function AppDialogPrimaryButton({
   className,
+  type = "submit",
   ...props
 }: ComponentProps<typeof Button>) {
-  return <Button className={cn("w-full", className)} {...props} />
+  return <Button className={cn("w-full", className)} type={type} {...props} />
 }

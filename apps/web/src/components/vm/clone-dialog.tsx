@@ -156,7 +156,7 @@ export function CloneDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton type="submit" disabled={isSubmitting}>
+              <AppDialogPrimaryButton disabled={isSubmitting}>
                 {isSubmitting ? "Cloning..." : "Clone"}
               </AppDialogPrimaryButton>
             )}
