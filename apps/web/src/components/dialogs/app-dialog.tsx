@@ -13,13 +13,8 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
-import {
-  type ComponentProps,
-  type ComponentType,
-  type ReactNode,
-  useEffect,
-  useState,
-} from "react"
+import { useEffect, useState } from "react"
+import type { ComponentProps, ComponentType, ReactNode } from "react"
 
 function Freeze({
   freeze,
