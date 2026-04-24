@@ -46,8 +46,8 @@ const navItems = [
   {
     title: "Requests",
     description:
-      "Review pending work, decisions, and recently completed queue items.",
-    url: "/requests",
+      "Review pending and completed user requests for VM power changes or snapshots.",
+    url: "/manager/requests",
     icon: IconReceipt,
     visibility: "requests",
   },

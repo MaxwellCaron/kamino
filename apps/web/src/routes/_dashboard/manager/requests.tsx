@@ -65,7 +65,7 @@ import {
 import { LoadingTransition } from "@/components/loading-transition"
 import { formatVmReference } from "@/lib/utils"
 
-export const Route = createFileRoute("/_dashboard/requests")({
+export const Route = createFileRoute("/_dashboard/manager/requests")({
   beforeLoad: ({ context }) => {
     if (!canAccessRequestQueue(context.user.management_permissions)) {
       throw redirect({ to: "/" })
