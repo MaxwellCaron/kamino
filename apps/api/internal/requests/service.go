@@ -73,6 +73,14 @@ func (s *Service) Subscribe() (<-chan Event, func()) {
 	return s.notifier.Subscribe()
 }
 
+func (s *Service) EnsureQueueAccess(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+) error {
+	_, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	return err
+}
+
 func (s *Service) notify(ctx context.Context, exec database.DBTX, requestID ...*uuid.UUID) {
 	if s.notifier == nil {
 		return

@@ -1,6 +1,5 @@
-import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl } from "@/lib/queries"
+import { useAuthenticatedEventSource } from "@/hooks/use-authenticated-event-source"
 
 export type RequestEvent = {
   type: string
@@ -11,13 +10,10 @@ export type RequestEvent = {
 export function useRequestsStream(enabled = true) {
   const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (!enabled) return
-
-    const url = apiUrl("/api/v1/requests/events")
-    const eventSource = new EventSource(url, { withCredentials: true })
-
-    eventSource.onmessage = (event) => {
+  useAuthenticatedEventSource({
+    path: "/api/v1/requests/events",
+    enabled,
+    onMessage: (event) => {
       try {
         const data: RequestEvent = JSON.parse(event.data)
 
@@ -30,14 +26,6 @@ export function useRequestsStream(enabled = true) {
       } catch (err) {
         console.error("Failed to parse request event:", err)
       }
-    }
-
-    eventSource.onerror = (err) => {
-      console.error("Request stream error:", err)
-    }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [enabled, queryClient])
+    },
+  })
 }

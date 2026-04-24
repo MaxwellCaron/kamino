@@ -135,6 +135,17 @@ func (h *RequestsHandler) List(c *gin.Context) {
 
 // StreamEvents pushes request change events to connected browsers.
 func (h *RequestsHandler) StreamEvents(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	if err := h.Service.EnsureQueueAccess(c.Request.Context(), principalID); err != nil {
+		writeRequestServiceError(c, err, "authorize request event stream")
+		return
+	}
+
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
