@@ -1,3 +1,10 @@
 import { tanstackConfig } from "@tanstack/eslint-config"
 
-export default [...tanstackConfig]
+export default [
+  ...tanstackConfig,
+  {
+    rules: {
+      "sort-imports": "warn",
+    },
+  },
+]

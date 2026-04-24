@@ -8,59 +8,269 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as IndexRouteImport } from "./routes/index"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteImport } from './routes/_dashboard'
+import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
+import { Route as DashboardAdminRouteImport } from './routes/_dashboard/admin'
+import { Route as DashboardAdminIndexRouteImport } from './routes/_dashboard/admin/index'
+import { Route as DashboardManagerRequestsRouteImport } from './routes/_dashboard/manager/requests'
+import { Route as DashboardAdminSdnRouteImport } from './routes/_dashboard/admin/sdn'
+import { Route as DashboardInventoryItemsItemIdRouteImport } from './routes/_dashboard/inventory/items/$itemId'
+import { Route as DashboardAdminPrincipalsUsersRouteImport } from './routes/_dashboard/admin/principals/users'
+import { Route as DashboardAdminPrincipalsGroupsRouteImport } from './routes/_dashboard/admin/principals/groups'
 
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/_dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAdminRoute = DashboardAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAdminIndexRoute = DashboardAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
+const DashboardManagerRequestsRoute =
+  DashboardManagerRequestsRouteImport.update({
+    id: '/manager/requests',
+    path: '/manager/requests',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardAdminSdnRoute = DashboardAdminSdnRouteImport.update({
+  id: '/sdn',
+  path: '/sdn',
+  getParentRoute: () => DashboardAdminRoute,
+} as any)
+const DashboardInventoryItemsItemIdRoute =
+  DashboardInventoryItemsItemIdRouteImport.update({
+    id: '/inventory/items/$itemId',
+    path: '/inventory/items/$itemId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardAdminPrincipalsUsersRoute =
+  DashboardAdminPrincipalsUsersRouteImport.update({
+    id: '/principals/users',
+    path: '/principals/users',
+    getParentRoute: () => DashboardAdminRoute,
+  } as any)
+const DashboardAdminPrincipalsGroupsRoute =
+  DashboardAdminPrincipalsGroupsRouteImport.update({
+    id: '/principals/groups',
+    path: '/principals/groups',
+    getParentRoute: () => DashboardAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
+  '/': typeof DashboardIndexRoute
+  '/login': typeof LoginRoute
+  '/admin': typeof DashboardAdminRouteWithChildren
+  '/admin/sdn': typeof DashboardAdminSdnRoute
+  '/manager/requests': typeof DashboardManagerRequestsRoute
+  '/admin/': typeof DashboardAdminIndexRoute
+  '/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
+  '/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
+  '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/': typeof DashboardIndexRoute
+  '/admin/sdn': typeof DashboardAdminSdnRoute
+  '/manager/requests': typeof DashboardManagerRequestsRoute
+  '/admin': typeof DashboardAdminIndexRoute
+  '/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
+  '/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
+  '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
+  '/_dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_dashboard/admin': typeof DashboardAdminRouteWithChildren
+  '/_dashboard/': typeof DashboardIndexRoute
+  '/_dashboard/admin/sdn': typeof DashboardAdminSdnRoute
+  '/_dashboard/manager/requests': typeof DashboardManagerRequestsRoute
+  '/_dashboard/admin/': typeof DashboardAdminIndexRoute
+  '/_dashboard/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
+  '/_dashboard/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
+  '/_dashboard/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/"
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/admin'
+    | '/admin/sdn'
+    | '/manager/requests'
+    | '/admin/'
+    | '/admin/principals/groups'
+    | '/admin/principals/users'
+    | '/inventory/items/$itemId'
   fileRoutesByTo: FileRoutesByTo
-  to: "/"
-  id: "__root__" | "/"
+  to:
+    | '/login'
+    | '/'
+    | '/admin/sdn'
+    | '/manager/requests'
+    | '/admin'
+    | '/admin/principals/groups'
+    | '/admin/principals/users'
+    | '/inventory/items/$itemId'
+  id:
+    | '__root__'
+    | '/_dashboard'
+    | '/login'
+    | '/_dashboard/admin'
+    | '/_dashboard/'
+    | '/_dashboard/admin/sdn'
+    | '/_dashboard/manager/requests'
+    | '/_dashboard/admin/'
+    | '/_dashboard/admin/principals/groups'
+    | '/_dashboard/admin/principals/users'
+    | '/_dashboard/inventory/items/$itemId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard': {
+      id: '/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard/': {
+      id: '/_dashboard/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/admin': {
+      id: '/_dashboard/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof DashboardAdminRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/admin/': {
+      id: '/_dashboard/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof DashboardAdminIndexRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/_dashboard/manager/requests': {
+      id: '/_dashboard/manager/requests'
+      path: '/manager/requests'
+      fullPath: '/manager/requests'
+      preLoaderRoute: typeof DashboardManagerRequestsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/admin/sdn': {
+      id: '/_dashboard/admin/sdn'
+      path: '/sdn'
+      fullPath: '/admin/sdn'
+      preLoaderRoute: typeof DashboardAdminSdnRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/_dashboard/inventory/items/$itemId': {
+      id: '/_dashboard/inventory/items/$itemId'
+      path: '/inventory/items/$itemId'
+      fullPath: '/inventory/items/$itemId'
+      preLoaderRoute: typeof DashboardInventoryItemsItemIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/admin/principals/users': {
+      id: '/_dashboard/admin/principals/users'
+      path: '/principals/users'
+      fullPath: '/admin/principals/users'
+      preLoaderRoute: typeof DashboardAdminPrincipalsUsersRouteImport
+      parentRoute: typeof DashboardAdminRoute
+    }
+    '/_dashboard/admin/principals/groups': {
+      id: '/_dashboard/admin/principals/groups'
+      path: '/principals/groups'
+      fullPath: '/admin/principals/groups'
+      preLoaderRoute: typeof DashboardAdminPrincipalsGroupsRouteImport
+      parentRoute: typeof DashboardAdminRoute
     }
   }
 }
 
+interface DashboardAdminRouteChildren {
+  DashboardAdminSdnRoute: typeof DashboardAdminSdnRoute
+  DashboardAdminIndexRoute: typeof DashboardAdminIndexRoute
+  DashboardAdminPrincipalsGroupsRoute: typeof DashboardAdminPrincipalsGroupsRoute
+  DashboardAdminPrincipalsUsersRoute: typeof DashboardAdminPrincipalsUsersRoute
+}
+
+const DashboardAdminRouteChildren: DashboardAdminRouteChildren = {
+  DashboardAdminSdnRoute: DashboardAdminSdnRoute,
+  DashboardAdminIndexRoute: DashboardAdminIndexRoute,
+  DashboardAdminPrincipalsGroupsRoute: DashboardAdminPrincipalsGroupsRoute,
+  DashboardAdminPrincipalsUsersRoute: DashboardAdminPrincipalsUsersRoute,
+}
+
+const DashboardAdminRouteWithChildren = DashboardAdminRoute._addFileChildren(
+  DashboardAdminRouteChildren,
+)
+
+interface DashboardRouteChildren {
+  DashboardAdminRoute: typeof DashboardAdminRouteWithChildren
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardManagerRequestsRoute: typeof DashboardManagerRequestsRoute
+  DashboardInventoryItemsItemIdRoute: typeof DashboardInventoryItemsItemIdRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAdminRoute: DashboardAdminRouteWithChildren,
+  DashboardIndexRoute: DashboardIndexRoute,
+  DashboardManagerRequestsRoute: DashboardManagerRequestsRoute,
+  DashboardInventoryItemsItemIdRoute: DashboardInventoryItemsItemIdRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx"
-import type { createStart } from "@tanstack/react-start"
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
