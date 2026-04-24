@@ -1,10 +1,5 @@
 import React from "react"
-import { IconInfoCircle, IconSearch, IconSettings } from "@tabler/icons-react"
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@workspace/ui/components/alert"
+import { IconSearch, IconSettings } from "@tabler/icons-react"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -110,15 +105,6 @@ export function CustomizePermissionsDialog({
             {filteredPermissionCount === 1 ? "result" : "results"}
           </InputGroupAddon>
         </InputGroup>
-        <Alert>
-          <IconInfoCircle />
-          <AlertTitle>Allow, Inherit, Deny</AlertTitle>
-          <AlertDescription>
-            Allow runs immediately. Inherit actions for power changes and
-            snapshots require approval. Delete actions always require explicit
-            Allow. Deny hides and blocks the action.
-          </AlertDescription>
-        </Alert>
         <AppDialogScrollBody className="-mb-8 px-0">
           {editingPrincipal ? (
             filteredPermissionCount > 0 ? (
