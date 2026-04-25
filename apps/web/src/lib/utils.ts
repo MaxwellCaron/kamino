@@ -36,3 +36,7 @@ export function formatVmReference(
 
   return trimmedName ?? "this VM"
 }
+
+export function formatMutationError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
