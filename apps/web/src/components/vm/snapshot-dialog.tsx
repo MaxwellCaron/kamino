@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { useForm } from "@tanstack/react-form"
 import { IconCamera } from "@tabler/icons-react"
 import { z } from "zod"
@@ -23,6 +24,9 @@ import {
   useSubmitInventorySnapshotCreateRequest,
 } from "@/hooks/use-vm-actions"
 import { formatVmReference } from "@/lib/utils"
+
+const generateSnapshotName = () =>
+  `snapshot-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}Z`
 
 const snapshotNameSchema = z
   .string()
@@ -69,7 +73,7 @@ function DirectSnapshotDialog({
 
   const form = useForm({
     defaultValues: {
-      snapname: "",
+      snapname: generateSnapshotName(),
       description: "",
       vmstate: false,
     },
@@ -93,12 +97,17 @@ function DirectSnapshotDialog({
     },
   })
 
+  useEffect(() => {
+    if (open) {
+      form.setFieldValue("snapname", generateSnapshotName())
+    }
+  }, [open, form])
+
   return (
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
-      initialFocus={false}
       icon={IconCamera}
       title="Snapshot"
       description={`Take a point-in-time snapshot for ${formatVmReference(
@@ -223,7 +232,7 @@ function RequestSnapshotDialog({
 
   const form = useForm({
     defaultValues: {
-      snapname: "",
+      snapname: generateSnapshotName(),
     },
     onSubmit: ({ value }) => {
       const parsed = createSnapshotRequestSchema.parse(value)
@@ -246,6 +255,12 @@ function RequestSnapshotDialog({
     },
   })
 
+  useEffect(() => {
+    if (open) {
+      form.setFieldValue("snapname", generateSnapshotName())
+    }
+  }, [open, form])
+
   const resetState = () => {
     form.reset()
   }
@@ -255,7 +270,6 @@ function RequestSnapshotDialog({
       open={open}
       onOpenChange={onOpenChange}
       onClosed={resetState}
-      initialFocus={false}
       icon={IconCamera}
       title="Snapshot"
       description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
