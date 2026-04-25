@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { toast } from "sonner"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
@@ -129,11 +130,10 @@ export function SnapshotsTable({
         <Table className="min-w-180 table-fixed">
           <TableHeader className="bg-muted hover:bg-muted">
             <TableRow>
-              <TableHead className="w-[20%] pl-6">Name</TableHead>
-              <TableHead className="w-[30%]">Description</TableHead>
-              <TableHead className="w-[25%]">Date</TableHead>
-              <TableHead className="w-[10%]">RAM</TableHead>
-              <TableHead className="w-[15%] pr-6 text-right">Actions</TableHead>
+              <TableHead className="w-[40%] pl-4">Snapshot</TableHead>
+              <TableHead className="w-[25%]">Created</TableHead>
+              <TableHead className="w-[10%] text-center">RAM</TableHead>
+              <TableHead className="w-[25%] pr-6 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <AnimatePresence mode="wait">
@@ -151,51 +151,75 @@ export function SnapshotsTable({
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell className="pl-6">
-                      <Skeleton className="h-4 w-3/4 rounded-md" />
+                    <TableCell className="pl-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="size-8 shrink-0 rounded-full" />
+                        <div className="flex flex-col gap-1.5">
+                          <Skeleton className="h-4 w-32 rounded-md" />
+                          <Skeleton className="h-3 w-48 rounded-md" />
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Skeleton className="h-4 w-4/5 rounded-md" />
+                      <Skeleton className="h-4 w-24 rounded-md" />
                     </TableCell>
                     <TableCell>
-                      <Skeleton className="h-4 w-3/4 rounded-md" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-1/2 rounded-md" />
+                      <div className="flex justify-center">
+                        <Skeleton className="h-5 w-10 rounded-full" />
+                      </div>
                     </TableCell>
                     <TableCell className="pr-6 text-right">
                       <div className="flex justify-end gap-1">
-                        <Skeleton className="size-6 rounded-md" />
-                        <Skeleton className="size-6 rounded-md" />
+                        <Skeleton className="size-8 rounded-md" />
+                        <Skeleton className="size-8 rounded-md" />
                       </div>
                     </TableCell>
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
+                  <TableCell colSpan={4} className="h-24 text-center">
                     No snapshots found.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((snapshot) => (
-                  <TableRow key={snapshot.name}>
-                    <TableCell className="pl-6 font-medium text-wrap">
-                      {snapshot.name}
-                    </TableCell>
-                    <TableCell className="text-wrap text-muted-foreground">
-                      {snapshot.description || "—"}
+                  <TableRow
+                    key={snapshot.name}
+                    className="group cursor-default"
+                  >
+                    <TableCell className="pl-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
+                          <IconCamera className="size-5" />
+                        </div>
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <div className="truncate font-medium">
+                            {snapshot.name}
+                          </div>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {snapshot.description || "No description"}
+                          </p>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {snapshot.snaptime
-                        ? new Date(snapshot.snaptime * 1000).toLocaleString()
-                        : "—"}
+                      {snapshot.snaptime ? (
+                        <RelativeTimeCard
+                          date={snapshot.snaptime * 1000}
+                          timezones={["UTC"]}
+                          delay={50}
+                          closeDelay={150}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       {snapshot.vmstate ? (
                         <Badge variant="secondary">Yes</Badge>
                       ) : (
-                        "No"
+                        <span className="text-muted-foreground">No</span>
                       )}
                     </TableCell>
                     <TableCell className="pr-6 text-right">
