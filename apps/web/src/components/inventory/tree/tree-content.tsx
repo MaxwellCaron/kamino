@@ -19,10 +19,7 @@ interface SelectionDataRef {
   selectUpToAnchorId?: string | null
 }
 
-type TreeRowMouseEvent = ReactMouseEvent<
-  HTMLElement,
-  globalThis.MouseEvent
-> & {
+type TreeRowMouseEvent = ReactMouseEvent<HTMLElement, globalThis.MouseEvent> & {
   preventBaseUIHandler?: () => void
 }
 
@@ -40,7 +37,8 @@ function applySelectionFromClick(
   }
 
   if (!event.shiftKey) {
-    tree.getDataRef<SelectionDataRef>().current.selectUpToAnchorId = item.getId()
+    tree.getDataRef<SelectionDataRef>().current.selectUpToAnchorId =
+      item.getId()
   }
 
   item.setFocused()
@@ -136,7 +134,9 @@ export function InventoryTreeContent({
                   >
                     <IconStar
                       className={
-                        isFavorite ? "fill-background dark:fill-foreground" : ""
+                        isFavorite
+                          ? "fill-muted-foreground dark:fill-muted-foreground"
+                          : ""
                       }
                     />
                   </Button>
