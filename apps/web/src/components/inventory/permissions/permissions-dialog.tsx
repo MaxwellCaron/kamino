@@ -212,7 +212,7 @@ function InventoryPermissionsFormBody({
                                   )
                                 }
                               >
-                                <IconSettings />
+                                <IconSettings data-icon="inline-start" />
                                 Edit
                               </Button>
                               <Button

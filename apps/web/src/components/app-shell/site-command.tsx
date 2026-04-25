@@ -52,7 +52,7 @@ export function CommandManyItems() {
         className="w-auto justify-start text-muted-foreground md:w-56 lg:w-72"
         size="sm"
       >
-        <IconSearch />
+        <IconSearch data-icon="inline-start" />
         <span className="hidden sm:inline">Search Kamino...</span>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>

@@ -119,7 +119,7 @@ export function SnapshotsTable({
               disabled={isLoading || isTemplate || !itemId || vmid == null}
               onClick={() => setSnapshotOpen(true)}
             >
-              <IconPlus />
+              <IconPlus data-icon="inline-start" />
               <span className="hidden lg:block">Create</span>
             </Button>
           </CardAction>

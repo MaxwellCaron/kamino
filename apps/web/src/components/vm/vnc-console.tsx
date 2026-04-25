@@ -336,7 +336,7 @@ function ConsoleToolbar({
             <DropdownMenuTrigger
               render={
                 <Button variant="outline" size="xs">
-                  <IconKeyboard />
+                  <IconKeyboard data-icon="inline-start" />
                   Send Keys
                 </Button>
               }
