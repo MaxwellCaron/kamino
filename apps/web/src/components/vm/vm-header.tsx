@@ -2,9 +2,7 @@ import {
   IconCpu,
   IconDatabase,
   IconDeviceDesktop,
-  IconEdit,
   IconId,
-  IconInfoCircle,
   IconPackages,
   IconPower,
   IconTemplate,
@@ -18,29 +16,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
 import { Progress } from "@workspace/ui/components/progress"
 import {
   Item,
-  ItemActions,
   ItemContent,
-  ItemDescription,
   ItemFooter,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import { useState } from "react"
 import type { ApiTreeNode, ApiTreeNodeVM, VmResources } from "@/lib/queries"
 import type { ReactNode } from "@tabler/icons-react"
-import {
-  InventoryPermissionBits,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
 import { LoadingTransition } from "@/components/loading-transition"
 import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
 import { formatBytes, formatMemory, formatUptime } from "@/lib/utils"
-import { VmNotesDialog } from "@/components/vm/vm-notes-dialog"
 
 type Stat = {
   icon: ReactNode
@@ -194,13 +183,7 @@ export function VmHeader({
   isTemplate: boolean
   isLoading: boolean
 }) {
-  const [isNotesOpen, setIsNotesOpen] = useState(false)
   const stats = buildStats(vm, isTemplate, powerStatus, resources)
-  const canEditNotes = hasInventoryPermission(
-    node?.permissions,
-    InventoryPermissionBits.renameVm
-  )
-  const notes = vm?.notes?.trim() ? vm.notes : null
 
   return (
     <Card>
@@ -296,46 +279,6 @@ export function VmHeader({
             )
           })}
         </div>
-        <Item variant="muted" className="items-start">
-          <ItemMedia variant="icon">
-            <IconInfoCircle className="text-muted-foreground" />
-          </ItemMedia>
-          <ItemContent className="gap-3">
-            <ItemTitle>Notes</ItemTitle>
-            <LoadingTransition
-              isLoading={isLoading}
-              fallback={<Skeleton className="h-5 w-48 rounded-md" />}
-            >
-              {!notes ? (
-                <ItemDescription>No notes saved for this VM.</ItemDescription>
-              ) : (
-                <ItemDescription>{notes}</ItemDescription>
-              )}
-            </LoadingTransition>
-          </ItemContent>
-          <ItemActions>
-            {vm && canEditNotes && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={isLoading}
-                  onClick={() => setIsNotesOpen(true)}
-                >
-                  <IconEdit data-icon="inline-start" />
-                </Button>
-                <VmNotesDialog
-                  itemId={itemId}
-                  vmName={node?.name ?? `VM ${vm.vmid}`}
-                  vmid={vm.vmid}
-                  initialNotes={vm.notes}
-                  open={isNotesOpen}
-                  onOpenChange={setIsNotesOpen}
-                />
-              </>
-            )}
-          </ItemActions>
-        </Item>
       </CardContent>
     </Card>
   )

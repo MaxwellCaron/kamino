@@ -101,7 +101,7 @@ export function SnapshotsTable({
   }
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconCamera className="size-5 text-muted-foreground" />
@@ -126,7 +126,7 @@ export function SnapshotsTable({
           </CardAction>
         )}
       </CardHeader>
-      <CardContent className="border-b px-0">
+      <CardContent className="flex-1 border-b px-0">
         <Table className="min-w-180 table-fixed">
           <TableHeader className="bg-muted hover:bg-muted">
             <TableRow>
