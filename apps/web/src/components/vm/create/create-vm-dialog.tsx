@@ -48,7 +48,7 @@ import {
   getInventoryFolderOptions,
   getSelectedFolder,
 } from "@/lib/inventory-tree"
-import { toastCreateVm } from "@/components/vm/utils"
+import { toastCreateVm } from "@/components/vm/toasts"
 import {
   cloneVM,
   createVM,

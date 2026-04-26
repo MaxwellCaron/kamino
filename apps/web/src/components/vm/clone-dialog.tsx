@@ -26,7 +26,7 @@ import {
 } from "@/components/vm/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/lib/inventory-tree"
 import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
-import { toastCloneVm } from "@/components/vm/utils"
+import { toastCloneVm } from "@/components/vm/toasts"
 import { formatVmReference } from "@/lib/utils"
 
 const cloneSchema = z.object({

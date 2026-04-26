@@ -48,7 +48,7 @@ import {
   toastDeleteSnapshot,
   toastRollbackSnapshot,
   toastSubmitRollbackRequest,
-} from "@/components/vm/utils"
+} from "@/components/vm/toasts"
 import { formatVmReference } from "@/lib/utils"
 
 export function SnapshotsTable({

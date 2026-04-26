@@ -15,7 +15,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { useUpdateVMNotes } from "@/hooks/use-vm-actions"
-import { toastUpdateNotes } from "@/components/vm/utils"
+import { toastUpdateNotes } from "@/components/vm/toasts"
 import { formatVmReference } from "@/lib/utils"
 
 const vmNotesSchema = z.object({

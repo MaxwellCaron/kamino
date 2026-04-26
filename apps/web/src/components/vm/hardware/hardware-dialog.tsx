@@ -72,7 +72,7 @@ import {
   storagesQueryOptions,
   vmHardwareQueryOptions,
 } from "@/lib/queries"
-import { toastUpdateHardware } from "@/components/vm/utils"
+import { toastUpdateHardware } from "@/components/vm/toasts"
 import { formatVmReference } from "@/lib/utils"
 
 const hardwareNetworkInterfaceSchema = z.object({

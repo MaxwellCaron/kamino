@@ -217,6 +217,7 @@ export function VmHeader({
               pveNode={vm?.node}
               name={node.name}
               isLoading={isLoading}
+              powerStatus={powerStatus}
             />
           )}
         </CardAction>

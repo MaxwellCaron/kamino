@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   IconCamera,
   IconCopy,
@@ -7,10 +7,6 @@ import {
   IconEdit,
   IconFolderPlus,
   IconLock,
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconPower,
-  IconRefresh,
   IconSettings,
   IconStar,
   IconTemplate,
@@ -37,7 +33,11 @@ import type {
   ApiTreeNode,
   ApiTreeNodePermissions,
 } from "@/lib/queries"
-import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
+import {
+  findTreeNode,
+  inventoryTreeQueryOptions,
+  vmStatusQueryOptions,
+} from "@/lib/queries"
 import {
   InventoryPermissionBits,
   hasInventoryPermission,
@@ -45,18 +45,9 @@ import {
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
 import { formatVmReference } from "@/lib/utils"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"
-import {
-  useConvertToTemplate,
-  useDeleteVM,
-  useSubmitInventoryPowerRequest,
-  useVmPowerAction,
-} from "@/hooks/use-vm-actions"
-import {
-  getVmPowerActionConfig,
-  toastDeleteVm,
-  toastTemplatizeVm,
-  toastVmPowerAction,
-} from "@/components/vm/utils"
+import { useConvertToTemplate, useDeleteVM } from "@/hooks/use-vm-actions"
+import { toastDeleteVm, toastTemplatizeVm } from "@/components/vm/toasts"
+import { useVmPowerActions } from "@/components/vm/power-actions"
 import {
   getInventoryPermissionMode,
   hasFolderActions,
@@ -199,6 +190,7 @@ function VmMenuItems({
   onRename,
   onEditHardware,
   isLoading,
+  powerStatus,
 }: {
   permissions: ApiTreeNodePermissions
   isFavorite?: boolean
@@ -213,16 +205,18 @@ function VmMenuItems({
   onRename: () => void
   onEditHardware: () => void
   isLoading?: boolean
+  powerStatus?: string
 }) {
-  const powerAction = useVmPowerAction()
-  const submitPowerRequest = useSubmitInventoryPowerRequest()
   const deleteVm = useDeleteVM()
   const toTemplate = useConvertToTemplate()
-
-  const powerMode = getInventoryPermissionMode(
+  const powerActions = useVmPowerActions({
+    itemId,
     permissions,
-    InventoryPermissionBits.powerVm
-  )
+    powerStatus,
+    vmid,
+    vmName: name,
+    isLoading,
+  })
   const canClone = hasInventoryPermission(
     permissions,
     InventoryPermissionBits.cloneVm
@@ -259,138 +253,26 @@ function VmMenuItems({
 
   return (
     <>
-      {powerMode !== null && (
+      {powerActions.powerMode !== null && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Power</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isLoading}
-              onClick={() =>
-                onAction({
-                  ...getVmPowerActionConfig("start", powerMode, vmid, name),
-                  onConfirm: () => {
-                    const promise: Promise<unknown> =
-                      powerMode === "direct"
-                        ? powerAction
-                            .mutateAsync({ itemIds: [itemId], action: "start" })
-                            .then((result) =>
-                              assertSingleItemMutationSucceeded(
-                                result,
-                                `Failed to start VM ${vmid}`
-                              )
-                            )
-                        : submitPowerRequest.mutateAsync({
-                            itemId,
-                            action: "start",
-                          })
+            {powerActions.actions.map((action) => {
+              const ActionIcon = action.icon
 
-                    toastVmPowerAction(promise, "start", powerMode, vmid, name)
-                  },
-                })
-              }
-            >
-              <IconPlayerPlay className="text-muted-foreground" />
-              {powerMode === "direct" ? "Start" : "Start"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isLoading}
-              onClick={() =>
-                onAction({
-                  ...getVmPowerActionConfig("shutdown", powerMode, vmid, name),
-                  onConfirm: () => {
-                    const promise: Promise<unknown> =
-                      powerMode === "direct"
-                        ? powerAction
-                            .mutateAsync({
-                              itemIds: [itemId],
-                              action: "shutdown",
-                            })
-                            .then((result) =>
-                              assertSingleItemMutationSucceeded(
-                                result,
-                                `Failed to shut down VM ${vmid}`
-                              )
-                            )
-                        : submitPowerRequest.mutateAsync({
-                            itemId,
-                            action: "shutdown",
-                          })
-
-                    toastVmPowerAction(
-                      promise,
-                      "shutdown",
-                      powerMode,
-                      vmid,
-                      name
-                    )
-                  },
-                })
-              }
-            >
-              <IconPower className="text-muted-foreground" />
-              {powerMode === "direct" ? "Shutdown" : "Shutdown"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isLoading}
-              onClick={() =>
-                onAction({
-                  ...getVmPowerActionConfig("reboot", powerMode, vmid, name),
-                  onConfirm: () => {
-                    const promise: Promise<unknown> =
-                      powerMode === "direct"
-                        ? powerAction
-                            .mutateAsync({
-                              itemIds: [itemId],
-                              action: "reboot",
-                            })
-                            .then((result) =>
-                              assertSingleItemMutationSucceeded(
-                                result,
-                                `Failed to reboot VM ${vmid}`
-                              )
-                            )
-                        : submitPowerRequest.mutateAsync({
-                            itemId,
-                            action: "reboot",
-                          })
-
-                    toastVmPowerAction(promise, "reboot", powerMode, vmid, name)
-                  },
-                })
-              }
-            >
-              <IconRefresh className="text-muted-foreground" />
-              {powerMode === "direct" ? "Reboot" : "Reboot"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isLoading}
-              onClick={() =>
-                onAction({
-                  ...getVmPowerActionConfig("stop", powerMode, vmid, name),
-                  onConfirm: () => {
-                    const promise: Promise<unknown> =
-                      powerMode === "direct"
-                        ? powerAction
-                            .mutateAsync({ itemIds: [itemId], action: "stop" })
-                            .then((result) =>
-                              assertSingleItemMutationSucceeded(
-                                result,
-                                `Failed to stop VM ${vmid}`
-                              )
-                            )
-                        : submitPowerRequest.mutateAsync({
-                            itemId,
-                            action: "stop",
-                          })
-
-                    toastVmPowerAction(promise, "stop", powerMode, vmid, name)
-                  },
-                })
-              }
-            >
-              <IconPlayerStop className="text-muted-foreground" />
-              {powerMode === "direct" ? "Stop" : "Stop"}
-            </DropdownMenuItem>
+              return (
+                <DropdownMenuItem
+                  key={action.action}
+                  disabled={action.disabled}
+                  onClick={() =>
+                    powerActions.openPowerAction(action.action, onAction)
+                  }
+                >
+                  <ActionIcon className="text-muted-foreground" />
+                  {action.label}
+                </DropdownMenuItem>
+              )
+            })}
           </DropdownMenuGroup>
           {hasTrailingItems && <DropdownMenuSeparator />}
         </>
@@ -651,6 +533,7 @@ export function MenuItems({
   onCreateFolder,
   onDeleteFolder,
   isLoading,
+  powerStatus,
 }: {
   permissions: ApiTreeNodePermissions
   isFavorite?: boolean
@@ -670,6 +553,7 @@ export function MenuItems({
   onCreateFolder: () => void
   onDeleteFolder: () => void
   isLoading?: boolean
+  powerStatus?: string
 }) {
   if (isFolder)
     return (
@@ -713,6 +597,7 @@ export function MenuItems({
       onRename={onRename}
       onEditHardware={onEditHardware}
       isLoading={isLoading}
+      powerStatus={powerStatus}
     />
   )
 }
@@ -741,10 +626,13 @@ export function InventoryNodeMenu({
     openEditVmHardware,
     openPermissions,
   } = useInventoryDialogs()
+  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
   const isFolder = data.kind === "folder"
   const isTemplate = data.vm?.is_template
   const isFavorite = !isFolder && favoriteIds.has(itemId)
+  const powerStatus =
+    data.kind === "vm" && data.vm ? vmStatuses?.[data.vm.vmid] : undefined
 
   if (!hasNodeActions(data)) return null
 
@@ -877,6 +765,7 @@ export function InventoryNodeMenu({
           onCreateFolder={() => openCreateFolder({ parentId: itemId })}
           onDeleteFolder={handleDeleteFolder}
           isLoading={false}
+          powerStatus={powerStatus}
         />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -893,6 +782,7 @@ export function VmOptionsMenu({
   pveNode,
   name,
   isLoading,
+  powerStatus,
 }: {
   nodeId: string
   itemId: string
@@ -903,6 +793,7 @@ export function VmOptionsMenu({
   pveNode?: string
   name?: string
   isLoading?: boolean
+  powerStatus?: string
 }) {
   const { favoriteIds, toggleFavorite } = useInventoryFavorites()
   const {
@@ -1000,6 +891,7 @@ export function VmOptionsMenu({
             onCreateFolder={() => openCreateFolder({ parentId: nodeId })}
             onDeleteFolder={() => {}}
             isLoading={isLoading}
+            powerStatus={powerStatus}
           />
         </DropdownMenuContent>
       </DropdownMenu>

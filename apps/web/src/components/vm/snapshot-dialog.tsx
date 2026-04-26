@@ -25,7 +25,7 @@ import {
 import {
   toastCreateSnapshot,
   toastSubmitSnapshotRequest,
-} from "@/components/vm/utils"
+} from "@/components/vm/toasts"
 import { formatVmReference } from "@/lib/utils"
 
 const generateSnapshotName = () =>
