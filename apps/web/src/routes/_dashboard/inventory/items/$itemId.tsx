@@ -1,19 +1,21 @@
 import { useEffect } from "react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { VncConsole } from "@/components/vm/vnc-console"
+import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import {
-  findTreeNode,
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
+} from "@/features/inventory/api/inventory-queries"
+import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
+import {
   vmResourcesQueryOptions,
   vmStatusQueryOptions,
-} from "@/lib/queries"
-import { getVmCapabilities } from "@/lib/inventory-capabilities"
-import { SnapshotsTable } from "@/components/vm/snapshot-table"
-import { VmHeader } from "@/components/vm/vm-header"
-import { VmNotes } from "@/components/vm/vm-notes"
-import { VmPowerControls } from "@/components/vm/vm-power-controls"
+} from "@/features/vms/api/vm-queries"
+import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-table"
+import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
+import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
+import { VmPowerControls } from "@/features/vms/components/dashboard/vm-power-controls"
 
 export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
   component: VmPage,

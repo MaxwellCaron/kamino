@@ -10,6 +10,7 @@ import {
   IconX,
   IconZoom,
 } from "@tabler/icons-react"
+
 import {
   Alert,
   AlertDescription,
@@ -25,6 +26,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   Item,
   ItemActions,
@@ -33,9 +35,19 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
+
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+import type { ApiRequestDetail } from "@/features/requests/types/request-types"
+
+import {
+  AppDialogContent,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+import { formatVmReference } from "@/features/shared/utils/utils"
+
 import {
   STATUS_ICONS,
   formatRequestKind,
@@ -43,14 +55,7 @@ import {
   formatRequestStatus,
   getRequestIcon,
   getRequestStatusClassName,
-} from "./request-presenters"
-import type { ApiRequestDetail, ApiTreeNode } from "@/lib/queries"
-import { findTreePath } from "@/lib/queries"
-import {
-  AppDialogContent,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
-import { formatVmReference } from "@/lib/utils"
+} from "../utils/request-presenters"
 
 type RequestDetailDialogProps = {
   canReview: boolean

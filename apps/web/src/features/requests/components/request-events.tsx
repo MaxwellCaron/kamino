@@ -1,6 +1,6 @@
-import { useRequestsStream } from "@/hooks/use-requests-stream"
+import { useRequestsStream } from "@/features/requests/hooks/use-requests-stream"
 import { Route } from "@/routes/_dashboard"
-import { canAccessRequestQueue } from "@/lib/queries"
+import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
 
 export function RequestEvents() {
   const { user } = Route.useRouteContext()

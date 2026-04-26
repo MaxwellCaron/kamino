@@ -14,8 +14,11 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { PermissionScopeSection } from "./permission-scope-section"
-import type { InventoryPermissionSection } from "@/lib/inventory-permissions"
-import type { DraftPrincipal, PermissionState } from "../../../../components/inventory/permissions/types"
+import type { InventoryPermissionSection } from "../../utils/inventory-permissions"
+import type {
+  DraftPrincipal,
+  PermissionState,
+} from "../../types/inventory-types"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,

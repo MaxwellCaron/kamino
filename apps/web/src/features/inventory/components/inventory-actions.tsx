@@ -24,32 +24,38 @@ import {
 import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
-import { useInventoryDialogs } from "./inventory-dialogs-provider"
-import { InventoryDeletionDescription } from "./inventory-deletion-description"
-import { useInventoryFavorites } from "../../../components/inventory/tree/use-inventory-favorites"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type {
-  ApiBulkVmMutationResponse,
-  ApiTreeNode,
-  ApiTreeNodePermissions,
-} from "@/lib/queries"
-import {
-  findTreeNode,
-  inventoryTreeQueryOptions,
-  vmStatusQueryOptions,
-} from "@/lib/queries"
+import { useInventoryFavorites } from "../hooks/use-inventory-favorites"
+import { inventoryTreeQueryOptions } from "../api/inventory-queries"
 import {
   getFolderCapabilities,
   getVmCapabilities,
   hasFolderActions,
   hasNodeActions,
-} from "@/lib/inventory-capabilities"
-import { summarizeFolderDeletion } from "@/lib/inventory-tree"
-import { formatVmReference } from "@/lib/utils"
-import { useDeleteFolder } from "@/hooks/use-inventory-actions"
-import { useConvertToTemplate, useDeleteVM } from "@/hooks/use-vm-actions"
-import { toastDeleteVm, toastTemplatizeVm } from "@/components/vm/toasts"
-import { useVmPowerActions } from "@/components/vm/power-actions"
+} from "../utils/inventory-capabilities"
+import {
+  summarizeFolderDeletion,
+  findInventoryTreeNode as findTreeNode,
+} from "../utils/inventory-tree"
+import { useDeleteFolder } from "../hooks/use-inventory-actions"
+import { InventoryDeletionDescription } from "./inventory-deletion-description"
+import { useInventoryDialogs } from "./inventory-dialogs-provider"
+import type {
+  ApiTreeNode,
+  ApiTreeNodePermissions,
+} from "../types/inventory-types"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-queries"
+import { formatVmReference } from "@/features/shared/utils/utils"
+import {
+  useConvertToTemplate,
+  useDeleteVM,
+} from "@/features/vms/hooks/use-vm-actions"
+import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"
+import {
+  toastDeleteVm,
+  toastTemplatizeVm,
+} from "@/features/vms/utils/vm-toasts"
 
 function formatMutationError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
@@ -197,12 +203,9 @@ function VmMenuItems({
   })
   const capabilities = getVmCapabilities(permissions)
   const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
-  const hasActionItems =
-    canToggleFavorite || capabilities.hasActionItems
+  const hasActionItems = canToggleFavorite || capabilities.hasActionItems
   const hasTrailingItems =
-    hasActionItems ||
-    capabilities.hasEditItems ||
-    capabilities.delete.visible
+    hasActionItems || capabilities.hasEditItems || capabilities.delete.visible
 
   return (
     <>

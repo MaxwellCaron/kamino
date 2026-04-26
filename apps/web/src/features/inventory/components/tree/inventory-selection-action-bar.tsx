@@ -18,22 +18,30 @@ import {
 } from "@workspace/ui/components/action-bar"
 import { useInventoryDialogs } from "../inventory-dialogs-provider"
 import { InventoryDeletionDescription } from "../inventory-deletion-description"
+import { summarizeFolderDeletion } from "../../utils/inventory-tree"
+import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
+import { useDeleteFolder } from "../../hooks/use-inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree"
+import type { FolderDeletionSummary } from "../../utils/inventory-tree"
 import type {
   ConfirmDialogControls,
   ConfirmStatusItem,
 } from "@/components/dialogs/confirm-dialog"
-import type { FolderDeletionSummary } from "@/lib/inventory-tree"
-import type { ApiBulkVmMutationResponse, ApiTreeNode } from "@/lib/queries"
-import { useDeleteFolder } from "@/hooks/use-inventory-actions"
+import type {
+  ApiBulkVmMutationFailure,
+  ApiBulkVmMutationResponse,
+} from "@/features/vms/types/vm-types"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import {
   useConvertToTemplate,
   useDeleteVM,
   useVmPowerAction,
-} from "@/hooks/use-vm-actions"
-import { hasDirectInventoryCapability } from "@/lib/inventory-capabilities"
-import { summarizeFolderDeletion } from "@/lib/inventory-tree"
-import { formatMutationError, formatVmReference } from "@/lib/utils"
+} from "@/features/vms/hooks/use-vm-actions"
+
+import {
+  formatMutationError,
+  formatVmReference,
+} from "@/features/shared/utils/utils"
 
 type SelectedVmItem = ApiTreeNode & {
   kind: "vm"
@@ -198,13 +206,16 @@ function applyVmMutationStatuses(
   items: Array<ConfirmStatusItem>,
   itemIds: Array<string>,
   result: ApiBulkVmMutationResponse
-) {
+): Array<ConfirmStatusItem> {
   const targetIds = new Set(itemIds)
-  const failedById = new Map(
-    result.failed.map((failure) => [failure.id, failure.error])
+  const failedById = new Map<string, string>(
+    result.failed.map((failure: ApiBulkVmMutationFailure) => [
+      failure.id,
+      failure.error,
+    ])
   )
 
-  return items.map((item) => {
+  return items.map((item: ConfirmStatusItem): ConfirmStatusItem => {
     if (!targetIds.has(item.id)) {
       return item
     }
@@ -220,13 +231,16 @@ function applyPowerMutationStatuses(
   items: Array<ConfirmStatusItem>,
   itemIds: Array<string>,
   result: ApiBulkVmMutationResponse
-) {
+): Array<ConfirmStatusItem> {
   const targetIds = new Set(itemIds)
-  const failedById = new Map(
-    result.failed.map((failure) => [failure.id, failure.error])
+  const failedById = new Map<string, string>(
+    result.failed.map((failure: ApiBulkVmMutationFailure) => [
+      failure.id,
+      failure.error,
+    ])
   )
 
-  return items.map((item) => {
+  return items.map((item: ConfirmStatusItem): ConfirmStatusItem => {
     if (!targetIds.has(item.id)) {
       return item
     }
@@ -334,7 +348,9 @@ export function InventorySelectionActionBar() {
     if (result.failed.length === 0) {
       clearSelection()
     } else {
-      replaceSelection(result.failed.map((failure) => failure.id))
+      replaceSelection(
+        result.failed.map((failure: ApiBulkVmMutationFailure) => failure.id)
+      )
     }
   }
 

@@ -25,11 +25,19 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import type { ApiTreeNode, ApiTreeNodeVM, VmResources } from "@/lib/queries"
+import type {
+  ApiTreeNode,
+  ApiTreeNodeVM,
+} from "@/features/inventory/types/inventory-types"
+import type { VmResources } from "@/features/vms/types/vm-types"
 import type { ReactNode } from "@tabler/icons-react"
 import { LoadingTransition } from "@/components/loading-transition"
-import { VmOptionsMenu } from "@/components/inventory/inventory-actions"
-import { formatBytes, formatMemory, formatUptime } from "@/lib/utils"
+import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
+import {
+  formatBytes,
+  formatMemory,
+  formatUptime,
+} from "@/features/shared/utils/utils"
 
 type Stat = {
   icon: ReactNode

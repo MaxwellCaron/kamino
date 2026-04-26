@@ -8,12 +8,12 @@ import {
 } from "@workspace/ui/components/reui/tree"
 import { Button } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
+import { TREE_INDENT } from "../../utils/constants"
 import { useInventoryTreeContext } from "./inventory-tree"
-import { TREE_INDENT } from "../../../../components/inventory/tree/constants"
 import { VmIcon } from "./vm-icon"
 import type { MouseEvent as ReactMouseEvent } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
-import type { ApiTreeNode } from "@/lib/queries"
+import type { ApiTreeNode } from "../../types/inventory-types"
 
 interface SelectionDataRef {
   selectUpToAnchorId?: string | null

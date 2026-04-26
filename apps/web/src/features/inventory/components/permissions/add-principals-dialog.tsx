@@ -25,8 +25,8 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Button } from "@workspace/ui/components/button"
-import { principalTypeLabels } from "../../../../components/inventory/permissions/constants"
-import type { PrincipalOption } from "./types"
+import { principalTypeLabels } from "../../utils/constants"
+import type { PrincipalOption } from "../../types/inventory-types"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,

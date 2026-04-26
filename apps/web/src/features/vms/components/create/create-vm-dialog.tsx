@@ -37,8 +37,8 @@ import {
   getVmTemplateOptions,
   toCreateVmParams,
   useCreateVmForm,
-} from "./create-vm-form"
-import type { CreateVmFormValues } from "./create-vm-form"
+} from "@/features/vms/components/create/create-vm-form"
+import type { CreateVmFormValues } from "@/features/vms/components/create/create-vm-form"
 import {
   AppDialogHeader,
   AppDialogPrimaryButton,
@@ -47,16 +47,17 @@ import {
 import {
   getInventoryFolderOptions,
   getSelectedFolder,
-} from "@/lib/inventory-tree"
-import { toastCreateVm } from "@/components/vm/toasts"
+} from "@/features/inventory/utils/inventory-tree"
+import { toastCreateVm } from "@/features/vms/utils/vm-toasts"
 import {
-  cloneVM,
-  createVM,
-  createVmIsosQueryOptions,
-  createVmOptionsQueryOptions,
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
-} from "@/lib/queries"
+} from "@/features/inventory/api/inventory-queries"
+import {
+  createVmIsosQueryOptions,
+  createVmOptionsQueryOptions,
+} from "@/features/vms/api/proxmox-options-queries"
+import { cloneVM, createVM } from "@/features/vms/api/vm-queries"
 
 const steps = [
   { value: "method", title: "Method" },
@@ -89,7 +90,7 @@ export function CreateVmDialog({
 
   const form = useCreateVmForm({
     ...createVmFormOptions,
-    onSubmit: ({ value }) => {
+    onSubmit: ({ value }: { value: CreateVmFormValues }) => {
       const parsed = createVmFormSchema.parse(value)
       const selectedTemplate = getSelectedTemplate(
         templateOptions,

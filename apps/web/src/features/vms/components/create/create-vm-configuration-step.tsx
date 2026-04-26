@@ -4,7 +4,7 @@ import { TemplateConfigurationFields } from "./create-vm-template-configuration-
 import { UploadConfigurationFields } from "./create-vm-upload-configuration-fields"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { NetworkData } from "./create-vm-step-shared"
-import type { ApiISO, ApiNode, ApiStorage } from "@/lib/queries"
+import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 
 export const CreateVmConfigurationStep = withCreateVmForm({
   ...createVmFormOptions,
@@ -26,8 +26,10 @@ export const CreateVmConfigurationStep = withCreateVmForm({
     networks,
   }) {
     return (
-      <form.Subscribe selector={(state) => state.values.method}>
-        {(method) => {
+      <form.Subscribe>
+        {(state) => {
+          const method = state.values.method
+
           if (method === "template") {
             return (
               <TemplateConfigurationFields

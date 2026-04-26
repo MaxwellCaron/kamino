@@ -28,8 +28,8 @@ import {
 } from "./create-vm-form"
 import { SummaryRow, SummarySection } from "./create-vm-step-shared"
 import type { CreateVmFormValues, VmTemplateOption } from "./create-vm-form"
-import type { InventoryFolderOption } from "@/lib/inventory-tree"
-import { getSelectedFolder } from "@/lib/inventory-tree"
+import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
+import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
 
 function getMachineTypeLabel(machine: string) {
   return machine === "pc" ? "i440fx" : machine

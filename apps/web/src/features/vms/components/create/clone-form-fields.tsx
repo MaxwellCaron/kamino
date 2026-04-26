@@ -32,10 +32,10 @@ import {
 } from "./create-vm-form"
 import { renderError } from "./create-vm-step-shared"
 import type { ComponentType } from "react"
-import type { InventoryFolderOption } from "@/lib/inventory-tree"
-import type { ApiNode } from "@/lib/queries"
-import { getSelectedFolder } from "@/lib/inventory-tree"
-import { validateVMID } from "@/lib/queries"
+import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
+import type { ApiNode } from "@/features/vms/types/vm-types"
+import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
+import { validateVMID } from "@/features/vms/api/vm-queries"
 
 type AppFieldComponent = ComponentType<any>
 

@@ -12,7 +12,7 @@ import { InventoryNodeMenu } from "../inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree"
 import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
-import type { ApiTreeNode } from "@/lib/queries"
+import type { ApiTreeNode } from "../../types/inventory-types"
 
 const FAVORITES_COLLAPSED_STORAGE_KEY = "kamino-favorite-inventory-collapsed"
 const favoritesCollapsedListeners = new Set<() => void>()

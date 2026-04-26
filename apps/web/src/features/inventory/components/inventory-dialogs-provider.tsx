@@ -3,12 +3,12 @@ import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
 import { RenameDialog } from "./rename-dialog"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { SnapshotDialogMode } from "@/components/vm/snapshot-dialog"
+import type { SnapshotDialogMode } from "@/features/vms/components/snapshot-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { CloneDialog } from "@/components/vm/clone-dialog"
-import { CreateVmDialog } from "@/components/vm/create/create-vm-dialog"
-import { VmHardwareDialog } from "@/components/vm/hardware/hardware-dialog"
-import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
+import { CloneDialog } from "@/features/vms/components/clone-dialog"
+import { CreateVmDialog } from "@/features/vms/components/create/create-vm-dialog"
+import { VmHardwareDialog } from "@/features/vms/components/hardware/hardware-dialog"
+import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
 
 type PermissionsDialogConfig = {
   itemId: string

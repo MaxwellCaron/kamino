@@ -15,7 +15,10 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
-import type { ApiGroupMember, ApiPrincipal } from "@/lib/queries"
+import type {
+  ApiGroupMember,
+  ApiPrincipal,
+} from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -27,7 +30,7 @@ import {
   removeGroupMember,
   userGroupsQueryOptions,
   usersQueryOptions,
-} from "@/lib/queries"
+} from "@/features/principals/api/principals-queries"
 
 type MembershipDialogProps = {
   open: boolean

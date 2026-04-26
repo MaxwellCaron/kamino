@@ -23,7 +23,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { ThemeToggleMenuItems } from "./theme-toggle"
-import { logout } from "@/lib/queries"
+import { logout } from "@/features/auth/api/auth-queries"
 
 export function NavUser({
   user,

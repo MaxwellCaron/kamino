@@ -1,21 +1,27 @@
 "use client"
 
 import { useMemo } from "react"
-import { useForm } from "@tanstack/react-form"
 import { IconEdit, IconFolderPlus } from "@tabler/icons-react"
+import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 import { z } from "zod"
+
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { Field, FieldError, FieldGroup } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+
 import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { useCreateFolder, useRenameFolder } from "@/hooks/use-inventory-actions"
-import { useRenameVM } from "@/hooks/use-vm-actions"
-import { formatVmReference } from "@/lib/utils"
-import { vmNameSchema } from "@/lib/vm-name"
+import { formatVmReference } from "@/features/shared/utils/utils"
+import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
+import { vmNameSchema } from "@/features/vms/utils/vm-name"
+
+import {
+  useCreateFolder,
+  useRenameFolder,
+} from "../hooks/use-inventory-actions"
 
 const folderNameSchema = z
   .string()

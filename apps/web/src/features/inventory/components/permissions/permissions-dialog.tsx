@@ -1,4 +1,5 @@
 import React from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   IconChevronDown,
   IconLock,
@@ -8,14 +9,14 @@ import {
   IconUsersGroup,
   IconX,
 } from "@tabler/icons-react"
-import { useQuery } from "@tanstack/react-query"
+
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
-import { Button } from "@workspace/ui/components/button"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -25,6 +26,11 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
+import {
   Item,
   ItemActions,
   ItemContent,
@@ -33,29 +39,29 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
-import { AddPrincipalsDialog } from "./add-principals-dialog"
-import { principalTypeLabels } from "../../../../components/inventory/permissions/constants"
-import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
-import { useInventoryPermissions } from "../../../../components/inventory/permissions/use-inventory-permissions"
-import type { InventoryPermissionsDialogProps } from "../../../../components/inventory/permissions/types"
-import type { ApiInventoryAcl, ApiPrincipal } from "@/lib/queries"
-import {
-  groupsQueryOptions,
-  inventoryAclQueryOptions,
-  usersQueryOptions,
-} from "@/lib/queries"
+
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
-import { formatVmReference } from "@/lib/utils"
+import {
+  groupsQueryOptions,
+  usersQueryOptions,
+} from "@/features/principals/api/principals-queries"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { formatVmReference } from "@/features/shared/utils/utils"
+
+import { inventoryAclQueryOptions } from "../../api/inventory-queries"
+import { useInventoryPermissions } from "../../hooks/use-inventory-permissions"
+import type {
+  ApiInventoryAcl,
+  InventoryPermissionsDialogProps,
+} from "../../types/inventory-types"
+import { principalTypeLabels } from "../../utils/constants"
+import { AddPrincipalsDialog } from "./add-principals-dialog"
+import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
 
 function InventoryPermissionsFormBody({
   props,

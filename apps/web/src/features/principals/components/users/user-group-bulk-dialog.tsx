@@ -24,7 +24,7 @@ import {
   ComboboxList,
 } from "@workspace/ui/components/combobox"
 import { Badge } from "@workspace/ui/components/badge"
-import type { ApiPrincipal } from "@/lib/queries"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -33,7 +33,7 @@ import {
   addGroupMember,
   groupsQueryOptions,
   removeGroupMember,
-} from "@/lib/queries"
+} from "@/features/principals/api/principals-queries"
 
 type UserGroupBulkDialogProps = {
   clearSelection: () => void

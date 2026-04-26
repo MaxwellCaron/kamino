@@ -9,10 +9,13 @@ import {
 } from "@workspace/ui/components/card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useState } from "react"
-import type { ApiTreeNode, ApiTreeNodeVM } from "@/lib/queries"
-import { getVmCapabilities } from "@/lib/inventory-capabilities"
+import type {
+  ApiTreeNode,
+  ApiTreeNodeVM,
+} from "@/features/inventory/types/inventory-types"
+import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { LoadingTransition } from "@/components/loading-transition"
-import { VmNotesDialog } from "@/components/vm/vm-notes-dialog"
+import { VmNotesDialog } from "@/features/vms/components/dashboard/vm-notes-dialog"
 
 export function VmNotes({
   node,

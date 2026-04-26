@@ -7,6 +7,18 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxSeparator,
+} from "@workspace/ui/components/combobox"
+import {
   Field,
   FieldContent,
   FieldDescription,
@@ -28,18 +40,6 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import {
-  Combobox,
-  ComboboxCollection,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxGroup,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxLabel,
-  ComboboxList,
-  ComboboxSeparator,
-} from "@workspace/ui/components/combobox"
-import {
   createVmFormOptions,
   getFirstIssueMessage,
   networkInterfaceSchema,
@@ -49,8 +49,9 @@ import {
   withCreateVmForm,
 } from "./create-vm-form"
 import { renderError } from "./create-vm-step-shared"
+import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import type { NetworkData } from "./create-vm-step-shared"
-import type { ApiISO, ApiNode, ApiStorage } from "@/lib/queries"
+import { validateVMID } from "@/features/vms/api/vm-queries"
 import {
   biosTypes,
   cpuTypes,
@@ -58,7 +59,7 @@ import {
   nicModels,
   osTypes,
   scsiControllers,
-} from "@/components/vm/hardware/options"
+} from "@/features/vms/components/hardware/hardware-options"
 import {
   VmHardwareComputeSection,
   VmHardwareNetworkCard,
@@ -66,9 +67,8 @@ import {
   VmHardwareOperatingSystemSection,
   VmHardwareStorageSection,
   buildVmHardwareNetworkOptions,
-} from "@/components/vm/hardware/sections"
-import { validateVMID } from "@/lib/queries"
-import { vmNameSchema } from "@/lib/vm-name"
+} from "@/features/vms/components/hardware/hardware-sections"
+import { vmNameSchema } from "@/features/vms/utils/vm-name"
 
 export const IsoConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -229,8 +229,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                     <Select
                       value={field.state.value ?? ""}
                       onValueChange={(value) => {
-                        const next = value ?? ""
-                        field.handleChange(next)
+                        field.handleChange(value ?? "")
                         form.setFieldValue("iso", "")
                       }}
                     >
@@ -315,7 +314,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                     onValueChange={(value) =>
                       field.handleChange(value ?? "other")
                     }
-                    items={osTypes}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -344,7 +342,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                     onValueChange={(value) =>
                       field.handleChange(value ?? "seabios")
                     }
-                    items={biosTypes}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -371,7 +368,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                   <Select
                     value={field.state.value}
                     onValueChange={(value) => field.handleChange(value ?? "pc")}
-                    items={machineTypes}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -400,7 +396,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                     onValueChange={(value) =>
                       field.handleChange(value ?? "virtio-scsi-single")
                     }
-                    items={scsiControllers}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -494,7 +489,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                     onValueChange={(value) =>
                       field.handleChange(value ?? "x86-64-v2-AES")
                     }
-                    items={cpuTypes}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -647,9 +641,9 @@ export const IsoConfigurationFields = withCreateVmForm({
 
         <VmHardwareNetworkSection>
           <form.Field name="networks" mode="array">
-            {(networksField) => (
+            {(networksField: any) => (
               <div className="flex flex-col gap-4">
-                {networksField.state.value.map((_, index) => (
+                {networksField.state.value.map((_: any, index: number) => (
                   <VmHardwareNetworkCard
                     key={`network-${index}`}
                     title={`net${index}`}
@@ -768,7 +762,6 @@ export const IsoConfigurationFields = withCreateVmForm({
                                 onValueChange={(value) =>
                                   field.handleChange(value ?? "virtio")
                                 }
-                                items={nicModels}
                               >
                                 <SelectTrigger>
                                   <SelectValue />

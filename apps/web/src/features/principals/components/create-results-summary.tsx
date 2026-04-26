@@ -5,7 +5,7 @@ import {
   AlertTitle,
 } from "@workspace/ui/components/alert"
 import { Dialog } from "@workspace/ui/components/dialog"
-import type { ApiBulkCreateResponse } from "@/lib/queries"
+import type { ApiBulkCreateResponse } from "@/features/principals/types/principals-types"
 import {
   AppDialogContent,
   AppDialogScrollBody,

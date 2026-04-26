@@ -29,7 +29,7 @@ import {
 } from "./create-vm-form"
 import { renderError } from "./create-vm-step-shared"
 import type { VmTemplateOption } from "./create-vm-form"
-import type { ApiNode } from "@/lib/queries"
+import type { ApiNode } from "@/features/vms/types/vm-types"
 
 export const TemplateConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -37,7 +37,11 @@ export const TemplateConfigurationFields = withCreateVmForm({
     templateOptions: [] as Array<VmTemplateOption>,
     nodes: [] as Array<ApiNode>,
   },
-  render: function Render({ form, templateOptions, nodes }) {
+  render: function Render({
+    form,
+    templateOptions,
+    nodes,
+  }) {
     return (
       <div className="flex flex-col gap-6">
         <FieldSet>
@@ -54,14 +58,16 @@ export const TemplateConfigurationFields = withCreateVmForm({
                   <FieldLabel>Template</FieldLabel>
                   <Combobox
                     items={templateOptions}
-                    itemToStringValue={(template) => template.label}
+                    itemToStringValue={(template: VmTemplateOption) =>
+                      template.label
+                    }
                     value={
                       getSelectedTemplate(
                         templateOptions,
-                        field.state.value ?? ""
+                        field.state.value as string
                       ) ?? null
                     }
-                    onValueChange={(template) =>
+                    onValueChange={(template: VmTemplateOption | null) =>
                       field.handleChange(template?.name ?? "")
                     }
                     autoHighlight
@@ -76,7 +82,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
                     <ComboboxContent>
                       <ComboboxEmpty>No templates found.</ComboboxEmpty>
                       <ComboboxList>
-                        {(template) => (
+                        {(template: VmTemplateOption) => (
                           <ComboboxItem key={template.id} value={template}>
                             {template.label}
                           </ComboboxItem>

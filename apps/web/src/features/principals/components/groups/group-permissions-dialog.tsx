@@ -33,13 +33,13 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
-import type { ApiPrincipal } from "@/lib/queries"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type {
   ApiManagementPermissionDefinition,
   ApiManagementPermissionSection,
   ManagementPermissionKey,
-} from "@/lib/management-permissions"
-import { ManagementPermissionKeys } from "@/lib/management-permissions"
+} from "@/features/auth/utils/management-permissions"
+import { ManagementPermissionKeys } from "@/features/auth/utils/management-permissions"
 import {
   AppDialogContent,
   AppDialogScrollBody,
@@ -47,7 +47,7 @@ import {
 import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
-} from "@/lib/queries"
+} from "@/features/principals/api/principals-queries"
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id

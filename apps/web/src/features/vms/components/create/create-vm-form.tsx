@@ -1,12 +1,13 @@
 import {
+  Field,
   createFormHook,
   createFormHookContexts,
   formOptions,
 } from "@tanstack/react-form"
 import { z } from "zod"
-import type { DeepKeys } from "@tanstack/react-form"
-import type { ApiTreeNode, CreateVMParams } from "@/lib/queries"
-import { vmNameSchema } from "@/lib/vm-name"
+import { vmNameSchema } from "../../utils/vm-name"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { CreateVMParams } from "@/features/vms/types/vm-types"
 
 export const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 
@@ -77,8 +78,8 @@ export const createVmFormSchema = z
     ostype: z.string().default("l26"),
     iso_storage: z.string().optional(),
     iso: z.string().optional(),
-  bios: z.string().default("seabios"),
-  machine: z.string().default("pc"),
+    bios: z.string().default("seabios"),
+    machine: z.string().default("pc"),
     scsi: z.string().default("virtio-scsi-single"),
     sockets: z.number().int().min(1).default(1),
     cores: z.number().int().min(1).default(1),
@@ -114,35 +115,17 @@ export const createVmFormSchema = z
 
 export type CreateVmFormValues = z.infer<typeof createVmFormSchema>
 
-function toFormFieldPath(path: Array<PropertyKey>) {
-  return path.reduce<string>((fieldPath, segment) => {
-    if (typeof segment === "number") {
-      return `${fieldPath}[${segment}]`
-    }
-
-    if (typeof segment !== "string") {
-      return fieldPath
-    }
-
-    return fieldPath ? `${fieldPath}.${segment}` : segment
-  }, "")
-}
-
 function getCreateVmFormErrors(values: CreateVmFormValues) {
   const result = createVmFormSchema.safeParse(values)
 
   if (result.success) return undefined
 
-  const fields: Partial<Record<DeepKeys<CreateVmFormValues>, string>> = {}
+  const fields: any = {}
 
   for (const issue of result.error.issues) {
-    const path = toFormFieldPath(issue.path)
-    if (!path) continue
-
-    const field = path as DeepKeys<CreateVmFormValues>
-    if (fields[field]) continue
-
-    fields[field] = issue.message
+    const path = issue.path.join(".")
+    if (fields[path]) continue
+    fields[path] = issue.message
   }
 
   return { fields }
@@ -187,7 +170,9 @@ export const { useAppForm: useCreateVmForm, withForm: withCreateVmForm } =
   createFormHook({
     fieldContext,
     formContext,
-    fieldComponents: {},
+    fieldComponents: {
+      AppField: Field,
+    },
     formComponents: {},
   })
 
@@ -231,8 +216,9 @@ export function getVmTemplateOptions(
 
 export function getSelectedTemplate(
   templateOptions: Array<VmTemplateOption>,
-  templateId: string
+  templateId: string | null | undefined
 ) {
+  if (!templateId) return undefined
   return templateOptions.find(
     (template) => template.id === templateId || template.name === templateId
   )

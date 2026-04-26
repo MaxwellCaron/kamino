@@ -21,12 +21,12 @@ import {
 import {
   useCreateSnapshot,
   useSubmitInventorySnapshotCreateRequest,
-} from "@/hooks/use-vm-actions"
+} from "@/features/vms/hooks/use-vm-actions"
 import {
   toastCreateSnapshot,
   toastSubmitSnapshotRequest,
-} from "@/components/vm/toasts"
-import { formatVmReference } from "@/lib/utils"
+} from "@/features/vms/utils/vm-toasts"
+import { formatVmReference } from "@/features/shared/utils/utils"
 
 const generateSnapshotName = () =>
   `snapshot-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}Z`

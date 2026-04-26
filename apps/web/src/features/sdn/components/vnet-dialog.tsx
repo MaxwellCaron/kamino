@@ -12,12 +12,12 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import type { ApiVNet } from "@/lib/queries"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { createVNet, updateVNet } from "@/lib/queries"
+import { createVNet, updateVNet } from "@/features/sdn/api/sdn-queries"
 
 const vnetSchema = z.object({
   vnet: z

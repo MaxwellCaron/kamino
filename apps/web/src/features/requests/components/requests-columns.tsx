@@ -11,11 +11,12 @@ import {
   formatRequestStatus,
   getRequestIcon,
   getRequestStatusClassName,
-} from "../../../components/requests/request-presenters"
-import type { ApiRequestSummary, ApiTreeNode } from "@/lib/queries"
+} from "../utils/request-presenters"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import type { ColumnDef } from "@tanstack/react-table"
-import { findTreePath } from "@/lib/queries"
-import { formatVmReference } from "@/lib/utils"
+import { formatVmReference } from "@/features/shared/utils/utils"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void

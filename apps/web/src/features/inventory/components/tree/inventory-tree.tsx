@@ -6,10 +6,14 @@ import {
   useMemo,
   useState,
 } from "react"
+import type { ReactNode } from "react"
+import type { TreeInstance } from "@headless-tree/core"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import { toast } from "sonner"
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { AnimatePresence } from "motion/react"
+import { toast } from "sonner"
+
 import { Button } from "@workspace/ui/components/button"
 import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 import {
@@ -17,20 +21,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import { AnimatePresence } from "motion/react"
-import { InventoryTreeContent } from "./tree-content"
-import { InventoryTreeSearch } from "./tree-search"
+
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-queries"
+
+import { LoadingTransition } from "@/components/loading-transition"
+
+import { inventoryTreeQueryOptions } from "../../api/inventory-queries"
+import { useMoveInventoryItem } from "../../hooks/use-inventory-actions"
+import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
+import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
+import type { ApiTreeNode } from "../../types/inventory-types"
+import {
+  buildVmIdMap,
+  countLeaves,
+  filterTree,
+  flattenApiTree,
+} from "../../utils/tree-utils"
 import { InventoryFavoritesSection } from "./favorites-section"
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
-import { useInventoryHeadlessTree } from "../../../../components/inventory/tree/use-inventory-headless-tree"
-import { useInventoryFavorites } from "../../../../components/inventory/tree/use-inventory-favorites"
-import { buildVmIdMap, countLeaves, filterTree, flattenApiTree } from "../../../../components/inventory/tree/utils"
-import type { ReactNode } from "react"
-import type { TreeInstance } from "@headless-tree/core"
-import type { ApiTreeNode } from "@/lib/queries"
-import { inventoryTreeQueryOptions, vmStatusQueryOptions } from "@/lib/queries"
-import { useMoveInventoryItem } from "@/hooks/use-inventory-actions"
-import { LoadingTransition } from "@/components/loading-transition"
+import { InventoryTreeContent } from "./tree-content"
+import { InventoryTreeSearch } from "./tree-search"
 
 interface InventoryTreeContextValue {
   query: string

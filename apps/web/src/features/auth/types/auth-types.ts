@@ -1,3 +1,9 @@
+import type { ManagementPermissionKey } from "../utils/management-permissions"
+
+export type ApiManagementPermissions = {
+  grants: Array<ManagementPermissionKey>
+}
+
 export type AuthUser = {
   id: string
   username: string

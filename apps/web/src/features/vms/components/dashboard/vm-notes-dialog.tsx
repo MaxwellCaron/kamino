@@ -14,9 +14,9 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { useUpdateVMNotes } from "@/hooks/use-vm-actions"
-import { toastUpdateNotes } from "@/components/vm/toasts"
-import { formatVmReference } from "@/lib/utils"
+import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
+import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
+import { formatVmReference } from "@/features/shared/utils/utils"
 
 const vmNotesSchema = z.object({
   notes: z.string().max(255, "Notes must be 255 characters or less"),

@@ -34,22 +34,23 @@ import {
 } from "@workspace/ui/components/table"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { ApiSnapshot } from "@/features/vms/types/vm-types"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { loadingTransition } from "@/components/loading-transition"
-import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
-import { snapshotsQueryOptions } from "@/lib/queries"
+import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
+import { snapshotsQueryOptions } from "@/features/vms/api/vm-queries"
 import {
   useDeleteSnapshot,
   useRollbackSnapshot,
   useSubmitInventorySnapshotRollbackRequest,
-} from "@/hooks/use-vm-actions"
+} from "@/features/vms/hooks/use-vm-actions"
 import {
   toastDeleteSnapshot,
   toastRollbackSnapshot,
   toastSubmitRollbackRequest,
-} from "@/components/vm/toasts"
-import { formatVmReference } from "@/lib/utils"
+} from "@/features/vms/utils/vm-toasts"
+import { formatVmReference } from "@/features/shared/utils/utils"
 
 export function SnapshotsTable({
   itemId,
@@ -73,7 +74,7 @@ export function SnapshotsTable({
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     ...snapshotsQueryOptions(itemId),
     enabled: !!itemId && vmid != null && canViewSnapshots,
-  }) as { data: Array<any> | undefined; isLoading: boolean }
+  }) as { data: Array<ApiSnapshot> | undefined; isLoading: boolean }
   const isLoading = isVmLoading || isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true

@@ -1,7 +1,6 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import {
   IconCheck,
   IconCheckbox,
@@ -9,8 +8,20 @@ import {
   IconReceipt,
   IconX,
 } from "@tabler/icons-react"
-import { cn } from "@workspace/ui/lib/utils"
+import { toast } from "sonner"
+
+import {
+  ActionBarItem,
+  ActionBarSeparator,
+} from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import {
   Item,
   ItemContent,
@@ -19,40 +30,36 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import {
-  ActionBarItem,
-  ActionBarSeparator,
-} from "@workspace/ui/components/action-bar"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { cn } from "@workspace/ui/lib/utils"
+
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type {
+  ApiRequestActionResponse,
   ApiRequestScope,
   ApiRequestStatus,
   ApiRequestSummary,
-  ApiTreeNode,
-} from "@/lib/queries"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+} from "@/features/requests/types/request-types"
+import type {
+  ConfirmConfig,
+  ConfirmDialogControls,
+  ConfirmStatusItem,
+} from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
-  approveRequest,
   canAccessRequestQueue,
-  denyRequest,
-  findTreePath,
   hasManagementPermission,
-  inventoryTreeQueryOptions,
+} from "@/features/auth/utils/management-permissions"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-queries"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+import {
+  approveRequest,
+  denyRequest,
   requestDetailQueryOptions,
   requestsQueryOptions,
-} from "@/lib/queries"
-import { DataTable } from "@/components/data-table/data-table"
-import { RequestDetailDialog } from "@/components/requests/request-detail-dialog"
-import { getRequestColumns } from "@/components/requests/requests-columns"
+} from "@/features/requests/api/request-queries"
+import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
+import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
   STATUS_ICONS,
   formatRequestKind,
@@ -61,9 +68,12 @@ import {
   formatRequestStatus,
   getRequestIcon,
   getRequestStatusClassName,
-} from "@/components/requests/request-presenters"
+} from "@/features/requests/utils/request-presenters"
+import { formatVmReference } from "@/features/shared/utils/utils"
+
+import { DataTable } from "@/components/data-table/data-table"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { LoadingTransition } from "@/components/loading-transition"
-import { formatVmReference } from "@/lib/utils"
 
 export const Route = createFileRoute("/_dashboard/manager/requests")({
   beforeLoad: ({ context }) => {
@@ -208,7 +218,7 @@ function RequestsPage() {
             }
           })
         : undefined,
-      onConfirm: async (controls) => {
+      onConfirm: async (controls: ConfirmDialogControls) => {
         if (!isApprove) {
           const ids = requests.map((r) => r.id)
           mutation.mutate(ids)
@@ -223,9 +233,10 @@ function RequestsPage() {
         )
 
         await Promise.allSettled(
-          items.map(async (item) => {
+          items.map(async (item: ConfirmStatusItem) => {
             try {
-              const result = await mutation.mutateAsync([item.id])
+              const result: ApiRequestActionResponse =
+                await mutation.mutateAsync([item.id])
               const failed = result.failed.find((f) => f.id === item.id)
 
               controls.setStatusItems((prev) =>
@@ -374,10 +385,16 @@ function RequestsPage() {
               data={activeRequests}
               isLoading={activeQuery.isLoading}
               error={activeQuery.error}
-              getRowId={(request) => request.id}
+              getRowId={(request: ApiRequestSummary) => request.id}
               renderSelectionActions={
                 canReview && scope === "pending"
-                  ? ({ clearSelection, selectedRows }) => (
+                  ? ({
+                      clearSelection,
+                      selectedRows,
+                    }: {
+                      clearSelection: () => void
+                      selectedRows: Array<ApiRequestSummary>
+                    }) => (
                       <>
                         <ActionBarItem
                           onSelect={(event) => event.preventDefault()}
@@ -431,7 +448,7 @@ function RequestsPage() {
           setSelectedRequestId(null)
           toast.promise(approveMutation.mutateAsync([id]), {
             loading: "Approving request...",
-            success: (result) => {
+            success: (result: ApiRequestActionResponse) => {
               if (result.failed.length > 0) {
                 throw new Error(result.failed[0].error)
               }
@@ -448,7 +465,7 @@ function RequestsPage() {
           setSelectedRequestId(null)
           toast.promise(denyMutation.mutateAsync([id]), {
             loading: "Denying request...",
-            success: (result) => {
+            success: (result: ApiRequestActionResponse) => {
               if (result.failed.length > 0) {
                 throw new Error(result.failed[0].error)
               }

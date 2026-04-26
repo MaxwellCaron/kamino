@@ -14,7 +14,7 @@ import {
   IconUsersGroup,
 } from "@tabler/icons-react"
 import type { ColumnDef } from "@tanstack/react-table"
-import type { ApiPrincipal } from "@/lib/queries"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 
 type UserColumnsOptions = {
   canManage: boolean

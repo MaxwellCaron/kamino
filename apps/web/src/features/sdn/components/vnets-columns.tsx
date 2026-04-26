@@ -8,7 +8,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react"
 import type { ColumnDef } from "@tanstack/react-table"
-import type { ApiVNet } from "@/lib/queries"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 
 type VNetColumnsOptions = {
   canManage: boolean

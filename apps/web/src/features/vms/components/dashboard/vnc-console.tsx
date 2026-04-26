@@ -7,7 +7,6 @@ import {
   IconTerminal2,
   IconX,
 } from "@tabler/icons-react"
-
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -42,7 +41,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type RFB from "@novnc/novnc/core/rfb.js"
-import { apiFetch, apiUrl } from "@/lib/queries"
+import { apiFetch, apiUrl } from "@/features/auth/api/auth-queries"
 
 type VncConsoleProps = {
   itemId: string

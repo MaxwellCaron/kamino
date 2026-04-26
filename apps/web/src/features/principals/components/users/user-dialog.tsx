@@ -43,19 +43,19 @@ import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
   CreateUserInput,
-} from "@/lib/queries"
+} from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
-import { BulkCreateResultsSummary } from "@/components/principals/create-results-summary"
+import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
 import {
   createUser,
   groupsQueryOptions,
   setUserPassword,
   updateUser,
-} from "@/lib/queries"
+} from "@/features/principals/api/principals-queries"
 
 const usernameSchema = z
   .string()

@@ -31,14 +31,17 @@ import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
   CreateGroupInput,
-} from "@/lib/queries"
+} from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
-import { BulkCreateResultsSummary } from "@/components/principals/create-results-summary"
-import { createGroup, updateGroup } from "@/lib/queries"
+import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
+import {
+  createGroup,
+  updateGroup,
+} from "@/features/principals/api/principals-queries"
 
 const groupNameSchema = z
   .string()

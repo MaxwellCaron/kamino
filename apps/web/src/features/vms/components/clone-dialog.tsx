@@ -12,7 +12,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { useCloneVM } from "@/hooks/use-vm-actions"
+import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
 import {
   CloneDestinationFolderField,
   CloneFullCloneField,
@@ -24,10 +24,11 @@ import {
   optionalVmNameSchema,
   optionalVmidSchema,
 } from "@/features/vms/components/create/create-vm-form"
-import { getInventoryFolderOptions } from "@/lib/inventory-tree"
-import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
-import { toastCloneVm } from "@/components/vm/toasts"
-import { formatVmReference } from "@/lib/utils"
+import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-queries"
+import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-queries"
+import { toastCloneVm } from "@/features/vms/utils/vm-toasts"
+import { formatVmReference } from "@/features/shared/utils/utils"
 
 const cloneSchema = z.object({
   target_folder_id: z
