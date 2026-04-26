@@ -39,10 +39,10 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { AddPrincipalsDialog } from "./add-principals-dialog"
-import { principalTypeLabels } from "./constants"
+import { principalTypeLabels } from "../../../../components/inventory/permissions/constants"
 import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
-import { useInventoryPermissions } from "./use-inventory-permissions"
-import type { InventoryPermissionsDialogProps } from "./types"
+import { useInventoryPermissions } from "../../../../components/inventory/permissions/use-inventory-permissions"
+import type { InventoryPermissionsDialogProps } from "../../../../components/inventory/permissions/types"
 import type { ApiInventoryAcl, ApiPrincipal } from "@/lib/queries"
 import {
   groupsQueryOptions,

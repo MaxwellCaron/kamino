@@ -26,7 +26,7 @@ import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import { InventoryDeletionDescription } from "./inventory-deletion-description"
-import { useInventoryFavorites } from "./tree/use-inventory-favorites"
+import { useInventoryFavorites } from "../../../components/inventory/tree/use-inventory-favorites"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
   ApiBulkVmMutationResponse,

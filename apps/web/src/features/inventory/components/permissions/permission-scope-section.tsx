@@ -6,9 +6,9 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { getPermissionState } from "./acl-transformers"
+import { getPermissionState } from "../../../../components/inventory/permissions/acl-transformers"
 import { PermissionStateControl } from "./permission-state-control"
-import type { DraftPrincipal, PermissionState } from "./types"
+import type { DraftPrincipal, PermissionState } from "../../../../components/inventory/permissions/types"
 import type { InventoryPermissionSection } from "@/lib/inventory-permissions"
 
 type PermissionScopeSectionProps = {

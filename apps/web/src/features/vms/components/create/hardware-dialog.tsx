@@ -46,8 +46,8 @@ import {
   getFirstIssueMessage,
   parseNumberInput,
   parseOptionalNumberInput,
-} from "@/components/vm/create/create-vm-form"
-import { renderError } from "@/components/vm/create/create-vm-step-shared"
+} from "@/features/vms/components/create/create-vm-form"
+import { renderError } from "@/features/vms/components/create/create-vm-step-shared"
 import {
   biosTypes,
   cpuTypes,

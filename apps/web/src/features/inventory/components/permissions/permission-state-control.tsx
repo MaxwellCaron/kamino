@@ -3,7 +3,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
-import type { PermissionState } from "./types"
+import type { PermissionState } from "../../../../components/inventory/permissions/types"
 
 type PermissionStateControlProps = {
   onChange: (value: PermissionState) => void

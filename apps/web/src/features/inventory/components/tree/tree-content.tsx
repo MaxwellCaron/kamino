@@ -9,7 +9,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree"
-import { TREE_INDENT } from "./constants"
+import { TREE_INDENT } from "../../../../components/inventory/tree/constants"
 import { VmIcon } from "./vm-icon"
 import type { MouseEvent as ReactMouseEvent } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
