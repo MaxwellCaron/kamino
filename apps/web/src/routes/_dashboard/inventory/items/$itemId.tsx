@@ -3,17 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/components/vm/vnc-console"
 import {
-  InventoryPermissionBits,
-  canRequestInventoryPermission,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
-import {
   findTreeNode,
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
   vmResourcesQueryOptions,
   vmStatusQueryOptions,
 } from "@/lib/queries"
+import { getVmCapabilities } from "@/lib/inventory-capabilities"
 import { SnapshotsTable } from "@/components/vm/snapshot-table"
 import { VmHeader } from "@/components/vm/vm-header"
 import { VmNotes } from "@/components/vm/vm-notes"
@@ -56,22 +52,11 @@ function VmPage() {
     ...vmResourcesQueryOptions(itemId),
     enabled: shouldFetchResources,
   })
-  const canManageSnapshots = hasInventoryPermission(
-    node?.permissions,
-    InventoryPermissionBits.snapshotVm
-  )
-  const canViewSnapshots = hasInventoryPermission(
-    node?.permissions,
-    InventoryPermissionBits.viewSnapshots
-  )
-  const canRequestSnapshots = canRequestInventoryPermission(
-    node?.permissions,
-    InventoryPermissionBits.snapshotVm
-  )
-  const canUseConsole = hasInventoryPermission(
-    node?.permissions,
-    InventoryPermissionBits.consoleVm
-  )
+  const capabilities = getVmCapabilities(node?.permissions, { isTemplate })
+  const canManageSnapshots = capabilities.snapshot.mode === "direct"
+  const canViewSnapshots = capabilities.viewSnapshots.enabled
+  const canRequestSnapshots = capabilities.snapshot.mode === "request"
+  const canUseConsole = capabilities.console.enabled
   const shouldRedirectHome = !isLoading && (!node || !vm)
 
   useEffect(() => {

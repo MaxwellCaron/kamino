@@ -10,10 +10,7 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useState } from "react"
 import type { ApiTreeNode, ApiTreeNodeVM } from "@/lib/queries"
-import {
-  InventoryPermissionBits,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
+import { getVmCapabilities } from "@/lib/inventory-capabilities"
 import { LoadingTransition } from "@/components/loading-transition"
 import { VmNotesDialog } from "@/components/vm/vm-notes-dialog"
 
@@ -29,10 +26,7 @@ export function VmNotes({
   isLoading: boolean
 }) {
   const [isNotesOpen, setIsNotesOpen] = useState(false)
-  const canEditNotes = hasInventoryPermission(
-    node?.permissions,
-    InventoryPermissionBits.renameVm
-  )
+  const canEditNotes = getVmCapabilities(node?.permissions).notes.enabled
   const notes = vm?.notes?.trim() ? vm.notes : null
 
   return (

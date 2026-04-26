@@ -10,18 +10,12 @@ import {
   hasManagementPermission,
   normalizeManagementPermissionGrants,
 } from "@/lib/management-permissions"
-import {
-  InventoryPermissionBits,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
 
 export {
   canAccessAdmin,
   canAccessRequestQueue,
-  InventoryPermissionBits,
   ManagementPermissionKeys,
   expandManagementPermissionGrants,
-  hasInventoryPermission,
   hasManagementPermission,
   normalizeManagementPermissionGrants,
 }

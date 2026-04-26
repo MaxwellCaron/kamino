@@ -1,8 +1,5 @@
 import type { ApiTreeNode } from "@/lib/queries"
-import {
-  InventoryPermissionBits,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
+import { hasDirectInventoryCapability } from "@/lib/inventory-capabilities"
 
 export const INVENTORY_KIND_SORT_ORDER = {
   folder: 0,
@@ -184,7 +181,7 @@ export function getInventoryFolderOptions(
 
       if (
         !isRootFolder &&
-        hasInventoryPermission(entry.permissions, InventoryPermissionBits.view)
+        hasDirectInventoryCapability(entry.permissions, "view")
       ) {
         folders.push({
           id: entry.id,

@@ -31,10 +31,7 @@ import {
   useDeleteVM,
   useVmPowerAction,
 } from "@/hooks/use-vm-actions"
-import {
-  InventoryPermissionBits,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
+import { hasDirectInventoryCapability } from "@/lib/inventory-capabilities"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
 import { formatMutationError, formatVmReference } from "@/lib/utils"
 
@@ -312,27 +309,21 @@ export function InventorySelectionActionBar() {
   const canDelete =
     deleteTargetCount > 0 &&
     deleteFolderTargets.every((folder) =>
-      hasInventoryPermission(
-        folder.permissions,
-        InventoryPermissionBits.deleteFolder
-      )
+      hasDirectInventoryCapability(folder.permissions, "deleteFolder")
     ) &&
     deleteVmTargets.every((item) =>
-      hasInventoryPermission(item.permissions, InventoryPermissionBits.deleteVm)
+      hasDirectInventoryCapability(item.permissions, "deleteVm")
     )
   const canPower =
     powerVmItems.length > 0 &&
     powerVmItems.every((item) =>
-      hasInventoryPermission(item.permissions, InventoryPermissionBits.powerVm)
+      hasDirectInventoryCapability(item.permissions, "powerVm")
     )
   const canTemplate =
     !hasSelectedFolders &&
     !anySelectedTemplate &&
     selectedVmItems.every((item) =>
-      hasInventoryPermission(
-        item.permissions,
-        InventoryPermissionBits.templateVm
-      )
+      hasDirectInventoryCapability(item.permissions, "templateVm")
     )
 
   const open =

@@ -39,20 +39,17 @@ import {
   vmStatusQueryOptions,
 } from "@/lib/queries"
 import {
-  InventoryPermissionBits,
-  hasInventoryPermission,
-} from "@/lib/inventory-permissions"
+  getFolderCapabilities,
+  getVmCapabilities,
+  hasFolderActions,
+  hasNodeActions,
+} from "@/lib/inventory-capabilities"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
 import { formatVmReference } from "@/lib/utils"
 import { useDeleteFolder } from "@/hooks/use-inventory-actions"
 import { useConvertToTemplate, useDeleteVM } from "@/hooks/use-vm-actions"
 import { toastDeleteVm, toastTemplatizeVm } from "@/components/vm/toasts"
 import { useVmPowerActions } from "@/components/vm/power-actions"
-import {
-  getInventoryPermissionMode,
-  hasFolderActions,
-  hasNodeActions,
-} from "@/components/inventory/permissions/utils"
 
 function formatMutationError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
@@ -94,62 +91,43 @@ function FolderMenuItems({
   onDelete: () => void
   isLoading?: boolean
 }) {
-  const canCreateFolder = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.createFolder
-  )
-  const canCreateVm = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.createVm
-  )
-  const canRename = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.renameFolder
-  )
-  const canDelete = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.deleteFolder
-  )
-  const canManagePermissions = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.managePermissions
-  )
+  const capabilities = getFolderCapabilities(permissions)
 
   return (
     <>
-      {(canCreateFolder || canCreateVm) && (
+      {capabilities.hasCreateActions && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Create</DropdownMenuLabel>
-            {canCreateFolder && (
+            {capabilities.createFolder.visible && (
               <DropdownMenuItem onClick={onCreateFolder} disabled={isLoading}>
                 <IconFolderPlus className="text-muted-foreground" />
                 New Folder
               </DropdownMenuItem>
             )}
-            {canCreateVm && (
+            {capabilities.createVm.visible && (
               <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
                 <IconDeviceDesktopPlus className="text-muted-foreground" />
                 New VM
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {(canRename || canManagePermissions || canDelete) && (
+          {(capabilities.hasEditActions || capabilities.delete.visible) && (
             <DropdownMenuSeparator />
           )}
         </>
       )}
-      {(canRename || canManagePermissions) && (
+      {capabilities.hasEditActions && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
-            {canRename && (
+            {capabilities.rename.visible && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
                 Rename
               </DropdownMenuItem>
             )}
-            {canManagePermissions && (
+            {capabilities.managePermissions.visible && (
               <DropdownMenuItem
                 onClick={onManagePermissions}
                 disabled={isLoading}
@@ -159,10 +137,10 @@ function FolderMenuItems({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {canDelete && <DropdownMenuSeparator />}
+          {capabilities.delete.visible && <DropdownMenuSeparator />}
         </>
       )}
-      {canDelete && (
+      {capabilities.delete.visible && (
         <DropdownMenuItem
           variant="destructive"
           onClick={onDelete}
@@ -217,39 +195,14 @@ function VmMenuItems({
     vmName: name,
     isLoading,
   })
-  const canClone = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.cloneVm
-  )
-  const canTemplate = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.templateVm
-  )
-  const snapshotMode = getInventoryPermissionMode(
-    permissions,
-    InventoryPermissionBits.snapshotVm
-  )
-  const canRename = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.renameVm
-  )
-  const canEditHardware = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.editVmHardware
-  )
-  const canDelete = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.deleteVm
-  )
-  const canManagePermissions = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.managePermissions
-  )
+  const capabilities = getVmCapabilities(permissions)
   const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
   const hasActionItems =
-    canToggleFavorite || canClone || snapshotMode !== null || canTemplate
-  const hasEditItems = canRename || canEditHardware || canManagePermissions
-  const hasTrailingItems = hasActionItems || hasEditItems || canDelete
+    canToggleFavorite || capabilities.hasActionItems
+  const hasTrailingItems =
+    hasActionItems ||
+    capabilities.hasEditItems ||
+    capabilities.delete.visible
 
   return (
     <>
@@ -287,22 +240,26 @@ function VmMenuItems({
                 {isFavorite ? "Unfavorite" : "Favorite"}
               </DropdownMenuItem>
             )}
-            {canClone && (
+            {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
                 Clone
               </DropdownMenuItem>
             )}
-            {snapshotMode !== null && (
+            {capabilities.snapshot.visible && (
               <DropdownMenuItem
-                onClick={() => onSnapshot(snapshotMode)}
+                onClick={() => {
+                  if (capabilities.snapshot.mode) {
+                    onSnapshot(capabilities.snapshot.mode)
+                  }
+                }}
                 disabled={isLoading}
               >
                 <IconCamera className="text-muted-foreground" />
-                {snapshotMode === "direct" ? "Snapshot" : "Snapshot"}
+                Snapshot
               </DropdownMenuItem>
             )}
-            {canTemplate && (
+            {capabilities.template.visible && (
               <DropdownMenuItem
                 disabled={isLoading}
                 onClick={() =>
@@ -332,26 +289,28 @@ function VmMenuItems({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {(hasEditItems || canDelete) && <DropdownMenuSeparator />}
+          {(capabilities.hasEditItems || capabilities.delete.visible) && (
+            <DropdownMenuSeparator />
+          )}
         </>
       )}
-      {hasEditItems && (
+      {capabilities.hasEditItems && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
-            {canRename && (
+            {capabilities.rename.visible && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
                 Rename
               </DropdownMenuItem>
             )}
-            {canEditHardware && (
+            {capabilities.editHardware.visible && (
               <DropdownMenuItem onClick={onEditHardware} disabled={isLoading}>
                 <IconSettings className="text-muted-foreground" />
                 Hardware
               </DropdownMenuItem>
             )}
-            {canManagePermissions && (
+            {capabilities.managePermissions.visible && (
               <DropdownMenuItem
                 onClick={onManagePermissions}
                 disabled={isLoading}
@@ -361,10 +320,10 @@ function VmMenuItems({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {canDelete && <DropdownMenuSeparator />}
+          {capabilities.delete.visible && <DropdownMenuSeparator />}
         </>
       )}
-      {canDelete && (
+      {capabilities.delete.visible && (
         <DropdownMenuItem
           variant="destructive"
           disabled={isLoading}
@@ -423,21 +382,9 @@ function TemplateMenuItems({
 }) {
   const deleteVm = useDeleteVM()
   const vmIdentifier = formatVmReference(vmid, name)
-  const canClone = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.cloneVm
-  )
-  const canDelete = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.deleteVm
-  )
-  const canManagePermissions = hasInventoryPermission(
-    permissions,
-    InventoryPermissionBits.managePermissions
-  )
+  const capabilities = getVmCapabilities(permissions, { isTemplate: true })
   const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
-  const hasActionItems = canToggleFavorite || canClone
-  const hasEditItems = canManagePermissions
+  const hasActionItems = canToggleFavorite || capabilities.clone.visible
 
   return (
     <>
@@ -451,17 +398,19 @@ function TemplateMenuItems({
                 {isFavorite ? "Unfavorite" : "Favorite"}
               </DropdownMenuItem>
             )}
-            {canClone && (
+            {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
                 Clone
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          {(hasEditItems || canDelete) && <DropdownMenuSeparator />}
+          {(capabilities.hasEditItems || capabilities.delete.visible) && (
+            <DropdownMenuSeparator />
+          )}
         </>
       )}
-      {hasEditItems && (
+      {capabilities.hasEditItems && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
@@ -473,10 +422,10 @@ function TemplateMenuItems({
               Permissions
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          {canDelete && <DropdownMenuSeparator />}
+          {capabilities.delete.visible && <DropdownMenuSeparator />}
         </>
       )}
-      {canDelete && (
+      {capabilities.delete.visible && (
         <DropdownMenuItem
           variant="destructive"
           disabled={isLoading}

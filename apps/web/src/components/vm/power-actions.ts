@@ -13,12 +13,11 @@ import type {
   ApiBulkVmMutationResponse,
   ApiTreeNodePermissions,
 } from "@/lib/queries"
-import { getInventoryPermissionMode } from "@/components/inventory/permissions/utils"
+import { getInventoryPermissionMode } from "@/lib/inventory-capabilities"
 import {
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "@/hooks/use-vm-actions"
-import { InventoryPermissionBits } from "@/lib/inventory-permissions"
 import { formatVmReference } from "@/lib/utils"
 
 export type VmPowerAction = "start" | "shutdown" | "reboot" | "stop"
@@ -208,7 +207,7 @@ export function useVmPowerActions({
   const submitPowerRequest = useSubmitInventoryPowerRequest()
   const powerMode = getInventoryPermissionMode(
     permissions,
-    InventoryPermissionBits.powerVm
+    "powerVm"
   )
   const isPending = powerAction.isPending || submitPowerRequest.isPending
   const isGloballyDisabled = isLoading || isPending || powerMode === null
