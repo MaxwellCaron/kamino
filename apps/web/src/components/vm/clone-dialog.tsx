@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
-import { toast } from "sonner"
 import { z } from "zod"
 import { IconCopy } from "@tabler/icons-react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -27,6 +26,7 @@ import {
 } from "@/components/vm/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/lib/inventory-tree"
 import { inventoryTreeQueryOptions, nodesQueryOptions } from "@/lib/queries"
+import { toastCloneVm } from "@/components/vm/utils"
 import { formatVmReference } from "@/lib/utils"
 
 const cloneSchema = z.object({
@@ -76,7 +76,7 @@ export function CloneDialog({
       const parsed = cloneSchema.parse(value)
       onOpenChange(false)
 
-      toast.promise(
+      toastCloneVm(
         clone.mutateAsync({
           itemId,
           newid: parsed.newid,
@@ -85,11 +85,8 @@ export function CloneDialog({
           target: parsed.node || undefined,
           target_folder_id: parsed.target_folder_id ?? "",
         }),
-        {
-          loading: `Cloning VM ${currentVmid ?? currentName}…`,
-          success: (result) => `VM cloned to ${result.vmid}`,
-          error: (error: Error) => error.message,
-        }
+        currentVmid,
+        currentName
       )
     },
   })

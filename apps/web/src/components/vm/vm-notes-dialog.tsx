@@ -1,7 +1,6 @@
 import { useEffect } from "react"
 import { useForm } from "@tanstack/react-form"
 import { IconEdit } from "@tabler/icons-react"
-import { toast } from "sonner"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -16,6 +15,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { useUpdateVMNotes } from "@/hooks/use-vm-actions"
+import { toastUpdateNotes } from "@/components/vm/utils"
 import { formatVmReference } from "@/lib/utils"
 
 const vmNotesSchema = z.object({
@@ -47,19 +47,11 @@ export function VmNotesDialog({
       const parsed = vmNotesSchema.parse(value)
       onOpenChange(false)
 
-      toast.promise(
+      toastUpdateNotes(
         updateNotes.mutateAsync({
           itemId,
           notes: parsed.notes,
-        }),
-        {
-          loading: "Updating VM notes...",
-          success: (result) =>
-            result.synced
-              ? "VM notes updated"
-              : "VM notes saved. Proxmox sync is pending.",
-          error: (error: Error) => error.message,
-        }
+        })
       )
     },
   })

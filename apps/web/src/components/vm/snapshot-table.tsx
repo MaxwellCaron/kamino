@@ -32,19 +32,23 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { toast } from "sonner"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { loadingTransition } from "@/components/loading-transition"
 import { SnapshotDialog } from "@/components/vm/snapshot-dialog"
+import { snapshotsQueryOptions } from "@/lib/queries"
 import {
   useDeleteSnapshot,
   useRollbackSnapshot,
   useSubmitInventorySnapshotRollbackRequest,
 } from "@/hooks/use-vm-actions"
-import { snapshotsQueryOptions } from "@/lib/queries"
+import {
+  toastDeleteSnapshot,
+  toastRollbackSnapshot,
+  toastSubmitRollbackRequest,
+} from "@/components/vm/utils"
 import { formatVmReference } from "@/lib/utils"
 
 export function SnapshotsTable({
@@ -69,7 +73,7 @@ export function SnapshotsTable({
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     ...snapshotsQueryOptions(itemId),
     enabled: !!itemId && vmid != null && canViewSnapshots,
-  })
+  }) as { data: Array<any> | undefined; isLoading: boolean }
   const isLoading = isVmLoading || isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
@@ -101,7 +105,7 @@ export function SnapshotsTable({
   }
 
   return (
-    <Card className="flex h-full flex-col">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconCamera className="size-5 text-muted-foreground" />
@@ -243,11 +247,10 @@ export function SnapshotsTable({
                                       snapname: snapshot.name,
                                     })
 
-                                    toast.promise(promise, {
-                                      loading: `Rolling back to "${snapshot.name}"…`,
-                                      success: `Rolled back to "${snapshot.name}"`,
-                                      error: (err: Error) => err.message,
-                                    })
+                                    toastRollbackSnapshot(
+                                      promise,
+                                      snapshot.name
+                                    )
                                   },
                                 })
                               }
@@ -272,11 +275,7 @@ export function SnapshotsTable({
                                       snapname: snapshot.name,
                                     })
 
-                                    toast.promise(promise, {
-                                      loading: `Deleting snapshot "${snapshot.name}"…`,
-                                      success: `Snapshot "${snapshot.name}" deleted`,
-                                      error: (err: Error) => err.message,
-                                    })
+                                    toastDeleteSnapshot(promise, snapshot.name)
                                   },
                                 })
                               }
@@ -355,11 +354,7 @@ export function SnapshotsTable({
                   snapname: requestRollbackSnapshot,
                 })
 
-                toast.promise(promise, {
-                  loading: `Submitting rollback request for "${requestRollbackSnapshot}"…`,
-                  success: `Rollback request for "${requestRollbackSnapshot}" submitted`,
-                  error: (err: Error) => err.message,
-                })
+                toastSubmitRollbackRequest(promise, requestRollbackSnapshot)
 
                 try {
                   await promise

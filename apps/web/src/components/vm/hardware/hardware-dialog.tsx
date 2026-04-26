@@ -72,6 +72,7 @@ import {
   storagesQueryOptions,
   vmHardwareQueryOptions,
 } from "@/lib/queries"
+import { toastUpdateHardware } from "@/components/vm/utils"
 import { formatVmReference } from "@/lib/utils"
 
 const hardwareNetworkInterfaceSchema = z.object({
@@ -118,6 +119,7 @@ type StorageOption = {
 type VmHardwareDialogFormProps = {
   itemId: string
   vmName: string
+  vmid?: number
   hardware: ApiVmHardwareConfig
   bridgeOptions: Array<NetworkOption>
   vnetOptions: Array<NetworkOption>
@@ -153,6 +155,7 @@ function toFormValues(hardware: ApiVmHardwareConfig): VmHardwareFormValues {
 function VmHardwareDialogForm({
   itemId,
   vmName,
+  vmid,
   hardware,
   bridgeOptions,
   vnetOptions,
@@ -174,16 +177,13 @@ function VmHardwareDialogForm({
 
       onOpenChange(false)
 
-      toast.promise(
+      toastUpdateHardware(
         updateHardware.mutateAsync({
           itemId,
           hardware: parsed,
         }),
-        {
-          loading: `Updating hardware for "${vmName}"...`,
-          success: `Hardware updated for "${vmName}"`,
-          error: (error: Error) => error.message,
-        }
+        vmid,
+        vmName
       )
     },
   })
@@ -929,6 +929,7 @@ export function VmHardwareDialog({
             key={itemId}
             itemId={itemId}
             vmName={vmName}
+            vmid={initialVmid ?? vmid}
             hardware={hardwareQuery.data}
             bridgeOptions={bridgeOptions}
             vnetOptions={vnetOptions}

@@ -2,7 +2,6 @@ import { useEffect } from "react"
 import { useForm } from "@tanstack/react-form"
 import { IconCamera } from "@tabler/icons-react"
 import { z } from "zod"
-import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Field,
@@ -23,6 +22,10 @@ import {
   useCreateSnapshot,
   useSubmitInventorySnapshotCreateRequest,
 } from "@/hooks/use-vm-actions"
+import {
+  toastCreateSnapshot,
+  toastSubmitSnapshotRequest,
+} from "@/components/vm/utils"
 import { formatVmReference } from "@/lib/utils"
 
 const generateSnapshotName = () =>
@@ -81,18 +84,14 @@ function DirectSnapshotDialog({
       const parsed = directSnapshotSchema.parse(value)
       onOpenChange(false)
 
-      toast.promise(
+      toastCreateSnapshot(
         create.mutateAsync({
           itemId,
           snapname: parsed.snapname,
           description: parsed.description || undefined,
           vmstate: parsed.vmstate,
         }),
-        {
-          loading: `Creating snapshot "${parsed.snapname}"…`,
-          success: `Snapshot "${parsed.snapname}" created`,
-          error: (err: Error) => err.message,
-        }
+        parsed.snapname
       )
     },
   })
@@ -238,19 +237,12 @@ function RequestSnapshotDialog({
       const parsed = createSnapshotRequestSchema.parse(value)
       onOpenChange(false)
 
-      toast.promise(
+      toastSubmitSnapshotRequest(
         submitCreateRequest.mutateAsync({
           itemId,
           snapname: parsed.snapname,
         }),
-        {
-          loading: `Submitting snapshot request for "${parsed.snapname}"…`,
-          success: (request) => {
-            const name = request.inventory?.snapshot_name || parsed.snapname
-            return `Snapshot request "${name}" submitted`
-          },
-          error: (err: Error) => err.message,
-        }
+        parsed.snapname
       )
     },
   })

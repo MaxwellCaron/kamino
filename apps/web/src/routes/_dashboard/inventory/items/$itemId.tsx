@@ -17,6 +17,7 @@ import {
 import { SnapshotsTable } from "@/components/vm/snapshot-table"
 import { VmHeader } from "@/components/vm/vm-header"
 import { VmNotes } from "@/components/vm/vm-notes"
+import { VmPowerControls } from "@/components/vm/vm-power-controls"
 
 export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
   component: VmPage,
@@ -95,22 +96,16 @@ function VmPage() {
           isTemplate={isTemplate}
           isLoading={isLoading}
         />
-        <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 lg:gap-6">
-          {canViewSnapshots && (
-            <div className="flex min-w-0 flex-col lg:col-span-2">
-              <SnapshotsTable
-                itemId={itemId}
-                vmid={vm?.vmid ?? null}
-                vmName={node?.name}
-                isTemplate={isTemplate}
-                canViewSnapshots={canViewSnapshots}
-                canManageSnapshots={canManageSnapshots}
-                canRequestSnapshots={canRequestSnapshots}
-                isLoading={isLoading}
-              />
-            </div>
-          )}
-          <div className="flex min-w-0 flex-col lg:col-span-1">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
+          <VmPowerControls
+            node={node}
+            itemId={itemId}
+            vm={vm}
+            powerStatus={powerStatus}
+            isTemplate={isTemplate}
+            isLoading={isLoading}
+          />
+          <div className="col-span-2">
             <VmNotes
               node={node}
               itemId={itemId}
@@ -119,6 +114,18 @@ function VmPage() {
             />
           </div>
         </div>
+        {canViewSnapshots && (
+          <SnapshotsTable
+            itemId={itemId}
+            vmid={vm?.vmid ?? null}
+            vmName={node?.name}
+            isTemplate={isTemplate}
+            canViewSnapshots={canViewSnapshots}
+            canManageSnapshots={canManageSnapshots}
+            canRequestSnapshots={canRequestSnapshots}
+            isLoading={isLoading}
+          />
+        )}
         {!isTemplate && canUseConsole && (
           <VncConsole
             key={itemId}

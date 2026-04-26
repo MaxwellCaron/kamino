@@ -48,6 +48,7 @@ import {
   getInventoryFolderOptions,
   getSelectedFolder,
 } from "@/lib/inventory-tree"
+import { toastCreateVm } from "@/components/vm/utils"
 import {
   cloneVM,
   createVM,
@@ -112,24 +113,7 @@ export function CreateVmDialog({
                 new Error("Upload-backed VM creation is not implemented yet.")
               )
 
-      toast.promise(promise, {
-        loading:
-          parsed.method === "template"
-            ? `Cloning template ${selectedTemplate?.name ?? "template"}…`
-            : parsed.method === "iso"
-              ? `Creating VM…`
-              : "Preparing upload workflow…",
-        success: (result) => {
-          if (parsed.method === "template") {
-            return `Template cloned to ${result.vmid}`
-          }
-          if (parsed.method === "iso") {
-            return `VM ${result.vmid} created`
-          }
-          return "Upload workflow ready"
-        },
-        error: (error: Error) => error.message,
-      })
+      toastCreateVm(promise, parsed.method, selectedTemplate?.name)
     },
   })
 

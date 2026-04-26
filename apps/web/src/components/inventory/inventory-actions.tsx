@@ -40,7 +40,6 @@ import type {
 import { findTreeNode, inventoryTreeQueryOptions } from "@/lib/queries"
 import {
   InventoryPermissionBits,
-  canRequestInventoryPermission,
   hasInventoryPermission,
 } from "@/lib/inventory-permissions"
 import { summarizeFolderDeletion } from "@/lib/inventory-tree"
@@ -52,6 +51,17 @@ import {
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "@/hooks/use-vm-actions"
+import {
+  getVmPowerActionConfig,
+  toastDeleteVm,
+  toastTemplatizeVm,
+  toastVmPowerAction,
+} from "@/components/vm/utils"
+import {
+  getInventoryPermissionMode,
+  hasFolderActions,
+  hasNodeActions,
+} from "@/components/inventory/permissions/utils"
 
 function formatMutationError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
@@ -66,44 +76,6 @@ function assertSingleItemMutationSucceeded(
   }
 
   return result
-}
-
-const FOLDER_ACTION_PERMISSIONS = [
-  InventoryPermissionBits.createFolder,
-  InventoryPermissionBits.createVm,
-  InventoryPermissionBits.renameFolder,
-  InventoryPermissionBits.deleteFolder,
-  InventoryPermissionBits.managePermissions,
-]
-
-function hasAnyPermission(
-  permissions: ApiTreeNodePermissions,
-  requiredPermissions: Array<number>
-) {
-  return requiredPermissions.some((permission) =>
-    hasInventoryPermission(permissions, permission)
-  )
-}
-
-function getPermissionMode(
-  permissions: ApiTreeNodePermissions,
-  requiredPermission: number
-): "direct" | "request" | null {
-  if (hasInventoryPermission(permissions, requiredPermission)) {
-    return "direct"
-  }
-
-  if (canRequestInventoryPermission(permissions, requiredPermission)) {
-    return "request"
-  }
-
-  return null
-}
-
-function hasNodeActions(data: ApiTreeNode) {
-  return data.kind === "folder"
-    ? hasAnyPermission(data.permissions, FOLDER_ACTION_PERMISSIONS)
-    : true
 }
 
 function stopTreeItemEvent(event: { stopPropagation: () => void }) {
@@ -246,8 +218,8 @@ function VmMenuItems({
   const submitPowerRequest = useSubmitInventoryPowerRequest()
   const deleteVm = useDeleteVM()
   const toTemplate = useConvertToTemplate()
-  const vmIdentifier = formatVmReference(vmid, name)
-  const powerMode = getPermissionMode(
+
+  const powerMode = getInventoryPermissionMode(
     permissions,
     InventoryPermissionBits.powerVm
   )
@@ -259,7 +231,7 @@ function VmMenuItems({
     permissions,
     InventoryPermissionBits.templateVm
   )
-  const snapshotMode = getPermissionMode(
+  const snapshotMode = getInventoryPermissionMode(
     permissions,
     InventoryPermissionBits.snapshotVm
   )
@@ -295,14 +267,7 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Start" : "Start",
-                  icon: IconPlayerPlay,
-                  description:
-                    powerMode === "direct"
-                      ? `This will power on ${vmIdentifier}.`
-                      : `Approval required. Powering on ${vmIdentifier} will be added to the queue for review.`,
-                  actionLabel: powerMode === "direct" ? "Start" : "Submit",
-                  variant: "default",
+                  ...getVmPowerActionConfig("start", powerMode, vmid, name),
                   onConfirm: () => {
                     const promise: Promise<unknown> =
                       powerMode === "direct"
@@ -311,7 +276,7 @@ function VmMenuItems({
                             .then((result) =>
                               assertSingleItemMutationSucceeded(
                                 result,
-                                `Failed to start VM ${vmIdentifier}`
+                                `Failed to start VM ${vmid}`
                               )
                             )
                         : submitPowerRequest.mutateAsync({
@@ -319,17 +284,7 @@ function VmMenuItems({
                             action: "start",
                           })
 
-                    toast.promise(promise, {
-                      loading:
-                        powerMode === "direct"
-                          ? `Starting VM ${vmIdentifier}…`
-                          : `Submitting start request for ${vmIdentifier}…`,
-                      success:
-                        powerMode === "direct"
-                          ? `VM ${vmIdentifier} started`
-                          : `Start request for ${vmIdentifier} submitted`,
-                      error: (err: Error) => err.message,
-                    })
+                    toastVmPowerAction(promise, "start", powerMode, vmid, name)
                   },
                 })
               }
@@ -341,14 +296,7 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Shutdown" : "Shutdown",
-                  icon: IconPower,
-                  description:
-                    powerMode === "direct"
-                      ? `This will send a shutdown signal to ${vmIdentifier}.`
-                      : `Approval required. Shutting down ${vmIdentifier} will be added to the queue for review.`,
-                  actionLabel: powerMode === "direct" ? "Shutdown" : "Submit",
-                  variant: "destructive",
+                  ...getVmPowerActionConfig("shutdown", powerMode, vmid, name),
                   onConfirm: () => {
                     const promise: Promise<unknown> =
                       powerMode === "direct"
@@ -360,7 +308,7 @@ function VmMenuItems({
                             .then((result) =>
                               assertSingleItemMutationSucceeded(
                                 result,
-                                `Failed to shut down VM ${vmIdentifier}`
+                                `Failed to shut down VM ${vmid}`
                               )
                             )
                         : submitPowerRequest.mutateAsync({
@@ -368,17 +316,13 @@ function VmMenuItems({
                             action: "shutdown",
                           })
 
-                    toast.promise(promise, {
-                      loading:
-                        powerMode === "direct"
-                          ? `Shutting down VM ${vmIdentifier}…`
-                          : `Submitting shutdown request for ${vmIdentifier}…`,
-                      success:
-                        powerMode === "direct"
-                          ? `VM ${vmIdentifier} shut down`
-                          : `Shutdown request for ${vmIdentifier} submitted`,
-                      error: (err: Error) => err.message,
-                    })
+                    toastVmPowerAction(
+                      promise,
+                      "shutdown",
+                      powerMode,
+                      vmid,
+                      name
+                    )
                   },
                 })
               }
@@ -390,14 +334,7 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Reboot" : "Reboot",
-                  icon: IconRefresh,
-                  description:
-                    powerMode === "direct"
-                      ? `This will send a reboot signal to ${vmIdentifier}.`
-                      : `Approval required. Rebooting ${vmIdentifier} will be added to the queue for review.`,
-                  actionLabel: powerMode === "direct" ? "Reboot" : "Submit",
-                  variant: "destructive",
+                  ...getVmPowerActionConfig("reboot", powerMode, vmid, name),
                   onConfirm: () => {
                     const promise: Promise<unknown> =
                       powerMode === "direct"
@@ -409,7 +346,7 @@ function VmMenuItems({
                             .then((result) =>
                               assertSingleItemMutationSucceeded(
                                 result,
-                                `Failed to reboot VM ${vmIdentifier}`
+                                `Failed to reboot VM ${vmid}`
                               )
                             )
                         : submitPowerRequest.mutateAsync({
@@ -417,17 +354,7 @@ function VmMenuItems({
                             action: "reboot",
                           })
 
-                    toast.promise(promise, {
-                      loading:
-                        powerMode === "direct"
-                          ? `Rebooting VM ${vmIdentifier}…`
-                          : `Submitting reboot request for ${vmIdentifier}…`,
-                      success:
-                        powerMode === "direct"
-                          ? `VM ${vmIdentifier} rebooted`
-                          : `Reboot request for ${vmIdentifier} submitted`,
-                      error: (err: Error) => err.message,
-                    })
+                    toastVmPowerAction(promise, "reboot", powerMode, vmid, name)
                   },
                 })
               }
@@ -439,14 +366,7 @@ function VmMenuItems({
               disabled={isLoading}
               onClick={() =>
                 onAction({
-                  title: powerMode === "direct" ? "Stop" : "Stop",
-                  icon: IconPlayerStop,
-                  description:
-                    powerMode === "direct"
-                      ? `This will immediately stop ${vmIdentifier}.`
-                      : `Approval required. Stopping ${vmIdentifier} will be added to the queue for review.`,
-                  actionLabel: powerMode === "direct" ? "Stop" : "Submit",
-                  variant: "destructive",
+                  ...getVmPowerActionConfig("stop", powerMode, vmid, name),
                   onConfirm: () => {
                     const promise: Promise<unknown> =
                       powerMode === "direct"
@@ -455,7 +375,7 @@ function VmMenuItems({
                             .then((result) =>
                               assertSingleItemMutationSucceeded(
                                 result,
-                                `Failed to stop VM ${vmIdentifier}`
+                                `Failed to stop VM ${vmid}`
                               )
                             )
                         : submitPowerRequest.mutateAsync({
@@ -463,17 +383,7 @@ function VmMenuItems({
                             action: "stop",
                           })
 
-                    toast.promise(promise, {
-                      loading:
-                        powerMode === "direct"
-                          ? `Stopping VM ${vmIdentifier}…`
-                          : `Submitting stop request for ${vmIdentifier}…`,
-                      success:
-                        powerMode === "direct"
-                          ? `VM ${vmIdentifier} stopped`
-                          : `Stop request for ${vmIdentifier} submitted`,
-                      error: (err: Error) => err.message,
-                    })
+                    toastVmPowerAction(promise, "stop", powerMode, vmid, name)
                   },
                 })
               }
@@ -517,25 +427,20 @@ function VmMenuItems({
                   onAction({
                     title: "Templatize",
                     icon: IconTemplate,
-                    description: `This will convert ${vmIdentifier} to a template. Once a VM is converted to a template, you will not be able to make any additional edits to this VM.`,
+                    description: `This will convert ${formatVmReference(vmid, name)} to a template. Once a VM is converted to a template, you will not be able to make any additional edits to this VM.`,
                     actionLabel: "Templatize",
                     variant: "destructive",
                     onConfirm: () => {
-                      toast.promise(
-                        toTemplate
-                          .mutateAsync({ itemIds: [itemId] })
-                          .then((result) =>
-                            assertSingleItemMutationSucceeded(
-                              result,
-                              `Failed to templatize VM ${vmIdentifier}`
-                            )
-                          ),
-                        {
-                          loading: `Templatizing VM ${vmIdentifier}…`,
-                          success: `VM ${vmIdentifier} templatized`,
-                          error: (err: Error) => err.message,
-                        }
-                      )
+                      const promise = toTemplate
+                        .mutateAsync({ itemIds: [itemId] })
+                        .then((result) =>
+                          assertSingleItemMutationSucceeded(
+                            result,
+                            `Failed to templatize VM ${vmid}`
+                          )
+                        )
+
+                      toastTemplatizeVm(promise, vmid, name)
                     },
                   })
                 }
@@ -585,7 +490,7 @@ function VmMenuItems({
             onAction({
               title: "Delete",
               icon: IconTrash,
-              description: `This will permanently delete ${vmIdentifier}.`,
+              description: `This will permanently delete ${formatVmReference(vmid, name)}.`,
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -594,15 +499,11 @@ function VmMenuItems({
                   .then((result) =>
                     assertSingleItemMutationSucceeded(
                       result,
-                      `Failed to delete VM ${vmIdentifier}`
+                      `Failed to delete VM ${vmid}`
                     )
                   )
 
-                toast.promise(promise, {
-                  loading: `Deleting VM ${vmIdentifier}…`,
-                  success: `VM ${vmIdentifier} deleted`,
-                  error: (err: Error) => err.message,
-                })
+                toastDeleteVm(promise, vmid, name)
               },
             })
           }
@@ -1015,9 +916,7 @@ export function VmOptionsMenu({
     openEditVmHardware,
     openPermissions,
   } = useInventoryDialogs()
-  const hasActions = isFolder
-    ? hasAnyPermission(permissions, FOLDER_ACTION_PERMISSIONS)
-    : true
+  const hasActions = isFolder ? hasFolderActions(permissions) : true
 
   if (!hasActions) return null
 
