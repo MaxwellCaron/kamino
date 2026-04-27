@@ -1,14 +1,16 @@
-import { Navigate, createFileRoute } from "@tanstack/react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import {
   IconPlus,
   IconRefresh,
   IconTrash,
   IconUsersGroup,
 } from "@tabler/icons-react"
+import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -17,25 +19,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Badge } from "@workspace/ui/components/badge"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiPrincipal } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
+  hasManagementPermission,
+} from "@/features/auth/utils/management-permissions"
+import {
   deleteGroup,
   groupsQueryOptions,
-  hasManagementPermission,
   triggerADSync,
-} from "@/lib/queries"
-import { useItemDialogState } from "@/hooks/use-item-dialog-state"
-import { GroupDialog } from "@/components/principals/groups/group-dialog"
-import { GroupPermissionsDialog } from "@/components/principals/groups/group-permissions-dialog"
-import { MembershipDialog } from "@/components/principals/membership-dialog"
-import { getGroupColumns } from "@/components/principals/groups/groups-columns"
+} from "@/features/principals/api/principals-api"
+import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
+import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
+import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
+import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import { DataTable } from "@/components/data-table/data-table"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 export const Route = createFileRoute("/_dashboard/admin/principals/groups")({
   component: GroupsPage,
@@ -119,7 +121,7 @@ function GroupsPage() {
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onEditAccess: accessDialog.openWith,
-        onDeleteClick: (group) =>
+        onDeleteClick: (group: ApiPrincipal) =>
           setConfirm({
             title: "Delete Group",
             icon: IconTrash,
@@ -186,10 +188,16 @@ function GroupsPage() {
               data={groups || []}
               isLoading={isLoading}
               error={error}
-              getRowId={(group) => group.id}
+              getRowId={(group: ApiPrincipal) => group.id}
               renderSelectionActions={
                 canAdminister
-                  ? ({ clearSelection, selectedRows }) => (
+                  ? ({
+                      clearSelection,
+                      selectedRows,
+                    }: {
+                      clearSelection: () => void
+                      selectedRows: Array<ApiPrincipal>
+                    }) => (
                       <ActionBarItem
                         variant="destructive"
                         onSelect={(event) => event.preventDefault()}
@@ -209,7 +217,8 @@ function GroupsPage() {
                             onConfirm: async () => {
                               const result = await deleteMutation.mutateAsync(
                                 selectedRows.map(
-                                  (selectedGroup) => selectedGroup.id
+                                  (selectedGroup: ApiPrincipal) =>
+                                    selectedGroup.id
                                 )
                               )
                               if (result.failed.length === 0) {

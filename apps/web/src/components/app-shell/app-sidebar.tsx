@@ -28,12 +28,15 @@ import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { NavUser } from "./nav-user"
-import type { AuthUser } from "@/lib/queries"
-import { canAccessAdmin, canAccessRequestQueue } from "@/lib/queries"
+import type { AuthUser } from "@/features/auth/types/auth-types"
+import {
+  canAccessAdmin,
+  canAccessRequestQueue,
+} from "@/features/auth/utils/management-permissions"
 import {
   InventoryTreeBody,
   InventoryTreeHeader,
-} from "@/components/inventory/tree/inventory-tree"
+} from "@/features/inventory/components/tree/inventory-tree"
 
 const navItems = [
   {

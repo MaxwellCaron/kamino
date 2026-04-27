@@ -9,7 +9,8 @@ import {
   BreadcrumbSeparator,
 } from "@workspace/ui/components/breadcrumb"
 import { IconSlash } from "@tabler/icons-react"
-import { findTreePath, inventoryTreeQueryOptions } from "@/lib/queries"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 
 export function SiteBreadcrumb() {
   const { itemId } = useParams({ strict: false })

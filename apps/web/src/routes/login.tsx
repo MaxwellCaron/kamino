@@ -1,8 +1,8 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { z } from "zod"
-import { LoginForm } from "@/components/login-form"
-import { ensureAuth } from "@/lib/queries"
+import { LoginForm } from "@/features/auth/components/login-form"
+import { ensureAuth } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/login")({
   validateSearch: z.object({

@@ -1,7 +1,6 @@
-import { Navigate, createFileRoute } from "@tanstack/react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import {
   IconPlus,
   IconRefresh,
@@ -10,10 +9,13 @@ import {
   IconUsersMinus,
   IconUsersPlus,
 } from "@tabler/icons-react"
+import { toast } from "sonner"
 import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -22,25 +24,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import type { ApiPrincipal } from "@/lib/queries"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
-  deleteUser,
   hasManagementPermission,
+} from "@/features/auth/utils/management-permissions"
+import {
+  deleteUser,
   triggerADSync,
   usersQueryOptions,
-} from "@/lib/queries"
-import { useItemDialogState } from "@/hooks/use-item-dialog-state"
-import { UserDialog } from "@/components/principals/users/user-dialog"
-import { MembershipDialog } from "@/components/principals/membership-dialog"
+} from "@/features/principals/api/principals-api"
+import { MembershipDialog } from "@/features/principals/components/membership-dialog"
+import { UserDialog } from "@/features/principals/components/users/user-dialog"
+import { UserGroupBulkDialog } from "@/features/principals/components/users/user-group-bulk-dialog"
+import { getUserColumns } from "@/features/principals/components/users/users-columns"
+
 import { DataTable } from "@/components/data-table/data-table"
-import { getUserColumns } from "@/components/principals/users/users-columns"
-import { UserGroupBulkDialog } from "@/components/principals/users/user-group-bulk-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 export const Route = createFileRoute("/_dashboard/admin/principals/users")({
   component: UsersPage,
@@ -113,7 +116,7 @@ function UsersPage() {
         canManage: canAdminister,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
-        onDeleteClick: (targetUser) =>
+        onDeleteClick: (targetUser: ApiPrincipal) =>
           setConfirm({
             title: "Delete User",
             icon: IconTrash,
@@ -197,10 +200,16 @@ function UsersPage() {
               data={users || []}
               isLoading={isLoading}
               error={error}
-              getRowId={(tableUser) => tableUser.id}
+              getRowId={(tableUser: ApiPrincipal) => tableUser.id}
               renderSelectionActions={
                 canAdminister
-                  ? ({ clearSelection, selectedRows }) => (
+                  ? ({
+                      clearSelection,
+                      selectedRows,
+                    }: {
+                      clearSelection: () => void
+                      selectedRows: Array<ApiPrincipal>
+                    }) => (
                       <>
                         <ActionBarItem
                           onSelect={(event) => event.preventDefault()}
@@ -254,7 +263,8 @@ function UsersPage() {
                               onConfirm: async () => {
                                 const result = await deleteMutation.mutateAsync(
                                   selectedRows.map(
-                                    (selectedUser) => selectedUser.id
+                                    (selectedUser: ApiPrincipal) =>
+                                      selectedUser.id
                                   )
                                 )
                                 if (result.failed.length === 0) {

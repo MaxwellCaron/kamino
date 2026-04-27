@@ -1,0 +1,143 @@
+import { toast } from "sonner"
+import { formatVmReference } from "@/features/shared/utils/format"
+
+export function toastCloneVm(
+  promise: Promise<{ vmid: number }>,
+  vmid?: number | null,
+  vmName?: string | null
+) {
+  const vmIdentifier = formatVmReference(vmid, vmName)
+
+  return toast.promise(promise, {
+    loading: `Cloning VM ${vmIdentifier}…`,
+    success: (result) => `VM cloned to ${result.vmid}`,
+    error: (error: Error) => error.message,
+  })
+}
+
+export function toastCreateVm(
+  promise: Promise<{ vmid: number }>,
+  method: "template" | "iso" | "upload",
+  templateName?: string
+) {
+  return toast.promise(promise, {
+    loading:
+      method === "template"
+        ? `Cloning template ${templateName ?? "template"}…`
+        : method === "iso"
+          ? `Creating VM…`
+          : "Preparing upload workflow…",
+    success: (result) => {
+      if (method === "template") {
+        return `Template cloned to ${result.vmid}`
+      }
+      if (method === "iso") {
+        return `VM ${result.vmid} created`
+      }
+      return "Upload workflow ready"
+    },
+    error: (error: Error) => error.message,
+  })
+}
+
+export function toastUpdateHardware(
+  promise: Promise<any>,
+  vmid?: number | null,
+  vmName?: string | null
+) {
+  const vmIdentifier = formatVmReference(vmid, vmName)
+
+  return toast.promise(promise, {
+    loading: `Updating hardware for ${vmIdentifier}...`,
+    success: `Hardware updated for ${vmIdentifier}`,
+    error: (error: Error) => error.message,
+  })
+}
+
+export function toastCreateSnapshot(promise: Promise<any>, snapname: string) {
+  return toast.promise(promise, {
+    loading: `Creating snapshot "${snapname}"…`,
+    success: `Snapshot "${snapname}" created`,
+    error: (err: Error) => err.message,
+  })
+}
+
+export function toastSubmitSnapshotRequest(
+  promise: Promise<any>,
+  snapname: string
+) {
+  return toast.promise(promise, {
+    loading: `Submitting snapshot request for "${snapname}"…`,
+    success: (request) => {
+      const name = request.inventory?.snapshot_name || snapname
+      return `Snapshot request "${name}" submitted`
+    },
+    error: (err: Error) => err.message,
+  })
+}
+
+export function toastRollbackSnapshot(promise: Promise<any>, snapname: string) {
+  return toast.promise(promise, {
+    loading: `Rolling back to "${snapname}"…`,
+    success: `Rolled back to "${snapname}"`,
+    error: (err: Error) => err.message,
+  })
+}
+
+export function toastSubmitRollbackRequest(
+  promise: Promise<any>,
+  snapname: string
+) {
+  return toast.promise(promise, {
+    loading: `Submitting rollback request for "${snapname}"…`,
+    success: `Rollback request for "${snapname}" submitted`,
+    error: (err: Error) => err.message,
+  })
+}
+
+export function toastDeleteSnapshot(promise: Promise<any>, snapname: string) {
+  return toast.promise(promise, {
+    loading: `Deleting snapshot "${snapname}"…`,
+    success: `Snapshot "${snapname}" deleted`,
+    error: (err: Error) => err.message,
+  })
+}
+
+export function toastUpdateNotes(promise: Promise<any>) {
+  return toast.promise(promise, {
+    loading: "Updating VM notes...",
+    success: (result) =>
+      result.synced
+        ? "VM notes updated"
+        : "VM notes saved. Proxmox sync is pending.",
+    error: (error: Error) => error.message,
+  })
+}
+
+export function toastDeleteVm(
+  promise: Promise<any>,
+  vmid?: number | null,
+  vmName?: string | null
+) {
+  const vmIdentifier = formatVmReference(vmid, vmName)
+
+  return toast.promise(promise, {
+    loading: `Deleting VM ${vmIdentifier}…`,
+    success: `VM ${vmIdentifier} deleted`,
+    error: (err: Error) => err.message,
+  })
+}
+
+export function toastTemplatizeVm(
+  promise: Promise<any>,
+  vmid?: number | null,
+  vmName?: string | null
+) {
+  const vmIdentifier = formatVmReference(vmid, vmName)
+
+  return toast.promise(promise, {
+    loading: `Templatizing VM ${vmIdentifier}…`,
+    success: `VM ${vmIdentifier} templatized`,
+    error: (err: Error) => err.message,
+  })
+}

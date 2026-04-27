@@ -1,9 +1,11 @@
-import { Navigate, createFileRoute } from "@tanstack/react-router"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import { IconNetwork, IconPlus, IconTrash } from "@tabler/icons-react"
+import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -12,22 +14,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiVNet } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
-  deleteVNet,
   hasManagementPermission,
-  vnetsQueryOptions,
-} from "@/lib/queries"
-import { useItemDialogState } from "@/hooks/use-item-dialog-state"
-import { VNetDialog } from "@/components/vnet/vnet-dialog"
-import { getVNetColumns } from "@/components/vnet/vnets-columns"
+} from "@/features/auth/utils/management-permissions"
+import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
+import { VNetDialog } from "@/features/sdn/components/vnet-dialog"
+import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 export const Route = createFileRoute("/_dashboard/admin/sdn")({
   component: SdnPage,
