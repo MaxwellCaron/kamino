@@ -163,20 +163,24 @@ export function AppSidebar({
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu className="flex flex-col items-center gap-2">
+          <SidebarContent className="overflow-visible">
+            <SidebarGroup className="overflow-visible">
+              <SidebarGroupContent className="overflow-visible">
+                <SidebarMenu className="flex flex-col items-center gap-2 overflow-visible">
                   {visibleNavItems.map((item) => {
                     const Icon = item.icon
+                    const isActive = isActivePath(pathname, item.url)
                     return (
-                      <SidebarMenuItem key={item.title}>
+                      <SidebarMenuItem
+                        key={item.title}
+                        className="overflow-visible"
+                      >
                         <IconRailHoverCard
                           title={item.title}
                           description={item.description}
                         >
                           <SidebarMenuButton
-                            isActive={isActivePath(pathname, item.url)}
+                            isActive={isActive}
                             className="size-9 justify-center"
                             render={<Link to={item.url} />}
                           >
@@ -184,6 +188,9 @@ export function AppSidebar({
                             <span className="sr-only">{item.title}</span>
                           </SidebarMenuButton>
                         </IconRailHoverCard>
+                        {isActive && (
+                          <span className="absolute top-1/2 -left-2.75 h-5 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
+                        )}
                       </SidebarMenuItem>
                     )
                   })}
