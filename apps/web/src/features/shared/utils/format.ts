@@ -37,6 +37,20 @@ export function formatVmReference(
   return trimmedName ?? "this VM"
 }
 
+export function capitalizeFirstLetter(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed === "") return trimmed
+
+  return trimmed[0].toLocaleUpperCase() + trimmed.slice(1)
+}
+
+export function formatToastError(
+  error: unknown,
+  fallback = "Something went wrong"
+): string {
+  return capitalizeFirstLetter(error instanceof Error ? error.message : fallback)
+}
+
 export function formatMutationError(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
+  return formatToastError(error, fallback)
 }

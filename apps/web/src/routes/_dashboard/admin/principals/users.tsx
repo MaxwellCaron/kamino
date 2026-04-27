@@ -40,6 +40,10 @@ import { MembershipDialog } from "@/features/principals/components/membership-di
 import { UserDialog } from "@/features/principals/components/users/user-dialog"
 import { UserGroupBulkDialog } from "@/features/principals/components/users/user-group-bulk-dialog"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
@@ -97,7 +101,7 @@ function UsersPage() {
 
       if (failedCount === 1) {
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} users`)
@@ -106,7 +110,7 @@ function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -143,7 +147,7 @@ function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 

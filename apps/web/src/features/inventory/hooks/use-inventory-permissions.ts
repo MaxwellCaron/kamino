@@ -24,6 +24,7 @@ import type {
   PrincipalListSectionKey,
   PrincipalOption,
 } from "../types/inventory-types"
+import { formatToastError } from "@/features/shared/utils/format"
 
 type AclEntry = {
   effect: "allow" | "deny"
@@ -90,7 +91,7 @@ export function useInventoryPermissions({
       toast.promise(updateAcl.mutateAsync({ itemId, entries }), {
         loading: `Updating permissions for ${itemName}...`,
         success: `Permissions updated for ${itemName}`,
-        error: (error: Error) => error.message,
+        error: formatToastError,
       })
     },
   })

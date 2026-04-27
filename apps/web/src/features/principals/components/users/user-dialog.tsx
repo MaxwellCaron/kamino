@@ -56,6 +56,7 @@ import {
   setUserPassword,
   updateUser,
 } from "@/features/principals/api/principals-api"
+import { formatToastError } from "@/features/shared/utils/format"
 
 const usernameSchema = z
   .string()
@@ -360,7 +361,7 @@ export function UserDialog({
       }
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -374,7 +375,7 @@ export function UserDialog({
         toast.promise(mutation.mutateAsync(parsed), {
           loading: "Updating user...",
           success: "User updated",
-          error: (err: Error) => err.message,
+          error: formatToastError,
         })
         return
       }
@@ -388,7 +389,7 @@ export function UserDialog({
           }
           return "Users created successfully"
         },
-        error: (err: Error) => err.message,
+        error: formatToastError,
       })
     },
   })

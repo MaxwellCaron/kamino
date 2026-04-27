@@ -1,5 +1,8 @@
 import { toast } from "sonner"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  formatToastError,
+  formatVmReference,
+} from "@/features/shared/utils/format"
 
 export function toastCloneVm(
   promise: Promise<{ vmid: number }>,
@@ -11,7 +14,7 @@ export function toastCloneVm(
   return toast.promise(promise, {
     loading: `Cloning VM ${vmIdentifier}…`,
     success: (result) => `VM cloned to ${result.vmid}`,
-    error: (error: Error) => error.message,
+    error: formatToastError,
   })
 }
 
@@ -36,7 +39,7 @@ export function toastCreateVm(
       }
       return "Upload workflow ready"
     },
-    error: (error: Error) => error.message,
+    error: formatToastError,
   })
 }
 
@@ -50,7 +53,7 @@ export function toastUpdateHardware(
   return toast.promise(promise, {
     loading: `Updating hardware for ${vmIdentifier}...`,
     success: `Hardware updated for ${vmIdentifier}`,
-    error: (error: Error) => error.message,
+    error: formatToastError,
   })
 }
 
@@ -58,7 +61,7 @@ export function toastCreateSnapshot(promise: Promise<any>, snapname: string) {
   return toast.promise(promise, {
     loading: `Creating snapshot "${snapname}"…`,
     success: `Snapshot "${snapname}" created`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 
@@ -72,7 +75,7 @@ export function toastSubmitSnapshotRequest(
       const name = request.inventory?.snapshot_name || snapname
       return `Snapshot request "${name}" submitted`
     },
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 
@@ -80,7 +83,7 @@ export function toastRollbackSnapshot(promise: Promise<any>, snapname: string) {
   return toast.promise(promise, {
     loading: `Rolling back to "${snapname}"…`,
     success: `Rolled back to "${snapname}"`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 
@@ -91,7 +94,7 @@ export function toastSubmitRollbackRequest(
   return toast.promise(promise, {
     loading: `Submitting rollback request for "${snapname}"…`,
     success: `Rollback request for "${snapname}" submitted`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 
@@ -99,7 +102,7 @@ export function toastDeleteSnapshot(promise: Promise<any>, snapname: string) {
   return toast.promise(promise, {
     loading: `Deleting snapshot "${snapname}"…`,
     success: `Snapshot "${snapname}" deleted`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 
@@ -110,7 +113,7 @@ export function toastUpdateNotes(promise: Promise<any>) {
       result.synced
         ? "VM notes updated"
         : "VM notes saved. Proxmox sync is pending.",
-    error: (error: Error) => error.message,
+    error: formatToastError,
   })
 }
 
@@ -124,7 +127,7 @@ export function toastDeleteVm(
   return toast.promise(promise, {
     loading: `Deleting VM ${vmIdentifier}…`,
     success: `VM ${vmIdentifier} deleted`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 
@@ -138,6 +141,6 @@ export function toastTemplatizeVm(
   return toast.promise(promise, {
     loading: `Templatizing VM ${vmIdentifier}…`,
     success: `VM ${vmIdentifier} templatized`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }

@@ -14,6 +14,7 @@ import type {
   TreeInstance,
 } from "@headless-tree/core"
 import type { ApiTreeNode } from "../types/inventory-types"
+import { formatToastError } from "@/features/shared/utils/format"
 
 interface UseInventoryHeadlessTreeOptions {
   children: Map<string, Array<string>>
@@ -131,7 +132,7 @@ export function useInventoryHeadlessTree({
       try {
         handleDrop(draggedItems, target)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Move failed")
+        toast.error(formatToastError(error, "Move failed"))
       }
     },
     onPrimaryAction: (item) => {

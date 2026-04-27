@@ -46,7 +46,11 @@ import type {
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  formatMutationError,
+  formatToastError,
+  formatVmReference,
+} from "@/features/shared/utils/format"
 import {
   useConvertToTemplate,
   useDeleteVM,
@@ -56,10 +60,6 @@ import {
   toastDeleteVm,
   toastTemplatizeVm,
 } from "@/features/vms/utils/vm-toasts"
-
-function formatMutationError(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
-}
 
 function assertSingleItemMutationSucceeded(
   result: ApiBulkVmMutationResponse,
@@ -452,7 +452,7 @@ function TemplateMenuItems({
                 toast.promise(promise, {
                   loading: `Deleting template ${vmIdentifier}…`,
                   success: `Template ${vmIdentifier} deleted`,
-                  error: (err: Error) => err.message,
+                  error: formatToastError,
                 })
               },
             })

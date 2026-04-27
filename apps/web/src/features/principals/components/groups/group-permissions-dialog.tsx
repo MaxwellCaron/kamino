@@ -48,6 +48,7 @@ import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
 } from "@/features/principals/api/principals-api"
+import { formatToastError } from "@/features/shared/utils/format"
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id
@@ -159,7 +160,7 @@ export function GroupPermissionsDialog({
       onOpenChange(false)
     },
     onError: (error) => {
-      toast.error(error.message)
+      toast.error(formatToastError(error))
     },
   })
 

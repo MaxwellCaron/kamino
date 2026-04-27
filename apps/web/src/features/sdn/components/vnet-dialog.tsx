@@ -17,6 +17,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { formatToastError } from "@/features/shared/utils/format"
 import { createVNet, updateVNet } from "@/features/sdn/api/sdn-api"
 
 const vnetSchema = z.object({
@@ -68,7 +69,7 @@ export function VNetDialog({
       form.reset()
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -85,7 +86,7 @@ export function VNetDialog({
       toast.promise(mutation.mutateAsync(parsed), {
         loading: isEdit ? "Updating VNet..." : "Creating VNet...",
         success: isEdit ? "VNet updated" : "VNet created",
-        error: (err: Error) => err.message,
+        error: formatToastError,
       })
     },
   })

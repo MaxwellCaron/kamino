@@ -35,6 +35,10 @@ import { GroupDialog } from "@/features/principals/components/groups/group-dialo
 import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
 import { MembershipDialog } from "@/features/principals/components/membership-dialog"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
@@ -89,7 +93,7 @@ function GroupsPage() {
 
       if (failedCount === 1) {
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} groups`)
@@ -98,7 +102,7 @@ function GroupsPage() {
       queryClient.invalidateQueries({ queryKey: ["principals", "groups"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -109,7 +113,7 @@ function GroupsPage() {
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 

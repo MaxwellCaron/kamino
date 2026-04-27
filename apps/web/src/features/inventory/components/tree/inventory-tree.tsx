@@ -40,6 +40,7 @@ import type { ApiTreeNode } from "../../types/inventory-types"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ReactNode } from "react"
 import { LoadingTransition } from "@/components/loading-transition"
+import { formatToastError } from "@/features/shared/utils/format"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 interface InventoryTreeContextValue {
@@ -174,9 +175,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
         { itemId, parentId },
         {
           onError: (moveError) => {
-            toast.error(
-              moveError instanceof Error ? moveError.message : "Move failed"
-            )
+            toast.error(formatToastError(moveError, "Move failed"))
           },
         }
       )

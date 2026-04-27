@@ -34,6 +34,10 @@ import {
   groupsQueryOptions,
   removeGroupMember,
 } from "@/features/principals/api/principals-api"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
 
 type UserGroupBulkDialogProps = {
   clearSelection: () => void
@@ -83,7 +87,7 @@ export function UserGroupBulkDialog({
 
       if (failedCount === 1) {
         toast.error(
-          `${mode === "add" ? "Failed to add" : "Failed to remove"} ${result.failed[0].id}: ${result.failed[0].error}`
+          `${mode === "add" ? "Failed to add" : "Failed to remove"} ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
         )
       } else if (failedCount > 1) {
         toast.error(
@@ -99,7 +103,7 @@ export function UserGroupBulkDialog({
       }
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 

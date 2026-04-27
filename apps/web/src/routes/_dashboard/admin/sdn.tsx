@@ -28,6 +28,10 @@ import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
 
 export const Route = createFileRoute("/_dashboard/admin/sdn")({
   component: SdnPage,
@@ -75,7 +79,7 @@ function SdnPage() {
 
       if (failedCount === 1) {
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} VNets`)
@@ -84,7 +88,7 @@ function SdnPage() {
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 

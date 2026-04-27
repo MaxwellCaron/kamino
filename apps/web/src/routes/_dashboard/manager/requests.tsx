@@ -69,7 +69,10 @@ import {
   getRequestIcon,
   getRequestStatusClassName,
 } from "@/features/requests/utils/request-presenters"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  formatToastError,
+  formatVmReference,
+} from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
@@ -454,7 +457,7 @@ function RequestsPage() {
               }
               return "Request approved"
             },
-            error: (err: Error) => err.message,
+            error: formatToastError,
           })
         }}
         onDeny={() => {
@@ -471,7 +474,7 @@ function RequestsPage() {
               }
               return "Request denied"
             },
-            error: (err: Error) => err.message,
+            error: formatToastError,
           })
         }}
         onOpenChange={(open) => {

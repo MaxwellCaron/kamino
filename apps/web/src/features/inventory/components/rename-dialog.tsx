@@ -18,7 +18,10 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  formatToastError,
+  formatVmReference,
+} from "@/features/shared/utils/format"
 import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
 
@@ -113,7 +116,7 @@ export function RenameDialog(props: RenameDialogProps) {
           {
             loading: `Creating folder "${parsed}"...`,
             success: `Folder "${parsed}" created`,
-            error: (error: Error) => error.message,
+            error: formatToastError,
           }
         )
       } else if (props.mode === "rename-folder") {
@@ -122,7 +125,7 @@ export function RenameDialog(props: RenameDialogProps) {
           {
             loading: `Renaming folder to "${parsed}"...`,
             success: `Folder renamed to "${parsed}"`,
-            error: (error: Error) => error.message,
+            error: formatToastError,
           }
         )
       } else {
@@ -133,7 +136,7 @@ export function RenameDialog(props: RenameDialogProps) {
             success: props.currentVmid
               ? `VM ${props.currentVmid} renamed to "${parsed}"`
               : `VM renamed to "${parsed}"`,
-            error: (error: Error) => error.message,
+            error: formatToastError,
           }
         )
       }

@@ -42,6 +42,7 @@ import {
   createGroup,
   updateGroup,
 } from "@/features/principals/api/principals-api"
+import { formatToastError } from "@/features/shared/utils/format"
 
 const groupNameSchema = z
   .string()
@@ -226,7 +227,7 @@ export function GroupDialog({
       }
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -240,7 +241,7 @@ export function GroupDialog({
         toast.promise(mutation.mutateAsync(parsed), {
           loading: "Updating group...",
           success: "Group updated",
-          error: (err: Error) => err.message,
+          error: formatToastError,
         })
         return
       }
@@ -254,7 +255,7 @@ export function GroupDialog({
           }
           return "Groups created successfully"
         },
-        error: (err: Error) => err.message,
+        error: formatToastError,
       })
     },
   })

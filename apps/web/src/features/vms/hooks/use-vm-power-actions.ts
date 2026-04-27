@@ -15,7 +15,10 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 import type { ApiBulkVmMutationResponse } from "../types/vm-types"
 import { getInventoryPermissionMode } from "@/features/inventory/utils/inventory-capabilities"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  formatToastError,
+  formatVmReference,
+} from "@/features/shared/utils/format"
 
 export type VmPowerAction = "start" | "shutdown" | "reboot" | "stop"
 export type VmPowerMode = "direct" | "request"
@@ -181,7 +184,7 @@ function toastVmPowerAction(
       powerMode === "direct"
         ? `VM ${vmIdentifier} ${definition.directSuccess}`
         : `${definition.label} request for ${vmIdentifier} submitted`,
-    error: (err: Error) => err.message,
+    error: formatToastError,
   })
 }
 

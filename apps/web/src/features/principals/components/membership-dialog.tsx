@@ -31,6 +31,7 @@ import {
   userGroupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
+import { formatToastError } from "@/features/shared/utils/format"
 
 type MembershipDialogProps = {
   open: boolean
@@ -179,7 +180,7 @@ function MembershipEditor({
     toast.promise(saveMutation.mutateAsync(), {
       loading: "Updating memberships...",
       success: "Memberships updated",
-      error: (err: Error) => err.message,
+      error: formatToastError,
     })
   }
 
