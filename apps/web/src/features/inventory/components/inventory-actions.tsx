@@ -6,6 +6,7 @@ import {
   IconDots,
   IconEdit,
   IconFolderPlus,
+  IconGauge,
   IconLock,
   IconSettings,
   IconStar,
@@ -85,6 +86,7 @@ function FolderMenuItems({
   onCreateVm,
   onCreateFolder,
   onManagePermissions,
+  onEditLimit,
   onRename,
   onDelete,
   isLoading,
@@ -93,6 +95,7 @@ function FolderMenuItems({
   onCreateVm: () => void
   onCreateFolder: () => void
   onManagePermissions: () => void
+  onEditLimit: () => void
   onRename: () => void
   onDelete: () => void
   isLoading?: boolean
@@ -131,6 +134,12 @@ function FolderMenuItems({
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
                 <IconEdit className="text-muted-foreground" />
                 Rename
+              </DropdownMenuItem>
+            )}
+            {capabilities.managePermissions.visible && (
+              <DropdownMenuItem onClick={onEditLimit} disabled={isLoading}>
+                <IconGauge className="text-muted-foreground" />
+                Limit
               </DropdownMenuItem>
             )}
             {capabilities.managePermissions.visible && (
@@ -477,6 +486,7 @@ export function MenuItems({
   name,
   onAction,
   onManagePermissions,
+  onEditLimit,
   onSnapshot,
   onClone,
   onRename,
@@ -497,6 +507,7 @@ export function MenuItems({
   name?: string
   onAction: (config: ConfirmConfig) => void
   onManagePermissions: () => void
+  onEditLimit: () => void
   onSnapshot: (mode: "direct" | "request") => void
   onClone: () => void
   onRename: () => void
@@ -514,6 +525,7 @@ export function MenuItems({
         onCreateFolder={onCreateFolder}
         onCreateVm={onCreateVm}
         onManagePermissions={onManagePermissions}
+        onEditLimit={onEditLimit}
         onRename={onRename}
         onDelete={onDeleteFolder}
         isLoading={isLoading}
@@ -570,6 +582,7 @@ export function InventoryNodeMenu({
   const {
     openConfirm,
     openCreateFolder,
+    openFolderLimit,
     openRenameFolder,
     openCreateVm,
     openSnapshot,
@@ -669,6 +682,15 @@ export function InventoryNodeMenu({
               itemKind: isFolder ? "folder" : "vm",
               itemName: data.name,
               itemVmid: data.vm?.vmid,
+            })
+          }
+          onEditLimit={() =>
+            openFolderLimit({
+              directVmLimit: data.direct_vm_limit,
+              effectiveVmLimit: data.effective_vm_limit,
+              folderId: itemId,
+              folderName: data.name,
+              vmCount: data.vm_count,
             })
           }
           onSnapshot={(mode) => {
@@ -794,6 +816,7 @@ export function VmOptionsMenu({
                 itemVmid: vmid,
               })
             }
+            onEditLimit={() => {}}
             onSnapshot={(mode) => {
               if (vmid === undefined) return
 

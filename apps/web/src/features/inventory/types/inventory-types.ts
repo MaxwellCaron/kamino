@@ -18,6 +18,9 @@ export type ApiTreeNode = {
   id: string
   name: string
   kind: "folder" | "vm"
+  direct_vm_limit?: number | null
+  effective_vm_limit?: number | null
+  vm_count?: number | null
   permissions: ApiTreeNodePermissions
   children?: Array<ApiTreeNode>
   vm?: ApiTreeNodeVM
@@ -29,6 +32,9 @@ export type ApiInventoryItem = {
   kind: "folder" | "vm"
   name: string
   inherit_permissions: boolean
+  direct_vm_limit?: number | null
+  effective_vm_limit?: number | null
+  vm_count?: number | null
   permissions: ApiTreeNodePermissions
   vm?: ApiTreeNodeVM
 }

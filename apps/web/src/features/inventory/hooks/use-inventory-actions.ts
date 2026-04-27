@@ -6,6 +6,7 @@ import {
   inventoryTreeQueryOptions,
   moveInventoryItem,
   renameFolder,
+  updateFolderVmLimit,
   updateInventoryAcl,
 } from "../api/inventory-api"
 import { moveInventoryTreeNode } from "../utils/inventory-tree"
@@ -82,6 +83,10 @@ export function useCreateFolder() {
 
 export function useRenameFolder() {
   return useInvalidateInventoryTreeMutation(renameFolder)
+}
+
+export function useUpdateFolderVmLimit() {
+  return useInvalidateInventoryTreeMutation(updateFolderVmLimit)
 }
 
 export function useDeleteFolder() {

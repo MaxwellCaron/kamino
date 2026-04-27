@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState } from "react"
 import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
 import { RenameDialog } from "./rename-dialog"
+import { FolderLimitDialog } from "./folder-limit-dialog"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { SnapshotDialogMode } from "@/features/vms/components/snapshot-dialog"
@@ -24,6 +25,14 @@ type CreateFolderDialogConfig = {
 type RenameFolderDialogConfig = {
   folderId: string
   currentName: string
+}
+
+type FolderLimitDialogConfig = {
+  directVmLimit?: number | null
+  effectiveVmLimit?: number | null
+  folderId: string
+  folderName: string
+  vmCount?: number | null
 }
 
 type CreateVmDialogConfig = {
@@ -59,6 +68,7 @@ type InventoryDialogsContextValue = {
   openConfirm: (config: ConfirmConfig) => void
   openCreateFolder: (config: CreateFolderDialogConfig) => void
   openRenameFolder: (config: RenameFolderDialogConfig) => void
+  openFolderLimit: (config: FolderLimitDialogConfig) => void
   openCreateVm: (config: CreateVmDialogConfig) => void
   openSnapshot: (config: SnapshotDialogConfig) => void
   openClone: (config: CloneDialogConfig) => void
@@ -92,6 +102,8 @@ export function InventoryDialogsProvider({
     useState<CreateFolderDialogConfig | null>(null)
   const [renameFolder, setRenameFolder] =
     useState<RenameFolderDialogConfig | null>(null)
+  const [folderLimit, setFolderLimit] =
+    useState<FolderLimitDialogConfig | null>(null)
   const [createVm, setCreateVm] = useState<CreateVmDialogConfig | null>(null)
   const [snapshot, setSnapshot] = useState<SnapshotDialogConfig | null>(null)
   const [clone, setClone] = useState<CloneDialogConfig | null>(null)
@@ -106,6 +118,7 @@ export function InventoryDialogsProvider({
       openConfirm: setConfirm,
       openCreateFolder: setCreateFolder,
       openRenameFolder: setRenameFolder,
+      openFolderLimit: setFolderLimit,
       openCreateVm: setCreateVm,
       openSnapshot: setSnapshot,
       openClone: setClone,
@@ -138,6 +151,18 @@ export function InventoryDialogsProvider({
           open={true}
           onOpenChange={(open) => {
             if (!open) setRenameFolder(null)
+          }}
+        />
+      )}
+      {folderLimit && (
+        <FolderLimitDialog
+          directVmLimit={folderLimit.directVmLimit}
+          effectiveVmLimit={folderLimit.effectiveVmLimit}
+          folderId={folderLimit.folderId}
+          folderName={folderLimit.folderName}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setFolderLimit(null)
           }}
         />
       )}

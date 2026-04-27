@@ -246,6 +246,10 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), targetFolderID, 1); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
 
 	params := map[string]string{
 		"name": req.Name,

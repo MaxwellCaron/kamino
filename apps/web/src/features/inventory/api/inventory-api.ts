@@ -130,6 +130,26 @@ export async function renameFolder(params: {
   }
 }
 
+export async function updateFolderVmLimit(params: {
+  id: string
+  vmLimit: number | null
+}): Promise<void> {
+  const res = await apiFetch(
+    `/api/v1/inventory/folders/${params.id}/vm-limit`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vm_limit: params.vmLimit }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to update folder VM limit: ${res.status}`
+    )
+  }
+}
+
 export async function deleteFolder(params: { id: string }): Promise<void> {
   const res = await apiFetch(`/api/v1/inventory/folders/${params.id}`, {
     method: "DELETE",

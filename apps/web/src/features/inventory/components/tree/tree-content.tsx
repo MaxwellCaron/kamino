@@ -6,6 +6,7 @@ import {
   TreeItemLabel,
   TreeItemToggle,
 } from "@workspace/ui/components/reui/tree"
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { TREE_INDENT } from "../../utils/constants"
@@ -118,6 +119,15 @@ export function InventoryTreeContent({
               )}
               <span className="ml-1 flex-1 truncate">{item.getItemName()}</span>
               <div className="ml-auto flex items-center gap-0.5">
+                {data.kind === "folder" && data.effective_vm_limit != null && (
+                  <Badge
+                    variant="secondary"
+                    className="tabular-nums"
+                    title="VM/template count"
+                  >
+                    {data.vm_count ?? 0} / {data.effective_vm_limit}
+                  </Badge>
+                )}
                 {data.kind !== "folder" && (
                   <Button
                     size="icon-xs"

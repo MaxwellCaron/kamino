@@ -27,12 +27,15 @@ type InventoryHandler struct {
 // JSON response types
 
 type TreeNode struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	Kind        string             `json:"kind"`
-	Permissions PermissionEnvelope `json:"permissions"`
-	Children    []TreeNode         `json:"children,omitempty"`
-	VM          *VMDetail          `json:"vm,omitempty"`
+	ID               uuid.UUID          `json:"id"`
+	Name             string             `json:"name"`
+	Kind             string             `json:"kind"`
+	DirectVMLimit    *int32             `json:"direct_vm_limit"`
+	EffectiveVMLimit *int32             `json:"effective_vm_limit"`
+	VMCount          *int32             `json:"vm_count"`
+	Permissions      PermissionEnvelope `json:"permissions"`
+	Children         []TreeNode         `json:"children,omitempty"`
+	VM               *VMDetail          `json:"vm,omitempty"`
 }
 
 type VMDetail struct {
@@ -51,6 +54,9 @@ type InventoryItem struct {
 	Kind               string             `json:"kind"`
 	Name               string             `json:"name"`
 	InheritPermissions bool               `json:"inherit_permissions"`
+	DirectVMLimit      *int32             `json:"direct_vm_limit"`
+	EffectiveVMLimit   *int32             `json:"effective_vm_limit"`
+	VMCount            *int32             `json:"vm_count"`
 	Permissions        PermissionEnvelope `json:"permissions"`
 	VM                 *VMDetail          `json:"vm,omitempty"`
 }
@@ -383,6 +389,10 @@ type renameFolderRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+type updateFolderVMLimitRequest struct {
+	VMLimit *int32 `json:"vm_limit"`
+}
+
 // RenameFolder renames a folder without changing its identity.
 // POST /api/v1/inventory/folders/:id/rename
 func (h *InventoryHandler) RenameFolder(c *gin.Context) {
@@ -419,6 +429,49 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 	}
 
 	if err := h.Service.RenameFolder(c.Request.Context(), id, req.Name); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// UpdateFolderVMLimit sets or clears a folder's direct VM/template limit.
+// PUT /api/v1/inventory/folders/:id/vm-limit
+func (h *InventoryHandler) UpdateFolderVMLimit(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req updateFolderVMLimitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder limit update", "load inventory item for folder limit update", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+		writeForbidden(c)
+		return
+	}
+
+	if err := h.Service.UpdateFolderVMLimit(c.Request.Context(), id, req.VMLimit); err != nil {
 		writeInventoryError(c, err)
 		return
 	}
@@ -549,10 +602,13 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 
 	for _, row := range rows {
 		node := &TreeNode{
-			ID:          row.ID,
-			Name:        row.Name,
-			Kind:        string(row.Kind),
-			Permissions: inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
+			ID:               row.ID,
+			Name:             row.Name,
+			Kind:             string(row.Kind),
+			DirectVMLimit:    row.DirectVmLimit,
+			EffectiveVMLimit: positiveInt32Ptr(row.EffectiveVmLimit),
+			VMCount:          folderCountPtr(row.Kind, row.VmCount),
+			Permissions:      inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
 		}
 
 		if row.Node != nil {
@@ -599,6 +655,9 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 		Kind:               string(row.Kind),
 		Name:               row.Name,
 		InheritPermissions: row.InheritPermissions,
+		DirectVMLimit:      row.DirectVmLimit,
+		EffectiveVMLimit:   positiveInt32Ptr(row.EffectiveVmLimit),
+		VMCount:            folderCountPtr(row.Kind, row.VmCount),
 		Permissions:        inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
 	}
 
@@ -615,6 +674,20 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 	}
 
 	return item
+}
+
+func positiveInt32Ptr(value int32) *int32 {
+	if value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func folderCountPtr(kind database.InventoryItemKind, count int32) *int32 {
+	if kind != database.InventoryItemKindFolder {
+		return nil
+	}
+	return &count
 }
 
 func toVMDetail(node *string, vmid *int32, isTemplate *bool, notes *string, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {
@@ -663,6 +736,7 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
 		errors.Is(err, inventory.ErrInventoryItemNotFolder),
+		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
 		errors.Is(err, names.ErrMustStartWithLetter),
@@ -670,7 +744,8 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryInvalidMove),
 		errors.Is(err, inventory.ErrInventoryReservedFolder),
-		errors.Is(err, inventory.ErrInventoryFolderConflict):
+		errors.Is(err, inventory.ErrInventoryFolderConflict),
+		errors.Is(err, inventory.ErrInventoryFolderLimitExceeded):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)

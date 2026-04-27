@@ -186,6 +186,7 @@ CREATE TABLE inventory_items (
     kind                 inventory_item_kind NOT NULL,
     name                 TEXT NOT NULL,
     inherit_permissions  BOOLEAN NOT NULL DEFAULT true,
+    vm_limit             INTEGER NULL,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT inventory_items_name_not_empty
@@ -195,7 +196,11 @@ CREATE TABLE inventory_items (
     CONSTRAINT inventory_folder_name_frontend_compatible
         CHECK (kind <> 'folder' OR name ~ '^[A-Za-z][A-Za-z0-9-]{0,62}$'),
     CONSTRAINT inventory_root_must_be_folder
-        CHECK (parent_id IS NOT NULL OR kind = 'folder')
+        CHECK (parent_id IS NOT NULL OR kind = 'folder'),
+    CONSTRAINT inventory_folder_vm_limit_positive
+        CHECK (vm_limit IS NULL OR vm_limit > 0),
+    CONSTRAINT inventory_vm_limit_folders_only
+        CHECK (kind = 'folder' OR vm_limit IS NULL)
 );
 
 CREATE UNIQUE INDEX ux_inventory_items_root_folder_name
@@ -482,6 +487,95 @@ BEFORE UPDATE OF parent_id
 ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION inventory_prevent_cycles();
+
+-- ----------------------------------------------------------------------------
+-- Folder VM/template limits
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION inventory_folder_effective_vm_limit(folder_id UUID)
+RETURNS INTEGER
+LANGUAGE sql
+STABLE
+AS $$
+    WITH RECURSIVE ancestors AS (
+        SELECT id, parent_id, vm_limit, 0 AS depth
+        FROM inventory_items
+        WHERE id = folder_id
+          AND kind = 'folder'
+
+        UNION ALL
+
+        SELECT parent.id, parent.parent_id, parent.vm_limit, ancestors.depth + 1
+        FROM inventory_items parent
+        JOIN ancestors
+          ON ancestors.parent_id = parent.id
+    )
+    SELECT vm_limit
+    FROM ancestors
+    WHERE vm_limit IS NOT NULL
+    ORDER BY depth ASC
+    LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION inventory_folder_vm_count(
+    folder_id UUID,
+    excluded_item_id UUID DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT COUNT(*)::INTEGER
+    FROM inventory_items
+    WHERE parent_id = folder_id
+      AND kind = 'vm'
+      AND (excluded_item_id IS NULL OR id <> excluded_item_id);
+$$;
+
+CREATE OR REPLACE FUNCTION inventory_enforce_folder_vm_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    current_vm_count INTEGER;
+    effective_vm_limit INTEGER;
+    excluded_id UUID;
+BEGIN
+    IF NEW.parent_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.kind <> 'vm' THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.parent_id IS NOT DISTINCT FROM OLD.parent_id THEN
+            RETURN NEW;
+        END IF;
+        excluded_id := OLD.id;
+    ELSE
+        excluded_id := NULL;
+    END IF;
+
+    effective_vm_limit := inventory_folder_effective_vm_limit(NEW.parent_id);
+    IF effective_vm_limit IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    current_vm_count := inventory_folder_vm_count(NEW.parent_id, excluded_id);
+    IF current_vm_count + 1 > effective_vm_limit THEN
+        RAISE EXCEPTION 'Folder limit exceeded';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_inventory_enforce_folder_vm_limit
+BEFORE INSERT OR UPDATE OF parent_id
+ON inventory_items
+FOR EACH ROW
+EXECUTE FUNCTION inventory_enforce_folder_vm_limit();
 
 -- ----------------------------------------------------------------------------
 -- Enforce:

@@ -29,6 +29,15 @@ SELECT
     ii.kind,
     ii.name,
     ii.inherit_permissions,
+    ii.vm_limit AS direct_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+      ELSE 0
+    END)::INTEGER AS effective_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+      ELSE 0
+    END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
     pv.is_template,
@@ -60,6 +69,15 @@ SELECT
     ii.kind,
     ii.name,
     ii.inherit_permissions,
+    ii.vm_limit AS direct_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+      ELSE 0
+    END)::INTEGER AS effective_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+      ELSE 0
+    END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
     pv.is_template,

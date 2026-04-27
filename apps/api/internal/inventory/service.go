@@ -19,16 +19,18 @@ import (
 )
 
 var (
-	ErrInventoryItemNotFound      = errors.New("inventory item not found")
-	ErrInventoryParentNotFound    = errors.New("inventory parent not found")
-	ErrInventoryFolderNotFound    = errors.New("inventory folder not found")
-	ErrInventoryTargetNotFolder   = errors.New("inventory target must be a folder")
-	ErrInventoryItemNotFolder     = errors.New("inventory item is not a folder")
-	ErrInventoryInvalidMove       = errors.New("invalid inventory move")
-	ErrInventoryReservedFolder    = errors.New("reserved inventory folder cannot be changed")
-	ErrInventoryFolderConflict    = errors.New("inventory folder with that name already exists")
-	ErrInventoryInvalidACL        = errors.New("invalid inventory ACL entry")
-	ErrInventoryPrincipalNotFound = errors.New("principal not found")
+	ErrInventoryItemNotFound        = errors.New("inventory item not found")
+	ErrInventoryParentNotFound      = errors.New("inventory parent not found")
+	ErrInventoryFolderNotFound      = errors.New("inventory folder not found")
+	ErrInventoryTargetNotFolder     = errors.New("inventory target must be a folder")
+	ErrInventoryItemNotFolder       = errors.New("inventory item is not a folder")
+	ErrInventoryInvalidMove         = errors.New("invalid inventory move")
+	ErrInventoryReservedFolder      = errors.New("reserved inventory folder cannot be changed")
+	ErrInventoryFolderConflict      = errors.New("inventory folder with that name already exists")
+	ErrInventoryInvalidFolderLimit  = errors.New("folder limit must be greater than zero")
+	ErrInventoryFolderLimitExceeded = errors.New("folder limit exceeded")
+	ErrInventoryInvalidACL          = errors.New("invalid inventory ACL entry")
+	ErrInventoryPrincipalNotFound   = errors.New("principal not found")
 )
 
 type Service struct {
@@ -161,6 +163,9 @@ func expandVisibleInventoryRows(
 					Kind:               parentRow.Kind,
 					Name:               parentRow.Name,
 					InheritPermissions: true,
+					DirectVmLimit:      parentRow.DirectVmLimit,
+					EffectiveVmLimit:   parentRow.EffectiveVmLimit,
+					VmCount:            parentRow.VmCount,
 					AllowedMask:        0,
 					DeniedMask:         0,
 				})
@@ -218,6 +223,9 @@ func toFullAccessInventoryRows(
 			Kind:               row.Kind,
 			Name:               row.Name,
 			InheritPermissions: true,
+			DirectVmLimit:      row.DirectVmLimit,
+			EffectiveVmLimit:   row.EffectiveVmLimit,
+			VmCount:            row.VmCount,
 			Node:               row.Node,
 			Vmid:               row.Vmid,
 			IsTemplate:         row.IsTemplate,
@@ -266,6 +274,9 @@ func (s *Service) GetInventoryItemWithPermissions(
 			Kind:               row.Kind,
 			Name:               row.Name,
 			InheritPermissions: row.InheritPermissions,
+			DirectVmLimit:      row.DirectVmLimit,
+			EffectiveVmLimit:   row.EffectiveVmLimit,
+			VmCount:            row.VmCount,
 			Node:               row.Node,
 			Vmid:               row.Vmid,
 			IsTemplate:         row.IsTemplate,
@@ -620,6 +631,80 @@ func (s *Service) RenameFolder(ctx context.Context, id uuid.UUID, name string) e
 	return nil
 }
 
+func (s *Service) UpdateFolderVMLimit(ctx context.Context, id uuid.UUID, limit *int32) error {
+	if limit != nil && *limit <= 0 {
+		return ErrInventoryInvalidFolderLimit
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+
+	item, err := q.GetInventoryItemForUpdate(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInventoryFolderNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return ErrInventoryItemNotFolder
+	}
+
+	if err := q.UpdateInventoryFolderVMLimit(ctx, database.UpdateInventoryFolderVMLimitParams{
+		VmLimit: limit,
+		ID:      id,
+	}); err != nil {
+		return err
+	}
+
+	s.notifyTx(ctx, tx, id)
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) EnsureFolderHasVMCapacity(ctx context.Context, folderID uuid.UUID, addedVMCount int32) error {
+	if addedVMCount <= 0 {
+		return nil
+	}
+
+	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+
+	var item database.GetAllInventoryItemsRow
+	found := false
+	for _, row := range rows {
+		if row.ID == folderID {
+			item = row
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return ErrInventoryFolderNotFound
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return ErrInventoryItemNotFolder
+	}
+
+	if item.EffectiveVmLimit > 0 && item.VmCount+addedVMCount > item.EffectiveVmLimit {
+		return ErrInventoryFolderLimitExceeded
+	}
+
+	return nil
+}
+
 func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (FolderDeletionPlan, error) {
 	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
 	if err != nil {
@@ -870,7 +955,7 @@ func (s *Service) RegisterProxmoxVM(
 		Name:     name,
 	})
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, normalizeMutationError(err)
 	}
 
 	if err := q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
@@ -944,6 +1029,10 @@ func normalizeMutationError(err error) error {
 
 	if strings.Contains(pgErr.Message, "Parent must be a folder") {
 		return ErrInventoryTargetNotFolder
+	}
+
+	if strings.Contains(pgErr.Message, "Folder limit exceeded") {
+		return ErrInventoryFolderLimitExceeded
 	}
 
 	return fmt.Errorf("%w: %s", ErrInventoryInvalidMove, pgErr.Message)

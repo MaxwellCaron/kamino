@@ -32,7 +32,7 @@ VALUES ($1, 'vm', $2)
 RETURNING id;
 
 -- name: GetInventoryItemForUpdate :one
-SELECT id, parent_id, kind, name, inherit_permissions
+SELECT id, parent_id, kind, name, inherit_permissions, vm_limit
 FROM inventory_items
 WHERE id = $1
 FOR UPDATE;
@@ -51,6 +51,12 @@ WHERE id = $2;
 UPDATE inventory_items
 SET inherit_permissions = $1
 WHERE id = $2;
+
+-- name: UpdateInventoryFolderVMLimit :exec
+UPDATE inventory_items
+SET vm_limit = $1
+WHERE id = $2
+  AND kind = 'folder';
 
 -- name: NormalizeInventoryItemInheritance :execrows
 UPDATE inventory_items
@@ -158,6 +164,15 @@ WHERE inventory_item_id = $4;
 
 -- name: GetAllInventoryItems :many
 SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+       ii.vm_limit AS direct_vm_limit,
+       (CASE
+         WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+         ELSE 0
+       END)::INTEGER AS effective_vm_limit,
+       (CASE
+         WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+         ELSE 0
+       END)::INTEGER AS vm_count,
        pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
@@ -168,6 +183,15 @@ ORDER BY
 
 -- name: GetInventoryItemByID :one
 SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+       ii.vm_limit AS direct_vm_limit,
+       (CASE
+         WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+         ELSE 0
+       END)::INTEGER AS effective_vm_limit,
+       (CASE
+         WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+         ELSE 0
+       END)::INTEGER AS vm_count,
        pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
