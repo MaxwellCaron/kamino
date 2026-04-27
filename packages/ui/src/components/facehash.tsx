@@ -13,7 +13,7 @@ export function FacehashIcon({
       size={size}
       colors={["#2c975a"]}
       enableBlink
-      className="rounded-md text-foreground dark:**:text-background"
+      className="rounded-full text-foreground dark:**:text-background"
     />
   )
 }
