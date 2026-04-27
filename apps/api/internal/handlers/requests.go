@@ -423,6 +423,8 @@ func writeRequestServiceError(c *gin.Context, err error, operation string) {
 		c.JSON(http.StatusConflict, gin.H{"error": "action is directly allowed and should not be queued"})
 	case errors.Is(err, requestqueue.ErrRequestNotPending):
 		c.JSON(http.StatusConflict, gin.H{"error": "request is not pending"})
+	case errors.Is(err, requestqueue.ErrRequestLimitExceeded):
+		c.JSON(http.StatusConflict, gin.H{"error": "users may only have 3 pending requests at a time"})
 	case errors.Is(err, requestqueue.ErrRequestInvalidPowerAction),
 		errors.Is(err, requestqueue.ErrRequestInvalidSnapshot):
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})

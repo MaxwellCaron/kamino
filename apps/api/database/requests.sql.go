@@ -108,6 +108,20 @@ func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (Requests, er
 	return i, err
 }
 
+const countPendingRequestsByRequester = `-- name: CountPendingRequestsByRequester :one
+SELECT count(*)::int
+FROM requests
+WHERE requester_principal_id = $1
+  AND status = 'pending'
+`
+
+func (q *Queries) CountPendingRequestsByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countPendingRequestsByRequester, requesterPrincipalID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createInventoryRequest = `-- name: CreateInventoryRequest :one
 INSERT INTO inventory_requests (
     request_id,
@@ -154,7 +168,6 @@ func (q *Queries) CreateInventoryRequest(ctx context.Context, arg CreateInventor
 }
 
 const createRequest = `-- name: CreateRequest :one
-
 INSERT INTO requests (
     family,
     kind,
@@ -185,9 +198,6 @@ type CreateRequestParams struct {
 	RequesterPrincipalID uuid.UUID     `json:"requester_principal_id"`
 }
 
-// ---------------------------------------------------------------------------
-// Request creation
-// ---------------------------------------------------------------------------
 func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (Requests, error) {
 	row := q.db.QueryRow(ctx, createRequest, arg.Family, arg.Kind, arg.RequesterPrincipalID)
 	var i Requests
@@ -845,6 +855,23 @@ func (q *Queries) ListRequestEventsByRequestID(ctx context.Context, requestID uu
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockRequestRequester = `-- name: LockRequestRequester :one
+
+SELECT id
+FROM principals
+WHERE id = $1
+FOR UPDATE
+`
+
+// ---------------------------------------------------------------------------
+// Request creation
+// ---------------------------------------------------------------------------
+func (q *Queries) LockRequestRequester(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockRequestRequester, id)
+	err := row.Scan(&id)
+	return id, err
 }
 
 const markRequestExecuted = `-- name: MarkRequestExecuted :one

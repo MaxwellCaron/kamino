@@ -321,6 +321,10 @@ CREATE INDEX ix_requests_status_created_at
 CREATE INDEX ix_requests_requester_created_at
     ON requests (requester_principal_id, created_at DESC);
 
+CREATE INDEX ix_requests_pending_requester
+    ON requests (requester_principal_id)
+    WHERE status = 'pending';
+
 CREATE INDEX ix_requests_reviewer_created_at
     ON requests (reviewer_principal_id, created_at DESC);
 
@@ -754,6 +758,52 @@ BEFORE INSERT OR UPDATE OF permission_key
 ON management_permission_grants
 FOR EACH ROW
 EXECUTE FUNCTION management_permission_grants_validate_key();
+
+-- ----------------------------------------------------------------------------
+-- Limit users to three pending requests
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION requests_enforce_pending_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    pending_count INTEGER;
+BEGIN
+    IF NEW.status <> 'pending' THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE'
+       AND OLD.status = 'pending'
+       AND NEW.requester_principal_id = OLD.requester_principal_id THEN
+        RETURN NEW;
+    END IF;
+
+    PERFORM 1
+      FROM principals
+     WHERE id = NEW.requester_principal_id
+     FOR UPDATE;
+
+    SELECT count(*)::INTEGER
+      INTO pending_count
+      FROM requests
+     WHERE requester_principal_id = NEW.requester_principal_id
+       AND status = 'pending'
+       AND id <> NEW.id;
+
+    IF pending_count >= 3 THEN
+        RAISE EXCEPTION 'Users may only have 3 pending requests at a time';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_requests_enforce_pending_limit
+BEFORE INSERT OR UPDATE OF status, requester_principal_id
+ON requests
+FOR EACH ROW
+EXECUTE FUNCTION requests_enforce_pending_limit();
 
 -- ----------------------------------------------------------------------------
 -- Prevent mutating immutable request payload columns after submission

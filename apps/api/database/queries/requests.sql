@@ -2,6 +2,18 @@
 -- Request creation
 -- ---------------------------------------------------------------------------
 
+-- name: LockRequestRequester :one
+SELECT id
+FROM principals
+WHERE id = $1
+FOR UPDATE;
+
+-- name: CountPendingRequestsByRequester :one
+SELECT count(*)::int
+FROM requests
+WHERE requester_principal_id = $1
+  AND status = 'pending';
+
 -- name: CreateRequest :one
 INSERT INTO requests (
     family,

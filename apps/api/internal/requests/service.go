@@ -20,6 +20,8 @@ const (
 	RequestKindInventoryVMPower            = "inventory.vm.power"
 	RequestKindInventoryVMSnapshotCreate   = "inventory.vm.snapshot.create"
 	RequestKindInventoryVMSnapshotRollback = "inventory.vm.snapshot.rollback"
+
+	maxPendingRequestsPerUser = 3
 )
 
 var (
@@ -33,6 +35,7 @@ var (
 	ErrRequestMissingPayload     = errors.New("request payload is invalid")
 	ErrRequestStale              = errors.New("request target is stale")
 	ErrRequestServiceUnavailable = errors.New("request execution service unavailable")
+	ErrRequestLimitExceeded      = errors.New("maximum pending request limit reached")
 )
 
 type Service struct {
@@ -455,6 +458,17 @@ func (s *Service) createInventoryRequest(
 	defer tx.Rollback(ctx)
 
 	q := database.New(tx)
+	if _, err := q.LockRequestRequester(ctx, requesterPrincipalID); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	pendingCount, err := q.CountPendingRequestsByRequester(ctx, requesterPrincipalID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	if pendingCount >= maxPendingRequestsPerUser {
+		return database.GetRequestByIDRow{}, ErrRequestLimitExceeded
+	}
+
 	requestRow, err := q.CreateRequest(ctx, database.CreateRequestParams{
 		Family:               database.RequestFamilyInventory,
 		Kind:                 kind,
