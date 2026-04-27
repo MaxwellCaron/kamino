@@ -41,7 +41,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type RFB from "@novnc/novnc/core/rfb.js"
-import { apiFetch, apiUrl } from "@/features/auth/api/auth-queries"
+import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 
 type VncConsoleProps = {
   itemId: string

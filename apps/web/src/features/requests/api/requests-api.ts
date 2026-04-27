@@ -4,7 +4,7 @@ import type {
   ApiRequestScope,
   ApiRequestSummary,
 } from "../types/request-types"
-import { apiFetch } from "@/features/auth/api/auth-queries"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
 export function requestsQueryOptions(scope: ApiRequestScope) {
   return {

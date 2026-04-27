@@ -22,7 +22,7 @@ import {
   canAccessAdmin,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
-import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-queries"
+import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 import { VNetDialog } from "@/features/sdn/components/vnet-dialog"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"

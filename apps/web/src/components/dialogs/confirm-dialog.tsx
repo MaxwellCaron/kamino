@@ -28,7 +28,7 @@ import {
 } from "@/components/dialogs/app-dialog"
 import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 import { getRequestStatusClassName } from "@/features/requests/utils/request-presenters"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-queries"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 export type ConfirmStatusItem = {
   id: string

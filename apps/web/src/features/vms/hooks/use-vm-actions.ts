@@ -16,11 +16,11 @@ import {
   vmHardwareQueryOptions,
   vmPowerAction,
   vmStatusQueryOptions,
-} from "../api/vm-queries"
+} from "../api/vm-api"
 import {
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
-} from "@/features/inventory/api/inventory-queries"
+} from "@/features/inventory/api/inventory-api"
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

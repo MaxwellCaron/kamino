@@ -33,7 +33,7 @@ import {
   addGroupMember,
   groupsQueryOptions,
   removeGroupMember,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 
 type UserGroupBulkDialogProps = {
   clearSelection: () => void

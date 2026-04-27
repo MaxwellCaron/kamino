@@ -3,7 +3,7 @@ import type {
   ApiInventoryItem,
   ApiTreeNode,
 } from "../types/inventory-types"
-import { apiFetch } from "@/features/auth/api/auth-queries"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
 async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
   const res = await apiFetch("/api/v1/inventory/tree")

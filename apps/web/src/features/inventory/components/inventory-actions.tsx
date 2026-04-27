@@ -25,7 +25,7 @@ import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
 import { useInventoryFavorites } from "../hooks/use-inventory-favorites"
-import { inventoryTreeQueryOptions } from "../api/inventory-queries"
+import { inventoryTreeQueryOptions } from "../api/inventory-api"
 import {
   getFolderCapabilities,
   getVmCapabilities,
@@ -33,8 +33,8 @@ import {
   hasNodeActions,
 } from "../utils/inventory-capabilities"
 import {
+  findInventoryTreeNode,
   summarizeFolderDeletion,
-  findInventoryTreeNode as findTreeNode,
 } from "../utils/inventory-tree"
 import { useDeleteFolder } from "../hooks/use-inventory-actions"
 import { InventoryDeletionDescription } from "./inventory-deletion-description"
@@ -45,8 +45,8 @@ import type {
 } from "../types/inventory-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-queries"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
+import { formatVmReference } from "@/features/shared/utils/format"
 import {
   useConvertToTemplate,
   useDeleteVM,
@@ -594,7 +594,7 @@ export function InventoryNodeMenu({
         inventoryTreeQueryOptions.queryKey
       ) ?? []
 
-    const folder = findTreeNode(tree, itemId)
+    const folder = findInventoryTreeNode(tree, itemId)
 
     if (!folder || folder.kind !== "folder") {
       toast.error("Failed to load folder details.")

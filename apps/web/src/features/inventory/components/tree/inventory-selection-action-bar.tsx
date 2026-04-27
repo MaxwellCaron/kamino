@@ -41,7 +41,7 @@ import {
 import {
   formatMutationError,
   formatVmReference,
-} from "@/features/shared/utils/utils"
+} from "@/features/shared/utils/format"
 
 type SelectedVmItem = ApiTreeNode & {
   kind: "vm"

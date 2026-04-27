@@ -30,7 +30,7 @@ import {
   deleteGroup,
   groupsQueryOptions,
   triggerADSync,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
 import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"

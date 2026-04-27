@@ -7,7 +7,7 @@ import type {
 } from "../types/vm-types"
 import type { ApiVmMutationResult } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestDetail } from "@/features/requests/types/request-types"
-import { apiFetch } from "@/features/auth/api/auth-queries"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
 async function fetchVmStatuses(): Promise<Record<number, string>> {
   const res = await apiFetch("/api/v1/vms/status")

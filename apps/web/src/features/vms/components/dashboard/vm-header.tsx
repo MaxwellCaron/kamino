@@ -37,7 +37,7 @@ import {
   formatBytes,
   formatMemory,
   formatUptime,
-} from "@/features/shared/utils/utils"
+} from "@/features/shared/utils/format"
 
 type Stat = {
   icon: ReactNode

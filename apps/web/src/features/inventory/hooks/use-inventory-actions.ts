@@ -7,9 +7,9 @@ import {
   moveInventoryItem,
   renameFolder,
   updateInventoryAcl,
-} from "../api/inventory-queries"
-import type { ApiTreeNode } from "../types/inventory-types"
+} from "../api/inventory-api"
 import { moveInventoryTreeNode } from "../utils/inventory-tree"
+import type { ApiTreeNode } from "../types/inventory-types"
 
 function useInvalidateInventoryTreeMutation<TVariables>(
   mutationFn: (variables: TVariables) => Promise<void>

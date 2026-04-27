@@ -17,7 +17,7 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { authMeQueryOptions, login } from "../api/auth-queries"
+import { authMeQueryOptions, login } from "../api/auth-api"
 
 export function LoginForm({
   className,

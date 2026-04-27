@@ -66,14 +66,14 @@ import {
   getSelectOptionLabel,
 } from "@/features/vms/components/hardware/hardware-sections"
 import { useUpdateVMHardware } from "@/features/vms/hooks/use-vm-actions"
-import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-queries"
+import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   bridgesQueryOptions,
   storagesQueryOptions,
-} from "@/features/vms/api/proxmox-options-queries"
-import { vmHardwareQueryOptions } from "@/features/vms/api/vm-queries"
+} from "@/features/vms/api/proxmox-options-api"
+import { vmHardwareQueryOptions } from "@/features/vms/api/vm-api"
 import { toastUpdateHardware } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 const hardwareNetworkInterfaceSchema = z.object({
   device: z.string().optional(),

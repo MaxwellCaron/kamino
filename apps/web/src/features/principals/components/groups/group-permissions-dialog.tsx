@@ -47,7 +47,7 @@ import {
 import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id

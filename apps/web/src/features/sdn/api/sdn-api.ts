@@ -1,6 +1,6 @@
 import type { ApiVNet } from "../types/sdn-types"
-import type { ApiBulkDeleteResponse } from "@/features/principals/types/principals-types"
-import { apiFetch } from "@/features/auth/api/auth-queries"
+import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
 export const vnetsQueryOptions = {
   queryKey: ["sdn", "vnets"] as const,

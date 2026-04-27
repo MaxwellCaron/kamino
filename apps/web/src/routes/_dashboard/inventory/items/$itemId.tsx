@@ -5,12 +5,12 @@ import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import {
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
-} from "@/features/inventory/api/inventory-queries"
+} from "@/features/inventory/api/inventory-api"
 import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
 import {
   vmResourcesQueryOptions,
   vmStatusQueryOptions,
-} from "@/features/vms/api/vm-queries"
+} from "@/features/vms/api/vm-api"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-table"
 import { VmHeader } from "@/features/vms/components/dashboard/vm-header"

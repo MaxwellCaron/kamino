@@ -30,6 +30,7 @@ import {
   CreateVmMethodStep,
   CreateVmSummaryStep,
 } from "./create-vm-steps"
+import type { CreateVmFormValues } from "@/features/vms/components/create/create-vm-form"
 import {
   createVmFormOptions,
   createVmFormSchema,
@@ -38,7 +39,6 @@ import {
   toCreateVmParams,
   useCreateVmForm,
 } from "@/features/vms/components/create/create-vm-form"
-import type { CreateVmFormValues } from "@/features/vms/components/create/create-vm-form"
 import {
   AppDialogHeader,
   AppDialogPrimaryButton,
@@ -52,12 +52,12 @@ import { toastCreateVm } from "@/features/vms/utils/vm-toasts"
 import {
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
-} from "@/features/inventory/api/inventory-queries"
+} from "@/features/inventory/api/inventory-api"
 import {
   createVmIsosQueryOptions,
   createVmOptionsQueryOptions,
-} from "@/features/vms/api/proxmox-options-queries"
-import { cloneVM, createVM } from "@/features/vms/api/vm-queries"
+} from "@/features/vms/api/proxmox-options-api"
+import { cloneVM, createVM } from "@/features/vms/api/vm-api"
 
 const steps = [
   { value: "method", title: "Method" },

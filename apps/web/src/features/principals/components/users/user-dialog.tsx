@@ -55,7 +55,7 @@ import {
   groupsQueryOptions,
   setUserPassword,
   updateUser,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 
 const usernameSchema = z
   .string()

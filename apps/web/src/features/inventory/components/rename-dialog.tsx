@@ -11,17 +11,17 @@ import { Field, FieldError, FieldGroup } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
 import {
-  AppDialog,
-  AppDialogPrimaryButton,
-} from "@/components/dialogs/app-dialog"
-import { formatVmReference } from "@/features/shared/utils/utils"
-import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
-import { vmNameSchema } from "@/features/vms/utils/vm-name"
-
-import {
   useCreateFolder,
   useRenameFolder,
 } from "../hooks/use-inventory-actions"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
+import { vmNameSchema } from "@/features/vms/utils/vm-name"
+
 
 const folderNameSchema = z
   .string()

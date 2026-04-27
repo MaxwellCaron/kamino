@@ -38,16 +38,6 @@ import {
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
-import type { ApiRequestDetail } from "@/features/requests/types/request-types"
-
-import {
-  AppDialogContent,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
-import { formatVmReference } from "@/features/shared/utils/utils"
-
 import {
   STATUS_ICONS,
   formatRequestKind,
@@ -56,6 +46,16 @@ import {
   getRequestIcon,
   getRequestStatusClassName,
 } from "../utils/request-presenters"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiRequestDetail } from "@/features/requests/types/request-types"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+
+import {
+  AppDialogContent,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+import { formatVmReference } from "@/features/shared/utils/format"
+
 
 type RequestDetailDialogProps = {
   canReview: boolean

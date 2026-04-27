@@ -8,7 +8,7 @@ import { CommandManyItems } from "@/components/app-shell/site-command"
 import { InventoryEvents } from "@/features/inventory/components/inventory-events"
 import { VmStatusEvents } from "@/features/vms/components/vm-status-events"
 import { RequestEvents } from "@/features/requests/components/request-events"
-import { ensureAuth } from "@/features/auth/api/auth-queries"
+import { ensureAuth } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_dashboard")({
   beforeLoad: async ({ location }) => {

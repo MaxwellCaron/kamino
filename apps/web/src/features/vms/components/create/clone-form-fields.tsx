@@ -35,7 +35,7 @@ import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
-import { validateVMID } from "@/features/vms/api/vm-queries"
+import { validateVMID } from "@/features/vms/api/vm-api"
 
 type AppFieldComponent = ComponentType<any>
 

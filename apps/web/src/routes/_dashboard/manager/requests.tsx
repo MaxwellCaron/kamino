@@ -50,14 +50,14 @@ import {
   canAccessRequestQueue,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-queries"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   approveRequest,
   denyRequest,
   requestDetailQueryOptions,
   requestsQueryOptions,
-} from "@/features/requests/api/request-queries"
+} from "@/features/requests/api/requests-api"
 import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
@@ -69,7 +69,7 @@ import {
   getRequestIcon,
   getRequestStatusClassName,
 } from "@/features/requests/utils/request-presenters"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"

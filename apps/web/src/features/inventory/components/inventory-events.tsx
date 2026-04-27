@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl } from "@/features/auth/api/auth-queries"
-import { inventoryTreeQueryOptions } from "../api/inventory-queries"
+import { inventoryTreeQueryOptions } from "../api/inventory-api"
+import { apiUrl } from "@/features/auth/api/auth-api"
 
 type InventoryChangedEvent = {
   type: "inventory.changed"

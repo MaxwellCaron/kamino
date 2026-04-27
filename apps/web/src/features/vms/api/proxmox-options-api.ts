@@ -5,7 +5,7 @@ import type {
   ApiNode,
   ApiStorage,
 } from "../types/vm-types"
-import { apiFetch } from "@/features/auth/api/auth-queries"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
 export function bridgesQueryOptions(node: string) {
   return {

@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl } from "@/features/auth/api/auth-queries"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-queries"
+import { apiUrl } from "@/features/auth/api/auth-api"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 type VmStatusEvent = {
   type: "vm.statuses.changed"

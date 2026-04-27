@@ -14,9 +14,9 @@ import {
 } from "../utils/request-presenters"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import type { ColumnDef } from "@tanstack/react-table"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void

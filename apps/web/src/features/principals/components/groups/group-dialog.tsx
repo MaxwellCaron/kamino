@@ -41,7 +41,7 @@ import { BulkCreateResultsSummary } from "@/features/principals/components/creat
 import {
   createGroup,
   updateGroup,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 
 const groupNameSchema = z
   .string()

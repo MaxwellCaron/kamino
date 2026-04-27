@@ -30,7 +30,7 @@ import {
   removeGroupMember,
   userGroupsQueryOptions,
   usersQueryOptions,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 
 type MembershipDialogProps = {
   open: boolean

@@ -17,7 +17,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { createVNet, updateVNet } from "@/features/sdn/api/sdn-queries"
+import { createVNet, updateVNet } from "@/features/sdn/api/sdn-api"
 
 const vnetSchema = z.object({
   vnet: z

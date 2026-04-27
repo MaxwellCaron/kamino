@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { apiUrl } from "@/features/auth/api/auth-queries"
+import { apiUrl } from "@/features/auth/api/auth-api"
 
 export type RequestEvent = {
   type: string

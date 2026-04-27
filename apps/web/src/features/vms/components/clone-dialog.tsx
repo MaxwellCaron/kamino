@@ -25,10 +25,10 @@ import {
   optionalVmidSchema,
 } from "@/features/vms/components/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-queries"
-import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-queries"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-api"
 import { toastCloneVm } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 const cloneSchema = z.object({
   target_folder_id: z

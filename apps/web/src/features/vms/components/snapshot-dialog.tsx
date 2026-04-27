@@ -26,7 +26,7 @@ import {
   toastCreateSnapshot,
   toastSubmitSnapshotRequest,
 } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 const generateSnapshotName = () =>
   `snapshot-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}Z`

@@ -4,14 +4,14 @@ import type {
 } from "@/features/auth/utils/management-permissions"
 import type {
   ApiBulkCreateResponse,
-  ApiBulkDeleteResponse,
   ApiBulkMembershipResponse,
   ApiGroupMember,
   ApiPrincipal,
   CreateGroupInput,
   CreateUserInput,
 } from "../types/principals-types"
-import { apiFetch } from "@/features/auth/api/auth-queries"
+import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
+import { apiFetch } from "@/features/auth/api/auth-api"
 import { normalizeManagementPermissionGrants } from "@/features/auth/utils/management-permissions"
 
 export type ApiGroupManagementAcl = {

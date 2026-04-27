@@ -51,7 +51,7 @@ import {
 import { renderError } from "./create-vm-step-shared"
 import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import type { NetworkData } from "./create-vm-step-shared"
-import { validateVMID } from "@/features/vms/api/vm-queries"
+import { validateVMID } from "@/features/vms/api/vm-api"
 import {
   biosTypes,
   cpuTypes,

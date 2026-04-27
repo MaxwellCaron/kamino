@@ -1,3 +1,5 @@
+import type { ApiBulkOperationFailure } from "@/features/shared/types/api-types"
+
 export type ApiPrincipal = {
   id: string
   external_id: string
@@ -13,19 +15,9 @@ export type ApiGroupMember = {
   description: string | null
 }
 
-export type ApiBulkDeleteFailure = {
-  id: string
-  error: string
-}
-
-export type ApiBulkDeleteResponse = {
-  deleted: Array<string>
-  failed: Array<ApiBulkDeleteFailure>
-}
-
 export type ApiBulkMembershipResponse = {
   succeeded: Array<string>
-  failed: Array<ApiBulkDeleteFailure>
+  failed: Array<ApiBulkOperationFailure>
 }
 
 export type ApiBulkCreateFailure = {

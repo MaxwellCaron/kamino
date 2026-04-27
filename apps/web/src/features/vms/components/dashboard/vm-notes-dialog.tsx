@@ -16,7 +16,7 @@ import {
 } from "@/components/dialogs/app-dialog"
 import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
 import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 const vmNotesSchema = z.object({
   notes: z.string().max(255, "Notes must be 255 characters or less"),

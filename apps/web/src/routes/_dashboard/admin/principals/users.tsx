@@ -35,7 +35,7 @@ import {
   deleteUser,
   triggerADSync,
   usersQueryOptions,
-} from "@/features/principals/api/principals-queries"
+} from "@/features/principals/api/principals-api"
 import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import { UserDialog } from "@/features/principals/components/users/user-dialog"
 import { UserGroupBulkDialog } from "@/features/principals/components/users/user-group-bulk-dialog"

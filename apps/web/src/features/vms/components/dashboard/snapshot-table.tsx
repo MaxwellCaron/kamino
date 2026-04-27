@@ -39,7 +39,7 @@ import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { loadingTransition } from "@/components/loading-transition"
 import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
-import { snapshotsQueryOptions } from "@/features/vms/api/vm-queries"
+import { snapshotsQueryOptions } from "@/features/vms/api/vm-api"
 import {
   useDeleteSnapshot,
   useRollbackSnapshot,
@@ -50,7 +50,7 @@ import {
   toastRollbackSnapshot,
   toastSubmitRollbackRequest,
 } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 export function SnapshotsTable({
   itemId,

@@ -1,5 +1,5 @@
 import { toast } from "sonner"
-import { formatVmReference } from "@/features/shared/utils/utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 export function toastCloneVm(
   promise: Promise<{ vmid: number }>,

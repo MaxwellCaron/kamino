@@ -40,28 +40,28 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 
+
+import { inventoryAclQueryOptions } from "../../api/inventory-api"
+import { useInventoryPermissions } from "../../hooks/use-inventory-permissions"
+import { principalTypeLabels } from "../../utils/constants"
+import { AddPrincipalsDialog } from "./add-principals-dialog"
+import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
+import type {
+  ApiInventoryAcl,
+  InventoryPermissionsDialogProps,
+} from "../../types/inventory-types"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  groupsQueryOptions,
+  usersQueryOptions,
+} from "@/features/principals/api/principals-api"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
-import {
-  groupsQueryOptions,
-  usersQueryOptions,
-} from "@/features/principals/api/principals-queries"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import { formatVmReference } from "@/features/shared/utils/utils"
-
-import { inventoryAclQueryOptions } from "../../api/inventory-queries"
-import { useInventoryPermissions } from "../../hooks/use-inventory-permissions"
-import type {
-  ApiInventoryAcl,
-  InventoryPermissionsDialogProps,
-} from "../../types/inventory-types"
-import { principalTypeLabels } from "../../utils/constants"
-import { AddPrincipalsDialog } from "./add-principals-dialog"
-import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
 
 function InventoryPermissionsFormBody({
   props,

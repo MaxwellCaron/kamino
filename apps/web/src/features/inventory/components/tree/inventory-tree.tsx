@@ -6,8 +6,6 @@ import {
   useMemo,
   useState,
 } from "react"
-import type { ReactNode } from "react"
-import type { TreeInstance } from "@headless-tree/core"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
@@ -22,15 +20,12 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-queries"
 
-import { LoadingTransition } from "@/components/loading-transition"
 
-import { inventoryTreeQueryOptions } from "../../api/inventory-queries"
+import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { useMoveInventoryItem } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
-import type { ApiTreeNode } from "../../types/inventory-types"
 import {
   buildVmIdMap,
   countLeaves,
@@ -41,6 +36,11 @@ import { InventoryFavoritesSection } from "./favorites-section"
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
 import { InventoryTreeContent } from "./tree-content"
 import { InventoryTreeSearch } from "./tree-search"
+import type { ApiTreeNode } from "../../types/inventory-types"
+import type { TreeInstance } from "@headless-tree/core"
+import type { ReactNode } from "react"
+import { LoadingTransition } from "@/components/loading-transition"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 interface InventoryTreeContextValue {
   query: string
