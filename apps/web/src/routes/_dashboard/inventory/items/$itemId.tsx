@@ -92,7 +92,7 @@ function VmPage() {
             isTemplate={isTemplate}
             isLoading={isLoading}
           />
-          <div className="col-span-2">
+          <div className={`${isTemplate ? "col-span-3" : "col-span-2"}`}>
             <VmNotes
               node={node}
               itemId={itemId}
