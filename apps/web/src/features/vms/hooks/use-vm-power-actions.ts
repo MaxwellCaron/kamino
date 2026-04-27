@@ -10,8 +10,7 @@ import {
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "./use-vm-actions"
-import type { ComponentProps, ComponentType } from "react"
-import type { Button } from "@workspace/ui/components/button"
+import type { ComponentType } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 import type { ApiBulkVmMutationResponse } from "../types/vm-types"
@@ -26,13 +25,10 @@ type PowerIcon = ComponentType<{
   "data-icon"?: "inline-start" | "inline-end"
 }>
 
-type ButtonVariant = ComponentProps<typeof Button>["variant"]
-
 type VmPowerActionDefinition = {
   action: VmPowerAction
   label: string
   icon: PowerIcon
-  buttonVariant: ButtonVariant
   dialogVariant: NonNullable<ConfirmConfig["variant"]>
   directDescription: (vmIdentifier: string) => string
   requestDescription: (vmIdentifier: string) => string
@@ -60,7 +56,6 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
     action: "start",
     label: "Start",
     icon: IconPlayerPlay,
-    buttonVariant: "default",
     dialogVariant: "default",
     directDescription: (vmIdentifier) => `This will power on ${vmIdentifier}.`,
     requestDescription: (vmIdentifier) =>
@@ -73,7 +68,6 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
     action: "shutdown",
     label: "Shutdown",
     icon: IconPower,
-    buttonVariant: "secondary",
     dialogVariant: "destructive",
     directDescription: (vmIdentifier) =>
       `This will send a shutdown signal to ${vmIdentifier}.`,
@@ -87,7 +81,6 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
     action: "reboot",
     label: "Reboot",
     icon: IconRefresh,
-    buttonVariant: "secondary",
     dialogVariant: "destructive",
     directDescription: (vmIdentifier) =>
       `This will send a reboot signal to ${vmIdentifier}.`,
@@ -101,7 +94,6 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
     action: "stop",
     label: "Stop",
     icon: IconPlayerStop,
-    buttonVariant: "destructive",
     dialogVariant: "destructive",
     directDescription: (vmIdentifier) =>
       `This will immediately stop ${vmIdentifier}.`,
