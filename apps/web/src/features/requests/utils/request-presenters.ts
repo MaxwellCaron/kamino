@@ -81,17 +81,17 @@ export function formatRequestStatus(status: ApiRequestStatus) {
 export function getRequestStatusClassName(status: ApiRequestStatus) {
   switch (status) {
     case "executed":
-      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400 dark:text-green-400"
+      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400/50 dark:text-green-400"
     case "denied":
-      return "bg-red-600/10 border-red-600 text-red-600 dark:bg-red-400/10 dark:border-red-400 dark:text-red-400"
+      return "bg-red-600/10 border-red-600 text-red-600 dark:bg-red-400/10 dark:border-red-400/50 dark:text-red-400"
     case "execution_failed":
-      return "bg-orange-600/10 border-orange-600 text-orange-600 dark:bg-orange-400/10 dark:border-orange-400 dark:text-orange-400"
+      return "bg-orange-600/10 border-orange-600 text-orange-600 dark:bg-orange-400/10 dark:border-orange-400/50 dark:text-orange-400"
     case "pending":
-      return "bg-yellow-600/10 border-yellow-600 text-yellow-600 dark:bg-yellow-400/10 dark:border-yellow-400 dark:text-yellow-400"
+      return "bg-yellow-600/10 border-yellow-600 text-yellow-600 dark:bg-yellow-400/10 dark:border-yellow-400/50 dark:text-yellow-400"
     case "approved":
-      return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400 dark:text-purple-400"
+      return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400/50 dark:text-purple-400"
     default:
-      return "bg-slate-600/10 border-slate-600 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400 dark:text-slate-400"
+      return "bg-slate-600/10 border-slate-600 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400/50 dark:text-slate-400"
   }
 }
 

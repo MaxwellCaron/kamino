@@ -122,7 +122,7 @@ export function InventoryTreeContent({
                 {data.kind === "folder" && data.effective_vm_limit != null && (
                   <Badge
                     variant="secondary"
-                    className="tabular-nums"
+                    className="bg-muted/50 text-muted-foreground tabular-nums"
                     title="VM/template count"
                   >
                     {data.vm_count ?? 0} / {data.effective_vm_limit}
