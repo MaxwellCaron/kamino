@@ -20,18 +20,22 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
+function isTheme(theme: string | null): theme is Theme {
+  return theme === "dark" || theme === "light" || theme === "system"
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () =>
-      (typeof window !== "undefined"
-        ? (localStorage.getItem(storageKey) as Theme | null)
-        : null) ?? defaultTheme
-  )
+  const [theme, setTheme] = useState<Theme>(() => {
+    const storedTheme =
+      typeof window !== "undefined" ? localStorage.getItem(storageKey) : null
+
+    return isTheme(storedTheme) ? storedTheme : defaultTheme
+  })
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -45,10 +49,12 @@ export function ThemeProvider({
         : "light"
 
       root.classList.add(systemTheme)
+      root.style.colorScheme = systemTheme
       return
     }
 
     root.classList.add(theme)
+    root.style.colorScheme = theme
   }, [theme])
 
   const value = {

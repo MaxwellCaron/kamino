@@ -10,6 +10,28 @@ import {
 } from "@tanstack/react-router"
 
 import appCss from "@workspace/ui/globals.css?url"
+import { NotFound } from "@/components/not-found"
+
+const themeStorageKey = "vite-ui-theme"
+const defaultTheme = "dark"
+const themeScript = `
+(() => {
+  const storageKey = ${JSON.stringify(themeStorageKey)}
+  const defaultTheme = ${JSON.stringify(defaultTheme)}
+  const root = document.documentElement
+  const storedTheme = localStorage.getItem(storageKey)
+  const theme = storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
+    ? storedTheme
+    : defaultTheme
+  const resolvedTheme = theme === "system"
+    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : theme
+
+  root.classList.remove("light", "dark")
+  root.classList.add(resolvedTheme)
+  root.style.colorScheme = resolvedTheme
+})()
+`
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,13 +69,14 @@ export const Route = createRootRoute({
   }),
   shellComponent: RootShell,
   component: RootComponent,
-  notFoundComponent: () => <p>Page not found</p>,
+  notFoundComponent: NotFound,
 })
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <HeadContent />
       </head>
       <body>
@@ -68,7 +91,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>
         <TooltipProvider>
           <Outlet />
         </TooltipProvider>
