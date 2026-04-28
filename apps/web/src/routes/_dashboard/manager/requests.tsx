@@ -136,11 +136,11 @@ function RequestsPage() {
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
-      pending: "fill-yellow-600 dark:fill-yellow-400",
-      approved: "fill-purple-600 dark:fill-purple-400",
-      denied: "fill-red-600 dark:fill-red-400",
-      executed: "fill-green-600 dark:fill-green-400",
-      execution_failed: "fill-orange-600 dark:fill-orange-400",
+      pending: "fill-yellow-600/75 dark:fill-yellow-400/75",
+      approved: "fill-purple-600/75 dark:fill-purple-400/75",
+      denied: "fill-red-600/75 dark:fill-red-400/75",
+      executed: "fill-green-600/75 dark:fill-green-400/75",
+      execution_failed: "fill-orange-600/75 dark:fill-orange-400/75",
     }
 
     return Object.entries(statusCounts)
@@ -364,7 +364,7 @@ function RequestsPage() {
                 })}
               </div>
               <div className="col-span-3 lg:col-span-1">
-                <Card className="h-full bg-muted/50">
+                <Card className="h-full bg-muted/50 shadow-none ring-0">
                   <CardContent className="flex h-full items-center justify-center">
                     <PieChart data={chartData} size={200} innerRadius={60}>
                       {chartData.map((_, index) => (
