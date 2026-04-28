@@ -31,6 +31,9 @@ import {
 } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import { PieChart } from "@workspace/ui/components/charts/pie-chart"
+import { PieSlice } from "@workspace/ui/components/charts/pie-slice"
+import { PieCenter } from "@workspace/ui/components/charts/pie-center"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
@@ -130,6 +133,24 @@ function RequestsPage() {
 
     return counts
   }, [pendingQuery.data, completedQuery.data])
+
+  const chartData = useMemo(() => {
+    const statusClasses: Record<ApiRequestStatus, string> = {
+      pending: "fill-yellow-600 dark:fill-yellow-400",
+      approved: "fill-purple-600 dark:fill-purple-400",
+      denied: "fill-red-600 dark:fill-red-400",
+      executed: "fill-green-600 dark:fill-green-400",
+      execution_failed: "fill-orange-600 dark:fill-orange-400",
+    }
+
+    return Object.entries(statusCounts)
+      .map(([status, value]) => ({
+        label: formatRequestStatus(status as ApiRequestStatus),
+        value,
+        className: statusClasses[status as ApiRequestStatus],
+      }))
+      .filter((item) => item.value > 0)
+  }, [statusCounts])
 
   const openRequest = (requestId: string) => setSelectedRequestId(requestId)
 
@@ -290,58 +311,70 @@ function RequestsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6 2xl:grid-cols-5">
-              {(
-                [
-                  "pending",
-                  "approved",
-                  "denied",
-                  "executed",
-                  "execution_failed",
-                ] as Array<ApiRequestStatus>
-              ).map((status) => {
-                const StatusIcon = STATUS_ICONS[status]
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="col-span-3 grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-3 lg:gap-6">
+                {(
+                  [
+                    "pending",
+                    "approved",
+                    "denied",
+                    "executed",
+                    "execution_failed",
+                  ] as Array<ApiRequestStatus>
+                ).map((status) => {
+                  const StatusIcon = STATUS_ICONS[status]
 
-                return (
-                  <Item
-                    key={status}
-                    variant="muted"
-                    className={cn(
-                      status === "pending" && "col-span-2 2xl:col-span-1"
-                    )}
-                  >
-                    <ItemMedia
-                      className={cn(
-                        "size-6 rounded-full border-transparent!",
-                        getRequestStatusClassName(status)
-                      )}
+                  return (
+                    <Item
+                      key={status}
+                      variant="muted"
+                      className={cn(status === "pending" && "col-span-2")}
                     >
-                      <StatusIcon className="size-4" />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>{formatRequestStatus(status)}</ItemTitle>
-                    </ItemContent>
-                    <ItemFooter>
-                      <LoadingTransition
-                        isLoading={
-                          pendingQuery.isLoading || completedQuery.isLoading
-                        }
-                        fallback={
-                          <div className="space-y-2">
-                            <Skeleton className="h-8 w-12 rounded-md" />
-                          </div>
-                        }
+                      <ItemMedia
+                        className={cn(
+                          "size-6 rounded-full border-transparent!",
+                          getRequestStatusClassName(status)
+                        )}
                       >
-                        <div>
-                          <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
-                            {statusCounts[status]}
-                          </h3>
-                        </div>
-                      </LoadingTransition>
-                    </ItemFooter>
-                  </Item>
-                )
-              })}
+                        <StatusIcon className="size-4" />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>{formatRequestStatus(status)}</ItemTitle>
+                      </ItemContent>
+                      <ItemFooter>
+                        <LoadingTransition
+                          isLoading={
+                            pendingQuery.isLoading || completedQuery.isLoading
+                          }
+                          fallback={
+                            <div className="space-y-2">
+                              <Skeleton className="h-8 w-12 rounded-md" />
+                            </div>
+                          }
+                        >
+                          <div>
+                            <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                              {statusCounts[status]}
+                            </h3>
+                          </div>
+                        </LoadingTransition>
+                      </ItemFooter>
+                    </Item>
+                  )
+                })}
+              </div>
+              <div className="col-span-3 lg:col-span-1">
+                <Card className="h-full bg-muted/50">
+                  <CardContent className="flex h-full items-center justify-center">
+                    <PieChart data={chartData} size={200} innerRadius={60}>
+                      {chartData.map((_, index) => (
+                        <PieSlice key={index} index={index} />
+                      ))}
+                      <PieCenter defaultLabel="Requests" />
+                    </PieChart>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </CardHeader>
         </Card>
