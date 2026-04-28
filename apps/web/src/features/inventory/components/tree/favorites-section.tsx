@@ -125,7 +125,7 @@ function FavoriteItemCard({
       animate="visible"
       exit="exit"
       className={cn(
-        "group/favorite relative flex cursor-pointer items-center gap-2 rounded-3xl px-2 py-1.5",
+        "group/favorite relative flex cursor-default items-center gap-2 rounded-3xl px-2 py-1.5",
         "transition-colors hover:bg-muted/50"
       )}
       onClick={onClick}
