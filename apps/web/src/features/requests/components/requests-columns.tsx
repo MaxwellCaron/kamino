@@ -20,39 +20,45 @@ import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
+  selectable?: boolean
   tree?: Array<ApiTreeNode>
 }
 
 export function getRequestColumns({
   onOpen,
+  selectable = true,
   tree,
 }: RequestColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
   return [
-    {
-      id: "select",
-      meta: { className: "w-0" },
-      header: ({ table }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
-      ),
-    },
+    ...(selectable
+      ? [
+          {
+            id: "select",
+            meta: { className: "w-0" },
+            header: ({ table }) => (
+              <div className="pl-4">
+                <Checkbox
+                  checked={table.getIsAllPageRowsSelected()}
+                  indeterminate={table.getIsSomePageRowsSelected()}
+                  onCheckedChange={(value) =>
+                    table.toggleAllPageRowsSelected(!!value)
+                  }
+                  aria-label="Select all"
+                />
+              </div>
+            ),
+            cell: ({ row }) => (
+              <div className="pl-4">
+                <Checkbox
+                  checked={row.getIsSelected()}
+                  onCheckedChange={(value) => row.toggleSelected(!!value)}
+                  aria-label="Select row"
+                />
+              </div>
+            ),
+          } satisfies ColumnDef<ApiRequestSummary>,
+        ]
+      : []),
     {
       accessorKey: "kind",
       header: () => <p className="pl-4">Request</p>,

@@ -33,24 +33,13 @@ import {
 import { useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import type { ReactNode } from "react"
+import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
   ColumnDef,
-  RowData,
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
 import { loadingTransition } from "@/components/loading-transition"
-
-declare module "@tanstack/react-table" {
-  interface ColumnMeta<TData extends RowData, TValue> {
-    className?: string
-  }
-}
-
-type DataTableSelectionActionsContext<TData> = {
-  clearSelection: () => void
-  selectedRows: Array<TData>
-}
 
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>

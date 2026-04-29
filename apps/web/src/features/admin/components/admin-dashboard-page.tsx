@@ -1,15 +1,18 @@
-import { useMemo } from "react"
-import { useQueries, useQuery } from "@tanstack/react-query"
+import { useMemo, useState } from "react"
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
-  IconAlertTriangle,
   IconArrowUpRight,
   IconChartBar,
   IconClock,
   IconCpu,
-  IconDatabase,
   IconFolder,
-  IconGauge,
+  IconPackages,
   IconReceipt,
   IconServer,
   IconUser,
@@ -25,13 +28,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { PieCenter } from "@workspace/ui/components/charts/pie-center"
+import { PieChart } from "@workspace/ui/components/charts/pie-chart"
+import { PieSlice } from "@workspace/ui/components/charts/pie-slice"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { Progress, ProgressLabel } from "@workspace/ui/components/progress"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import {
+  ProgressIndicator,
+  ProgressRoot,
+  ProgressTrack,
+} from "@workspace/ui/components/progress"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import {
   Table,
@@ -41,27 +60,42 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { cn } from "@workspace/ui/lib/utils"
+import { toast } from "sonner"
 
+import { CapacityChart } from "./capacity-donut-chart"
+import { AdminDashboardHeader } from "./admin-dashboard-header"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
+import {
+  ManagementPermissionKeys,
+  hasManagementPermission,
+} from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
-import { requestsQueryOptions } from "@/features/requests/api/requests-api"
 import {
-  formatRequestKind,
-  formatRequestStatus,
-  getRequestIcon,
-} from "@/features/requests/utils/request-presenters"
+  approveRequest,
+  denyRequest,
+  requestDetailQueryOptions,
+  requestsQueryOptions,
+} from "@/features/requests/api/requests-api"
+import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
+import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import { formatBytes } from "@/features/shared/utils/format"
 import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
+import { SimpleDataTable } from "@/components/data-table/simple-data-table"
+
+function percentage(used: number, total: number) {
+  if (total <= 0) return 0
+  return Math.min(100, Math.max(0, (used / total) * 100))
+}
 
 type InventoryCounts = {
   folders: number
@@ -72,15 +106,6 @@ type InventoryCounts = {
 type Capacity = {
   total: number
   used: number
-}
-
-type PrincipalListItem = {
-  created_at?: string | null
-  description?: string | null
-  external_id: string
-  id: string
-  name: string | null
-  type: "group" | "user"
 }
 
 function countInventory(nodes: Array<ApiTreeNode>): InventoryCounts {
@@ -111,14 +136,6 @@ function countInventory(nodes: Array<ApiTreeNode>): InventoryCounts {
   )
 }
 
-function sortByNewest<T extends { created_at?: string | null }>(
-  items: Array<T>
-) {
-  return [...items].sort(
-    (left, right) => timestamp(right.created_at) - timestamp(left.created_at)
-  )
-}
-
 function timestamp(value?: string | null) {
   return value ? new Date(value).getTime() : 0
 }
@@ -132,31 +149,16 @@ function requestTimestamp(request: ApiRequestSummary) {
   )
 }
 
-function percentage(used: number, total: number) {
-  if (total <= 0) return 0
-  return Math.min(100, Math.max(0, (used / total) * 100))
-}
-
 function formatPercent(value: number) {
   return `${Math.round(value)}%`
 }
 
-function formatCapacity(used: number, total: number) {
-  if (total <= 0) return "-"
-  return `${formatBytes(used)} / ${formatBytes(total)}`
-}
-
-function formatCpuCapacity(used: number, total: number) {
-  if (total <= 0) return "-"
-  return `${used.toFixed(1)} / ${total} cores`
-}
-
-function requestTargetLabel(request: ApiRequestSummary) {
-  return request.inventory?.item_name ?? request.inventory?.vmid ?? "Request"
+function formatCores(v: number) {
+  return `${v.toFixed(1)} CPU`
 }
 
 function statusBadgeVariant(status: string) {
-  return status === "online" ? "secondary" : "outline"
+  return status === "online" ? "default" : "destructive"
 }
 
 function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
@@ -169,191 +171,6 @@ function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
   )
 }
 
-function capacitySeverity(value: number) {
-  if (value >= 90) return "Critical"
-  if (value >= 75) return "Elevated"
-  return "Nominal"
-}
-
-function StatCard({
-  description,
-  icon: Icon,
-  label,
-  value,
-}: {
-  description: string
-  icon: typeof IconUser
-  label: string
-  value: number | string
-}) {
-  return (
-    <Card size="sm" className="min-h-32">
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardAction>
-          <Icon className="text-muted-foreground" />
-        </CardAction>
-        <CardTitle className="font-mono text-3xl tabular-nums">
-          {value}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function CapacityBar({
-  formatUsage = formatCapacity,
-  label,
-  total,
-  used,
-}: {
-  formatUsage?: (used: number, total: number) => string
-  label: string
-  total: number
-  used: number
-}) {
-  const value = percentage(used, total)
-
-  return (
-    <Progress value={value} className="gap-2">
-      <ProgressLabel className="text-sm">{label}</ProgressLabel>
-      <span className="ml-auto text-sm text-muted-foreground tabular-nums">
-        {formatPercent(value)}
-      </span>
-      <div className="basis-full text-xs text-muted-foreground">
-        {formatUsage(used, total)}
-      </div>
-    </Progress>
-  )
-}
-
-function RequestList({
-  empty,
-  requests,
-}: {
-  empty: string
-  requests: Array<ApiRequestSummary>
-}) {
-  if (requests.length === 0) {
-    return (
-      <Empty className="min-h-40 rounded-lg border border-dashed">
-        <EmptyHeader>
-          <EmptyTitle>No requests</EmptyTitle>
-          <EmptyDescription>{empty}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {requests.map((request) => {
-        const Icon = getRequestIcon(
-          request.kind,
-          request.inventory?.power_action
-        )
-        return (
-          <div
-            key={request.id}
-            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-muted/20 p-3"
-          >
-            <div className="flex size-9 items-center justify-center rounded-md bg-background">
-              <Icon className="text-muted-foreground" />
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">
-                {formatRequestKind(request.kind)}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {request.requester_username} - {requestTargetLabel(request)}
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1 text-xs">
-              <Badge variant="outline">
-                {formatRequestStatus(request.status)}
-              </Badge>
-              <RelativeTimeCard
-                date={
-                  request.updated_at ??
-                  request.reviewed_at ??
-                  request.created_at ??
-                  new Date().toISOString()
-                }
-                display="relative"
-                timezones={["UTC"]}
-                delay={50}
-                closeDelay={150}
-                variant="muted"
-              />
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function PrincipalList({
-  principals,
-}: {
-  principals: Array<PrincipalListItem>
-}) {
-  if (principals.length === 0) {
-    return (
-      <Empty className="min-h-40 rounded-lg border border-dashed">
-        <EmptyHeader>
-          <EmptyTitle>No principals</EmptyTitle>
-          <EmptyDescription>
-            Newly created users and groups appear here.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {principals.map((principal) => {
-        const Icon = principal.type === "user" ? IconUser : IconUsersGroup
-        return (
-          <div
-            key={principal.id}
-            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-muted/20 p-3"
-          >
-            <div className="flex size-9 items-center justify-center rounded-md bg-background">
-              <Icon className="text-muted-foreground" />
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">
-                {principal.name ?? principal.external_id}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {principal.type === "user" ? "User" : "Group"}
-                {principal.description ? ` - ${principal.description}` : ""}
-              </div>
-            </div>
-            {principal.created_at ? (
-              <RelativeTimeCard
-                date={principal.created_at}
-                display="relative"
-                timezones={["UTC"]}
-                delay={50}
-                closeDelay={150}
-                variant="muted"
-              />
-            ) : (
-              <span className="text-xs text-muted-foreground">-</span>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 function NodeTable({
   nodes,
   storageByNode,
@@ -363,10 +180,12 @@ function NodeTable({
 }) {
   if (nodes.length === 0) {
     return (
-      <Empty className="min-h-56 rounded-lg border border-dashed">
+      <Empty className="min-h-56 rounded-xl border border-dashed">
         <EmptyHeader>
-          <EmptyTitle>No nodes reported</EmptyTitle>
-          <EmptyDescription>
+          <EmptyTitle className="scroll-m-20 text-xl font-semibold tracking-tight">
+            No nodes reported
+          </EmptyTitle>
+          <EmptyDescription className="text-sm text-muted-foreground">
             Proxmox did not return any managed cluster nodes.
           </EmptyDescription>
         </EmptyHeader>
@@ -377,12 +196,12 @@ function NodeTable({
   return (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>Node</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>CPU</TableHead>
-          <TableHead>Memory</TableHead>
-          <TableHead>Storage</TableHead>
+        <TableRow className="bg-muted hover:bg-muted">
+          <TableHead className="font-mediu6 pl-6">Node</TableHead>
+          <TableHead className="font-medium">Status</TableHead>
+          <TableHead className="font-medium">CPU</TableHead>
+          <TableHead className="font-medium">Memory</TableHead>
+          <TableHead className="pr-6 font-medium">Storage</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -394,49 +213,61 @@ function NodeTable({
 
           return (
             <TableRow key={node.node}>
-              <TableCell className="font-medium">{node.node}</TableCell>
+              <TableCell className="pl-6 font-medium">{node.node}</TableCell>
               <TableCell>
                 <Badge variant={statusBadgeVariant(node.status)}>
-                  {node.status}
+                  {node.status.charAt(0).toUpperCase() + node.status.slice(1)}
                 </Badge>
               </TableCell>
               <TableCell>
-                <div className="flex min-w-32 flex-col gap-1">
+                <div className="flex min-w-32 flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="text-muted-foreground">
-                      {cpuUsed.toFixed(1)} / {node.maxcpu} cores
+                      {cpuUsed.toFixed(1)} CPUs / {node.maxcpu} CPUs
                     </span>
                     <span className="font-mono tabular-nums">
                       {formatPercent(node.cpu * 100)}
                     </span>
                   </div>
-                  <Progress value={node.cpu * 100} />
+                  <ProgressRoot value={node.cpu * 100}>
+                    <ProgressTrack>
+                      <ProgressIndicator className="bg-chart-1 dark:bg-chart-1" />
+                    </ProgressTrack>
+                  </ProgressRoot>
                 </div>
               </TableCell>
               <TableCell>
-                <div className="flex min-w-36 flex-col gap-1">
+                <div className="flex min-w-36 flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="text-muted-foreground">
-                      {formatCapacity(node.mem, node.maxmem)}
+                      {formatBytes(node.mem)} / {formatBytes(node.maxmem)}
                     </span>
                     <span className="font-mono tabular-nums">
                       {formatPercent(memoryValue)}
                     </span>
                   </div>
-                  <Progress value={memoryValue} />
+                  <ProgressRoot value={memoryValue}>
+                    <ProgressTrack>
+                      <ProgressIndicator className="bg-chart-2 dark:bg-chart-2" />
+                    </ProgressTrack>
+                  </ProgressRoot>
                 </div>
               </TableCell>
-              <TableCell>
-                <div className="flex min-w-36 flex-col gap-1">
+              <TableCell className="pr-6">
+                <div className="flex min-w-36 flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="text-muted-foreground">
-                      {formatCapacity(storage.used, storage.total)}
+                      {formatBytes(storage.used)} / {formatBytes(storage.total)}
                     </span>
                     <span className="font-mono tabular-nums">
                       {formatPercent(storageValue)}
                     </span>
                   </div>
-                  <Progress value={storageValue} />
+                  <ProgressRoot value={storageValue}>
+                    <ProgressTrack>
+                      <ProgressIndicator className="bg-chart-3 dark:bg-chart-3" />
+                    </ProgressTrack>
+                  </ProgressRoot>
                 </div>
               </TableCell>
             </TableRow>
@@ -447,18 +278,58 @@ function NodeTable({
   )
 }
 
-export function AdminDashboardPage() {
+function formatMutationError(error: unknown) {
+  return error instanceof Error ? error.message : "Request action failed"
+}
+
+export function AdminDashboardPage({ user }: { user: AuthUser }) {
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null
+  )
+  const queryClient = useQueryClient()
   const usersQuery = useQuery(usersQueryOptions)
   const groupsQuery = useQuery(groupsQueryOptions)
   const inventoryQuery = useQuery(inventoryTreeQueryOptions)
   const pendingRequestsQuery = useQuery(requestsQueryOptions("pending"))
   const completedRequestsQuery = useQuery(requestsQueryOptions("completed"))
   const nodesQuery = useQuery(nodesQueryOptions)
+  const detailQuery = useQuery({
+    ...requestDetailQueryOptions(selectedRequestId ?? ""),
+    enabled: !!selectedRequestId,
+  })
+  const canReview = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionKeys.manager
+  )
 
   const storageQueries = useQueries({
     queries: (nodesQuery.data ?? []).map((node) =>
       storagesQueryOptions(node.node)
     ),
+  })
+
+  const requestColumns = useMemo(
+    () =>
+      getRequestColumns({
+        onOpen: (request) => setSelectedRequestId(request.id),
+        selectable: false,
+        tree: inventoryQuery.data,
+      }),
+    [inventoryQuery.data]
+  )
+
+  const approveMutation = useMutation({
+    mutationFn: approveRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
+    },
+  })
+
+  const denyMutation = useMutation({
+    mutationFn: denyRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] })
+    },
   })
 
   const inventoryCounts = useMemo(
@@ -486,19 +357,26 @@ export function AdminDashboardPage() {
     [pendingRequestsQuery.data]
   )
 
-  const recentPrincipals = useMemo(
+  const recentUsers = useMemo(
     () =>
-      sortByNewest<PrincipalListItem>([
-        ...(usersQuery.data ?? []).map((user) => ({
-          ...user,
-          type: "user" as const,
-        })),
-        ...(groupsQuery.data ?? []).map((group) => ({
-          ...group,
-          type: "group" as const,
-        })),
-      ]).slice(0, 5),
-    [groupsQuery.data, usersQuery.data]
+      [...(usersQuery.data ?? [])]
+        .sort(
+          (left, right) =>
+            timestamp(right.created_at) - timestamp(left.created_at)
+        )
+        .slice(0, 5),
+    [usersQuery.data]
+  )
+
+  const recentGroups = useMemo(
+    () =>
+      [...(groupsQuery.data ?? [])]
+        .sort(
+          (left, right) =>
+            timestamp(right.created_at) - timestamp(left.created_at)
+        )
+        .slice(0, 5),
+    [groupsQuery.data]
   )
 
   const storageByNode = useMemo(() => {
@@ -529,262 +407,273 @@ export function AdminDashboardPage() {
   )
   const memoryTotal = nodes.reduce((total, node) => total + node.maxmem, 0)
   const memoryUsed = nodes.reduce((total, node) => total + node.mem, 0)
-  const totalRequests =
-    (pendingRequestsQuery.data?.length ?? 0) +
-    (completedRequestsQuery.data?.length ?? 0)
-  const offlineNodes = nodes.filter((node) => node.status !== "online").length
-  const cpuPercent = percentage(cpuUsed, cpuTotal)
-  const memoryPercent = percentage(memoryUsed, memoryTotal)
-  const storagePercent = percentage(clusterStorage.used, clusterStorage.total)
-  const pressure = Math.max(cpuPercent, memoryPercent, storagePercent)
-  const capacitySummary = [
-    {
-      label: "CPU cores",
-      used: cpuUsed,
-      total: cpuTotal,
-      value: cpuPercent,
-      formatUsage: formatCpuCapacity,
-    },
-    {
-      label: "Memory",
-      used: memoryUsed,
-      total: memoryTotal,
-      value: memoryPercent,
-      formatUsage: formatCapacity,
-    },
-    {
-      label: "Storage",
-      used: clusterStorage.used,
-      total: clusterStorage.total,
-      value: storagePercent,
-      formatUsage: formatCapacity,
-    },
-  ]
-
-  const stats = [
-    {
-      label: "Users",
-      value: usersQuery.data?.length ?? "-",
-      description: "Principal accounts with direct login or identity mapping.",
-      icon: IconUser,
-    },
-    {
-      label: "Groups",
-      value: groupsQuery.data?.length ?? "-",
-      description: "Access groups available for RBAC and inventory ACLs.",
-      icon: IconUsersGroup,
-    },
-    {
-      label: "Folders",
-      value: inventoryQuery.isLoading ? "-" : inventoryCounts.folders,
-      description: "Inventory folders organizing visible infrastructure.",
-      icon: IconFolder,
-    },
-    {
-      label: "Virtual Machines",
-      value: inventoryQuery.isLoading ? "-" : inventoryCounts.vms,
-      description: `${inventoryCounts.templates} templates tracked separately.`,
-      icon: IconServer,
-    },
-    {
-      label: "Requests",
-      value:
-        pendingRequestsQuery.isLoading || completedRequestsQuery.isLoading
-          ? "-"
-          : totalRequests,
-      description: `${pendingRequestsQuery.data?.length ?? 0} currently pending review.`,
-      icon: IconReceipt,
-    },
-  ]
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Admin Dashboard
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Control-plane health, request flow, principal growth, and Proxmox
-            cluster capacity in one view.
-          </p>
-        </div>
-        <Badge variant="outline" className="w-fit">
-          <IconGauge />
-          {capacitySeverity(pressure)} pressure
-        </Badge>
-      </div>
+    <div className="@container/main flex flex-1 flex-col gap-2">
+      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+        <AdminDashboardHeader
+          isLoading={
+            pendingRequestsQuery.isLoading || completedRequestsQuery.isLoading
+          }
+        />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
-
-      <div className="grid flex-1 gap-4 xl:grid-cols-12">
-        <Card className="xl:col-span-7">
+        <Card className="pb-0.5">
           <CardHeader>
-            <CardTitle>Cluster Capacity</CardTitle>
-            <CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <IconPackages className="text-muted-foreground" />
+              <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                Cluster
+              </span>
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
               Aggregate usage across managed Proxmox nodes.
             </CardDescription>
-            <CardAction>
-              <IconChartBar className="text-muted-foreground" />
-            </CardAction>
           </CardHeader>
-          <CardContent className="grid gap-5 md:grid-cols-3">
-            <CapacityBar
-              label="CPU"
-              used={cpuUsed}
-              total={cpuTotal}
-              formatUsage={formatCpuCapacity}
-            />
-            <CapacityBar label="Memory" used={memoryUsed} total={memoryTotal} />
-            <CapacityBar
-              label="Storage"
-              used={clusterStorage.used}
-              total={clusterStorage.total}
-            />
-          </CardContent>
-        </Card>
+          <CardContent>
+            <div className="flex items-center justify-around py-6">
+              <CapacityChart
+                label="CPU"
+                used={cpuUsed}
+                total={cpuTotal}
+                color="var(--chart-1)"
+                formatValue={formatCores}
+              />
+              <CapacityChart
+                label="Memory"
+                used={memoryUsed}
+                total={memoryTotal}
+                color="var(--chart-2)"
+              />
+              <CapacityChart
+                label="Storage"
+                used={clusterStorage.used}
+                total={clusterStorage.total}
+                color="var(--chart-3)"
+              />
+            </div>
 
-        <Card className="xl:col-span-5">
-          <CardHeader>
-            <CardTitle>Operational Signals</CardTitle>
-            <CardDescription>
-              Conditions that usually need administrator attention.
-            </CardDescription>
-            <CardAction>
-              <IconAlertTriangle className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Pending</div>
-              <div className="font-mono text-2xl tabular-nums">
-                {pendingRequestsQuery.data?.length ?? 0}
-              </div>
-            </div>
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Offline Nodes</div>
-              <div className="font-mono text-2xl tabular-nums">
-                {offlineNodes}
-              </div>
-            </div>
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Templates</div>
-              <div className="font-mono text-2xl tabular-nums">
-                {inventoryCounts.templates}
-              </div>
+            <div className="-mx-6 mt-6 border-t">
+              <NodeTable nodes={nodes} storageByNode={storageByNode} />
             </div>
           </CardContent>
         </Card>
 
         <Card className="xl:col-span-6">
           <CardHeader>
-            <CardTitle>Pending Requests</CardTitle>
-            <CardDescription>
+            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+              Pending Requests
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
               Newest requests waiting for review.
             </CardDescription>
             <CardAction>
               <Link
                 to="/manager/requests"
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Queue
-                <IconArrowUpRight />
+                <IconArrowUpRight className="size-4" />
               </Link>
             </CardAction>
           </CardHeader>
-          <CardContent>
-            <RequestList
-              requests={pendingRequests}
-              empty="The review queue is clear."
+          <CardContent className="px-0">
+            <SimpleDataTable
+              columns={requestColumns}
+              data={pendingRequests}
+              error={pendingRequestsQuery.error}
+              getRowId={(request: ApiRequestSummary) => request.id}
+              isLoading={pendingRequestsQuery.isLoading}
+              skeletonRows={3}
             />
           </CardContent>
         </Card>
 
         <Card className="xl:col-span-6">
           <CardHeader>
-            <CardTitle>Accepted Requests</CardTitle>
-            <CardDescription>
+            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+              Accepted Requests
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
               Last five approved or executed requests.
             </CardDescription>
             <CardAction>
               <IconClock className="text-muted-foreground" />
             </CardAction>
           </CardHeader>
-          <CardContent>
-            <RequestList
-              requests={acceptedRequests}
-              empty="No accepted requests have been recorded yet."
+          <CardContent className="px-0">
+            <SimpleDataTable
+              columns={requestColumns}
+              data={acceptedRequests}
+              error={completedRequestsQuery.error}
+              getRowId={(request: ApiRequestSummary) => request.id}
+              isLoading={completedRequestsQuery.isLoading}
+              skeletonRows={3}
             />
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-4">
+        <Card className="xl:col-span-6">
           <CardHeader>
-            <CardTitle>Recent Principals</CardTitle>
-            <CardDescription>
-              Last five created users and groups.
+            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+              Recent Users
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Last five created user principals.
             </CardDescription>
             <CardAction>
-              <IconUsersGroup className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <PrincipalList principals={recentPrincipals} />
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-8">
-          <CardHeader>
-            <CardTitle>Proxmox Nodes</CardTitle>
-            <CardDescription>
-              Status and current CPU, memory, and storage usage for every node.
-            </CardDescription>
-            <CardAction>
-              <IconCpu className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <NodeTable nodes={nodes} storageByNode={storageByNode} />
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-12">
-          <CardHeader>
-            <CardTitle>Capacity Summary</CardTitle>
-            <CardDescription>
-              Quick scan of the largest cluster resource pools.
-            </CardDescription>
-            <CardAction>
-              <IconDatabase className="text-muted-foreground" />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-3">
-            {capacitySummary.map((item) => (
-              <div
-                key={item.label}
-                className={cn(
-                  "rounded-lg border bg-muted/20 p-4",
-                  item.value >= 90 && "border-destructive/50"
-                )}
+              <Link
+                to="/admin/principals/users"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-medium">{item.label}</div>
-                  <div className="font-mono text-sm tabular-nums">
-                    {formatPercent(item.value)}
-                  </div>
-                </div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {item.formatUsage(item.used, item.total)}
-                </div>
-              </div>
-            ))}
+                Directory
+                <IconArrowUpRight className="size-4" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <ItemGroup>
+              {recentUsers.length === 0 ? (
+                <Empty className="min-h-32 rounded-xl border border-dashed">
+                  <EmptyHeader>
+                    <EmptyTitle className="scroll-m-20 text-lg font-semibold tracking-tight">
+                      No users
+                    </EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                recentUsers.map((user) => (
+                  <Item key={user.id} variant="outline" size="sm">
+                    <ItemMedia variant="icon">
+                      <IconUser className="text-muted-foreground" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{user.name ?? user.external_id}</ItemTitle>
+                      <ItemDescription>{user.description}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      {user.created_at && (
+                        <RelativeTimeCard
+                          date={user.created_at}
+                          display="relative"
+                          timezones={["UTC"]}
+                          delay={50}
+                          closeDelay={150}
+                          variant="muted"
+                        />
+                      )}
+                    </ItemActions>
+                  </Item>
+                ))
+              )}
+            </ItemGroup>
+          </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-6">
+          <CardHeader>
+            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+              Recent Groups
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Last five created group principals.
+            </CardDescription>
+            <CardAction>
+              <Link
+                to="/admin/principals/groups"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Directory
+                <IconArrowUpRight className="size-4" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <ItemGroup>
+              {recentGroups.length === 0 ? (
+                <Empty className="min-h-32 rounded-xl border border-dashed">
+                  <EmptyHeader>
+                    <EmptyTitle className="scroll-m-20 text-lg font-semibold tracking-tight">
+                      No groups
+                    </EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                recentGroups.map((group) => (
+                  <Item key={group.id} variant="outline" size="sm">
+                    <ItemMedia variant="icon">
+                      <IconUsersGroup className="text-muted-foreground" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{group.name ?? group.external_id}</ItemTitle>
+                      <ItemDescription>{group.description}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      {group.created_at && (
+                        <RelativeTimeCard
+                          date={group.created_at}
+                          display="relative"
+                          timezones={["UTC"]}
+                          delay={50}
+                          closeDelay={150}
+                          variant="muted"
+                        />
+                      )}
+                    </ItemActions>
+                  </Item>
+                ))
+              )}
+            </ItemGroup>
           </CardContent>
         </Card>
       </div>
+
+      <RequestDetailDialog
+        canReview={canReview}
+        error={detailQuery.error}
+        isLoading={detailQuery.isLoading}
+        onApprove={() => {
+          if (!selectedRequestId) {
+            return
+          }
+          const id = selectedRequestId
+          setSelectedRequestId(null)
+          toast.promise(approveMutation.mutateAsync([id]), {
+            loading: "Approving request...",
+            success: (result) => {
+              if (result.failed.length > 0) {
+                throw new Error(result.failed[0].error)
+              }
+              return "Request approved"
+            },
+            error: formatMutationError,
+          })
+        }}
+        onDeny={() => {
+          if (!selectedRequestId) {
+            return
+          }
+          const id = selectedRequestId
+          setSelectedRequestId(null)
+          toast.promise(denyMutation.mutateAsync([id]), {
+            loading: "Denying request...",
+            success: (result) => {
+              if (result.failed.length > 0) {
+                throw new Error(result.failed[0].error)
+              }
+              return "Request denied"
+            },
+            error: formatMutationError,
+          })
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedRequestId(null)
+          }
+        }}
+        open={selectedRequestId !== null}
+        request={detailQuery.data ?? null}
+        tree={inventoryQuery.data}
+      />
     </div>
   )
 }
