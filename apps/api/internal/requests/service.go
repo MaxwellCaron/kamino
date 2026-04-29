@@ -156,6 +156,26 @@ func (s *Service) ListCompletedRequests(
 	return filtered, nil
 }
 
+func (s *Service) ListPendingRequestsByRequester(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+) ([]database.ListPendingRequestsByRequesterRow, error) {
+	return database.New(s.db).ListPendingRequestsByRequester(
+		ctx,
+		requesterPrincipalID,
+	)
+}
+
+func (s *Service) ListRequestHistoryByRequester(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+) ([]database.ListRequestHistoryByRequesterRow, error) {
+	return database.New(s.db).ListRequestHistoryByRequester(
+		ctx,
+		requesterPrincipalID,
+	)
+}
+
 func (s *Service) GetRequest(
 	ctx context.Context,
 	actorPrincipalID uuid.UUID,

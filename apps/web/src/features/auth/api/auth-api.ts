@@ -199,6 +199,21 @@ export async function logout(): Promise<void> {
   clearAuthState()
 }
 
+export async function changeOwnPassword(params: {
+  current_password: string
+  new_password: string
+}): Promise<void> {
+  const res = await apiFetch("/api/v1/principals/self/password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to change password: ${res.status}`)
+  }
+}
+
 export async function refreshAuth(): Promise<AuthSession> {
   if (refreshPromise) {
     return refreshPromise

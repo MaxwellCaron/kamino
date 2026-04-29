@@ -88,6 +88,35 @@ type AuthResult struct {
 	Name string
 }
 
+func (c *Client) bindUser(userDN, password string) error {
+	u, err := url.Parse(c.url)
+	if err != nil {
+		return fmt.Errorf("parse ldap url: %w", err)
+	}
+
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		host += ":636"
+	}
+
+	tlsConn, err := tls.Dial("tcp", host, &tls.Config{
+		InsecureSkipVerify: c.insecure,
+		ServerName:         u.Hostname(),
+	})
+	if err != nil {
+		return fmt.Errorf("ldaps dial: %w", err)
+	}
+	userConn := ldap.NewConn(tlsConn, true)
+	userConn.Start()
+	defer userConn.Close()
+
+	if err := userConn.Bind(userDN, password); err != nil {
+		return fmt.Errorf("invalid credentials")
+	}
+
+	return nil
+}
+
 func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 	// First, connect with service account to look up the user's DN and SID.
 	conn, err := c.connect()
@@ -125,31 +154,15 @@ func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 	}
 
 	// Now attempt a fresh bind as the user to verify their password.
-	conn.Close()
-	u, err := url.Parse(c.url)
-	if err != nil {
-		return nil, fmt.Errorf("parse ldap url: %w", err)
-	}
-	host := u.Host
-	if !strings.Contains(host, ":") {
-		host += ":636"
-	}
-	tlsConn, err := tls.Dial("tcp", host, &tls.Config{
-		InsecureSkipVerify: c.insecure,
-		ServerName:         u.Hostname(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("ldaps dial: %w", err)
-	}
-	userConn := ldap.NewConn(tlsConn, true)
-	userConn.Start()
-	defer userConn.Close()
-
-	if err := userConn.Bind(userDN, password); err != nil {
-		return nil, fmt.Errorf("invalid credentials")
+	if err := c.bindUser(userDN, password); err != nil {
+		return nil, err
 	}
 
 	return &AuthResult{DN: userDN, SID: sid, Name: name}, nil
+}
+
+func (c *Client) AuthenticateDN(userDN, password string) error {
+	return c.bindUser(userDN, password)
 }
 
 // FetchUsers returns all enabled user accounts under the configured base DN.

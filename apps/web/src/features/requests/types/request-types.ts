@@ -1,4 +1,5 @@
 export type ApiRequestScope = "pending" | "completed"
+export type ApiRequesterRequestScope = "pending" | "history"
 
 export type ApiRequestStatus =
   | "pending"

@@ -6,6 +6,7 @@ export type ApiManagementPermissions = {
 
 export type AuthUser = {
   id: string
+  group_count: number
   username: string
   management_permissions: ApiManagementPermissions
 }
