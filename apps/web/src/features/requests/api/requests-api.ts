@@ -1,9 +1,9 @@
 import type {
-  ApiRequesterRequestScope,
   ApiRequestActionResponse,
   ApiRequestDetail,
   ApiRequestScope,
   ApiRequestSummary,
+  ApiRequesterRequestScope,
 } from "../types/request-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
