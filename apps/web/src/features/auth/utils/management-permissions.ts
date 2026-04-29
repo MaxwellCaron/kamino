@@ -99,3 +99,21 @@ export function canAccessRequestQueue(
 ) {
   return hasManagementPermission(permissions, ManagementPermissionKeys.manager)
 }
+
+export function getManagementRoleLabel(
+  permissions:
+    | {
+        grants: Array<ManagementPermissionKey>
+      }
+    | undefined
+) {
+  if (permissions?.grants.includes(ManagementPermissionKeys.administrator)) {
+    return "Administrator"
+  }
+
+  if (permissions?.grants.includes(ManagementPermissionKeys.manager)) {
+    return "Manager"
+  }
+
+  return "User"
+}

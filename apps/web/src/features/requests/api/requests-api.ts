@@ -3,6 +3,7 @@ import type {
   ApiRequestDetail,
   ApiRequestScope,
   ApiRequestSummary,
+  ApiRequesterRequestScope,
 } from "../types/request-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
@@ -30,6 +31,19 @@ export function requestDetailQueryOptions(requestId: string) {
       return res.json()
     },
     enabled: !!requestId,
+  }
+}
+
+export function requesterRequestsQueryOptions(scope: ApiRequesterRequestScope) {
+  return {
+    queryKey: ["requests", "mine", scope] as const,
+    queryFn: async (): Promise<Array<ApiRequestSummary>> => {
+      const res = await apiFetch(`/api/v1/requests/mine?scope=${scope}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch your ${scope} requests: ${res.status}`)
+      }
+      return res.json()
+    },
   }
 }
 

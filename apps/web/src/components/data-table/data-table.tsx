@@ -58,6 +58,7 @@ interface DataTableProps<TData, TValue> {
   isLoading: boolean
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
+  initialPageSize?: number
   renderSelectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
@@ -69,6 +70,7 @@ export function DataTable<TData, TValue>({
   isLoading,
   error,
   getRowId,
+  initialPageSize = 25,
   renderSelectionActions,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
@@ -94,7 +96,7 @@ export function DataTable<TData, TValue>({
     },
     initialState: {
       pagination: {
-        pageSize: 25,
+        pageSize: initialPageSize,
       },
     },
   })

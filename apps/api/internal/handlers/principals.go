@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -330,6 +331,11 @@ type setPasswordRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type changeOwnPasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required"`
+}
+
 // SetPassword sets a user's password.
 // POST /api/v1/principals/users/:id/password
 func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
@@ -351,6 +357,43 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 
 	if err := h.Provider.SetPassword(c.Request.Context(), id, req.Password); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to set password", "set user password", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ChangeOwnPassword changes the authenticated user's password after verifying
+// the current password.
+// POST /api/v1/principals/self/password
+func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	var req changeOwnPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	if err := h.Provider.ChangePassword(
+		c.Request.Context(),
+		principalID,
+		req.CurrentPassword,
+		req.NewPassword,
+	); err != nil {
+		switch {
+		case errors.Is(err, principals.ErrInvalidCredentials):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
+		case errors.Is(err, principals.ErrPrincipalNotFound),
+			errors.Is(err, principals.ErrUnsupportedPrincipal):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password change is unavailable for this account"})
+		default:
+			writeLoggedError(c, http.StatusBadGateway, "failed to change password", "change own password", err)
+		}
 		return
 	}
 

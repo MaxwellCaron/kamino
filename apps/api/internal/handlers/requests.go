@@ -133,6 +133,54 @@ func (h *RequestsHandler) List(c *gin.Context) {
 	}
 }
 
+func (h *RequestsHandler) ListMine(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	scope := strings.TrimSpace(c.Query("scope"))
+	if scope == "" {
+		scope = "history"
+	}
+
+	switch scope {
+	case "pending":
+		rows, err := h.Service.ListPendingRequestsByRequester(
+			c.Request.Context(),
+			principalID,
+		)
+		if err != nil {
+			writeRequestServiceError(c, err, "list own pending requests")
+			return
+		}
+
+		response := make([]requestSummaryResponse, 0, len(rows))
+		for _, row := range rows {
+			response = append(response, requesterPendingRequestRowToResponse(row))
+		}
+		c.JSON(http.StatusOK, response)
+	case "completed", "history":
+		rows, err := h.Service.ListRequestHistoryByRequester(
+			c.Request.Context(),
+			principalID,
+		)
+		if err != nil {
+			writeRequestServiceError(c, err, "list own request history")
+			return
+		}
+
+		response := make([]requestSummaryResponse, 0, len(rows))
+		for _, row := range rows {
+			response = append(response, requesterHistoryRequestRowToResponse(row))
+		}
+		c.JSON(http.StatusOK, response)
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+	}
+}
+
 // StreamEvents pushes request change events to connected browsers.
 func (h *RequestsHandler) StreamEvents(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
@@ -495,6 +543,66 @@ func pendingRequestRowToResponse(row database.ListPendingRequestsRow) requestSum
 }
 
 func completedRequestRowToResponse(row database.ListCompletedRequestsRow) requestSummaryResponse {
+	return buildRequestSummaryResponse(
+		row.ID,
+		string(row.Family),
+		row.Kind,
+		string(row.Status),
+		row.RequesterPrincipalID,
+		row.RequesterUsername,
+		row.ReviewerPrincipalID,
+		row.ReviewerUsername,
+		row.ReviewedAt,
+		row.ExecutedAt,
+		row.CanceledAt,
+		row.ExecutionError,
+		row.CreatedAt,
+		row.UpdatedAt,
+		row.InventoryItemID,
+		row.InventoryItemName,
+		row.InventoryItemKind,
+		row.InventoryItemParentID,
+		row.InventoryVmNode,
+		row.InventoryVmVmid,
+		row.InventoryVmIsTemplate,
+		row.PowerAction,
+		row.SnapshotName,
+	)
+}
+
+func requesterPendingRequestRowToResponse(
+	row database.ListPendingRequestsByRequesterRow,
+) requestSummaryResponse {
+	return buildRequestSummaryResponse(
+		row.ID,
+		string(row.Family),
+		row.Kind,
+		string(row.Status),
+		row.RequesterPrincipalID,
+		row.RequesterUsername,
+		row.ReviewerPrincipalID,
+		row.ReviewerUsername,
+		row.ReviewedAt,
+		row.ExecutedAt,
+		row.CanceledAt,
+		row.ExecutionError,
+		row.CreatedAt,
+		row.UpdatedAt,
+		row.InventoryItemID,
+		row.InventoryItemName,
+		row.InventoryItemKind,
+		row.InventoryItemParentID,
+		row.InventoryVmNode,
+		row.InventoryVmVmid,
+		row.InventoryVmIsTemplate,
+		row.PowerAction,
+		row.SnapshotName,
+	)
+}
+
+func requesterHistoryRequestRowToResponse(
+	row database.ListRequestHistoryByRequesterRow,
+) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
 		string(row.Family),

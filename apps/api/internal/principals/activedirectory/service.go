@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -174,6 +175,35 @@ func (s *Service) SetPassword(ctx context.Context, id uuid.UUID, password string
 	}
 
 	return s.client.SetPassword(dn, password)
+}
+
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	id uuid.UUID,
+	oldPassword, newPassword string,
+) error {
+	q := database.New(s.db)
+	p, err := q.GetPrincipalByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return principals.ErrPrincipalNotFound
+		}
+		return err
+	}
+	if p.PrincipalType != database.PrincipalTypeUser {
+		return principals.ErrUnsupportedPrincipal
+	}
+
+	dn, err := s.lookupDN(p.ExternalID, "user")
+	if err != nil {
+		return principals.ErrPrincipalNotFound
+	}
+
+	if err := s.client.AuthenticateDN(dn, oldPassword); err != nil {
+		return principals.ErrInvalidCredentials
+	}
+
+	return s.client.SetPassword(dn, newPassword)
 }
 
 func (s *Service) EnableUser(ctx context.Context, id uuid.UUID) error {

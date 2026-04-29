@@ -2,9 +2,16 @@ package principals
 
 import (
 	"context"
+	"errors"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	ErrPrincipalNotFound    = errors.New("principal not found")
+	ErrUnsupportedPrincipal = errors.New("unsupported principal")
 )
 
 type Provider interface {
@@ -12,6 +19,7 @@ type Provider interface {
 	CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, username, description string) error
 	SetPassword(ctx context.Context, id uuid.UUID, password string) error
+	ChangePassword(ctx context.Context, id uuid.UUID, oldPassword, newPassword string) error
 	EnableUser(ctx context.Context, id uuid.UUID) error
 	DisableUser(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error

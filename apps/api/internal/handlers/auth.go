@@ -32,6 +32,7 @@ type loginRequest struct {
 
 type authUser struct {
 	ID                    any                          `json:"id"`
+	GroupCount            int                          `json:"group_count"`
 	Username              string                       `json:"username"`
 	ManagementPermissions ManagementPermissionEnvelope `json:"management_permissions"`
 }
@@ -112,10 +113,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load access rules", "load management permissions on login", err)
 		return
 	}
+	groupCount, err := h.groupCount(c.Request.Context(), principal.ID)
+	if err != nil {
+		_ = h.Sessions.RevokeSession(c.Request.Context(), refreshToken)
+		clearAccessCookie(c, h.CookieSecure)
+		clearRefreshCookie(c, h.CookieSecure)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load group memberships", "load group count on login", err)
+		return
+	}
 
 	c.JSON(http.StatusOK, authResponse{
 		User: authUser{
 			ID:                    principal.ID,
+			GroupCount:            groupCount,
 			Username:              username,
 			ManagementPermissions: managementPermissions,
 		},
@@ -191,10 +201,19 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load access rules", "load management permissions on refresh", err)
 		return
 	}
+	groupCount, err := h.groupCount(c.Request.Context(), principal.ID)
+	if err != nil {
+		_ = h.Sessions.RevokeSession(c.Request.Context(), newRefreshToken)
+		clearAccessCookie(c, h.CookieSecure)
+		clearRefreshCookie(c, h.CookieSecure)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load group memberships", "load group count on refresh", err)
+		return
+	}
 
 	c.JSON(http.StatusOK, authResponse{
 		User: authUser{
 			ID:                    principal.ID,
+			GroupCount:            groupCount,
 			Username:              username,
 			ManagementPermissions: managementPermissions,
 		},
@@ -228,10 +247,16 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load access rules", "load management permissions for current user", err)
 		return
 	}
+	groupCount, err := h.groupCount(c.Request.Context(), principalID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load group memberships", "load group count for current user", err)
+		return
+	}
 
 	c.JSON(http.StatusOK, authResponse{
 		User: authUser{
 			ID:                    userID,
+			GroupCount:            groupCount,
 			Username:              usernameStr,
 			ManagementPermissions: managementPermissions,
 		},
@@ -253,6 +278,22 @@ func (h *AuthHandler) managementPermissions(
 	}
 
 	return toManagementPermissionEnvelope(perms), nil
+}
+
+func (h *AuthHandler) groupCount(
+	ctx context.Context,
+	principalID uuid.UUID,
+) (int, error) {
+	if principalID == uuid.Nil {
+		return 0, nil
+	}
+
+	groups, err := database.New(h.DB).GetUserGroups(ctx, principalID)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(groups), nil
 }
 
 func setAccessCookie(c *gin.Context, accessToken string, expiresAt time.Time, secure bool) {
