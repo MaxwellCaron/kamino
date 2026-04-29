@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // PrincipalsHandler handles user and group CRUD via a generic principal provider.
@@ -68,6 +71,50 @@ type bulkCreateResponse struct {
 	Successful int                 `json:"successful"`
 	Total      int                 `json:"total"`
 	Failures   []bulkCreateFailure `json:"failures"`
+}
+
+type principalResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	ExternalID  string     `json:"external_id"`
+	Name        *string    `json:"name"`
+	Description *string    `json:"description"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+}
+
+func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time
+	return &t
+}
+
+func userPrincipalResponses(rows []database.GetAllUsersRow) []principalResponse {
+	responses := make([]principalResponse, 0, len(rows))
+	for _, row := range rows {
+		responses = append(responses, principalResponse{
+			ID:          row.ID,
+			ExternalID:  row.ExternalID,
+			Name:        row.Name,
+			Description: row.Description,
+			CreatedAt:   timestamptzPtr(row.CreatedAt),
+		})
+	}
+	return responses
+}
+
+func groupPrincipalResponses(rows []database.GetAllGroupsRow) []principalResponse {
+	responses := make([]principalResponse, 0, len(rows))
+	for _, row := range rows {
+		responses = append(responses, principalResponse{
+			ID:          row.ID,
+			ExternalID:  row.ExternalID,
+			Name:        row.Name,
+			Description: row.Description,
+			CreatedAt:   timestamptzPtr(row.CreatedAt),
+		})
+	}
+	return responses
 }
 
 func uniqueUUIDs(ids []uuid.UUID) []uuid.UUID {
@@ -174,7 +221,7 @@ func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
 		c.JSON(http.StatusOK, []interface{}{})
 		return
 	}
-	c.JSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, userPrincipalResponses(users))
 }
 
 type createUserRequest struct {
@@ -477,7 +524,7 @@ func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
 		c.JSON(http.StatusOK, []interface{}{})
 		return
 	}
-	c.JSON(http.StatusOK, groups)
+	c.JSON(http.StatusOK, groupPrincipalResponses(groups))
 }
 
 type createGroupRequest struct {

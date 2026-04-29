@@ -5,6 +5,7 @@ export type ApiPrincipal = {
   external_id: string
   name: string | null
   description: string | null
+  created_at?: string | null
 }
 
 export type ApiGroupMember = {

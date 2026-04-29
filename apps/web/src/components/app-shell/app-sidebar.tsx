@@ -3,6 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 
 import {
   IconHome,
+  IconLayoutDashboard,
   IconNetwork,
   IconReceipt,
   IconUser,
@@ -53,6 +54,14 @@ const navItems = [
     url: "/manager/requests",
     icon: IconReceipt,
     visibility: "requests",
+  },
+  {
+    title: "Admin",
+    description:
+      "Review cluster health, principal activity, request flow, and capacity.",
+    url: "/admin",
+    icon: IconLayoutDashboard,
+    visibility: "admin",
   },
   {
     title: "SDN",

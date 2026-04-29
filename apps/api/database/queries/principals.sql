@@ -50,13 +50,13 @@ ON CONFLICT DO NOTHING;
 -- ---------------------------------------------------------------------------
 
 -- name: GetAllUsers :many
-SELECT id, external_id, name, description
+SELECT id, external_id, name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name;
 
 -- name: GetAllGroups :many
-SELECT id, external_id, name, description
+SELECT id, external_id, name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'group'
 ORDER BY name;
