@@ -38,15 +38,6 @@ export function getPrincipalColumns({
       ),
     },
     {
-      accessorKey: "description",
-      header: "Description",
-      cell: ({ row: { original: principal } }) => (
-        <span className="text-muted-foreground">
-          {principal.description || "-"}
-        </span>
-      ),
-    },
-    {
       accessorKey: "created_at",
       header: "Created",
       cell: ({ row: { original: principal } }) => {
@@ -62,6 +53,15 @@ export function getPrincipalColumns({
           />
         )
       },
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row: { original: principal } }) => (
+        <span className="text-muted-foreground">
+          {principal.description || "-"}
+        </span>
+      ),
     },
   ]
 }
