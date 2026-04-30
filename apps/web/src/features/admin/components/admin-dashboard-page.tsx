@@ -27,6 +27,7 @@ import {
 import { AdminClusterCard } from "./admin-cluster-card"
 import { AdminDashboardHeader } from "./admin-dashboard-header"
 import { getPrincipalColumns } from "./admin-principal-columns"
+import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
@@ -63,6 +64,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   const groupsQuery = useQuery(groupsQueryOptions)
   const inventoryQuery = useQuery(inventoryTreeQueryOptions)
   const pendingRequestsQuery = useQuery(requestsQueryOptions("pending"))
+  const completedRequestsQuery = useQuery(requestsQueryOptions("completed"))
   const nodesQuery = useQuery(nodesQueryOptions)
   const detailQuery = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
@@ -131,7 +133,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       !usersQuery.data ||
       !groupsQuery.data ||
       !inventoryQuery.data ||
-      !pendingRequestsQuery.data
+      !pendingRequestsQuery.data ||
+      !completedRequestsQuery.data
     ) {
       return null
     }
@@ -142,13 +145,15 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       folders,
       vms,
       templates,
-      pendingRequests: pendingRequestsQuery.data.length,
+      requests:
+        pendingRequestsQuery.data.length + completedRequestsQuery.data.length,
     }
   }, [
     usersQuery.data,
     groupsQuery.data,
     inventoryQuery.data,
     pendingRequestsQuery.data,
+    completedRequestsQuery.data,
   ])
 
   const storageByNode = useMemo(() => {
@@ -169,7 +174,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
               usersQuery.isLoading ||
               groupsQuery.isLoading ||
               inventoryQuery.isLoading ||
-              pendingRequestsQuery.isLoading
+              pendingRequestsQuery.isLoading ||
+              completedRequestsQuery.isLoading
             }
             stats={adminStats}
           />
@@ -210,7 +216,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-5"></Card>
+        <div className="xl:col-span-5">
+          <AdminDashboardActionButtons />
+        </div>
 
         <Card className="xl:col-span-5">
           <CardHeader>

@@ -1,5 +1,4 @@
 import {
-  IconDashboard,
   IconDeviceDesktop,
   IconFolder,
   IconReceipt,
@@ -45,25 +44,25 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
       icon: <IconFolder className="size-5 text-muted-foreground" />,
       label: "Folders",
       value: stats ? String(stats.folders) : "—",
-      detail: "Inventory folders organizing visible infrastructure.",
+      detail: "Inventory folders organizing and scoping infrastructure.",
     },
     {
       icon: <IconDeviceDesktop className="size-5 text-muted-foreground" />,
       label: "VMs",
       value: stats ? String(stats.vms) : "—",
-      detail: "Created virtual machines.",
+      detail: "Virtual machines provisioned and managed in the cluster.",
     },
     {
       icon: <IconTemplate className="size-5 text-muted-foreground" />,
       label: "Templates",
       value: stats ? String(stats.templates) : "—",
-      detail: "Templates for creating virtual machines.",
+      detail: "Reusable VM images available for cloning and deployment.",
     },
     {
       icon: <IconReceipt className="size-5 text-muted-foreground" />,
       label: "Requests",
-      value: stats ? String(stats.pendingRequests) : "—",
-      detail: "Pending requests for virtual machine creation.",
+      value: stats ? String(stats.requests) : "—",
+      detail: "Total requests for VM power and snapshot operations.",
     },
   ]
 }
@@ -81,13 +80,13 @@ export function AdminDashboardHeader({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconDashboard className="size-7 text-muted-foreground" />
           <span className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
             Admin Dashboard
           </span>
         </CardTitle>
         <CardDescription>
-          Control-plane health, request flow, and cluster capacity.
+          Platform statistics, requests management, principals overview, and
+          cluster health.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">

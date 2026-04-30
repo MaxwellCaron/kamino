@@ -1,4 +1,3 @@
-import { IconPackages } from "@tabler/icons-react"
 import {
   Card,
   CardContent,
@@ -28,8 +27,7 @@ export function AdminClusterCard({
   return (
     <Card className="pb-0.5 xl:col-span-12">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <IconPackages className="text-muted-foreground" />
+        <CardTitle>
           <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
             Cluster
           </span>

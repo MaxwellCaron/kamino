@@ -114,7 +114,7 @@ export type AdminStats = {
   folders: number
   vms: number
   templates: number
-  pendingRequests: number
+  requests: number
 }
 
 export function countInventoryStats(
