@@ -22,14 +22,16 @@ type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
   selectable?: boolean
   tree?: Array<ApiTreeNode>
+  excludeColumns?: Array<string>
 }
 
 export function getRequestColumns({
   onOpen,
   selectable = true,
   tree,
+  excludeColumns = [],
 }: RequestColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
-  return [
+  const allColumns: Array<ColumnDef<ApiRequestSummary>> = [
     ...(selectable
       ? [
           {
@@ -200,4 +202,11 @@ export function getRequestColumns({
       ),
     },
   ]
+
+  if (excludeColumns.length === 0) return allColumns
+
+  return allColumns.filter((col) => {
+    const id = "accessorKey" in col ? (col.accessorKey as string) : col.id
+    return !excludeColumns.includes(id as string)
+  })
 }

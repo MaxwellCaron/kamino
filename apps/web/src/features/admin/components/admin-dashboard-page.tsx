@@ -87,6 +87,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         onOpen: (request) => setSelectedRequestId(request.id),
         selectable: false,
         tree: inventoryQuery.data,
+        excludeColumns: ["status", "reviewer_username", "updated_at"],
       }),
     [inventoryQuery.data]
   )
