@@ -2,9 +2,9 @@ import type { AuthSession } from "../types/auth-types"
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
 const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ??
-  (import.meta.env.DEV ? "http://localhost:8080" : "")
+const API_BASE_URL = import.meta.env.DEV
+  ? ""
+  : (import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "")
 
 let currentSession: AuthSession | null = null
 let refreshPromise: Promise<AuthSession> | null = null

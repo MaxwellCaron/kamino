@@ -25,6 +25,8 @@
     "packages/*"
   ],
   "dependencies": {
+    "@headless-tree/core": "^1.6.3",
+    "@headless-tree/react": "^1.6.3",
     "@tanstack/react-table": "^8.21.3"
   }
 }
