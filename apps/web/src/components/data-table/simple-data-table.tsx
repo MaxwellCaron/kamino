@@ -54,7 +54,7 @@ export function SimpleDataTable<TData, TValue>({
   })
 
   return (
-    <div className="overflow-hidden py-6">
+    <div className="overflow-hidden">
       <Table className="border-y">
         <motion.thead
           data-slot="table-header"

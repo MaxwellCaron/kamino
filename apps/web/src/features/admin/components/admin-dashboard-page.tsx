@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Button } from "@workspace/ui/components/button"
 import { toast } from "sonner"
 import {
   buildStorageByNode,
@@ -179,19 +180,24 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         <Card className="xl:col-span-5">
           <CardHeader>
             <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Recent Groups
+              Groups
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
               Last five created group principals.
             </CardDescription>
             <CardAction>
-              <Link
-                to="/admin/principals/groups"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Directory
-                <IconArrowUpRight className="size-4" />
-              </Link>
+              <Button
+                size="sm"
+                render={
+                  <Link
+                    to="/admin/principals/groups"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    All Groups
+                    <IconArrowUpRight className="size-4" />
+                  </Link>
+                }
+              />
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
@@ -209,19 +215,24 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         <Card className="xl:col-span-7">
           <CardHeader>
             <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Recent Users
+              Users
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
               Last five created user principals.
             </CardDescription>
             <CardAction>
-              <Link
-                to="/admin/principals/users"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Directory
-                <IconArrowUpRight className="size-4" />
-              </Link>
+              <Button
+                size="sm"
+                render={
+                  <Link
+                    to="/admin/principals/users"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    All Users
+                    <IconArrowUpRight className="size-4" />
+                  </Link>
+                }
+              />
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
