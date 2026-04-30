@@ -14,15 +14,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import {
-  Item,
-  ItemContent,
-  ItemFooter,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
+import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { ReactNode } from "@tabler/icons-react"
+import type { AdminStats } from "../utils/admin-dashboard"
 import { LoadingTransition } from "@/components/loading-transition"
 
 type Stat = {
@@ -32,49 +27,55 @@ type Stat = {
   detail?: string | null
 }
 
-function buildStats(): Array<Stat> {
+function buildStats(stats: AdminStats | null): Array<Stat> {
   return [
     {
       icon: <IconUser className="size-5 text-muted-foreground" />,
       label: "Users",
-      value: "—",
+      value: stats ? String(stats.users) : "—",
       detail: "Principal accounts with direct login or identity mapping.",
     },
     {
       icon: <IconUsersGroup className="size-5 text-muted-foreground" />,
       label: "Groups",
-      value: "—",
-      detail: "Inventory folders organizing visible infrastructure.",
+      value: stats ? String(stats.groups) : "—",
+      detail: "Collections of principals sharing permissions and access.",
     },
     {
       icon: <IconFolder className="size-5 text-muted-foreground" />,
       label: "Folders",
-      value: "—",
+      value: stats ? String(stats.folders) : "—",
       detail: "Inventory folders organizing visible infrastructure.",
     },
     {
       icon: <IconDeviceDesktop className="size-5 text-muted-foreground" />,
-      label: "Virtual Machines",
-      value: "—",
+      label: "VMs",
+      value: stats ? String(stats.vms) : "—",
       detail: "Created virtual machines.",
     },
     {
       icon: <IconTemplate className="size-5 text-muted-foreground" />,
       label: "Templates",
-      value: "—",
+      value: stats ? String(stats.templates) : "—",
       detail: "Templates for creating virtual machines.",
     },
     {
       icon: <IconReceipt className="size-5 text-muted-foreground" />,
       label: "Requests",
-      value: "—",
+      value: stats ? String(stats.pendingRequests) : "—",
       detail: "Pending requests for virtual machine creation.",
     },
   ]
 }
 
-export function AdminDashboardHeader({ isLoading }: { isLoading: boolean }) {
-  const stats = buildStats()
+export function AdminDashboardHeader({
+  isLoading,
+  stats,
+}: {
+  isLoading: boolean
+  stats: AdminStats | null
+}) {
+  const statCards = buildStats(stats)
 
   return (
     <Card>
@@ -91,45 +92,43 @@ export function AdminDashboardHeader({ isLoading }: { isLoading: boolean }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
-          {stats.map((stat) => {
+          {statCards.map((stat) => {
             return (
               <Item
                 key={stat.label}
                 variant="muted"
-                className="relative overflow-hidden pr-10"
+                className="relative flex-col items-start overflow-hidden"
               >
-                <ItemMedia>{stat.icon}</ItemMedia>
-                <ItemContent className="w-full gap-3">
+                <div className="flex items-center gap-3.5">
+                  <ItemMedia>{stat.icon}</ItemMedia>
                   <ItemTitle className="text-muted-foreground">
                     {stat.label}
                   </ItemTitle>
-                </ItemContent>
-                <ItemFooter>
-                  <LoadingTransition
-                    isLoading={isLoading}
-                    fallback={
-                      <div className="space-y-2">
-                        <Skeleton className="h-8 w-16 rounded-md" />
-                        <Skeleton
-                          className={`h-4 rounded-md ${stat.detail ? "w-24" : "w-0 opacity-0"}`}
-                        />
-                      </div>
-                    }
-                  >
-                    <div className="flex min-h-15 flex-col items-start gap-1">
-                      <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
-                        {stat.value}
-                      </h3>
-                      <div className="min-h-5">
-                        {stat.detail && (
-                          <p className="text-sm text-muted-foreground">
-                            {stat.detail}
-                          </p>
-                        )}
-                      </div>
+                </div>
+                <LoadingTransition
+                  isLoading={isLoading}
+                  fallback={
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-16 rounded-md" />
+                      <Skeleton
+                        className={`h-4 rounded-md ${stat.detail ? "w-24" : "w-0 opacity-0"}`}
+                      />
                     </div>
-                  </LoadingTransition>
-                </ItemFooter>
+                  }
+                >
+                  <div className="flex min-h-15 flex-col items-start gap-1">
+                    <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                      {stat.value}
+                    </h3>
+                    <div className="min-h-5">
+                      {stat.detail && (
+                        <p className="text-sm text-muted-foreground">
+                          {stat.detail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </LoadingTransition>
               </Item>
             )
           })}

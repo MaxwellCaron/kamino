@@ -1,3 +1,4 @@
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
@@ -105,6 +106,38 @@ export function getRecentPrincipals(
       (left, right) => timestamp(right.created_at) - timestamp(left.created_at)
     )
     .slice(0, limit)
+}
+
+export type AdminStats = {
+  users: number
+  groups: number
+  folders: number
+  vms: number
+  templates: number
+  pendingRequests: number
+}
+
+export function countInventoryStats(
+  nodes: Array<ApiTreeNode> | undefined
+): Pick<AdminStats, "folders" | "vms" | "templates"> {
+  const counts = { folders: 0, vms: 0, templates: 0 }
+  if (!nodes) return counts
+
+  function walk(entries: Array<ApiTreeNode>) {
+    for (const node of entries) {
+      if (node.kind === "folder") {
+        counts.folders++
+      } else if (node.vm?.is_template) {
+        counts.templates++
+      } else {
+        counts.vms++
+      }
+      if (node.children?.length) walk(node.children)
+    }
+  }
+
+  walk(nodes)
+  return counts
 }
 
 export function formatMutationError(error: unknown) {

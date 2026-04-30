@@ -19,6 +19,7 @@ import { Button } from "@workspace/ui/components/button"
 import { toast } from "sonner"
 import {
   buildStorageByNode,
+  countInventoryStats,
   formatMutationError,
   getRecentPrincipals,
   getRecentRequests,
@@ -26,6 +27,7 @@ import {
 import { AdminClusterCard } from "./admin-cluster-card"
 import { AdminDashboardHeader } from "./admin-dashboard-header"
 import { getPrincipalColumns } from "./admin-principal-columns"
+import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
@@ -61,7 +63,6 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   const groupsQuery = useQuery(groupsQueryOptions)
   const inventoryQuery = useQuery(inventoryTreeQueryOptions)
   const pendingRequestsQuery = useQuery(requestsQueryOptions("pending"))
-  const completedRequestsQuery = useQuery(requestsQueryOptions("completed"))
   const nodesQuery = useQuery(nodesQueryOptions)
   const detailQuery = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
@@ -125,6 +126,31 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     [groupsQuery.data]
   )
 
+  const adminStats = useMemo<AdminStats | null>(() => {
+    if (
+      !usersQuery.data ||
+      !groupsQuery.data ||
+      !inventoryQuery.data ||
+      !pendingRequestsQuery.data
+    ) {
+      return null
+    }
+    const { folders, vms, templates } = countInventoryStats(inventoryQuery.data)
+    return {
+      users: usersQuery.data.length,
+      groups: groupsQuery.data.length,
+      folders,
+      vms,
+      templates,
+      pendingRequests: pendingRequestsQuery.data.length,
+    }
+  }, [
+    usersQuery.data,
+    groupsQuery.data,
+    inventoryQuery.data,
+    pendingRequestsQuery.data,
+  ])
+
   const storageByNode = useMemo(() => {
     return buildStorageByNode(
       nodesQuery.data ?? [],
@@ -140,8 +166,12 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         <div className="xl:col-span-12">
           <AdminDashboardHeader
             isLoading={
-              pendingRequestsQuery.isLoading || completedRequestsQuery.isLoading
+              usersQuery.isLoading ||
+              groupsQuery.isLoading ||
+              inventoryQuery.isLoading ||
+              pendingRequestsQuery.isLoading
             }
+            stats={adminStats}
           />
         </div>
 
@@ -154,13 +184,18 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
               Newest requests waiting for review.
             </CardDescription>
             <CardAction>
-              <Link
-                to="/manager/requests"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Queue
-                <IconArrowUpRight className="size-4" />
-              </Link>
+              <Button
+                size="sm"
+                render={
+                  <Link
+                    to="/manager/requests"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    Queue
+                    <IconArrowUpRight className="size-4" />
+                  </Link>
+                }
+              />
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
