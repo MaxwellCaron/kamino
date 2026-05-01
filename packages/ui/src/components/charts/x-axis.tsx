@@ -10,6 +10,8 @@ export interface XAxisProps {
   numTicks?: number
   /** Width of the date ticker box for fade calculation. Default: 50 */
   tickerHalfWidth?: number
+  /** Optional label formatter for tick dates */
+  formatLabel?: (date: Date) => string
 }
 
 interface XAxisLabelProps {
@@ -67,7 +69,11 @@ function XAxisLabel({
   )
 }
 
-export function XAxis({ numTicks = 5, tickerHalfWidth = 50 }: XAxisProps) {
+export function XAxis({
+  numTicks = 5,
+  tickerHalfWidth = 50,
+  formatLabel,
+}: XAxisProps) {
   const { xScale, margin, tooltipData, containerRef } = useChart()
   const [mounted, setMounted] = useState(false)
 
@@ -99,12 +105,14 @@ export function XAxis({ numTicks = 5, tickerHalfWidth = 50 }: XAxisProps) {
     return dates.map((date) => ({
       date,
       x: xScale(date) + margin.left,
-      label: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
+      label: formatLabel
+        ? formatLabel(date)
+        : date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
     }))
-  }, [xScale, margin.left, numTicks])
+  }, [xScale, margin.left, numTicks, formatLabel])
 
   const isHovering = tooltipData !== null
   const crosshairX = tooltipData ? tooltipData.x + margin.left : null

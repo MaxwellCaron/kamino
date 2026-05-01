@@ -182,6 +182,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           />
         </div>
 
+        <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
+
         <Card className="xl:col-span-7">
           <CardHeader>
             <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
@@ -192,6 +194,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             </CardDescription>
             <CardAction>
               <Button
+                nativeButton={false}
                 size="sm"
                 render={
                   <Link
@@ -231,6 +234,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             </CardDescription>
             <CardAction>
               <Button
+                nativeButton={false}
                 size="sm"
                 render={
                   <Link
@@ -266,6 +270,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             </CardDescription>
             <CardAction>
               <Button
+                nativeButton={false}
                 size="sm"
                 render={
                   <Link
@@ -290,8 +295,6 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             />
           </CardContent>
         </Card>
-
-        <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
       </div>
 
       <RequestDetailDialog

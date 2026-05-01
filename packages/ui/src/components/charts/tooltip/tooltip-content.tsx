@@ -18,9 +18,7 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
     <div className="overflow-hidden">
       <div className="px-3 py-2.5">
         {title && (
-          <div className="mb-2 text-xs font-medium text-chart-tooltip-foreground">
-            {title}
-          </div>
+          <div className="mb-2 font-mono text-xs font-medium">{title}</div>
         )}
         <div className="space-y-1.5">
           {rows.map((row) => (
@@ -33,11 +31,11 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: row.color }}
                 />
-                <span className="text-sm text-chart-tooltip-muted">
+                <span className="font-mono text-sm text-chart-tooltip-muted">
                   {row.label}
                 </span>
               </div>
-              <span className="text-sm font-medium text-chart-tooltip-foreground tabular-nums">
+              <span className="font-mono text-sm font-medium tracking-tighter tabular-nums">
                 {typeof row.value === "number"
                   ? row.value.toLocaleString()
                   : row.value}
