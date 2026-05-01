@@ -44,7 +44,7 @@ export function CapacityChart({
           <PieCenter>
             {({ isHovered, value, label: centerLabel }) => (
               <div className="flex flex-col items-center">
-                <span className="text-xl font-bold tabular-nums">
+                <span className="text-lg font-bold tabular-nums">
                   {isHovered ? formatValue(value) : `${Math.round(percent)}%`}
                 </span>
                 <span className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
