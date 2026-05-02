@@ -13,6 +13,7 @@ const config = defineConfig({
       "/api": {
         target: "http://192.168.1.145:8080",
         changeOrigin: true,
+        ws: true,
       },
     },
   },
