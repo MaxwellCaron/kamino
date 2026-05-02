@@ -13,6 +13,7 @@ import {
   IconTrash,
   IconUsersGroup,
 } from "@tabler/icons-react"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
@@ -34,6 +35,16 @@ export function getUserColumns({
     {
       accessorKey: "name",
       header: "Name",
+      cell: ({ row: { original: user } }) => (
+        <div className="flex items-center gap-3">
+          <FacehashIcon name={user.name ?? user.external_id} size={32} />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="truncate font-medium">
+              {user.name ?? user.external_id}
+            </div>
+          </div>
+        </div>
+      ),
     },
     {
       accessorKey: "description",
