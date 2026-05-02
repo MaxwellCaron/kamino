@@ -40,11 +40,10 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 
-
 import { inventoryAclQueryOptions } from "../../api/inventory-api"
 import { useInventoryPermissions } from "../../hooks/use-inventory-permissions"
 import { principalTypeLabels } from "../../utils/constants"
-import { AddPrincipalsDialog } from "./add-principals-dialog"
+import { AddPrincipalsDialog } from "./add-principals-popup"
 import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
 import type {
   ApiInventoryAcl,
