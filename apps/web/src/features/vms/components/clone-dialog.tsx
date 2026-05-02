@@ -96,6 +96,7 @@ export function CloneDialog({
 
   return (
     <AppDialog
+      className="sm:max-w-xl"
       open={open}
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
