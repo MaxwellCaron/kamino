@@ -48,7 +48,9 @@ export function formatToastError(
   error: unknown,
   fallback = "Something went wrong"
 ): string {
-  return capitalizeFirstLetter(error instanceof Error ? error.message : fallback)
+  return capitalizeFirstLetter(
+    error instanceof Error ? error.message : fallback
+  )
 }
 
 export function formatMutationError(error: unknown, fallback: string): string {

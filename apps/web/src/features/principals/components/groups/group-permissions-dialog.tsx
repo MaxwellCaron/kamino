@@ -13,14 +13,6 @@ import {
   AlertTitle,
 } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -30,9 +22,18 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@workspace/ui/components/toggle-group"
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+  FieldTitle,
+} from "@workspace/ui/components/field"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@workspace/ui/components/radio-group"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type {
   ApiManagementPermissionDefinition,
@@ -42,6 +43,7 @@ import type {
 import { ManagementPermissionKeys } from "@/features/auth/utils/management-permissions"
 import {
   AppDialogContent,
+  AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import {
@@ -100,17 +102,6 @@ function directRoleFromGrants(
   }
 
   return ""
-}
-
-function formatRoleLabel(role: ManagementPermissionKey | "") {
-  switch (role) {
-    case ManagementPermissionKeys.administrator:
-      return "Administrator"
-    case ManagementPermissionKeys.manager:
-      return "Manager"
-    default:
-      return "No management role"
-  }
 }
 
 export function GroupPermissionsDialog({
@@ -187,13 +178,13 @@ export function GroupPermissionsDialog({
         title="Management Roles"
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
-        <AppDialogScrollBody className="-mb-6 bg-muted/20 px-6">
+        <AppDialogScrollBody className="-mb-6">
           {accessQuery.isLoading ? (
             <div className="py-8 text-sm text-muted-foreground">
               Loading management roles...
             </div>
           ) : accessQuery.isError ? (
-            <Empty className="border bg-background">
+            <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <IconAlertTriangle />
@@ -223,131 +214,70 @@ export function GroupPermissionsDialog({
                   </AlertDescription>
                 </Alert>
               ) : null}
+              <FieldGroup className="w-full">
+                <FieldSet>
+                  <RadioGroup
+                    value={selectedRole}
+                    onValueChange={(value) =>
+                      setSelectedRole(value as ManagementPermissionKey | "")
+                    }
+                    disabled={controlsDisabled || immutable}
+                    className="gap-3"
+                  >
+                    <FieldLabel htmlFor="role-none">
+                      <Field orientation="horizontal">
+                        <FieldContent>
+                          <FieldTitle>None</FieldTitle>
+                          <FieldDescription>
+                            Standard operations. No special management
+                            permissions.
+                          </FieldDescription>
+                        </FieldContent>
+                        <RadioGroupItem value="" id="role-none" />
+                      </Field>
+                    </FieldLabel>
 
-              <div className="grid gap-4 lg:grid-cols-2">
-                <Card className="border-dashed">
-                  <CardHeader className="gap-1 pb-3">
-                    <CardDescription>Direct grant</CardDescription>
-                    <CardTitle className="text-base">
-                      {formatRoleLabel(selectedRole)}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    Direct grants control what gets written back to the backend.
-                  </CardContent>
-                </Card>
-                <Card className="border-dashed">
-                  <CardHeader className="gap-1 pb-3">
-                    <CardDescription>Effective access</CardDescription>
-                    <CardTitle className="flex flex-wrap gap-2 text-base">
-                      {accessQuery.data?.effective_grants.length ? (
-                        accessQuery.data.effective_grants.map((grant) => (
-                          <Badge key={grant} variant="outline">
-                            {grant}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span>No management access</span>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    Administrator implies request queue access automatically.
-                  </CardContent>
-                </Card>
-              </div>
+                    {roleDefinitions.map((role) => {
+                      const roleDisabled =
+                        role.bootstrap_only && !canEditBootstrapOnly
 
-              <div className="flex flex-col gap-3">
-                <div className="px-1">
-                  <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Available roles
-                  </span>
-                </div>
-                <ToggleGroup
-                  value={selectedRole ? [selectedRole] : []}
-                  onValueChange={(nextValue) => {
-                    const nextRole = nextValue[0] as
-                      | ManagementPermissionKey
-                      | undefined
-                    setSelectedRole(nextRole ?? "")
-                  }}
-                  orientation="vertical"
-                  spacing={2}
-                  className="w-full"
-                >
-                  {roleDefinitions.map((role) => {
-                    const roleDisabled =
-                      immutable ||
-                      controlsDisabled ||
-                      (role.bootstrap_only && !canEditBootstrapOnly)
-
-                    return (
-                      <ToggleGroupItem
-                        key={role.key}
-                        value={role.key}
-                        disabled={roleDisabled}
-                        variant="outline"
-                        className="h-auto w-full justify-start rounded-3xl border bg-background px-4 py-4 text-left data-[state=on]:border-primary/30 data-[state=on]:bg-muted"
-                      >
-                        <div className="flex w-full flex-col gap-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium">{role.label}</span>
-                              {role.dangerous ? (
-                                <Badge variant="destructive">Dangerous</Badge>
-                              ) : null}
-                              {role.bootstrap_only ? (
-                                <Badge variant="outline">Reserved</Badge>
-                              ) : null}
-                            </div>
-                            {selectedRole === role.key ? (
-                              <Badge variant="secondary">Selected</Badge>
-                            ) : null}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {role.description}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {role.key === ManagementPermissionKeys.administrator
-                              ? "Access: request queue, all /admin pages, and management role assignment."
-                              : "Access: request queue only. No /admin access and no principal or SDN administration."}
-                          </p>
-                        </div>
-                      </ToggleGroupItem>
-                    )
-                  })}
-                </ToggleGroup>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 rounded-3xl border bg-background/90 p-4">
-                <div className="flex flex-col gap-1">
-                  <p className="font-medium">Need to clear access?</p>
-                  <p className="text-sm text-muted-foreground">
-                    Remove both roles and leave the group without management
-                    permissions.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  disabled={
-                    controlsDisabled || immutable || selectedRole === ""
-                  }
-                  onClick={() => setSelectedRole("")}
-                >
-                  Clear role
-                </Button>
-              </div>
+                      return (
+                        <FieldLabel key={role.key} htmlFor={`role-${role.key}`}>
+                          <Field orientation="horizontal">
+                            <FieldContent>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <FieldTitle>{role.label}</FieldTitle>
+                                {role.dangerous && (
+                                  <Badge variant="destructive">Dangerous</Badge>
+                                )}
+                              </div>
+                              <FieldDescription>
+                                {role.description}
+                              </FieldDescription>
+                            </FieldContent>
+                            <RadioGroupItem
+                              value={role.key}
+                              id={`role-${role.key}`}
+                              disabled={roleDisabled}
+                            />
+                          </Field>
+                        </FieldLabel>
+                      )
+                    })}
+                  </RadioGroup>
+                </FieldSet>
+              </FieldGroup>
             </div>
           )}
         </AppDialogScrollBody>
 
-        <DialogFooter showCloseButton>
-          <Button
+        <DialogFooter>
+          <AppDialogPrimaryButton
             disabled={controlsDisabled || immutable || !hasChanges}
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "Saving..." : "Save"}
-          </Button>
+          </AppDialogPrimaryButton>
         </DialogFooter>
       </AppDialogContent>
     </Dialog>

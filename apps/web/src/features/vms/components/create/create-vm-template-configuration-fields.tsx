@@ -37,11 +37,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
     templateOptions: [] as Array<VmTemplateOption>,
     nodes: [] as Array<ApiNode>,
   },
-  render: function Render({
-    form,
-    templateOptions,
-    nodes,
-  }) {
+  render: function Render({ form, templateOptions, nodes }) {
     return (
       <div className="flex flex-col gap-6">
         <FieldSet>

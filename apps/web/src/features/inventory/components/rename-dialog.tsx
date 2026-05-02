@@ -25,7 +25,6 @@ import {
 import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
 
-
 const folderNameSchema = z
   .string()
   .trim()

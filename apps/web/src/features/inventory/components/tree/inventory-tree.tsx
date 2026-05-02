@@ -20,8 +20,6 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-
-
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { useMoveInventoryItem } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"

@@ -56,7 +56,6 @@ import {
 } from "@/components/dialogs/app-dialog"
 import { formatVmReference } from "@/features/shared/utils/format"
 
-
 type RequestDetailDialogProps = {
   canReview: boolean
   error: Error | null

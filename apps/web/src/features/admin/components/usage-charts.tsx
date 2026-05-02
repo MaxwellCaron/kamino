@@ -134,7 +134,9 @@ export function UsageAreaChart({
         {chartData.length > 0 ? (
           <AreaChart
             aspectRatio={
-              timeframe === "hour" || timeframe === "day" ? "2.8 / 1" : "2.4 / 1"
+              timeframe === "hour" || timeframe === "day"
+                ? "2.8 / 1"
+                : "2.4 / 1"
             }
             data={chartData}
             margin={{ top: 8, right: 6, bottom: 28, left: 6 }}
