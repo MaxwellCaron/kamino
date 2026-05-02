@@ -271,7 +271,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
                               className="flex min-w-0 items-baseline gap-2 text-sm text-foreground/85"
                             >
                               <span className="size-1.5 rounded-full bg-foreground/40" />
-                              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              <span className="min-w-0 shrink truncate text-muted-foreground">
                                 {getRecentActivityTitle(request)}
                               </span>
                               <Badge
@@ -297,7 +297,6 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
                               <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/80">
                                 <RelativeTimeCard
                                   date={
-                                    request.updated_at ??
                                     request.created_at ??
                                     new Date().toISOString()
                                   }
