@@ -86,7 +86,7 @@ export function PieCenter({
   }
 
   // If custom render function is provided, use it
-  if (children && hoveredData) {
+  if (children) {
     return (
       <div
         className={cn("flex items-center justify-center", className)}
@@ -96,7 +96,7 @@ export function PieCenter({
           value: displayValue,
           label: displayLabel,
           isHovered,
-          data: hoveredData,
+          data: hoveredData ?? { label: defaultLabel, value: totalValue },
         })}
       </div>
     )

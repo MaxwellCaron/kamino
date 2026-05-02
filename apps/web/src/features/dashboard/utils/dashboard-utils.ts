@@ -1,10 +1,10 @@
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import {
   formatRequestKind,
   formatRequestPowerAction,
 } from "@/features/requests/utils/request-presenters"
 import { formatVmReference } from "@/features/shared/utils/format"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 
 export function getRequestTitle(request: ApiRequestSummary) {
   const powerAction = formatRequestPowerAction(request.inventory?.power_action)

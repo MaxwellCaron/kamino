@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createPrincipalProvider = `-- name: CreatePrincipalProvider :one
@@ -90,17 +91,18 @@ func (q *Queries) DeleteStalePrincipals(ctx context.Context, arg DeleteStalePrin
 }
 
 const getAllGroups = `-- name: GetAllGroups :many
-SELECT id, external_id, name, description
+SELECT id, external_id, name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'group'
 ORDER BY name
 `
 
 type GetAllGroupsRow struct {
-	ID          uuid.UUID `json:"id"`
-	ExternalID  string    `json:"external_id"`
-	Name        *string   `json:"name"`
-	Description *string   `json:"description"`
+	ID          uuid.UUID          `json:"id"`
+	ExternalID  string             `json:"external_id"`
+	Name        *string            `json:"name"`
+	Description *string            `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]GetAllGroupsRow, error) {
@@ -117,6 +119,7 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 			&i.ExternalID,
 			&i.Name,
 			&i.Description,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -130,17 +133,18 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 
 const getAllUsers = `-- name: GetAllUsers :many
 
-SELECT id, external_id, name, description
+SELECT id, external_id, name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name
 `
 
 type GetAllUsersRow struct {
-	ID          uuid.UUID `json:"id"`
-	ExternalID  string    `json:"external_id"`
-	Name        *string   `json:"name"`
-	Description *string   `json:"description"`
+	ID          uuid.UUID          `json:"id"`
+	ExternalID  string             `json:"external_id"`
+	Name        *string            `json:"name"`
+	Description *string            `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +164,7 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 			&i.ExternalID,
 			&i.Name,
 			&i.Description,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

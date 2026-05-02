@@ -20,39 +20,47 @@ import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
+  selectable?: boolean
   tree?: Array<ApiTreeNode>
+  excludeColumns?: Array<string>
 }
 
 export function getRequestColumns({
   onOpen,
+  selectable = true,
   tree,
+  excludeColumns = [],
 }: RequestColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
-  return [
-    {
-      id: "select",
-      meta: { className: "w-0" },
-      header: ({ table }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
-      ),
-    },
+  const allColumns: Array<ColumnDef<ApiRequestSummary>> = [
+    ...(selectable
+      ? [
+          {
+            id: "select",
+            meta: { className: "w-0" },
+            header: ({ table }) => (
+              <div className="pl-4">
+                <Checkbox
+                  checked={table.getIsAllPageRowsSelected()}
+                  indeterminate={table.getIsSomePageRowsSelected()}
+                  onCheckedChange={(value) =>
+                    table.toggleAllPageRowsSelected(!!value)
+                  }
+                  aria-label="Select all"
+                />
+              </div>
+            ),
+            cell: ({ row }) => (
+              <div className="pl-4">
+                <Checkbox
+                  checked={row.getIsSelected()}
+                  onCheckedChange={(value) => row.toggleSelected(!!value)}
+                  aria-label="Select row"
+                />
+              </div>
+            ),
+          } satisfies ColumnDef<ApiRequestSummary>,
+        ]
+      : []),
     {
       accessorKey: "kind",
       header: () => <p className="pl-4">Request</p>,
@@ -194,4 +202,11 @@ export function getRequestColumns({
       ),
     },
   ]
+
+  if (excludeColumns.length === 0) return allColumns
+
+  return allColumns.filter((col) => {
+    const id = "accessorKey" in col ? (col.accessorKey as string) : col.id
+    return !excludeColumns.includes(id as string)
+  })
 }

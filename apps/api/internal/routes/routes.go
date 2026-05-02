@@ -86,6 +86,7 @@ func RegisterRoutes(
 	protected.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
 	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
 	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
+	protected.GET("/proxmox/cluster/usage-history", vmCreate.GetClusterUsageHistory)
 
 	// SDN endpoints
 	protected.GET("/sdn/vnets", sdn.GetVNets)
