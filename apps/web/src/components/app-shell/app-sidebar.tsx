@@ -114,8 +114,7 @@ function IconRailHoverCard({
 }
 
 function isActivePath(pathname: string, url: string) {
-  if (url === "/") return pathname === "/"
-  return pathname === url || pathname.startsWith(url + "/")
+  return pathname === url
 }
 
 export function AppSidebar({
