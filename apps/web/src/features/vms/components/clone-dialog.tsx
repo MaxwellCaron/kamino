@@ -45,12 +45,14 @@ export function CloneDialog({
   itemId,
   currentName,
   currentVmid,
+  isTemplate,
   open,
   onOpenChange,
 }: {
   itemId: string
   currentName: string
   currentVmid?: number
+  isTemplate?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -71,7 +73,7 @@ export function CloneDialog({
       node: "",
       newid: 0,
       name: "",
-      full: false,
+      full: !isTemplate,
     },
     onSubmit: ({ value }) => {
       const parsed = cloneSchema.parse(value)
@@ -82,7 +84,7 @@ export function CloneDialog({
           itemId,
           newid: parsed.newid,
           name: parsed.name.trim() || currentName,
-          full: parsed.full,
+          full: isTemplate ? parsed.full : true,
           target: parsed.node || undefined,
           target_folder_id: parsed.target_folder_id ?? "",
         }),
@@ -142,12 +144,14 @@ export function CloneDialog({
               folderOptions={folderOptions}
             />
 
-            <CloneFullCloneField
-              FieldComponent={form.Field}
-              fieldName="full"
-              inputId="clone-full"
-              dependencyLabel="source VM"
-            />
+            {isTemplate && (
+              <CloneFullCloneField
+                FieldComponent={form.Field}
+                fieldName="full"
+                inputId="clone-full"
+                dependencyLabel="source VM"
+              />
+            )}
           </FieldGroup>
         </FieldSet>
 

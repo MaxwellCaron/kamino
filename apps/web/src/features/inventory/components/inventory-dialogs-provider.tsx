@@ -50,6 +50,7 @@ type CloneDialogConfig = {
   itemId: string
   currentName: string
   currentVmid?: number
+  isTemplate?: boolean
 }
 
 type RenameVmDialogConfig = {
@@ -192,6 +193,7 @@ export function InventoryDialogsProvider({
           itemId={clone.itemId}
           currentName={clone.currentName}
           currentVmid={clone.currentVmid}
+          isTemplate={clone.isTemplate}
           open={true}
           onOpenChange={(open) => {
             if (!open) setClone(null)

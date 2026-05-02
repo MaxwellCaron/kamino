@@ -710,6 +710,7 @@ export function InventoryNodeMenu({
               itemId,
               currentName: data.name,
               currentVmid: data.vm.vmid,
+              isTemplate: data.vm.is_template,
             })
           }}
           onRename={() => {
@@ -834,6 +835,7 @@ export function VmOptionsMenu({
                 itemId,
                 currentName: name ?? "",
                 currentVmid: vmid,
+                isTemplate,
               })
             }}
             onRename={() => {
