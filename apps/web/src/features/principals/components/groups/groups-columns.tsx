@@ -14,6 +14,7 @@ import {
   IconTrash,
   IconUsersGroup,
 } from "@tabler/icons-react"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 
@@ -41,10 +42,28 @@ export function getGroupColumns({
     },
     {
       accessorKey: "description",
-      header: "Description",
+      header: () => <span className="pl-12">Description</span>,
       cell: ({ row: { original: group } }) => (
-        <p className="text-wrap text-muted-foreground">{group.description}</p>
+        <p className="pr-8 pl-12 text-wrap text-muted-foreground">
+          {group.description || "—"}
+        </p>
       ),
+    },
+    {
+      accessorKey: "created_at",
+      header: "Created",
+      cell: ({ row: { original: group } }) =>
+        group.created_at ? (
+          <RelativeTimeCard
+            date={group.created_at}
+            timezones={["UTC"]}
+            delay={50}
+            closeDelay={150}
+            variant="muted"
+          />
+        ) : (
+          "—"
+        ),
     },
   ]
 
