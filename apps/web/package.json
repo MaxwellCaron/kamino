@@ -17,18 +17,18 @@
     "@tabler/icons-react": "^3.41.1",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/react-form": "^1.29.1",
-    "@tanstack/react-query": "^5.100.5",
-    "@tanstack/react-router": "^1.168.24",
-    "@tanstack/react-start": "^1.167.49",
-    "@tanstack/router-plugin": "^1.167.27",
+    "@tanstack/react-query": "^5.100.7",
+    "@tanstack/react-router": "^1.169.1",
+    "@tanstack/react-start": "^1.167.59",
+    "@tanstack/router-plugin": "^1.167.32",
     "@workspace/ui": "workspace:*",
     "motion": "^12.38.0",
-    "nitro": "^3.0.260415-beta",
+    "nitro": "^3.0.260429-beta",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "sonner": "^2.0.7",
     "tailwindcss": "^4.2.4",
-    "zod": "^4.3.6"
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@tanstack/eslint-config": "^0.4.0",
@@ -36,7 +36,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.2.1",
+    "eslint": "^10.3.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.10"
   }
