@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type EventsHandler struct {
@@ -78,6 +79,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 	}
 
 	var requestEvents <-chan requestqueue.Event
+	canReviewRequests := false
 	if h.Requests != nil {
 		if err := h.Requests.EnsureQueueAccess(c.Request.Context(), principalID); err != nil {
 			if !errors.Is(err, requestqueue.ErrRequestForbidden) {
@@ -85,10 +87,12 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				return
 			}
 		} else {
-			events, unsubscribe := h.Requests.Subscribe()
-			defer unsubscribe()
-			requestEvents = events
+			canReviewRequests = true
 		}
+
+		events, unsubscribe := h.Requests.Subscribe()
+		defer unsubscribe()
+		requestEvents = events
 	}
 
 	c.Header("Content-Type", "text/event-stream")
@@ -116,6 +120,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				inventoryEvents = nil
 				continue
 			}
+			event.ItemID = nil
 			if err := writeSSEvent(c.Writer, event.Type, event); err != nil {
 				return
 			}
@@ -145,6 +150,9 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				requestEvents = nil
 				continue
 			}
+			if !canReceiveRequestEvent(principalID, canReviewRequests, event) {
+				continue
+			}
 			if event.Type == "" {
 				event.Type = "request.changed"
 			}
@@ -157,6 +165,22 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 			flusher.Flush()
 		}
 	}
+}
+
+func canReceiveRequestEvent(
+	principalID uuid.UUID,
+	canReviewRequests bool,
+	event requestqueue.Event,
+) bool {
+	if event.RequestID == nil || event.RequesterPrincipalID == nil {
+		return false
+	}
+
+	if *event.RequesterPrincipalID == principalID {
+		return true
+	}
+
+	return canReviewRequests
 }
 
 func writeSSEvent(w http.ResponseWriter, eventType string, event any) error {

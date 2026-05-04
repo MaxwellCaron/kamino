@@ -84,7 +84,7 @@ func (s *Service) EnsureQueueAccess(
 	return err
 }
 
-func (s *Service) notify(ctx context.Context, exec database.DBTX, requestID ...*uuid.UUID) {
+func (s *Service) notify(ctx context.Context, exec database.DBTX, events ...Event) {
 	if s.notifier == nil {
 		return
 	}
@@ -94,18 +94,15 @@ func (s *Service) notify(ctx context.Context, exec database.DBTX, requestID ...*
 		target = exec
 	}
 
-	for _, id := range requestID {
-		event := Event{
-			RequestID: id,
-		}
+	for _, event := range events {
 		if err := s.notifier.Notify(ctx, target, event); err != nil {
 			log.Printf("request notify failed: %v", err)
 		}
 	}
 }
 
-func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, requestID uuid.UUID) {
-	s.notify(ctx, tx, &requestID)
+func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, event Event) {
+	s.notify(ctx, tx, event)
 }
 
 func (s *Service) ListPendingRequests(
@@ -331,14 +328,18 @@ func (s *Service) ApproveRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
-	s.notify(ctx, nil, &requestID)
+	s.notify(ctx, nil, requestChangedEvent(
+		requestID,
+		locked.RequesterPrincipalID,
+		locked.Kind,
+	))
 
 	if executeErr := s.executeApprovedRequest(ctx, locked); executeErr != nil {
-		if err := s.markExecutionFailed(ctx, requestID, reviewerPrincipalID, executeErr.Error()); err != nil {
+		if err := s.markExecutionFailed(ctx, locked, reviewerPrincipalID, executeErr.Error()); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
 		}
 	} else {
-		if err := s.markExecuted(ctx, requestID, reviewerPrincipalID); err != nil {
+		if err := s.markExecuted(ctx, locked, reviewerPrincipalID); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
 		}
 	}
@@ -403,7 +404,11 @@ func (s *Service) DenyRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
-	s.notify(ctx, nil, &requestID)
+	s.notify(ctx, nil, requestChangedEvent(
+		requestID,
+		locked.RequesterPrincipalID,
+		locked.Kind,
+	))
 
 	return s.GetRequest(ctx, reviewerPrincipalID, denied.ID)
 }
@@ -458,7 +463,11 @@ func (s *Service) CancelRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
-	s.notify(ctx, nil, &requestID)
+	s.notify(ctx, nil, requestChangedEvent(
+		requestID,
+		locked.RequesterPrincipalID,
+		locked.Kind,
+	))
 
 	return s.GetRequest(ctx, actorPrincipalID, canceled.ID)
 }
@@ -522,7 +531,11 @@ func (s *Service) createInventoryRequest(
 		return database.GetRequestByIDRow{}, err
 	}
 
-	s.notify(ctx, nil, &requestRow.ID)
+	s.notify(ctx, nil, requestChangedEvent(
+		requestRow.ID,
+		requesterPrincipalID,
+		kind,
+	))
 
 	row, err := database.New(s.db).GetRequestByID(ctx, requestRow.ID)
 	if err != nil {
@@ -758,7 +771,7 @@ func (s *Service) executeRollbackSnapshot(
 
 func (s *Service) markExecuted(
 	ctx context.Context,
-	requestID uuid.UUID,
+	requestRow database.GetRequestForExecutionRow,
 	actorPrincipalID uuid.UUID,
 ) error {
 	tx, err := s.db.Begin(ctx)
@@ -768,11 +781,11 @@ func (s *Service) markExecuted(
 	defer tx.Rollback(ctx)
 
 	q := database.New(tx)
-	if _, err := q.MarkRequestExecuted(ctx, requestID); err != nil {
+	if _, err := q.MarkRequestExecuted(ctx, requestRow.ID); err != nil {
 		return err
 	}
 	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
-		RequestID:        requestID,
+		RequestID:        requestRow.ID,
 		EventKind:        database.RequestEventKindExecuted,
 		ActorPrincipalID: &actorPrincipalID,
 		FromStatus:       validRequestStatus(database.RequestStatusApproved),
@@ -786,14 +799,18 @@ func (s *Service) markExecuted(
 		return err
 	}
 
-	s.notify(ctx, nil, &requestID)
+	s.notify(ctx, nil, requestChangedEvent(
+		requestRow.ID,
+		requestRow.RequesterPrincipalID,
+		requestRow.Kind,
+	))
 
 	return nil
 }
 
 func (s *Service) markExecutionFailed(
 	ctx context.Context,
-	requestID uuid.UUID,
+	requestRow database.GetRequestForExecutionRow,
 	actorPrincipalID uuid.UUID,
 	errorMessage string,
 ) error {
@@ -805,13 +822,13 @@ func (s *Service) markExecutionFailed(
 
 	q := database.New(tx)
 	if _, err := q.MarkRequestExecutionFailed(ctx, database.MarkRequestExecutionFailedParams{
-		ID:             requestID,
+		ID:             requestRow.ID,
 		ExecutionError: &errorMessage,
 	}); err != nil {
 		return err
 	}
 	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
-		RequestID:        requestID,
+		RequestID:        requestRow.ID,
 		EventKind:        database.RequestEventKindExecutionFailed,
 		ActorPrincipalID: &actorPrincipalID,
 		FromStatus:       validRequestStatus(database.RequestStatusApproved),
@@ -825,9 +842,25 @@ func (s *Service) markExecutionFailed(
 		return err
 	}
 
-	s.notify(ctx, nil, &requestID)
+	s.notify(ctx, nil, requestChangedEvent(
+		requestRow.ID,
+		requestRow.RequesterPrincipalID,
+		requestRow.Kind,
+	))
 
 	return nil
+}
+
+func requestChangedEvent(
+	requestID uuid.UUID,
+	requesterPrincipalID uuid.UUID,
+	kind string,
+) Event {
+	return Event{
+		RequestID:            &requestID,
+		RequesterPrincipalID: &requesterPrincipalID,
+		Kind:                 kind,
+	}
 }
 
 func requiredPermissionForRequestKind(kind string) (authorization.Mask, error) {

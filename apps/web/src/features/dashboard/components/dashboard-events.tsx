@@ -8,7 +8,6 @@ import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 type InventoryChangedEvent = {
   type: "inventory.changed"
   scope?: string
-  item_id?: string
   timestamp: string
 }
 
