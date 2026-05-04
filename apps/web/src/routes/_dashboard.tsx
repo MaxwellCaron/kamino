@@ -5,9 +5,7 @@ import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree"
 import { CommandManyItems } from "@/components/app-shell/site-command"
-import { InventoryEvents } from "@/features/inventory/components/inventory-events"
-import { VmStatusEvents } from "@/features/vms/components/vm-status-events"
-import { RequestEvents } from "@/features/requests/components/request-events"
+import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { ensureAuth } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_dashboard")({
@@ -37,9 +35,7 @@ function Layout() {
         } as React.CSSProperties
       }
     >
-      <InventoryEvents />
-      <VmStatusEvents />
-      <RequestEvents />
+      <DashboardEvents />
       <InventoryTreeProvider>
         <InventoryDialogsProvider>
           <AppSidebar user={user} variant="inset" />

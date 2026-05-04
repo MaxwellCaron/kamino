@@ -318,6 +318,12 @@ func main() {
 		requestsNotifier,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
+	eventsHandler := &handlers.EventsHandler{
+		InventoryNotifier: inventoryNotifier,
+		VMNotifier:        vmStatusNotifier,
+		Requests:          requestService,
+		Authz:             authzService,
+	}
 
 	var authHandler *handlers.AuthHandler
 	var authService *auth.Service
@@ -360,6 +366,7 @@ func main() {
 		principalsHandler,
 		authzHandler,
 		requestsHandler,
+		eventsHandler,
 	)
 
 	r.Run(config.Port)

@@ -19,6 +19,7 @@ func RegisterRoutes(
 	principals *handlers.PrincipalsHandler,
 	authz *handlers.AuthorizationHandler,
 	requests *handlers.RequestsHandler,
+	events *handlers.EventsHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -47,6 +48,10 @@ func RegisterRoutes(
 		protected.GET("/auth/me", authHandler.Me)
 	}
 
+	if events != nil {
+		protected.GET("/events", events.Stream)
+	}
+
 	// Inventory endpoints
 	protected.GET("/inventory/tree", inventory.GetTree)
 	protected.GET("/inventory/items/:id", inventory.GetItem)
@@ -57,11 +62,9 @@ func RegisterRoutes(
 	protected.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
 	protected.PUT("/inventory/folders/:id/vm-limit", inventory.UpdateFolderVMLimit)
 	protected.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
-	protected.GET("/inventory/events", inventory.StreamEvents)
 
 	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
-	protected.GET("/vms/events", vm.StreamEvents)
 	protected.POST("/inventory/vms/power", vm.PowerAction)
 	protected.POST("/inventory/vms/template", vm.ConvertToTemplate)
 	protected.DELETE("/inventory/vms", vm.DeleteVM)
@@ -103,7 +106,6 @@ func RegisterRoutes(
 	if requests != nil {
 		protected.GET("/requests", requests.List)
 		protected.GET("/requests/mine", requests.ListMine)
-		protected.GET("/requests/events", requests.StreamEvents)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots", requests.SubmitInventorySnapshotCreate)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots/rollback", requests.SubmitInventorySnapshotRollback)

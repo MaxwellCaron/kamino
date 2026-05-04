@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -541,58 +539,6 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// StreamEvents pushes inventory change events to connected browsers.
-// GET /api/v1/inventory/events
-func (h *InventoryHandler) StreamEvents(c *gin.Context) {
-	if h.Notifier == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "inventory events unavailable"})
-		return
-	}
-
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
-		return
-	}
-
-	events, unsubscribe := h.Notifier.Subscribe()
-	defer unsubscribe()
-
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-
-	fmt.Fprint(c.Writer, ": inventory stream connected\n\n")
-	flusher.Flush()
-
-	ticker := time.NewTicker(20 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-c.Request.Context().Done():
-			return
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-
-			payload, err := json.Marshal(event)
-			if err != nil {
-				continue
-			}
-
-			fmt.Fprintf(c.Writer, "event: %s\n", event.Type)
-			fmt.Fprintf(c.Writer, "data: %s\n\n", payload)
-			flusher.Flush()
-		case <-ticker.C:
-			fmt.Fprint(c.Writer, ": ping\n\n")
-			flusher.Flush()
-		}
-	}
 }
 
 // buildTree converts a flat list of inventory rows into a nested tree.
