@@ -96,7 +96,7 @@ type NavItem = (typeof navItems)[number]
 type NavGroupKey = NavItem["group"]
 
 const navGroupStyles = {
-  home: "bg-muted/60",
+  home: "bg-muted/50",
   manager: "bg-chart-1/50",
   admin: "bg-primary/50",
 } as const satisfies Record<NavGroupKey, string>
@@ -147,7 +147,7 @@ function IconRailNavItem({
       <IconRailHoverCard title={item.title} description={item.description}>
         <SidebarMenuButton
           isActive={isActive}
-          className="size-9 justify-center"
+          className="size-9 cursor-default justify-center"
           render={<Link to={item.url} />}
         >
           <Icon className="size-5!" />
@@ -155,7 +155,7 @@ function IconRailNavItem({
         </SidebarMenuButton>
       </IconRailHoverCard>
       {isActive && (
-        <span className="absolute top-1/2 -left-4 h-6 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
+        <span className="absolute top-1/2 -left-4 h-7 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
       )}
     </SidebarMenuItem>
   )
@@ -220,7 +220,7 @@ export function AppSidebar({
                   >
                     <SidebarMenuButton
                       size="lg"
-                      className="justify-center md:size-9 md:p-0"
+                      className="cursor-default justify-center md:size-9 md:p-0"
                       render={<Link to="/" />}
                     >
                       <img src="/kamino.svg" alt="Kamino" className="size-6!" />
