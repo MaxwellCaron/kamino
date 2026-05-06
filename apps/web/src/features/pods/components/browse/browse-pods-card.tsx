@@ -51,7 +51,12 @@ function formatPodCreators(creators: Array<string>) {
               {creators.length} Creators
             </span>
           </HoverCardTrigger>
-          <HoverCardContent align="start" side="top" className="space-y-3">
+          <HoverCardContent
+            align="start"
+            side="top"
+            alignOffset={-10}
+            className="space-y-3"
+          >
             <p className="text-muted-foreground">Creators</p>
             {creators.map((creator, index) => (
               <div key={index} className="flex items-center gap-3">
