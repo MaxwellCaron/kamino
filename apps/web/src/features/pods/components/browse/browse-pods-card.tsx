@@ -72,7 +72,13 @@ function formatPodCreators(creators: Array<string>) {
   }
 }
 
-export function BrowsePodsCard({ pod }: { pod: Pod }) {
+export function BrowsePodsCard({
+  pod,
+  onClone,
+}: {
+  pod: Pod
+  onClone: (pod: Pod) => void
+}) {
   const stagger = useCutoutContentStaggerVariants()
 
   return (
@@ -140,9 +146,12 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
           </motion.div>
         </motion.div>
       </CutoutCardContent>
-      <CutoutCardAction className="right-5 bottom-5">
+      <CutoutCardAction className="bottom-5.5 w-full px-4">
         <div className="rounded-4xl bg-background shadow-md transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]">
-          <Button className="shadow-none hover:shadow-none active:translate-y-0">
+          <Button
+            className="w-full shadow-none hover:shadow-none active:translate-y-0"
+            onClick={() => onClone(pod)}
+          >
             <IconCopy data-icon="inline-start" />
             Clone
           </Button>
