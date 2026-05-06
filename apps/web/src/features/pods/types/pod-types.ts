@@ -5,6 +5,6 @@ export interface Pod {
   image: string
   creators: Array<string>
   created_at: string
-  deployments: number
+  clones: number
   isNew?: boolean
 }

@@ -11,7 +11,7 @@ const pods: Array<Pod> = [
     image: "https://i.imgur.com/Mlp5on4.png",
     creators: ["mung"],
     created_at: "2024-05-01T12:00:00Z",
-    deployments: 124,
+    clones: 124,
     isNew: true,
   },
   {
@@ -21,7 +21,7 @@ const pods: Array<Pod> = [
     image: "https://i.imgur.com/i349T75.png",
     creators: ["tommy", "mcaron"],
     created_at: "2024-04-28T12:00:00Z",
-    deployments: 89,
+    clones: 89,
     isNew: true,
   },
   {
@@ -31,7 +31,7 @@ const pods: Array<Pod> = [
     image: "https://i.imgur.com/H9pBcUi.png",
     creators: ["bill"],
     created_at: "2024-04-25T12:00:00Z",
-    deployments: 231,
+    clones: 231,
   },
   {
     id: "3",
@@ -40,7 +40,7 @@ const pods: Array<Pod> = [
     image: "https://i.imgur.com/ivoLn2o.png",
     creators: ["eric"],
     created_at: "2024-04-20T12:00:00Z",
-    deployments: 542,
+    clones: 542,
   },
   {
     id: "2",
@@ -50,7 +50,7 @@ const pods: Array<Pod> = [
     image: "https://i.imgur.com/E4EQHZS.png",
     creators: ["roman"],
     created_at: "2024-04-15T12:00:00Z",
-    deployments: 167,
+    clones: 167,
   },
   {
     id: "1",
@@ -60,7 +60,7 @@ const pods: Array<Pod> = [
     image: "https://i.imgur.com/FpwbsE5.png",
     creators: ["nich"],
     created_at: "2024-04-10T12:00:00Z",
-    deployments: 95,
+    clones: 95,
   },
 ]
 

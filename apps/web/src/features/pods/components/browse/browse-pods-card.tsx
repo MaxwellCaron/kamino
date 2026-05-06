@@ -20,7 +20,7 @@ import {
 } from "@workspace/ui/components/hover-card"
 import { Button } from "@workspace/ui/components/button"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
-import { IconPackage, IconUsers } from "@tabler/icons-react"
+import { IconCopy, IconUsers } from "@tabler/icons-react"
 import type { Pod } from "../../types/pod-types"
 
 function formatPodCreators(creators: Array<string>) {
@@ -81,9 +81,8 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
         <CutoutCardOverlay />
         <CutoutCardInsetLabel className="bottom-0 left-0 rounded-tr-[20px] bg-card px-5 py-3">
           <div className="flex items-center gap-1">
-            <IconPackage className="size-4 text-muted-foreground" />
             <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-              {pod.deployments}
+              {pod.clones} Clones
             </span>
           </div>
           <CutoutCorner className="absolute -right-7.75 -bottom-px rotate-90 text-card" />
@@ -137,12 +136,12 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
         </motion.div>
       </CutoutCardContent>
       <CutoutCardAction className="right-5 bottom-5">
-        <Button
-          className="shadow-md transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
-          type="button"
-        >
-          Read More
-        </Button>
+        <div className="rounded-4xl bg-background shadow-md transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]">
+          <Button className="shadow-none hover:shadow-none active:translate-y-0">
+            <IconCopy data-icon="inline-start" />
+            Clone
+          </Button>
+        </div>
       </CutoutCardAction>
     </CutoutCard>
   )
