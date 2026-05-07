@@ -1,3 +1,5 @@
+import { useState } from "react"
+import { AnimatePresence, motion } from "motion/react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,18 +11,26 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
 import {
+  IconChevronUp,
   IconCircle,
   IconCircleCheckFilled,
+  IconClock,
   IconLoader2,
 } from "@tabler/icons-react"
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { useCutoutContentStaggerVariants } from "@workspace/ui/components/cutout-card"
 import type { Pod } from "../../types/pod-types"
 
 const tasks = [
@@ -31,17 +41,15 @@ const tasks = [
   },
   {
     id: 2,
-    name: "Identify router",
+    name: "Clone virtual machines",
     status: "completed",
   },
-  { id: 3, name: "Allocate VMIDs", status: "completed" },
   {
-    id: 4,
-    name: "Clone virtual machines",
+    id: 3,
+    name: "Wait for virtual machines to be ready",
     status: "in-progress",
   },
-  { id: 5, name: "Wait for virtual machines to be ready", status: "pending" },
-  { id: 6, name: "Configure router", status: "pending" },
+  { id: 4, name: "Configure router", status: "pending" },
 ]
 
 export function ClonePodDialog({
@@ -57,23 +65,33 @@ export function ClonePodDialog({
   const totalTasks = tasks.length
   const progress = (completedTasks / totalTasks) * 100
   const podTitle = pod?.title ?? "Pod"
+  const [showDetails, setShowDetails] = useState(true)
+  const stagger = useCutoutContentStaggerVariants()
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="sm:max-w-xl">
         <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-3">
-            <span className="border-primary text-primary">
-              <Loader
-                loader="pulse"
-                renderer="svg-grid"
-                speed={0.85}
-                rendererOptions={{ shape: "square", cellSize: 6, gap: 2 }}
-              />
-            </span>
-            <span className="text-2xl font-semibold tracking-tight">
-              Clone Pod
-            </span>
+          <AlertDialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="border-primary text-primary">
+                <Loader
+                  loader="pulse"
+                  renderer="svg-grid"
+                  speed={0.85}
+                  rendererOptions={{ shape: "square", cellSize: 6, gap: 2 }}
+                />
+              </span>
+              <span className="text-2xl font-semibold tracking-tight">
+                Clone Pod
+              </span>
+            </div>
+            <Badge
+              variant="ghost"
+              className="text-muted-foreground tabular-nums"
+            >
+              0 / 1 Completed
+            </Badge>
           </AlertDialogTitle>
         </AlertDialogHeader>
 
@@ -83,52 +101,133 @@ export function ClonePodDialog({
           indicatorClassName="bg-primary dark:bg-primary"
         />
 
-        <Card className="-mx-2 bg-muted">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                Clone &apos;{podTitle}&apos; Pod
-              </CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {completedTasks} / {totalTasks}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="-mt-2">
-            <div className="flex flex-col gap-3">
-              {tasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 text-sm">
-                  <div className="flex-none">
-                    {task.status === "completed" ? (
-                      <IconCircleCheckFilled className="size-5 text-primary" />
-                    ) : task.status === "in-progress" ? (
-                      <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
-                    ) : (
-                      <IconCircle className="size-5 text-muted-foreground" />
-                    )}
-                  </div>
+        <ItemGroup className="gap-4">
+          <Item
+            key="test"
+            variant="muted"
+            role="listitem"
+            className="shadow ring-1 ring-muted"
+          >
+            <motion.div layout className="contents">
+              <ItemMedia
+                variant="image"
+                className="border-primary bg-primary/10 text-primary"
+              >
+                <Loader
+                  loader="sand"
+                  renderer="svg-grid"
+                  speed={0.85}
+                  rendererOptions={{ shape: "square", cellSize: 4, gap: 1 }}
+                />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle className="line-clamp-1">
+                  Clone &apos;{podTitle}&apos; Pod -{" "}
+                  <span className="text-muted-foreground">mcaron</span>
+                </ItemTitle>
+                <ItemDescription className="flex flex-col gap-3 overflow-hidden">
+                  <AnimatePresence initial={false} mode="wait">
+                    {showDetails ? (
+                      <motion.div
+                        key="tasks"
+                        animate="show"
+                        className="mt-1 flex flex-col gap-3"
+                        exit={{
+                          opacity: 0,
+                          filter: "blur(4px)",
+                          y: -4,
+                          transition: { duration: 0.1 },
+                        }}
+                        initial="hidden"
+                        layout
+                        variants={stagger.container}
+                      >
+                        {tasks.map((task) => (
+                          <motion.div
+                            key={task.id}
+                            className="flex items-center gap-3 text-sm"
+                            variants={stagger.item}
+                          >
+                            <div className="flex-none">
+                              {task.status === "completed" ? (
+                                <IconCircleCheckFilled className="size-5 text-primary" />
+                              ) : task.status === "in-progress" ? (
+                                <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+                              ) : (
+                                <IconCircle className="size-5 text-muted-foreground" />
+                              )}
+                            </div>
 
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <span
-                      className={cn("truncate", {
-                        "font-semibold": task.status === "in-progress",
-                        "text-foreground": task.status === "pending",
-                        "text-muted-foreground line-through":
-                          task.status === "completed",
-                      })}
-                    >
-                      {task.name}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <span
+                                className={cn("truncate", {
+                                  "font-semibold text-foreground":
+                                    task.status === "in-progress",
+                                  "text-foreground": task.status === "pending",
+                                  "text-muted-foreground line-through":
+                                    task.status === "completed",
+                                })}
+                              >
+                                {task.name}
+                              </span>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="summary"
+                        animate="show"
+                        exit={{
+                          opacity: 0,
+                          filter: "blur(4px)",
+                          y: 4,
+                          transition: { duration: 0.1 },
+                        }}
+                        initial="hidden"
+                        layout
+                        variants={stagger.item}
+                      >
+                        <span className="text-sm font-medium text-muted-foreground">
+                          Step {completedTasks} / {totalTasks}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </ItemDescription>
+              </ItemContent>
+              <ItemContent className="flex-none self-start pt-0.5 text-center">
+                <ItemDescription>
+                  <Badge variant="outline" className="tabular-nums">
+                    <IconClock />
+                    2:25
+                  </Badge>
+                </ItemDescription>
+              </ItemContent>
+              <ItemFooter className="justify-center">
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-muted-foreground"
+                  onClick={() => setShowDetails(!showDetails)}
+                >
+                  <IconChevronUp
+                    className={cn("transition-transform duration-200", {
+                      "rotate-180": !showDetails,
+                    })}
+                  />
+                  {showDetails ? "Hide" : "Show"}
+                </Button>
+              </ItemFooter>
+            </motion.div>
+          </Item>
+        </ItemGroup>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="default">Continue</AlertDialogAction>
+          <AlertDialogCancel className="w-[50%]">Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="default" className="w-[50%]">
+            Clone
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
