@@ -47,10 +47,50 @@ const tasks = [
   {
     id: 3,
     name: "Wait for virtual machines to be ready",
-    status: "in-progress",
+    status: "completed",
   },
-  { id: 4, name: "Configure router", status: "pending" },
+  { id: 4, name: "Configure router", status: "completed" },
 ]
+
+function getStepColors(taskId?: number) {
+  switch (taskId) {
+    case 1:
+      return {
+        text: "text-blue-600 dark:text-blue-400",
+        border: "border-blue-600 dark:border-blue-400",
+        bg: "bg-blue-600 dark:bg-blue-400",
+        soft: "bg-blue-600/10 dark:bg-blue-400/10",
+      }
+    case 2:
+      return {
+        text: "text-orange-600 dark:text-orange-400",
+        border: "border-orange-600 dark:border-orange-400",
+        bg: "bg-orange-600 dark:bg-orange-400",
+        soft: "bg-orange-600/10 dark:bg-orange-400/10",
+      }
+    case 3:
+      return {
+        text: "text-amber-600 dark:text-amber-400",
+        border: "border-amber-600 dark:border-amber-400",
+        bg: "bg-amber-600 dark:bg-amber-400",
+        soft: "bg-amber-600/10 dark:bg-amber-400/10",
+      }
+    case 4:
+      return {
+        text: "text-emerald-600 dark:text-emerald-400",
+        border: "border-emerald-600 dark:border-emerald-400",
+        bg: "bg-emerald-600 dark:bg-emerald-400",
+        soft: "bg-emerald-600/10 dark:bg-emerald-400/10",
+      }
+    default:
+      return {
+        text: "text-primary dark:text-primary",
+        border: "border-primary dark:border-primary",
+        bg: "bg-primary dark:bg-primary",
+        soft: "bg-primary/10 dark:bg-primary/10",
+      }
+  }
+}
 
 export function ClonePodDialog({
   open,
@@ -68,13 +108,22 @@ export function ClonePodDialog({
   const [showDetails, setShowDetails] = useState(true)
   const stagger = useCutoutContentStaggerVariants()
 
+  const activeTask = tasks.find((t) => t.status === "in-progress")
+  const colors = getStepColors(activeTask?.id)
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="border-primary text-primary">
+              <span
+                className={cn(
+                  "transition-colors duration-500",
+                  colors.border,
+                  colors.text
+                )}
+              >
                 <Loader
                   loader="pulse"
                   renderer="svg-grid"
@@ -98,7 +147,7 @@ export function ClonePodDialog({
         <Progress
           value={progress}
           className="**:h-1.5"
-          indicatorClassName="bg-primary dark:bg-primary"
+          indicatorClassName={cn("transition-all duration-500", colors.bg)}
         />
 
         <ItemGroup className="gap-4">
@@ -111,7 +160,11 @@ export function ClonePodDialog({
             <motion.div layout className="contents">
               <ItemMedia
                 variant="image"
-                className="border-primary bg-primary/10 text-primary"
+                className={cn(
+                  "transition-colors duration-500",
+                  colors.text,
+                  colors.soft
+                )}
               >
                 <Loader
                   loader="sand"
@@ -150,7 +203,12 @@ export function ClonePodDialog({
                           >
                             <div className="flex-none">
                               {task.status === "completed" ? (
-                                <IconCircleCheckFilled className="size-5 text-primary" />
+                                <IconCircleCheckFilled
+                                  className={cn(
+                                    "size-5 transition-colors duration-500",
+                                    colors.text
+                                  )}
+                                />
                               ) : task.status === "in-progress" ? (
                                 <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
                               ) : (
@@ -225,7 +283,15 @@ export function ClonePodDialog({
 
         <AlertDialogFooter>
           <AlertDialogCancel className="w-[50%]">Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="default" className="w-[50%]">
+          <AlertDialogAction
+            variant="default"
+            className={cn(
+              "w-[50%] transition-colors duration-500",
+              colors.bg,
+              "hover:opacity-90"
+            )}
+            disabled
+          >
             Clone
           </AlertDialogAction>
         </AlertDialogFooter>

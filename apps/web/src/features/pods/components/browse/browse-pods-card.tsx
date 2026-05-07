@@ -146,10 +146,10 @@ export function BrowsePodsCard({
           </motion.div>
         </motion.div>
       </CutoutCardContent>
-      <CutoutCardAction className="bottom-5.5 w-full px-4">
+      <CutoutCardAction className="right-6 bottom-5.5">
         <div className="rounded-4xl bg-background shadow-md transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]">
           <Button
-            className="w-full shadow-none hover:shadow-none active:translate-y-0"
+            className="shadow-none hover:shadow-none active:translate-y-0"
             onClick={() => onClone(pod)}
           >
             <IconCopy data-icon="inline-start" />
