@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertDialog,
@@ -38,19 +38,16 @@ const MOCK_TASKS = [
   {
     id: 1,
     name: "Fetch virtual machines in pod",
-    status: "completed",
   },
   {
     id: 2,
     name: "Clone virtual machines",
-    status: "in-progress",
   },
   {
     id: 3,
     name: "Wait for virtual machines to be ready",
-    status: "pending",
   },
-  { id: 4, name: "Configure router", status: "pending" },
+  { id: 4, name: "Configure router" },
 ]
 
 function getStepColors(taskId?: number) {
@@ -93,6 +90,67 @@ function getStepColors(taskId?: number) {
   }
 }
 
+function useCloneSimulation(open: boolean) {
+  const [isCloning, setIsCloning] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [elapsedTime, setElapsedTime] = useState(0)
+
+  const tasks = MOCK_TASKS.map((task) => {
+    if (!isCloning) return { ...task, status: "pending" }
+    if (currentStep > task.id) return { ...task, status: "completed" }
+    if (currentStep === task.id) return { ...task, status: "in-progress" }
+    return { ...task, status: "pending" }
+  })
+
+  const completedTasks = tasks.filter((t) => t.status === "completed").length
+  const totalTasks = tasks.length
+  const isFinished = completedTasks === totalTasks
+  const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
+  const activeTask = tasks.find((t) => t.status === "in-progress")
+  const colors = getStepColors(activeTask?.id)
+
+  useEffect(() => {
+    if (!open) {
+      setIsCloning(false)
+      setCurrentStep(0)
+      setElapsedTime(0)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!isCloning || isFinished) return
+    const interval = setInterval(() => setElapsedTime((p) => p + 1), 1000)
+    return () => clearInterval(interval)
+  }, [isCloning, isFinished])
+
+  useEffect(() => {
+    if (!isCloning || currentStep > MOCK_TASKS.length) return
+    const timer = setTimeout(() => setCurrentStep((s) => s + 1), 2000)
+    return () => clearTimeout(timer)
+  }, [isCloning, currentStep])
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  return {
+    isCloning,
+    isFinished,
+    tasks,
+    progress,
+    colors,
+    elapsedTime: formatTime(elapsedTime),
+    completedTasks,
+    totalTasks,
+    startCloning: () => {
+      setIsCloning(true)
+      setCurrentStep(1)
+    },
+  }
+}
+
 export function ClonePodDialog({
   open,
   onOpenChange,
@@ -102,27 +160,27 @@ export function ClonePodDialog({
   onOpenChange: (open: boolean) => void
   pod: Pod | null
 }) {
-  const [isCloning, setIsCloning] = useState(false)
+  const {
+    isCloning,
+    isFinished,
+    tasks,
+    progress,
+    colors,
+    elapsedTime,
+    completedTasks,
+    totalTasks,
+    startCloning,
+  } = useCloneSimulation(open)
+
   const [showDetails, setShowDetails] = useState(true)
   const stagger = useCutoutContentStaggerVariants()
-
-  const tasks = isCloning
-    ? MOCK_TASKS
-    : MOCK_TASKS.map((t) => ({ ...t, status: "pending" }))
-
-  const completedTasks = tasks.filter((t) => t.status === "completed").length
-  const totalTasks = tasks.length
-  const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
   const podTitle = pod?.title ?? "Pod"
-
-  const activeTask = tasks.find((t) => t.status === "in-progress")
-  const colors = getStepColors(activeTask?.id)
 
   return (
     <AlertDialog
       open={open}
       onOpenChange={(val) => {
-        if (!isCloning) {
+        if (!isCloning || isFinished) {
           onOpenChange(val)
         }
       }}
@@ -133,24 +191,40 @@ export function ClonePodDialog({
             <div className="flex items-center gap-3">
               <AnimatePresence mode="wait">
                 {isCloning ? (
-                  <motion.span
-                    key="cloning-loader"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className={cn(
-                      "transition-colors duration-500",
-                      colors.border,
-                      colors.text
-                    )}
-                  >
-                    <Loader
-                      loader="pulse"
-                      renderer="svg-grid"
-                      speed={0.85}
-                      rendererOptions={{ shape: "square", cellSize: 6, gap: 2 }}
-                    />
-                  </motion.span>
+                  isFinished ? (
+                    <motion.span
+                      key="finished-icon"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="text-emerald-500"
+                    >
+                      <IconCircleCheckFilled size={32} />
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="cloning-loader"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className={cn(
+                        "transition-colors duration-500",
+                        colors.border,
+                        colors.text
+                      )}
+                    >
+                      <Loader
+                        loader="pulse"
+                        renderer="svg-grid"
+                        speed={0.85}
+                        rendererOptions={{
+                          shape: "square",
+                          cellSize: 6,
+                          gap: 2,
+                        }}
+                      />
+                    </motion.span>
+                  )
                 ) : (
                   <motion.span
                     key="approval-icon"
@@ -164,7 +238,7 @@ export function ClonePodDialog({
                 )}
               </AnimatePresence>
               <span className="text-2xl font-semibold tracking-tight">
-                Clone Pod
+                {isFinished ? "Clone Complete" : "Clone Pod"}
               </span>
             </div>
             {isCloning && (
@@ -172,7 +246,7 @@ export function ClonePodDialog({
                 variant="ghost"
                 className="text-muted-foreground tabular-nums"
               >
-                0 / 1 Completed
+                {isFinished ? "1 / 1 Completed" : "0 / 1 Completed"}
               </Badge>
             )}
           </AlertDialogTitle>
@@ -201,7 +275,7 @@ export function ClonePodDialog({
                 )}
               >
                 <AnimatePresence mode="wait">
-                  {isCloning ? (
+                  {isCloning && !isFinished ? (
                     <motion.div
                       key="sand-loader"
                       initial={{ opacity: 0 }}
@@ -226,7 +300,14 @@ export function ClonePodDialog({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     >
-                      <IconBox size={24} stroke={1.5} />
+                      {isFinished ? (
+                        <IconCircleCheckFilled
+                          size={24}
+                          className="text-emerald-500"
+                        />
+                      ) : (
+                        <IconBox size={24} stroke={1.5} />
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -308,9 +389,13 @@ export function ClonePodDialog({
                       >
                         <span className="text-sm font-medium text-muted-foreground">
                           {isCloning ? (
-                            <>
-                              Step {completedTasks} / {totalTasks}
-                            </>
+                            isFinished ? (
+                              "Clone completed successfully"
+                            ) : (
+                              <>
+                                Step {completedTasks + 1} / {totalTasks}
+                              </>
+                            )
                           ) : (
                             <>Ready to clone</>
                           )}
@@ -323,9 +408,9 @@ export function ClonePodDialog({
               {isCloning && (
                 <ItemContent className="flex-none self-start pt-0.5 text-center">
                   <ItemDescription>
-                    <Badge variant="outline" className="tabular-nums">
+                    <Badge variant="outline" className="font-mono">
                       <IconClock />
-                      2:25
+                      {elapsedTime}
                     </Badge>
                   </ItemDescription>
                 </ItemContent>
@@ -352,21 +437,33 @@ export function ClonePodDialog({
         <AlertDialogFooter>
           <AlertDialogCancel
             className="w-[50%]"
-            // disabled={isCloning} Disabled for testing
+            disabled={isCloning && !isFinished}
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {isFinished ? "Close" : "Cancel"}
           </AlertDialogCancel>
           <Button
             variant="default"
             className={cn(
               "w-[50%] transition-colors duration-500",
-              isCloning ? colors.bg : "bg-primary"
+              isCloning ? colors.bg : "bg-primary",
+              "hover:opacity-90"
             )}
             disabled={isCloning}
-            onClick={() => setIsCloning(true)}
+            onClick={startCloning}
           >
-            {isCloning ? "Cloning..." : "Clone"}
+            {isCloning ? (
+              isFinished ? (
+                "Completed"
+              ) : (
+                <>
+                  <IconLoader2 className="mr-2 size-4 animate-spin" />
+                  Cloning...
+                </>
+              )
+            ) : (
+              "Clone"
+            )}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
