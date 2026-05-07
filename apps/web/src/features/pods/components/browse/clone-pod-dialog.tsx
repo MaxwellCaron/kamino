@@ -2,7 +2,6 @@ import { useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogFooter,
@@ -11,10 +10,12 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
 import {
+  IconBox,
   IconChevronUp,
   IconCircle,
   IconCircleCheckFilled,
   IconClock,
+  IconCopy,
   IconLoader2,
 } from "@tabler/icons-react"
 import {
@@ -33,7 +34,7 @@ import { Button } from "@workspace/ui/components/button"
 import { useCutoutContentStaggerVariants } from "@workspace/ui/components/cutout-card"
 import type { Pod } from "../../types/pod-types"
 
-const tasks = [
+const MOCK_TASKS = [
   {
     id: 1,
     name: "Fetch virtual machines in pod",
@@ -42,14 +43,14 @@ const tasks = [
   {
     id: 2,
     name: "Clone virtual machines",
-    status: "completed",
+    status: "in-progress",
   },
   {
     id: 3,
     name: "Wait for virtual machines to be ready",
-    status: "completed",
+    status: "pending",
   },
-  { id: 4, name: "Configure router", status: "completed" },
+  { id: 4, name: "Configure router", status: "pending" },
 ]
 
 function getStepColors(taskId?: number) {
@@ -101,46 +102,79 @@ export function ClonePodDialog({
   onOpenChange: (open: boolean) => void
   pod: Pod | null
 }) {
-  const completedTasks = tasks.filter((t) => t.status === "completed").length
-  const totalTasks = tasks.length
-  const progress = (completedTasks / totalTasks) * 100
-  const podTitle = pod?.title ?? "Pod"
+  const [isCloning, setIsCloning] = useState(false)
   const [showDetails, setShowDetails] = useState(true)
   const stagger = useCutoutContentStaggerVariants()
+
+  const tasks = isCloning
+    ? MOCK_TASKS
+    : MOCK_TASKS.map((t) => ({ ...t, status: "pending" }))
+
+  const completedTasks = tasks.filter((t) => t.status === "completed").length
+  const totalTasks = tasks.length
+  const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
+  const podTitle = pod?.title ?? "Pod"
 
   const activeTask = tasks.find((t) => t.status === "in-progress")
   const colors = getStepColors(activeTask?.id)
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!isCloning) {
+          onOpenChange(val)
+        }
+      }}
+    >
       <AlertDialogContent className="sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "transition-colors duration-500",
-                  colors.border,
-                  colors.text
+              <AnimatePresence mode="wait">
+                {isCloning ? (
+                  <motion.span
+                    key="cloning-loader"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className={cn(
+                      "transition-colors duration-500",
+                      colors.border,
+                      colors.text
+                    )}
+                  >
+                    <Loader
+                      loader="pulse"
+                      renderer="svg-grid"
+                      speed={0.85}
+                      rendererOptions={{ shape: "square", cellSize: 6, gap: 2 }}
+                    />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="approval-icon"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="text-muted-foreground"
+                  >
+                    <IconCopy size={32} stroke={1.5} />
+                  </motion.span>
                 )}
-              >
-                <Loader
-                  loader="pulse"
-                  renderer="svg-grid"
-                  speed={0.85}
-                  rendererOptions={{ shape: "square", cellSize: 6, gap: 2 }}
-                />
-              </span>
+              </AnimatePresence>
               <span className="text-2xl font-semibold tracking-tight">
                 Clone Pod
               </span>
             </div>
-            <Badge
-              variant="ghost"
-              className="text-muted-foreground tabular-nums"
-            >
-              0 / 1 Completed
-            </Badge>
+            {isCloning && (
+              <Badge
+                variant="ghost"
+                className="text-muted-foreground tabular-nums"
+              >
+                0 / 1 Completed
+              </Badge>
+            )}
           </AlertDialogTitle>
         </AlertDialogHeader>
 
@@ -162,16 +196,40 @@ export function ClonePodDialog({
                 variant="image"
                 className={cn(
                   "transition-colors duration-500",
-                  colors.text,
-                  colors.soft
+                  isCloning ? colors.text : "text-muted-foreground",
+                  isCloning ? colors.soft : "bg-muted"
                 )}
               >
-                <Loader
-                  loader="sand"
-                  renderer="svg-grid"
-                  speed={0.85}
-                  rendererOptions={{ shape: "square", cellSize: 4, gap: 1 }}
-                />
+                <AnimatePresence mode="wait">
+                  {isCloning ? (
+                    <motion.div
+                      key="sand-loader"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <Loader
+                        loader="sand"
+                        renderer="svg-grid"
+                        speed={0.85}
+                        rendererOptions={{
+                          shape: "square",
+                          cellSize: 4,
+                          gap: 1,
+                        }}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="box-icon"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <IconBox size={24} stroke={1.5} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </ItemMedia>
               <ItemContent>
                 <ItemTitle className="line-clamp-1">
@@ -221,7 +279,9 @@ export function ClonePodDialog({
                                 className={cn("truncate", {
                                   "font-semibold text-foreground":
                                     task.status === "in-progress",
-                                  "text-foreground": task.status === "pending",
+                                  "text-foreground":
+                                    task.status === "pending" ||
+                                    task.status === "in-progress",
                                   "text-muted-foreground line-through":
                                     task.status === "completed",
                                 })}
@@ -247,21 +307,29 @@ export function ClonePodDialog({
                         variants={stagger.item}
                       >
                         <span className="text-sm font-medium text-muted-foreground">
-                          Step {completedTasks} / {totalTasks}
+                          {isCloning ? (
+                            <>
+                              Step {completedTasks} / {totalTasks}
+                            </>
+                          ) : (
+                            <>Ready to clone</>
+                          )}
                         </span>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </ItemDescription>
               </ItemContent>
-              <ItemContent className="flex-none self-start pt-0.5 text-center">
-                <ItemDescription>
-                  <Badge variant="outline" className="tabular-nums">
-                    <IconClock />
-                    2:25
-                  </Badge>
-                </ItemDescription>
-              </ItemContent>
+              {isCloning && (
+                <ItemContent className="flex-none self-start pt-0.5 text-center">
+                  <ItemDescription>
+                    <Badge variant="outline" className="tabular-nums">
+                      <IconClock />
+                      2:25
+                    </Badge>
+                  </ItemDescription>
+                </ItemContent>
+              )}
               <ItemFooter className="justify-center">
                 <Button
                   variant="ghost"
@@ -282,18 +350,24 @@ export function ClonePodDialog({
         </ItemGroup>
 
         <AlertDialogFooter>
-          <AlertDialogCancel className="w-[50%]">Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <AlertDialogCancel
+            className="w-[50%]"
+            // disabled={isCloning} Disabled for testing
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <Button
             variant="default"
             className={cn(
               "w-[50%] transition-colors duration-500",
-              colors.bg,
-              "hover:opacity-90"
+              isCloning ? colors.bg : "bg-primary"
             )}
-            disabled
+            disabled={isCloning}
+            onClick={() => setIsCloning(true)}
           >
-            Clone
-          </AlertDialogAction>
+            {isCloning ? "Cloning..." : "Clone"}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
