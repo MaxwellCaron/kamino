@@ -331,7 +331,6 @@ export function ClonePodDialog({
                           transition: { duration: 0.1 },
                         }}
                         initial="hidden"
-                        layout
                         variants={stagger.container}
                       >
                         {tasks.map((task) => (

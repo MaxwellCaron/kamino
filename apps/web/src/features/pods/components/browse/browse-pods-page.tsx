@@ -1,6 +1,6 @@
 import { useState } from "react"
+import { ClonePodDialog } from "../clone/clone-pod-dialog"
 import { BrowsePodsCard } from "./browse-pods-card"
-import { ClonePodDialog } from "./clone-pod-dialog"
 import type { Pod } from "../../types/pod-types"
 import { GrainientBackground } from "@/components/grainient-background"
 
