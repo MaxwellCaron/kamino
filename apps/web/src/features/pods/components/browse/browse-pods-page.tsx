@@ -66,7 +66,7 @@ const pods: Array<Pod> = [
   },
 ]
 
-export function BrowsePodsPage() {
+export function BrowsePodsPage({ username }: { username: string }) {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
   const [selectedPod, setSelectedPod] = useState<Pod | null>(null)
 
@@ -109,6 +109,7 @@ export function BrowsePodsPage() {
         open={cloneDialogOpen}
         onOpenChange={setCloneDialogOpen}
         pod={selectedPod}
+        username={username}
       />
     </>
   )

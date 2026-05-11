@@ -6,5 +6,7 @@ export const Route = createFileRoute("/_dashboard/pods/browse")({
 })
 
 function RouteComponent() {
-  return <BrowsePodsPage />
+  const { user } = Route.useRouteContext()
+
+  return <BrowsePodsPage username={user.username} />
 }

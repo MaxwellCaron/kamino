@@ -89,10 +89,12 @@ export function ClonePodDialog({
   open,
   onOpenChange,
   pod,
+  username,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pod: Pod | null
+  username: string
 }) {
   const {
     isCloning,
@@ -193,7 +195,7 @@ export function ClonePodDialog({
             title={
               <>
                 Clone &apos;{podTitle}&apos; Pod -{" "}
-                <span className="text-muted-foreground">mcaron</span>
+                <span className="text-muted-foreground">{username}</span>
               </>
             }
             tasks={tasks}
