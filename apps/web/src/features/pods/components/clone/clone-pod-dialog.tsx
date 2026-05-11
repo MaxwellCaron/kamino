@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "@tanstack/react-router"
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertDialog,
@@ -9,11 +10,7 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
-import {
-  IconCircleCheckFilled,
-  IconCopy,
-  IconLoader2,
-} from "@tabler/icons-react"
+import { IconArrowRight, IconLoader2 } from "@tabler/icons-react"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
@@ -125,13 +122,23 @@ export function ClonePodDialog({
                 {isCloning ? (
                   isFinished ? (
                     <motion.span
-                      key="finished-icon"
+                      key="finished-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
                       className="text-primary"
                     >
-                      <IconCircleCheckFilled size={32} />
+                      <Loader
+                        loader="pulse"
+                        renderer="svg-grid"
+                        speed={0.85}
+                        rendererOptions={{
+                          shape: "square",
+                          cellSize: 6,
+                          gap: 2,
+                          inactiveOpacity: 1,
+                        }}
+                      />
                     </motion.span>
                   ) : (
                     <motion.span
@@ -159,13 +166,23 @@ export function ClonePodDialog({
                   )
                 ) : (
                   <motion.span
-                    key="approval-icon"
+                    key="approval-loader"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     className="text-muted-foreground"
                   >
-                    <IconCopy size={32} stroke={1.5} />
+                    <Loader
+                      loader="pulse"
+                      renderer="svg-grid"
+                      speed={0.85}
+                      rendererOptions={{
+                        shape: "square",
+                        cellSize: 6,
+                        gap: 2,
+                        inactiveOpacity: 1,
+                      }}
+                    />
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -217,19 +234,23 @@ export function ClonePodDialog({
           <Button
             variant="default"
             className={cn(
-              "w-[50%] transition-colors duration-500",
+              "w-[50%] cursor-default transition-colors duration-500",
               isCloning ? colors.bg : "bg-primary",
               "hover:opacity-90"
             )}
-            disabled={isCloning}
-            onClick={startCloning}
+            disabled={isCloning && !isFinished}
+            onClick={isFinished ? undefined : startCloning}
+            render={isFinished ? <Link to="/" /> : undefined}
           >
             {isCloning ? (
               isFinished ? (
-                "Completed"
+                <span className="flex items-center gap-1">
+                  Go to Pod
+                  <IconArrowRight data-icon="inline-end" />
+                </span>
               ) : (
                 <>
-                  <IconLoader2 className="mr-2 size-4 animate-spin" />
+                  <IconLoader2 className="size-4 animate-spin" />
                   Cloning...
                 </>
               )
