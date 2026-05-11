@@ -186,8 +186,8 @@ export function ClonePodDialog({
                   </motion.span>
                 )}
               </AnimatePresence>
-              <span className="text-2xl font-semibold tracking-tight">
-                {isFinished ? "Clone Complete" : "Clone Pod"}
+              <span className="text-balancet scroll-m-20 text-4xl font-extrabold tracking-tight">
+                Clone Pod
               </span>
             </div>
             {isCloning && (
