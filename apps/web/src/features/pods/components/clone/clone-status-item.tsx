@@ -112,90 +112,64 @@ export function CloneStatusItem({
         <ItemContent>
           <ItemTitle className="line-clamp-1">{title}</ItemTitle>
           <ItemDescription className="flex flex-col gap-3 overflow-hidden">
-            <AnimatePresence initial={false} mode="wait">
-              {showDetails ? (
-                <motion.div
-                  key="tasks"
-                  animate="show"
-                  className="mt-1 flex flex-col gap-3"
-                  exit={{
-                    opacity: 0,
-                    filter: "blur(4px)",
-                    y: -4,
-                    transition: { duration: 0.1 },
-                  }}
-                  initial="hidden"
-                  variants={stagger.container}
-                >
-                  {tasks.map((task) => (
-                    <motion.div
-                      key={task.id}
-                      className="flex items-center gap-3 text-sm"
-                      variants={stagger.item}
-                    >
-                      <div className="flex-none">
-                        {task.status === "completed" ? (
-                          <IconCircleCheckFilled
-                            className={cn(
-                              "size-5 transition-colors duration-500",
-                              colors.text
-                            )}
-                          />
-                        ) : task.status === "in-progress" ? (
-                          <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
-                        ) : (
-                          <IconCircle className="size-5 text-muted-foreground" />
-                        )}
-                      </div>
-
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <span
-                          className={cn("truncate", {
-                            "font-semibold text-foreground":
-                              task.status === "in-progress",
-                            "text-foreground":
-                              task.status === "pending" ||
-                              task.status === "in-progress",
-                            "text-muted-foreground line-through":
-                              task.status === "completed",
-                          })}
-                        >
-                          {task.name}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="summary"
-                  animate="show"
-                  exit={{
-                    opacity: 0,
-                    filter: "blur(4px)",
-                    y: 4,
-                    transition: { duration: 0.1 },
-                  }}
-                  initial="hidden"
-                  layout
-                  variants={stagger.item}
-                >
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {isCloning ? (
-                      isFinished ? (
-                        "Clone completed successfully"
+            {showDetails ? (
+              <div key="tasks" className="mt-1 flex flex-col gap-3">
+                {tasks.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    className="flex items-center gap-3 text-sm"
+                    variants={stagger.item}
+                  >
+                    <div className="flex-none">
+                      {task.status === "completed" ? (
+                        <IconCircleCheckFilled
+                          className={cn(
+                            "size-5 transition-colors duration-500",
+                            colors.text
+                          )}
+                        />
+                      ) : task.status === "in-progress" ? (
+                        <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
                       ) : (
-                        <>
-                          Step {completedTasks + 1} / {totalTasks}
-                        </>
-                      )
+                        <IconCircle className="size-5 text-muted-foreground" />
+                      )}
+                    </div>
+
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span
+                        className={cn("truncate", {
+                          "font-semibold text-foreground":
+                            task.status === "in-progress",
+                          "text-foreground":
+                            task.status === "pending" ||
+                            task.status === "in-progress",
+                          "text-muted-foreground line-through":
+                            task.status === "completed",
+                        })}
+                      >
+                        {task.name}
+                      </span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div key="summary">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {isCloning ? (
+                    isFinished ? (
+                      "Clone completed successfully"
                     ) : (
-                      "Ready to clone"
-                    )}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      <>
+                        Step {completedTasks + 1} / {totalTasks}
+                      </>
+                    )
+                  ) : (
+                    "Ready to clone"
+                  )}
+                </span>
+              </div>
+            )}
           </ItemDescription>
         </ItemContent>
         {isCloning && elapsedTime ? (
