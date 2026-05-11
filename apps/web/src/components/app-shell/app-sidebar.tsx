@@ -5,6 +5,8 @@ import {
   IconHome,
   IconLayoutDashboard,
   IconNetwork,
+  IconPackageExport,
+  IconPackages,
   IconReceipt,
   IconUser,
   IconUsersGroup,
@@ -46,6 +48,22 @@ const navItems = [
     url: "/",
     icon: IconHome,
     group: "home",
+    visibility: "all",
+  },
+  {
+    title: "Pods",
+    description: "Browse available and ready to clone pods.",
+    url: "/pods/browse",
+    icon: IconPackages,
+    group: "pods",
+    visibility: "all",
+  },
+  {
+    title: "My Pods",
+    description: "Browse your already cloned pods.",
+    url: "/",
+    icon: IconPackageExport,
+    group: "pods",
     visibility: "all",
   },
   {
@@ -96,9 +114,10 @@ type NavItem = (typeof navItems)[number]
 type NavGroupKey = NavItem["group"]
 
 const navGroupStyles = {
-  home: "bg-muted/50",
-  manager: "bg-chart-1/50",
-  admin: "bg-primary/50",
+  pods: "bg-blue-600/5 dark:bg-blue-400/5 text-blue-600 dark:text-blue-400",
+  home: "bg-muted/5 text-muted-foreground",
+  manager: "bg-chart-1/5 text-chart-1",
+  admin: "bg-primary/5 text-primary",
 } as const satisfies Record<NavGroupKey, string>
 
 function IconRailHoverCard({
@@ -186,6 +205,10 @@ export function AppSidebar({
       {
         key: "home" as const,
         items: visible.filter((item) => item.group === "home"),
+      },
+      {
+        key: "pods" as const,
+        items: visible.filter((item) => item.group === "pods"),
       },
       {
         key: "manager" as const,
