@@ -114,11 +114,38 @@ type NavItem = (typeof navItems)[number]
 type NavGroupKey = NavItem["group"]
 
 const navGroupStyles = {
-  pods: "bg-blue-600/5 dark:bg-blue-400/5 text-blue-600 dark:text-blue-400",
-  home: "bg-muted/5 text-muted-foreground",
-  manager: "bg-chart-1/5 text-chart-1",
-  admin: "bg-primary/5 text-primary",
-} as const satisfies Record<NavGroupKey, string>
+  pods: {
+    rail: "bg-blue-600/5 text-blue-600 dark:bg-blue-400/5 dark:text-blue-400",
+    button:
+      "text-blue-600 dark:text-blue-400 hover:bg-blue-600/10 hover:text-blue-700 active:bg-blue-600/14 active:text-blue-700 data-active:bg-blue-600/14 data-active:text-blue-700 dark:hover:bg-blue-400/10 dark:hover:text-blue-300 dark:active:bg-blue-400/14 dark:active:text-blue-300 dark:data-active:bg-blue-400/14 dark:data-active:text-blue-300",
+    indicator: "bg-blue-600 dark:bg-blue-400",
+  },
+  home: {
+    rail: "bg-muted/5 text-muted-foreground",
+    button:
+      "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/80 active:text-foreground data-active:bg-muted data-active:text-foreground",
+    indicator: "bg-foreground",
+  },
+  manager: {
+    rail: "bg-yellow-600/5 text-yellow-600 dark:bg-yellow-400/5 dark:text-yellow-400",
+    button:
+      "text-yellow-600 hover:bg-yellow-600/10 hover:text-yellow-700 active:bg-yellow-600/14 active:text-yellow-700 data-active:bg-yellow-600/14 data-active:text-yellow-700 dark:text-yellow-400 dark:hover:bg-yellow-400/10 dark:hover:text-yellow-300 dark:active:bg-yellow-400/14 dark:active:text-yellow-300 dark:data-active:bg-yellow-400/14 dark:data-active:text-yellow-300",
+    indicator: "bg-yellow-600 dark:bg-yellow-400",
+  },
+  admin: {
+    rail: "bg-green-600/5 text-green-600 dark:bg-green-400/5 dark:text-green-400",
+    button:
+      "text-green-600 hover:bg-green-600/10 hover:text-green-700 active:bg-green-600/14 active:text-green-700 data-active:bg-green-600/14 data-active:text-green-700 dark:text-green-400 dark:hover:bg-green-400/10 dark:hover:text-green-300 dark:active:bg-green-400/14 dark:active:text-green-300 dark:data-active:bg-green-400/14 dark:data-active:text-green-300",
+    indicator: "bg-green-600 dark:bg-green-400",
+  },
+} as const satisfies Record<
+  NavGroupKey,
+  {
+    rail: string
+    button: string
+    indicator: string
+  }
+>
 
 function IconRailHoverCard({
   title,
@@ -160,13 +187,17 @@ function IconRailNavItem({
 }) {
   const Icon = item.icon
   const isActive = isActivePath(pathname, item.url)
+  const styles = navGroupStyles[item.group]
 
   return (
     <SidebarMenuItem key={item.title} className="overflow-visible">
       <IconRailHoverCard title={item.title} description={item.description}>
         <SidebarMenuButton
           isActive={isActive}
-          className="size-9 cursor-default justify-center"
+          className={cn(
+            "size-9 cursor-default justify-center rounded-2xl transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
+            styles.button
+          )}
           render={<Link to={item.url} />}
         >
           <Icon className="size-5!" />
@@ -174,7 +205,12 @@ function IconRailNavItem({
         </SidebarMenuButton>
       </IconRailHoverCard>
       {isActive && (
-        <span className="absolute top-1/2 -left-4 h-7 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
+        <span
+          className={cn(
+            "absolute top-1/2 -left-4 h-7 w-1 -translate-y-1/2 rounded-r-full",
+            styles.indicator
+          )}
+        />
       )}
     </SidebarMenuItem>
   )
@@ -262,7 +298,7 @@ export function AppSidebar({
                         <div
                           className={cn(
                             "flex flex-col items-center gap-2 rounded-2xl p-1",
-                            navGroupStyles[group.key]
+                            navGroupStyles[group.key].rail
                           )}
                         >
                           {group.items.map((item) => (
