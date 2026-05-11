@@ -10,92 +10,26 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
 import {
-  IconBox,
-  IconChevronUp,
-  IconCircle,
   IconCircleCheckFilled,
-  IconClock,
   IconCopy,
   IconLoader2,
 } from "@tabler/icons-react"
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemFooter,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
+import { ItemGroup } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import { useCutoutContentStaggerVariants } from "@workspace/ui/components/cutout-card"
+import { CloneStatusItem } from "./clone-status-item"
+import { DEFAULT_CLONE_TASKS, getCloneStepColors } from "./clone-status"
+import type { CloneStatusTask } from "./clone-status"
 import type { Pod } from "../../types/pod-types"
-
-const MOCK_TASKS = [
-  {
-    id: 1,
-    name: "Fetch virtual machines in pod",
-  },
-  {
-    id: 2,
-    name: "Clone virtual machines",
-  },
-  {
-    id: 3,
-    name: "Wait for virtual machines to be ready",
-  },
-  { id: 4, name: "Configure router" },
-]
-
-function getStepColors(taskId?: number) {
-  switch (taskId) {
-    case 1:
-      return {
-        text: "text-blue-600 dark:text-blue-400",
-        border: "border-blue-600 dark:border-blue-400",
-        bg: "bg-blue-600 dark:bg-blue-400",
-        soft: "bg-blue-600/10 dark:bg-blue-400/10",
-      }
-    case 2:
-      return {
-        text: "text-orange-600 dark:text-orange-400",
-        border: "border-orange-600 dark:border-orange-400",
-        bg: "bg-orange-600 dark:bg-orange-400",
-        soft: "bg-orange-600/10 dark:bg-orange-400/10",
-      }
-    case 3:
-      return {
-        text: "text-amber-600 dark:text-amber-400",
-        border: "border-amber-600 dark:border-amber-400",
-        bg: "bg-amber-600 dark:bg-amber-400",
-        soft: "bg-amber-600/10 dark:bg-amber-400/10",
-      }
-    case 4:
-      return {
-        text: "text-emerald-600 dark:text-emerald-400",
-        border: "border-emerald-600 dark:border-emerald-400",
-        bg: "bg-emerald-600 dark:bg-emerald-400",
-        soft: "bg-emerald-600/10 dark:bg-emerald-400/10",
-      }
-    default:
-      return {
-        text: "text-primary dark:text-primary",
-        border: "border-primary dark:border-primary",
-        bg: "bg-primary dark:bg-primary",
-        soft: "bg-primary/10 dark:bg-primary/10",
-      }
-  }
-}
 
 function useCloneSimulation(open: boolean) {
   const [isCloning, setIsCloning] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
 
-  const tasks = MOCK_TASKS.map((task) => {
+  const tasks: Array<CloneStatusTask> = DEFAULT_CLONE_TASKS.map((task) => {
     if (!isCloning) return { ...task, status: "pending" }
     if (currentStep > task.id) return { ...task, status: "completed" }
     if (currentStep === task.id) return { ...task, status: "in-progress" }
@@ -107,7 +41,7 @@ function useCloneSimulation(open: boolean) {
   const isFinished = completedTasks === totalTasks
   const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
   const activeTask = tasks.find((t) => t.status === "in-progress")
-  const colors = getStepColors(activeTask?.id)
+  const colors = getCloneStepColors(activeTask?.id)
 
   useEffect(() => {
     if (!open) {
@@ -124,7 +58,7 @@ function useCloneSimulation(open: boolean) {
   }, [isCloning, isFinished])
 
   useEffect(() => {
-    if (!isCloning || currentStep > MOCK_TASKS.length) return
+    if (!isCloning || currentStep > DEFAULT_CLONE_TASKS.length) return
     const timer = setTimeout(() => setCurrentStep((s) => s + 1), 2000)
     return () => clearTimeout(timer)
   }, [isCloning, currentStep])
@@ -167,13 +101,9 @@ export function ClonePodDialog({
     progress,
     colors,
     elapsedTime,
-    completedTasks,
-    totalTasks,
     startCloning,
   } = useCloneSimulation(open)
 
-  const [showDetails, setShowDetails] = useState(true)
-  const stagger = useCutoutContentStaggerVariants()
   const podTitle = pod?.title ?? "Pod"
 
   return (
@@ -197,7 +127,7 @@ export function ClonePodDialog({
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      className="text-emerald-500"
+                      className="text-primary"
                     >
                       <IconCircleCheckFilled size={32} />
                     </motion.span>
@@ -259,178 +189,19 @@ export function ClonePodDialog({
         />
 
         <ItemGroup className="gap-4">
-          <Item
-            key="test"
-            variant="muted"
-            role="listitem"
-            className="shadow ring-1 ring-muted"
-          >
-            <motion.div layout className="contents">
-              <ItemMedia
-                variant="image"
-                className={cn(
-                  "transition-colors duration-500",
-                  isCloning ? colors.text : "text-muted-foreground",
-                  isCloning ? colors.soft : "bg-muted"
-                )}
-              >
-                <AnimatePresence mode="wait">
-                  {isCloning && !isFinished ? (
-                    <motion.div
-                      key="sand-loader"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <Loader
-                        loader="sand"
-                        renderer="svg-grid"
-                        speed={0.85}
-                        rendererOptions={{
-                          shape: "square",
-                          cellSize: 4,
-                          gap: 1,
-                        }}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="box-icon"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      {isFinished ? (
-                        <IconCircleCheckFilled
-                          size={24}
-                          className="text-emerald-500"
-                        />
-                      ) : (
-                        <IconBox size={24} stroke={1.5} />
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </ItemMedia>
-              <ItemContent>
-                <ItemTitle className="line-clamp-1">
-                  Clone &apos;{podTitle}&apos; Pod -{" "}
-                  <span className="text-muted-foreground">mcaron</span>
-                </ItemTitle>
-                <ItemDescription className="flex flex-col gap-3 overflow-hidden">
-                  <AnimatePresence initial={false} mode="wait">
-                    {showDetails ? (
-                      <motion.div
-                        key="tasks"
-                        animate="show"
-                        className="mt-1 flex flex-col gap-3"
-                        exit={{
-                          opacity: 0,
-                          filter: "blur(4px)",
-                          y: -4,
-                          transition: { duration: 0.1 },
-                        }}
-                        initial="hidden"
-                        variants={stagger.container}
-                      >
-                        {tasks.map((task) => (
-                          <motion.div
-                            key={task.id}
-                            className="flex items-center gap-3 text-sm"
-                            variants={stagger.item}
-                          >
-                            <div className="flex-none">
-                              {task.status === "completed" ? (
-                                <IconCircleCheckFilled
-                                  className={cn(
-                                    "size-5 transition-colors duration-500",
-                                    colors.text
-                                  )}
-                                />
-                              ) : task.status === "in-progress" ? (
-                                <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
-                              ) : (
-                                <IconCircle className="size-5 text-muted-foreground" />
-                              )}
-                            </div>
-
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <span
-                                className={cn("truncate", {
-                                  "font-semibold text-foreground":
-                                    task.status === "in-progress",
-                                  "text-foreground":
-                                    task.status === "pending" ||
-                                    task.status === "in-progress",
-                                  "text-muted-foreground line-through":
-                                    task.status === "completed",
-                                })}
-                              >
-                                {task.name}
-                              </span>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="summary"
-                        animate="show"
-                        exit={{
-                          opacity: 0,
-                          filter: "blur(4px)",
-                          y: 4,
-                          transition: { duration: 0.1 },
-                        }}
-                        initial="hidden"
-                        layout
-                        variants={stagger.item}
-                      >
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {isCloning ? (
-                            isFinished ? (
-                              "Clone completed successfully"
-                            ) : (
-                              <>
-                                Step {completedTasks + 1} / {totalTasks}
-                              </>
-                            )
-                          ) : (
-                            <>Ready to clone</>
-                          )}
-                        </span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </ItemDescription>
-              </ItemContent>
-              {isCloning && (
-                <ItemContent className="flex-none self-start pt-0.5 text-center">
-                  <ItemDescription>
-                    <Badge variant="outline" className="font-mono">
-                      <IconClock />
-                      {elapsedTime}
-                    </Badge>
-                  </ItemDescription>
-                </ItemContent>
-              )}
-              <ItemFooter className="justify-center">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="text-muted-foreground"
-                  onClick={() => setShowDetails(!showDetails)}
-                >
-                  <IconChevronUp
-                    className={cn("transition-transform duration-200", {
-                      "rotate-180": !showDetails,
-                    })}
-                  />
-                  {showDetails ? "Hide" : "Show"}
-                </Button>
-              </ItemFooter>
-            </motion.div>
-          </Item>
+          <CloneStatusItem
+            title={
+              <>
+                Clone &apos;{podTitle}&apos; Pod -{" "}
+                <span className="text-muted-foreground">mcaron</span>
+              </>
+            }
+            tasks={tasks}
+            isCloning={isCloning}
+            isFinished={isFinished}
+            colors={colors}
+            elapsedTime={elapsedTime}
+          />
         </ItemGroup>
 
         <AlertDialogFooter>
