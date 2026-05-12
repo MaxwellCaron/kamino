@@ -1,0 +1,132 @@
+import type { ClonedPod, Pod } from "./pod-types"
+
+export const pods: Array<Pod> = [
+  {
+    id: "6",
+    title: "Reverse Engineering",
+    description:
+      "Learn how to work backwards and understand programs through their data!",
+    image: "https://i.imgur.com/Mlp5on4.png",
+    creators: ["mung"],
+    created_at: "2024-05-01T12:00:00Z",
+    clones: 124,
+    isNew: true,
+  },
+  {
+    id: "5",
+    title: "Intro to Red Team",
+    description: "Ethically hack into an infrastructure with your team!",
+    image: "https://i.imgur.com/i349T75.png",
+    creators: ["tommy", "mcaron"],
+    created_at: "2024-04-28T12:00:00Z",
+    clones: 89,
+    isNew: true,
+  },
+  {
+    id: "4",
+    title: "Insecure Deserialzation",
+    description: "Learn how to keep your save files safe from malicious code.",
+    image: "https://i.imgur.com/H9pBcUi.png",
+    creators: ["bill"],
+    created_at: "2024-04-25T12:00:00Z",
+    clones: 231,
+  },
+  {
+    id: "3",
+    title: "Capture The Flag",
+    description: "Join SWIFT and FAST for a CTF. Top 3 finishers get prizes!",
+    image: "https://i.imgur.com/ivoLn2o.png",
+    creators: ["eric"],
+    created_at: "2024-04-20T12:00:00Z",
+    clones: 542,
+  },
+  {
+    id: "2",
+    title: "Linux Securing & Hardening",
+    description:
+      "Learn to secure different Linux vulnerabilities through tools and configurations.",
+    image: "https://i.imgur.com/E4EQHZS.png",
+    creators: ["roman"],
+    created_at: "2024-04-15T12:00:00Z",
+    clones: 167,
+  },
+  {
+    id: "1",
+    title: "Web Application Firewalls",
+    description:
+      "Utilize web app firewalls to protect yourself against application layer attacks.",
+    image: "https://i.imgur.com/FpwbsE5.png",
+    creators: ["nich"],
+    created_at: "2024-04-10T12:00:00Z",
+    clones: 95,
+  },
+]
+
+export const clonedPods: Array<ClonedPod> = [
+  {
+    ...pods[0],
+    cloned_at: "2024-05-10T08:00:00Z",
+    vms: [
+      {
+        id: "vm-1",
+        name: "RE-Workstation",
+        status: "running",
+        resources: {
+          cpu: 0.15,
+          maxcpu: 4,
+          mem: 2147483648,
+          maxmem: 8589934592,
+          disk: 42949672960,
+          maxdisk: 107374182400,
+          netin: 1024,
+          netout: 512,
+          diskread: 0,
+          diskwrite: 0,
+          uptime: 3600,
+        },
+      },
+      {
+        id: "vm-2",
+        name: "Target-Binary-Host",
+        status: "stopped",
+        resources: {
+          cpu: 0,
+          maxcpu: 2,
+          mem: 1073741824,
+          maxmem: 2147483648,
+          disk: 10737418240,
+          maxdisk: 21474836480,
+          netin: 0,
+          netout: 0,
+          diskread: 0,
+          diskwrite: 0,
+          uptime: 0,
+        },
+      },
+    ],
+  },
+  {
+    ...pods[1],
+    cloned_at: "2024-05-11T14:30:00Z",
+    vms: [
+      {
+        id: "vm-3",
+        name: "Kali-Linux",
+        status: "running",
+        resources: {
+          cpu: 0.45,
+          maxcpu: 4,
+          mem: 4294967296,
+          maxmem: 8589934592,
+          disk: 64424509440,
+          maxdisk: 107374182400,
+          netin: 4096,
+          netout: 2048,
+          diskread: 1048576,
+          diskwrite: 524288,
+          uptime: 7200,
+        },
+      },
+    ],
+  },
+]
