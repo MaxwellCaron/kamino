@@ -61,7 +61,7 @@ const navItems = [
   {
     title: "My Pods",
     description: "Browse your already cloned pods.",
-    url: "/",
+    url: "/pods/cloned",
     icon: IconPackageExport,
     group: "pods",
     visibility: "all",

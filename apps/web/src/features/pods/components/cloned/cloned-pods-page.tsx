@@ -25,7 +25,7 @@ export function ClonedPodsPage() {
 
         <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
           <div className="flex w-full flex-col gap-6">
-            <ItemGroup className="gap-4">
+            <ItemGroup className="space-y-4">
               {clonedPods.map((pod) => (
                 <ClonedPodCard key={pod.id} pod={pod} />
               ))}
