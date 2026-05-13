@@ -16,7 +16,12 @@ import {
   CircularProgressRange,
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
-import { IconArrowUpRight, IconPackageExport } from "@tabler/icons-react"
+import {
+  IconArrowUpRight,
+  IconPackageExport,
+  IconTrash,
+} from "@tabler/icons-react"
+import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { FormatClonedPodCreators } from "../creators"
@@ -86,17 +91,22 @@ export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
             </div>
           </ItemContent>
           <ItemActions className="self-start">
-            <IconArrowUpRight className="size-5 text-muted-foreground" />
+            <IconArrowUpRight className="size-4 text-muted-foreground" />
           </ItemActions>
-          <ItemFooter className="justify-end gap-1 text-muted-foreground">
-            Cloned
-            <RelativeTimeCard
-              date={pod.cloned_at}
-              align="end"
-              side="top"
-              delay={50}
-              closeDelay={150}
-            />
+          <ItemFooter className="justify-between">
+            <div className="text-muted-foreground">
+              Cloned{" "}
+              <RelativeTimeCard
+                date={pod.cloned_at}
+                side="top"
+                delay={50}
+                closeDelay={150}
+              />
+            </div>
+            <Button variant="destructive">
+              <IconTrash className="size-4" data-icon="inline-start" />
+              <span className="hidden sm:inline">Delete</span>
+            </Button>
           </ItemFooter>
         </Link>
       }
