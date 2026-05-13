@@ -28,7 +28,7 @@ import type { ClonedPod } from "@/features/pods/types/pod-types"
 import { FormatClonedPodCreators } from "@/features/pods/components/creators"
 import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 
-export function BrowseClonedPodCard({ pod }: { pod: ClonedPod }) {
+export function BrowseClonedPodItem({ pod }: { pod: ClonedPod }) {
   return (
     <Item
       key={pod.title}
@@ -36,7 +36,7 @@ export function BrowseClonedPodCard({ pod }: { pod: ClonedPod }) {
       variant="muted"
       role="listitem"
       render={
-        <Link to=".">
+        <Link to="/pods/cloned/test">
           <ItemMedia variant="image" className="h-90 w-fit">
             <Image src={pod.image} alt={pod.title} width={128} height={128} />
           </ItemMedia>
