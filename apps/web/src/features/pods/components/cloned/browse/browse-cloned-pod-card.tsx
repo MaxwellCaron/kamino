@@ -24,11 +24,11 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { FormatClonedPodCreators } from "../creators"
-import type { ClonedPod } from "../../types/pod-types"
+import type { ClonedPod } from "@/features/pods/types/pod-types"
+import { FormatClonedPodCreators } from "@/features/pods/components/creators"
 import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 
-export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
+export function BrowseClonedPodCard({ pod }: { pod: ClonedPod }) {
   return (
     <Item
       key={pod.title}

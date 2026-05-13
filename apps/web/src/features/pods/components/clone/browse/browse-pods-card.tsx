@@ -15,8 +15,8 @@ import {
 } from "@workspace/ui/components/cutout-card"
 import { Button } from "@workspace/ui/components/button"
 import { IconCopy } from "@tabler/icons-react"
-import { FormatPodCreators } from "../creators"
-import type { Pod } from "../../types/pod-types"
+import type { Pod } from "@/features/pods/types/pod-types"
+import { FormatPodCreators } from "@/features/pods/components/creators"
 
 export function BrowsePodsCard({
   pod,

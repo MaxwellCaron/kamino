@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { ClonePodDialog } from "../clone/clone-pod-dialog"
-import { pods } from "../../types/test-data"
+import { ClonePodDialog } from "../clone-pod-dialog"
 import { BrowsePodsCard } from "./browse-pods-card"
-import type { Pod } from "../../types/pod-types"
+import type { Pod } from "@/features/pods/types/pod-types"
+import { pods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
 
 export function BrowsePodsPage({ username }: { username: string }) {

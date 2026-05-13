@@ -14,10 +14,10 @@ import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as DashboardAdminRouteImport } from './routes/_dashboard/admin'
 import { Route as DashboardAdminIndexRouteImport } from './routes/_dashboard/admin/index'
-import { Route as DashboardPodsClonedRouteImport } from './routes/_dashboard/pods/cloned'
 import { Route as DashboardPodsBrowseRouteImport } from './routes/_dashboard/pods/browse'
 import { Route as DashboardManagerRequestsRouteImport } from './routes/_dashboard/manager/requests'
 import { Route as DashboardAdminSdnRouteImport } from './routes/_dashboard/admin/sdn'
+import { Route as DashboardPodsClonedBrowseRouteImport } from './routes/_dashboard/pods/cloned/browse'
 import { Route as DashboardInventoryItemsItemIdRouteImport } from './routes/_dashboard/inventory/items/$itemId'
 import { Route as DashboardAdminPrincipalsUsersRouteImport } from './routes/_dashboard/admin/principals/users'
 import { Route as DashboardAdminPrincipalsGroupsRouteImport } from './routes/_dashboard/admin/principals/groups'
@@ -46,11 +46,6 @@ const DashboardAdminIndexRoute = DashboardAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardAdminRoute,
 } as any)
-const DashboardPodsClonedRoute = DashboardPodsClonedRouteImport.update({
-  id: '/pods/cloned',
-  path: '/pods/cloned',
-  getParentRoute: () => DashboardRoute,
-} as any)
 const DashboardPodsBrowseRoute = DashboardPodsBrowseRouteImport.update({
   id: '/pods/browse',
   path: '/pods/browse',
@@ -67,6 +62,12 @@ const DashboardAdminSdnRoute = DashboardAdminSdnRouteImport.update({
   path: '/sdn',
   getParentRoute: () => DashboardAdminRoute,
 } as any)
+const DashboardPodsClonedBrowseRoute =
+  DashboardPodsClonedBrowseRouteImport.update({
+    id: '/pods/cloned/browse',
+    path: '/pods/cloned/browse',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardInventoryItemsItemIdRoute =
   DashboardInventoryItemsItemIdRouteImport.update({
     id: '/inventory/items/$itemId',
@@ -93,11 +94,11 @@ export interface FileRoutesByFullPath {
   '/admin/sdn': typeof DashboardAdminSdnRoute
   '/manager/requests': typeof DashboardManagerRequestsRoute
   '/pods/browse': typeof DashboardPodsBrowseRoute
-  '/pods/cloned': typeof DashboardPodsClonedRoute
   '/admin/': typeof DashboardAdminIndexRoute
   '/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
   '/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
   '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
+  '/pods/cloned/browse': typeof DashboardPodsClonedBrowseRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -105,11 +106,11 @@ export interface FileRoutesByTo {
   '/admin/sdn': typeof DashboardAdminSdnRoute
   '/manager/requests': typeof DashboardManagerRequestsRoute
   '/pods/browse': typeof DashboardPodsBrowseRoute
-  '/pods/cloned': typeof DashboardPodsClonedRoute
   '/admin': typeof DashboardAdminIndexRoute
   '/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
   '/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
   '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
+  '/pods/cloned/browse': typeof DashboardPodsClonedBrowseRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -120,11 +121,11 @@ export interface FileRoutesById {
   '/_dashboard/admin/sdn': typeof DashboardAdminSdnRoute
   '/_dashboard/manager/requests': typeof DashboardManagerRequestsRoute
   '/_dashboard/pods/browse': typeof DashboardPodsBrowseRoute
-  '/_dashboard/pods/cloned': typeof DashboardPodsClonedRoute
   '/_dashboard/admin/': typeof DashboardAdminIndexRoute
   '/_dashboard/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
   '/_dashboard/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
   '/_dashboard/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
+  '/_dashboard/pods/cloned/browse': typeof DashboardPodsClonedBrowseRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -135,11 +136,11 @@ export interface FileRouteTypes {
     | '/admin/sdn'
     | '/manager/requests'
     | '/pods/browse'
-    | '/pods/cloned'
     | '/admin/'
     | '/admin/principals/groups'
     | '/admin/principals/users'
     | '/inventory/items/$itemId'
+    | '/pods/cloned/browse'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -147,11 +148,11 @@ export interface FileRouteTypes {
     | '/admin/sdn'
     | '/manager/requests'
     | '/pods/browse'
-    | '/pods/cloned'
     | '/admin'
     | '/admin/principals/groups'
     | '/admin/principals/users'
     | '/inventory/items/$itemId'
+    | '/pods/cloned/browse'
   id:
     | '__root__'
     | '/_dashboard'
@@ -161,11 +162,11 @@ export interface FileRouteTypes {
     | '/_dashboard/admin/sdn'
     | '/_dashboard/manager/requests'
     | '/_dashboard/pods/browse'
-    | '/_dashboard/pods/cloned'
     | '/_dashboard/admin/'
     | '/_dashboard/admin/principals/groups'
     | '/_dashboard/admin/principals/users'
     | '/_dashboard/inventory/items/$itemId'
+    | '/_dashboard/pods/cloned/browse'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,13 +211,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminIndexRouteImport
       parentRoute: typeof DashboardAdminRoute
     }
-    '/_dashboard/pods/cloned': {
-      id: '/_dashboard/pods/cloned'
-      path: '/pods/cloned'
-      fullPath: '/pods/cloned'
-      preLoaderRoute: typeof DashboardPodsClonedRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/_dashboard/pods/browse': {
       id: '/_dashboard/pods/browse'
       path: '/pods/browse'
@@ -237,6 +231,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/sdn'
       preLoaderRoute: typeof DashboardAdminSdnRouteImport
       parentRoute: typeof DashboardAdminRoute
+    }
+    '/_dashboard/pods/cloned/browse': {
+      id: '/_dashboard/pods/cloned/browse'
+      path: '/pods/cloned/browse'
+      fullPath: '/pods/cloned/browse'
+      preLoaderRoute: typeof DashboardPodsClonedBrowseRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/_dashboard/inventory/items/$itemId': {
       id: '/_dashboard/inventory/items/$itemId'
@@ -285,8 +286,8 @@ interface DashboardRouteChildren {
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardManagerRequestsRoute: typeof DashboardManagerRequestsRoute
   DashboardPodsBrowseRoute: typeof DashboardPodsBrowseRoute
-  DashboardPodsClonedRoute: typeof DashboardPodsClonedRoute
   DashboardInventoryItemsItemIdRoute: typeof DashboardInventoryItemsItemIdRoute
+  DashboardPodsClonedBrowseRoute: typeof DashboardPodsClonedBrowseRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -294,8 +295,8 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardManagerRequestsRoute: DashboardManagerRequestsRoute,
   DashboardPodsBrowseRoute: DashboardPodsBrowseRoute,
-  DashboardPodsClonedRoute: DashboardPodsClonedRoute,
   DashboardInventoryItemsItemIdRoute: DashboardInventoryItemsItemIdRoute,
+  DashboardPodsClonedBrowseRoute: DashboardPodsClonedBrowseRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

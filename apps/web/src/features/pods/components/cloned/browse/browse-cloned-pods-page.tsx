@@ -1,9 +1,9 @@
 import { ItemGroup } from "@workspace/ui/components/item"
-import { clonedPods } from "../../types/test-data"
-import { ClonedPodCard } from "./cloned-pod-card"
+import { BrowseClonedPodCard } from "./browse-cloned-pod-card"
+import { clonedPods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
 
-export function ClonedPodsPage() {
+export function BrowseClonedPodsPage() {
   return (
     <>
       <div className="@container/main flex flex-1 flex-col">
@@ -27,7 +27,7 @@ export function ClonedPodsPage() {
           <div className="flex w-full flex-col gap-6">
             <ItemGroup className="space-y-4">
               {clonedPods.map((pod) => (
-                <ClonedPodCard key={pod.id} pod={pod} />
+                <BrowseClonedPodCard key={pod.id} pod={pod} />
               ))}
             </ItemGroup>
           </div>
