@@ -29,7 +29,7 @@ export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
           <ItemMedia variant="image" className="h-90 w-fit">
             <Image src={pod.image} alt={pod.title} width={128} height={128} />
           </ItemMedia>
-          <ItemContent className="self-start">
+          <ItemContent className="ml-2 self-start pt-6">
             <ItemTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
               {pod.title}
             </ItemTitle>
@@ -37,17 +37,16 @@ export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
               {pod.description}
             </ItemDescription>
 
-            <div className="mt-2 flex items-center gap-3">
+            <div className="mt-2 flex items-center gap-4">
               <FormatClonedPodCreators creators={pod.creators} />
               <Separator orientation="vertical" />
-              <div className="flex items-center gap-1 text-muted-foreground">
+              <div className="flex items-center gap-1">
                 <IconPackageExport className="size-4" />
                 <span className="text-sm">{pod.clones}</span>
               </div>
             </div>
 
-            <div className="mt-4">
-              Virtual Machines
+            <div className="mt-6">
               <ItemGroup className="mt-2 grid grid-cols-3">
                 {pod.vms.map((vm) => (
                   <Item key={vm.id} className="w-full" variant="outline">
