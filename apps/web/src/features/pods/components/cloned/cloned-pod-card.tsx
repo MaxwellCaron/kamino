@@ -45,23 +45,29 @@ export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
 
             <div className="mt-2 flex items-center gap-4">
               <FormatClonedPodCreators creators={pod.creators} />
+
               <Separator orientation="vertical" />
               <div className="flex items-center gap-1">
                 <IconPackageExport className="size-4" />
                 <span className="text-sm">{pod.clones}</span>
               </div>
-              <Separator orientation="vertical" />
-              <div className="flex items-center gap-2">
-                <CircularProgress size={20} value={pod.tasks?.progress}>
-                  <CircularProgressIndicator>
-                    <CircularProgressTrack />
-                    <CircularProgressRange />
-                  </CircularProgressIndicator>
-                </CircularProgress>
-                <span>
-                  {pod.tasks?.completed} / {pod.tasks?.total} Tasks
-                </span>
-              </div>
+
+              {pod.tasks && (
+                <>
+                  <Separator orientation="vertical" />
+                  <div className="flex items-center gap-2">
+                    <CircularProgress size={20} value={pod.tasks.progress}>
+                      <CircularProgressIndicator>
+                        <CircularProgressTrack />
+                        <CircularProgressRange />
+                      </CircularProgressIndicator>
+                    </CircularProgress>
+                    <span>
+                      {pod.tasks.completed} / {pod.tasks.total} Tasks
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="mt-6">
