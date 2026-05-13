@@ -10,6 +10,12 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import {
+  CircularProgress,
+  CircularProgressIndicator,
+  CircularProgressRange,
+  CircularProgressTrack,
+} from "@workspace/ui/components/circular-progress"
 import { IconArrowUpRight, IconPackageExport } from "@tabler/icons-react"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
@@ -21,7 +27,7 @@ export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
   return (
     <Item
       key={pod.title}
-      className="h-full cursor-default"
+      className="h-full cursor-default shadow ring-1 ring-border"
       variant="muted"
       role="listitem"
       render={
@@ -43,6 +49,18 @@ export function ClonedPodCard({ pod }: { pod: ClonedPod }) {
               <div className="flex items-center gap-1">
                 <IconPackageExport className="size-4" />
                 <span className="text-sm">{pod.clones}</span>
+              </div>
+              <Separator orientation="vertical" />
+              <div className="flex items-center gap-2">
+                <CircularProgress size={20} value={pod.tasks?.progress}>
+                  <CircularProgressIndicator>
+                    <CircularProgressTrack />
+                    <CircularProgressRange />
+                  </CircularProgressIndicator>
+                </CircularProgress>
+                <span>
+                  {pod.tasks?.completed} / {pod.tasks?.total} Tasks
+                </span>
               </div>
             </div>
 

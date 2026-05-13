@@ -159,6 +159,15 @@
   --color-chart-foreground-muted: var(----chart-foreground-muted);
   --color-chart-foreground: var(----chart-foreground);
   --color-chart-background: var(----chart-background);
+  --animate-spin-around: spin-around 0.8s linear infinite;
+  @keyframes spin-around {
+  0% {
+    transform: rotate(-90deg);
+    }
+  100% {
+    transform: rotate(270deg);
+    }
+  }
 }
 
 @layer base {

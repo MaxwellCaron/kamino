@@ -19,4 +19,18 @@ export interface ClonedPod extends Pod {
     status: string
     resources: VmResources
   }>
+  tasks?: {
+    total: number
+    completed: number
+    progress: number
+    items: Array<PodTaskItem>
+  }
+}
+
+export interface PodTaskItem {
+  id: string
+  title: string
+  description?: string
+  completed: boolean
+  hint?: string
 }

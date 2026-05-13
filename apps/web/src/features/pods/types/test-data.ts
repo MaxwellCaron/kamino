@@ -104,6 +104,25 @@ export const clonedPods: Array<ClonedPod> = [
         },
       },
     ],
+    tasks: {
+      total: 2,
+      completed: 1,
+      progress: 50,
+      items: [
+        {
+          id: "task-1",
+          title: "Task 1",
+          description: "Description for task 1",
+          completed: true,
+        },
+        {
+          id: "task-2",
+          title: "Task 2",
+          description: "Description for task 2",
+          completed: false,
+        },
+      ],
+    },
   },
   {
     ...pods[1],
@@ -200,5 +219,42 @@ export const clonedPods: Array<ClonedPod> = [
         },
       },
     ],
+    tasks: {
+      total: 5,
+      completed: 2,
+      progress: 40,
+      items: [
+        {
+          id: "task-1",
+          title: "Task 1",
+          description: "Description for task 1",
+          completed: true,
+        },
+        {
+          id: "task-2",
+          title: "Task 2",
+          description: "Description for task 2",
+          completed: true,
+        },
+        {
+          id: "task-3",
+          title: "Task 3",
+          description: "Description for task 3",
+          completed: false,
+        },
+        {
+          id: "task-4",
+          title: "Task 4",
+          description: "Description for task 4",
+          completed: false,
+        },
+        {
+          id: "task-5",
+          title: "Task 5",
+          description: "Description for task 5",
+          completed: false,
+        },
+      ],
+    },
   },
 ]
