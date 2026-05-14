@@ -1,3 +1,4 @@
+import { ClonedPodTasks } from "./cloned-pod-tasks"
 import { GrainientBackground } from "@/components/grainient-background"
 
 export function ClonedPodPage() {
@@ -21,9 +22,7 @@ export function ClonedPodPage() {
         </div>
 
         <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12">
-            test
-          </div>
+          <ClonedPodTasks />
         </div>
       </div>
     </>

@@ -258,3 +258,33 @@ export const clonedPods: Array<ClonedPod> = [
     },
   },
 ]
+
+export const tryHackMeTasks = [
+  {
+    id: "task-1",
+    title: "Introduction",
+    completed: true,
+    description:
+      "These challenges are aimed towards learning about the \"Static Analysis\" technique used to analyze the malware. The main aim for this room is not to used any types of debuggers neither the executable's/programs should be run on any platform. You are required to answer all the questions without even using the debugger and even not executing the executable's/programs.\n\nMeanwhile all the credits goes to @MalwareTechBlog for creating these awesome challenges.\n\nNote: If you have already solved these challenges - give it a try again while giving enough time to the newbies who want to learn about \"Malware Analysis\". Also don't try to copy paste stuff from other blogs/walkthroughs as it won't lead you to learn this amazing field. If you are having hard time solving these challenges. Study more about it and the techniques which are involved. Meanwhile you can also join TryHackMe discord and fire up you problems in there.\n\nPassword for the ZIP is MalwareTech.",
+    hasDownload: false,
+    questions: [{ id: "q1", text: "Read the above." }],
+  },
+  {
+    id: "task-2",
+    title: "Strings :: Challenge 1",
+    completed: false,
+    hasDownload: true,
+  },
+  {
+    id: "task-3",
+    title: "Strings :: Challenge 2",
+    completed: false,
+    hasDownload: true,
+  },
+  {
+    id: "task-4",
+    title: "Strings 3 :: Challenge 3",
+    completed: false,
+    hasDownload: true,
+  },
+]
