@@ -265,26 +265,65 @@ export const tryHackMeTasks = [
     title: "Introduction",
     completed: true,
     description:
-      "These challenges are aimed towards learning about the \"Static Analysis\" technique used to analyze the malware. The main aim for this room is not to used any types of debuggers neither the executable's/programs should be run on any platform. You are required to answer all the questions without even using the debugger and even not executing the executable's/programs.\n\nMeanwhile all the credits goes to @MalwareTechBlog for creating these awesome challenges.\n\nNote: If you have already solved these challenges - give it a try again while giving enough time to the newbies who want to learn about \"Malware Analysis\". Also don't try to copy paste stuff from other blogs/walkthroughs as it won't lead you to learn this amazing field. If you are having hard time solving these challenges. Study more about it and the techniques which are involved. Meanwhile you can also join TryHackMe discord and fire up you problems in there.\n\nPassword for the ZIP is MalwareTech.",
-    hasDownload: false,
-    questions: [{ id: "q1", text: "Read the above." }],
+      "In this task, we will cover the basics of static analysis. Static analysis is the process of analyzing a program without executing it. This is typically done by examining the code or the binary itself.",
+    questions: [
+      {
+        id: "q1",
+        text: "What is static analysis?",
+        hint: "Look at the first sentence of the description.",
+      },
+      {
+        id: "q2",
+        text: "Does static analysis require code execution?",
+        hint: "The word 'without' is a big clue.",
+      },
+    ],
   },
   {
     id: "task-2",
     title: "Strings :: Challenge 1",
     completed: false,
+    description:
+      "For this challenge, you need to find a hidden flag within the provided binary using the 'strings' utility. The flag follows the format THM{...}.",
     hasDownload: true,
+    questions: [
+      {
+        id: "q3",
+        text: "What is the flag?",
+        hint: "Run 'strings binary | grep THM'.",
+      },
+    ],
   },
   {
     id: "task-3",
     title: "Strings :: Challenge 2",
     completed: false,
+    description:
+      "This challenge is slightly more difficult. The flag is encoded. You might need to use additional tools like grep or a hex editor to locate it.",
     hasDownload: true,
+    questions: [
+      { id: "q4", text: "Locate the encoded flag." },
+      {
+        id: "q5",
+        text: "What is the decoded flag?",
+        hint: "It looks like Base64 encoding.",
+      },
+    ],
   },
   {
     id: "task-4",
     title: "Strings 3 :: Challenge 3",
     completed: false,
+    description:
+      "The final strings challenge. This binary is packed. You will need to identify the packer used and find the flag within the packed sections.",
     hasDownload: true,
+    questions: [
+      {
+        id: "q6",
+        text: "Identify the packer.",
+        hint: "Try using 'die' or 'pestudio'.",
+      },
+      { id: "q7", text: "Provide the final flag." },
+    ],
   },
 ]
