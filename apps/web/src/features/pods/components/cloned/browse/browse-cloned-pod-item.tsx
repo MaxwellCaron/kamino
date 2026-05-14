@@ -36,7 +36,7 @@ export function BrowseClonedPodItem({ pod }: { pod: ClonedPod }) {
       variant="muted"
       role="listitem"
       render={
-        <Link to="/pods/cloned/test">
+        <Link to="/pods/cloned/$podId" params={{ podId: pod.id }}>
           <ItemMedia variant="image" className="h-90 w-fit">
             <Image src={pod.image} alt={pod.title} width={128} height={128} />
           </ItemMedia>

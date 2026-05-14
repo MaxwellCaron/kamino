@@ -4,22 +4,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@workspace/ui/components/accordion"
-import { Input } from "@workspace/ui/components/input"
-import { Button } from "@workspace/ui/components/button"
-import {
-  IconCircle,
-  IconCircleCheckFilled,
-  IconCircleXFilled,
-  IconDownload,
-} from "@tabler/icons-react"
+import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
-import { tryHackMeTasks } from "../../types/test-data"
+import type { PodTaskItem } from "../../types/pod-types"
 
-export function ClonedPodTasks() {
+export function ClonedPodTasks({ tasks }: { tasks: Array<PodTaskItem> }) {
   return (
     <div className="pp-4 space-y-4">
-      <Accordion className="w-full" defaultValue={["task-1"]}>
-        {tryHackMeTasks.map((task, index) => (
+      <Accordion className="w-full" defaultValue={[tasks[0]?.id]}>
+        {tasks.map((task, index) => (
           <AccordionItem key={task.id} value={task.id}>
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex flex-1 items-center justify-between">
@@ -49,20 +42,8 @@ export function ClonedPodTasks() {
                   {task.description}
                 </div>
 
-                {task.questions.length > 0 && (
-                  <div className="space-y-6 border-t pt-4">
-                    <h3 className="text-lg font-semibold">Questions</h3>
-                    {task.questions.map((q) => (
-                      <div key={q.id} className="space-y-3">
-                        <p className="text-sm font-medium">{q.text}</p>
-                        <div className="flex gap-2">
-                          <Input placeholder="Enter your answer..." />
-                          <Button size="sm">Submit</Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Since the mock data in PodTaskItem doesn't have questions yet, we can keep the UI structure if needed, or hide it */}
+                {/* For now, I'll assume if there are no questions, we don't show the section */}
               </div>
             </AccordionContent>
           </AccordionItem>
