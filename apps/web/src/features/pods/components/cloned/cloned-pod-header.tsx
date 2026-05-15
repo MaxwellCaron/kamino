@@ -31,7 +31,7 @@ export function ClonedPodHeader({ pod }: { pod: ClonedPod }) {
       <GrainientBackground className="opacity-40" />
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 lg:px-6">
         <div className="flex flex-col gap-8 md:flex-row md:items-start">
-          <div className="mx-auto shrink-0 md:mx-0">
+          <div className="mx-auto hidden shrink-0 md:mx-0 lg:block">
             <div className="overflow-hidden rounded-3xl bg-background/85 shadow ring-1 ring-border">
               <Image
                 src={pod.image}
