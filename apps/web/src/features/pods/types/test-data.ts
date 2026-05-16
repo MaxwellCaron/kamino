@@ -11,6 +11,7 @@ export const pods: Array<Pod> = [
     created_at: "2024-05-01T12:00:00Z",
     clones: 124,
     isNew: true,
+    vmsVisible: false,
   },
   {
     id: "5",
@@ -21,6 +22,7 @@ export const pods: Array<Pod> = [
     created_at: "2024-04-28T12:00:00Z",
     clones: 89,
     isNew: true,
+    vmsVisible: true,
   },
   {
     id: "4",
@@ -30,6 +32,7 @@ export const pods: Array<Pod> = [
     creators: ["bill"],
     created_at: "2024-04-25T12:00:00Z",
     clones: 231,
+    vmsVisible: false,
   },
   {
     id: "3",
@@ -39,6 +42,7 @@ export const pods: Array<Pod> = [
     creators: ["eric"],
     created_at: "2024-04-20T12:00:00Z",
     clones: 542,
+    vmsVisible: true,
   },
   {
     id: "2",
@@ -49,6 +53,7 @@ export const pods: Array<Pod> = [
     creators: ["roman"],
     created_at: "2024-04-15T12:00:00Z",
     clones: 167,
+    vmsVisible: true,
   },
   {
     id: "1",
@@ -59,6 +64,7 @@ export const pods: Array<Pod> = [
     creators: ["nich"],
     created_at: "2024-04-10T12:00:00Z",
     clones: 95,
+    vmsVisible: true,
   },
 ]
 

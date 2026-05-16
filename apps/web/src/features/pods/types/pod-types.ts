@@ -9,6 +9,7 @@ export interface Pod {
   created_at: string
   clones: number
   isNew?: boolean
+  vmsVisible?: boolean
 }
 
 export interface PodVM {

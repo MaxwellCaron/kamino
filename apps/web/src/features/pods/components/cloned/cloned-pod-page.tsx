@@ -10,7 +10,7 @@ export function ClonedPodPage({ pod }: { pod: ClonedPod }) {
         <ClonedPodHeader pod={pod} />
 
         <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 md:py-6 lg:px-6">
-          <ClonedPodVms vms={pod.vms} />
+          <ClonedPodVms vms={pod.vms} vmsVisible={pod.vmsVisible} />
           <ClonedPodTasks tasks={pod.tasks?.items ?? []} />
         </div>
       </div>
