@@ -11,11 +11,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field"
 import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
-import type { PodTaskItem } from "../../types/pod-types"
+import { Input } from "@workspace/ui/components/input"
+import { Separator } from "@workspace/ui/components/separator"
+import { Button } from "@workspace/ui/components/button"
+import type { PodTask } from "../../types/pod-types"
 
-export function ClonedPodTasks({ tasks }: { tasks: Array<PodTaskItem> }) {
+export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
   return (
     <Card className="rounded-b-2xl! pb-0">
       <CardHeader>
@@ -57,11 +66,43 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTaskItem> }) {
               <AccordionContent className="px-4 pt-4 pb-6">
                 <div className="space-y-6">
                   <div className="leading-7 whitespace-pre-wrap">
-                    {task.description}
+                    {task.content}
                   </div>
 
-                  {/* Since the mock data in PodTaskItem doesn't have questions yet, we can keep the UI structure if needed, or hide it */}
-                  {/* For now, I'll assume if there are no questions, we don't show the section */}
+                  {task.questions && (
+                    <div className="space-y-4">
+                      <Separator />
+                      <span className="text-xl font-semibold tracking-tight">
+                        Questions
+                      </span>
+                      <FieldGroup className="mt-4">
+                        {task.questions.map((question, questionIndex) => (
+                          <Field key={question.id}>
+                            <FieldLabel htmlFor={question.id}>
+                              {questionIndex + 1}. {question.title}
+                            </FieldLabel>
+                            <div className="flex gap-2">
+                              <Input
+                                id={question.id}
+                                type="text"
+                                placeholder={
+                                  question.answerOutline
+                                    ? question.answerOutline
+                                    : "Type your answer here..."
+                                }
+                              />
+                              <Button>Submit</Button>
+                            </div>
+                            {question.description && (
+                              <FieldDescription>
+                                {question.description}
+                              </FieldDescription>
+                            )}
+                          </Field>
+                        ))}
+                      </FieldGroup>
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>

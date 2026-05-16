@@ -27,14 +27,23 @@ export interface ClonedPod extends Pod {
     total: number
     completed: number
     progress: number
-    items: Array<PodTaskItem>
+    items: Array<PodTask>
   }
 }
 
-export interface PodTaskItem {
+export interface PodTask {
   id: string
   title: string
-  description?: string
+  content: string
   completed: boolean
+  questions?: Array<PodTaskQuestion>
+}
+
+export interface PodTaskQuestion {
+  id: string
+  title: string
+  completed: boolean
+  answerOutline?: string
+  description?: string
   hint?: string
 }

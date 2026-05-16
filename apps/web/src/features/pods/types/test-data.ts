@@ -120,13 +120,13 @@ export const clonedPods: Array<ClonedPod> = [
         {
           id: "task-1",
           title: "Task 1",
-          description: "Description for task 1",
+          content: "Description for task 1",
           completed: true,
         },
         {
           id: "task-2",
           title: "Task 2",
-          description: "Description for task 2",
+          content: "Description for task 2",
           completed: false,
         },
       ],
@@ -240,103 +240,114 @@ export const clonedPods: Array<ClonedPod> = [
         {
           id: "task-1",
           title: "Task 1",
-          description: "Description for task 1",
+          content:
+            "In this task, we will cover the basics of static analysis. Static analysis is the process of analyzing a program without executing it. This is typically done by examining the code or the binary itself.",
           completed: true,
+          questions: [
+            {
+              id: "question-1",
+              title: "Question 1",
+              completed: true,
+              answerOutline: "****",
+              hint: "Test hint for question 1.",
+            },
+            {
+              id: "question-2",
+              title: "Question 2",
+              completed: true,
+              answerOutline: "***** ***",
+              description: "Test description for question 2.",
+            },
+          ],
         },
         {
           id: "task-2",
           title: "Task 2",
-          description: "Description for task 2",
+          content:
+            "For this challenge, you need to find a hidden flag within the provided binary using the 'strings' utility. The flag follows the format THM{...}.",
           completed: true,
+          questions: [
+            {
+              id: "question-1",
+              title: "Question 1",
+              completed: true,
+              answerOutline: "****",
+            },
+            {
+              id: "question-2",
+              title: "Question 2",
+              completed: true,
+              answerOutline: "***** ***",
+            },
+            {
+              id: "question-3",
+              title: "Question 3",
+              completed: false,
+              answerOutline: "",
+            },
+          ],
         },
         {
           id: "task-3",
           title: "Task 3",
-          description: "Description for task 3",
+          content:
+            "This challenge is slightly more difficult. The flag is encoded. You might need to use additional tools like grep or a hex editor to locate it.",
           completed: false,
+          questions: [
+            {
+              id: "question-1",
+              title: "Question 1",
+              completed: false,
+              answerOutline: "",
+            },
+            {
+              id: "question-2",
+              title: "Question 2",
+              completed: false,
+              answerOutline: "",
+            },
+            {
+              id: "question-3",
+              title: "Question 3",
+              completed: false,
+              answerOutline: "",
+            },
+          ],
         },
         {
           id: "task-4",
           title: "Task 4",
-          description: "Description for task 4",
+          content:
+            "The final strings challenge. This binary is packed. You will need to identify the packer used and find the flag within the packed sections.",
           completed: false,
+          questions: [
+            {
+              id: "question-1",
+              title: "Question 1",
+              completed: false,
+              answerOutline: "",
+            },
+            {
+              id: "question-2",
+              title: "Question 2",
+              completed: false,
+              answerOutline: "",
+            },
+            {
+              id: "question-3",
+              title: "Question 3",
+              completed: false,
+              answerOutline: "",
+            },
+          ],
         },
         {
           id: "task-5",
           title: "Task 5",
-          description: "Description for task 5",
+          content: "Description for task 5",
           completed: false,
         },
       ],
     },
-  },
-]
-
-export const tryHackMeTasks = [
-  {
-    id: "task-1",
-    title: "Introduction",
-    completed: true,
-    description:
-      "In this task, we will cover the basics of static analysis. Static analysis is the process of analyzing a program without executing it. This is typically done by examining the code or the binary itself.",
-    questions: [
-      {
-        id: "q1",
-        text: "What is static analysis?",
-        hint: "Look at the first sentence of the description.",
-      },
-      {
-        id: "q2",
-        text: "Does static analysis require code execution?",
-        hint: "The word 'without' is a big clue.",
-      },
-    ],
-  },
-  {
-    id: "task-2",
-    title: "Strings :: Challenge 1",
-    completed: false,
-    description:
-      "For this challenge, you need to find a hidden flag within the provided binary using the 'strings' utility. The flag follows the format THM{...}.",
-    hasDownload: true,
-    questions: [
-      {
-        id: "q3",
-        text: "What is the flag?",
-        hint: "Run 'strings binary | grep THM'.",
-      },
-    ],
-  },
-  {
-    id: "task-3",
-    title: "Strings :: Challenge 2",
-    completed: false,
-    description:
-      "This challenge is slightly more difficult. The flag is encoded. You might need to use additional tools like grep or a hex editor to locate it.",
-    hasDownload: true,
-    questions: [
-      { id: "q4", text: "Locate the encoded flag." },
-      {
-        id: "q5",
-        text: "What is the decoded flag?",
-        hint: "It looks like Base64 encoding.",
-      },
-    ],
-  },
-  {
-    id: "task-4",
-    title: "Strings 3 :: Challenge 3",
-    completed: false,
-    description:
-      "The final strings challenge. This binary is packed. You will need to identify the packer used and find the flag within the packed sections.",
-    hasDownload: true,
-    questions: [
-      {
-        id: "q6",
-        text: "Identify the packer.",
-        hint: "Try using 'die' or 'pestudio'.",
-      },
-      { id: "q7", text: "Provide the final flag." },
-    ],
   },
 ]
