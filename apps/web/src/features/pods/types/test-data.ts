@@ -71,6 +71,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-1",
         name: "RE-Workstation",
         status: "running",
+        uptime: 45324,
         resources: {
           cpu: 0.15,
           maxcpu: 4,
@@ -89,6 +90,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-2",
         name: "Target-Binary-Host",
         status: "stopped",
+        uptime: 6234,
         resources: {
           cpu: 0,
           maxcpu: 2,
@@ -132,6 +134,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-3",
         name: "Kali-Linux",
         status: "running",
+        uptime: 18745,
         resources: {
           cpu: 0.45,
           maxcpu: 4,
@@ -150,6 +153,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-4",
         name: "Kali-Linux",
         status: "running",
+        uptime: 817333,
         resources: {
           cpu: 0.45,
           maxcpu: 4,
@@ -168,6 +172,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-5",
         name: "Kali-Linux",
         status: "running",
+        uptime: 1234,
         resources: {
           cpu: 0.45,
           maxcpu: 4,
@@ -186,6 +191,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-6",
         name: "Kali-Linux",
         status: "running",
+        uptime: 12,
         resources: {
           cpu: 0.45,
           maxcpu: 4,
@@ -204,6 +210,7 @@ export const clonedPods: Array<ClonedPod> = [
         id: "vm-7",
         name: "Kali-Linux",
         status: "running",
+        uptime: 6712,
         resources: {
           cpu: 0.45,
           maxcpu: 4,

@@ -11,14 +11,17 @@ export interface Pod {
   isNew?: boolean
 }
 
+export interface PodVM {
+  id: string
+  name: string
+  status: string
+  resources: VmResources
+  uptime?: number
+}
+
 export interface ClonedPod extends Pod {
   cloned_at: string
-  vms: Array<{
-    id: string
-    name: string
-    status: string
-    resources: VmResources
-  }>
+  vms: Array<PodVM>
   tasks?: {
     total: number
     completed: number
