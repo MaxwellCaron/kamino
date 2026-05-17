@@ -37,9 +37,9 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
           <IconChecklist className="text-muted-foreground" />
         </CardAction>
       </CardHeader>
-      <CardContent className="-mx-6">
+      <CardContent className="-mx-6 border-t">
         <Accordion
-          className="w-full rounded-t-none!"
+          className="w-full rounded-t-none! border-none"
           defaultValue={[tasks[0]?.id]}
         >
           {tasks.map((task, index) => (

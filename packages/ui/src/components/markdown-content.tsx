@@ -1,4 +1,6 @@
 import * as React from "react"
+import { Link } from "@tanstack/react-router"
+import { Image } from "@unpic/react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -63,10 +65,13 @@ export const markdownComponents: Components = {
       {...props}
     />
   ),
-  a: ({ className, node: _node, ...props }) => (
-    <a
+  a: ({ className, href, node: _node, ...props }) => (
+    <Link
+      to={href}
+      target="_blank"
+      rel="noopener noreferrer"
       className={cn(
-        "font-medium text-primary underline underline-offset-4",
+        "cursor-default font-medium text-primary underline underline-offset-4",
         className
       )}
       {...props}
@@ -143,12 +148,26 @@ export const markdownComponents: Components = {
       {...props}
     />
   ),
-  img: ({ className, node: _node, ...props }) => (
-    <img
+  img: ({
+    alt,
+    className,
+    height: _height,
+    node: _node,
+    src,
+    width: _width,
+    ...props
+  }) => (
+    <Image
+      alt={alt ?? ""}
       className={cn(
         "mx-auto my-6 max-h-80 w-auto max-w-full rounded-md border object-contain sm:max-h-96",
         className
       )}
+      decoding="async"
+      layout="fullWidth"
+      loading="lazy"
+      src={src ?? ""}
+      unstyled
       {...props}
     />
   ),
