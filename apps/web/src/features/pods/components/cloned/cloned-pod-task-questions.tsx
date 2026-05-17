@@ -21,7 +21,7 @@ export function ClonedPodTaskQuestions({
   questions: Array<PodTaskQuestion>
 }) {
   return (
-    <Card>
+    <Card className="bg-muted/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconZoomQuestion className="size-4.5 text-muted-foreground" />

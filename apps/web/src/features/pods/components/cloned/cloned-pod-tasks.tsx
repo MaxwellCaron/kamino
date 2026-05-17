@@ -17,6 +17,7 @@ import {
   IconCircleCheckFilled,
   IconCircleXFilled,
 } from "@tabler/icons-react"
+import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodTaskQuestions } from "./cloned-pod-task-questions"
 import type { PodTask } from "@/features/pods/types/pod-types"
@@ -42,7 +43,11 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
           defaultValue={[tasks[0]?.id]}
         >
           {tasks.map((task, index) => (
-            <AccordionItem key={task.id} value={task.id}>
+            <AccordionItem
+              key={task.id}
+              value={task.id}
+              className="data-open:bg-card"
+            >
               <AccordionTrigger className="px-6 hover:no-underline">
                 <div className="flex flex-1 items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -66,10 +71,8 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
-                <div className="space-y-6">
-                  <div className="leading-7 whitespace-pre-wrap">
-                    {task.content}
-                  </div>
+                <div className="flex flex-col gap-6">
+                  <MarkdownContent>{task.content}</MarkdownContent>
 
                   {task.questions && (
                     <ClonedPodTaskQuestions questions={task.questions} />
