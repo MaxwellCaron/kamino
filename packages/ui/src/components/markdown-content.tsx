@@ -6,9 +6,104 @@ import remarkGfm from "remark-gfm"
 
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  CodeBlock,
+  CodeBlockBody,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+  CodeBlockHeader,
+  CodeBlockItem,
+} from "./kibo-ui/code-block"
+import type { BundledLanguage } from "./kibo-ui/code-block"
 import type { Components } from "react-markdown"
 
 const remarkPlugins = [remarkGfm]
+
+type MarkdownCodeElementProps = {
+  children?: React.ReactNode
+  className?: string
+}
+
+function extractCodeBlock(children: React.ReactNode) {
+  const child =
+    React.Children.count(children) === 1 ? React.Children.only(children) : null
+
+  if (!React.isValidElement<MarkdownCodeElementProps>(child)) {
+    return null
+  }
+
+  const className = child.props.className ?? ""
+  const language = className.match(/language-([^\s]+)/)?.[1]
+  const codeChildren = child.props.children
+  const code = Array.isArray(codeChildren)
+    ? codeChildren.join("")
+    : String(codeChildren ?? "")
+
+  return {
+    code: code.replace(/\n$/, ""),
+    language: language ?? "text",
+  }
+}
+
+function MarkdownCodeBlock({
+  children,
+  className,
+  defaultValue: _defaultValue,
+  ...props
+}: React.ComponentProps<"pre">) {
+  const block = extractCodeBlock(children)
+
+  if (!block) {
+    return (
+      <pre
+        className={cn(
+          "my-6 overflow-x-auto rounded-lg border bg-muted p-4 text-sm leading-6 [&_code]:bg-transparent [&_code]:p-0 [&_code]:font-normal",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </pre>
+    )
+  }
+
+  return (
+    <CodeBlock
+      className={cn("my-6", className)}
+      data={[
+        {
+          language: block.language,
+          filename: block.language,
+          code: block.code,
+        },
+      ]}
+      defaultValue={block.language}
+    >
+      <CodeBlockHeader className="justify-between gap-2 bg-muted pr-1 pl-3">
+        <span className="truncate py-1 text-xs font-medium text-muted-foreground">
+          {block.language}
+        </span>
+        <CodeBlockCopyButton
+          className="text-muted-foreground"
+          size="icon-sm"
+          text={block.code}
+        />
+      </CodeBlockHeader>
+      <CodeBlockBody>
+        {(item) => (
+          <CodeBlockItem key={item.language} value={item.language}>
+            <CodeBlockContent
+              className="overflow-x-auto"
+              language={item.language as BundledLanguage}
+            >
+              {item.code}
+            </CodeBlockContent>
+          </CodeBlockItem>
+        )}
+      </CodeBlockBody>
+    </CodeBlock>
+  )
+}
 
 export const markdownComponents: Components = {
   h1: ({ className, node: _node, ...props }) => (
@@ -111,13 +206,7 @@ export const markdownComponents: Components = {
     />
   ),
   pre: ({ className, node: _node, ...props }) => (
-    <pre
-      className={cn(
-        "my-6 overflow-x-auto rounded-lg border bg-muted p-4 text-sm leading-6 [&_code]:bg-transparent [&_code]:p-0 [&_code]:font-normal",
-        className
-      )}
-      {...props}
-    />
+    <MarkdownCodeBlock className={className} {...props} />
   ),
   table: ({ className, node: _node, ...props }) => (
     <div className="my-6 w-full overflow-y-auto">
