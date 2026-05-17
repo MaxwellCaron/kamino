@@ -61,16 +61,20 @@ export function ClonedPodVms({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Virtual Machines</CardTitle>
+        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+          Virtual Machines
+        </CardTitle>
         <CardDescription>
           Virtual machines that belong to this pod and their current status
         </CardDescription>
         <CardAction className="flex gap-2">
-          <Button size="icon">
-            <IconPlayerPlay />
+          <Button>
+            <IconPlayerPlay data-icon="inline-start" />
+            <span className="hidden md:block">Start All</span>
           </Button>
-          <Button size="icon" variant="destructive">
-            <IconPlayerStop />
+          <Button variant="destructive">
+            <IconPlayerStop data-icon="inline-start" />
+            <span className="hidden md:block">Stop All</span>
           </Button>
         </CardAction>
       </CardHeader>

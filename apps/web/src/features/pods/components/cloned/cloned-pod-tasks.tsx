@@ -6,6 +6,7 @@ import {
 } from "@workspace/ui/components/accordion"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -17,10 +18,14 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react"
+import {
+  IconChecklist,
+  IconCircleCheckFilled,
+  IconCircleXFilled,
+  IconZoomQuestion,
+} from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Input } from "@workspace/ui/components/input"
-import { Separator } from "@workspace/ui/components/separator"
 import { Button } from "@workspace/ui/components/button"
 import type { PodTask } from "../../types/pod-types"
 
@@ -28,11 +33,16 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
   return (
     <Card className="rounded-b-2xl! pb-0">
       <CardHeader>
-        <CardTitle>Tasks</CardTitle>
+        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+          Tasks
+        </CardTitle>
         <CardDescription>
-          Questions that must be answered or objectives that must be completed
-          in order to complete the pod.
+          Questions that must be answered or objectives that must be reached in
+          order to complete the pod.
         </CardDescription>
+        <CardAction>
+          <IconChecklist className="text-muted-foreground" />
+        </CardAction>
       </CardHeader>
       <CardContent className="-mx-6">
         <Accordion
@@ -41,7 +51,7 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
         >
           {tasks.map((task, index) => (
             <AccordionItem key={task.id} value={task.id}>
-              <AccordionTrigger className="px-4 hover:no-underline">
+              <AccordionTrigger className="px-6 hover:no-underline">
                 <div className="flex flex-1 items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span
@@ -63,45 +73,49 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
                   </div>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="px-4 pt-4 pb-6">
+              <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
                 <div className="space-y-6">
                   <div className="leading-7 whitespace-pre-wrap">
                     {task.content}
                   </div>
 
                   {task.questions && (
-                    <div className="space-y-4">
-                      <Separator />
-                      <span className="text-xl font-semibold tracking-tight">
-                        Questions
-                      </span>
-                      <FieldGroup className="mt-4">
-                        {task.questions.map((question, questionIndex) => (
-                          <Field key={question.id}>
-                            <FieldLabel htmlFor={question.id}>
-                              {questionIndex + 1}. {question.title}
-                            </FieldLabel>
-                            <div className="flex gap-2">
-                              <Input
-                                id={question.id}
-                                type="text"
-                                placeholder={
-                                  question.answerOutline
-                                    ? question.answerOutline
-                                    : "Type your answer here..."
-                                }
-                              />
-                              <Button>Submit</Button>
-                            </div>
-                            {question.description && (
-                              <FieldDescription>
-                                {question.description}
-                              </FieldDescription>
-                            )}
-                          </Field>
-                        ))}
-                      </FieldGroup>
-                    </div>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <IconZoomQuestion className="size-4.5 text-muted-foreground" />
+                          Questions
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <FieldGroup>
+                          {task.questions.map((question, questionIndex) => (
+                            <Field key={question.id}>
+                              <FieldLabel htmlFor={question.id}>
+                                {questionIndex + 1}. {question.title}
+                              </FieldLabel>
+                              <div className="flex gap-2">
+                                <Input
+                                  id={question.id}
+                                  type="text"
+                                  placeholder={
+                                    question.answerOutline
+                                      ? question.answerOutline
+                                      : "Type your answer here..."
+                                  }
+                                />
+                                <Button>Submit</Button>
+                              </div>
+                              {question.description && (
+                                <FieldDescription>
+                                  {question.description}
+                                </FieldDescription>
+                              )}
+                            </Field>
+                          ))}
+                        </FieldGroup>
+                      </CardContent>
+                    </Card>
                   )}
                 </div>
               </AccordionContent>
