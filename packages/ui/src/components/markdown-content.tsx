@@ -11,6 +11,8 @@ import {
   CodeBlockBody,
   CodeBlockContent,
   CodeBlockCopyButton,
+  CodeBlockFilename,
+  CodeBlockFiles,
   CodeBlockHeader,
   CodeBlockItem,
 } from "./kibo-ui/code-block"
@@ -22,6 +24,20 @@ const remarkPlugins = [remarkGfm]
 type MarkdownCodeElementProps = {
   children?: React.ReactNode
   className?: string
+  node?: {
+    data?: {
+      meta?: unknown
+    }
+  }
+}
+
+function getCodeBlockFilename(meta: unknown) {
+  if (typeof meta !== "string") {
+    return undefined
+  }
+
+  const match = meta.match(/(?:^|\s)file:(?:"([^"]+)"|'([^']+)'|(\S+))/)
+  return match?.[1] ?? match?.[2] ?? match?.[3]
 }
 
 function extractCodeBlock(children: React.ReactNode) {
@@ -41,6 +57,7 @@ function extractCodeBlock(children: React.ReactNode) {
 
   return {
     code: code.replace(/\n$/, ""),
+    filename: getCodeBlockFilename(child.props.node?.data?.meta),
     language: language ?? "text",
   }
 }
@@ -73,16 +90,20 @@ function MarkdownCodeBlock({
       data={[
         {
           language: block.language,
-          filename: block.language,
+          filename: block.filename ?? block.language,
           code: block.code,
         },
       ]}
       defaultValue={block.language}
     >
       <CodeBlockHeader className="justify-between gap-2 bg-muted pr-1 pl-3">
-        <span className="truncate py-1 text-xs font-medium text-muted-foreground">
-          {block.language}
-        </span>
+        <CodeBlockFiles>
+          {(item) => (
+            <CodeBlockFilename key={item.language} value={item.language}>
+              {item.filename}
+            </CodeBlockFilename>
+          )}
+        </CodeBlockFiles>
         <CodeBlockCopyButton
           className="text-muted-foreground"
           size="icon-sm"

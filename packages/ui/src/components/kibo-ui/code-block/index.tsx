@@ -179,6 +179,84 @@ const filenameIconMap = {
   "*.wasm": SiWebassembly,
 }
 
+const languageIconMap: Record<string, IconType> = {
+  astro: SiAstro,
+  bash: SiGnubash,
+  biome: SiBiome,
+  bun: SiBun,
+  c: SiC,
+  coffee: SiCoffeescript,
+  coffeescript: SiCoffeescript,
+  cpp: SiCplusplus,
+  css: SiCss,
+  dart: SiDart,
+  docker: SiDocker,
+  dockerfile: SiDocker,
+  dotenv: SiDotenv,
+  env: SiDotenv,
+  go: SiGo,
+  graphql: SiGraphql,
+  handlebars: SiHandlebarsdotjs,
+  hbs: SiHandlebarsdotjs,
+  html: SiHtml5,
+  javascript: SiJavascript,
+  js: SiJavascript,
+  json: SiJson,
+  jsx: SiReact,
+  less: SiLess,
+  markdown: SiMarkdown,
+  md: SiMarkdown,
+  mdx: SiMdx,
+  mysql: SiMysql,
+  perl: SiPerl,
+  php: SiPhp,
+  postcss: SiPostcss,
+  prisma: SiPrisma,
+  pug: SiPug,
+  py: SiPython,
+  python: SiPython,
+  r: SiR,
+  rb: SiRuby,
+  ruby: SiRuby,
+  sass: SiSass,
+  sc: SiScala,
+  scala: SiScala,
+  scss: SiSass,
+  sh: SiGnubash,
+  shell: SiGnubash,
+  shellscript: SiGnubash,
+  sql: SiMysql,
+  svelte: SiSvelte,
+  svg: SiSvg,
+  swift: SiSwift,
+  tailwind: SiTailwindcss,
+  tailwindcss: SiTailwindcss,
+  toml: SiToml,
+  ts: SiTypescript,
+  tsx: SiReact,
+  typescript: SiTypescript,
+  vue: SiVuedotjs,
+  wasm: SiWebassembly,
+  zsh: SiGnubash,
+}
+
+function getLanguageIcon(language?: string) {
+  return language ? languageIconMap[language.toLowerCase()] : undefined
+}
+
+function getFilenameIcon(filename: ReactNode) {
+  if (typeof filename !== "string") {
+    return undefined
+  }
+
+  return Object.entries(filenameIconMap).find(([pattern]) => {
+    const regex = new RegExp(
+      `^${pattern.replace(/\\/g, "\\\\").replace(/\./g, "\\.").replace(/\*/g, ".*")}$`
+    )
+    return regex.test(filename)
+  })?.[1]
+}
+
 const lineNumberClassNames = cn(
   "[&_code]:[counter-reset:line]",
   "[&_code]:[counter-increment:line_0]",
@@ -406,12 +484,8 @@ export const CodeBlockFilename = ({
   ...props
 }: CodeBlockFilenameProps) => {
   const { value: activeValue } = useContext(CodeBlockContext)
-  const defaultIcon = Object.entries(filenameIconMap).find(([pattern]) => {
-    const regex = new RegExp(
-      `^${pattern.replace(/\\/g, "\\\\").replace(/\./g, "\\.").replace(/\*/g, ".*")}$`
-    )
-    return regex.test(children as string)
-  })?.[1]
+  const defaultIcon =
+    value === undefined ? getFilenameIcon(children) : getLanguageIcon(value)
   const Icon = icon ?? defaultIcon
 
   if (value !== activeValue) {

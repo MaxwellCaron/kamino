@@ -25,10 +25,9 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import {
   IconClock,
+  IconDeviceDesktop,
   IconDotsVertical,
   IconEyeX,
-  IconPlayerPlay,
-  IconPlayerStop,
 } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import type { PodVM } from "../../types/pod-types"
@@ -67,15 +66,8 @@ export function ClonedPodVms({
         <CardDescription>
           Virtual machines that belong to this pod and their current status
         </CardDescription>
-        <CardAction className="flex gap-2">
-          <Button>
-            <IconPlayerPlay data-icon="inline-start" />
-            <span className="hidden md:block">Start All</span>
-          </Button>
-          <Button variant="destructive">
-            <IconPlayerStop data-icon="inline-start" />
-            <span className="hidden md:block">Stop All</span>
-          </Button>
+        <CardAction>
+          <IconDeviceDesktop className="text-muted-foreground" />
         </CardAction>
       </CardHeader>
       <CardContent>
