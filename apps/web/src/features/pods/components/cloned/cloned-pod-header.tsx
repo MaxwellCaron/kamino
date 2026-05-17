@@ -5,22 +5,10 @@ import {
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
 import { Image } from "@unpic/react"
-import {
-  IconDotsVertical,
-  IconPackageExport,
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconTrash,
-} from "@tabler/icons-react"
+import { IconPackageExport, IconTrash } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
 import { FormatClonedPodCreators } from "@/features/pods/components/creators"
@@ -46,30 +34,10 @@ export function ClonedPodHeader({ pod }: { pod: ClonedPod }) {
 
           <div className="relative flex flex-1 flex-col md:min-h-56 md:pr-14">
             <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button variant="ghost" size="icon" className="shrink-0" />
-                  }
-                >
-                  <IconDotsVertical />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
-                    <IconPlayerPlay className="size-4" />
-                    <span>Start Pod</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <IconPlayerStop className="size-4" />
-                    <span>Stop Pod</span>
-                  </DropdownMenuItem>
-                  <Separator className="my-1" />
-                  <DropdownMenuItem variant="destructive">
-                    <IconTrash className="size-4" />
-                    <span>Delete Pod</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button variant="destructive">
+                <IconTrash className="size-4" data-icon="inline-start" />
+                <span className="hidden lg:block">Delete Pod</span>
+              </Button>
             </div>
 
             <div className="flex flex-1 flex-col justify-center">
