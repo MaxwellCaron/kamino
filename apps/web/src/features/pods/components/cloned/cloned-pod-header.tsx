@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
 import { FormatClonedPodCreators } from "@/features/pods/components/creators"
 import { GrainientBackground } from "@/components/grainient-background"
@@ -113,7 +114,6 @@ export function ClonedPodHeader({ pod }: { pod: ClonedPod }) {
                 )}
 
                 <Separator orientation="vertical" />
-
                 <div className="text-sm text-muted-foreground">
                   Cloned{" "}
                   <RelativeTimeCard
@@ -123,6 +123,9 @@ export function ClonedPodHeader({ pod }: { pod: ClonedPod }) {
                     closeDelay={150}
                   />
                 </div>
+
+                <Separator orientation="vertical" />
+                <ClonedPodStatusBadge status={pod.status} />
               </div>
             </div>
           </div>

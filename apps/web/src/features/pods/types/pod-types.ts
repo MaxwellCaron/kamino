@@ -20,8 +20,11 @@ export interface PodVM {
   uptime?: number
 }
 
+export type ClonedPodStatus = "running" | "stopped" | "partial"
+
 export interface ClonedPod extends Pod {
   cloned_at: string
+  status: ClonedPodStatus
   vms: Array<PodVM>
   tasks?: {
     total: number

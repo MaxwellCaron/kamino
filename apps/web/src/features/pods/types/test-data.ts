@@ -72,6 +72,7 @@ export const clonedPods: Array<ClonedPod> = [
   {
     ...pods[0],
     cloned_at: "2024-05-10T08:00:00Z",
+    status: "running",
     vms: [
       {
         id: "vm-1",
@@ -135,6 +136,7 @@ export const clonedPods: Array<ClonedPod> = [
   {
     ...pods[1],
     cloned_at: "2024-05-11T14:30:00Z",
+    status: "running",
     vms: [
       {
         id: "vm-3",
