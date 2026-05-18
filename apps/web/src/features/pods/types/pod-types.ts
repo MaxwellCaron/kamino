@@ -3,6 +3,7 @@ import type { VmResources } from "@/features/vms/types/vm-types"
 export interface Pod {
   id: string
   title: string
+  slug: string
   description: string
   image: string
   creators: Array<string>

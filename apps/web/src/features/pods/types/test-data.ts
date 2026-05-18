@@ -4,6 +4,7 @@ export const pods: Array<Pod> = [
   {
     id: "6",
     title: "Reverse Engineering",
+    slug: "reverse-engineering",
     description:
       "Learn how to work backwards and understand programs through their data!",
     image: "https://i.imgur.com/Mlp5on4.png",
@@ -46,7 +47,8 @@ Keep notes short and factual. This first pass is about building context before d
             },
             {
               id: "re-question-2",
-              title: "What property tells you whether debug symbols were removed?",
+              title:
+                "What property tells you whether debug symbols were removed?",
               completed: false,
               answerOutline: "*******",
             },
@@ -68,7 +70,8 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
           questions: [
             {
               id: "re-question-3",
-              title: "What function should you identify before tracing user input?",
+              title:
+                "What function should you identify before tracing user input?",
               completed: false,
               answerOutline: "***** *****",
             },
@@ -86,6 +89,7 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
   {
     id: "5",
     title: "Intro to Red Team",
+    slug: "intro-to-red-team",
     description: "Ethically hack into an infrastructure with your team!",
     image: "https://i.imgur.com/i349T75.png",
     creators: ["tommy", "mcaron"],
@@ -97,6 +101,7 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
   {
     id: "4",
     title: "Insecure Deserialzation",
+    slug: "insecure-deserialization",
     description: "Learn how to keep your save files safe from malicious code.",
     image: "https://i.imgur.com/H9pBcUi.png",
     creators: ["bill"],
@@ -126,7 +131,8 @@ Do not assume the format from the filename alone. Confirm it with what you can o
           questions: [
             {
               id: "deserialize-question-1",
-              title: "What should you confirm before trusting the file extension?",
+              title:
+                "What should you confirm before trusting the file extension?",
               completed: false,
               answerOutline: "******",
             },
@@ -150,13 +156,15 @@ Focus on constructors, magic methods, or hooks that execute automatically during
           questions: [
             {
               id: "deserialize-question-3",
-              title: "Which class behavior is especially risky during object restoration?",
+              title:
+                "Which class behavior is especially risky during object restoration?",
               completed: false,
               answerOutline: "***** *******",
             },
             {
               id: "deserialize-question-4",
-              title: "What kind of input should never fully control object creation?",
+              title:
+                "What kind of input should never fully control object creation?",
               completed: false,
               answerOutline: "********* *****",
             },
@@ -168,6 +176,7 @@ Focus on constructors, magic methods, or hooks that execute automatically during
   {
     id: "3",
     title: "Capture The Flag",
+    slug: "capture-the-flag",
     description: "Join SWIFT and FAST for a CTF. Top 3 finishers get prizes!",
     image: "https://i.imgur.com/ivoLn2o.png",
     creators: ["eric"],
@@ -266,6 +275,7 @@ Use clean evidence so disputes are easy to resolve after the event.`,
   {
     id: "2",
     title: "Linux Securing & Hardening",
+    slug: "linux-securing-hardening",
     description:
       "Learn to secure different Linux vulnerabilities through tools and configurations.",
     image: "https://i.imgur.com/E4EQHZS.png",
@@ -296,7 +306,8 @@ You are building a before-state so later changes can be justified.`,
           questions: [
             {
               id: "linux-question-1",
-              title: "Which command shows the current user and group memberships?",
+              title:
+                "Which command shows the current user and group memberships?",
               completed: false,
               answerOutline: "**",
             },
@@ -362,6 +373,7 @@ Good hardening reduces risk without creating an outage.`,
   {
     id: "1",
     title: "Web Application Firewalls",
+    slug: "web-application-firewalls",
     description:
       "Utilize web app firewalls to protect yourself against application layer attacks.",
     image: "https://i.imgur.com/FpwbsE5.png",
@@ -392,7 +404,8 @@ You need the policy shape before you can judge whether it is effective.`,
           questions: [
             {
               id: "waf-question-1",
-              title: "What should you identify before judging rule effectiveness?",
+              title:
+                "What should you identify before judging rule effectiveness?",
               completed: false,
               answerOutline: "****** *****",
             },
@@ -416,7 +429,8 @@ Look for false positives, missing blocks, and whether useful logs are generated 
           questions: [
             {
               id: "waf-question-3",
-              title: "What should a safe validation exercise look for besides blocks?",
+              title:
+                "What should a safe validation exercise look for besides blocks?",
               completed: false,
               answerOutline: "***** *********",
             },
@@ -512,7 +526,8 @@ Keep notes short and factual. This first pass is about building context before d
             },
             {
               id: "re-question-2",
-              title: "What property tells you whether debug symbols were removed?",
+              title:
+                "What property tells you whether debug symbols were removed?",
               completed: true,
               answerOutline: "*******",
             },
@@ -534,7 +549,8 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
           questions: [
             {
               id: "re-question-3",
-              title: "What function should you identify before tracing user input?",
+              title:
+                "What function should you identify before tracing user input?",
               completed: false,
               answerOutline: "***** *****",
             },

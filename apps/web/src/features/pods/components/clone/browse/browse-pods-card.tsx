@@ -90,8 +90,8 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
       <CutoutCardAction className="right-6 bottom-5.5">
         <div className="rounded-4xl bg-background shadow-md transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]">
           <Link
-            to="/pods/$podId"
-            params={{ podId: pod.id }}
+            to="/pods/$podSlug"
+            params={{ podSlug: pod.slug }}
             className={`${buttonVariants({ variant: "default" })} cursor-default`}
           >
             Open
