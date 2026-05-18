@@ -172,19 +172,19 @@ export function ClonedPodHeader({
                   </>
                 )}
 
+                <Separator orientation="vertical" />
+                <div className="text-sm text-muted-foreground">
+                  {clonedPod ? "Cloned" : "Created"}{" "}
+                  <RelativeTimeCard
+                    date={clonedPod ? clonedPod.cloned_at : pod.created_at}
+                    side="bottom"
+                    delay={50}
+                    closeDelay={150}
+                  />
+                </div>
+
                 {clonedPod && (
                   <>
-                    <Separator orientation="vertical" />
-                    <div className="text-sm text-muted-foreground">
-                      Cloned{" "}
-                      <RelativeTimeCard
-                        date={clonedPod.cloned_at}
-                        side="top"
-                        delay={50}
-                        closeDelay={150}
-                      />
-                    </div>
-
                     <Separator orientation="vertical" />
                     <ClonedPodStatusBadge status={clonedPod.status} />
                   </>
