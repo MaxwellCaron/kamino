@@ -9,7 +9,6 @@ export interface Pod {
   creators: Array<string>
   created_at: string
   clones: number
-  isNew?: boolean
   vmsVisible?: boolean
   tasks?: PodTasks
 }

@@ -11,7 +11,6 @@ export const pods: Array<Pod> = [
     creators: ["mung"],
     created_at: "2024-05-01T12:00:00Z",
     clones: 124,
-    isNew: true,
     vmsVisible: false,
     tasks: {
       total: 2,
@@ -95,7 +94,6 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
     creators: ["tommy", "mcaron"],
     created_at: "2024-04-28T12:00:00Z",
     clones: 89,
-    isNew: true,
     vmsVisible: true,
   },
   {

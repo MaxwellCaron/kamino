@@ -14,12 +14,18 @@ import {
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
 import { buttonVariants } from "@workspace/ui/components/button"
-import { IconArrowRight } from "@tabler/icons-react"
+import { IconArrowRight, IconCopy } from "@tabler/icons-react"
 import { Link } from "@tanstack/react-router"
 import type { Pod } from "@/features/pods/types/pod-types"
 import { FormatPodCreators } from "@/features/pods/components/creators"
 
-export function BrowsePodsCard({ pod }: { pod: Pod }) {
+export function BrowsePodsCard({
+  pod,
+  isCloned,
+}: {
+  pod: Pod
+  isCloned: boolean
+}) {
   const stagger = useCutoutContentStaggerVariants()
 
   return (
@@ -40,9 +46,10 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
           <CutoutCorner className="absolute -right-7.75 -bottom-px rotate-90 text-card" />
           <CutoutCorner className="absolute -top-7.75 -left-px rotate-90 text-card" />
         </CutoutCardInsetLabel>
-        {pod.isNew && (
-          <CutoutCardPin className="top-0 right-0 rounded-bl-[16px] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md ring-1 shadow-foreground/10 ring-border/30">
-            New
+        {isCloned && (
+          <CutoutCardPin className="top-0 right-0 flex items-center gap-1 rounded-bl-[16px] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md ring-1 shadow-foreground/10 ring-border/30">
+            <IconCopy className="size-4" />
+            Cloned
             <CutoutCorner
               className="absolute top-0 -left-5.75 -rotate-90 text-primary"
               size={24}

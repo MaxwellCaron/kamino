@@ -1,6 +1,8 @@
 import { BrowsePodsCard } from "./browse-pods-card"
-import { pods } from "@/features/pods/types/test-data"
+import { clonedPods, pods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
+
+const clonedPodSlugs = new Set(clonedPods.map((pod) => pod.slug))
 
 export function BrowsePodsPage() {
   return (
@@ -23,7 +25,11 @@ export function BrowsePodsPage() {
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12">
           {pods.map((pod) => (
-            <BrowsePodsCard key={pod.id} pod={pod} />
+            <BrowsePodsCard
+              key={pod.id}
+              pod={pod}
+              isCloned={clonedPodSlugs.has(pod.slug)}
+            />
           ))}
         </div>
       </div>
