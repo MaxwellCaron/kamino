@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { Link } from "@tanstack/react-router"
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertDialog,
@@ -10,7 +9,7 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
-import { IconArrowRight, IconLoader2 } from "@tabler/icons-react"
+import { IconLoader2 } from "@tabler/icons-react"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
@@ -87,11 +86,13 @@ export function ClonePodDialog({
   onOpenChange,
   pod,
   username,
+  onCloned,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pod: Pod | null
   username: string
+  onCloned?: () => void
 }) {
   const {
     isCloning,
@@ -104,16 +105,20 @@ export function ClonePodDialog({
   } = useCloneSimulation(open)
 
   const podTitle = pod?.title ?? "Pod"
+  const handleOpenChange = (val: boolean) => {
+    if (isCloning && !isFinished) {
+      return
+    }
+
+    if (!val && isFinished) {
+      onCloned?.()
+    }
+
+    onOpenChange(val)
+  }
 
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(val) => {
-        if (!isCloning || isFinished) {
-          onOpenChange(val)
-        }
-      }}
-    >
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent className="sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center justify-between">
@@ -227,7 +232,6 @@ export function ClonePodDialog({
           <AlertDialogCancel
             className="w-[50%]"
             disabled={isCloning && !isFinished}
-            onClick={() => onOpenChange(false)}
           >
             {isFinished ? "Close" : "Cancel"}
           </AlertDialogCancel>
@@ -238,22 +242,21 @@ export function ClonePodDialog({
               isCloning ? colors.bg : "bg-primary",
               "hover:opacity-90"
             )}
-            disabled={isCloning && !isFinished}
-            onClick={isFinished ? undefined : startCloning}
-            render={isFinished ? <Link to="/" /> : undefined}
+            disabled={isCloning || isFinished}
+            onClick={
+              isFinished
+                ? () => {
+                    onCloned?.()
+                    onOpenChange(false)
+                  }
+                : startCloning
+            }
           >
-            {isCloning ? (
-              isFinished ? (
-                <span className="flex items-center gap-1">
-                  Go to Pod
-                  <IconArrowRight data-icon="inline-end" />
-                </span>
-              ) : (
-                <>
-                  <IconLoader2 className="size-4 animate-spin" />
-                  Cloning...
-                </>
-              )
+            {isCloning && !isFinished ? (
+              <>
+                <IconLoader2 className="size-4 animate-spin" />
+                Cloning...
+              </>
             ) : (
               "Clone"
             )}

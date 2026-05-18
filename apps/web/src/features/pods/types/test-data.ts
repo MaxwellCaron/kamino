@@ -12,6 +12,76 @@ export const pods: Array<Pod> = [
     clones: 124,
     isNew: true,
     vmsVisible: false,
+    tasks: {
+      total: 2,
+      completed: 0,
+      progress: 0,
+      items: [
+        {
+          id: "re-task-1",
+          title: "Binary Triage",
+          content: `## Binary triage
+
+Start by identifying what kind of sample you were given and what it expects at runtime.
+
+### Checklist
+
+1. Inspect the file type and architecture.
+2. Record whether the binary is stripped.
+3. Note any linked libraries or obvious runtime dependencies.
+
+~~~bash
+file mystery-bin
+strings -n 8 mystery-bin | head -40
+~~~
+
+Keep notes short and factual. This first pass is about building context before deeper analysis.`,
+          completed: false,
+          questions: [
+            {
+              id: "re-question-1",
+              title: "Which command identifies the file type and architecture?",
+              completed: false,
+              answerOutline: "****",
+            },
+            {
+              id: "re-question-2",
+              title: "What property tells you whether debug symbols were removed?",
+              completed: false,
+              answerOutline: "*******",
+            },
+          ],
+        },
+        {
+          id: "re-task-2",
+          title: "Function Mapping",
+          content: `## Function mapping
+
+Open the sample in your preferred analysis tool and identify the main code paths involved in input handling.
+
+- Locate the entry point.
+- Trace the first user-controlled branch.
+- Mark any function that looks like it validates or transforms data.
+
+If you are unsure what a function does, label it as a hypothesis and move on until you have more evidence.`,
+          completed: false,
+          questions: [
+            {
+              id: "re-question-3",
+              title: "What function should you identify before tracing user input?",
+              completed: false,
+              answerOutline: "***** *****",
+            },
+            {
+              id: "re-question-4",
+              title: "How should uncertain analysis notes be labeled?",
+              completed: false,
+              answerOutline: "**********",
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     id: "5",
@@ -33,6 +103,67 @@ export const pods: Array<Pod> = [
     created_at: "2024-04-25T12:00:00Z",
     clones: 231,
     vmsVisible: false,
+    tasks: {
+      total: 2,
+      completed: 0,
+      progress: 0,
+      items: [
+        {
+          id: "deserialize-task-1",
+          title: "Payload Inspection",
+          content: `## Payload inspection
+
+Review the sample save file and identify which parts appear to be structured data versus opaque binary content.
+
+### What to capture
+
+- File extension
+- Serialization format clues
+- Any user-controlled fields
+
+Do not assume the format from the filename alone. Confirm it with what you can observe.`,
+          completed: false,
+          questions: [
+            {
+              id: "deserialize-question-1",
+              title: "What should you confirm before trusting the file extension?",
+              completed: false,
+              answerOutline: "******",
+            },
+            {
+              id: "deserialize-question-2",
+              title: "Name one thing you should capture during inspection.",
+              completed: false,
+              answerOutline: "**** *****",
+            },
+          ],
+        },
+        {
+          id: "deserialize-task-2",
+          title: "Unsafe Object Review",
+          content: `## Unsafe object review
+
+Trace how the application restores objects from the save file and look for types that should never be instantiated from untrusted input.
+
+Focus on constructors, magic methods, or hooks that execute automatically during object restoration.`,
+          completed: false,
+          questions: [
+            {
+              id: "deserialize-question-3",
+              title: "Which class behavior is especially risky during object restoration?",
+              completed: false,
+              answerOutline: "***** *******",
+            },
+            {
+              id: "deserialize-question-4",
+              title: "What kind of input should never fully control object creation?",
+              completed: false,
+              answerOutline: "********* *****",
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     id: "3",
@@ -43,6 +174,94 @@ export const pods: Array<Pod> = [
     created_at: "2024-04-20T12:00:00Z",
     clones: 542,
     vmsVisible: true,
+    tasks: {
+      total: 3,
+      completed: 0,
+      progress: 0,
+      items: [
+        {
+          id: "ctf-task-1",
+          title: "Event Brief",
+          content: `## Event brief
+
+Read the challenge overview before touching the targets. Each flag is tied to a specific service in the pod.
+
+### Team rules
+
+- Keep a shared note for solved flags.
+- Record the command or request used to retrieve each flag.
+- Avoid changing services unless the challenge explicitly requires it.`,
+          completed: false,
+          questions: [
+            {
+              id: "ctf-question-1",
+              title: "What should the team keep for solved flags?",
+              completed: false,
+              answerOutline: "****** ****",
+            },
+            {
+              id: "ctf-question-2",
+              title: "What should you record alongside each captured flag?",
+              completed: false,
+              answerOutline: "*** ******* ** *******",
+            },
+          ],
+        },
+        {
+          id: "ctf-task-2",
+          title: "Web Challenge Enumeration",
+          content: `## Web challenge enumeration
+
+Start with the exposed web service and collect enough context to decide whether the flag is in content, source, or application behavior.
+
+~~~bash
+curl -I http://target.lab
+curl http://target.lab/robots.txt
+~~~
+
+Look for comments, hidden paths, and default content before trying anything noisy.`,
+          completed: false,
+          questions: [
+            {
+              id: "ctf-question-3",
+              title: "Which file commonly reveals hidden paths?",
+              completed: false,
+              answerOutline: "******.***",
+            },
+            {
+              id: "ctf-question-4",
+              title: "What kind of activity should you avoid at this stage?",
+              completed: false,
+              answerOutline: "*****",
+            },
+          ],
+        },
+        {
+          id: "ctf-task-3",
+          title: "Flag Submission Hygiene",
+          content: `## Flag submission hygiene
+
+Before submitting, verify that the string matches the expected format and that another teammate has not already claimed it.
+
+Use clean evidence so disputes are easy to resolve after the event.`,
+          completed: false,
+          questions: [
+            {
+              id: "ctf-question-5",
+              title: "What should you verify before submitting a flag?",
+              completed: false,
+              answerOutline: "****** ******",
+            },
+            {
+              id: "ctf-question-6",
+              title: "Why should evidence stay clean and reproducible?",
+              completed: false,
+              answerOutline: "****** ** *** ** ***** ** ******",
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     id: "2",
@@ -54,6 +273,91 @@ export const pods: Array<Pod> = [
     created_at: "2024-04-15T12:00:00Z",
     clones: 167,
     vmsVisible: true,
+    tasks: {
+      total: 3,
+      completed: 0,
+      progress: 0,
+      items: [
+        {
+          id: "linux-task-1",
+          title: "Baseline Review",
+          content: `## Baseline review
+
+Confirm the system version, enabled services, and current user privileges before making any hardening changes.
+
+~~~bash
+uname -a
+systemctl list-units --type=service --state=running
+id
+~~~
+
+You are building a before-state so later changes can be justified.`,
+          completed: false,
+          questions: [
+            {
+              id: "linux-question-1",
+              title: "Which command shows the current user and group memberships?",
+              completed: false,
+              answerOutline: "**",
+            },
+            {
+              id: "linux-question-2",
+              title: "Why do you capture a baseline before hardening?",
+              completed: false,
+              answerOutline: "****** ******",
+            },
+          ],
+        },
+        {
+          id: "linux-task-2",
+          title: "SSH Tightening",
+          content: `## SSH tightening
+
+Inspect the SSH daemon configuration and identify settings that reduce unnecessary exposure.
+
+Focus on root login, password authentication, and any broad listen settings.`,
+          completed: false,
+          questions: [
+            {
+              id: "linux-question-3",
+              title: "Name one SSH setting that should be reviewed first.",
+              completed: false,
+              answerOutline: "**** *****",
+            },
+            {
+              id: "linux-question-4",
+              title: "What kind of network setting can broaden SSH exposure?",
+              completed: false,
+              answerOutline: "****** ******",
+            },
+          ],
+        },
+        {
+          id: "linux-task-3",
+          title: "Patch and Verify",
+          content: `## Patch and verify
+
+Once changes are proposed, verify that the service still starts cleanly and that access is not accidentally broken for approved users.
+
+Good hardening reduces risk without creating an outage.`,
+          completed: false,
+          questions: [
+            {
+              id: "linux-question-5",
+              title: "What should you confirm after making a hardening change?",
+              completed: false,
+              answerOutline: "******* ************",
+            },
+            {
+              id: "linux-question-6",
+              title: "What should hardening avoid creating?",
+              completed: false,
+              answerOutline: "** ******",
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     id: "1",
@@ -65,6 +369,67 @@ export const pods: Array<Pod> = [
     created_at: "2024-04-10T12:00:00Z",
     clones: 95,
     vmsVisible: true,
+    tasks: {
+      total: 2,
+      completed: 0,
+      progress: 0,
+      items: [
+        {
+          id: "waf-task-1",
+          title: "Rule Inventory",
+          content: `## Rule inventory
+
+Start by reviewing which protections are enabled and which traffic patterns they are meant to cover.
+
+Document:
+
+- Core rule set version
+- Custom allow or deny rules
+- Paths or hosts with exceptions
+
+You need the policy shape before you can judge whether it is effective.`,
+          completed: false,
+          questions: [
+            {
+              id: "waf-question-1",
+              title: "What should you identify before judging rule effectiveness?",
+              completed: false,
+              answerOutline: "****** *****",
+            },
+            {
+              id: "waf-question-2",
+              title: "Name one kind of exception you should document.",
+              completed: false,
+              answerOutline: "***** ** *****",
+            },
+          ],
+        },
+        {
+          id: "waf-task-2",
+          title: "Traffic Validation",
+          content: `## Traffic validation
+
+Send a few known-safe requests and a few intentionally suspicious ones to confirm the policy behaves the way you expect.
+
+Look for false positives, missing blocks, and whether useful logs are generated for defenders.`,
+          completed: false,
+          questions: [
+            {
+              id: "waf-question-3",
+              title: "What should a safe validation exercise look for besides blocks?",
+              completed: false,
+              answerOutline: "***** *********",
+            },
+            {
+              id: "waf-question-4",
+              title: "Who benefits from useful WAF logs?",
+              completed: false,
+              answerOutline: "*********",
+            },
+          ],
+        },
+      ],
+    },
   },
 ]
 
@@ -119,16 +484,67 @@ export const clonedPods: Array<ClonedPod> = [
       progress: 50,
       items: [
         {
-          id: "task-1",
-          title: "Task 1",
-          content: "Description for task 1",
+          id: "re-task-1",
+          title: "Binary Triage",
+          content: `## Binary triage
+
+Start by identifying what kind of sample you were given and what it expects at runtime.
+
+### Checklist
+
+1. Inspect the file type and architecture.
+2. Record whether the binary is stripped.
+3. Note any linked libraries or obvious runtime dependencies.
+
+~~~bash
+file mystery-bin
+strings -n 8 mystery-bin | head -40
+~~~
+
+Keep notes short and factual. This first pass is about building context before deeper analysis.`,
           completed: true,
+          questions: [
+            {
+              id: "re-question-1",
+              title: "Which command identifies the file type and architecture?",
+              completed: true,
+              answerOutline: "****",
+            },
+            {
+              id: "re-question-2",
+              title: "What property tells you whether debug symbols were removed?",
+              completed: true,
+              answerOutline: "*******",
+            },
+          ],
         },
         {
-          id: "task-2",
-          title: "Task 2",
-          content: "Description for task 2",
+          id: "re-task-2",
+          title: "Function Mapping",
+          content: `## Function mapping
+
+Open the sample in your preferred analysis tool and identify the main code paths involved in input handling.
+
+- Locate the entry point.
+- Trace the first user-controlled branch.
+- Mark any function that looks like it validates or transforms data.
+
+If you are unsure what a function does, label it as a hypothesis and move on until you have more evidence.`,
           completed: false,
+          questions: [
+            {
+              id: "re-question-3",
+              title: "What function should you identify before tracing user input?",
+              completed: false,
+              answerOutline: "***** *****",
+            },
+            {
+              id: "re-question-4",
+              title: "How should uncertain analysis notes be labeled?",
+              completed: false,
+              answerOutline: "**********",
+            },
+          ],
         },
       ],
     },

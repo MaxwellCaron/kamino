@@ -13,18 +13,13 @@ import {
   cutoutCardSurfaceClassName,
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
-import { Button } from "@workspace/ui/components/button"
-import { IconCopy } from "@tabler/icons-react"
+import { buttonVariants } from "@workspace/ui/components/button"
+import { IconArrowRight } from "@tabler/icons-react"
+import { Link } from "@tanstack/react-router"
 import type { Pod } from "@/features/pods/types/pod-types"
 import { FormatPodCreators } from "@/features/pods/components/creators"
 
-export function BrowsePodsCard({
-  pod,
-  onClone,
-}: {
-  pod: Pod
-  onClone: (pod: Pod) => void
-}) {
+export function BrowsePodsCard({ pod }: { pod: Pod }) {
   const stagger = useCutoutContentStaggerVariants()
 
   return (
@@ -81,7 +76,7 @@ export function BrowsePodsCard({
           <motion.div variants={stagger.item}>
             <CutoutCardFooter className="border-t border-border/80 pt-4">
               {FormatPodCreators(pod.creators)}
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="pr-1 text-xs text-muted-foreground tabular-nums">
                 {new Intl.DateTimeFormat("en-US", {
                   month: "short",
                   day: "numeric",
@@ -94,13 +89,14 @@ export function BrowsePodsCard({
       </CutoutCardContent>
       <CutoutCardAction className="right-6 bottom-5.5">
         <div className="rounded-4xl bg-background shadow-md transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]">
-          <Button
-            className="shadow-none hover:shadow-none active:translate-y-0"
-            onClick={() => onClone(pod)}
+          <Link
+            to="/pods/$podId"
+            params={{ podId: pod.id }}
+            className={`${buttonVariants({ variant: "default" })} cursor-default`}
           >
-            <IconCopy data-icon="inline-start" />
-            Clone
-          </Button>
+            Open
+            <IconArrowRight data-icon="inline-end" />
+          </Link>
         </div>
       </CutoutCardAction>
     </CutoutCard>

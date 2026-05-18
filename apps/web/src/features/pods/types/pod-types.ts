@@ -10,6 +10,7 @@ export interface Pod {
   clones: number
   isNew?: boolean
   vmsVisible?: boolean
+  tasks?: PodTasks
 }
 
 export interface PodVM {
@@ -22,16 +23,18 @@ export interface PodVM {
 
 export type ClonedPodStatus = "running" | "stopped" | "partial"
 
+export interface PodTasks {
+  total: number
+  completed: number
+  progress: number
+  items: Array<PodTask>
+}
+
 export interface ClonedPod extends Pod {
   cloned_at: string
   status: ClonedPodStatus
   vms: Array<PodVM>
-  tasks?: {
-    total: number
-    completed: number
-    progress: number
-    items: Array<PodTask>
-  }
+  tasks?: PodTasks
 }
 
 export interface PodTask {

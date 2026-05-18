@@ -5,7 +5,6 @@ import {
   IconHome,
   IconLayoutDashboard,
   IconNetwork,
-  IconPackageExport,
   IconPackages,
   IconReceipt,
   IconUser,
@@ -52,17 +51,9 @@ const navItems = [
   },
   {
     title: "Pods",
-    description: "Browse available and ready to clone pods.",
+    description: "Browse and launch published pods.",
     url: "/pods/browse",
     icon: IconPackages,
-    group: "pods",
-    visibility: "all",
-  },
-  {
-    title: "My Pods",
-    description: "Browse your already cloned pods.",
-    url: "/pods/cloned/browse",
-    icon: IconPackageExport,
     group: "pods",
     visibility: "all",
   },
@@ -175,6 +166,10 @@ function IconRailHoverCard({
 }
 
 function isActivePath(pathname: string, url: string) {
+  if (url === "/pods/browse") {
+    return pathname === url || pathname.startsWith("/pods/")
+  }
+
   return pathname === url
 }
 

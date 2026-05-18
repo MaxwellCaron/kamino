@@ -17,8 +17,10 @@ import type { PodTaskQuestion } from "@/features/pods/types/pod-types"
 
 export function ClonedPodTaskQuestions({
   questions,
+  disabled = false,
 }: {
   questions: Array<PodTaskQuestion>
+  disabled?: boolean
 }) {
   return (
     <Card className="bg-muted/50">
@@ -28,10 +30,10 @@ export function ClonedPodTaskQuestions({
           Questions
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-4">
         <FieldGroup>
           {questions.map((question, questionIndex) => (
-            <Field key={question.id}>
+            <Field key={question.id} data-disabled={disabled || undefined}>
               <FieldLabel htmlFor={question.id}>
                 {questionIndex + 1}. {question.title}
               </FieldLabel>
@@ -44,8 +46,9 @@ export function ClonedPodTaskQuestions({
                       ? question.answerOutline
                       : "Type your answer here..."
                   }
+                  disabled={disabled}
                 />
-                <Button>Submit</Button>
+                <Button disabled={disabled}>Submit</Button>
               </div>
               {question.description && (
                 <FieldDescription>{question.description}</FieldDescription>

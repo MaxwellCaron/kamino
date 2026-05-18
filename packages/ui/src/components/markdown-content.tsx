@@ -277,7 +277,6 @@ export const markdownComponents: Components = {
       layout="fullWidth"
       loading="lazy"
       src={src ?? ""}
-      unstyled
       {...props}
     />
   ),

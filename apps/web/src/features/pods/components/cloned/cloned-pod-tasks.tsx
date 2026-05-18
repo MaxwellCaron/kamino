@@ -22,7 +22,13 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodTaskQuestions } from "./cloned-pod-task-questions"
 import type { PodTask } from "@/features/pods/types/pod-types"
 
-export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
+export function ClonedPodTasks({
+  tasks,
+  questionsDisabled = false,
+}: {
+  tasks: Array<PodTask>
+  questionsDisabled?: boolean
+}) {
   return (
     <Card className="rounded-b-2xl! pb-0">
       <CardHeader>
@@ -75,7 +81,10 @@ export function ClonedPodTasks({ tasks }: { tasks: Array<PodTask> }) {
                   <MarkdownContent>{task.content}</MarkdownContent>
 
                   {task.questions && (
-                    <ClonedPodTaskQuestions questions={task.questions} />
+                    <ClonedPodTaskQuestions
+                      questions={task.questions}
+                      disabled={questionsDisabled}
+                    />
                   )}
                 </div>
               </AccordionContent>
