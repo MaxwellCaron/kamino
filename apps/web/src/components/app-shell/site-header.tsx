@@ -7,9 +7,11 @@ import type { ReactNode } from "react"
 type SidebarTriggerVisibility = "always" | "mobile" | "never"
 
 export function SiteHeader({
+  breadcrumb,
   command,
   sidebarTrigger = "always",
 }: {
+  breadcrumb?: ReactNode
   command?: ReactNode
   sidebarTrigger?: SidebarTriggerVisibility
 }) {
@@ -36,7 +38,7 @@ export function SiteHeader({
               />
             </>
           ) : null}
-          <SiteBreadcrumb />
+          {breadcrumb ?? <SiteBreadcrumb />}
         </div>
         {command ? <div className="flex items-center">{command}</div> : null}
       </div>
