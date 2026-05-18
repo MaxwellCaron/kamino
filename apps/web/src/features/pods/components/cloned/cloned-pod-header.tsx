@@ -36,20 +36,17 @@ import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { FormatClonedPodCreators } from "@/features/pods/components/creators"
 import { GrainientBackground } from "@/components/grainient-background"
 
-function isClonedPod(pod: Pod | ClonedPod): pod is ClonedPod {
-  return "cloned_at" in pod
-}
-
 export function ClonedPodHeader({
   pod,
-  isPreview = false,
+  clonedPod,
   onClone,
 }: {
-  pod: Pod | ClonedPod
-  isPreview?: boolean
+  pod: Pod
+  clonedPod?: ClonedPod | null
   onClone?: () => void
 }) {
-  const clonedPod = !isPreview && isClonedPod(pod) ? pod : null
+  const isPreview = clonedPod == null
+  const taskSummary = clonedPod?.task_summary ?? null
 
   return (
     <div className="relative overflow-hidden border-b bg-muted/30">
@@ -151,18 +148,15 @@ export function ClonedPodHeader({
 
                 <div className="flex items-center gap-1.5 text-sm">
                   <IconPackageExport className="size-4 text-muted-foreground" />
-                  <span className="font-medium">{pod.clones}</span>
+                  <span className="font-medium">{pod.clone_count}</span>
                   <span className="text-muted-foreground">Clones</span>
                 </div>
 
-                {clonedPod?.tasks && (
+                {taskSummary && (
                   <>
                     <Separator orientation="vertical" />
                     <div className="flex items-center gap-2.5">
-                      <CircularProgress
-                        size={20}
-                        value={clonedPod.tasks.progress}
-                      >
+                      <CircularProgress size={20} value={taskSummary.progress}>
                         <CircularProgressIndicator>
                           <CircularProgressTrack />
                           <CircularProgressRange />
@@ -170,7 +164,7 @@ export function ClonedPodHeader({
                       </CircularProgress>
                       <span className="flex items-center gap-1.5 text-sm">
                         <span className="font-medium">
-                          {clonedPod.tasks.completed} / {clonedPod.tasks.total}
+                          {taskSummary.completed} / {taskSummary.total}
                         </span>
                         <span className="text-muted-foreground">Tasks</span>
                       </span>

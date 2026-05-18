@@ -40,7 +40,7 @@ export function BrowsePodsCard({
         <CutoutCardInsetLabel className="bottom-0 left-0 rounded-tr-[20px] bg-card px-5 py-3">
           <div className="flex items-center gap-1">
             <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-              {pod.clones} Clones
+              {pod.clone_count} Clones
             </span>
           </div>
           <CutoutCorner className="absolute -right-7.75 -bottom-px rotate-90 text-card" />

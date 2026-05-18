@@ -1,20 +1,24 @@
 import type { VmResources } from "@/features/vms/types/vm-types"
 
+// Backend/database UUID string.
+export type UUID = string
+
+// Cloneable catalog/template metadata.
 export interface Pod {
-  id: string
+  id: UUID
   title: string
   slug: string
   description: string
   image: string
   creators: Array<string>
   created_at: string
-  clones: number
-  vmsVisible?: boolean
-  tasks?: PodTasks
+  clone_count: number
+  vms_visible: boolean
+  tasks?: Array<PodTask>
 }
 
 export interface PodVM {
-  id: string
+  id: UUID
   name: string
   status: string
   resources: VmResources
@@ -23,33 +27,48 @@ export interface PodVM {
 
 export type ClonedPodStatus = "running" | "stopped" | "partial"
 
-export interface PodTasks {
-  total: number
-  completed: number
-  progress: number
-  items: Array<PodTask>
-}
-
-export interface ClonedPod extends Pod {
+// User-owned runtime instance of a pod.
+export interface ClonedPod {
+  id: UUID
+  pod_id: UUID
   cloned_at: string
   status: ClonedPodStatus
   vms: Array<PodVM>
-  tasks?: PodTasks
+  task_summary: ClonedPodTaskSummary
+  task_states: Array<ClonedPodTaskState>
+  question_answers: Array<PodTaskQuestionAnswer>
+}
+
+export interface ClonedPodTaskSummary {
+  total: number
+  completed: number
+  progress: number
+}
+
+export interface ClonedPodTaskState {
+  task_id: UUID
+  completed: boolean
+  completed_at?: string
 }
 
 export interface PodTask {
-  id: string
+  id: UUID
   title: string
   content: string
-  completed: boolean
   questions?: Array<PodTaskQuestion>
 }
 
 export interface PodTaskQuestion {
-  id: string
+  id: UUID
   title: string
-  completed: boolean
   answerOutline?: string
   description?: string
   hint?: string
+}
+
+export interface PodTaskQuestionAnswer {
+  question_id: UUID
+  answer: string
+  is_correct: boolean
+  answered_at: string
 }

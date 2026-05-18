@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_dashboard/pods/$podSlug")({
 
     return {
       pod,
-      clonedPod: clonedPods.find((p) => p.slug === params.podSlug) ?? null,
+      clonedPod: clonedPods.find((p) => p.pod_id === pod.id) ?? null,
     }
   },
 })

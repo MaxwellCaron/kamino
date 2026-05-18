@@ -20,15 +20,33 @@ import {
 import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodTaskQuestions } from "./cloned-pod-task-questions"
-import type { PodTask } from "@/features/pods/types/pod-types"
+import type {
+  ClonedPodTaskState,
+  PodTask,
+  PodTaskQuestionAnswer,
+} from "@/features/pods/types/pod-types"
+import {
+  createQuestionAnswerMap,
+  createTaskStateMap,
+} from "@/features/pods/utils/pod-runtime-state"
 
 export function ClonedPodTasks({
   tasks,
+  taskStates,
+  questionAnswers,
   questionsDisabled = false,
 }: {
   tasks: Array<PodTask>
+  taskStates: Array<ClonedPodTaskState> | null
+  questionAnswers: Array<PodTaskQuestionAnswer> | null
   questionsDisabled?: boolean
 }) {
+  const defaultValue = tasks[0] ? [tasks[0].id] : []
+  const taskStatesByTaskId = taskStates ? createTaskStateMap(taskStates) : null
+  const answersByQuestionId = questionAnswers
+    ? createQuestionAnswerMap(questionAnswers)
+    : null
+
   return (
     <Card className="rounded-b-2xl! pb-0">
       <CardHeader>
@@ -46,50 +64,59 @@ export function ClonedPodTasks({
       <CardContent className="-mx-6 border-t">
         <Accordion
           className="w-full rounded-t-none! border-none"
-          defaultValue={[tasks[0]?.id]}
+          defaultValue={defaultValue}
         >
-          {tasks.map((task, index) => (
-            <AccordionItem
-              key={task.id}
-              value={task.id}
-              className="data-open:bg-card"
-            >
-              <AccordionTrigger className="px-6 hover:no-underline">
-                <div className="flex flex-1 items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "min-w-16 font-bold",
-                        task.completed
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      )}
-                    >
-                      Task {index + 1}
-                    </span>
-                    {task.completed ? (
-                      <IconCircleCheckFilled className="size-4 text-green-600 dark:text-green-400" />
-                    ) : (
-                      <IconCircleXFilled className="size-4 text-red-600 dark:text-red-400" />
-                    )}
-                    <span className="font-semibold">{task.title}</span>
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
-                <div className="flex flex-col gap-6">
-                  <MarkdownContent>{task.content}</MarkdownContent>
+          {tasks.map((task, index) => {
+            const isCompleted =
+              taskStatesByTaskId?.get(task.id)?.completed ?? null
 
-                  {task.questions && (
-                    <ClonedPodTaskQuestions
-                      questions={task.questions}
-                      disabled={questionsDisabled}
-                    />
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
+            return (
+              <AccordionItem
+                key={task.id}
+                value={task.id}
+                className="data-open:bg-card"
+              >
+                <AccordionTrigger className="px-6 hover:no-underline">
+                  <div className="flex flex-1 items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          "min-w-16 font-bold",
+                          isCompleted == null
+                            ? "text-muted-foreground"
+                            : isCompleted
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                        )}
+                      >
+                        Task {index + 1}
+                      </span>
+                      {isCompleted === true && (
+                        <IconCircleCheckFilled className="size-4 text-green-600 dark:text-green-400" />
+                      )}
+                      {isCompleted === false && (
+                        <IconCircleXFilled className="size-4 text-red-600 dark:text-red-400" />
+                      )}
+                      <span className="font-semibold">{task.title}</span>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
+                  <div className="flex flex-col gap-6">
+                    <MarkdownContent>{task.content}</MarkdownContent>
+
+                    {task.questions && (
+                      <ClonedPodTaskQuestions
+                        questions={task.questions}
+                        answersByQuestionId={answersByQuestionId}
+                        disabled={questionsDisabled}
+                      />
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )
+          })}
         </Accordion>
       </CardContent>
     </Card>

@@ -2,7 +2,7 @@ import { BrowsePodsCard } from "./browse-pods-card"
 import { clonedPods, pods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
 
-const clonedPodSlugs = new Set(clonedPods.map((pod) => pod.slug))
+const clonedPodIds = new Set(clonedPods.map((pod) => pod.pod_id))
 
 export function BrowsePodsPage() {
   return (
@@ -28,7 +28,7 @@ export function BrowsePodsPage() {
             <BrowsePodsCard
               key={pod.id}
               pod={pod}
-              isCloned={clonedPodSlugs.has(pod.slug)}
+              isCloned={clonedPodIds.has(pod.id)}
             />
           ))}
         </div>

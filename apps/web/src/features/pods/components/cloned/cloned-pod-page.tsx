@@ -7,10 +7,18 @@ import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 
 function createClonedPodFromPod(pod: Pod): ClonedPod {
   return {
-    ...pod,
+    id: crypto.randomUUID(),
+    pod_id: pod.id,
     cloned_at: new Date().toISOString(),
     status: "running",
     vms: [],
+    task_summary: {
+      total: pod.tasks?.length ?? 0,
+      completed: 0,
+      progress: 0,
+    },
+    task_states: [],
+    question_answers: [],
   }
 }
 
@@ -33,15 +41,14 @@ export function ClonedPodPage({
     setLocalClonedPod(clonedPod ?? null)
   }, [clonedPod, pod.id])
 
-  const displayedPod = localClonedPod ?? pod
   const isPreview = localClonedPod == null
 
   return (
     <>
       <div className="@container/main flex flex-1 flex-col">
         <ClonedPodHeader
-          pod={displayedPod}
-          isPreview={isPreview}
+          pod={pod}
+          clonedPod={localClonedPod}
           onClone={() => setCloneDialogOpen(true)}
         />
 
@@ -49,11 +56,13 @@ export function ClonedPodPage({
           {localClonedPod && (
             <ClonedPodVms
               vms={localClonedPod.vms}
-              vmsVisible={localClonedPod.vmsVisible}
+              vmsVisible={pod.vms_visible}
             />
           )}
           <ClonedPodTasks
-            tasks={displayedPod.tasks?.items ?? []}
+            tasks={pod.tasks ?? []}
+            taskStates={localClonedPod?.task_states ?? null}
+            questionAnswers={localClonedPod?.question_answers ?? null}
             questionsDisabled={isPreview}
           />
         </div>
