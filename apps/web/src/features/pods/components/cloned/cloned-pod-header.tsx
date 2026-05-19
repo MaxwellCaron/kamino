@@ -148,7 +148,10 @@ export function ClonedPodHeader({
               <div className="mt-6 flex flex-wrap items-center gap-4">
                 <FormatClonedPodCreators creators={pod.creators} />
 
-                <Separator orientation="vertical" />
+                <Separator
+                  orientation="vertical"
+                  className="bg-foreground/15"
+                />
 
                 <div className="flex items-center gap-1.5 text-sm">
                   <IconPackageExport className="size-4 text-muted-foreground" />
@@ -158,7 +161,10 @@ export function ClonedPodHeader({
 
                 {taskSummary && (
                   <>
-                    <Separator orientation="vertical" />
+                    <Separator
+                      orientation="vertical"
+                      className="bg-foreground/15"
+                    />
                     <div className="flex items-center gap-2.5">
                       <CircularProgress size={20} value={taskSummary.progress}>
                         <CircularProgressIndicator>
@@ -176,7 +182,10 @@ export function ClonedPodHeader({
                   </>
                 )}
 
-                <Separator orientation="vertical" />
+                <Separator
+                  orientation="vertical"
+                  className="bg-foreground/15"
+                />
                 <div className="text-sm text-muted-foreground">
                   {clonedPod ? "Cloned" : "Created"}{" "}
                   <RelativeTimeCard
@@ -189,7 +198,10 @@ export function ClonedPodHeader({
 
                 {clonedPod && (
                   <>
-                    <Separator orientation="vertical" />
+                    <Separator
+                      orientation="vertical"
+                      className="bg-foreground/15"
+                    />
                     <ClonedPodStatusBadge status={clonedPod.status} />
                   </>
                 )}
