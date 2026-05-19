@@ -1,9 +1,7 @@
-import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
-import {
-  InventoryPermissionBits,
-  type InventoryPermissionKey,
-} from "@/features/inventory/utils/inventory-permissions"
 import type { ClonedPod, Pod, PodVM } from "./pod-types"
+import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
+import type { InventoryPermissionKey } from "@/features/inventory/utils/inventory-permissions"
+import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
 
 function createPermissionMask(keys: Array<InventoryPermissionKey>) {
   return keys.reduce((mask, key) => mask | InventoryPermissionBits[key], 0)

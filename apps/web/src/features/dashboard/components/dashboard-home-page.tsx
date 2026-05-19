@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { IconArrowUpRight, IconSettings } from "@tabler/icons-react"
@@ -42,7 +42,6 @@ import {
   getRequestTargetLabel,
   indexInventoryTree,
 } from "../utils/dashboard-utils"
-import { ChangePasswordDialog } from "./change-password-dialog"
 import { getDashboardActivityColumns } from "./dashboard-activity-columns"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { AuthUser } from "@/features/auth/types/auth-types"
@@ -56,10 +55,21 @@ import {
   requestDetailQueryOptions,
   requesterRequestsQueryOptions,
 } from "@/features/requests/api/requests-api"
-import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 const dashboardTabs = ["Overview", "Activity"] as const
+const ChangePasswordDialog = lazy(() =>
+  import("./change-password-dialog").then((module) => ({
+    default: module.ChangePasswordDialog,
+  }))
+)
+const RequestDetailDialog = lazy(() =>
+  import("@/features/requests/components/request-detail-dialog").then(
+    (module) => ({
+      default: module.RequestDetailDialog,
+    })
+  )
+)
 
 export function DashboardHomePage({ user }: { user: AuthUser }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -343,26 +353,31 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         </div>
       </div>
 
-      <ChangePasswordDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
-
-      <RequestDetailDialog
-        canReview={false}
-        error={detailQuery.error}
-        isLoading={detailQuery.isLoading}
-        onApprove={() => {}}
-        onDeny={() => {}}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedRequestId(null)
-          }
-        }}
-        open={selectedRequestId !== null}
-        request={detailQuery.data ?? null}
-        tree={treeQuery.data}
-      />
+      <Suspense fallback={null}>
+        {settingsOpen && (
+          <ChangePasswordDialog
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+          />
+        )}
+        {selectedRequestId !== null && (
+          <RequestDetailDialog
+            canReview={false}
+            error={detailQuery.error}
+            isLoading={detailQuery.isLoading}
+            onApprove={() => {}}
+            onDeny={() => {}}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedRequestId(null)
+              }
+            }}
+            open={true}
+            request={detailQuery.data ?? null}
+            tree={treeQuery.data}
+          />
+        )}
+      </Suspense>
     </>
   )
 }

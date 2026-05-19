@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, createFileRoute } from "@tanstack/react-router"
 import {
@@ -31,17 +31,40 @@ import {
   groupsQueryOptions,
   triggerADSync,
 } from "@/features/principals/api/principals-api"
-import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
-import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
-import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import {
   capitalizeFirstLetter,
   formatToastError,
 } from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const GroupDialog = lazy(() =>
+  import("@/features/principals/components/groups/group-dialog").then(
+    (module) => ({
+      default: module.GroupDialog,
+    })
+  )
+)
+const GroupPermissionsDialog = lazy(() =>
+  import(
+    "@/features/principals/components/groups/group-permissions-dialog"
+  ).then((module) => ({
+    default: module.GroupPermissionsDialog,
+  }))
+)
+const MembershipDialog = lazy(() =>
+  import("@/features/principals/components/membership-dialog").then(
+    (module) => ({
+      default: module.MembershipDialog,
+    })
+  )
+)
 
 export const Route = createFileRoute("/_dashboard/admin/principals/groups")({
   component: GroupsPage,
@@ -243,37 +266,41 @@ function GroupsPage() {
         </Card>
       </div>
 
-      {canAdminister ? (
-        <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
-      {canAdminister && editDialog.data ? (
-        <GroupDialog
-          key={editDialog.dialogKey}
-          group={editDialog.data}
-          open={editDialog.open}
-          onOpenChange={editDialog.onOpenChange}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {canAdminister && createOpen ? (
+          <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+        ) : null}
+        {canAdminister && editDialog.data ? (
+          <GroupDialog
+            key={editDialog.dialogKey}
+            group={editDialog.data}
+            open={editDialog.open}
+            onOpenChange={editDialog.onOpenChange}
+          />
+        ) : null}
 
-      {canAdminister && membershipDialog.data ? (
-        <MembershipDialog
-          key={membershipDialog.dialogKey}
-          mode="group-members"
-          principal={membershipDialog.data}
-          open={membershipDialog.open}
-          onOpenChange={membershipDialog.onOpenChange}
-        />
-      ) : null}
-      {canAdminister && accessDialog.data ? (
-        <GroupPermissionsDialog
-          key={accessDialog.dialogKey}
-          group={accessDialog.data}
-          open={accessDialog.open}
-          onOpenChange={accessDialog.onOpenChange}
-        />
-      ) : null}
+        {canAdminister && membershipDialog.data ? (
+          <MembershipDialog
+            key={membershipDialog.dialogKey}
+            mode="group-members"
+            principal={membershipDialog.data}
+            open={membershipDialog.open}
+            onOpenChange={membershipDialog.onOpenChange}
+          />
+        ) : null}
+        {canAdminister && accessDialog.data ? (
+          <GroupPermissionsDialog
+            key={accessDialog.dialogKey}
+            group={accessDialog.data}
+            open={accessDialog.open}
+            onOpenChange={accessDialog.onOpenChange}
+          />
+        ) : null}
 
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }
