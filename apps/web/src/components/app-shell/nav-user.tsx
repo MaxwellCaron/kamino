@@ -50,7 +50,7 @@ export function NavUser({
             render={
               <SidebarMenuButton
                 size="lg"
-                className="size-8 justify-center p-0!"
+                className="size-9! justify-center p-0!"
               />
             }
           >

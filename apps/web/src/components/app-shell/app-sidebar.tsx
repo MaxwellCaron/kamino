@@ -230,7 +230,7 @@ function IconRailNavItem({
         <SidebarMenuButton
           isActive={isActive}
           className={cn(
-            "size-9 cursor-default justify-center rounded-2xl transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
+            "cursor-default justify-center transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
             styles.button
           )}
           render={<Link to={item.url} />}
@@ -266,7 +266,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
             >
               <SidebarMenuButton
                 size="lg"
-                className="cursor-default justify-center md:size-9 md:p-0"
+                className="cursor-default justify-center md:size-9! md:p-0"
                 render={<Link to="/" />}
               >
                 <img src="/kamino.svg" alt="Kamino" className="size-6!" />
@@ -275,7 +275,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent className="overflow-visible">
+      <SidebarContent className="overflow-visible group-data-[collapsible=icon]:overflow-visible!">
         <SidebarGroup className="overflow-visible">
           <SidebarGroupContent className="overflow-visible">
             <SidebarMenu className="flex flex-col items-center gap-2 overflow-visible">
@@ -284,7 +284,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
                   {index > 0 && <Separator className="my-2" />}
                   <div
                     className={cn(
-                      "flex flex-col items-center gap-2 rounded-2xl p-1",
+                      "flex flex-col items-center gap-2 rounded-full p-1 py-2",
                       navGroupStyles[group.key].rail
                     )}
                   >
@@ -344,13 +344,18 @@ export function AppSidebar({
         {/* Icon rail */}
         <Sidebar
           collapsible="none"
-          className="w-[calc(var(--sidebar-width-icon)+12px)]! border-r pr-1.5 group-data-[state=collapsed]:border-r-0"
+          className="group w-[calc(var(--sidebar-width-icon)+2px)]! bg-transparent"
+          data-state="collapsed"
+          data-collapsible="icon"
         >
           <AppSidebarIconRailContent user={user} />
         </Sidebar>
 
         {/* Inventory panel */}
-        <Sidebar collapsible="none" className="flex flex-1">
+        <Sidebar
+          collapsible="none"
+          className="ml-3 flex flex-1 border-l group-data-[state=collapsed]:border-l-0"
+        >
           <SidebarHeader className="py-0">
             <SidebarGroup>
               <InventoryTreeHeader />
