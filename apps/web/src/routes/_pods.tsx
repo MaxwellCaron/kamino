@@ -31,6 +31,7 @@ function PodsLayout() {
     <SidebarProvider
       open={false}
       onOpenChange={keepSidebarCollapsed}
+      persistDesktopState={false}
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 96)",
