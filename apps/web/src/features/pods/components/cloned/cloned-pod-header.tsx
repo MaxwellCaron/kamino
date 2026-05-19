@@ -34,6 +34,7 @@ import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { FormatClonedPodCreators } from "@/features/pods/components/creators"
+import { createTaskSummary } from "@/features/pods/utils/pod-runtime-state"
 import { GrainientBackground } from "@/components/grainient-background"
 
 export function ClonedPodHeader({
@@ -46,11 +47,15 @@ export function ClonedPodHeader({
   onClone?: () => void
 }) {
   const isPreview = clonedPod == null
-  const taskSummary = clonedPod?.task_summary ?? null
+  const taskSummary = clonedPod
+    ? createTaskSummary(pod.tasks ?? [], clonedPod.task_states)
+    : null
 
   return (
-    <div className="relative overflow-hidden border-b bg-muted/30">
-      <GrainientBackground className="opacity-40" />
+    <div className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 mb-1 overflow-hidden rounded-b-[40px] shadow ring-1 ring-border/50">
+        <GrainientBackground className="opacity-40" />
+      </div>
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 lg:px-6">
         <div className="flex flex-col gap-8 md:flex-row md:items-start">
           <div className="mx-auto hidden shrink-0 md:mx-0 lg:block">

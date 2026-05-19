@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Badge } from "@workspace/ui/components/badge"
 import {
   IconChecklist,
   IconCircleCheckFilled,
@@ -28,6 +29,7 @@ import type {
 import {
   createQuestionAnswerMap,
   createTaskStateMap,
+  createTaskSummary,
 } from "@/features/pods/utils/pod-runtime-state"
 
 export function ClonedPodTasks({
@@ -46,19 +48,27 @@ export function ClonedPodTasks({
   const answersByQuestionId = questionAnswers
     ? createQuestionAnswerMap(questionAnswers)
     : null
+  const taskSummary = createTaskSummary(tasks, taskStates)
+  const isFullyComplete =
+    taskSummary.total === 0 || taskSummary.completed === taskSummary.total
 
   return (
     <Card className="rounded-b-2xl! pb-0">
       <CardHeader>
-        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-          Tasks
+        <CardTitle className="flex items-center gap-2">
+          <IconChecklist className="text-muted-foreground" />
+          <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
+            Tasks
+          </span>
         </CardTitle>
         <CardDescription>
           Questions that must be answered or objectives that must be reached in
           order to complete the pod.
         </CardDescription>
         <CardAction>
-          <IconChecklist className="text-muted-foreground" />
+          <Badge variant={isFullyComplete ? "default" : "destructive"}>
+            {taskSummary.completed} / {taskSummary.total}
+          </Badge>
         </CardAction>
       </CardHeader>
       <CardContent className="-mx-6 border-t">

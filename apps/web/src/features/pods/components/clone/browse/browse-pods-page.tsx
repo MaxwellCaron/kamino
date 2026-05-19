@@ -7,8 +7,10 @@ const clonedPodIds = new Set(clonedPods.map((pod) => pod.pod_id))
 export function BrowsePodsPage() {
   return (
     <div className="@container/main flex flex-1 flex-col">
-      <div className="relative overflow-hidden border-b bg-muted/30">
-        <GrainientBackground className="opacity-40" />
+      <div className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 mb-1 overflow-hidden rounded-b-[40px] shadow ring-1 ring-border/50">
+          <GrainientBackground className="opacity-40" />
+        </div>
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-16 text-center md:py-24 lg:px-6">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
             <h1 className="text-5xl font-extrabold tracking-tighter text-balance sm:text-6xl md:text-7xl lg:text-8xl">

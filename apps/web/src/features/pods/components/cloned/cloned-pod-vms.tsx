@@ -1,8 +1,8 @@
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -55,15 +55,15 @@ export function ClonedPodVms({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-          Virtual Machines
+        <CardTitle className="flex items-center gap-2">
+          <IconDeviceDesktop className="text-muted-foreground" />
+          <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
+            Virtual Machines
+          </span>
         </CardTitle>
         <CardDescription>
           Virtual machines that belong to this pod and their current status
         </CardDescription>
-        <CardAction>
-          <IconDeviceDesktop className="text-muted-foreground" />
-        </CardAction>
       </CardHeader>
       <CardContent>
         {vmsVisible ? (
@@ -128,6 +128,11 @@ export function ClonedPodVms({
           </Empty>
         )}
       </CardContent>
+      <CardFooter className="text-xs text-muted-foreground">
+        If the valid permissions are given to you, you can click on the three
+        dots to the right of each VM and perform actions such as starting,
+        shutting down, or opening the VM in a new tab.
+      </CardFooter>
     </Card>
   )
 }
