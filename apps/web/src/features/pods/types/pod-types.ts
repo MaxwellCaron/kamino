@@ -1,4 +1,5 @@
 import type { VmResources } from "@/features/vms/types/vm-types"
+import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 
 // Backend/database UUID string.
 export type UUID = string
@@ -23,6 +24,14 @@ export interface PodVM {
   status: string
   resources: VmResources
   uptime?: number
+  inventory: {
+    itemId: string
+    nodeId: string
+    permissions: ApiTreeNodePermissions
+    vmid: number
+    pveNode: string
+    isTemplate?: boolean
+  }
 }
 
 export type ClonedPodStatus = "running" | "stopped" | "partial"

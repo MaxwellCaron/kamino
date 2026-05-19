@@ -22,15 +22,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { Button } from "@workspace/ui/components/button"
-import {
-  IconClock,
-  IconDeviceDesktop,
-  IconDotsVertical,
-  IconEyeX,
-} from "@tabler/icons-react"
+import { IconClock, IconDeviceDesktop, IconEyeX } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import type { PodVM } from "../../types/pod-types"
+import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
 import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 import { formatUptime } from "@/features/shared/utils/format"
 
@@ -103,13 +98,17 @@ export function ClonedPodVms({
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground"
-                  >
-                    <IconDotsVertical />
-                  </Button>
+                  <VmOptionsMenu
+                    nodeId={vm.inventory.nodeId}
+                    itemId={vm.inventory.itemId}
+                    permissions={vm.inventory.permissions}
+                    isTemplate={vm.inventory.isTemplate}
+                    vmid={vm.inventory.vmid}
+                    pveNode={vm.inventory.pveNode}
+                    name={vm.name}
+                    powerStatus={vm.status}
+                    isLoading={false}
+                  />
                 </ItemActions>
               </Item>
             ))}

@@ -83,26 +83,26 @@ export function ClonedPodHeader({
                   />
                   <DropdownMenuContent className="w-full" align="end">
                     <DropdownMenuGroup>
-                      <DropdownMenuItem key="power-on">
+                      <DropdownMenuItem key="start">
                         <Item className="w-full p-2">
                           <ItemMedia variant="icon">
                             <IconPlayerPlay className="size-4 text-muted-foreground" />
                           </ItemMedia>
                           <ItemContent className="gap-0">
-                            <ItemTitle>Power On</ItemTitle>
+                            <ItemTitle>Start</ItemTitle>
                             <ItemDescription className="leading-none">
                               Power on all of the virtual machines in the pod.
                             </ItemDescription>
                           </ItemContent>
                         </Item>
                       </DropdownMenuItem>
-                      <DropdownMenuItem key="power-off">
+                      <DropdownMenuItem key="shutdown">
                         <Item className="w-full p-2">
                           <ItemMedia variant="icon">
                             <IconPower className="size-4 text-muted-foreground" />
                           </ItemMedia>
                           <ItemContent className="gap-0">
-                            <ItemTitle>Power Off</ItemTitle>
+                            <ItemTitle>Shutdown</ItemTitle>
                             <ItemDescription className="leading-none">
                               Safely power off all of the virtual machines in
                               the pod.
@@ -118,10 +118,9 @@ export function ClonedPodHeader({
                           <IconTrash className="size-4" />
                         </ItemMedia>
                         <ItemContent className="gap-0">
-                          <ItemTitle>Delete Clone</ItemTitle>
+                          <ItemTitle>Delete</ItemTitle>
                           <ItemDescription className="leading-none">
-                            Permanently delete this cloned pod and all of its
-                            virtual machines.
+                            Permanently delete your cloned instance of this pod.
                           </ItemDescription>
                         </ItemContent>
                       </Item>
