@@ -12,7 +12,7 @@ import {
 } from "@workspace/ui/components/avatar"
 import { cn } from "@workspace/ui/lib/utils"
 
-export function FormatPodCreators(creators: Array<string>) {
+export function FormatPodCreatorsShort(creators: Array<string>) {
   switch (creators.length) {
     case 0:
       return null
@@ -61,7 +61,7 @@ export function FormatPodCreators(creators: Array<string>) {
   }
 }
 
-export function FormatClonedPodCreators({
+export function FormatPodCreators({
   creators,
   className,
 }: {

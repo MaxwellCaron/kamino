@@ -19,7 +19,7 @@ import type {
   UUID,
 } from "@/features/pods/types/pod-types"
 
-export function ClonedPodTaskQuestions({
+export function PodTaskQuestions({
   questions,
   answersByQuestionId,
   disabled = false,

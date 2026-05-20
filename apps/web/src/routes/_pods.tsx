@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { ensureAuth } from "@/features/auth/api/auth-api"
-import { PodsBreadcrumb } from "@/features/pods/components/pods-breadcrumb"
+import { PodBreadcrumbs } from "@/features/pods/components/pod-breadcrumbs"
 
 const keepSidebarCollapsed = () => {}
 
@@ -43,7 +43,7 @@ function PodsLayout() {
       <AppSidebarIconRail user={user} variant="inset" />
       <SidebarInset>
         <SiteHeader
-          breadcrumb={<PodsBreadcrumb />}
+          breadcrumb={<PodBreadcrumbs />}
           command={<CommandManyItems />}
           sidebarTrigger="mobile"
         />

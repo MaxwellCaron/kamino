@@ -20,7 +20,7 @@ import {
 } from "@tabler/icons-react"
 import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { cn } from "@workspace/ui/lib/utils"
-import { ClonedPodTaskQuestions } from "./cloned-pod-task-questions"
+import { PodTaskQuestions } from "./pod-task-questions"
 import type {
   ClonedPodTaskState,
   PodTask,
@@ -32,7 +32,7 @@ import {
   createTaskSummary,
 } from "@/features/pods/utils/pod-runtime-state"
 
-export function ClonedPodTasks({
+export function PodTasks({
   tasks,
   taskStates,
   questionAnswers,
@@ -116,7 +116,7 @@ export function ClonedPodTasks({
                     <MarkdownContent>{task.content}</MarkdownContent>
 
                     {task.questions && (
-                      <ClonedPodTaskQuestions
+                      <PodTaskQuestions
                         questions={task.questions}
                         answersByQuestionId={answersByQuestionId}
                         disabled={questionsDisabled}

@@ -9,7 +9,7 @@ import {
 } from "@workspace/ui/components/breadcrumb"
 import { pods } from "@/features/pods/types/test-data"
 
-export function PodsBreadcrumb() {
+export function PodBreadcrumbs() {
   const { podSlug } = useParams({ strict: false })
   const currentPod = podSlug
     ? pods.find((pod) => pod.slug === podSlug)

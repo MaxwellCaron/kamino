@@ -17,7 +17,7 @@ import { buttonVariants } from "@workspace/ui/components/button"
 import { IconArrowRight, IconCopy } from "@tabler/icons-react"
 import { Link } from "@tanstack/react-router"
 import type { Pod } from "@/features/pods/types/pod-types"
-import { FormatPodCreators } from "@/features/pods/components/creators"
+import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 
 export function BrowsePodsCard({
   pod,
@@ -82,7 +82,7 @@ export function BrowsePodsCard({
           </motion.p>
           <motion.div variants={stagger.item}>
             <CutoutCardFooter className="border-t border-border/80 pt-4">
-              {FormatPodCreators(pod.creators)}
+              {FormatPodCreatorsShort(pod.creators)}
               <span className="pr-1 text-xs text-muted-foreground tabular-nums">
                 {new Intl.DateTimeFormat("en-US", {
                   month: "short",

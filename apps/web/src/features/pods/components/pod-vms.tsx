@@ -24,7 +24,7 @@ import {
 } from "@workspace/ui/components/empty"
 import { IconClock, IconDeviceDesktop, IconEyeX } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
-import type { PodVM } from "../../types/pod-types"
+import type { PodVM } from "../types/pod-types"
 import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
 import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 import { formatUptime } from "@/features/shared/utils/format"
@@ -45,7 +45,7 @@ function getStatusTextClass(status: string) {
   return "text-amber-600 dark:text-amber-400"
 }
 
-export function ClonedPodVms({
+export function PodVms({
   vms,
   vmsVisible,
 }: {

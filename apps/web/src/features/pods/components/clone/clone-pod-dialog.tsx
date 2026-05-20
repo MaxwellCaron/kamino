@@ -16,9 +16,12 @@ import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { CloneStatusItem } from "./clone-status-item"
-import { DEFAULT_CLONE_TASKS, getCloneStepColors } from "./clone-status"
-import type { CloneStatusTask } from "./clone-status"
-import type { Pod } from "../../types/pod-types"
+import type { CloneStatusTask } from "@/features/pods/types/clone-status"
+import type { Pod } from "@/features/pods/types/pod-types"
+import {
+  DEFAULT_CLONE_TASKS,
+  getCloneStepColors,
+} from "@/features/pods/types/clone-status"
 
 function useCloneSimulation(open: boolean) {
   const [isCloning, setIsCloning] = useState(false)

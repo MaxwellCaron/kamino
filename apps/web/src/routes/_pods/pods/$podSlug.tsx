@@ -1,5 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
-import { ClonedPodPage } from "@/features/pods/components/cloned/cloned-pod-page"
+import { PodPage } from "@/features/pods/components/pod-page"
 import { clonedPods, pods } from "@/features/pods/types/test-data"
 
 export const Route = createFileRoute("/_pods/pods/$podSlug")({
@@ -21,7 +21,5 @@ function RouteComponent() {
   const { user } = Route.useRouteContext()
   const { pod, clonedPod } = Route.useLoaderData()
 
-  return (
-    <ClonedPodPage pod={pod} clonedPod={clonedPod} username={user.username} />
-  )
+  return <PodPage pod={pod} clonedPod={clonedPod} username={user.username} />
 }

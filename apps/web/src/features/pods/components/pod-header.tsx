@@ -33,11 +33,11 @@ import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
-import { FormatClonedPodCreators } from "@/features/pods/components/creators"
+import { FormatPodCreators } from "@/features/pods/components/pod-creators"
 import { createTaskSummary } from "@/features/pods/utils/pod-runtime-state"
 import { GrainientBackground } from "@/components/grainient-background"
 
-export function ClonedPodHeader({
+export function PodHeader({
   pod,
   clonedPod,
   onClone,
@@ -146,7 +146,7 @@ export function ClonedPodHeader({
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-4">
-                <FormatClonedPodCreators creators={pod.creators} />
+                <FormatPodCreators creators={pod.creators} />
 
                 <Separator
                   orientation="vertical"
