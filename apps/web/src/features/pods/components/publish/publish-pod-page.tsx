@@ -98,11 +98,11 @@ export function PublishPodPage() {
   const anchor = useComboboxAnchor()
 
   return (
-    <div className="@container/main relative flex flex-1 flex-col pb-32">
+    <div className="@container/main relative flex flex-1 flex-col">
       <Stepper
         value={step}
         onValueChange={(value) => setStep(value as any)}
-        className="w-full"
+        className="w-full flex-1"
       >
         <StepperContent value="personalize" className="w-full">
           <div className="flex flex-col">

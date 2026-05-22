@@ -46,7 +46,7 @@ export function PublishPodStepper({ step }: PublishPodStepperProps) {
   const stepIndex = steps.findIndex((s) => s.value === step)
 
   return (
-    <div className="fixed bottom-6 left-1/2 z-50 w-full max-w-4xl -translate-x-1/2 px-2">
+    <div className="sticky bottom-6 z-50 mx-auto w-full max-w-500 px-2 lg:px-6">
       <Card className="bg-muted">
         <CardContent className="space-y-6">
           <StepperList className="w-full">

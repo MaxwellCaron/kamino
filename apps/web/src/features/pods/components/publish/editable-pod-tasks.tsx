@@ -297,7 +297,7 @@ export function EditablePodTasks({
                       </CardContent>
                     </Card>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-center">
                       <Button
                         variant="destructive"
                         onClick={(e) => {
