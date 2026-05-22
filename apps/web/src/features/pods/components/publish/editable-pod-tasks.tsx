@@ -20,10 +20,16 @@ import {
 } from "@workspace/ui/components/tabs"
 import {
   IconChecklist,
+  IconGripVertical,
   IconPlus,
   IconTrash,
   IconZoomQuestion,
 } from "@tabler/icons-react"
+import {
+  Sortable,
+  SortableItem,
+  SortableItemHandle,
+} from "@workspace/ui/components/reui/sortable"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field"
@@ -225,52 +231,68 @@ export function EditablePodTasks({
                             No questions for this task.
                           </p>
                         ) : (
-                          task.questions?.map((q, qIndex) => (
-                            <Card key={q.id} className="bg-transparent">
-                              <CardHeader>
-                                <CardTitle>Question {qIndex + 1}</CardTitle>
-                                <CardAction>
-                                  <Button
-                                    variant="destructive"
-                                    size="icon"
-                                    onClick={() =>
-                                      removeQuestion(task.id, q.id)
-                                    }
-                                  >
-                                    <IconTrash />
-                                  </Button>
-                                </CardAction>
-                              </CardHeader>
-                              <CardContent>
-                                <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                  <Field className="md:col-span-2">
-                                    <FieldLabel>Question</FieldLabel>
-                                    <Input
-                                      value={q.title}
-                                      onChange={(e) =>
-                                        updateQuestion(task.id, q.id, {
-                                          title: e.target.value,
-                                        })
-                                      }
-                                      placeholder="e.g. What is the status of the service?"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel>Answer</FieldLabel>
-                                    <Input
-                                      value={q.answerOutline}
-                                      onChange={(e) =>
-                                        updateQuestion(task.id, q.id, {
-                                          answerOutline: e.target.value,
-                                        })
-                                      }
-                                      placeholder="e.g. active (running)"
-                                    />
-                                  </Field>
-                                </FieldGroup>
-                              </CardContent>
-                            </Card>
-                          ))
+                          <Sortable
+                            value={task.questions ?? []}
+                            onValueChange={(newQuestions) =>
+                              updateTask(task.id, { questions: newQuestions })
+                            }
+                            getItemValue={(q) => q.id}
+                            className="flex flex-col gap-4"
+                          >
+                            {task.questions?.map((q, qIndex) => (
+                              <SortableItem key={q.id} value={q.id}>
+                                <Card className="bg-transparent">
+                                  <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                      <SortableItemHandle>
+                                        <IconGripVertical className="size-4 text-muted-foreground" />
+                                      </SortableItemHandle>
+                                      Question {qIndex + 1}
+                                    </CardTitle>
+                                    <CardAction>
+                                      <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        onClick={() =>
+                                          removeQuestion(task.id, q.id)
+                                        }
+                                      >
+                                        <IconTrash />
+                                      </Button>
+                                    </CardAction>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                      <Field className="md:col-span-2">
+                                        <FieldLabel>Question</FieldLabel>
+                                        <Input
+                                          value={q.title}
+                                          onChange={(e) =>
+                                            updateQuestion(task.id, q.id, {
+                                              title: e.target.value,
+                                            })
+                                          }
+                                          placeholder="e.g. What is the status of the service?"
+                                        />
+                                      </Field>
+                                      <Field>
+                                        <FieldLabel>Answer</FieldLabel>
+                                        <Input
+                                          value={q.answerOutline}
+                                          onChange={(e) =>
+                                            updateQuestion(task.id, q.id, {
+                                              answerOutline: e.target.value,
+                                            })
+                                          }
+                                          placeholder="e.g. active (running)"
+                                        />
+                                      </Field>
+                                    </FieldGroup>
+                                  </CardContent>
+                                </Card>
+                              </SortableItem>
+                            ))}
+                          </Sortable>
                         )}
                       </CardContent>
                     </Card>
