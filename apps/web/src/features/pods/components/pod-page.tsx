@@ -5,10 +5,11 @@ import { PodHeader } from "./pod-header"
 import { PodVms } from "./pod-vms"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { uuid } from "@workspace/ui/lib/utils"
 
 function createClonedPodFromPod(pod: Pod): ClonedPod {
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     pod_id: pod.id,
     cloned_at: new Date().toISOString(),
     status: "running",
