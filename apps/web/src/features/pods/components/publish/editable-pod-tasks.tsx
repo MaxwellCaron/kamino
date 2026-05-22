@@ -26,16 +26,17 @@ import {
 } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { Field, FieldLabel, FieldGroup } from "@workspace/ui/components/field"
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupText,
   InputGroupTextarea,
 } from "@workspace/ui/components/input-group"
+import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { uuid } from "@workspace/ui/lib/utils"
-import type { PodTask, PodTaskQuestion } from "@/features/pods/types/pod-types"
 import { Separator } from "@workspace/ui/components/separator"
+import type { PodTask, PodTaskQuestion } from "@/features/pods/types/pod-types"
 
 export function EditablePodTasks({
   tasks,
@@ -141,58 +142,65 @@ export function EditablePodTasks({
                       <span className="min-w-16 font-bold text-muted-foreground">
                         Task {index + 1}
                       </span>
-                      <Input
-                        className="w-100 font-semibold"
-                        value={task.title}
-                        onChange={(e) =>
-                          updateTask(task.id, { title: e.target.value })
-                        }
-                        onClick={(e) => e.stopPropagation()}
-                        placeholder="Task Title"
-                      />
+                      <span className="font-semibold">
+                        {task.title.trim() || "Untitled Task"}
+                      </span>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeTask(task.id)
-                      }}
-                    >
-                      <IconTrash className="size-4" />
-                    </Button>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
                   <div className="flex flex-col gap-6">
                     <FieldGroup>
                       <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel>Content</FieldLabel>
-                          <Tabs defaultValue="overview">
-                            <TabsList>
+                        <FieldLabel>Title</FieldLabel>
+                        <Input
+                          value={task.title}
+                          onChange={(e) =>
+                            updateTask(task.id, { title: e.target.value })
+                          }
+                          placeholder="Task Title"
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel>Content</FieldLabel>
+                        <Tabs defaultValue="text" className="w-full">
+                          <div className="flex items-center justify-between">
+                            <TabsList className="w-full">
                               <TabsTrigger value="text">Text</TabsTrigger>
                               <TabsTrigger value="markdown">
-                                Markdown
+                                Markdown Preview
                               </TabsTrigger>
                             </TabsList>
-                          </Tabs>
-                        </div>
-                        <InputGroup>
-                          <InputGroupTextarea
-                            className="min-h-[120px]"
-                            value={task.content}
-                            onChange={(e) =>
-                              updateTask(task.id, { content: e.target.value })
-                            }
-                            placeholder="Describe the task instructions..."
-                          />
-                          <InputGroupAddon align="block-end">
-                            <InputGroupText className="ml-auto text-xs">
-                              {task.content.length} characters
-                            </InputGroupText>
-                          </InputGroupAddon>
-                        </InputGroup>
+                          </div>
+                          <TabsContent value="text" className="mt-2">
+                            <InputGroup>
+                              <InputGroupTextarea
+                                className="min-h-30 p-4"
+                                value={task.content}
+                                onChange={(e) =>
+                                  updateTask(task.id, {
+                                    content: e.target.value,
+                                  })
+                                }
+                                placeholder="Describe the task instructions..."
+                              />
+                              <InputGroupAddon align="block-end">
+                                <InputGroupText className="ml-auto text-xs">
+                                  {task.content.length} characters
+                                </InputGroupText>
+                              </InputGroupAddon>
+                            </InputGroup>
+                          </TabsContent>
+                          <TabsContent value="markdown" className="mt-2">
+                            {task.content ? (
+                              <MarkdownContent>{task.content}</MarkdownContent>
+                            ) : (
+                              <p className="text-muted-foreground italic">
+                                No content to preview.
+                              </p>
+                            )}
+                          </TabsContent>
+                        </Tabs>
                       </Field>
                     </FieldGroup>
 
@@ -234,16 +242,8 @@ export function EditablePodTasks({
                                 </CardAction>
                               </CardHeader>
                               <CardContent>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  className="absolute top-2 right-2 text-muted-foreground hover:text-destructive"
-                                  onClick={() => removeQuestion(task.id, q.id)}
-                                >
-                                  <IconTrash className="size-3.5" />
-                                </Button>
-                                <FieldGroup>
-                                  <Field>
+                                <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                  <Field className="md:col-span-2">
                                     <FieldLabel>Question</FieldLabel>
                                     <Input
                                       value={q.title}
@@ -274,6 +274,19 @@ export function EditablePodTasks({
                         )}
                       </CardContent>
                     </Card>
+
+                    <div className="flex justify-end">
+                      <Button
+                        variant="destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeTask(task.id)
+                        }}
+                      >
+                        <IconTrash data-icon="inline-start" />
+                        Delete Task
+                      </Button>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>

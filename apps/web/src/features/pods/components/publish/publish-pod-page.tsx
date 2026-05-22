@@ -1,17 +1,11 @@
 import * as React from "react"
-import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
-import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
-import { PodHeader } from "@/features/pods/components/pod-header"
-import { PodTasks } from "@/features/pods/components/pod-tasks"
-import { EditablePodTasks } from "./editable-pod-tasks"
-import type { Pod } from "@/features/pods/types/pod-types"
 import { uuid } from "@workspace/ui/lib/utils"
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@workspace/ui/components/card"
 import {
   Combobox,
@@ -28,14 +22,11 @@ import {
 } from "@workspace/ui/components/combobox"
 import {
   Field,
-  FieldLabel,
-  FieldGroup,
-  FieldContent,
   FieldDescription,
+  FieldGroup,
+  FieldLabel,
 } from "@workspace/ui/components/field"
-import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Label } from "@workspace/ui/components/label"
-import { IconDeviceDesktop, IconDots, IconSettings } from "@tabler/icons-react"
+import { IconDeviceDesktop, IconSettings } from "@tabler/icons-react"
 import {
   InputGroup,
   InputGroupAddon,
@@ -52,7 +43,12 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Button } from "@workspace/ui/components/button"
-import { Separator } from "@workspace/ui/components/separator"
+import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
+import { EditablePodTasks } from "./editable-pod-tasks"
+import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
+import type { Pod } from "@/features/pods/types/pod-types"
+import { PodHeader } from "@/features/pods/components/pod-header"
+import { PodTasks } from "@/features/pods/components/pod-tasks"
 
 const frameworks = [
   "Next.js",
@@ -252,7 +248,7 @@ export function PublishPodPage() {
                       <p className="font-medium">Virutal Machines</p>
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Item variant="muted">
+                          <Item key={i} variant="muted">
                             <ItemMedia variant="icon">
                               <IconDeviceDesktop />
                             </ItemMedia>
