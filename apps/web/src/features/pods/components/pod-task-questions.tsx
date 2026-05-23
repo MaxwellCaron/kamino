@@ -55,7 +55,7 @@ export function PodTaskQuestions({
                     defaultValue={answer?.answer}
                     placeholder={
                       question.answerOutline
-                        ? question.answerOutline
+                        ? question.answerOutline.replace(/[a-zA-Z0-9]/g, "*")
                         : "Type your answer here..."
                     }
                     disabled={disabled || answerIsCorrect}

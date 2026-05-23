@@ -130,9 +130,6 @@ export function EditablePodTasks({
         {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground">No tasks added yet.</p>
-            <Button variant="ghost" className="mt-2" onClick={addTask}>
-              Create your first task
-            </Button>
           </div>
         ) : (
           <Accordion className="w-full rounded-t-none! border-none">
