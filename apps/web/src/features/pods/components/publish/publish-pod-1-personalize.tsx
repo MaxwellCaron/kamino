@@ -27,7 +27,18 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { IconDeviceDesktop, IconSettings } from "@tabler/icons-react"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import {
+  IconDeviceDesktop,
+  IconFolderOpen,
+  IconSettings,
+} from "@tabler/icons-react"
 import {
   InputGroup,
   InputGroupAddon,
@@ -285,41 +296,62 @@ export function PublishPodPersonalizeStep({
                         pod. Creating a pod will NOT touch or modify the
                         contents of this folder.
                       </FieldDescription>
+                      <div className="flex flex-col gap-3 pt-3">
+                        <p className="font-medium">Virtual Machines</p>
+                        {field.state.value ? (
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {Array.from({ length: 5 }).map((_, index) => (
+                              <Item key={index} variant="muted">
+                                <ItemMedia variant="icon">
+                                  <IconDeviceDesktop />
+                                </ItemMedia>
+                                <ItemContent>
+                                  <ItemTitle>
+                                    Virtual Machine {index + 1}
+                                  </ItemTitle>
+                                  <ItemDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <span>2 CPUs</span>
+                                    <span>4GB RAM</span>
+                                    <span>100GB Storage</span>
+                                  </ItemDescription>
+                                </ItemContent>
+                                <ItemActions>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={`Configure Virtual Machine ${index + 1}`}
+                                  >
+                                    <IconSettings data-icon="inline-end" />
+                                  </Button>
+                                </ItemActions>
+                              </Item>
+                            ))}
+                          </div>
+                        ) : (
+                          <Empty className="min-h-56 rounded-xl border border-dashed">
+                            <EmptyHeader>
+                              <EmptyMedia variant="icon">
+                                <IconFolderOpen />
+                              </EmptyMedia>
+                              <EmptyTitle>No folder selected</EmptyTitle>
+                              <EmptyDescription>
+                                Select a folder above to preview the virtual
+                                machines that will be included in this pod.
+                              </EmptyDescription>
+                            </EmptyHeader>
+                          </Empty>
+                        )}
+                        <span className="text-muted-foreground">
+                          By default, users will be able to view VMs, manage
+                          power status, and snapshots.
+                        </span>
+                      </div>
                     </FieldContent>
                   </Field>
                 )
               }}
             </form.Field>
-
-            <div className="flex flex-col gap-3">
-              <p className="font-medium">Virtual Machines</p>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <Item key={index} variant="muted">
-                    <ItemMedia variant="icon">
-                      <IconDeviceDesktop />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>Virtual Machine {index + 1}</ItemTitle>
-                      <ItemDescription className="flex items-center justify-between">
-                        <span>2 CPUs</span>
-                        <span>4GB RAM</span>
-                        <span>100GB Storage</span>
-                      </ItemDescription>
-                    </ItemContent>
-                    <ItemActions>
-                      <Button type="button" variant="ghost" size="icon">
-                        <IconSettings />
-                      </Button>
-                    </ItemActions>
-                  </Item>
-                ))}
-              </div>
-              <span className="text-muted-foreground">
-                By default, users will be able to view VMs, manage power status,
-                and snapshots.
-              </span>
-            </div>
           </div>
         </CardContent>
       </Card>
