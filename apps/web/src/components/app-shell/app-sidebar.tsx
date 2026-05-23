@@ -5,6 +5,7 @@ import {
   IconHome,
   IconLayoutDashboard,
   IconNetwork,
+  IconPackageExport,
   IconPackages,
   IconReceipt,
   IconUser,
@@ -63,6 +64,15 @@ const navItems = [
       "Review pending and completed user requests for VM power changes or snapshots.",
     url: "/manager/requests",
     icon: IconReceipt,
+    group: "manager",
+    visibility: "requests",
+  },
+  {
+    title: "Publish Pod",
+    description:
+      "Configure and publish a new pod for users to clone and interact with.",
+    url: "/pods/publish",
+    icon: IconPackageExport,
     group: "manager",
     visibility: "requests",
   },
