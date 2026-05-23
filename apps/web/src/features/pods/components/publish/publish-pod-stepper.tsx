@@ -17,8 +17,14 @@ export const steps = [
   {
     value: "personalize",
     title: "Personalize",
-    description: "Title, description, and image",
-    fields: ["title", "description", "image", "vms_visible"] as const,
+    description: "Title, media, creators, and source folder",
+    fields: [
+      "title",
+      "description",
+      "image",
+      "creators",
+      "source_folder",
+    ] as const,
   },
   {
     value: "tasks",

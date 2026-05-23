@@ -2,6 +2,28 @@ import { useForm } from "@tanstack/react-form"
 import { uuid } from "@workspace/ui/lib/utils"
 import { z } from "zod"
 import type { Pod } from "@/features/pods/types/pod-types"
+import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
+
+const defaultPublishPodVmPermissionAllowMask =
+  InventoryPermissionBits.view |
+  InventoryPermissionBits.consoleVm |
+  InventoryPermissionBits.powerVm |
+  InventoryPermissionBits.viewSnapshots |
+  InventoryPermissionBits.snapshotVm
+
+const publishPodVmPermissionSchema = z.object({
+  allowMask: z.number().int().min(0),
+  denyMask: z.number().int().min(0),
+})
+
+const publishPodVmSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  cpuCount: z.number().int().min(1),
+  memoryGb: z.number().int().min(1),
+  storageGb: z.number().int().min(1),
+  permissions: publishPodVmPermissionSchema,
+})
 
 const publishPodQuestionSchema = z.object({
   id: z.string().min(1),
@@ -41,6 +63,7 @@ export const publishPodFormSchema = z.object({
   created_at: z.string().min(1),
   clone_count: z.number().int().min(0),
   vms_visible: z.boolean(),
+  virtual_machines: z.array(publishPodVmSchema).min(1),
   tasks: z
     .array(publishPodTaskSchema)
     .min(1, "Add at least one task.")
@@ -67,6 +90,20 @@ export function createEmptyTask() {
   } satisfies PublishPodFormValues["tasks"][number]
 }
 
+export function createDefaultPublishPodVm(index: number) {
+  return {
+    id: uuid(),
+    name: `Virtual Machine ${index + 1}`,
+    cpuCount: 2,
+    memoryGb: 4,
+    storageGb: 100,
+    permissions: {
+      allowMask: defaultPublishPodVmPermissionAllowMask,
+      denyMask: 0,
+    },
+  } satisfies PublishPodFormValues["virtual_machines"][number]
+}
+
 export const initialPublishPodValues: PublishPodFormValues = {
   id: "draft",
   title: "New Learning Pod",
@@ -79,6 +116,9 @@ export const initialPublishPodValues: PublishPodFormValues = {
   created_at: new Date().toISOString(),
   clone_count: 0,
   vms_visible: true,
+  virtual_machines: Array.from({ length: 5 }, (_, index) =>
+    createDefaultPublishPodVm(index)
+  ),
   tasks: [
     {
       id: uuid(),
@@ -110,6 +150,10 @@ export function usePublishPodForm() {
 export type PublishPodFormApi = ReturnType<typeof usePublishPodForm>
 
 export function toPodDraft(values: PublishPodFormValues): Pod {
-  const { source_folder: _sourceFolder, ...podDraft } = values
+  const {
+    source_folder: _sourceFolder,
+    virtual_machines: _virtualMachines,
+    ...podDraft
+  } = values
   return podDraft
 }

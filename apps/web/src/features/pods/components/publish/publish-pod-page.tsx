@@ -6,13 +6,32 @@ import { PublishPodTasksStep } from "./publish-pod-2-tasks"
 import { PublishPodPreviewStep } from "./publish-pod-3-preview"
 import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
 import type { PublishPodStep } from "./publish-pod-stepper"
+import type { PublishPodFormApi } from "./publish-pod-form"
+
+type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
 
 export function PublishPodPage() {
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
   const form = usePublishPodForm()
 
+  const hasFieldErrors = React.useCallback(
+    (fields: Array<PublishPodFieldPath>) =>
+      fields.some(
+        (field) => (form.getFieldMeta(field)?.errors.length ?? 0) > 0
+      ),
+    [form]
+  )
+
   const validateStep = React.useCallback(async () => {
     if (step === "personalize") {
+      const fields = [
+        "title",
+        "description",
+        "image",
+        "creators",
+        "source_folder",
+      ] satisfies Array<PublishPodFieldPath>
+
       await Promise.all([
         form.validateField("title", "submit"),
         form.validateField("description", "submit"),
@@ -21,7 +40,7 @@ export function PublishPodPage() {
         form.validateField("source_folder", "submit"),
       ])
 
-      return true
+      return !hasFieldErrors(fields)
     }
 
     if (step === "tasks") {
@@ -32,28 +51,47 @@ export function PublishPodPage() {
         await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
       }
 
-      return tasks.every(
-        (task) =>
-          task.title.trim().length > 0 &&
-          task.content.trim().length > 0 &&
-          task.questions.every(
-            (question) =>
-              question.title.trim().length > 0 &&
-              question.answerOutline.trim().length > 0
+      const fields: Array<PublishPodFieldPath> = ["tasks"]
+
+      tasks.forEach((task, taskIndex) => {
+        fields.push(
+          `tasks[${taskIndex}].title` as PublishPodFieldPath,
+          `tasks[${taskIndex}].content` as PublishPodFieldPath
+        )
+
+        task.questions.forEach((_, questionIndex) => {
+          fields.push(
+            `tasks[${taskIndex}].questions[${questionIndex}].title` as PublishPodFieldPath,
+            `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath
           )
-      )
+        })
+      })
+
+      return !hasFieldErrors(fields)
     }
 
     return true
-  }, [form, step])
+  }, [form, hasFieldErrors, step])
 
   return (
     <form
       noValidate
       className="@container/main relative flex flex-1 flex-col"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault()
-        form.handleSubmit()
+        await form.validateField("title", "submit")
+        await form.validateField("description", "submit")
+        await form.validateField("image", "submit")
+        await form.validateField("creators", "submit")
+        await form.validateField("source_folder", "submit")
+        await form.validateField("tasks", "submit")
+
+        const tasks = form.getFieldValue("tasks")
+        if (tasks.length > 0) {
+          await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
+        }
+
+        await form.handleSubmit()
       }}
     >
       <Stepper
