@@ -5,8 +5,8 @@ import type { Pod } from "@/features/pods/types/pod-types"
 
 const publishPodQuestionSchema = z.object({
   id: z.string().min(1),
-  title: z.string().min(1, "Question is required."),
-  answerOutline: z.string().optional(),
+  title: z.string().trim().min(1, "Question is required."),
+  answerOutline: z.string().trim().min(1, "Answer is required."),
   description: z.string().optional(),
   hint: z.string().optional(),
 })
@@ -15,9 +15,10 @@ const publishPodTaskSchema = z.object({
   id: z.string().min(1),
   title: z
     .string()
+    .trim()
     .min(1, "Task title is required.")
     .max(64, "Task title must be at most 64 characters."),
-  content: z.string().min(1, "Task content is required."),
+  content: z.string().trim().min(1, "Task content is required."),
   questions: z.array(publishPodQuestionSchema),
 })
 
@@ -100,7 +101,6 @@ export function usePublishPodForm() {
   return useForm({
     defaultValues: initialPublishPodValues,
     validators: {
-      onChange: publishPodFormSchema,
       onSubmit: publishPodFormSchema,
     },
     onSubmit: async () => {},

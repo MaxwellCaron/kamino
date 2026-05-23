@@ -410,7 +410,7 @@ export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
                                                                 }
                                                                 value={
                                                                   field.state
-                                                                    .value ?? ""
+                                                                    .value
                                                                 }
                                                                 onBlur={
                                                                   field.handleBlur
