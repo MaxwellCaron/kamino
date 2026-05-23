@@ -4,6 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@workspace/ui/components/accordion"
+import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
   CardAction,
@@ -65,6 +66,34 @@ type PublishPodTasksStepProps = {
   form: PublishPodFormApi
 }
 
+type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
+
+function getTaskErrorCount(
+  form: PublishPodFormApi,
+  taskIndex: number,
+  questionCount: number
+) {
+  const paths: Array<PublishPodFieldPath> = [
+    `tasks[${taskIndex}].title` as PublishPodFieldPath,
+    `tasks[${taskIndex}].content` as PublishPodFieldPath,
+    ...Array.from(
+      { length: questionCount },
+      (_, questionIndex) =>
+        `tasks[${taskIndex}].questions[${questionIndex}].title` as PublishPodFieldPath
+    ),
+    ...Array.from(
+      { length: questionCount },
+      (_, questionIndex) =>
+        `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath
+    ),
+  ]
+
+  return paths.reduce((count, path) => {
+    const errors = form.getFieldMeta(path)?.errors ?? []
+    return errors.length > 0 ? count + 1 : count
+  }, 0)
+}
+
 export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
   return (
     <div className="flex flex-col">
@@ -106,7 +135,10 @@ export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
                     </EmptyHeader>
                   </Empty>
                 ) : (
-                  <Accordion className="w-full rounded-t-none! border-none">
+                  <Accordion
+                    keepMounted
+                    className="w-full rounded-t-none! border-none"
+                  >
                     {tasksField.state.value.map((task, index) => (
                       <AccordionItem
                         key={task.id}
@@ -114,15 +146,32 @@ export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
                         className="data-open:bg-card"
                       >
                         <AccordionTrigger className="px-6 hover:no-underline">
-                          <div className="flex flex-1 items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="min-w-16 font-bold text-muted-foreground">
-                                Task {index + 1}
-                              </span>
-                              <span className="font-semibold">
-                                {task.title.trim() || "Untitled Task"}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-3">
+                            <span className="min-w-16 font-bold text-muted-foreground">
+                              Task {index + 1}
+                            </span>
+                            <span className="font-semibold">
+                              {task.title.trim() || "Untitled Task"}
+                            </span>
+                            <form.Subscribe
+                              selector={(state) => state.fieldMetaBase}
+                            >
+                              {() => {
+                                const errorCount = getTaskErrorCount(
+                                  form,
+                                  index,
+                                  task.questions.length
+                                )
+
+                                if (errorCount === 0) return null
+
+                                return (
+                                  <Badge variant="destructive">
+                                    {errorCount}
+                                  </Badge>
+                                )
+                              }}
+                            </form.Subscribe>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
