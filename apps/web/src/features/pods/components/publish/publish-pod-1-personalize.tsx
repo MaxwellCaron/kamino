@@ -1,6 +1,5 @@
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { PublishPodGeneralSection } from "./publish-pod-personalize-general"
-import { PublishPodVmSection } from "./publish-pod-personalize-vms"
 import type { PublishPodFormApi } from "./publish-pod-form"
 
 const frameworks = [
@@ -20,8 +19,11 @@ export function PublishPodPersonalizeStep({
 }: PublishPodPersonalizeStepProps) {
   return (
     <PublishPodStepLayout form={form}>
-      <PublishPodGeneralSection creatorOptions={frameworks} form={form} />
-      <PublishPodVmSection folderOptions={frameworks} form={form} />
+      <PublishPodGeneralSection
+        creatorOptions={frameworks}
+        folderOptions={frameworks}
+        form={form}
+      />
     </PublishPodStepLayout>
   )
 }

@@ -1,12 +1,5 @@
 import * as React from "react"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import {
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
@@ -27,7 +20,10 @@ import {
   FieldContent,
   FieldDescription,
   FieldError,
+  FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from "@workspace/ui/components/field"
 import {
   Item,
@@ -125,123 +121,115 @@ export function PublishPodVmSection({
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <IconDeviceDesktop className="size-5 text-muted-foreground" />
-            Virtual Machines
-          </CardTitle>
-          <CardDescription>
-            Select the folder that you want to create a new pod from and assign
-            them individual permissions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="border-t pt-6">
-          <div className="flex flex-col gap-6">
-            <form.Field name="source_folder">
-              {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+      <FieldSet>
+        <FieldLegend>Virtual Machines</FieldLegend>
+        <FieldDescription>
+          Select the folder that you want to create a new pod from and assign
+          them individual permissions. These permissions will be applied to all
+          clones of this pod and can be updated at any time.
+        </FieldDescription>
+        <FieldGroup>
+          <form.Field name="source_folder">
+            {(field) => {
+              const isInvalid = field.state.meta.errors.length > 0
 
-                return (
-                  <Field data-invalid={isInvalid || undefined}>
-                    <FieldLabel>Folder</FieldLabel>
-                    <FieldContent>
-                      <Combobox
-                        items={folderOptions}
-                        value={field.state.value || null}
-                        onValueChange={(value) =>
-                          field.handleChange(value ?? "")
-                        }
-                      >
-                        <ComboboxInput
-                          name={field.name}
-                          placeholder="Select base folder"
-                          onBlur={field.handleBlur}
-                          aria-invalid={isInvalid || undefined}
-                        />
-                        <ComboboxContent>
-                          <ComboboxEmpty>No items found.</ComboboxEmpty>
-                          <ComboboxList>
-                            {(item) => (
-                              <ComboboxItem key={item} value={item}>
-                                {item}
-                              </ComboboxItem>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                      <FieldDescription className="pt-2">
-                        This folder will be used as the source of truth for the
-                        pod. Creating a pod will NOT touch or modify the
-                        contents of this folder.
-                      </FieldDescription>
-                      <FieldError errors={field.state.meta.errors} />
-                      <div className="flex flex-col gap-3 pt-3">
-                        <p className="font-medium">Virtual Machines</p>
-                        {field.state.value ? (
-                          <form.Subscribe
-                            selector={(state) => state.values.virtual_machines}
-                          >
-                            {(virtualMachines) => (
-                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                {virtualMachines.map((vm, index) => (
-                                  <Item key={vm.id} variant="muted">
-                                    <ItemMedia variant="icon">
-                                      <IconDeviceDesktop />
-                                    </ItemMedia>
-                                    <ItemContent>
-                                      <ItemTitle>{vm.name}</ItemTitle>
-                                      <ItemDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                        <span>{vm.cpuCount} CPUs</span>
-                                        <span>{vm.memoryGb}GB RAM</span>
-                                        <span>{vm.storageGb}GB Storage</span>
-                                      </ItemDescription>
-                                    </ItemContent>
-                                    <ItemActions>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label={`Customize permissions for ${vm.name}`}
-                                        onClick={() =>
-                                          handleStartEditingVm(vm, index)
-                                        }
-                                      >
-                                        <IconSettings data-icon="inline-end" />
-                                      </Button>
-                                    </ItemActions>
-                                  </Item>
-                                ))}
-                              </div>
-                            )}
-                          </form.Subscribe>
-                        ) : (
-                          <Empty className="min-h-56 rounded-xl border border-dashed">
-                            <EmptyHeader>
-                              <EmptyMedia variant="icon">
-                                <IconFolderOpen />
-                              </EmptyMedia>
-                              <EmptyTitle>No folder selected</EmptyTitle>
-                              <EmptyDescription>
-                                Select a folder above to preview the virtual
-                                machines that will be included in this pod.
-                              </EmptyDescription>
-                            </EmptyHeader>
-                          </Empty>
-                        )}
-                        <span className="text-muted-foreground">
-                          By default, users will be able to view, console,
-                          manage power status, and create or revert snapshots.
-                        </span>
-                      </div>
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
-          </div>
-        </CardContent>
-      </Card>
+              return (
+                <Field data-invalid={isInvalid || undefined}>
+                  <FieldLabel>Folder</FieldLabel>
+                  <FieldContent>
+                    <Combobox
+                      items={folderOptions}
+                      value={field.state.value || null}
+                      onValueChange={(value) => field.handleChange(value ?? "")}
+                    >
+                      <ComboboxInput
+                        name={field.name}
+                        placeholder="Select base folder"
+                        onBlur={field.handleBlur}
+                        aria-invalid={isInvalid || undefined}
+                      />
+                      <ComboboxContent>
+                        <ComboboxEmpty>No items found.</ComboboxEmpty>
+                        <ComboboxList>
+                          {(item) => (
+                            <ComboboxItem key={item} value={item}>
+                              {item}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                    <FieldDescription className="pt-2">
+                      This folder will be used as the source of truth for the
+                      pod. Creating a pod will NOT touch or modify the contents
+                      of this folder.
+                    </FieldDescription>
+                    <FieldError errors={field.state.meta.errors} />
+                    <div className="flex flex-col gap-3 pt-3">
+                      <p className="font-medium">Virtual Machines</p>
+                      {field.state.value ? (
+                        <form.Subscribe
+                          selector={(state) => state.values.virtual_machines}
+                        >
+                          {(virtualMachines) => (
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                              {virtualMachines.map((vm, index) => (
+                                <Item key={vm.id} variant="muted">
+                                  <ItemMedia variant="icon">
+                                    <IconDeviceDesktop />
+                                  </ItemMedia>
+                                  <ItemContent>
+                                    <ItemTitle>{vm.name}</ItemTitle>
+                                    <ItemDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                      <span>{vm.cpuCount} CPUs</span>
+                                      <span>{vm.memoryGb}GB RAM</span>
+                                      <span>{vm.storageGb}GB Storage</span>
+                                    </ItemDescription>
+                                  </ItemContent>
+                                  <ItemActions>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      aria-label={`Customize permissions for ${vm.name}`}
+                                      onClick={() =>
+                                        handleStartEditingVm(vm, index)
+                                      }
+                                    >
+                                      <IconSettings data-icon="inline-end" />
+                                    </Button>
+                                  </ItemActions>
+                                </Item>
+                              ))}
+                            </div>
+                          )}
+                        </form.Subscribe>
+                      ) : (
+                        <Empty className="min-h-56 rounded-xl border border-dashed">
+                          <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                              <IconFolderOpen />
+                            </EmptyMedia>
+                            <EmptyTitle>No folder selected</EmptyTitle>
+                            <EmptyDescription>
+                              Select a folder above to preview the virtual
+                              machines that will be included in this pod.
+                            </EmptyDescription>
+                          </EmptyHeader>
+                        </Empty>
+                      )}
+                      <span className="text-muted-foreground">
+                        By default, users will be able to view, console, manage
+                        power status, and create or revert snapshots.
+                      </span>
+                    </div>
+                  </FieldContent>
+                </Field>
+              )
+            }}
+          </form.Field>
+        </FieldGroup>
+      </FieldSet>
 
       <CustomizePermissionsDialog
         editingPrincipal={editingVmPermissions}
