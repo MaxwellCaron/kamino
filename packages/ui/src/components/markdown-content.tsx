@@ -4,6 +4,7 @@ import { Image } from "@unpic/react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { ImageZoom } from "@workspace/ui/components/kibo-ui/image-zoom"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 import type { Components } from "react-markdown"
@@ -184,18 +185,20 @@ export const markdownComponents: Components = {
     width: _width,
     ...props
   }) => (
-    <Image
-      alt={alt ?? ""}
-      className={cn(
-        "mx-auto my-6 max-h-80 w-auto max-w-full rounded-md border object-contain sm:max-h-96",
-        className
-      )}
-      decoding="async"
-      layout="fullWidth"
-      loading="lazy"
-      src={src ?? ""}
-      {...props}
-    />
+    <ImageZoom zoomMargin={100}>
+      <Image
+        alt={alt ?? ""}
+        className={cn(
+          "mx-auto my-6 max-h-80 w-auto max-w-full rounded-md border object-contain sm:max-h-96",
+          className
+        )}
+        decoding="async"
+        layout="fullWidth"
+        loading="lazy"
+        src={src ?? ""}
+        {...props}
+      />
+    </ImageZoom>
   ),
   input: ({ className, node: _node, type, ...props }) => (
     <input
