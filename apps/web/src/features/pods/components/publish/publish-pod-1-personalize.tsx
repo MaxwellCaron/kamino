@@ -20,7 +20,6 @@ import {
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -224,9 +223,6 @@ export function PublishPodPersonalizeStep({
                           </ComboboxList>
                         </ComboboxContent>
                       </Combobox>
-                      <FieldDescription>
-                        Choose the principals credited as authors of this pod.
-                      </FieldDescription>
                       <FieldError
                         errors={showValidation ? field.state.meta.errors : []}
                       />

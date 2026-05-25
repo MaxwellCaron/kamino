@@ -270,7 +270,7 @@ export const initialPublishPodValues: PublishPodFormValues = {
   creators: [],
   created_at: new Date().toISOString(),
   clone_count: 0,
-  status: "unlisted",
+  status: "listed",
   audience: [],
   vms_visible: true,
   virtual_machines: Array.from({ length: 5 }, (_, index) =>
