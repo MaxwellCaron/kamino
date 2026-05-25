@@ -169,11 +169,7 @@ export function getPublishedPodsColumns({
         const pod = row.original
 
         return (
-          <div className="flex items-center justify-end gap-2 py-1">
-            <Button variant="outline" size="sm" onClick={() => onEdit(pod)}>
-              <IconEdit data-icon="inline-start" />
-              Edit
-            </Button>
+          <div className="flex items-center justify-end pr-4">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -184,32 +180,35 @@ export function getPublishedPodsColumns({
                   />
                 }
               >
-                <IconDotsVertical />
+                <IconDotsVertical className="text-muted-foreground" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
                 <DropdownMenuGroup>
+                  <DropdownMenuLabel>General</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => onEdit(pod)}>
-                    <IconEdit />
-                    Edit in publish workflow
+                    <IconEdit className="text-muted-foreground" />
+                    Edit
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Catalog visibility</DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={pod.status}
-                  onValueChange={(value) =>
-                    onStatusChange(pod, value as PodStatus)
-                  }
-                >
-                  <DropdownMenuRadioItem value="listed">
-                    <IconEye />
-                    Listed
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="unlisted">
-                    <IconEyeOff />
-                    Unlisted
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Status</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={pod.status}
+                    onValueChange={(value) =>
+                      onStatusChange(pod, value as PodStatus)
+                    }
+                  >
+                    <DropdownMenuRadioItem value="listed">
+                      <IconEye className="text-muted-foreground" />
+                      Listed
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="unlisted">
+                      <IconEyeOff className="text-muted-foreground" />
+                      Unlisted
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

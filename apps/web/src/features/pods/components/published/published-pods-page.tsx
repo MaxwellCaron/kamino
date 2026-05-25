@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { toast } from "sonner"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { IconLock, IconPackages, IconPlus } from "@tabler/icons-react"
+import { IconPackages, IconPlus } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -37,7 +37,9 @@ function CatalogStat({
     <Card>
       <CardHeader>
         <CardDescription>{title}</CardDescription>
-        <CardTitle className="text-3xl">{value}</CardTitle>
+        <CardTitle className="text-3xl font-semibold tracking-tight">
+          {value}
+        </CardTitle>
       </CardHeader>
       <CardContent className="pt-0 text-sm text-muted-foreground">
         {description}
