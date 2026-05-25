@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
+import { uuid } from "@workspace/ui/lib/utils"
 import { ClonePodDialog } from "./clone/clone-pod-dialog"
 import { PodTasks } from "./pod-tasks"
 import { PodHeader } from "./pod-header"
 import { PodVms } from "./pod-vms"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
-import { uuid } from "@workspace/ui/lib/utils"
 
 function createClonedPodFromPod(pod: Pod): ClonedPod {
   return {

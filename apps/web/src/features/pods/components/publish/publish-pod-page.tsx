@@ -1,18 +1,40 @@
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
 import { PublishPodPersonalizeStep } from "./publish-pod-1-personalize"
+import { PublishPodAccessStep } from "./publish-pod-2-access"
+import { PublishPodVirtualMachinesStep } from "./publish-pod-3-virtual-machines"
 import { usePublishPodForm } from "./publish-pod-form"
-import { PublishPodTasksStep } from "./publish-pod-2-tasks"
-import { PublishPodPreviewStep } from "./publish-pod-3-preview"
+import { PublishPodTasksStep } from "./publish-pod-4-tasks"
+import { PublishPodPreviewStep } from "./publish-pod-5-preview"
 import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
 import type { PublishPodStep } from "./publish-pod-stepper"
 import type { PublishPodFormApi } from "./publish-pod-form"
+import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
+import {
+  groupsQueryOptions,
+  usersQueryOptions,
+} from "@/features/principals/api/principals-api"
 
 type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
 
 export function PublishPodPage() {
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
   const form = usePublishPodForm()
+  const usersQuery = useQuery(usersQueryOptions)
+  const groupsQuery = useQuery(groupsQueryOptions)
+
+  const principalOptions = React.useMemo(
+    () => buildPrincipalOptions(usersQuery.data ?? [], groupsQuery.data ?? []),
+    [groupsQuery.data, usersQuery.data]
+  )
+
+  const principalOptionMap = React.useMemo(
+    (): Map<string, PrincipalOption> =>
+      new Map(principalOptions.map((option) => [option.id, option])),
+    [principalOptions]
+  )
 
   const hasFieldErrors = React.useCallback(
     (fields: Array<PublishPodFieldPath>) =>
@@ -29,8 +51,6 @@ export function PublishPodPage() {
         "description",
         "image",
         "creators",
-        "audience",
-        "source_folder",
       ] satisfies Array<PublishPodFieldPath>
 
       await Promise.all([
@@ -38,7 +58,26 @@ export function PublishPodPage() {
         form.validateField("description", "submit"),
         form.validateField("image", "submit"),
         form.validateField("creators", "submit"),
+      ])
+
+      return !hasFieldErrors(fields)
+    }
+
+    if (step === "access") {
+      const fields = ["audience"] satisfies Array<PublishPodFieldPath>
+
+      await Promise.all([
+        form.validateField("status", "submit"),
         form.validateField("audience", "submit"),
+      ])
+
+      return !hasFieldErrors(fields)
+    }
+
+    if (step === "virtual-machines") {
+      const fields = ["source_folder"] satisfies Array<PublishPodFieldPath>
+
+      await Promise.all([
         form.validateField("source_folder", "submit"),
       ])
 
@@ -107,7 +146,23 @@ export function PublishPodPage() {
         className="w-full flex-1"
       >
         <StepperContent value="personalize" className="w-full">
-          <PublishPodPersonalizeStep form={form} />
+          <PublishPodPersonalizeStep
+            form={form}
+            principalOptionMap={principalOptionMap}
+            principalOptions={principalOptions}
+          />
+        </StepperContent>
+
+        <StepperContent value="access" className="w-full">
+          <PublishPodAccessStep
+            form={form}
+            principalOptionMap={principalOptionMap}
+            principalOptions={principalOptions}
+          />
+        </StepperContent>
+
+        <StepperContent value="virtual-machines" className="w-full">
+          <PublishPodVirtualMachinesStep form={form} />
         </StepperContent>
 
         <StepperContent value="tasks" className="w-full">

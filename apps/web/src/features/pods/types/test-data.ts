@@ -52,7 +52,14 @@ export const pods: Array<Pod> = [
     description:
       "Learn how to work backwards and understand programs through their data!",
     image: "https://i.imgur.com/Mlp5on4.png",
-    creators: ["mung"],
+    creators: [
+      {
+        id: "mung",
+        type: "user",
+        label: "mung",
+        description: "mung",
+      },
+    ],
     created_at: "2024-05-01T12:00:00Z",
     clone_count: 124,
     status: "listed",
@@ -126,7 +133,20 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
     slug: "intro-to-red-team",
     description: "Ethically hack into an infrastructure with your team!",
     image: "https://i.imgur.com/i349T75.png",
-    creators: ["tommy", "mcaron"],
+    creators: [
+      {
+        id: "tommy",
+        type: "user",
+        label: "tommy",
+        description: "tommy",
+      },
+      {
+        id: "mcaron",
+        type: "user",
+        label: "mcaron",
+        description: "mcaron",
+      },
+    ],
     created_at: "2024-04-28T12:00:00Z",
     clone_count: 89,
     status: "listed",
@@ -383,7 +403,14 @@ For a polished report, link tactics back to [MITRE ATT&CK Enterprise](https://at
     slug: "insecure-deserialization",
     description: "Learn how to keep your save files safe from malicious code.",
     image: "https://i.imgur.com/H9pBcUi.png",
-    creators: ["bill"],
+    creators: [
+      {
+        id: "bill",
+        type: "user",
+        label: "bill",
+        description: "bill",
+      },
+    ],
     created_at: "2024-04-25T12:00:00Z",
     clone_count: 231,
     status: "listed",
@@ -449,7 +476,14 @@ Focus on constructors, magic methods, or hooks that execute automatically during
     slug: "capture-the-flag",
     description: "Join SWIFT and FAST for a CTF. Top 3 finishers get prizes!",
     image: "https://i.imgur.com/ivoLn2o.png",
-    creators: ["eric"],
+    creators: [
+      {
+        id: "eric",
+        type: "user",
+        label: "eric",
+        description: "eric",
+      },
+    ],
     created_at: "2024-04-20T12:00:00Z",
     clone_count: 542,
     status: "listed",
@@ -537,7 +571,14 @@ Use clean evidence so disputes are easy to resolve after the event.`,
     description:
       "Learn to secure different Linux vulnerabilities through tools and configurations.",
     image: "https://i.imgur.com/E4EQHZS.png",
-    creators: ["roman"],
+    creators: [
+      {
+        id: "roman",
+        type: "user",
+        label: "roman",
+        description: "roman",
+      },
+    ],
     created_at: "2024-04-15T12:00:00Z",
     clone_count: 167,
     status: "listed",
@@ -623,7 +664,14 @@ Good hardening reduces risk without creating an outage.`,
     description:
       "Utilize web app firewalls to protect yourself against application layer attacks.",
     image: "https://i.imgur.com/FpwbsE5.png",
-    creators: ["nich"],
+    creators: [
+      {
+        id: "nich",
+        type: "user",
+        label: "nich",
+        description: "nich",
+      },
+    ],
     created_at: "2024-04-10T12:00:00Z",
     clone_count: 95,
     status: "listed",

@@ -2,7 +2,6 @@ import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import {
-  StepperDescription,
   StepperIndicator,
   StepperItem,
   StepperList,
@@ -17,25 +16,26 @@ export const steps = [
   {
     value: "personalize",
     title: "Personalize",
-    description: "Title, media, creators, and source folder",
-    fields: [
-      "title",
-      "description",
-      "image",
-      "creators",
-      "source_folder",
-    ] as const,
+    fields: ["title", "description", "image", "creators"] as const,
+  },
+  {
+    value: "access",
+    title: "Access",
+    fields: ["status", "audience"] as const,
+  },
+  {
+    value: "virtual-machines",
+    title: "VMs",
+    fields: ["source_folder"] as const,
   },
   {
     value: "tasks",
     title: "Tasks",
-    description: "Add tasks and questions",
     fields: ["tasks"] as const,
   },
   {
     value: "preview",
     title: "Preview",
-    description: "Review your pod",
     fields: [] as const,
   },
 ]
@@ -64,9 +64,6 @@ export function PublishPodStepper({ step }: PublishPodStepperProps) {
                     <StepperTitle className="hidden md:block">
                       {s.title}
                     </StepperTitle>
-                    <StepperDescription className="hidden md:block">
-                      {s.description}
-                    </StepperDescription>
                   </div>
                 </StepperTrigger>
                 <StepperSeparator className="mx-4" />

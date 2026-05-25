@@ -14,6 +14,7 @@ export type PodAudiencePrincipal = {
 }
 
 export type PodAudience = Array<PodAudiencePrincipal>
+export type PodCreator = PodAudiencePrincipal
 
 // Cloneable catalog/template metadata.
 export interface Pod {
@@ -22,7 +23,7 @@ export interface Pod {
   slug: string
   description: string
   image: string
-  creators: Array<string>
+  creators: Array<PodCreator>
   created_at: string
   clone_count: number
   status: PodStatus

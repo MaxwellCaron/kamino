@@ -5,6 +5,7 @@ import type { PrincipalOption } from "@/features/inventory/types/inventory-types
 import type {
   Pod,
   PodAudiencePrincipal,
+  PodCreator,
   PodStatus,
 } from "@/features/pods/types/pod-types"
 import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
@@ -56,6 +57,131 @@ const publishPodTaskSchema = z.object({
   questions: z.array(publishPodQuestionSchema),
 })
 
+const defaultPublishPodTaskContent = `# Markdown rendering guide
+
+This editor uses the platform markdown renderer, including **GitHub Flavored Markdown**, syntax-highlighted code blocks, tables, task lists, images, and blockquotes.
+
+## Headings
+
+# Heading 1
+## Heading 2
+### Heading 3
+#### Heading 4
+##### Heading 5
+###### Heading 6
+
+## Text styles
+
+*Italic text* and _alternate italic text_
+
+**Bold text** and __alternate bold text__
+
+_Nested **bold inside italic** text_
+
+You can also use ~~strikethrough~~ and inline code like \`npm run dev\`.
+
+## Lists
+
+### Unordered
+
+* First item
+* Second item
+  * Nested item
+  * Another nested item
+
+### Ordered
+
+1. First step
+2. Second step
+3. Third step
+   1. Nested step
+   2. Another nested step
+
+### Task list
+
+- [x] Markdown formatting
+- [x] Tables
+- [x] Syntax highlighting
+- [ ] Your own task content
+
+## Links
+
+[Cheese](https://cheese.com/) is rendered as a styled external link.
+
+## Blockquotes
+
+> Blockquotes are useful for notes, callouts, and quoted material.
+>
+>> Nested blockquotes are supported too.
+
+## Tables
+
+| Feature | Supported | Notes |
+| --- | :---: | --- |
+| Headings | Yes | h1 through h6 |
+| Tables | Yes | Via GFM |
+| Task lists | Yes | Styled checkboxes |
+| Code blocks | Yes | Syntax highlighting + filenames |
+
+## Horizontal rule
+
+---
+
+## Images
+
+![Example landscape from Wikimedia Commons](https://www.cheese.com/media/img/cheese/Reggianito.webp)
+
+## Code blocks
+
+Plain fenced blocks render without syntax highlighting:
+
+\`\`\`
+Plain text code block
+with multiple lines
+\`\`\`
+
+Language-aware blocks are syntax highlighted:
+
+\`\`\`ts
+export function greet(name: string) {
+  return \`Hello, \${name}\`
+}
+\`\`\`
+
+You can also provide a filename with \`file:\` metadata:
+
+\`\`\`tsx file:src/components/markdown-demo.tsx
+type MarkdownDemoProps = {
+  title: string
+}
+
+export function MarkdownDemo({ title }: MarkdownDemoProps) {
+  return <h1>{title}</h1>
+}
+\`\`\`
+
+\`\`\`bash file:scripts/bootstrap.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Bootstrapping the environment"
+bun install
+\`\`\`
+
+Quoted filenames are supported too:
+
+\`\`\`json file:"examples/editor state.json"
+{
+  "status": "listed",
+  "audience": [],
+  "creators": []
+}
+\`\`\`
+
+## Suggested use
+
+Use this space for task instructions, lab notes, walkthroughs, code snippets, reference commands, and any rich markdown content you want end users to read.`
+
 export const publishPodFormSchema = z.object({
   id: z.string().min(1),
   title: z
@@ -69,7 +195,7 @@ export const publishPodFormSchema = z.object({
     .max(128, "Description must be at most 128 characters."),
   image: z.string().url("Enter a valid image URL."),
   creators: z
-    .array(z.string().min(1))
+    .array(publishPodAudiencePrincipalSchema)
     .min(1, "Add at least one creator.")
     .max(5, "You can add up to 5 creators."),
   created_at: z.string().min(1),
@@ -99,7 +225,7 @@ export function createEmptyTask() {
   return {
     id: uuid(),
     title: "",
-    content: "",
+    content: defaultPublishPodTaskContent,
     questions: [],
   } satisfies PublishPodFormValues["tasks"][number]
 }
@@ -129,6 +255,10 @@ export function toPodAudiencePrincipal(
   }
 }
 
+export function toPodCreator(principal: PrincipalOption): PodCreator {
+  return toPodAudiencePrincipal(principal)
+}
+
 export const initialPublishPodValues: PublishPodFormValues = {
   id: "draft",
   title: "New Learning Pod",
@@ -137,10 +267,10 @@ export const initialPublishPodValues: PublishPodFormValues = {
     "A comprehensive environment for learning modern software engineering.",
   image:
     "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60",
-  creators: ["Admin User"],
+  creators: [],
   created_at: new Date().toISOString(),
   clone_count: 0,
-  status: "listed",
+  status: "unlisted",
   audience: [],
   vms_visible: true,
   virtual_machines: Array.from({ length: 5 }, (_, index) =>
@@ -150,8 +280,7 @@ export const initialPublishPodValues: PublishPodFormValues = {
     {
       id: uuid(),
       title: "Explore the Environment",
-      content:
-        "First, take a look around the environment and identify the main components.",
+      content: defaultPublishPodTaskContent,
       questions: [
         {
           id: uuid(),

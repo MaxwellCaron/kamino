@@ -11,17 +11,22 @@ import {
   AvatarGroup,
 } from "@workspace/ui/components/avatar"
 import { cn } from "@workspace/ui/lib/utils"
+import type { PodCreator } from "@/features/pods/types/pod-types"
 
-export function FormatPodCreatorsShort(creators: Array<string>) {
+function getCreatorLabel(creator: PodCreator) {
+  return creator.label
+}
+
+export function FormatPodCreatorsShort(creators: Array<PodCreator>) {
   switch (creators.length) {
     case 0:
       return null
     case 1:
       return (
         <div className="flex items-center gap-3">
-          <FacehashIcon name={creators[0]} size={32} />
+          <FacehashIcon name={getCreatorLabel(creators[0])} size={32} />
           <span className="text-sm font-medium text-card-foreground">
-            {creators[0]}
+            {getCreatorLabel(creators[0])}
           </span>
         </div>
       )
@@ -49,9 +54,9 @@ export function FormatPodCreatorsShort(creators: Array<string>) {
             <p className="text-muted-foreground">Creators</p>
             {creators.map((creator, index) => (
               <div key={index} className="flex items-center gap-3">
-                <FacehashIcon name={creator} size={32} />
+                <FacehashIcon name={getCreatorLabel(creator)} size={32} />
                 <span className="text-sm font-medium text-card-foreground">
-                  {creator}
+                  {getCreatorLabel(creator)}
                 </span>
               </div>
             ))}
@@ -65,7 +70,7 @@ export function FormatPodCreators({
   creators,
   className,
 }: {
-  creators: Array<string>
+  creators: Array<PodCreator>
   className?: string
 }) {
   return (
@@ -74,12 +79,12 @@ export function FormatPodCreators({
         {creators.map((creator, index) => (
           <Avatar key={index} size="sm">
             <AvatarFallback>
-              <FacehashIcon name={creator} size={24} />
+              <FacehashIcon name={getCreatorLabel(creator)} size={24} />
             </AvatarFallback>
           </Avatar>
         ))}
       </AvatarGroup>
-      {creators.join(", ")}
+      {creators.map(getCreatorLabel).join(", ")}
     </div>
   )
 }
