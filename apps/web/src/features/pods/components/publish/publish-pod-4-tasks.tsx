@@ -15,12 +15,18 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { IconChecklist, IconPlus } from "@tabler/icons-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+} from "@workspace/ui/components/alert-dialog"
+import { IconChecklist, IconPlus, IconTrash } from "@tabler/icons-react"
 import { createEmptyTask } from "./publish-pod-form"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
-import { PublishPodTaskDeleteDialog } from "./publish-pod-task-delete-dialog"
 import { PublishPodTaskItem } from "./publish-pod-task-item"
 import type { PublishPodFormApi } from "./publish-pod-form"
+import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type PublishPodTasksStepProps = {
   form: PublishPodFormApi
@@ -34,6 +40,9 @@ type PendingTaskDelete = {
 export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
   const [pendingTaskDelete, setPendingTaskDelete] =
     useState<PendingTaskDelete | null>(null)
+  const taskDeleteDescription = pendingTaskDelete?.title
+    ? `This will permanently remove "${pendingTaskDelete.title}" and all of its questions.`
+    : "This will permanently remove the selected task and all of its questions."
 
   const confirmTaskDelete = async () => {
     if (!pendingTaskDelete) return
@@ -106,16 +115,33 @@ export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
           )}
         </form.Field>
       </PublishPodStepLayout>
-      <PublishPodTaskDeleteDialog
+      <AlertDialog
         open={pendingTaskDelete !== null}
-        taskTitle={pendingTaskDelete?.title ?? null}
-        onConfirm={confirmTaskDelete}
         onOpenChange={(open) => {
           if (!open) {
             setPendingTaskDelete(null)
           }
         }}
-      />
+      >
+        <AppAlertDialogContent
+          open={pendingTaskDelete !== null}
+          icon={IconTrash}
+          title="Delete Task?"
+          description={taskDeleteDescription}
+        >
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingTaskDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmTaskDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AppAlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
