@@ -40,6 +40,7 @@ type PendingTaskDelete = {
 export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
   const [pendingTaskDelete, setPendingTaskDelete] =
     useState<PendingTaskDelete | null>(null)
+  const defaultExpandedTask = form.getFieldValue("tasks")[0]?.id
   const taskDeleteDescription = pendingTaskDelete?.title
     ? `This will permanently remove "${pendingTaskDelete.title}" and all of its questions.`
     : "This will permanently remove the selected task and all of its questions."
@@ -98,6 +99,9 @@ export function PublishPodTasksStep({ form }: PublishPodTasksStepProps) {
                   <Accordion
                     keepMounted
                     className="w-full rounded-t-none! border-none"
+                    defaultValue={
+                      defaultExpandedTask ? [defaultExpandedTask] : undefined
+                    }
                   >
                     {tasksField.state.value.map((task, index) => (
                       <PublishPodTaskItem
