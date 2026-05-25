@@ -3,6 +3,7 @@ import { clonedPods, pods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
 
 const clonedPodIds = new Set(clonedPods.map((pod) => pod.pod_id))
+const visiblePods = pods.filter((pod) => pod.status === "listed")
 
 export function BrowsePodsPage() {
   return (
@@ -26,7 +27,7 @@ export function BrowsePodsPage() {
 
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12">
-          {pods.map((pod) => (
+          {visiblePods.map((pod) => (
             <BrowsePodsCard
               key={pod.id}
               pod={pod}

@@ -55,6 +55,8 @@ export const pods: Array<Pod> = [
     creators: ["mung"],
     created_at: "2024-05-01T12:00:00Z",
     clone_count: 124,
+    status: "listed",
+    audience: [],
     vms_visible: false,
     tasks: [
       {
@@ -127,6 +129,8 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
     creators: ["tommy", "mcaron"],
     created_at: "2024-04-28T12:00:00Z",
     clone_count: 89,
+    status: "listed",
+    audience: [],
     vms_visible: true,
     tasks: [
       {
@@ -382,6 +386,8 @@ For a polished report, link tactics back to [MITRE ATT&CK Enterprise](https://at
     creators: ["bill"],
     created_at: "2024-04-25T12:00:00Z",
     clone_count: 231,
+    status: "listed",
+    audience: [],
     vms_visible: false,
     tasks: [
       {
@@ -446,6 +452,8 @@ Focus on constructors, magic methods, or hooks that execute automatically during
     creators: ["eric"],
     created_at: "2024-04-20T12:00:00Z",
     clone_count: 542,
+    status: "listed",
+    audience: [],
     vms_visible: true,
     tasks: [
       {
@@ -532,6 +540,8 @@ Use clean evidence so disputes are easy to resolve after the event.`,
     creators: ["roman"],
     created_at: "2024-04-15T12:00:00Z",
     clone_count: 167,
+    status: "listed",
+    audience: [],
     vms_visible: true,
     tasks: [
       {
@@ -616,6 +626,8 @@ Good hardening reduces risk without creating an outage.`,
     creators: ["nich"],
     created_at: "2024-04-10T12:00:00Z",
     clone_count: 95,
+    status: "listed",
+    audience: [],
     vms_visible: true,
     tasks: [
       {

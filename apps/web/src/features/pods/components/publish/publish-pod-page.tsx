@@ -29,6 +29,7 @@ export function PublishPodPage() {
         "description",
         "image",
         "creators",
+        "audience",
         "source_folder",
       ] satisfies Array<PublishPodFieldPath>
 
@@ -37,6 +38,7 @@ export function PublishPodPage() {
         form.validateField("description", "submit"),
         form.validateField("image", "submit"),
         form.validateField("creators", "submit"),
+        form.validateField("audience", "submit"),
         form.validateField("source_folder", "submit"),
       ])
 
@@ -83,6 +85,7 @@ export function PublishPodPage() {
         await form.validateField("description", "submit")
         await form.validateField("image", "submit")
         await form.validateField("creators", "submit")
+        await form.validateField("audience", "submit")
         await form.validateField("source_folder", "submit")
         await form.validateField("tasks", "submit")
 

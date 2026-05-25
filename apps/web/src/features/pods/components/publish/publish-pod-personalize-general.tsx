@@ -1,3 +1,5 @@
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Card,
   CardContent,
@@ -17,6 +19,7 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Field,
   FieldContent,
@@ -37,7 +40,13 @@ import {
   InputGroupTextarea,
 } from "@workspace/ui/components/input-group"
 import { PublishPodVmSection } from "./publish-pod-personalize-vms"
+import { toPodAudiencePrincipal } from "./publish-pod-form"
 import type { PublishPodFormApi } from "./publish-pod-form"
+import {
+  groupsQueryOptions,
+  usersQueryOptions,
+} from "@/features/principals/api/principals-api"
+import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 
 type PublishPodGeneralSectionProps = {
   creatorOptions: ReadonlyArray<string>
@@ -50,7 +59,20 @@ export function PublishPodGeneralSection({
   folderOptions,
   form,
 }: PublishPodGeneralSectionProps) {
-  const anchor = useComboboxAnchor()
+  const creatorAnchor = useComboboxAnchor()
+  const audienceAnchor = useComboboxAnchor()
+  const usersQuery = useQuery(usersQueryOptions)
+  const groupsQuery = useQuery(groupsQueryOptions)
+
+  const audienceOptions = useMemo(
+    () => buildPrincipalOptions(usersQuery.data ?? [], groupsQuery.data ?? []),
+    [groupsQuery.data, usersQuery.data]
+  )
+
+  const audienceOptionMap = useMemo(
+    () => new Map(audienceOptions.map((option) => [option.id, option])),
+    [audienceOptions]
+  )
 
   return (
     <Card>
@@ -185,7 +207,7 @@ export function PublishPodGeneralSection({
                             field.handleChange(Array.from(new Set(value)))
                           }
                         >
-                          <ComboboxChips ref={anchor}>
+                          <ComboboxChips ref={creatorAnchor}>
                             <ComboboxValue>
                               {(values) => (
                                 <>
@@ -204,7 +226,7 @@ export function PublishPodGeneralSection({
                               )}
                             </ComboboxValue>
                           </ComboboxChips>
-                          <ComboboxContent anchor={anchor}>
+                          <ComboboxContent anchor={creatorAnchor}>
                             <ComboboxEmpty>No items found.</ComboboxEmpty>
                             <ComboboxList>
                               {(item) => (
@@ -224,6 +246,151 @@ export function PublishPodGeneralSection({
                   )
                 }}
               </form.Field>
+
+              <form.Field name="status">
+                {(field) => (
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id={field.name}
+                      checked={field.state.value === "listed"}
+                      onCheckedChange={(checked) =>
+                        field.handleChange(checked ? "listed" : "unlisted")
+                      }
+                    />
+                    <FieldContent>
+                      <FieldLabel htmlFor={field.name}>
+                        Listed in Browse
+                      </FieldLabel>
+                      <FieldDescription>
+                        Listed pods can appear in normal browse flows. Unlisted
+                        pods are hidden from normal users and reserved for the
+                        manager-facing catalog.
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                )}
+              </form.Field>
+
+              <form.Subscribe selector={(state) => state.values.status}>
+                {(status) => (
+                  <form.Field name="audience" mode="array">
+                    {(field) => {
+                      const isInvalid = field.state.meta.errors.length > 0
+                      const selectedIds = field.state.value.map(
+                        (principal) => principal.id
+                      )
+                      const isUnlisted = status === "unlisted"
+
+                      return (
+                        <Field
+                          data-disabled={isUnlisted || undefined}
+                          data-invalid={isInvalid || undefined}
+                        >
+                          <FieldLabel>Audience</FieldLabel>
+                          <FieldContent>
+                            <Combobox
+                              multiple
+                              autoHighlight
+                              disabled={isUnlisted}
+                              items={audienceOptions.map(
+                                (principal) => principal.id
+                              )}
+                              value={selectedIds}
+                              onValueChange={(value) =>
+                                field.handleChange(
+                                  value
+                                    .map((id) => audienceOptionMap.get(id))
+                                    .filter(
+                                      (
+                                        principal
+                                      ): principal is NonNullable<
+                                        typeof principal
+                                      > => !!principal
+                                    )
+                                    .map((principal) =>
+                                      toPodAudiencePrincipal(principal)
+                                    )
+                                )
+                              }
+                            >
+                              <ComboboxChips
+                                ref={audienceAnchor}
+                                className="w-full data-disabled:opacity-60"
+                              >
+                                <ComboboxValue>
+                                  {(values) => (
+                                    <>
+                                      {(values as Array<string>).map((id) => {
+                                        const principal =
+                                          field.state.value.find(
+                                            (value) => value.id === id
+                                          )
+
+                                        return (
+                                          <ComboboxChip
+                                            key={id}
+                                            showRemove={!isUnlisted}
+                                          >
+                                            {principal?.label ?? id}
+                                          </ComboboxChip>
+                                        )
+                                      })}
+                                      <ComboboxChipsInput
+                                        name={field.name}
+                                        onBlur={field.handleBlur}
+                                        aria-invalid={isInvalid || undefined}
+                                        disabled={isUnlisted}
+                                        placeholder={
+                                          isUnlisted
+                                            ? "Unlisted pods ignore audience during this phase"
+                                            : "Leave empty for public access, or add users and groups"
+                                        }
+                                      />
+                                    </>
+                                  )}
+                                </ComboboxValue>
+                              </ComboboxChips>
+                              <ComboboxContent anchor={audienceAnchor}>
+                                <ComboboxEmpty>
+                                  No principals found.
+                                </ComboboxEmpty>
+                                <ComboboxList>
+                                  {(id) => {
+                                    const principal = audienceOptionMap.get(
+                                      id as string
+                                    )
+
+                                    return principal ? (
+                                      <ComboboxItem key={id} value={id}>
+                                        <div className="flex min-w-0 flex-col">
+                                          <span className="truncate">
+                                            {principal.label}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {principal.type === "group"
+                                              ? "Group"
+                                              : "User"}
+                                          </span>
+                                        </div>
+                                      </ComboboxItem>
+                                    ) : null
+                                  }}
+                                </ComboboxList>
+                              </ComboboxContent>
+                            </Combobox>
+                            <FieldDescription>
+                              {isUnlisted
+                                ? "Unlisted pods are hidden from normal users regardless of audience."
+                                : "Leave this empty to make the pod public. Add users or groups to restrict browse and clone access."}
+                            </FieldDescription>
+                            <FieldError errors={field.state.meta.errors} />
+                          </FieldContent>
+                        </Field>
+                      )
+                    }}
+                  </form.Field>
+                )}
+              </form.Subscribe>
             </FieldGroup>
           </FieldSet>
 

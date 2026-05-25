@@ -1,7 +1,12 @@
 import { useForm } from "@tanstack/react-form"
 import { uuid } from "@workspace/ui/lib/utils"
 import { z } from "zod"
-import type { Pod } from "@/features/pods/types/pod-types"
+import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import type {
+  Pod,
+  PodAudiencePrincipal,
+  PodStatus,
+} from "@/features/pods/types/pod-types"
 import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
 
 const defaultPublishPodVmPermissionAllowMask =
@@ -14,6 +19,13 @@ const defaultPublishPodVmPermissionAllowMask =
 const publishPodVmPermissionSchema = z.object({
   allowMask: z.number().int().min(0),
   denyMask: z.number().int().min(0),
+})
+
+const publishPodAudiencePrincipalSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["group", "user"]),
+  label: z.string().min(1),
+  description: z.string(),
 })
 
 const publishPodVmSchema = z.object({
@@ -62,6 +74,8 @@ export const publishPodFormSchema = z.object({
     .max(5, "You can add up to 5 creators."),
   created_at: z.string().min(1),
   clone_count: z.number().int().min(0),
+  status: z.enum(["listed", "unlisted"] satisfies Array<PodStatus>),
+  audience: z.array(publishPodAudiencePrincipalSchema),
   vms_visible: z.boolean(),
   virtual_machines: z.array(publishPodVmSchema).min(1),
   tasks: z
@@ -104,6 +118,17 @@ export function createDefaultPublishPodVm(index: number) {
   } satisfies PublishPodFormValues["virtual_machines"][number]
 }
 
+export function toPodAudiencePrincipal(
+  principal: PrincipalOption
+): PodAudiencePrincipal {
+  return {
+    id: principal.id,
+    type: principal.type,
+    label: principal.label,
+    description: principal.description,
+  }
+}
+
 export const initialPublishPodValues: PublishPodFormValues = {
   id: "draft",
   title: "New Learning Pod",
@@ -115,6 +140,8 @@ export const initialPublishPodValues: PublishPodFormValues = {
   creators: ["Admin User"],
   created_at: new Date().toISOString(),
   clone_count: 0,
+  status: "listed",
+  audience: [],
   vms_visible: true,
   virtual_machines: Array.from({ length: 5 }, (_, index) =>
     createDefaultPublishPodVm(index)

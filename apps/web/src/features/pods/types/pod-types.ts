@@ -4,6 +4,17 @@ import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventor
 // Backend/database UUID string.
 export type UUID = string
 
+export type PodStatus = "listed" | "unlisted"
+
+export type PodAudiencePrincipal = {
+  id: string
+  type: "group" | "user"
+  label: string
+  description: string
+}
+
+export type PodAudience = Array<PodAudiencePrincipal>
+
 // Cloneable catalog/template metadata.
 export interface Pod {
   id: UUID
@@ -14,6 +25,8 @@ export interface Pod {
   creators: Array<string>
   created_at: string
   clone_count: number
+  status: PodStatus
+  audience: PodAudience
   vms_visible: boolean
   tasks?: Array<PodTask>
 }
