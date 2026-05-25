@@ -42,12 +42,14 @@ type PublishPodPersonalizeStepProps = {
   form: PublishPodFormApi
   principalOptionMap: Map<string, PrincipalOption>
   principalOptions: Array<PrincipalOption>
+  submissionAttempts: number
 }
 
 export function PublishPodPersonalizeStep({
   form,
   principalOptionMap,
   principalOptions,
+  submissionAttempts,
 }: PublishPodPersonalizeStepProps) {
   const creatorAnchor = useComboboxAnchor()
 
@@ -67,7 +69,9 @@ export function PublishPodPersonalizeStep({
           <FieldGroup>
             <form.Field name="title">
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -92,7 +96,9 @@ export function PublishPodPersonalizeStep({
                           </InputGroupText>
                         </InputGroupAddon>
                       </InputGroup>
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -101,7 +107,9 @@ export function PublishPodPersonalizeStep({
 
             <form.Field name="description">
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -126,7 +134,9 @@ export function PublishPodPersonalizeStep({
                           </InputGroupText>
                         </InputGroupAddon>
                       </InputGroup>
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -135,8 +145,12 @@ export function PublishPodPersonalizeStep({
 
             <form.Field name="creators" mode="array">
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
-                const selectedIds = field.state.value.map((creator) => creator.id)
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
+                const selectedIds = field.state.value.map(
+                  (creator) => creator.id
+                )
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -145,7 +159,9 @@ export function PublishPodPersonalizeStep({
                       <Combobox
                         multiple
                         autoHighlight
-                        items={principalOptions.map((principal) => principal.id)}
+                        items={principalOptions.map(
+                          (principal) => principal.id
+                        )}
                         value={selectedIds}
                         onValueChange={(value) =>
                           field.handleChange(
@@ -186,7 +202,9 @@ export function PublishPodPersonalizeStep({
                           <ComboboxEmpty>No items found.</ComboboxEmpty>
                           <ComboboxList>
                             {(id) => {
-                              const principal = principalOptionMap.get(id as string)
+                              const principal = principalOptionMap.get(
+                                id as string
+                              )
 
                               return principal ? (
                                 <ComboboxItem key={id} value={id}>
@@ -195,7 +213,9 @@ export function PublishPodPersonalizeStep({
                                       {principal.label}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
-                                      {principal.type === "group" ? "Group" : "User"}
+                                      {principal.type === "group"
+                                        ? "Group"
+                                        : "User"}
                                     </span>
                                   </div>
                                 </ComboboxItem>
@@ -207,7 +227,9 @@ export function PublishPodPersonalizeStep({
                       <FieldDescription>
                         Choose the principals credited as authors of this pod.
                       </FieldDescription>
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -216,7 +238,9 @@ export function PublishPodPersonalizeStep({
 
             <form.Field name="image">
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -235,7 +259,9 @@ export function PublishPodPersonalizeStep({
                           placeholder="https://images.unsplash.com/..."
                         />
                       </InputGroup>
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )

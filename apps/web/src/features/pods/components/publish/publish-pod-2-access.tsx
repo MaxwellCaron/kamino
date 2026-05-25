@@ -36,12 +36,14 @@ type PublishPodAccessStepProps = {
   form: PublishPodFormApi
   principalOptionMap: Map<string, PrincipalOption>
   principalOptions: Array<PrincipalOption>
+  submissionAttempts: number
 }
 
 export function PublishPodAccessStep({
   form,
   principalOptionMap,
   principalOptions,
+  submissionAttempts,
 }: PublishPodAccessStepProps) {
   const audienceAnchor = useComboboxAnchor()
 
@@ -73,8 +75,8 @@ export function PublishPodAccessStep({
                   <FieldContent>
                     <FieldLabel htmlFor={field.name}>Unlisted</FieldLabel>
                     <FieldDescription>
-                      Hidden from normal users and reserved for the manager-facing
-                      catalog. They can be listed at any time.
+                      Hidden from normal users and reserved for the
+                      manager-facing catalog. They can be listed at any time.
                     </FieldDescription>
                   </FieldContent>
                 </Field>
@@ -83,7 +85,9 @@ export function PublishPodAccessStep({
 
             <form.Field name="audience" mode="array">
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
                 const selectedIds = field.state.value.map(
                   (principal) => principal.id
                 )
@@ -95,7 +99,9 @@ export function PublishPodAccessStep({
                       <Combobox
                         multiple
                         autoHighlight
-                        items={principalOptions.map((principal) => principal.id)}
+                        items={principalOptions.map(
+                          (principal) => principal.id
+                        )}
                         value={selectedIds}
                         onValueChange={(value) =>
                           field.handleChange(
@@ -142,7 +148,9 @@ export function PublishPodAccessStep({
                           <ComboboxEmpty>No principals found.</ComboboxEmpty>
                           <ComboboxList>
                             {(id) => {
-                              const principal = principalOptionMap.get(id as string)
+                              const principal = principalOptionMap.get(
+                                id as string
+                              )
 
                               return principal ? (
                                 <ComboboxItem key={id} value={id}>
@@ -151,7 +159,9 @@ export function PublishPodAccessStep({
                                       {principal.label}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
-                                      {principal.type === "group" ? "Group" : "User"}
+                                      {principal.type === "group"
+                                        ? "Group"
+                                        : "User"}
                                     </span>
                                   </div>
                                 </ComboboxItem>
@@ -161,10 +171,12 @@ export function PublishPodAccessStep({
                         </ComboboxContent>
                       </Combobox>
                       <FieldDescription>
-                        Leave empty for public access. Add users or groups to limit
-                        who can browse and clone this pod.
+                        Leave empty for public access. Add users or groups to
+                        limit who can browse and clone this pod.
                       </FieldDescription>
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )

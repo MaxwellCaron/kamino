@@ -193,7 +193,7 @@ export const publishPodFormSchema = z.object({
     .string()
     .min(1, "Description is required.")
     .max(128, "Description must be at most 128 characters."),
-  image: z.string().url("Enter a valid image URL."),
+  image: z.url("Enter a valid image URL."),
   creators: z
     .array(publishPodAudiencePrincipalSchema)
     .min(1, "Add at least one creator.")

@@ -40,13 +40,15 @@ type PublishPodTaskItemProps = {
   form: PublishPodFormApi
   index: number
   onRequestDelete: (task: { id: string; title: string }) => void
+  submissionAttempts: number
   task: PublishPodFormValues["tasks"][number]
 }
 
 function getTaskErrorCount(
   form: PublishPodFormApi,
   taskIndex: number,
-  questionCount: number
+  questionCount: number,
+  submissionAttempts: number
 ) {
   const paths: Array<PublishPodFieldPath> = [
     `tasks[${taskIndex}].title` as PublishPodFieldPath,
@@ -64,8 +66,13 @@ function getTaskErrorCount(
   ]
 
   return paths.reduce((count, path) => {
-    const errors = form.getFieldMeta(path)?.errors ?? []
-    return errors.length > 0 ? count + 1 : count
+    const meta = form.getFieldMeta(path)
+    const errors = meta?.errors ?? []
+    const showValidation = (meta?.isTouched ?? false) || submissionAttempts > 0
+
+    return showValidation && meta && !meta.isValid && errors.length > 0
+      ? count + 1
+      : count
   }, 0)
 }
 
@@ -73,6 +80,7 @@ export function PublishPodTaskItem({
   form,
   index,
   onRequestDelete,
+  submissionAttempts,
   task,
 }: PublishPodTaskItemProps) {
   return (
@@ -90,7 +98,8 @@ export function PublishPodTaskItem({
               const errorCount = getTaskErrorCount(
                 form,
                 index,
-                task.questions.length
+                task.questions.length,
+                submissionAttempts
               )
 
               if (errorCount === 0) return null
@@ -105,7 +114,9 @@ export function PublishPodTaskItem({
           <FieldGroup>
             <form.Field name={`tasks[${index}].title`}>
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -122,7 +133,9 @@ export function PublishPodTaskItem({
                         aria-invalid={isInvalid || undefined}
                         placeholder="Task Title"
                       />
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -131,7 +144,9 @@ export function PublishPodTaskItem({
 
             <form.Field name={`tasks[${index}].content`}>
               {(field) => {
-                const isInvalid = field.state.meta.errors.length > 0
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -179,7 +194,9 @@ export function PublishPodTaskItem({
                           )}
                         </TabsContent>
                       </Tabs>
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -189,7 +206,11 @@ export function PublishPodTaskItem({
 
           <Separator />
 
-          <PublishPodTaskQuestions form={form} taskIndex={index} />
+          <PublishPodTaskQuestions
+            form={form}
+            submissionAttempts={submissionAttempts}
+            taskIndex={index}
+          />
 
           <div className="flex justify-center">
             <Button

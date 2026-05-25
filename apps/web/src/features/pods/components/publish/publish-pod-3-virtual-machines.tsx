@@ -38,7 +38,11 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { IconDeviceDesktop, IconFolderOpen, IconSettings } from "@tabler/icons-react"
+import {
+  IconDeviceDesktop,
+  IconFolderOpen,
+  IconSettings,
+} from "@tabler/icons-react"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import type {
   PublishPodFormApi,
@@ -64,6 +68,7 @@ const publishVmPermissionGroups = getInventoryPermissionDefinitionsByGroup("vm")
 
 type PublishPodVirtualMachinesStepProps = {
   form: PublishPodFormApi
+  submissionAttempts: number
 }
 
 function createEditingVmPrincipal(
@@ -78,6 +83,7 @@ function createEditingVmPrincipal(
 
 export function PublishPodVirtualMachinesStep({
   form,
+  submissionAttempts,
 }: PublishPodVirtualMachinesStepProps) {
   const [editingVmIndex, setEditingVmIndex] = React.useState<number | null>(
     null
@@ -137,15 +143,17 @@ export function PublishPodVirtualMachinesStep({
               Virtual Machines
             </CardTitle>
             <CardDescription>
-              Choose the source folder, review the included virtual machines, and
-              adjust their default permissions.
+              Choose the source folder, review the included virtual machines,
+              and adjust their default permissions.
             </CardDescription>
           </CardHeader>
           <CardContent className="border-t pt-6">
             <FieldGroup>
               <form.Field name="source_folder">
                 {(field) => {
-                  const isInvalid = field.state.meta.errors.length > 0
+                  const showValidation =
+                    field.state.meta.isTouched || submissionAttempts > 0
+                  const isInvalid = showValidation && !field.state.meta.isValid
 
                   return (
                     <Field data-invalid={isInvalid || undefined}>
@@ -154,7 +162,9 @@ export function PublishPodVirtualMachinesStep({
                         <Combobox
                           items={frameworks}
                           value={field.state.value || null}
-                          onValueChange={(value) => field.handleChange(value ?? "")}
+                          onValueChange={(value) =>
+                            field.handleChange(value ?? "")
+                          }
                         >
                           <ComboboxInput
                             name={field.name}
@@ -174,15 +184,21 @@ export function PublishPodVirtualMachinesStep({
                           </ComboboxContent>
                         </Combobox>
                         <FieldDescription className="pt-2">
-                          The selected folder provides the base VMs for this pod.
-                          Publishing does not modify the source folder.
+                          The selected folder provides the base VMs for this
+                          pod. Publishing does not modify the source folder.
                         </FieldDescription>
-                        <FieldError errors={field.state.meta.errors} />
+                        <FieldError
+                          errors={showValidation ? field.state.meta.errors : []}
+                        />
                         <div className="flex flex-col gap-3 pt-3">
-                          <p className="font-medium">Included Virtual Machines</p>
+                          <p className="font-medium">
+                            Included Virtual Machines
+                          </p>
                           {field.state.value ? (
                             <form.Subscribe
-                              selector={(state) => state.values.virtual_machines}
+                              selector={(state) =>
+                                state.values.virtual_machines
+                              }
                             >
                               {(virtualMachines) => (
                                 <div className="space-y-3">
@@ -225,8 +241,8 @@ export function PublishPodVirtualMachinesStep({
                                 </EmptyMedia>
                                 <EmptyTitle>No folder selected</EmptyTitle>
                                 <EmptyDescription>
-                                  Select a folder to preview the virtual machines
-                                  that will be included in this pod.
+                                  Select a folder to preview the virtual
+                                  machines that will be included in this pod.
                                 </EmptyDescription>
                               </EmptyHeader>
                             </Empty>

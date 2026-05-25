@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useStore } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
 import { PublishPodPersonalizeStep } from "./publish-pod-1-personalize"
@@ -22,6 +23,10 @@ type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
 export function PublishPodPage() {
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
   const form = usePublishPodForm()
+  const submissionAttempts = useStore(
+    form.store,
+    (state) => state.submissionAttempts
+  )
   const usersQuery = useQuery(usersQueryOptions)
   const groupsQuery = useQuery(groupsQueryOptions)
 
@@ -44,7 +49,50 @@ export function PublishPodPage() {
     [form]
   )
 
+  const markFieldsTouched = React.useCallback(
+    (fields: Array<PublishPodFieldPath>) => {
+      fields.forEach((field) => {
+        form.setFieldMeta(field, (meta) => ({
+          ...meta,
+          isTouched: true,
+        }))
+      })
+    },
+    [form]
+  )
+
+  const getTaskFieldPaths = React.useCallback(() => {
+    const tasks = form.getFieldValue("tasks")
+    const fields: Array<PublishPodFieldPath> = ["tasks"]
+
+    tasks.forEach((task, taskIndex) => {
+      fields.push(
+        `tasks[${taskIndex}].title` as PublishPodFieldPath,
+        `tasks[${taskIndex}].content` as PublishPodFieldPath
+      )
+
+      task.questions.forEach((_, questionIndex) => {
+        fields.push(
+          `tasks[${taskIndex}].questions[${questionIndex}].title` as PublishPodFieldPath,
+          `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath
+        )
+      })
+    })
+
+    return fields
+  }, [form])
+
   const validateStep = React.useCallback(async () => {
+    const invalidateCurrentStep = (fields: Array<PublishPodFieldPath>) => {
+      const isValid = !hasFieldErrors(fields)
+
+      if (!isValid) {
+        markFieldsTouched(fields)
+      }
+
+      return isValid
+    }
+
     if (step === "personalize") {
       const fields = [
         "title",
@@ -60,7 +108,7 @@ export function PublishPodPage() {
         form.validateField("creators", "submit"),
       ])
 
-      return !hasFieldErrors(fields)
+      return invalidateCurrentStep(fields)
     }
 
     if (step === "access") {
@@ -71,17 +119,15 @@ export function PublishPodPage() {
         form.validateField("audience", "submit"),
       ])
 
-      return !hasFieldErrors(fields)
+      return invalidateCurrentStep(fields)
     }
 
     if (step === "virtual-machines") {
       const fields = ["source_folder"] satisfies Array<PublishPodFieldPath>
 
-      await Promise.all([
-        form.validateField("source_folder", "submit"),
-      ])
+      await Promise.all([form.validateField("source_folder", "submit")])
 
-      return !hasFieldErrors(fields)
+      return invalidateCurrentStep(fields)
     }
 
     if (step === "tasks") {
@@ -92,49 +138,25 @@ export function PublishPodPage() {
         await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
       }
 
-      const fields: Array<PublishPodFieldPath> = ["tasks"]
-
-      tasks.forEach((task, taskIndex) => {
-        fields.push(
-          `tasks[${taskIndex}].title` as PublishPodFieldPath,
-          `tasks[${taskIndex}].content` as PublishPodFieldPath
-        )
-
-        task.questions.forEach((_, questionIndex) => {
-          fields.push(
-            `tasks[${taskIndex}].questions[${questionIndex}].title` as PublishPodFieldPath,
-            `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath
-          )
-        })
-      })
-
-      return !hasFieldErrors(fields)
+      return invalidateCurrentStep(getTaskFieldPaths())
     }
 
     return true
-  }, [form, hasFieldErrors, step])
+  }, [form, getTaskFieldPaths, hasFieldErrors, markFieldsTouched, step])
+
+  const handleSubmit = React.useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      await form.handleSubmit()
+    },
+    [form]
+  )
 
   return (
     <form
       noValidate
       className="@container/main relative flex flex-1 flex-col"
-      onSubmit={async (event) => {
-        event.preventDefault()
-        await form.validateField("title", "submit")
-        await form.validateField("description", "submit")
-        await form.validateField("image", "submit")
-        await form.validateField("creators", "submit")
-        await form.validateField("audience", "submit")
-        await form.validateField("source_folder", "submit")
-        await form.validateField("tasks", "submit")
-
-        const tasks = form.getFieldValue("tasks")
-        if (tasks.length > 0) {
-          await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
-        }
-
-        await form.handleSubmit()
-      }}
+      onSubmit={handleSubmit}
     >
       <Stepper
         value={step}
@@ -150,6 +172,7 @@ export function PublishPodPage() {
             form={form}
             principalOptionMap={principalOptionMap}
             principalOptions={principalOptions}
+            submissionAttempts={submissionAttempts}
           />
         </StepperContent>
 
@@ -158,15 +181,22 @@ export function PublishPodPage() {
             form={form}
             principalOptionMap={principalOptionMap}
             principalOptions={principalOptions}
+            submissionAttempts={submissionAttempts}
           />
         </StepperContent>
 
         <StepperContent value="virtual-machines" className="w-full">
-          <PublishPodVirtualMachinesStep form={form} />
+          <PublishPodVirtualMachinesStep
+            form={form}
+            submissionAttempts={submissionAttempts}
+          />
         </StepperContent>
 
         <StepperContent value="tasks" className="w-full">
-          <PublishPodTasksStep form={form} />
+          <PublishPodTasksStep
+            form={form}
+            submissionAttempts={submissionAttempts}
+          />
         </StepperContent>
 
         <StepperContent value="preview" className="w-full">

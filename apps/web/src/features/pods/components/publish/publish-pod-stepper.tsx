@@ -9,7 +9,6 @@ import {
   StepperPrev,
   StepperSeparator,
   StepperTitle,
-  StepperTrigger,
 } from "@workspace/ui/components/stepper"
 
 export const steps = [
@@ -54,18 +53,16 @@ export function PublishPodStepper({ step }: PublishPodStepperProps) {
   return (
     <div className="sticky bottom-6 z-50 mx-auto w-full max-w-500 px-2 lg:px-6">
       <Card className="bg-muted">
-        <CardContent className="space-y-6">
+        <CardContent className="cursor-default space-y-6">
           <StepperList className="w-full">
             {steps.map((s) => (
-              <StepperItem key={s.value} value={s.value}>
-                <StepperTrigger>
-                  <StepperIndicator className="bg-card" />
-                  <div className="flex flex-col gap-px">
-                    <StepperTitle className="hidden md:block">
-                      {s.title}
-                    </StepperTitle>
-                  </div>
-                </StepperTrigger>
+              <StepperItem key={s.value} value={s.value} className="gap-2">
+                <StepperIndicator className="bg-card" />
+                <div className="flex flex-col gap-px">
+                  <StepperTitle className="hidden md:block">
+                    {s.title}
+                  </StepperTitle>
+                </div>
                 <StepperSeparator className="mx-4" />
               </StepperItem>
             ))}

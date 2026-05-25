@@ -30,11 +30,13 @@ import type { PublishPodFormApi } from "./publish-pod-form"
 
 type PublishPodTaskQuestionsProps = {
   form: PublishPodFormApi
+  submissionAttempts: number
   taskIndex: number
 }
 
 export function PublishPodTaskQuestions({
   form,
+  submissionAttempts,
   taskIndex,
 }: PublishPodTaskQuestionsProps) {
   return (
@@ -99,8 +101,11 @@ export function PublishPodTaskQuestions({
                             name={`tasks[${taskIndex}].questions[${questionIndex}].title`}
                           >
                             {(field) => {
+                              const showValidation =
+                                field.state.meta.isTouched ||
+                                submissionAttempts > 0
                               const isInvalid =
-                                field.state.meta.errors.length > 0
+                                showValidation && !field.state.meta.isValid
 
                               return (
                                 <Field
@@ -123,7 +128,11 @@ export function PublishPodTaskQuestions({
                                       placeholder="e.g. What is the status of the service?"
                                     />
                                     <FieldError
-                                      errors={field.state.meta.errors}
+                                      errors={
+                                        showValidation
+                                          ? field.state.meta.errors
+                                          : []
+                                      }
                                     />
                                   </FieldContent>
                                 </Field>
@@ -135,8 +144,11 @@ export function PublishPodTaskQuestions({
                             name={`tasks[${taskIndex}].questions[${questionIndex}].answerOutline`}
                           >
                             {(field) => {
+                              const showValidation =
+                                field.state.meta.isTouched ||
+                                submissionAttempts > 0
                               const isInvalid =
-                                field.state.meta.errors.length > 0
+                                showValidation && !field.state.meta.isValid
 
                               return (
                                 <Field data-invalid={isInvalid || undefined}>
@@ -156,7 +168,11 @@ export function PublishPodTaskQuestions({
                                       placeholder="e.g. active (running)"
                                     />
                                     <FieldError
-                                      errors={field.state.meta.errors}
+                                      errors={
+                                        showValidation
+                                          ? field.state.meta.errors
+                                          : []
+                                      }
                                     />
                                   </FieldContent>
                                 </Field>
