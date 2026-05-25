@@ -19,10 +19,8 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { IconClock, IconDeviceDesktop, IconEyeX } from "@tabler/icons-react"
+import { IconClock, IconDeviceDesktop } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import type { PodVM } from "../types/pod-types"
 import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
@@ -45,13 +43,7 @@ function getStatusTextClass(status: string) {
   return "text-amber-600 dark:text-amber-400"
 }
 
-export function PodVms({
-  vms,
-  vmsVisible,
-}: {
-  vms: Array<PodVM>
-  vmsVisible?: boolean
-}) {
+export function PodVms({ vms }: { vms: Array<PodVM> }) {
   return (
     <Card>
       <CardHeader>
@@ -66,7 +58,7 @@ export function PodVms({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {vmsVisible ? (
+        {vms.length > 0 ? (
           <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {vms.map((vm) => (
               <Item key={vm.id} variant="muted">
@@ -116,13 +108,8 @@ export function PodVms({
         ) : (
           <Empty className="border border-dashed">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <IconEyeX />
-              </EmptyMedia>
-              <EmptyTitle>Invalid Permissions</EmptyTitle>
               <EmptyDescription>
-                The pod creator has disabled the ability to view virtual
-                machines.
+                No virtual machines are available.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

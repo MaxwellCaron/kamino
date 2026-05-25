@@ -69,7 +69,6 @@ export const pods: Array<Pod> = [
     clone_count: 124,
     status: "listed",
     audience: [],
-    vms_visible: false,
     tasks: [
       {
         id: "re-task-1",
@@ -156,7 +155,6 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
     clone_count: 89,
     status: "listed",
     audience: [],
-    vms_visible: true,
     tasks: [
       {
         id: "task-1",
@@ -420,7 +418,6 @@ For a polished report, link tactics back to [MITRE ATT&CK Enterprise](https://at
     clone_count: 231,
     status: "listed",
     audience: [],
-    vms_visible: false,
     tasks: [
       {
         id: "deserialize-task-1",
@@ -493,7 +490,6 @@ Focus on constructors, magic methods, or hooks that execute automatically during
     clone_count: 542,
     status: "listed",
     audience: [],
-    vms_visible: true,
     tasks: [
       {
         id: "ctf-task-1",
@@ -588,7 +584,6 @@ Use clean evidence so disputes are easy to resolve after the event.`,
     clone_count: 167,
     status: "listed",
     audience: [],
-    vms_visible: true,
     tasks: [
       {
         id: "linux-task-1",
@@ -681,7 +676,6 @@ Good hardening reduces risk without creating an outage.`,
     clone_count: 95,
     status: "listed",
     audience: [],
-    vms_visible: true,
     tasks: [
       {
         id: "waf-task-1",
@@ -1058,13 +1052,11 @@ function bytesToRoundedGb(value: number) {
 function createFallbackCatalogVirtualMachines(
   pod: Pod
 ): PublishedPodCatalogEntry["virtual_machines"] {
-  const vmCount = pod.vms_visible ? 2 : 1
-
-  return Array.from({ length: vmCount }, (_, index) => ({
+  return Array.from({ length: 2 }, (_, index) => ({
     id: `${pod.id}-template-vm-${index + 1}`,
     name: `${pod.title} VM ${index + 1}`,
-    cpuCount: pod.vms_visible ? 4 : 2,
-    memoryGb: pod.vms_visible ? 8 : 4,
+    cpuCount: 4,
+    memoryGb: 8,
     storageGb: 100 + index * 50,
     permissions: {
       allowMask: podVmPermissions.operator.allowed_mask,
@@ -1076,7 +1068,9 @@ function createFallbackCatalogVirtualMachines(
 function createCatalogVirtualMachines(
   pod: Pod
 ): PublishedPodCatalogEntry["virtual_machines"] {
-  const sourceClone = clonedPods.find((clonedPod) => clonedPod.pod_id === pod.id)
+  const sourceClone = clonedPods.find(
+    (clonedPod) => clonedPod.pod_id === pod.id
+  )
 
   if (!sourceClone) {
     return createFallbackCatalogVirtualMachines(pod)

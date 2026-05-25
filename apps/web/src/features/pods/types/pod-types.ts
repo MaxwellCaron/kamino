@@ -28,7 +28,6 @@ export interface Pod {
   clone_count: number
   status: PodStatus
   audience: PodAudience
-  vms_visible: boolean
   tasks?: Array<PodTask>
 }
 

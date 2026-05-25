@@ -202,7 +202,6 @@ export const publishPodFormSchema = z.object({
   clone_count: z.number().int().min(0),
   status: z.enum(["listed", "unlisted"] satisfies Array<PodStatus>),
   audience: z.array(publishPodAudiencePrincipalSchema),
-  vms_visible: z.boolean(),
   virtual_machines: z.array(publishPodVmSchema).min(1),
   tasks: z
     .array(publishPodTaskSchema)
@@ -278,7 +277,6 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
     clone_count: 0,
     status: "listed",
     audience: [],
-    vms_visible: true,
     virtual_machines: Array.from({ length: 5 }, (_, index) =>
       createDefaultPublishPodVm(index)
     ),

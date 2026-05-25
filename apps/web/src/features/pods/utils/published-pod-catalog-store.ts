@@ -98,7 +98,6 @@ export function toPublishPodFormValues(
     clone_count: pod.clone_count,
     status: pod.status,
     audience: structuredClone(pod.audience),
-    vms_visible: pod.vms_visible,
     virtual_machines: structuredClone(pod.virtual_machines),
     tasks: (pod.tasks ?? []).map((task) => ({
       id: task.id,
@@ -133,7 +132,6 @@ export function savePublishedPod(values: PublishPodFormValues) {
     clone_count: existing?.clone_count ?? values.clone_count,
     status: values.status,
     audience: structuredClone(values.audience),
-    vms_visible: values.vms_visible,
     tasks: structuredClone(values.tasks),
     source_folder: values.source_folder,
     virtual_machines: structuredClone(values.virtual_machines),
