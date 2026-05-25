@@ -1,4 +1,9 @@
-import type { ClonedPod, Pod, PodVM } from "./pod-types"
+import type {
+  ClonedPod,
+  Pod,
+  PodVM,
+  PublishedPodCatalogEntry,
+} from "./pod-types"
 import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 import type { InventoryPermissionKey } from "@/features/inventory/utils/inventory-permissions"
 import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
@@ -1045,3 +1050,54 @@ export const clonedPods: Array<ClonedPod> = [
     ],
   },
 ]
+
+function bytesToRoundedGb(value: number) {
+  return Math.max(1, Math.round(value / 1024 / 1024 / 1024))
+}
+
+function createFallbackCatalogVirtualMachines(
+  pod: Pod
+): PublishedPodCatalogEntry["virtual_machines"] {
+  const vmCount = pod.vms_visible ? 2 : 1
+
+  return Array.from({ length: vmCount }, (_, index) => ({
+    id: `${pod.id}-template-vm-${index + 1}`,
+    name: `${pod.title} VM ${index + 1}`,
+    cpuCount: pod.vms_visible ? 4 : 2,
+    memoryGb: pod.vms_visible ? 8 : 4,
+    storageGb: 100 + index * 50,
+    permissions: {
+      allowMask: podVmPermissions.operator.allowed_mask,
+      denyMask: 0,
+    },
+  }))
+}
+
+function createCatalogVirtualMachines(
+  pod: Pod
+): PublishedPodCatalogEntry["virtual_machines"] {
+  const sourceClone = clonedPods.find((clonedPod) => clonedPod.pod_id === pod.id)
+
+  if (!sourceClone) {
+    return createFallbackCatalogVirtualMachines(pod)
+  }
+
+  return sourceClone.vms.map((vm) => ({
+    id: vm.id,
+    name: vm.name,
+    cpuCount: Math.max(1, vm.resources.maxcpu),
+    memoryGb: bytesToRoundedGb(vm.resources.maxmem),
+    storageGb: bytesToRoundedGb(vm.resources.maxdisk),
+    permissions: {
+      allowMask: vm.inventory.permissions.allowed_mask,
+      denyMask: vm.inventory.permissions.denied_mask,
+    },
+  }))
+}
+
+export const publishedPodCatalogSeed: Array<PublishedPodCatalogEntry> =
+  pods.map((pod) => ({
+    ...pod,
+    source_folder: `/pods/catalog/${pod.slug}`,
+    virtual_machines: createCatalogVirtualMachines(pod),
+  }))

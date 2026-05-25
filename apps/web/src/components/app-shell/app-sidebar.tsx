@@ -4,6 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import {
   IconHome,
   IconLayoutDashboard,
+  IconListDetails,
   IconNetwork,
   IconPackageExport,
   IconPackages,
@@ -64,6 +65,15 @@ const navItems = [
       "Review pending and completed user requests for VM power changes or snapshots.",
     url: "/manager/requests",
     icon: IconReceipt,
+    group: "manager",
+    visibility: "requests",
+  },
+  {
+    title: "Published Pods",
+    description:
+      "Manager-facing catalog for reviewing pod visibility, access, and edit state.",
+    url: "/pods/published",
+    icon: IconListDetails,
     group: "manager",
     visibility: "requests",
   },

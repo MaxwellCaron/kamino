@@ -48,6 +48,7 @@ interface DataTableProps<TData, TValue> {
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
+  showSelectionSummary?: boolean
   renderSelectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
@@ -60,6 +61,7 @@ export function DataTable<TData, TValue>({
   error,
   getRowId,
   initialPageSize = 25,
+  showSelectionSummary = true,
   renderSelectionActions,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
@@ -213,7 +215,10 @@ export function DataTable<TData, TValue>({
           </AnimatePresence>
         </Table>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePagination
+        table={table}
+        showSelectionSummary={showSelectionSummary}
+      />
       {renderSelectionActions && (
         <ActionBar
           open={selectedRows.length > 0}

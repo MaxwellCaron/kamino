@@ -32,6 +32,23 @@ export interface Pod {
   tasks?: Array<PodTask>
 }
 
+export interface PublishedPodVirtualMachine {
+  id: UUID
+  name: string
+  cpuCount: number
+  memoryGb: number
+  storageGb: number
+  permissions: {
+    allowMask: number
+    denyMask: number
+  }
+}
+
+export interface PublishedPodCatalogEntry extends Pod {
+  source_folder: string
+  virtual_machines: Array<PublishedPodVirtualMachine>
+}
+
 export interface PodVM {
   id: UUID
   name: string

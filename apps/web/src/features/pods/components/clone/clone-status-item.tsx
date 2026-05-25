@@ -22,7 +22,10 @@ import {
 } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ReactNode } from "react"
-import type { CloneStatusTask, CloneStepColors } from "./clone-status"
+import type {
+  CloneStatusTask,
+  CloneStepColors,
+} from "@/features/pods/types/clone-status"
 
 const DEFAULT_COLORS: CloneStepColors = {
   text: "text-primary dark:text-primary",

@@ -5,12 +5,15 @@ import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
 import { PublishPodPersonalizeStep } from "./publish-pod-1-personalize"
 import { PublishPodAccessStep } from "./publish-pod-2-access"
 import { PublishPodVirtualMachinesStep } from "./publish-pod-3-virtual-machines"
-import { usePublishPodForm } from "./publish-pod-form"
+import {
+  createInitialPublishPodValues,
+  usePublishPodForm,
+} from "./publish-pod-form"
 import { PublishPodTasksStep } from "./publish-pod-4-tasks"
 import { PublishPodPreviewStep } from "./publish-pod-5-preview"
 import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
 import type { PublishPodStep } from "./publish-pod-stepper"
-import type { PublishPodFormApi } from "./publish-pod-form"
+import type { PublishPodFormApi, PublishPodFormValues } from "./publish-pod-form"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import {
@@ -20,9 +23,23 @@ import {
 
 type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
 
-export function PublishPodPage() {
+type PublishPodPageProps = {
+  initialValues?: PublishPodFormValues
+  onSubmit?: (values: PublishPodFormValues) => Promise<void> | void
+  submitLabel?: string
+}
+
+export function PublishPodPage({
+  initialValues,
+  onSubmit,
+  submitLabel,
+}: PublishPodPageProps) {
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
-  const form = usePublishPodForm()
+  const defaultValues = React.useMemo(
+    () => initialValues ?? createInitialPublishPodValues(),
+    [initialValues]
+  )
+  const form = usePublishPodForm({ defaultValues, onSubmit })
   const submissionAttempts = useStore(
     form.store,
     (state) => state.submissionAttempts
@@ -203,7 +220,7 @@ export function PublishPodPage() {
           <PublishPodPreviewStep form={form} />
         </StepperContent>
 
-        <PublishPodStepper step={step} />
+        <PublishPodStepper step={step} submitLabel={submitLabel} />
       </Stepper>
     </form>
   )

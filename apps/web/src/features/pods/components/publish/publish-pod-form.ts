@@ -213,6 +213,11 @@ export const publishPodFormSchema = z.object({
 
 export type PublishPodFormValues = z.infer<typeof publishPodFormSchema>
 
+type UsePublishPodFormOptions = {
+  defaultValues: PublishPodFormValues
+  onSubmit?: (values: PublishPodFormValues) => Promise<void> | void
+}
+
 export function createEmptyQuestion() {
   return {
     id: uuid(),
@@ -259,47 +264,54 @@ export function toPodCreator(principal: PrincipalOption): PodCreator {
   return toPodAudiencePrincipal(principal)
 }
 
-export const initialPublishPodValues: PublishPodFormValues = {
-  id: "draft",
-  title: "New Learning Pod",
-  slug: "new-learning-pod",
-  description:
-    "A comprehensive environment for learning modern software engineering.",
-  image:
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60",
-  creators: [],
-  created_at: new Date().toISOString(),
-  clone_count: 0,
-  status: "listed",
-  audience: [],
-  vms_visible: true,
-  virtual_machines: Array.from({ length: 5 }, (_, index) =>
-    createDefaultPublishPodVm(index)
-  ),
-  tasks: [
-    {
-      id: uuid(),
-      title: "Explore the Environment",
-      content: defaultPublishPodTaskContent,
-      questions: [
-        {
-          id: uuid(),
-          title: "What is the operating system of the main VM?",
-          answerOutline: "Ubuntu 22.04",
-        },
-      ],
-    },
-  ],
-  source_folder: "",
+export function createInitialPublishPodValues(): PublishPodFormValues {
+  return {
+    id: uuid(),
+    title: "New Learning Pod",
+    slug: "new-learning-pod",
+    description:
+      "A comprehensive environment for learning modern software engineering.",
+    image:
+      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60",
+    creators: [],
+    created_at: new Date().toISOString(),
+    clone_count: 0,
+    status: "listed",
+    audience: [],
+    vms_visible: true,
+    virtual_machines: Array.from({ length: 5 }, (_, index) =>
+      createDefaultPublishPodVm(index)
+    ),
+    tasks: [
+      {
+        id: uuid(),
+        title: "Explore the Environment",
+        content: defaultPublishPodTaskContent,
+        questions: [
+          {
+            id: uuid(),
+            title: "What is the operating system of the main VM?",
+            answerOutline: "Ubuntu 22.04",
+          },
+        ],
+      },
+    ],
+    source_folder: "",
+  }
 }
 
-export function usePublishPodForm() {
+export function usePublishPodForm({
+  defaultValues,
+  onSubmit,
+}: UsePublishPodFormOptions) {
   return useForm({
-    defaultValues: initialPublishPodValues,
+    defaultValues,
     validators: {
       onSubmit: publishPodFormSchema,
     },
-    onSubmit: async () => {},
+    onSubmit: async ({ value }) => {
+      await onSubmit?.(value)
+    },
   })
 }
 

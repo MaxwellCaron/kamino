@@ -1,4 +1,8 @@
-import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react"
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconPackageExport,
+} from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import {
@@ -45,9 +49,13 @@ export const defaultPublishPodStep: PublishPodStep = steps[0].value
 
 type PublishPodStepperProps = {
   step: PublishPodStep
+  submitLabel?: string
 }
 
-export function PublishPodStepper({ step }: PublishPodStepperProps) {
+export function PublishPodStepper({
+  step,
+  submitLabel = "Publish",
+}: PublishPodStepperProps) {
   const stepIndex = steps.findIndex((s) => s.value === step)
 
   return (
@@ -80,7 +88,10 @@ export function PublishPodStepper({ step }: PublishPodStepperProps) {
               Step {stepIndex + 1} of {steps.length}
             </div>
             {stepIndex === steps.length - 1 ? (
-              <Button type="submit">Complete</Button>
+              <Button type="submit">
+                <IconPackageExport data-icon="inline-start" />
+                {submitLabel}
+              </Button>
             ) : (
               <StepperNext
                 render={(props) => (
