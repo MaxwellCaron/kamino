@@ -9,7 +9,47 @@ import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 import type { Components } from "react-markdown"
 
-const remarkPlugins = [remarkGfm]
+type MarkdownAstNode = {
+  type?: string
+  value?: string
+  children?: Array<MarkdownAstNode>
+}
+
+function isImageOnlyParagraph(node: MarkdownAstNode) {
+  return (
+    node.type === "paragraph" &&
+    node.children !== undefined &&
+    node.children.length > 0 &&
+    node.children.every((child) => {
+      if (child.type === "image") return true
+      if (child.type === "text") {
+        return (child.value ?? "").trim().length === 0
+      }
+      return false
+    })
+  )
+}
+
+function remarkUnwrapImageParagraphs() {
+  return (tree: MarkdownAstNode) => {
+    const visit = (node: MarkdownAstNode) => {
+      if (!node.children) return
+
+      node.children = node.children.flatMap((child) => {
+        if (isImageOnlyParagraph(child)) {
+          return child.children ?? []
+        }
+
+        visit(child)
+        return [child]
+      })
+    }
+
+    visit(tree)
+  }
+}
+
+const remarkPlugins = [remarkGfm, remarkUnwrapImageParagraphs]
 
 const MarkdownCodeBlock = React.lazy(() =>
   import("./markdown-code-block").then((module) => ({
