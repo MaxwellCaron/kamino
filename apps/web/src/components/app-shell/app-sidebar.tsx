@@ -190,10 +190,6 @@ function IconRailHoverCard({
 }
 
 function isActivePath(pathname: string, url: string) {
-  if (url === "/pods/browse") {
-    return pathname === url || pathname.startsWith("/pods/")
-  }
-
   return pathname === url
 }
 
