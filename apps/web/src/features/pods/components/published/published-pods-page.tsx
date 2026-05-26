@@ -2,7 +2,7 @@ import { useMemo } from "react"
 import { toast } from "sonner"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { IconPackages, IconPlus } from "@tabler/icons-react"
-import { Button } from "@workspace/ui/components/button"
+import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
 } from "@workspace/ui/components/card"
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -108,10 +109,13 @@ export function PublishedPodsPage() {
             </div>
           </div>
 
-          <Button render={<Link to="/pods/publish" />} size="lg">
+          <Link
+            to="/pods/publish"
+            className={`${buttonVariants({ size: "lg" })} cursor-default`}
+          >
             <IconPlus data-icon="inline-start" />
             New Pod
-          </Button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -166,10 +170,15 @@ export function PublishedPodsPage() {
                     Create a pod to start shaping the catalog UX.
                   </EmptyDescription>
                 </EmptyHeader>
-                <Button render={<Link to="/pods/publish" />}>
-                  <IconPlus data-icon="inline-start" />
-                  Create Pod
-                </Button>
+                <EmptyContent>
+                  <Link
+                    to="/pods/publish"
+                    className={`${buttonVariants()} cursor-default`}
+                  >
+                    <IconPlus data-icon="inline-start" />
+                    Create Pod
+                  </Link>
+                </EmptyContent>
               </Empty>
             )}
           </CardContent>
