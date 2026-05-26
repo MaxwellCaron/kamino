@@ -147,9 +147,13 @@ export function PublishPodPersonalizeStep({
                 const showValidation =
                   field.state.meta.isTouched || submissionAttempts > 0
                 const isInvalid = showValidation && !field.state.meta.isValid
-                const selectedIds = field.state.value.map(
-                  (creator) => creator.id
-                )
+                const selectedPrincipals = field.state.value
+                  .map((creator) => principalOptionMap.get(creator.id))
+                  .filter(
+                    (
+                      principal
+                    ): principal is NonNullable<typeof principal> => !!principal
+                  )
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -158,21 +162,12 @@ export function PublishPodPersonalizeStep({
                       <Combobox
                         multiple
                         autoHighlight
-                        items={principalOptions.map(
-                          (principal) => principal.id
-                        )}
-                        value={selectedIds}
+                        items={principalOptions}
+                        itemToStringLabel={(principal) => principal.label}
+                        value={selectedPrincipals}
                         onValueChange={(value) =>
                           field.handleChange(
-                            value
-                              .map((id) => principalOptionMap.get(id))
-                              .filter(
-                                (
-                                  principal
-                                ): principal is NonNullable<typeof principal> =>
-                                  !!principal
-                              )
-                              .map((principal) => toPodCreator(principal))
+                            value.map((principal) => toPodCreator(principal))
                           )
                         }
                       >
@@ -180,13 +175,13 @@ export function PublishPodPersonalizeStep({
                           <ComboboxValue>
                             {(values) => (
                               <>
-                                {(values as Array<string>).map((id) => (
-                                  <ComboboxChip key={id}>
-                                    {field.state.value.find(
-                                      (creator) => creator.id === id
-                                    )?.label ?? id}
-                                  </ComboboxChip>
-                                ))}
+                                {(values as Array<PrincipalOption>).map(
+                                  (principal) => (
+                                    <ComboboxChip key={principal.id}>
+                                      {principal.label}
+                                    </ComboboxChip>
+                                  )
+                                )}
                                 <ComboboxChipsInput
                                   name={field.name}
                                   onBlur={field.handleBlur}
@@ -200,26 +195,23 @@ export function PublishPodPersonalizeStep({
                         <ComboboxContent anchor={creatorAnchor}>
                           <ComboboxEmpty>No items found.</ComboboxEmpty>
                           <ComboboxList>
-                            {(id) => {
-                              const principal = principalOptionMap.get(
-                                id as string
-                              )
-
-                              return principal ? (
-                                <ComboboxItem key={id} value={id}>
-                                  <div className="flex min-w-0 flex-col">
-                                    <span className="truncate">
-                                      {principal.label}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {principal.type === "group"
-                                        ? "Group"
-                                        : "User"}
-                                    </span>
-                                  </div>
-                                </ComboboxItem>
-                              ) : null
-                            }}
+                            {(principal) => (
+                              <ComboboxItem
+                                key={principal.id}
+                                value={principal}
+                              >
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate">
+                                    {principal.label}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {principal.type === "group"
+                                      ? "Group"
+                                      : "User"}
+                                  </span>
+                                </div>
+                              </ComboboxItem>
+                            )}
                           </ComboboxList>
                         </ComboboxContent>
                       </Combobox>

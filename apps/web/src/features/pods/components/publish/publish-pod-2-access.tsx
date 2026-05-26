@@ -88,9 +88,13 @@ export function PublishPodAccessStep({
                 const showValidation =
                   field.state.meta.isTouched || submissionAttempts > 0
                 const isInvalid = showValidation && !field.state.meta.isValid
-                const selectedIds = field.state.value.map(
-                  (principal) => principal.id
-                )
+                const selectedPrincipals = field.state.value
+                  .map((principal) => principalOptionMap.get(principal.id))
+                  .filter(
+                    (
+                      principal
+                    ): principal is NonNullable<typeof principal> => !!principal
+                  )
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -99,23 +103,14 @@ export function PublishPodAccessStep({
                       <Combobox
                         multiple
                         autoHighlight
-                        items={principalOptions.map(
-                          (principal) => principal.id
-                        )}
-                        value={selectedIds}
+                        items={principalOptions}
+                        itemToStringLabel={(principal) => principal.label}
+                        value={selectedPrincipals}
                         onValueChange={(value) =>
                           field.handleChange(
-                            value
-                              .map((id) => principalOptionMap.get(id))
-                              .filter(
-                                (
-                                  principal
-                                ): principal is NonNullable<typeof principal> =>
-                                  !!principal
-                              )
-                              .map((principal) =>
-                                toPodAudiencePrincipal(principal)
-                              )
+                            value.map((principal) =>
+                              toPodAudiencePrincipal(principal)
+                            )
                           )
                         }
                       >
@@ -123,17 +118,13 @@ export function PublishPodAccessStep({
                           <ComboboxValue>
                             {(values) => (
                               <>
-                                {(values as Array<string>).map((id) => {
-                                  const principal = field.state.value.find(
-                                    (value) => value.id === id
-                                  )
-
-                                  return (
-                                    <ComboboxChip key={id}>
-                                      {principal?.label ?? id}
+                                {(values as Array<PrincipalOption>).map(
+                                  (principal) => (
+                                    <ComboboxChip key={principal.id}>
+                                      {principal.label}
                                     </ComboboxChip>
                                   )
-                                })}
+                                )}
                                 <ComboboxChipsInput
                                   name={field.name}
                                   onBlur={field.handleBlur}
@@ -147,26 +138,23 @@ export function PublishPodAccessStep({
                         <ComboboxContent anchor={audienceAnchor}>
                           <ComboboxEmpty>No principals found.</ComboboxEmpty>
                           <ComboboxList>
-                            {(id) => {
-                              const principal = principalOptionMap.get(
-                                id as string
-                              )
-
-                              return principal ? (
-                                <ComboboxItem key={id} value={id}>
-                                  <div className="flex min-w-0 flex-col">
-                                    <span className="truncate">
-                                      {principal.label}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {principal.type === "group"
-                                        ? "Group"
-                                        : "User"}
-                                    </span>
-                                  </div>
-                                </ComboboxItem>
-                              ) : null
-                            }}
+                            {(principal) => (
+                              <ComboboxItem
+                                key={principal.id}
+                                value={principal}
+                              >
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate">
+                                    {principal.label}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {principal.type === "group"
+                                      ? "Group"
+                                      : "User"}
+                                  </span>
+                                </div>
+                              </ComboboxItem>
+                            )}
                           </ComboboxList>
                         </ComboboxContent>
                       </Combobox>
