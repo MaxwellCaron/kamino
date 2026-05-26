@@ -15,11 +15,13 @@ import {
 import {
   IconDotsVertical,
   IconEdit,
+  IconExternalLink,
   IconEye,
   IconEyeOff,
   IconLock,
   IconWorld,
 } from "@tabler/icons-react"
+import { Link } from "@tanstack/react-router"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type {
@@ -185,6 +187,19 @@ export function getPublishedPodsColumns({
               <DropdownMenuContent align="end" className="w-60">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>General</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    render={
+                      <Link
+                        to="/pods/$podSlug"
+                        params={{ podSlug: pod.slug }}
+                        target="_blank"
+                        rel="noreferrer"
+                      />
+                    }
+                  >
+                    <IconExternalLink className="text-muted-foreground" />
+                    Open
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onEdit(pod)}>
                     <IconEdit className="text-muted-foreground" />
                     Edit
