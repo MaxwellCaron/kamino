@@ -79,10 +79,8 @@ export function AdminDashboardHeader({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-            Admin Dashboard
-          </span>
+        <CardTitle className="text-4xl font-extrabold tracking-tight text-balance">
+          Admin Dashboard
         </CardTitle>
         <CardDescription>
           Platform statistics, requests management, principals overview, and
