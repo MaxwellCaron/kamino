@@ -142,6 +142,7 @@ export function PublishPodTasksStep({
           }}
         </form.Field>
       </PublishPodStepLayout>
+
       <AlertDialog
         open={pendingTaskDelete !== null}
         onOpenChange={(open) => {

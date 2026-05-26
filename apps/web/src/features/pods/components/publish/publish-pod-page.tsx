@@ -12,8 +12,13 @@ import {
 import { PublishPodTasksStep } from "./publish-pod-4-tasks"
 import { PublishPodPreviewStep } from "./publish-pod-5-preview"
 import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
+import { PublishPodSubmitState } from "./publish-pod-publishing-state"
 import type { PublishPodStep } from "./publish-pod-stepper"
-import type { PublishPodFormApi, PublishPodFormValues } from "./publish-pod-form"
+import type {
+  PublishPodFormApi,
+  PublishPodFormValues,
+} from "./publish-pod-form"
+import type { PublishPodSubmitStatus } from "./publish-pod-publishing-state"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import {
@@ -22,24 +27,44 @@ import {
 } from "@/features/principals/api/principals-api"
 
 type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
+type PublishPodPendingStatus = Extract<
+  PublishPodSubmitStatus,
+  "publishing" | "updating"
+>
+type PublishPodFormState = "form" | PublishPodSubmitStatus
 
 type PublishPodPageProps = {
   initialValues?: PublishPodFormValues
   onSubmit?: (values: PublishPodFormValues) => Promise<void> | void
+  pendingSubmitState?: PublishPodPendingStatus
   submitLabel?: string
 }
 
 export function PublishPodPage({
   initialValues,
   onSubmit,
+  pendingSubmitState = "publishing",
   submitLabel,
 }: PublishPodPageProps) {
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
+  const [submitState, setSubmitState] =
+    React.useState<PublishPodFormState>("form")
+  const submittedValuesRef = React.useRef<PublishPodFormValues | null>(null)
   const defaultValues = React.useMemo(
     () => initialValues ?? createInitialPublishPodValues(),
     [initialValues]
   )
-  const form = usePublishPodForm({ defaultValues, onSubmit })
+  const handleValidatedSubmit = React.useCallback(
+    (values: PublishPodFormValues) => {
+      submittedValuesRef.current = values
+      setSubmitState(pendingSubmitState)
+    },
+    [pendingSubmitState]
+  )
+  const form = usePublishPodForm({
+    defaultValues,
+    onSubmit: handleValidatedSubmit,
+  })
   const submissionAttempts = useStore(
     form.store,
     (state) => state.submissionAttempts
@@ -161,13 +186,44 @@ export function PublishPodPage({
     return true
   }, [form, getTaskFieldPaths, hasFieldErrors, markFieldsTouched, step])
 
+  const submitForm = React.useCallback(async () => {
+    await form.handleSubmit()
+  }, [form])
+
   const handleSubmit = React.useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      await form.handleSubmit()
+      await submitForm()
     },
-    [form]
+    [submitForm]
   )
+
+  const handlePublishingComplete = React.useCallback(async () => {
+    const submittedValues = submittedValuesRef.current
+
+    if (!submittedValues) {
+      setSubmitState("error")
+      return
+    }
+
+    try {
+      await onSubmit?.(submittedValues)
+      setSubmitState("success")
+    } catch {
+      setSubmitState("error")
+    }
+  }, [onSubmit])
+
+  if (submitState !== "form") {
+    return (
+      <div className="@container/main relative flex flex-1 flex-col">
+        <PublishPodSubmitState
+          state={submitState}
+          onPublishingComplete={handlePublishingComplete}
+        />
+      </div>
+    )
+  }
 
   return (
     <form
@@ -220,7 +276,11 @@ export function PublishPodPage({
           <PublishPodPreviewStep form={form} />
         </StepperContent>
 
-        <PublishPodStepper step={step} submitLabel={submitLabel} />
+        <PublishPodStepper
+          step={step}
+          submitLabel={submitLabel}
+          onSubmitConfirm={submitForm}
+        />
       </Stepper>
     </form>
   )
