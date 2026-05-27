@@ -17,6 +17,7 @@ import { Route as DashboardAdminRouteImport } from './routes/_dashboard/admin'
 import { Route as DashboardAdminIndexRouteImport } from './routes/_dashboard/admin/index'
 import { Route as PodsPodsPublishedRouteImport } from './routes/_pods/pods/published'
 import { Route as PodsPodsPublishRouteImport } from './routes/_pods/pods/publish'
+import { Route as PodsPodsCreateRouteImport } from './routes/_pods/pods/create'
 import { Route as PodsPodsBrowseRouteImport } from './routes/_pods/pods/browse'
 import { Route as PodsPodsPodSlugRouteImport } from './routes/_pods/pods/$podSlug'
 import { Route as DashboardManagerRequestsRouteImport } from './routes/_dashboard/manager/requests'
@@ -61,6 +62,11 @@ const PodsPodsPublishedRoute = PodsPodsPublishedRouteImport.update({
 const PodsPodsPublishRoute = PodsPodsPublishRouteImport.update({
   id: '/pods/publish',
   path: '/pods/publish',
+  getParentRoute: () => PodsRoute,
+} as any)
+const PodsPodsCreateRoute = PodsPodsCreateRouteImport.update({
+  id: '/pods/create',
+  path: '/pods/create',
   getParentRoute: () => PodsRoute,
 } as any)
 const PodsPodsBrowseRoute = PodsPodsBrowseRouteImport.update({
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/manager/requests': typeof DashboardManagerRequestsRoute
   '/pods/$podSlug': typeof PodsPodsPodSlugRoute
   '/pods/browse': typeof PodsPodsBrowseRoute
+  '/pods/create': typeof PodsPodsCreateRoute
   '/pods/publish': typeof PodsPodsPublishRoute
   '/pods/published': typeof PodsPodsPublishedRoute
   '/admin/': typeof DashboardAdminIndexRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/manager/requests': typeof DashboardManagerRequestsRoute
   '/pods/$podSlug': typeof PodsPodsPodSlugRoute
   '/pods/browse': typeof PodsPodsBrowseRoute
+  '/pods/create': typeof PodsPodsCreateRoute
   '/pods/publish': typeof PodsPodsPublishRoute
   '/pods/published': typeof PodsPodsPublishedRoute
   '/admin': typeof DashboardAdminIndexRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/_dashboard/manager/requests': typeof DashboardManagerRequestsRoute
   '/_pods/pods/$podSlug': typeof PodsPodsPodSlugRoute
   '/_pods/pods/browse': typeof PodsPodsBrowseRoute
+  '/_pods/pods/create': typeof PodsPodsCreateRoute
   '/_pods/pods/publish': typeof PodsPodsPublishRoute
   '/_pods/pods/published': typeof PodsPodsPublishedRoute
   '/_dashboard/admin/': typeof DashboardAdminIndexRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/manager/requests'
     | '/pods/$podSlug'
     | '/pods/browse'
+    | '/pods/create'
     | '/pods/publish'
     | '/pods/published'
     | '/admin/'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/manager/requests'
     | '/pods/$podSlug'
     | '/pods/browse'
+    | '/pods/create'
     | '/pods/publish'
     | '/pods/published'
     | '/admin'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/_dashboard/manager/requests'
     | '/_pods/pods/$podSlug'
     | '/_pods/pods/browse'
+    | '/_pods/pods/create'
     | '/_pods/pods/publish'
     | '/_pods/pods/published'
     | '/_dashboard/admin/'
@@ -261,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/pods/publish'
       fullPath: '/pods/publish'
       preLoaderRoute: typeof PodsPodsPublishRouteImport
+      parentRoute: typeof PodsRoute
+    }
+    '/_pods/pods/create': {
+      id: '/_pods/pods/create'
+      path: '/pods/create'
+      fullPath: '/pods/create'
+      preLoaderRoute: typeof PodsPodsCreateRouteImport
       parentRoute: typeof PodsRoute
     }
     '/_pods/pods/browse': {
@@ -354,6 +373,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 interface PodsRouteChildren {
   PodsPodsPodSlugRoute: typeof PodsPodsPodSlugRoute
   PodsPodsBrowseRoute: typeof PodsPodsBrowseRoute
+  PodsPodsCreateRoute: typeof PodsPodsCreateRoute
   PodsPodsPublishRoute: typeof PodsPodsPublishRoute
   PodsPodsPublishedRoute: typeof PodsPodsPublishedRoute
 }
@@ -361,6 +381,7 @@ interface PodsRouteChildren {
 const PodsRouteChildren: PodsRouteChildren = {
   PodsPodsPodSlugRoute: PodsPodsPodSlugRoute,
   PodsPodsBrowseRoute: PodsPodsBrowseRoute,
+  PodsPodsCreateRoute: PodsPodsCreateRoute,
   PodsPodsPublishRoute: PodsPodsPublishRoute,
   PodsPodsPublishedRoute: PodsPodsPublishedRoute,
 }
