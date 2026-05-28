@@ -91,9 +91,8 @@ export function PublishPodAccessStep({
                 const selectedPrincipals = field.state.value
                   .map((principal) => principalOptionMap.get(principal.id))
                   .filter(
-                    (
-                      principal
-                    ): principal is NonNullable<typeof principal> => !!principal
+                    (principal): principal is NonNullable<typeof principal> =>
+                      !!principal
                   )
 
                 return (

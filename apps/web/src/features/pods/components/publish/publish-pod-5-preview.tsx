@@ -1,7 +1,7 @@
+import { PodTasks } from "../pod-tasks"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import type { PublishPodFormApi } from "./publish-pod-form"
 import type { PodTask } from "@/features/pods/types/pod-types"
-import { PodTasks } from "@/features/pods/components/pod-tasks"
 
 type PublishPodPreviewStepProps = {
   form: PublishPodFormApi

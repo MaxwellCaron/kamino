@@ -150,9 +150,8 @@ export function PublishPodPersonalizeStep({
                 const selectedPrincipals = field.state.value
                   .map((creator) => principalOptionMap.get(creator.id))
                   .filter(
-                    (
-                      principal
-                    ): principal is NonNullable<typeof principal> => !!principal
+                    (principal): principal is NonNullable<typeof principal> =>
+                      !!principal
                   )
 
                 return (

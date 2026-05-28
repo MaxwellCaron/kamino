@@ -1,7 +1,7 @@
+import { PodHeader } from "../pod-header"
 import { toPodDraft } from "./publish-pod-form"
 import type { PublishPodFormApi } from "./publish-pod-form"
 import type { ReactNode } from "react"
-import { PodHeader } from "@/features/pods/components/pod-header"
 
 type PublishPodStepLayoutProps = {
   children: ReactNode
