@@ -1,3 +1,4 @@
+import React from "react"
 import {
   Field,
   FieldContent,
@@ -8,23 +9,26 @@ import {
 } from "@workspace/ui/components/field"
 import {
   Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
   ComboboxContent,
   ComboboxEmpty,
-  ComboboxInput,
   ComboboxItem,
   ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Input } from "@workspace/ui/components/input"
 import {
   Item,
-  ItemActions,
   ItemContent,
+  ItemDescription,
   ItemGroup,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-
 import {
   InputGroup,
   InputGroupAddon,
@@ -34,14 +38,20 @@ import {
   Card,
   CardAction,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Label } from "@workspace/ui/components/label"
 import {
+  IconChevronDown,
   IconCpu,
   IconDatabase,
   IconDeviceDesktop,
+  IconFolderOpen,
+  IconNetwork,
+  IconPackage,
   IconPlus,
   IconTemplate,
   IconTopologyBus,
@@ -50,8 +60,27 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ReactNode } from "react"
+import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 
-const frameworks = ["Next.js", "SvelteKit", "Nuxt.js", "Remix", "Astro"]
+const frameworks = [
+  "kali",
+  "1-1NAT-pfsense",
+  "debian-13",
+  "Server-2025",
+  "ubuntu-server-24",
+]
+const reviewPreviewVms = [
+  "router",
+  "virtual-machine-1",
+  "virtual-machine-2",
+  "virtual-machine-3",
+  "virtual-machine-4",
+  "virtual-machine-5",
+  "virtual-machine-6",
+]
+
+const treePreviewRowClass =
+  "bg-transparent flex min-h-8 items-center gap-1 rounded-3xl bg-sidebar px-2 py-1.5 text-sm transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0"
 
 function CreatePodFormSection({
   number,
@@ -85,7 +114,38 @@ function CreatePodFormSection({
   )
 }
 
+function ReviewTreePreview() {
+  return (
+    <div>
+      <div className="flex flex-col gap-0.5">
+        <div className={treePreviewRowClass}>
+          <IconChevronDown className="size-4 text-muted-foreground" />
+          <IconFolderOpen className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
+          <span className="ml-1 flex-1 truncate">cis3670-01-lab</span>
+        </div>
+
+        {reviewPreviewVms.map((vmName) => (
+          <div
+            key={vmName}
+            className={cn(
+              treePreviewRowClass,
+              "bg-transparent ps-12 text-muted-foreground"
+            )}
+          >
+            <VmIcon status="running" />
+            <span className="ml-1 flex-1 truncate text-foreground">
+              {vmName}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function CreatePodForm() {
+  const anchor = useComboboxAnchor()
+
   return (
     <form
       className="flex w-full max-w-5xl flex-col"
@@ -124,9 +184,20 @@ export function CreatePodForm() {
             </Field>
             <Field>
               <FieldLabel htmlFor="template">Templates</FieldLabel>
-              <Combobox items={frameworks}>
-                <ComboboxInput placeholder="Select a template" />
-                <ComboboxContent>
+              <Combobox multiple autoHighlight items={frameworks}>
+                <ComboboxChips ref={anchor} className="w-full">
+                  <ComboboxValue>
+                    {(values) => (
+                      <React.Fragment>
+                        {values.map((value: string) => (
+                          <ComboboxChip key={value}>{value}</ComboboxChip>
+                        ))}
+                        <ComboboxChipsInput placeholder="Search templates" />
+                      </React.Fragment>
+                    )}
+                  </ComboboxValue>
+                </ComboboxChips>
+                <ComboboxContent anchor={anchor}>
                   <ComboboxEmpty>No items found.</ComboboxEmpty>
                   <ComboboxList>
                     {(item) => (
@@ -144,16 +215,20 @@ export function CreatePodForm() {
             </Field>
           </FieldGroup>
         </FieldSet>
-        <div className="space-y-4 pt-6">
+        <div className="flex flex-col gap-4 pt-6">
           {Array.from({ length: 3 }).map((_, x) => (
-            <Card>
+            <Card key={x}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <IconTemplate className="text-muted-foreground" />
                   <span>Template {x + 1}</span>
                 </CardTitle>
+                <CardDescription>
+                  Add up to 3 VMs for this template and configure their
+                  settings.
+                </CardDescription>
                 <CardAction>
-                  <Button size="xs">
+                  <Button>
                     <IconPlus data-icon="inline-start" />
                     Add VM
                   </Button>
@@ -162,29 +237,42 @@ export function CreatePodForm() {
               <CardContent>
                 <ItemGroup>
                   {Array.from({ length: x + 1 }).map((__, y) => (
-                    <Item key={y} variant="muted">
-                      <ItemMedia variant="icon">
-                        <IconDeviceDesktop />
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle className="p-1">
-                          <Input
+                    <Item
+                      key={y}
+                      variant="muted"
+                      className="flex-col items-stretch p-3 sm:p-4"
+                    >
+                      <div className="flex justify-between">
+                        <InputGroup className="max-w-xs">
+                          <InputGroupAddon>
+                            <IconDeviceDesktop className="text-muted-foreground" />
+                          </InputGroupAddon>
+                          <InputGroupInput
                             placeholder={`virtual-machine-${y + 1}`}
                             defaultValue={`virtual-machine-${y + 1}`}
-                            className="w-full"
                           />
-                        </ItemTitle>
-                        <div className="flex items-center gap-2 pt-2 pl-1 sm:gap-4">
-                          <InputGroup className="max-w-30">
-                            <InputGroupInput
-                              placeholder="2"
-                              value={2}
-                              min={1}
-                              max={8}
-                            />
+                        </InputGroup>
+                        <Button variant="destructive" size="icon-xs">
+                          <IconX />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                        <div>
+                          <Label className="pb-2 text-xs text-muted-foreground">
+                            CPU
+                          </Label>
+                          <InputGroup>
                             <InputGroupAddon>
                               <IconCpu />
                             </InputGroupAddon>
+                            <InputGroupInput
+                              type="number"
+                              placeholder="2"
+                              defaultValue={2}
+                              min={1}
+                              max={8}
+                            />
                             <InputGroupAddon
                               align="inline-end"
                               className="hidden sm:block"
@@ -192,33 +280,23 @@ export function CreatePodForm() {
                               vCPU
                             </InputGroupAddon>
                           </InputGroup>
-                          <InputGroup className="max-w-30">
-                            <InputGroupInput
-                              placeholder="4"
-                              value={4}
-                              min={1}
-                              max={32}
-                            />
+                        </div>
+
+                        <div>
+                          <Label className="pb-2 text-xs text-muted-foreground">
+                            Memory
+                          </Label>
+                          <InputGroup>
                             <InputGroupAddon>
                               <IconTopologyBus className="rotate-180" />
                             </InputGroupAddon>
-                            <InputGroupAddon
-                              align="inline-end"
-                              className="hidden sm:block"
-                            >
-                              GB
-                            </InputGroupAddon>
-                          </InputGroup>
-                          <InputGroup className="max-w-30">
                             <InputGroupInput
-                              placeholder="50"
-                              value={50}
-                              min={10}
-                              max={100}
+                              type="number"
+                              placeholder="4"
+                              defaultValue={4}
+                              min={1}
+                              max={32}
                             />
-                            <InputGroupAddon>
-                              <IconDatabase />
-                            </InputGroupAddon>
                             <InputGroupAddon
                               align="inline-end"
                               className="hidden sm:block"
@@ -227,28 +305,96 @@ export function CreatePodForm() {
                             </InputGroupAddon>
                           </InputGroup>
                         </div>
-                      </ItemContent>
-                      <ItemActions>
-                        <Button variant="destructive" size="icon-xs">
-                          <IconX />
-                        </Button>
-                      </ItemActions>
+
+                        <div>
+                          <Label className="pb-2 text-xs text-muted-foreground">
+                            Storage
+                          </Label>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <IconDatabase />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              type="number"
+                              placeholder="50"
+                              defaultValue={50}
+                              min={10}
+                              max={100}
+                            />
+                            <InputGroupAddon
+                              align="inline-end"
+                              className="hidden sm:block"
+                            >
+                              GB
+                            </InputGroupAddon>
+                          </InputGroup>
+                        </div>
+                      </div>
                     </Item>
                   ))}
                 </ItemGroup>
               </CardContent>
-              <CardFooter className="justify-center">
-                <Button variant="link" size="xs" className="text-destructive">
-                  Remove
-                </Button>
-              </CardFooter>
             </Card>
           ))}
         </div>
       </CreatePodFormSection>
 
       <CreatePodFormSection number={3} title="Review" isLast>
-        temp
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-muted/50">
+            <CardContent className="flex flex-1">
+              <ItemGroup className="flex-1">
+                <Item variant="muted" className="flex-1">
+                  <ItemMedia
+                    variant="icon"
+                    className="translate-y-0! self-center!"
+                  >
+                    <IconPackage />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>Pod Name</ItemTitle>
+                    <ItemDescription>cis3670-01-lab</ItemDescription>
+                  </ItemContent>
+                </Item>
+                <Item variant="muted" className="flex-1">
+                  <ItemMedia
+                    variant="icon"
+                    className="translate-y-0! self-center!"
+                  >
+                    <IconNetwork />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>Automated Networking</ItemTitle>
+                    <ItemDescription>Yes</ItemDescription>
+                  </ItemContent>
+                </Item>
+                <Item variant="muted" className="flex-1">
+                  <ItemMedia
+                    variant="icon"
+                    className="translate-y-0! self-center!"
+                  >
+                    <IconDeviceDesktop />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>Virtual Machines</ItemTitle>
+                    <ItemDescription>7</ItemDescription>
+                  </ItemContent>
+                </Item>
+              </ItemGroup>
+            </CardContent>
+          </Card>
+          <Card className="w-full bg-muted/50">
+            <CardHeader>
+              <CardTitle>Tree Preview</CardTitle>
+              <CardDescription>
+                A visual representation of your pod's tree structure.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReviewTreePreview />
+            </CardContent>
+          </Card>
+        </div>
       </CreatePodFormSection>
 
       <div className="flex justify-end pl-12">
