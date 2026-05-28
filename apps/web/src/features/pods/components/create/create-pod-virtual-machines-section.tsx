@@ -1,5 +1,4 @@
 import React from "react"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Combobox,
   ComboboxChip,
@@ -20,7 +19,17 @@ import {
   FieldGroup,
   FieldLabel,
   FieldSet,
+  FieldTitle,
 } from "@workspace/ui/components/field"
+import { Switch } from "@workspace/ui/components/switch"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import { IconTemplate } from "@tabler/icons-react"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
 import { syncSelectedTemplates, templateOptions } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
@@ -46,34 +55,36 @@ export function CreatePodVirtualMachinesSection({
             const isInvalid = showValidation && !field.state.meta.isValid
 
             return (
-              <Field
-                orientation="horizontal"
-                data-invalid={isInvalid || undefined}
-              >
-                <Checkbox
-                  id={field.name}
-                  name={field.name}
-                  checked={field.state.value}
-                  onCheckedChange={(checked) =>
-                    field.handleChange(checked === true)
-                  }
-                  onBlur={field.handleBlur}
-                  aria-invalid={isInvalid || undefined}
-                />
-                <FieldContent>
-                  <FieldLabel htmlFor={field.name}>
-                    Include Router
-                    <span className="text-muted-foreground">(Recommended)</span>
-                  </FieldLabel>
-                  <FieldDescription>
-                    Automatically add a router VM to provide networking for this
-                    template via 1-1 NATing.
-                  </FieldDescription>
-                  <FieldError
-                    errors={showValidation ? field.state.meta.errors : []}
+              <FieldLabel htmlFor={field.name}>
+                <Field
+                  orientation="horizontal"
+                  data-invalid={isInvalid || undefined}
+                >
+                  <FieldContent>
+                    <FieldTitle>
+                      Include Router
+                      <span className="text-muted-foreground">
+                        (Recommended)
+                      </span>
+                    </FieldTitle>
+                    <FieldDescription>
+                      Automatically add a router VM to provide networking for
+                      this template via 1-1 NATing.
+                    </FieldDescription>
+                    <FieldError
+                      errors={showValidation ? field.state.meta.errors : []}
+                    />
+                  </FieldContent>
+                  <Switch
+                    id={field.name}
+                    name={field.name}
+                    checked={field.state.value}
+                    onCheckedChange={(checked) => field.handleChange(checked)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={isInvalid || undefined}
                   />
-                </FieldContent>
-              </Field>
+                </Field>
+              </FieldLabel>
             )
           }}
         </form.Field>
@@ -137,14 +148,14 @@ export function CreatePodVirtualMachinesSection({
                   </ComboboxContent>
                 </Combobox>
                 <FieldDescription>
-                  Choose from available Proxmox templates and set quantities
-                  (max 3 per template), or skip to continue without VMs.
+                  Choose from available Proxmox templates or skip to continue
+                  without VMs.
                 </FieldDescription>
                 <FieldError
                   errors={showValidation ? field.state.meta.errors : []}
                 />
 
-                {field.state.value.length > 0 && (
+                {field.state.value.length > 0 ? (
                   <div className="flex flex-col gap-4 pt-6">
                     {field.state.value.map((templateConfig, index) => (
                       <CreatePodTemplateCard
@@ -153,9 +164,23 @@ export function CreatePodVirtualMachinesSection({
                         templateConfig={templateConfig}
                         templateIndex={index}
                         submissionAttempts={submissionAttempts}
+                        onRemoveTemplate={() => field.removeValue(index)}
                       />
                     ))}
                   </div>
+                ) : (
+                  <Empty className="mt-6 border">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <IconTemplate />
+                      </EmptyMedia>
+                      <EmptyTitle>No templates selected</EmptyTitle>
+                      <EmptyDescription>
+                        Select one or more templates to configure virtual
+                        machines for this pod.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 )}
               </Field>
             )

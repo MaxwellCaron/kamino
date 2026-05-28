@@ -22,8 +22,8 @@ import {
 import { Image } from "@unpic/react"
 import {
   IconCopy,
+  IconCubePlus,
   IconDotsVertical,
-  IconPackageExport,
   IconPlayerPlay,
   IconPower,
   IconTrash,
@@ -154,7 +154,7 @@ export function PodHeader({
                 />
 
                 <div className="flex items-center gap-1.5 text-sm">
-                  <IconPackageExport className="size-4 text-muted-foreground" />
+                  <IconCubePlus className="size-4 text-muted-foreground" />
                   <span className="font-medium">{pod.clone_count}</span>
                   <span className="text-muted-foreground">Clones</span>
                 </div>

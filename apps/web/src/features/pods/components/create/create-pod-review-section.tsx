@@ -47,9 +47,9 @@ function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
           <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
         </div>
 
-        {vmNames.map((vmName) => (
+        {vmNames.map((vmName, index) => (
           <div
-            key={vmName}
+            key={`${vmName}-${index}`}
             className={cn(
               treePreviewRowClass,
               "bg-transparent ps-12 text-muted-foreground"
@@ -77,7 +77,10 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
             <Card className="bg-muted/50">
               <CardContent className="flex flex-1">
                 <ItemGroup className="flex-1">
-                  <Item variant="muted" className="flex-1">
+                  <Item
+                    variant="muted"
+                    className="flex-1 shadow ring-1 ring-border dark:ring-0"
+                  >
                     <ItemMedia
                       variant="icon"
                       className="translate-y-0! self-center!"
@@ -91,7 +94,10 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                       </ItemDescription>
                     </ItemContent>
                   </Item>
-                  <Item variant="muted" className="flex-1">
+                  <Item
+                    variant="muted"
+                    className="flex-1 shadow ring-1 ring-border dark:ring-0"
+                  >
                     <ItemMedia
                       variant="icon"
                       className="translate-y-0! self-center!"
@@ -105,7 +111,10 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                       </ItemDescription>
                     </ItemContent>
                   </Item>
-                  <Item variant="muted" className="flex-1">
+                  <Item
+                    variant="muted"
+                    className="flex-1 shadow ring-1 ring-border dark:ring-0"
+                  >
                     <ItemMedia
                       variant="icon"
                       className="translate-y-0! self-center!"

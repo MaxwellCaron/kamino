@@ -26,6 +26,7 @@ import {
   IconPlus,
   IconTemplate,
   IconTopologyBus,
+  IconTrash,
   IconX,
 } from "@tabler/icons-react"
 import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
@@ -37,6 +38,7 @@ type CreatePodTemplateCardProps = {
   templateConfig: CreatePodFormValues["templates"][number]
   templateIndex: number
   submissionAttempts: number
+  onRemoveTemplate: () => void
 }
 
 type CreatePodVmNumberFieldProps = {
@@ -115,10 +117,14 @@ export function CreatePodTemplateCard({
   templateConfig,
   templateIndex,
   submissionAttempts,
+  onRemoveTemplate,
 }: CreatePodTemplateCardProps) {
   return (
     <form.Field name={`templates[${templateIndex}].vms`} mode="array">
       {(vmsField) => {
+        const vmsValue: unknown = vmsField.state.value
+        const vms: CreatePodFormValues["templates"][number]["vms"] =
+          Array.isArray(vmsValue) ? vmsValue : []
         const showVmValidation =
           vmsField.state.meta.isTouched || submissionAttempts > 0
         const isVmInvalid = showVmValidation && !vmsField.state.meta.isValid
@@ -131,26 +137,40 @@ export function CreatePodTemplateCard({
                 <span>{templateConfig.template}</span>
               </CardTitle>
               <CardDescription>
-                Add up to 3 VMs for this template and configure their settings.
+                Add up to 5 VMs for this template and configure their settings.
               </CardDescription>
-              <CardAction>
+              <CardAction className="flex gap-2">
                 <Button
                   type="button"
-                  disabled={vmsField.state.value.length >= 3}
-                  onClick={() => vmsField.pushValue(createTemplateVm())}
+                  variant="destructive"
+                  onClick={onRemoveTemplate}
+                  aria-label={`Delete ${templateConfig.template} template`}
+                >
+                  <IconTrash data-icon="inline-start" />
+                  <span className="hidden md:block">Delete</span>
+                </Button>
+                <Button
+                  type="button"
+                  disabled={vms.length >= 5}
+                  onClick={() =>
+                    vmsField.pushValue(
+                      createTemplateVm(templateConfig.template)
+                    )
+                  }
                 >
                   <IconPlus data-icon="inline-start" />
-                  Add VM
+                  <span className="hidden md:block">Add VM</span>
                 </Button>
               </CardAction>
             </CardHeader>
             <CardContent>
               <FieldGroup>
                 <FieldError
+                  className="text-center"
                   errors={showVmValidation ? vmsField.state.meta.errors : []}
                 />
                 <ItemGroup>
-                  {vmsField.state.value.map((vm, vmIndex) => (
+                  {vms.map((vm, vmIndex) => (
                     <Item
                       key={vm.id}
                       variant="muted"
@@ -219,7 +239,7 @@ export function CreatePodTemplateCard({
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         <CreatePodVmNumberField
                           form={form}
                           name={`templates[${templateIndex}].vms[${vmIndex}].cpuCount`}

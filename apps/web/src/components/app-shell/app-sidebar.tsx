@@ -2,11 +2,12 @@ import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 
 import {
+  IconCubePlus,
+  IconCubeSend,
   IconHome,
   IconLayoutDashboard,
   IconListDetails,
   IconNetwork,
-  IconPackageExport,
   IconPackages,
   IconReceipt,
   IconUser,
@@ -61,10 +62,28 @@ const navItems = [
   },
   {
     title: "Requests",
-    description:
-      "Review pending and completed user requests for VM power changes or snapshots.",
+    description: "Review pending and completed user requests.",
     url: "/manager/requests",
     icon: IconReceipt,
+    group: "manager",
+    visibility: "requests",
+  },
+
+  {
+    title: "Create Pod",
+    description:
+      "Initialize a foundation for your pod by using virutal machine templates and more.",
+    url: "/pods/create",
+    icon: IconCubePlus,
+    group: "manager",
+    visibility: "requests",
+  },
+  {
+    title: "Publish Pod",
+    description:
+      "Configure and publish a new pod for users to clone and interact with.",
+    url: "/pods/publish",
+    icon: IconCubeSend,
     group: "manager",
     visibility: "requests",
   },
@@ -74,15 +93,6 @@ const navItems = [
       "Manager-facing catalog for reviewing pod visibility, access, and edit state.",
     url: "/pods/published",
     icon: IconListDetails,
-    group: "manager",
-    visibility: "requests",
-  },
-  {
-    title: "Publish Pod",
-    description:
-      "Configure and publish a new pod for users to clone and interact with.",
-    url: "/pods/publish",
-    icon: IconPackageExport,
     group: "manager",
     visibility: "requests",
   },
@@ -178,7 +188,7 @@ function IconRailHoverCard({
         side="right"
         align="center"
         sideOffset={14}
-        className="w-64"
+        className="w-xs"
       >
         <div className="flex flex-col gap-1">
           <p className="font-medium text-foreground">{title}</p>

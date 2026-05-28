@@ -2,7 +2,7 @@ import { useState } from "react"
 import {
   IconArrowLeft,
   IconArrowRight,
-  IconPackageExport,
+  IconCubePlus,
 } from "@tabler/icons-react"
 import {
   AlertDialog,
@@ -109,7 +109,7 @@ export function PublishPodStepper({
                   type="button"
                   onClick={() => setPublishConfirmOpen(true)}
                 >
-                  <IconPackageExport data-icon="inline-start" />
+                  <IconCubePlus data-icon="inline-start" />
                   {submitLabel}
                 </Button>
               ) : (
@@ -137,7 +137,7 @@ export function PublishPodStepper({
       >
         <AppAlertDialogContent
           open={publishConfirmOpen}
-          icon={IconPackageExport}
+          icon={IconCubePlus}
           title={confirmTitle}
           description={confirmDescription}
         >

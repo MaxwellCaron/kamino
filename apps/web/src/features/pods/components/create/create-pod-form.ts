@@ -48,69 +48,24 @@ const createPodTemplateSchema = z.object({
   vms: z
     .array(createPodVmSchema)
     .min(1, "Add at least one VM for this template.")
-    .max(3, "You can add up to 3 VMs per template."),
+    .max(5, "You can add up to 5 VMs per template."),
 })
 
-const createPodFormSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "Pod name is required.")
-      .max(64, "Pod name must be at most 64 characters.")
-      .regex(
-        /^[A-Za-z0-9_-]+$/,
-        "Pod name can only contain ASCII letters, digits, -, and _."
-      ),
-    includeRouter: z.boolean(),
-    templates: z
-      .array(createPodTemplateSchema)
-      .max(templateOptions.length, "Too many templates selected."),
-  })
-  .superRefine((value, ctx) => {
-    const templates = new Set<string>()
-
-    value.templates.forEach((template, index) => {
-      if (templates.has(template.template)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["templates", index, "template"],
-          message: "Each template can only be selected once.",
-        })
-      }
-
-      templates.add(template.template)
-    })
-
-    const vmNames = new Map<string, Array<number>>()
-    const configuredVmNames = value.templates.flatMap((template) =>
-      template.vms.map((vm) => vm.name.trim()).filter(Boolean)
-    )
-
-    if (value.includeRouter) {
-      configuredVmNames.unshift("router")
-    }
-
-    configuredVmNames.forEach((name, index) => {
-      vmNames.set(name, [...(vmNames.get(name) ?? []), index])
-    })
-
-    for (const [name, indexes] of vmNames) {
-      if (indexes.length <= 1) continue
-
-      value.templates.forEach((template, templateIndex) => {
-        template.vms.forEach((vm, vmIndex) => {
-          if (vm.name.trim() !== name) return
-
-          ctx.addIssue({
-            code: "custom",
-            path: ["templates", templateIndex, "vms", vmIndex, "name"],
-            message: "VM names must be unique in this pod.",
-          })
-        })
-      })
-    }
-  })
+const createPodFormSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Pod name is required.")
+    .max(64, "Pod name must be at most 64 characters.")
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      "Pod name can only contain ASCII letters, digits, -, and _."
+    ),
+  includeRouter: z.boolean(),
+  templates: z
+    .array(createPodTemplateSchema)
+    .max(templateOptions.length, "Too many templates selected."),
+})
 
 export type CreatePodFormValues = z.infer<typeof createPodFormSchema>
 
@@ -118,10 +73,12 @@ type UseCreatePodFormOptions = {
   onSubmit?: (values: CreatePodFormValues) => Promise<void> | void
 }
 
-export function createTemplateVm(): CreatePodFormValues["templates"][number]["vms"][number] {
+export function createTemplateVm(
+  template: CreatePodTemplateOption
+): CreatePodFormValues["templates"][number]["vms"][number] {
   return {
     id: uuid(),
-    name: "",
+    name: template,
     cpuCount: 2,
     memoryGb: 4,
     storageGb: 50,
@@ -134,14 +91,14 @@ function createTemplateConfig(
 ): CreatePodFormValues["templates"][number] {
   return {
     template,
-    vms: Array.from({ length: vmCount }, () => createTemplateVm()),
+    vms: Array.from({ length: vmCount }, () => createTemplateVm(template)),
   }
 }
 
 function createDefaultCreatePodValues(): CreatePodFormValues {
   return {
-    name: "",
-    includeRouter: false,
+    name: "new-pod",
+    includeRouter: true,
     templates: [],
   }
 }
