@@ -57,18 +57,9 @@ const navItems = [
     description: "Browse and launch published pods.",
     url: "/pods/browse",
     icon: IconPackages,
-    group: "pods",
+    group: "home",
     visibility: "all",
   },
-  {
-    title: "Requests",
-    description: "Review pending and completed user requests.",
-    url: "/manager/requests",
-    icon: IconReceipt,
-    group: "manager",
-    visibility: "requests",
-  },
-
   {
     title: "Create Pod",
     description:
@@ -76,7 +67,7 @@ const navItems = [
     url: "/pods/create",
     icon: IconCubePlus,
     group: "manager",
-    visibility: "requests",
+    visibility: "manager",
   },
   {
     title: "Publish Pod",
@@ -85,7 +76,7 @@ const navItems = [
     url: "/pods/publish",
     icon: IconCubeSend,
     group: "manager",
-    visibility: "requests",
+    visibility: "manager",
   },
   {
     title: "Published Pods",
@@ -94,7 +85,15 @@ const navItems = [
     url: "/pods/published",
     icon: IconListDetails,
     group: "manager",
-    visibility: "requests",
+    visibility: "manager",
+  },
+  {
+    title: "Requests",
+    description: "Review pending and completed user requests.",
+    url: "/manager/requests",
+    icon: IconReceipt,
+    group: "manager",
+    visibility: "manager",
   },
   {
     title: "Admin",
@@ -139,14 +138,8 @@ type NavGroup = {
 }
 
 const navGroupStyles = {
-  pods: {
-    rail: "bg-blue-600/5 text-blue-600 dark:bg-blue-400/5 dark:text-blue-400",
-    button:
-      "text-blue-600 dark:text-blue-400 hover:bg-blue-600/10 hover:text-blue-700 active:bg-blue-600/14 active:text-blue-700 data-active:bg-blue-600/14 data-active:text-blue-700 dark:hover:bg-blue-400/10 dark:hover:text-blue-300 dark:active:bg-blue-400/14 dark:active:text-blue-300 dark:data-active:bg-blue-400/14 dark:data-active:text-blue-300",
-    indicator: "bg-blue-600 dark:bg-blue-400",
-  },
   home: {
-    rail: "bg-muted/5 text-muted-foreground",
+    rail: "",
     button:
       "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/80 active:text-foreground data-active:bg-muted data-active:text-foreground",
     indicator: "bg-foreground",
@@ -204,7 +197,7 @@ function isActivePath(pathname: string, url: string) {
 }
 
 function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
-  const canReviewRequests = canAccessRequestQueue(user.management_permissions)
+  const canManage = canAccessRequestQueue(user.management_permissions)
   const canAdminister = canAccessAdmin(user.management_permissions)
 
   return React.useMemo(() => {
@@ -212,8 +205,8 @@ function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
       if (item.visibility === "admin") {
         return canAdminister
       }
-      if (item.visibility === "requests") {
-        return canReviewRequests
+      if (item.visibility === "manager") {
+        return canManage
       }
       return true
     })
@@ -224,10 +217,6 @@ function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
         items: visible.filter((item) => item.group === "home"),
       },
       {
-        key: "pods" as const,
-        items: visible.filter((item) => item.group === "pods"),
-      },
-      {
         key: "manager" as const,
         items: visible.filter((item) => item.group === "manager"),
       },
@@ -236,7 +225,7 @@ function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
         items: visible.filter((item) => item.group === "admin"),
       },
     ].filter((group) => group.items.length > 0)
-  }, [canAdminister, canReviewRequests])
+  }, [canAdminister, canManage])
 }
 
 function IconRailNavItem({
