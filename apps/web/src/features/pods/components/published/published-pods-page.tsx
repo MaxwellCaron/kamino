@@ -1,7 +1,12 @@
 import { useMemo } from "react"
 import { toast } from "sonner"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { IconPackages, IconPlus } from "@tabler/icons-react"
+import {
+  IconCubePlus,
+  IconCubeSend,
+  IconPackages,
+  IconPlus,
+} from "@tabler/icons-react"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -81,13 +86,20 @@ export function PublishedPodsPage() {
               Review catalog metadata, flip visibility between listed and
               unlisted, and jump straight into the publish workflow for editing.
             </CardDescription>
-            <CardAction>
+            <CardAction className="flex gap-2">
+              <Link
+                to="/pods/create"
+                className={`${buttonVariants()} cursor-default`}
+              >
+                <IconCubePlus data-icon="inline-start" />
+                New Pod
+              </Link>
               <Link
                 to="/pods/publish"
                 className={`${buttonVariants()} cursor-default`}
               >
-                <IconPlus data-icon="inline-start" />
-                New Pod
+                <IconCubeSend data-icon="inline-start" />
+                Publish Pod
               </Link>
             </CardAction>
           </CardHeader>
