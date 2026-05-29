@@ -682,6 +682,7 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
 		errors.Is(err, inventory.ErrInventoryItemNotFolder),
+		errors.Is(err, inventory.ErrInventoryFolderDepthExceeded),
 		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),

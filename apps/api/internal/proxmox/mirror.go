@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -141,7 +142,8 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		currentPoolsByID[pool.PoolID] = pool
 	}
 
-	for poolID, comment := range desiredPools {
+	for _, poolID := range sortedPoolIDsByDepth(desiredPools, false) {
+		comment := desiredPools[poolID]
 		current, exists := currentPoolsByID[poolID]
 		switch {
 		case !exists:
@@ -194,16 +196,9 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		}
 	}
 
-	for _, pool := range currentPools {
-		if !strings.HasPrefix(pool.Comment, kaminoManagedPoolCommentTag) {
-			continue
-		}
-		if _, ok := desiredPools[pool.PoolID]; ok {
-			continue
-		}
-
-		if err := m.client.DeletePool(ctx, pool.PoolID); err != nil {
-			return fmt.Errorf("deleting stale pool %q: %w", pool.PoolID, err)
+	for _, poolID := range staleManagedPoolIDs(currentPools, desiredPools) {
+		if err := m.client.DeletePool(ctx, poolID); err != nil {
+			return fmt.Errorf("deleting stale pool %q: %w", poolID, err)
 		}
 	}
 
@@ -237,10 +232,53 @@ func appendPath(path []string, segment string) []string {
 }
 
 func EncodePoolPath(path []string) string {
-	escaped := make([]string, 0, len(path))
-	for _, segment := range path {
-		escaped = append(escaped, strings.ReplaceAll(segment, "_", "__"))
+	return strings.Join(path, "/")
+}
+
+func sortedPoolIDsByDepth(pools map[string]string, deepestFirst bool) []string {
+	poolIDs := make([]string, 0, len(pools))
+	for poolID := range pools {
+		poolIDs = append(poolIDs, poolID)
 	}
 
-	return strings.Join(escaped, "_")
+	sortPoolIDsByDepth(poolIDs, deepestFirst)
+	return poolIDs
+}
+
+func staleManagedPoolIDs(currentPools []Pool, desiredPools map[string]string) []string {
+	poolIDs := make([]string, 0, len(currentPools))
+	for _, pool := range currentPools {
+		if !strings.HasPrefix(pool.Comment, kaminoManagedPoolCommentTag) {
+			continue
+		}
+		if _, ok := desiredPools[pool.PoolID]; ok {
+			continue
+		}
+		poolIDs = append(poolIDs, pool.PoolID)
+	}
+
+	sortPoolIDsByDepth(poolIDs, true)
+	return poolIDs
+}
+
+func sortPoolIDsByDepth(poolIDs []string, deepestFirst bool) {
+	sort.Slice(poolIDs, func(i, j int) bool {
+		leftDepth := poolDepth(poolIDs[i])
+		rightDepth := poolDepth(poolIDs[j])
+		if leftDepth != rightDepth {
+			if deepestFirst {
+				return leftDepth > rightDepth
+			}
+			return leftDepth < rightDepth
+		}
+
+		return poolIDs[i] < poolIDs[j]
+	})
+}
+
+func poolDepth(poolID string) int {
+	if poolID == "" {
+		return 0
+	}
+	return strings.Count(poolID, "/")
 }

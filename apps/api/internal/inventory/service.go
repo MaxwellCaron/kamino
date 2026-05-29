@@ -27,11 +27,14 @@ var (
 	ErrInventoryInvalidMove         = errors.New("invalid inventory move")
 	ErrInventoryReservedFolder      = errors.New("reserved inventory folder cannot be changed")
 	ErrInventoryFolderConflict      = errors.New("inventory folder with that name already exists")
+	ErrInventoryFolderDepthExceeded = errors.New("folder depth cannot exceed 3 levels below root")
 	ErrInventoryInvalidFolderLimit  = errors.New("folder limit must be greater than zero")
 	ErrInventoryFolderLimitExceeded = errors.New("folder limit exceeded")
 	ErrInventoryInvalidACL          = errors.New("invalid inventory ACL entry")
 	ErrInventoryPrincipalNotFound   = errors.New("principal not found")
 )
+
+const maxProxmoxPoolDepth = 3
 
 type Service struct {
 	db                       *pgxpool.Pool
@@ -540,6 +543,9 @@ func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name str
 	if parent.Kind != database.InventoryItemKindFolder {
 		return uuid.Nil, ErrInventoryTargetNotFolder
 	}
+	if err := ensureFolderDepthForCreate(ctx, q, parentID); err != nil {
+		return uuid.Nil, err
+	}
 
 	existingID, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
 		ParentID: &parentID,
@@ -796,6 +802,9 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 	if isManagedRootFolder(item.ParentID) {
 		return ErrInventoryReservedFolder
 	}
+	if err := ensureFolderDepthForMove(ctx, q, itemID, parentID); err != nil {
+		return err
+	}
 
 	err = q.UpdateInventoryItemParent(ctx, database.UpdateInventoryItemParentParams{
 		ParentID: &parentID,
@@ -863,6 +872,113 @@ func (s *Service) DeleteInventoryVM(ctx context.Context, itemID uuid.UUID) error
 
 func isManagedRootFolder(parentID *uuid.UUID) bool {
 	return parentID == nil
+}
+
+func ensureFolderDepthForCreate(ctx context.Context, q *database.Queries, parentID uuid.UUID) error {
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+
+	itemsByID := inventoryItemsByID(rows)
+	parentDepth, err := folderDepthBelowRoot(parentID, itemsByID)
+	if err != nil {
+		return err
+	}
+	if parentDepth+1 > maxProxmoxPoolDepth {
+		return ErrInventoryFolderDepthExceeded
+	}
+
+	return nil
+}
+
+func ensureFolderDepthForMove(ctx context.Context, q *database.Queries, itemID, parentID uuid.UUID) error {
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+
+	itemsByID := inventoryItemsByID(rows)
+	targetParentDepth, err := folderDepthBelowRoot(parentID, itemsByID)
+	if err != nil {
+		return err
+	}
+	if targetParentDepth > maxProxmoxPoolDepth {
+		return ErrInventoryFolderDepthExceeded
+	}
+
+	item, ok := itemsByID[itemID]
+	if !ok {
+		return ErrInventoryItemNotFound
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return nil
+	}
+
+	childrenByParent := inventoryChildrenByParent(rows)
+	deepestMovedFolderDepth := targetParentDepth + 1 + maxChildFolderDepth(itemID, itemsByID, childrenByParent)
+	if deepestMovedFolderDepth > maxProxmoxPoolDepth {
+		return ErrInventoryFolderDepthExceeded
+	}
+
+	return nil
+}
+
+func inventoryItemsByID(rows []database.GetAllInventoryItemsRow) map[uuid.UUID]database.GetAllInventoryItemsRow {
+	itemsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(rows))
+	for _, row := range rows {
+		itemsByID[row.ID] = row
+	}
+	return itemsByID
+}
+
+func inventoryChildrenByParent(rows []database.GetAllInventoryItemsRow) map[uuid.UUID][]uuid.UUID {
+	childrenByParent := make(map[uuid.UUID][]uuid.UUID, len(rows))
+	for _, row := range rows {
+		if row.ParentID != nil {
+			childrenByParent[*row.ParentID] = append(childrenByParent[*row.ParentID], row.ID)
+		}
+	}
+	return childrenByParent
+}
+
+func folderDepthBelowRoot(id uuid.UUID, itemsByID map[uuid.UUID]database.GetAllInventoryItemsRow) (int, error) {
+	depth := 0
+	current, ok := itemsByID[id]
+	if !ok {
+		return 0, ErrInventoryParentNotFound
+	}
+	if current.Kind != database.InventoryItemKindFolder {
+		return 0, ErrInventoryTargetNotFolder
+	}
+
+	for current.ParentID != nil {
+		depth++
+		parent, ok := itemsByID[*current.ParentID]
+		if !ok {
+			return 0, ErrInventoryParentNotFound
+		}
+		current = parent
+	}
+
+	return depth, nil
+}
+
+func maxChildFolderDepth(id uuid.UUID, itemsByID map[uuid.UUID]database.GetAllInventoryItemsRow, childrenByParent map[uuid.UUID][]uuid.UUID) int {
+	maxDepth := 0
+	for _, childID := range childrenByParent[id] {
+		child := itemsByID[childID]
+		if child.Kind != database.InventoryItemKindFolder {
+			continue
+		}
+
+		childDepth := 1 + maxChildFolderDepth(childID, itemsByID, childrenByParent)
+		if childDepth > maxDepth {
+			maxDepth = childDepth
+		}
+	}
+
+	return maxDepth
 }
 
 func (s *Service) UpdateInventoryVMName(ctx context.Context, itemID uuid.UUID, name string) error {

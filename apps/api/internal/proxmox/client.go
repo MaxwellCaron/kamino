@@ -371,7 +371,8 @@ func (c *Client) CreatePool(ctx context.Context, poolID, comment string) error {
 // UpdatePoolComment updates metadata for an existing pool.
 func (c *Client) UpdatePoolComment(ctx context.Context, poolID, comment string) error {
 	var resp apiResponse[any]
-	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+	return c.put(ctx, "/api2/json/pools/", map[string]string{
+		"poolid":  poolID,
 		"comment": comment,
 	}, &resp)
 }
@@ -379,24 +380,32 @@ func (c *Client) UpdatePoolComment(ctx context.Context, poolID, comment string) 
 // DeletePool removes an empty pool that is no longer represented by Kamino inventory.
 func (c *Client) DeletePool(ctx context.Context, poolID string) error {
 	var resp apiResponse[any]
-	return c.delete(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), &resp)
+	return c.delete(ctx, poolEndpoint(poolID), &resp)
 }
 
 // AddVMToPool adds a VM to a resource pool.
 func (c *Client) AddVMToPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]
-	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
-		"vms": fmt.Sprintf("%d", vmid),
+	return c.put(ctx, "/api2/json/pools/", map[string]string{
+		"poolid": poolID,
+		"vms":    fmt.Sprintf("%d", vmid),
 	}, &resp)
 }
 
 // RemoveVMFromPool removes a VM from a resource pool.
 func (c *Client) RemoveVMFromPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]
-	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+	return c.put(ctx, "/api2/json/pools/", map[string]string{
+		"poolid": poolID,
 		"vms":    fmt.Sprintf("%d", vmid),
 		"delete": "1",
 	}, &resp)
+}
+
+func poolEndpoint(poolID string) string {
+	query := url.Values{}
+	query.Set("poolid", poolID)
+	return "/api2/json/pools/?" + query.Encode()
 }
 
 // StartVM powers on a VM and waits for the Proxmox task to complete.
