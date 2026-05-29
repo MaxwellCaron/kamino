@@ -1,4 +1,4 @@
-import { IconCopy, IconEye, IconLock, IconPackage } from "@tabler/icons-react"
+import { IconCopy, IconEye, IconLock, IconBox } from "@tabler/icons-react"
 import {
   Item,
   ItemFooter,
@@ -21,7 +21,7 @@ export function PublishedPodsStatCards({
 }) {
   const statItems = [
     {
-      icon: IconPackage,
+      icon: IconBox,
       title: "Pods",
       value: `${stats.total}`,
       description: `${stats.listed} listed and ${stats.unlisted} unlisted pods.`,

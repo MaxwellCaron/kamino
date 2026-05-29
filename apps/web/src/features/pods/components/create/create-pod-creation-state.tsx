@@ -1,4 +1,4 @@
-import { IconCubePlus, IconPackage, IconRefresh } from "@tabler/icons-react"
+import { IconCubePlus, IconBox, IconRefresh } from "@tabler/icons-react"
 import type {
   PodSubmitProgressStep,
   PodSubmitProgressSteps,
@@ -75,7 +75,7 @@ export function CreatePodSubmitState({
               variant: "secondary",
             },
             {
-              icon: IconPackage,
+              icon: IconBox,
               label: "View Pod",
               to: "/",
             },

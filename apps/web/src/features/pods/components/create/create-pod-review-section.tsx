@@ -18,7 +18,7 @@ import {
   IconDeviceDesktop,
   IconFolderOpen,
   IconNetwork,
-  IconPackage,
+  IconBox,
 } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { getReviewVmNames } from "./create-pod-form"
@@ -85,7 +85,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                       variant="icon"
                       className="translate-y-0! self-center!"
                     >
-                      <IconPackage />
+                      <IconBox />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Pod Name</ItemTitle>

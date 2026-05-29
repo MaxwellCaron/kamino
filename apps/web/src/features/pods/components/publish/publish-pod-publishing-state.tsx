@@ -1,4 +1,4 @@
-import { IconListDetails, IconPackage } from "@tabler/icons-react"
+import { IconListDetails, IconBox } from "@tabler/icons-react"
 import type { PodSubmitProgressStep } from "@/components/submit-progress"
 import {
   PodSubmitErrorState,
@@ -91,7 +91,7 @@ function SuccessState() {
           variant: "secondary",
         },
         {
-          icon: IconPackage,
+          icon: IconBox,
           label: "View Pod",
           to: "/pods/publish",
         },
