@@ -116,7 +116,8 @@ export function PublishPodPage({
       task.questions.forEach((_, questionIndex) => {
         fields.push(
           `tasks[${taskIndex}].questions[${questionIndex}].title` as PublishPodFieldPath,
-          `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath
+          `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath,
+          `tasks[${taskIndex}].questions[${questionIndex}].hint` as PublishPodFieldPath
         )
       })
     })

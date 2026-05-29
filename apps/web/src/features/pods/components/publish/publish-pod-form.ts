@@ -10,6 +10,9 @@ import type {
 } from "@/features/pods/types/pod-types"
 import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
 
+export const publishPodQuestionTextMaxLength = 256
+export const publishPodTaskContentMaxLength = 4096
+
 const defaultPublishPodVmPermissionAllowMask =
   InventoryPermissionBits.view |
   InventoryPermissionBits.consoleVm |
@@ -40,10 +43,31 @@ const publishPodVmSchema = z.object({
 
 const publishPodQuestionSchema = z.object({
   id: z.string().min(1),
-  title: z.string().trim().min(1, "Question is required."),
-  answerOutline: z.string().trim().min(1, "Answer is required."),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Question is required.")
+    .max(
+      publishPodQuestionTextMaxLength,
+      "Question must be at most 256 characters."
+    ),
+  answerOutline: z
+    .string()
+    .trim()
+    .min(1, "Answer is required.")
+    .max(
+      publishPodQuestionTextMaxLength,
+      "Answer must be at most 256 characters."
+    ),
   description: z.string().optional(),
-  hint: z.string().optional(),
+  hint: z
+    .string()
+    .trim()
+    .max(
+      publishPodQuestionTextMaxLength,
+      "Hint must be at most 256 characters."
+    )
+    .optional(),
 })
 
 const publishPodTaskSchema = z.object({
@@ -53,7 +77,14 @@ const publishPodTaskSchema = z.object({
     .trim()
     .min(1, "Task title is required.")
     .max(64, "Task title must be at most 64 characters."),
-  content: z.string().trim().min(1, "Task content is required."),
+  content: z
+    .string()
+    .trim()
+    .min(1, "Task content is required.")
+    .max(
+      publishPodTaskContentMaxLength,
+      "Task content must be at most 4096 characters."
+    ),
   questions: z.array(publishPodQuestionSchema),
 })
 
@@ -222,6 +253,7 @@ export function createEmptyQuestion() {
     id: uuid(),
     title: "",
     answerOutline: "",
+    hint: "",
   } satisfies PublishPodFormValues["tasks"][number]["questions"][number]
 }
 
@@ -290,6 +322,7 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
             id: uuid(),
             title: "What is the operating system of the main VM?",
             answerOutline: "Ubuntu 22.04",
+            hint: "",
           },
         ],
       },

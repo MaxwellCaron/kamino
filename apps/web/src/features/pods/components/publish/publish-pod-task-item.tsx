@@ -29,6 +29,7 @@ import {
 } from "@workspace/ui/components/tabs"
 import { IconTrash } from "@tabler/icons-react"
 import { PublishPodTaskQuestions } from "./publish-pod-task-questions"
+import { publishPodTaskContentMaxLength } from "./publish-pod-form"
 import type {
   PublishPodFormApi,
   PublishPodFormValues,
@@ -62,6 +63,11 @@ function getTaskErrorCount(
       { length: questionCount },
       (_, questionIndex) =>
         `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath
+    ),
+    ...Array.from(
+      { length: questionCount },
+      (_, questionIndex) =>
+        `tasks[${taskIndex}].questions[${questionIndex}].hint` as PublishPodFieldPath
     ),
   ]
 
@@ -146,7 +152,10 @@ export function PublishPodTaskItem({
               {(field) => {
                 const showValidation =
                   field.state.meta.isTouched || submissionAttempts > 0
-                const isInvalid = showValidation && !field.state.meta.isValid
+                const isOverLimit =
+                  field.state.value.length > publishPodTaskContentMaxLength
+                const isInvalid =
+                  isOverLimit || (showValidation && !field.state.meta.isValid)
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -173,11 +182,13 @@ export function PublishPodTaskItem({
                                 field.handleChange(event.target.value)
                               }
                               aria-invalid={isInvalid || undefined}
+                              maxLength={publishPodTaskContentMaxLength}
                               placeholder="Describe the task instructions..."
                             />
                             <InputGroupAddon align="block-end">
                               <InputGroupText className="ml-auto text-xs">
-                                {field.state.value.length} characters
+                                {field.state.value.length}/
+                                {publishPodTaskContentMaxLength}
                               </InputGroupText>
                             </InputGroupAddon>
                           </InputGroup>

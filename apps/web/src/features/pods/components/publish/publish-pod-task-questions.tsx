@@ -25,7 +25,10 @@ import {
   IconTrash,
   IconZoomQuestion,
 } from "@tabler/icons-react"
-import { createEmptyQuestion } from "./publish-pod-form"
+import {
+  createEmptyQuestion,
+  publishPodQuestionTextMaxLength,
+} from "./publish-pod-form"
 import type { PublishPodFormApi } from "./publish-pod-form"
 
 type PublishPodTaskQuestionsProps = {
@@ -104,8 +107,12 @@ export function PublishPodTaskQuestions({
                               const showValidation =
                                 field.state.meta.isTouched ||
                                 submissionAttempts > 0
+                              const isOverLimit =
+                                field.state.value.length >
+                                publishPodQuestionTextMaxLength
                               const isInvalid =
-                                showValidation && !field.state.meta.isValid
+                                isOverLimit ||
+                                (showValidation && !field.state.meta.isValid)
 
                               return (
                                 <Field
@@ -125,6 +132,9 @@ export function PublishPodTaskQuestions({
                                         field.handleChange(event.target.value)
                                       }
                                       aria-invalid={isInvalid || undefined}
+                                      maxLength={
+                                        publishPodQuestionTextMaxLength
+                                      }
                                       placeholder="e.g. What is the status of the service?"
                                     />
                                     <FieldError
@@ -147,8 +157,12 @@ export function PublishPodTaskQuestions({
                               const showValidation =
                                 field.state.meta.isTouched ||
                                 submissionAttempts > 0
+                              const isOverLimit =
+                                field.state.value.length >
+                                publishPodQuestionTextMaxLength
                               const isInvalid =
-                                showValidation && !field.state.meta.isValid
+                                isOverLimit ||
+                                (showValidation && !field.state.meta.isValid)
 
                               return (
                                 <Field data-invalid={isInvalid || undefined}>
@@ -165,7 +179,63 @@ export function PublishPodTaskQuestions({
                                         field.handleChange(event.target.value)
                                       }
                                       aria-invalid={isInvalid || undefined}
+                                      maxLength={
+                                        publishPodQuestionTextMaxLength
+                                      }
                                       placeholder="e.g. active (running)"
+                                    />
+                                    <FieldError
+                                      errors={
+                                        showValidation
+                                          ? field.state.meta.errors
+                                          : []
+                                      }
+                                    />
+                                  </FieldContent>
+                                </Field>
+                              )
+                            }}
+                          </form.Field>
+
+                          <form.Field
+                            name={`tasks[${taskIndex}].questions[${questionIndex}].hint`}
+                          >
+                            {(field) => {
+                              const showValidation =
+                                field.state.meta.isTouched ||
+                                submissionAttempts > 0
+                              const isOverLimit =
+                                (field.state.value ?? "").length >
+                                publishPodQuestionTextMaxLength
+                              const isInvalid =
+                                isOverLimit ||
+                                (showValidation && !field.state.meta.isValid)
+
+                              return (
+                                <Field
+                                  className="md:col-span-3"
+                                  data-invalid={isInvalid || undefined}
+                                >
+                                  <FieldLabel htmlFor={field.name}>
+                                    Hint
+                                    <span className="text-muted-foreground">
+                                      (Optional)
+                                    </span>
+                                  </FieldLabel>
+                                  <FieldContent>
+                                    <Input
+                                      id={field.name}
+                                      name={field.name}
+                                      value={field.state.value ?? ""}
+                                      onBlur={field.handleBlur}
+                                      onChange={(event) =>
+                                        field.handleChange(event.target.value)
+                                      }
+                                      aria-invalid={isInvalid || undefined}
+                                      maxLength={
+                                        publishPodQuestionTextMaxLength
+                                      }
+                                      placeholder="e.g. Check the service manager output."
                                     />
                                     <FieldError
                                       errors={

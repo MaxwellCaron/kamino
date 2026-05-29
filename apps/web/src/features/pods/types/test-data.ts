@@ -121,11 +121,13 @@ If you are unsure what a function does, label it as a hypothesis and move on unt
             title:
               "What function should you identify before tracing user input?",
             answerOutline: "***** *****",
+            hint: "Start from the program's entry path, then follow where external input first influences control flow.",
           },
           {
             id: "re-question-4",
             title: "How should uncertain analysis notes be labeled?",
             answerOutline: "**********",
+            hint: "Use a word that makes it clear the note is a working theory, not a confirmed fact.",
           },
         ],
       },
@@ -189,7 +191,6 @@ Your team has written permission to test the lab network only. Keep your actions
             id: "question-1",
             title: "What document defines what you are allowed to test?",
             answerOutline: "*****.**",
-            hint: "Look in the engagement directory on the operator VM.",
           },
           {
             id: "question-2",
@@ -244,6 +245,7 @@ Use neutral language in your notes. For example, write \`tcp/80 open nginx\` ins
             id: "question-5",
             title: "What CIDR range is used for the lab network?",
             answerOutline: "**.**.**.*/**",
+            hint: "Check the reconnaissance instructions for the network passed to nmap.",
           },
         ],
       },
@@ -282,11 +284,13 @@ Inline details like \`HttpOnly\`, \`SameSite=Lax\`, and \`Secure\` should be cop
             id: "question-6",
             title: "Which HTTP path handles the sample login request?",
             answerOutline: "/*****",
+            hint: "Look at the first line of the sample HTTP request.",
           },
           {
             id: "question-7",
             title: "Name one cookie attribute you should record exactly.",
             answerOutline: "********",
+            hint: "The notes list three inline cookie attributes; any one of them works.",
           },
           {
             id: "question-8",
@@ -334,6 +338,7 @@ Keep terminal output short in the report. A useful finding explains **what was o
             id: "question-10",
             title: "What should you do if a command needs elevated privileges?",
             answerOutline: "**** *** ****** *** *******",
+            hint: "The blockquote gives the expected action before you continue.",
           },
           {
             id: "question-11",
@@ -390,6 +395,7 @@ For a polished report, link tactics back to [MITRE ATT&CK Enterprise](https://at
             title:
               "What severity fits an issue that helps an attacker progress?",
             answerOutline: "******",
+            hint: "Use the severity row for findings that help progression but do not directly compromise scope.",
           },
           {
             id: "question-14",
@@ -439,6 +445,7 @@ Do not assume the format from the filename alone. Confirm it with what you can o
             title:
               "What should you confirm before trusting the file extension?",
             answerOutline: "******",
+            hint: "The instruction warns not to rely on the filename alone.",
           },
           {
             id: "deserialize-question-2",
@@ -461,6 +468,7 @@ Focus on constructors, magic methods, or hooks that execute automatically during
             title:
               "Which class behavior is especially risky during object restoration?",
             answerOutline: "***** *******",
+            hint: "Focus on methods or hooks that run without an explicit call when an object is restored.",
           },
           {
             id: "deserialize-question-4",
@@ -508,6 +516,7 @@ Read the challenge overview before touching the targets. Each flag is tied to a 
             id: "ctf-question-1",
             title: "What should the team keep for solved flags?",
             answerOutline: "****** ****",
+            hint: "The answer is in the Team rules list near the start of the event brief.",
           },
           {
             id: "ctf-question-2",
@@ -534,6 +543,7 @@ Look for comments, hidden paths, and default content before trying anything nois
             id: "ctf-question-3",
             title: "Which file commonly reveals hidden paths?",
             answerOutline: "******.***",
+            hint: "It is one of the files fetched by the example curl commands.",
           },
           {
             id: "ctf-question-4",
@@ -555,6 +565,7 @@ Use clean evidence so disputes are easy to resolve after the event.`,
             id: "ctf-question-5",
             title: "What should you verify before submitting a flag?",
             answerOutline: "****** ******",
+            hint: "Check the first sentence of the flag submission hygiene task.",
           },
           {
             id: "ctf-question-6",
@@ -605,6 +616,7 @@ You are building a before-state so later changes can be justified.`,
             title:
               "Which command shows the current user and group memberships?",
             answerOutline: "**",
+            hint: "It is the shortest command in the baseline command block.",
           },
           {
             id: "linux-question-2",
@@ -626,6 +638,7 @@ Focus on root login, password authentication, and any broad listen settings.`,
             id: "linux-question-3",
             title: "Name one SSH setting that should be reviewed first.",
             answerOutline: "**** *****",
+            hint: "The task names three settings to inspect; one concerns the superuser account.",
           },
           {
             id: "linux-question-4",
@@ -647,6 +660,7 @@ Good hardening reduces risk without creating an outage.`,
             id: "linux-question-5",
             title: "What should you confirm after making a hardening change?",
             answerOutline: "******* ************",
+            hint: "Verification should show that intended users can still connect or use the service.",
           },
           {
             id: "linux-question-6",
@@ -697,6 +711,7 @@ You need the policy shape before you can judge whether it is effective.`,
             title:
               "What should you identify before judging rule effectiveness?",
             answerOutline: "****** *****",
+            hint: "The final sentence of the task says what you need before judging effectiveness.",
           },
           {
             id: "waf-question-2",
@@ -719,6 +734,7 @@ Look for false positives, missing blocks, and whether useful logs are generated 
             title:
               "What should a safe validation exercise look for besides blocks?",
             answerOutline: "***** *********",
+            hint: "The task asks you to look for block behavior and mistakes that block legitimate traffic.",
           },
           {
             id: "waf-question-4",

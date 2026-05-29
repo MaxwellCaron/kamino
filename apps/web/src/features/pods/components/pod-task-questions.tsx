@@ -10,7 +10,8 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { IconZoomQuestion } from "@tabler/icons-react"
+import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog"
+import { IconBulb, IconZoomQuestion } from "@tabler/icons-react"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
 import type {
@@ -18,6 +19,7 @@ import type {
   PodTaskQuestionAnswer,
   UUID,
 } from "@/features/pods/types/pod-types"
+import { AppDialogContent } from "@/components/dialogs/app-dialog"
 
 export function PodTaskQuestions({
   questions,
@@ -42,6 +44,7 @@ export function PodTaskQuestions({
             const answer = answersByQuestionId?.get(question.id)
             const answerSubmitted = answer != null
             const answerIsCorrect = answer?.is_correct === true
+            const hint = question.hint?.trim()
 
             return (
               <Field key={question.id} data-disabled={disabled || undefined}>
@@ -60,6 +63,33 @@ export function PodTaskQuestions({
                     }
                     disabled={disabled || answerIsCorrect}
                   />
+                  {hint && (
+                    <Dialog>
+                      <DialogTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            disabled={disabled || answerIsCorrect}
+                            className="bg-yellow-600/20 text-yellow-600 hover:bg-yellow-600/15 dark:bg-yellow-400/10 dark:text-yellow-400 dark:hover:bg-yellow-400/5"
+                          />
+                        }
+                      >
+                        <IconBulb />
+                        <span className="sr-only">Show hint</span>
+                      </DialogTrigger>
+                      <AppDialogContent
+                        icon={IconBulb}
+                        title="Hint"
+                        description=""
+                      >
+                        <p className="text-sm leading-6 whitespace-pre-wrap">
+                          {hint}
+                        </p>
+                      </AppDialogContent>
+                    </Dialog>
+                  )}
                   <Button disabled={disabled || answerIsCorrect}>
                     {answerIsCorrect ? "Correct" : "Submit"}
                   </Button>
