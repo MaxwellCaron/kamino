@@ -1,4 +1,5 @@
 import React from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,29 +16,53 @@ import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-s
 import { CreatePodSubmitState } from "./create-pod-creation-state"
 import type { CreatePodFormValues } from "./create-pod-form"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import {
+  createPod,
+  createPodOptionsQueryOptions,
+} from "@/features/pods/api/create-pod-api"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 
 type CreatePodFormState = "form" | "creating" | "success" | "error"
 
-function createPodForStaticTest(values: CreatePodFormValues) {
-  if (values.name.trim().toLowerCase() === "error") {
-    throw new Error("Static create pod failure.")
-  }
-}
-
 export function CreatePodPage() {
+  const queryClient = useQueryClient()
   const [submissionAttempts, setSubmissionAttempts] = React.useState(0)
   const [submitState, setSubmitState] =
     React.useState<CreatePodFormState>("form")
   const [createConfirmOpen, setCreateConfirmOpen] = React.useState(false)
   const submittedValuesRef = React.useRef<CreatePodFormValues | null>(null)
+  const createOptionsQuery = useQuery(createPodOptionsQueryOptions)
+  const createPodMutation = useMutation({
+    mutationFn: createPod,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+      setSubmitState("success")
+    },
+    onError: () => {
+      setSubmitState("error")
+    },
+  })
   const handleValidatedSubmit = React.useCallback(
     (values: CreatePodFormValues) => {
       submittedValuesRef.current = values
       setSubmitState("creating")
+      createPodMutation.mutate(values)
     },
-    []
+    [createPodMutation]
   )
   const form = useCreatePodForm({ onSubmit: handleValidatedSubmit })
+  const routerTemplateConfigured =
+    createOptionsQuery.data?.router_template_configured ?? true
+  React.useEffect(() => {
+    if (
+      createOptionsQuery.data &&
+      !createOptionsQuery.data.router_template_configured
+    ) {
+      form.setFieldValue("includeRouter", false)
+    }
+  }, [createOptionsQuery.data, form])
   const latestSubmittedValues = submittedValuesRef.current
   const hasSubmittedVirtualMachines =
     latestSubmittedValues?.includeRouter ||
@@ -46,28 +71,13 @@ export function CreatePodPage() {
     ) ||
     false
 
-  const handleCreatingComplete = React.useCallback(() => {
-    const submittedValues = submittedValuesRef.current
-
-    if (!submittedValues) {
-      setSubmitState("error")
-      return
-    }
-
-    try {
-      createPodForStaticTest(submittedValues)
-      setSubmitState("success")
-    } catch {
-      setSubmitState("error")
-    }
-  }, [])
-
   const handleReset = React.useCallback(() => {
     submittedValuesRef.current = null
     setSubmissionAttempts(0)
+    createPodMutation.reset()
     form.reset()
     setSubmitState("form")
-  }, [form])
+  }, [createPodMutation, form])
 
   const handleCreateConfirm = React.useCallback(() => {
     setCreateConfirmOpen(false)
@@ -81,7 +91,6 @@ export function CreatePodPage() {
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 lg:px-8">
           <CreatePodSubmitState
             hasVirtualMachines={hasSubmittedVirtualMachines}
-            onCreatingComplete={handleCreatingComplete}
             onReset={handleReset}
             state={submitState}
           />
@@ -120,6 +129,9 @@ export function CreatePodPage() {
             <CreatePodVirtualMachinesSection
               form={form}
               submissionAttempts={submissionAttempts}
+              routerTemplateConfigured={routerTemplateConfigured}
+              templateOptions={createOptionsQuery.data?.templates ?? []}
+              templatesLoading={createOptionsQuery.isLoading}
             />
           </CreatePodFormSection>
 

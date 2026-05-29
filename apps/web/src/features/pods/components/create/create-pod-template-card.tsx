@@ -56,6 +56,12 @@ type CreatePodVmNumberFieldProps = {
   submissionAttempts: number
 }
 
+function getMinimumStorageGb(
+  templateConfig: CreatePodFormValues["templates"][number]
+) {
+  return Math.min(100, Math.max(10, Math.ceil(templateConfig.templateDiskGb)))
+}
+
 function CreatePodVmNumberField({
   form,
   name,
@@ -134,7 +140,7 @@ export function CreatePodTemplateCard({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IconTemplate className="text-muted-foreground" />
-                <span>{templateConfig.template}</span>
+                <span>{templateConfig.templateName}</span>
               </CardTitle>
               <CardDescription>
                 Add up to 5 VMs for this template and configure their settings.
@@ -144,7 +150,7 @@ export function CreatePodTemplateCard({
                   type="button"
                   variant="destructive"
                   onClick={onRemoveTemplate}
-                  aria-label={`Delete ${templateConfig.template} template`}
+                  aria-label={`Delete ${templateConfig.templateName} template`}
                 >
                   <IconTrash data-icon="inline-start" />
                   <span className="hidden md:block">Delete</span>
@@ -154,7 +160,10 @@ export function CreatePodTemplateCard({
                   disabled={vms.length >= 5}
                   onClick={() =>
                     vmsField.pushValue(
-                      createTemplateVm(templateConfig.template)
+                      createTemplateVm({
+                        name: templateConfig.templateName,
+                        disk_gb: templateConfig.templateDiskGb,
+                      })
                     )
                   }
                 >
@@ -267,7 +276,7 @@ export function CreatePodTemplateCard({
                           name={`templates[${templateIndex}].vms[${vmIndex}].storageGb`}
                           label="Storage"
                           placeholder="50"
-                          min={10}
+                          min={getMinimumStorageGb(templateConfig)}
                           max={100}
                           unit="GB"
                           icon={<IconDatabase />}

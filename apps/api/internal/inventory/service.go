@@ -474,6 +474,148 @@ func normalizeACLEntries(entries []ACLEntryInput) []ACLEntryInput {
 	return normalized
 }
 
+func findInventoryRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
+	var (
+		namedRootID *uuid.UUID
+		soleRootID  *uuid.UUID
+		rootCount   int
+	)
+
+	for _, row := range rows {
+		if row.ParentID != nil || row.Kind != database.InventoryItemKindFolder {
+			continue
+		}
+
+		rootCount++
+		id := row.ID
+		if row.Name == proxmox.RootFolderName {
+			namedRootID = &id
+		}
+		if soleRootID == nil {
+			soleRootID = &id
+		}
+	}
+
+	if namedRootID != nil {
+		return namedRootID
+	}
+	if rootCount == 1 {
+		return soleRootID
+	}
+
+	return nil
+}
+
+func normalizeFolderPath(path []string) ([]string, error) {
+	normalized := make([]string, 0, len(path))
+	for _, segment := range path {
+		name := names.Normalize(segment)
+		if err := names.ValidateFolder(name); err != nil {
+			return nil, err
+		}
+		normalized = append(normalized, name)
+	}
+
+	return normalized, nil
+}
+
+func ensureFolderChild(
+	ctx context.Context,
+	q *database.Queries,
+	parentID uuid.UUID,
+	name string,
+) (uuid.UUID, bool, error) {
+	id, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err == nil {
+		return id, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, err
+	}
+
+	if err := ensureFolderDepthForCreate(ctx, q, parentID); err != nil {
+		return uuid.Nil, false, err
+	}
+
+	id, err = q.CreateChildFolder(ctx, database.CreateChildFolderParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err != nil {
+		if !isUniqueViolation(err) {
+			return uuid.Nil, false, err
+		}
+
+		id, err = q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+			ParentID: &parentID,
+			Name:     name,
+		})
+		if err != nil {
+			return uuid.Nil, false, err
+		}
+		return id, false, nil
+	}
+
+	return id, true, nil
+}
+
+func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUID, error) {
+	normalizedPath, err := normalizeFolderPath(path)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	rootID := findInventoryRootFolderID(rows)
+	created := false
+	if rootID == nil {
+		id, err := q.CreateRootFolder(ctx, proxmox.RootFolderName)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		rootID = &id
+		created = true
+	}
+
+	currentID := *rootID
+	for _, segment := range normalizedPath {
+		nextID, didCreate, err := ensureFolderChild(ctx, q, currentID, segment)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		currentID = nextID
+		created = created || didCreate
+	}
+
+	if created {
+		s.notifyTx(ctx, tx, currentID)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+
+	if created {
+		s.scheduleMirror()
+	}
+
+	return currentID, nil
+}
+
 func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {
 	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
 	if err != nil {

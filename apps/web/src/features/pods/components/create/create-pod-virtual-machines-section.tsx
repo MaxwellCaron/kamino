@@ -31,19 +31,30 @@ import {
 } from "@workspace/ui/components/empty"
 import { IconTemplate } from "@tabler/icons-react"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
-import { syncSelectedTemplates, templateOptions } from "./create-pod-form"
+import { syncSelectedTemplates } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
+import type { PodTemplateOption } from "@/features/pods/api/create-pod-api"
 
 type CreatePodVirtualMachinesSectionProps = {
   form: CreatePodFormApi
   submissionAttempts: number
+  templateOptions: Array<PodTemplateOption>
+  templatesLoading?: boolean
+  routerTemplateConfigured?: boolean
 }
 
 export function CreatePodVirtualMachinesSection({
   form,
   submissionAttempts,
+  templateOptions,
+  templatesLoading = false,
+  routerTemplateConfigured = true,
 }: CreatePodVirtualMachinesSectionProps) {
   const anchor = useComboboxAnchor()
+  const templateIds = templateOptions.map((template) => template.id)
+  const templateNamesById = new Map(
+    templateOptions.map((template) => [template.id, template.name])
+  )
 
   return (
     <FieldSet className="w-full">
@@ -68,8 +79,9 @@ export function CreatePodVirtualMachinesSection({
                       </span>
                     </FieldTitle>
                     <FieldDescription>
-                      Automatically add a router VM to provide networking for
-                      this template via 1-1 NATing.
+                      {routerTemplateConfigured
+                        ? "Automatically add a router VM to provide networking for this template via 1-1 NATing."
+                        : "Router automation is unavailable until an admin configures a router VM template."}
                     </FieldDescription>
                     <FieldError
                       errors={showValidation ? field.state.meta.errors : []}
@@ -79,6 +91,7 @@ export function CreatePodVirtualMachinesSection({
                     id={field.name}
                     name={field.name}
                     checked={field.state.value}
+                    disabled={!routerTemplateConfigured}
                     onCheckedChange={(checked) => field.handleChange(checked)}
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid || undefined}
@@ -95,7 +108,7 @@ export function CreatePodVirtualMachinesSection({
               field.state.meta.isTouched || submissionAttempts > 0
             const isInvalid = showValidation && !field.state.meta.isValid
             const selectedTemplates = field.state.value.map(
-              (template) => template.template
+              (template) => template.templateItemId
             )
 
             return (
@@ -104,13 +117,14 @@ export function CreatePodVirtualMachinesSection({
                 <Combobox
                   multiple
                   autoHighlight
-                  items={templateOptions}
+                  items={templateIds}
                   value={selectedTemplates}
                   onValueChange={(value) => {
                     field.handleChange(
                       syncSelectedTemplates(
                         field.state.value,
-                        Array.isArray(value) ? value : []
+                        Array.isArray(value) ? value : [],
+                        templateOptions
                       )
                     )
                   }}
@@ -124,7 +138,9 @@ export function CreatePodVirtualMachinesSection({
                       {(values) => (
                         <React.Fragment>
                           {values.map((value: string) => (
-                            <ComboboxChip key={value}>{value}</ComboboxChip>
+                            <ComboboxChip key={value}>
+                              {templateNamesById.get(value) ?? value}
+                            </ComboboxChip>
                           ))}
                           <ComboboxChipsInput
                             id="templates"
@@ -137,11 +153,15 @@ export function CreatePodVirtualMachinesSection({
                     </ComboboxValue>
                   </ComboboxChips>
                   <ComboboxContent anchor={anchor}>
-                    <ComboboxEmpty>No items found.</ComboboxEmpty>
+                    <ComboboxEmpty>
+                      {templatesLoading
+                        ? "Loading templates..."
+                        : "No items found."}
+                    </ComboboxEmpty>
                     <ComboboxList>
                       {(item) => (
                         <ComboboxItem key={item} value={item}>
-                          {item}
+                          {templateNamesById.get(item) ?? item}
                         </ComboboxItem>
                       )}
                     </ComboboxList>
@@ -159,7 +179,7 @@ export function CreatePodVirtualMachinesSection({
                   <div className="flex flex-col gap-4 pt-6">
                     {field.state.value.map((templateConfig, index) => (
                       <CreatePodTemplateCard
-                        key={templateConfig.template}
+                        key={templateConfig.templateItemId}
                         form={form}
                         templateConfig={templateConfig}
                         templateIndex={index}

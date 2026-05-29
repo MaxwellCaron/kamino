@@ -5,7 +5,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const proxmoxRootFolderName = "Proxmox"
+const RootFolderName = "Proxmox"
+
+const proxmoxRootFolderName = RootFolderName
 
 func findManagedRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
 	var (

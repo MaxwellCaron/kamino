@@ -15,6 +15,7 @@ func RegisterRoutes(
 	vnc *handlers.VNCHandler,
 	vm *handlers.VMHandler,
 	vmCreate *handlers.VMCreateHandler,
+	pods *handlers.PodsHandler,
 	sdn *handlers.SDNHandler,
 	principals *handlers.PrincipalsHandler,
 	authz *handlers.AuthorizationHandler,
@@ -90,6 +91,12 @@ func RegisterRoutes(
 	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
 	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
 	protected.GET("/proxmox/cluster/usage-history", vmCreate.GetClusterUsageHistory)
+
+	// Pod endpoints
+	if pods != nil {
+		protected.GET("/pods/create/options", pods.GetCreateOptions)
+		protected.POST("/pods", pods.Create)
+	}
 
 	// SDN endpoints
 	protected.GET("/sdn/vnets", sdn.GetVNets)

@@ -206,6 +206,9 @@ CREATE TABLE inventory_items (
 CREATE UNIQUE INDEX ux_inventory_items_root_folder_name
     ON inventory_items (name) WHERE parent_id IS NULL AND kind = 'folder';
 
+CREATE UNIQUE INDEX ux_inventory_items_child_folder_name
+    ON inventory_items (parent_id, name) WHERE parent_id IS NOT NULL AND kind = 'folder';
+
 CREATE INDEX ix_inventory_items_parent_kind_name
     ON inventory_items (parent_id, kind, name);
 

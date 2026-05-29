@@ -46,6 +46,7 @@ type Config struct {
 	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
 	LDAPAdminGroupDN   string `envconfig:"LDAP_ADMIN_GROUP_DN"`
 	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	PodRouterTemplate  string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
 }
 
 // Server holds all application dependencies
@@ -69,6 +70,20 @@ func splitCSV(value string) []string {
 		result = append(result, trimmed)
 	}
 	return result
+}
+
+func parseOptionalUUID(value string) (uuid.UUID, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return uuid.Nil, nil
+	}
+
+	id, err := uuid.Parse(trimmed)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
 
 func resolveConfiguredAdminGroup(
@@ -304,6 +319,17 @@ func main() {
 		Service:  inventoryService,
 		Authz:    authzService,
 	}
+	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
+	if err != nil {
+		log.Fatalf("Invalid POD_ROUTER_TEMPLATE_ITEM_ID: %v", err)
+	}
+	podsHandler := &handlers.PodsHandler{
+		PX:                   server.ProxmoxClient,
+		Importer:             server.ProxmoxImport,
+		Service:              inventoryService,
+		Authz:                authzService,
+		RouterTemplateItemID: routerTemplateItemID,
+	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
 		Authz: authzService,
@@ -362,6 +388,7 @@ func main() {
 		vncHandler,
 		vmHandler,
 		vmCreateHandler,
+		podsHandler,
 		sdnHandler,
 		principalsHandler,
 		authzHandler,
