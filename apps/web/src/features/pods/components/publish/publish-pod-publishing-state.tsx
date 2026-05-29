@@ -1,4 +1,4 @@
-import { IconListDetails, IconBox } from "@tabler/icons-react"
+import { IconBox, IconListDetails } from "@tabler/icons-react"
 import type { PodSubmitProgressStep } from "@/components/submit-progress"
 import {
   PodSubmitErrorState,

@@ -1,4 +1,4 @@
-import { IconCopy, IconEye, IconLock, IconBox } from "@tabler/icons-react"
+import { IconBox, IconCopy, IconEye, IconLock } from "@tabler/icons-react"
 import {
   Item,
   ItemFooter,

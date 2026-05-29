@@ -14,11 +14,11 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import {
+  IconBox,
   IconChevronDown,
   IconDeviceDesktop,
   IconFolderOpen,
   IconNetwork,
-  IconBox,
 } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { getReviewVmNames } from "./create-pod-form"
