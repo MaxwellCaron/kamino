@@ -92,6 +92,9 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 		return
 	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
 
 	rows, err := h.Service.GetVisibleInventoryItems(c.Request.Context(), principalID)
 	if err != nil {
@@ -144,6 +147,9 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
 		return
 	}
 
