@@ -2,6 +2,7 @@ import * as React from "react"
 import { useStore } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
+import { uuid } from "@workspace/ui/lib/utils"
 import { PublishPodPersonalizeStep } from "./publish-pod-1-personalize"
 import { PublishPodAccessStep } from "./publish-pod-2-access"
 import { PublishPodVirtualMachinesStep } from "./publish-pod-3-virtual-machines"
@@ -20,6 +21,11 @@ import type {
 } from "./publish-pod-form"
 import type { PublishPodSubmitStatus } from "./publish-pod-publishing-state"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import type { PublishPodSourceFolder } from "@/features/pods/api/publish-pod-api"
+import {
+  publishPodOptionsQueryOptions,
+  publishedPodProgressQueryOptions,
+} from "@/features/pods/api/publish-pod-api"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import {
   groupsQueryOptions,
@@ -32,10 +38,19 @@ type PublishPodPendingStatus = Extract<
   "publishing" | "updating"
 >
 type PublishPodFormState = "form" | PublishPodSubmitStatus
+type PublishPodSubmitOptions = {
+  progressId: string
+}
+type PublishPodValidationErrors = Awaited<
+  ReturnType<PublishPodFormApi["validate"]>
+>
 
 type PublishPodPageProps = {
   initialValues?: PublishPodFormValues
-  onSubmit?: (values: PublishPodFormValues) => Promise<void> | void
+  onSubmit?: (
+    values: PublishPodFormValues,
+    options: PublishPodSubmitOptions
+  ) => Promise<void> | void
   pendingSubmitState?: PublishPodPendingStatus
   submitLabel?: string
 }
@@ -49,15 +64,44 @@ export function PublishPodPage({
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
   const [submitState, setSubmitState] =
     React.useState<PublishPodFormState>("form")
-  const submittedValuesRef = React.useRef<PublishPodFormValues | null>(null)
+  const [progressId, setProgressId] = React.useState<string | null>(null)
+  const [submitCompleted, setSubmitCompleted] = React.useState(false)
+  const onSubmitRef = React.useRef(onSubmit)
   const defaultValues = React.useMemo(
     () => initialValues ?? createInitialPublishPodValues(),
     [initialValues]
   )
+  React.useEffect(() => {
+    onSubmitRef.current = onSubmit
+  }, [onSubmit])
+
   const handleValidatedSubmit = React.useCallback(
     (values: PublishPodFormValues) => {
-      submittedValuesRef.current = values
+      const nextProgressId = uuid()
+      let submitPromise: Promise<unknown>
+
+      setProgressId(nextProgressId)
+      setSubmitCompleted(false)
+
+      try {
+        submitPromise = Promise.resolve(
+          onSubmitRef.current?.(values, { progressId: nextProgressId })
+        )
+      } catch {
+        setSubmitState("error")
+        return
+      }
+
       setSubmitState(pendingSubmitState)
+      void submitPromise
+        .then(() => {
+          if (pendingSubmitState === "updating") {
+            setSubmitState("success")
+            return
+          }
+          setSubmitCompleted(true)
+        })
+        .catch(() => setSubmitState("error"))
     },
     [pendingSubmitState]
   )
@@ -71,6 +115,28 @@ export function PublishPodPage({
   )
   const usersQuery = useQuery(usersQueryOptions)
   const groupsQuery = useQuery(groupsQueryOptions)
+  const publishOptionsQuery = useQuery(publishPodOptionsQueryOptions)
+  const publishProgressQuery = useQuery(
+    publishedPodProgressQueryOptions(
+      progressId,
+      submitState === "publishing"
+    )
+  )
+
+  React.useEffect(() => {
+    if (submitState !== "publishing") {
+      return
+    }
+
+    if (publishProgressQuery.data?.state === "error") {
+      setSubmitState("error")
+      return
+    }
+
+    if (submitCompleted && publishProgressQuery.data?.state === "success") {
+      setSubmitState("success")
+    }
+  }, [publishProgressQuery.data?.state, submitCompleted, submitState])
 
   const principalOptions = React.useMemo(
     () => buildPrincipalOptions(usersQuery.data ?? [], groupsQuery.data ?? []),
@@ -124,6 +190,73 @@ export function PublishPodPage({
 
     return fields
   }, [form])
+
+  const getSubmitFieldPaths = React.useCallback(() => {
+    const fields: Array<PublishPodFieldPath> = [
+      "title",
+      "description",
+      "image",
+      "creators",
+      "status",
+      "audience",
+      "source_folder",
+      "virtual_machines",
+      "tasks",
+    ]
+
+    return [...fields, ...getTaskFieldPaths()]
+  }, [getTaskFieldPaths])
+
+  const firstInvalidStepFromErrors = React.useCallback(
+    (errors: PublishPodValidationErrors): PublishPodStep => {
+      const errorKeys = Object.keys(errors)
+      const hasErrorFor = (fields: ReadonlyArray<string>) =>
+        errorKeys.some((key) =>
+          fields.some((field) => key === field || key.startsWith(`${field}[`))
+        )
+
+      if (hasErrorFor(["title", "description", "image", "creators"])) {
+        return "personalize"
+      }
+      if (hasErrorFor(["status", "audience"])) {
+        return "access"
+      }
+      if (hasErrorFor(["source_folder", "virtual_machines"])) {
+        return "virtual-machines"
+      }
+      if (hasErrorFor(["tasks"])) {
+        return "tasks"
+      }
+
+      return "preview"
+    },
+    []
+  )
+
+  const validateFormForSubmit = React.useCallback(async () => {
+    const errors = await form.validate("submit")
+
+    const tasks = form.getFieldValue("tasks")
+    if (tasks.length > 0) {
+      await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
+    }
+
+    const submitFields = getSubmitFieldPaths()
+    const isValid = Object.keys(errors).length === 0 && !hasFieldErrors(submitFields)
+
+    if (!isValid) {
+      markFieldsTouched(submitFields)
+      setStep(firstInvalidStepFromErrors(errors))
+    }
+
+    return isValid
+  }, [
+    firstInvalidStepFromErrors,
+    form,
+    getSubmitFieldPaths,
+    hasFieldErrors,
+    markFieldsTouched,
+  ])
 
   const validateStep = React.useCallback(async () => {
     const invalidateCurrentStep = (fields: Array<PublishPodFieldPath>) => {
@@ -188,8 +321,14 @@ export function PublishPodPage({
   }, [form, getTaskFieldPaths, hasFieldErrors, markFieldsTouched, step])
 
   const submitForm = React.useCallback(async () => {
+    const isValid = await validateFormForSubmit()
+    if (!isValid) {
+      return false
+    }
+
     await form.handleSubmit()
-  }, [form])
+    return true
+  }, [form, validateFormForSubmit])
 
   const handleSubmit = React.useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -199,28 +338,16 @@ export function PublishPodPage({
     [submitForm]
   )
 
-  const handlePublishingComplete = React.useCallback(async () => {
-    const submittedValues = submittedValuesRef.current
-
-    if (!submittedValues) {
-      setSubmitState("error")
-      return
-    }
-
-    try {
-      await onSubmit?.(submittedValues)
-      setSubmitState("success")
-    } catch {
-      setSubmitState("error")
-    }
-  }, [onSubmit])
-
   if (submitState !== "form") {
     return (
       <div className="@container/main relative flex flex-1 flex-col">
         <PublishPodSubmitState
           state={submitState}
-          onPublishingComplete={handlePublishingComplete}
+          progress={
+            submitState === "publishing"
+              ? publishProgressQuery.data
+              : undefined
+          }
         />
       </div>
     )
@@ -263,6 +390,12 @@ export function PublishPodPage({
           <PublishPodVirtualMachinesStep
             form={form}
             submissionAttempts={submissionAttempts}
+            sourceFolders={
+              publishOptionsQuery.data?.source_folders ??
+              ([] satisfies Array<PublishPodSourceFolder>)
+            }
+            sourceFoldersError={publishOptionsQuery.error}
+            sourceFoldersLoading={publishOptionsQuery.isLoading}
           />
         </StepperContent>
 

@@ -1,12 +1,20 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Link, useNavigate } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   IconCubePlus,
   IconCubeSend,
   IconPackages,
   IconPlus,
+  IconTrash,
 } from "@tabler/icons-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+} from "@workspace/ui/components/alert-dialog"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -25,15 +33,69 @@ import {
 } from "@workspace/ui/components/empty"
 import { PublishedPodsStatCards } from "./published-pods-stat-cards"
 import { getPublishedPodsColumns } from "./published-pods-columns"
+import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { DataTable } from "@/components/data-table/data-table"
 import {
+  deletePublishedPod,
+  podCatalogQueryOptions,
+  publishedPodsQueryOptions,
   setPublishedPodStatus,
-  usePublishedPodCatalog,
-} from "@/features/pods/utils/published-pod-catalog-store"
+} from "@/features/pods/api/publish-pod-api"
 
 export function PublishedPodsPage() {
   const navigate = useNavigate()
-  const pods = usePublishedPodCatalog()
+  const queryClient = useQueryClient()
+  const podsQuery = useQuery(publishedPodsQueryOptions)
+  const pods = podsQuery.data ?? []
+  const [pendingDeletePod, setPendingDeletePod] =
+    useState<PublishedPodCatalogEntry | null>(null)
+  const statusMutation = useMutation({
+    mutationFn: setPublishedPodStatus,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(
+        publishedPodsQueryOptions.queryKey,
+        pods.map((pod) => (pod.id === updated.id ? updated : pod))
+      )
+      toast.success(
+        updated.status === "listed"
+          ? `${updated.title} is now listed.`
+          : `${updated.title} is now unlisted.`
+      )
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update published pod status."
+      )
+    },
+  })
+  const deleteMutation = useMutation({
+    mutationFn: deletePublishedPod,
+    onSuccess: (_, deletedPodID) => {
+      queryClient.setQueryData(
+        publishedPodsQueryOptions.queryKey,
+        (current: Array<PublishedPodCatalogEntry> | undefined) =>
+          current?.filter((pod) => pod.id !== deletedPodID) ?? []
+      )
+      queryClient.removeQueries({
+        queryKey: ["pods", "published", deletedPodID],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: podCatalogQueryOptions.queryKey,
+      })
+      setPendingDeletePod(null)
+      toast.success("Published Pod catalog entry deleted.")
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete published Pod catalog entry."
+      )
+    },
+  })
 
   const stats = useMemo(() => {
     const listed = pods.filter((pod) => pod.status === "listed").length
@@ -52,6 +114,7 @@ export function PublishedPodsPage() {
   const columns = useMemo(
     () =>
       getPublishedPodsColumns({
+        onDelete: setPendingDeletePod,
         onEdit: (pod) => {
           navigate({
             to: "/pods/publish",
@@ -59,19 +122,10 @@ export function PublishedPodsPage() {
           })
         },
         onStatusChange: (pod, status) => {
-          const updated = setPublishedPodStatus(pod.id, status)
-          if (!updated) {
-            return
-          }
-
-          toast.success(
-            updated.status === "listed"
-              ? `${updated.title} is now listed.`
-              : `${updated.title} is now unlisted.`
-          )
+          statusMutation.mutate({ id: pod.id, status })
         },
       }),
-    [navigate]
+    [navigate, statusMutation]
   )
 
   return (
@@ -120,10 +174,10 @@ export function PublishedPodsPage() {
               <DataTable
                 columns={columns}
                 data={pods}
-                error={null}
+                error={podsQuery.error}
                 getRowId={(pod) => pod.id}
                 initialPageSize={10}
-                isLoading={false}
+                isLoading={podsQuery.isLoading}
                 showSelectionSummary={false}
               />
             ) : (
@@ -148,6 +202,42 @@ export function PublishedPodsPage() {
           </CardContent>
         </Card>
       </div>
+      <AlertDialog
+        open={pendingDeletePod !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setPendingDeletePod(null)
+          }
+        }}
+      >
+        <AppAlertDialogContent
+          open={pendingDeletePod !== null}
+          icon={IconTrash}
+          title="Delete Catalog Entry?"
+          description={
+            pendingDeletePod
+              ? `This deletes "${pendingDeletePod.title}" from the published catalog database only. The Pod folder, Source templates, and Proxmox VMs are not deleted.`
+              : ""
+          }
+        >
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                if (!pendingDeletePod) return
+                deleteMutation.mutate(pendingDeletePod.id)
+              }}
+            >
+              Delete Entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AppAlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

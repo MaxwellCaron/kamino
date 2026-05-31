@@ -95,6 +95,17 @@ func RegisterRoutes(
 	// Pod endpoints
 	if pods != nil {
 		protected.GET("/pods/create/options", pods.GetCreateOptions)
+		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
+		protected.GET("/pods/publish/options", pods.GetPublishOptions)
+		protected.GET("/pods/published", pods.ListPublished)
+		protected.POST("/pods/published", pods.SavePublished)
+		protected.GET("/pods/published/progress/:id", pods.GetPublishedProgress)
+		protected.GET("/pods/published/:id", pods.GetPublished)
+		protected.PUT("/pods/published/:id", pods.SavePublished)
+		protected.DELETE("/pods/published/:id", pods.DeletePublished)
+		protected.PUT("/pods/published/:id/status", pods.UpdatePublishedStatus)
+		protected.GET("/pods/catalog", pods.ListCatalog)
+		protected.GET("/pods/catalog/:slug", pods.GetCatalogPod)
 		protected.POST("/pods", pods.Create)
 	}
 

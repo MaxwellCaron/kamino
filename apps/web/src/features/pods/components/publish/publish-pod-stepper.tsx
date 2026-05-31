@@ -4,6 +4,7 @@ import {
   IconArrowRight,
   IconCubeSend,
 } from "@tabler/icons-react"
+import { Loader } from "@dot-loaders/react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,7 +57,7 @@ export type PublishPodStep = (typeof steps)[number]["value"]
 export const defaultPublishPodStep: PublishPodStep = steps[0].value
 
 type PublishPodStepperProps = {
-  onSubmitConfirm: () => Promise<void> | void
+  onSubmitConfirm: () => Promise<boolean> | boolean
   step: PublishPodStep
   submitLabel?: string
 }
@@ -67,11 +68,12 @@ export function PublishPodStepper({
   submitLabel = "Publish",
 }: PublishPodStepperProps) {
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const stepIndex = steps.findIndex((s) => s.value === step)
   const isPublishAction = submitLabel === "Publish"
   const confirmTitle = isPublishAction ? "Publish Pod?" : "Save Changes?"
   const confirmDescription = isPublishAction
-    ? "This will publish the Pod to the catalog and begin preparing its virtual machine templates."
+    ? "This will full clone the selected source VMs into a Source folder, convert those clones to templates, and publish the Pod to the catalog."
     : "This will save the latest changes to the published Pod."
 
   return (
@@ -130,7 +132,7 @@ export function PublishPodStepper({
       <AlertDialog
         open={publishConfirmOpen}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isSubmitting) {
             setPublishConfirmOpen(false)
           }
         }}
@@ -142,16 +144,30 @@ export function PublishPodStepper({
           description={confirmDescription}
         >
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPublishConfirmOpen(false)}>
+            <AlertDialogCancel
+              disabled={isSubmitting}
+              onClick={() => setPublishConfirmOpen(false)}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
+              type="button"
               variant="default"
-              onClick={() => {
-                setPublishConfirmOpen(false)
-                void onSubmitConfirm()
+              disabled={isSubmitting}
+              onClick={async (event) => {
+                event.preventDefault()
+                setIsSubmitting(true)
+                try {
+                  const submitted = await onSubmitConfirm()
+                  if (submitted) {
+                    setPublishConfirmOpen(false)
+                  }
+                } finally {
+                  setIsSubmitting(false)
+                }
               }}
             >
+              {isSubmitting ? <Loader loader="braille" renderer="svg-grid" /> : null}
               {submitLabel}
             </AlertDialogAction>
           </AlertDialogFooter>

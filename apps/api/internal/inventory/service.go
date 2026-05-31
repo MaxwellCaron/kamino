@@ -616,6 +616,99 @@ func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUI
 	return currentID, nil
 }
 
+func (s *Service) EnsureChildFolder(ctx context.Context, parentID uuid.UUID, name string) (uuid.UUID, error) {
+	normalizedName := names.Normalize(name)
+	if err := names.ValidateFolder(normalizedName); err != nil {
+		return uuid.Nil, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	folderID, created, err := ensureFolderChild(ctx, q, parentID, normalizedName)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if created {
+		s.notifyTx(ctx, tx, folderID)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	if created {
+		s.scheduleMirror()
+	}
+
+	return folderID, nil
+}
+
+func (s *Service) FindFolderPath(ctx context.Context, path []string) (uuid.UUID, bool, error) {
+	normalizedPath, err := normalizeFolderPath(path)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	rootID := findInventoryRootFolderID(rows)
+	if rootID == nil {
+		return uuid.Nil, false, nil
+	}
+
+	currentID := *rootID
+	for _, segment := range normalizedPath {
+		nextID, ok := findInventoryChildFolderID(rows, currentID, segment)
+		if !ok {
+			return uuid.Nil, false, nil
+		}
+		currentID = nextID
+	}
+
+	return currentID, true, nil
+}
+
+func findInventoryChildFolderID(
+	rows []database.GetAllInventoryItemsRow,
+	parentID uuid.UUID,
+	name string,
+) (uuid.UUID, bool) {
+	for _, row := range rows {
+		if row.Kind != database.InventoryItemKindFolder || row.ParentID == nil {
+			continue
+		}
+		if *row.ParentID == parentID && row.Name == name {
+			return row.ID, true
+		}
+	}
+	return uuid.Nil, false
+}
+
+func (s *Service) ChildFolderExists(ctx context.Context, parentID uuid.UUID, name string) (bool, error) {
+	name = names.Normalize(name)
+	if err := names.ValidateFolder(name); err != nil {
+		return false, err
+	}
+
+	_, err := database.New(s.db).GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return false, err
+}
+
 func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {
 	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
 	if err != nil {

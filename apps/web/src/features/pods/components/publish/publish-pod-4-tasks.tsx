@@ -129,7 +129,7 @@ export function PublishPodTasksStep({
                       ))}
                     </Accordion>
                   )}
-                  <div className="px-6 pb-6">
+                  <div className="px-6">
                     <FieldError
                       errors={
                         showValidation ? tasksField.state.meta.errors : []

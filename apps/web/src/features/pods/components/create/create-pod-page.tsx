@@ -55,6 +55,7 @@ export function CreatePodPage() {
   const form = useCreatePodForm({ onSubmit: handleValidatedSubmit })
   const routerTemplateConfigured =
     createOptionsQuery.data?.router_template_configured ?? true
+
   React.useEffect(() => {
     if (
       createOptionsQuery.data &&
@@ -79,9 +80,31 @@ export function CreatePodPage() {
     setSubmitState("form")
   }, [createPodMutation, form])
 
+  const validateBeforeConfirm = React.useCallback(async () => {
+    setSubmissionAttempts((attempts) => attempts + 1)
+
+    const errors = await form.validate("submit")
+    return Object.keys(errors).length === 0
+  }, [form])
+
+  const handleFormSubmit = React.useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+
+      try {
+        const isValid = await validateBeforeConfirm()
+        if (isValid) {
+          setCreateConfirmOpen(true)
+        }
+      } catch {
+        setSubmitState("error")
+      }
+    },
+    [validateBeforeConfirm]
+  )
+
   const handleCreateConfirm = React.useCallback(() => {
     setCreateConfirmOpen(false)
-    setSubmissionAttempts((attempts) => attempts + 1)
     void form.handleSubmit()
   }, [form])
 
@@ -113,10 +136,7 @@ export function CreatePodPage() {
         </div>
         <form
           className="flex w-full max-w-5xl flex-col"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setCreateConfirmOpen(true)
-          }}
+          onSubmit={handleFormSubmit}
         >
           <CreatePodFormSection number={1} title="Personalize">
             <CreatePodPersonalizeSection

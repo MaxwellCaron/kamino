@@ -309,9 +309,7 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
     clone_count: 0,
     status: "listed",
     audience: [],
-    virtual_machines: Array.from({ length: 5 }, (_, index) =>
-      createDefaultPublishPodVm(index)
-    ),
+    virtual_machines: [],
     tasks: [
       {
         id: uuid(),

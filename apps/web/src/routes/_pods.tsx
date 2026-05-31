@@ -4,6 +4,7 @@ import type { CSSProperties } from "react"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
 import { CommandManyItems } from "@/components/app-shell/site-command"
+import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { ensureAuth } from "@/features/auth/api/auth-api"
 import { PodBreadcrumbs } from "@/features/pods/components/pod-breadcrumbs"
 
@@ -40,6 +41,7 @@ function PodsLayout() {
         } as CSSProperties
       }
     >
+      <DashboardEvents />
       <AppSidebarIconRail user={user} variant="inset" />
       <SidebarInset>
         <SiteHeader

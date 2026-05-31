@@ -1,5 +1,6 @@
 import { IconBox, IconListDetails } from "@tabler/icons-react"
 import type { PodSubmitProgressStep } from "@/components/submit-progress"
+import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import {
   PodSubmitErrorState,
   PodSubmitLoadingState,
@@ -7,10 +8,7 @@ import {
   PodSubmitSuccessState,
 } from "@/components/submit-progress"
 
-export const PUBLISH_POD_STEP_IDS = [1, 2, 3, 4] as const
-export const PUBLISH_POD_STEP_COUNT = PUBLISH_POD_STEP_IDS.length
-export const PUBLISH_POD_STEP_INTERVAL_MS = 2_000
-export const UPDATE_POD_INTERVAL_MS = 2_000
+export const PUBLISH_POD_STEP_IDS = [1, 2, 3, 4, 5] as const
 
 export type PublishPodStepId = (typeof PUBLISH_POD_STEP_IDS)[number]
 export type PublishPodSubmitStatus =
@@ -22,23 +20,29 @@ export type PublishPodSubmitStatus =
 const PUBLISH_POD_STEPS = [
   {
     id: 1,
-    title: "Fetching VMs",
-    description: "Finding the source virtual machines selected for this Pod.",
+    title: "Validating source VMs",
+    description:
+      "Checking the selected Pod folder and source virtual machines.",
   },
   {
     id: 2,
-    title: "Creating Pod Folders",
-    description: "Preparing the folder structure for the published Pod.",
+    title: "Preparing Source folder",
+    description: "Creating or finding the Source folder inside the Pod.",
   },
   {
     id: 3,
-    title: "Cloning source VMs",
-    description: "Copying source virtual machines into the publish workspace.",
+    title: "Full cloning VMs",
+    description: "Copying source virtual machines into the Source folder.",
   },
   {
     id: 4,
-    title: "Converting VMs to templates",
-    description: "Marking cloned virtual machines as reusable templates.",
+    title: "Converting templates",
+    description: "Turning the cloned virtual machines into reusable templates.",
+  },
+  {
+    id: 5,
+    title: "Saving catalog entry",
+    description: "Writing the published Pod metadata to the catalog.",
   },
 ] satisfies [
   PodSubmitProgressStep<PublishPodStepId>,
@@ -46,33 +50,27 @@ const PUBLISH_POD_STEPS = [
 ]
 
 function PublishingState({
-  onPublishingComplete,
-  publishingStepId,
+  progress,
 }: {
-  onPublishingComplete?: () => void
-  publishingStepId?: PublishPodStepId
+  progress?: PublishPodProgress
 }) {
+  const stepId = getPublishProgressStepId(progress) ?? 1
+
   return (
     <PodSubmitProgressState
-      intervalMs={PUBLISH_POD_STEP_INTERVAL_MS}
-      onComplete={onPublishingComplete}
-      stepId={publishingStepId}
+      detail={getPublishProgressDetail(progress)}
+      progressValue={getPublishProgressValue(progress)}
+      stepId={stepId}
       steps={PUBLISH_POD_STEPS}
       title="Publishing"
     />
   )
 }
 
-function UpdatingState({
-  onUpdatingComplete,
-}: {
-  onUpdatingComplete?: () => void
-}) {
+function UpdatingState() {
   return (
     <PodSubmitLoadingState
       description="Saving the latest changes to this Pod."
-      intervalMs={UPDATE_POD_INTERVAL_MS}
-      onComplete={onUpdatingComplete}
       title="Updating"
     />
   )
@@ -118,27 +116,68 @@ function ErrorState() {
 }
 
 export function PublishPodSubmitState({
-  onPublishingComplete,
+  progress,
   state,
-  publishingStepId,
 }: {
-  onPublishingComplete?: () => void
+  progress?: PublishPodProgress
   state: PublishPodSubmitStatus
-  publishingStepId?: PublishPodStepId
 }) {
   switch (state) {
     case "publishing":
-      return (
-        <PublishingState
-          onPublishingComplete={onPublishingComplete}
-          publishingStepId={publishingStepId}
-        />
-      )
+      return <PublishingState progress={progress} />
     case "updating":
-      return <UpdatingState onUpdatingComplete={onPublishingComplete} />
+      return <UpdatingState />
     case "success":
       return <SuccessState />
     case "error":
       return <ErrorState />
   }
+}
+
+function getPublishProgressStepId(
+  progress: PublishPodProgress | undefined
+): PublishPodStepId | undefined {
+  if (!progress) return undefined
+
+  return PUBLISH_POD_STEP_IDS.includes(progress.step_id as PublishPodStepId)
+    ? (progress.step_id as PublishPodStepId)
+    : undefined
+}
+
+function getPublishProgressValue(progress: PublishPodProgress | undefined) {
+  if (!progress) return 4
+
+  const completedRatio =
+    progress.total_vms > 0
+      ? Math.min(progress.completed_vms, progress.total_vms) /
+        progress.total_vms
+      : 0
+
+  switch (progress.step_id) {
+    case 1:
+      return 8
+    case 2:
+      return 18
+    case 3:
+      return 22 + completedRatio * 40
+    case 4:
+      return 65 + completedRatio * 25
+    case 5:
+      return progress.state === "success" ? 100 : 94
+    default:
+      return 4
+  }
+}
+
+function getPublishProgressDetail(progress: PublishPodProgress | undefined) {
+  if (!progress?.message) return undefined
+
+  if ((progress.step_id === 3 || progress.step_id === 4) && progress.total_vms) {
+    return `${progress.message} ${Math.min(
+      progress.completed_vms,
+      progress.total_vms
+    )} / ${progress.total_vms} complete.`
+  }
+
+  return progress.message
 }

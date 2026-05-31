@@ -225,6 +225,48 @@ func (ns NullPrincipalType) Value() (driver.Value, error) {
 	return string(ns.PrincipalType), nil
 }
 
+type PublishedPodStatus string
+
+const (
+	PublishedPodStatusListed   PublishedPodStatus = "listed"
+	PublishedPodStatusUnlisted PublishedPodStatus = "unlisted"
+)
+
+func (e *PublishedPodStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PublishedPodStatus(s)
+	case string:
+		*e = PublishedPodStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PublishedPodStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPublishedPodStatus struct {
+	PublishedPodStatus PublishedPodStatus `json:"published_pod_status"`
+	Valid              bool               `json:"valid"` // Valid is true if PublishedPodStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPublishedPodStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PublishedPodStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PublishedPodStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPublishedPodStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PublishedPodStatus), nil
+}
+
 type RequestEventKind string
 
 const (
@@ -378,6 +420,20 @@ type InventoryRequests struct {
 	PowerAction     NullInventoryRequestPowerAction `json:"power_action"`
 	SnapshotName    *string                         `json:"snapshot_name"`
 	CreatedAt       pgtype.Timestamptz              `json:"created_at"`
+}
+
+type PublishedPods struct {
+	ID                   uuid.UUID          `json:"id"`
+	Title                string             `json:"title"`
+	Slug                 string             `json:"slug"`
+	Description          string             `json:"description"`
+	ImageUrl             string             `json:"image_url"`
+	Status               PublishedPodStatus `json:"status"`
+	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
+	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	CloneCount           int32              `json:"clone_count"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 type RequestEvents struct {

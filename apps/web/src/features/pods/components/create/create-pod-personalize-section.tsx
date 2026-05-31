@@ -7,7 +7,21 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import { podNameSchema } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
+import { validatePodNameAvailability } from "@/features/pods/api/create-pod-api"
+
+const podNameConflictError = {
+  message: "A Pod with this name already exists.",
+}
+
+async function validateUniquePodName(value: string, signal: AbortSignal) {
+  const result = podNameSchema.safeParse(value)
+  if (!result.success) return undefined
+
+  const availability = await validatePodNameAvailability(result.data, signal)
+  return availability.available ? undefined : podNameConflictError
+}
 
 type CreatePodPersonalizeSectionProps = {
   form: CreatePodFormApi
@@ -21,10 +35,28 @@ export function CreatePodPersonalizeSection({
   return (
     <FieldSet className="w-full">
       <FieldGroup>
-        <form.Field name="name">
+        <form.Field
+          name="name"
+          validators={{
+            onChangeAsyncDebounceMs: 600,
+            onChangeAsync: ({ signal, value }) =>
+              validateUniquePodName(value, signal),
+            onBlurAsync: ({ signal, value }) =>
+              validateUniquePodName(value, signal),
+            onSubmitAsync: ({ signal, value }) =>
+              validateUniquePodName(value, signal),
+          }}
+        >
           {(field) => {
+            const hasAsyncValidationError = Boolean(
+              field.state.meta.errorMap.onChange ||
+              field.state.meta.errorMap.onBlur ||
+              field.state.meta.errorMap.onSubmit
+            )
             const showValidation =
-              field.state.meta.isTouched || submissionAttempts > 0
+              field.state.meta.isTouched ||
+              hasAsyncValidationError ||
+              submissionAttempts > 0
             const isInvalid = showValidation && !field.state.meta.isValid
 
             return (
@@ -42,8 +74,9 @@ export function CreatePodPersonalizeSection({
                   autoComplete="off"
                 />
                 <FieldDescription>
-                  Choose a unique name for your new pod. The name can only
-                  contain ASCII letters, digits, and the characters -, and _.
+                  {field.state.meta.isValidating
+                    ? "Checking whether this Pod name is available."
+                    : "Choose a unique name for your new pod. The name can only contain ASCII letters, digits, and -."}
                 </FieldDescription>
                 <FieldError
                   errors={showValidation ? field.state.meta.errors : []}

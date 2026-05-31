@@ -67,16 +67,18 @@ const createPodTemplateSchema = z
     })
   })
 
+export const podNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Pod name is required.")
+  .max(63, "Pod name must be at most 63 characters.")
+  .regex(
+    /^[A-Za-z][A-Za-z0-9-]*$/,
+    "Pod name must start with a letter and can only contain ASCII letters, digits, and -."
+  )
+
 const createPodFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "Pod name is required.")
-    .max(63, "Pod name must be at most 63 characters.")
-    .regex(
-      /^[A-Za-z][A-Za-z0-9-]*$/,
-      "Pod name must start with a letter and can only contain ASCII letters, digits, and -."
-    ),
+  name: podNameSchema,
   includeRouter: z.boolean(),
   templates: z.array(createPodTemplateSchema),
 })

@@ -1,28 +1,27 @@
 import { useMemo } from "react"
 import { toast } from "sonner"
 import { createFileRoute, redirect } from "@tanstack/react-router"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { PublishPodPage } from "@/features/pods/components/publish/publish-pod-page"
 import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
 import { createInitialPublishPodValues } from "@/features/pods/components/publish/publish-pod-form"
 import {
-  getPublishedPodCatalogEntry,
+  podCatalogQueryOptions,
+  publishedPodQueryOptions,
+  publishedPodsQueryOptions,
   savePublishedPod,
   toPublishPodFormValues,
-  usePublishedPodCatalog,
-} from "@/features/pods/utils/published-pod-catalog-store"
+} from "@/features/pods/api/publish-pod-api"
 
 export const Route = createFileRoute("/_pods/pods/publish")({
   validateSearch: z.object({
     podId: z.string().optional(),
   }),
-  beforeLoad: ({ context, search }) => {
+  beforeLoad: ({ context }) => {
     if (!canAccessRequestQueue(context.user.management_permissions)) {
       throw redirect({ to: "/pods/browse" })
-    }
-
-    if (search.podId && !getPublishedPodCatalogEntry(search.podId)) {
-      throw redirect({ to: "/pods/published" })
     }
   },
   component: RouteComponent,
@@ -30,11 +29,9 @@ export const Route = createFileRoute("/_pods/pods/publish")({
 
 function RouteComponent() {
   const { podId } = Route.useSearch()
-  const catalog = usePublishedPodCatalog()
-  const existingPod = useMemo(
-    () => (podId ? (catalog.find((pod) => pod.id === podId) ?? null) : null),
-    [catalog, podId]
-  )
+  const queryClient = useQueryClient()
+  const existingPodQuery = useQuery(publishedPodQueryOptions(podId))
+  const existingPod = existingPodQuery.data ?? null
   const initialValues = useMemo(
     () =>
       existingPod
@@ -43,19 +40,46 @@ function RouteComponent() {
     [existingPod]
   )
 
+  if (podId && existingPodQuery.isLoading) {
+    return (
+      <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    )
+  }
+
+  if (podId && existingPodQuery.isError) {
+    throw redirect({ to: "/pods/published" })
+  }
+
   return (
     <PublishPodPage
       key={existingPod?.id ?? initialValues.id}
       initialValues={initialValues}
       pendingSubmitState={existingPod ? "updating" : "publishing"}
       submitLabel={existingPod ? "Save Changes" : "Publish"}
-      onSubmit={(values) => {
-        const savedPod = savePublishedPod(values)
+      onSubmit={async (values, { progressId }) => {
+        const savedPod = await savePublishedPod(values, {
+          existing: !!existingPod,
+          progressId,
+        })
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: publishedPodsQueryOptions.queryKey,
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["pods", "published", savedPod.id],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: podCatalogQueryOptions.queryKey,
+          }),
+        ])
 
         toast.success(
           existingPod
-            ? `${savedPod.title} updated in the mock catalog.`
-            : `${savedPod.title} added to the mock catalog.`
+            ? `${savedPod.title} updated in the catalog.`
+            : `${savedPod.title} added to the catalog.`
         )
       }}
     />

@@ -2,6 +2,8 @@ import {
   Card,
   CardAction,
   CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -51,6 +53,10 @@ export function PublishPodTaskQuestions({
               <IconZoomQuestion className="size-4.5 text-muted-foreground" />
               Questions
             </CardTitle>
+            <CardDescription>
+              Users will have to answer the following questions correctly to
+              complete this task.
+            </CardDescription>
             <CardAction>
               <Button
                 type="button"
@@ -257,6 +263,10 @@ export function PublishPodTaskQuestions({
               </Sortable>
             )}
           </CardContent>
+          <CardFooter className="text-muted-foreground">
+            Questions can be reordered by dragging and dropping the top left of
+            the question card.
+          </CardFooter>
         </Card>
       )}
     </form.Field>

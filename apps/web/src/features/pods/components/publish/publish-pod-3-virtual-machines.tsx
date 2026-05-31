@@ -43,11 +43,13 @@ import {
   IconFolderOpen,
   IconSettings,
 } from "@tabler/icons-react"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import type {
   PublishPodFormApi,
   PublishPodFormValues,
 } from "./publish-pod-form"
+import type { PublishPodSourceFolder } from "@/features/pods/api/publish-pod-api"
 import type {
   DraftPrincipal,
   PermissionState,
@@ -56,19 +58,14 @@ import { CustomizePermissionsDialog } from "@/features/inventory/components/perm
 import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
 import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
 
-const frameworks = [
-  "Next.js",
-  "SvelteKit",
-  "Nuxt.js",
-  "Remix",
-  "Astro",
-] as const
-
 const publishVmPermissionGroups = getInventoryPermissionDefinitionsByGroup("vm")
 
 type PublishPodVirtualMachinesStepProps = {
   form: PublishPodFormApi
   submissionAttempts: number
+  sourceFolders: Array<PublishPodSourceFolder>
+  sourceFoldersError: Error | null
+  sourceFoldersLoading: boolean
 }
 
 function createEditingVmPrincipal(
@@ -84,6 +81,9 @@ function createEditingVmPrincipal(
 export function PublishPodVirtualMachinesStep({
   form,
   submissionAttempts,
+  sourceFolders,
+  sourceFoldersError,
+  sourceFoldersLoading,
 }: PublishPodVirtualMachinesStepProps) {
   const [editingVmIndex, setEditingVmIndex] = React.useState<number | null>(
     null
@@ -154,30 +154,67 @@ export function PublishPodVirtualMachinesStep({
                   const showValidation =
                     field.state.meta.isTouched || submissionAttempts > 0
                   const isInvalid = showValidation && !field.state.meta.isValid
+                  const selectedSourceFolder =
+                    sourceFolders.find(
+                      (folder) => folder.id === field.state.value
+                    ) ?? null
 
                   return (
                     <Field data-invalid={isInvalid || undefined}>
                       <FieldLabel>Folder</FieldLabel>
                       <FieldContent>
                         <Combobox
-                          items={frameworks}
-                          value={field.state.value || null}
-                          onValueChange={(value) =>
-                            field.handleChange(value ?? "")
-                          }
+                          items={sourceFolders}
+                          itemToStringLabel={(folder) => folder.name}
+                          itemToStringValue={(folder) => folder.name}
+                          value={selectedSourceFolder}
+                          onValueChange={(folder) => {
+                            const nextFolderID = folder?.id ?? ""
+                            field.handleChange(nextFolderID)
+
+                            if (
+                              nextFolderID &&
+                              nextFolderID !== field.state.value
+                            ) {
+                              form.setFieldValue(
+                                "virtual_machines",
+                                structuredClone(folder?.virtual_machines ?? [])
+                              )
+                            }
+
+                            if (!nextFolderID) {
+                              form.setFieldValue("virtual_machines", [])
+                            }
+                          }}
+                          disabled={sourceFoldersLoading}
+                          autoHighlight
                         >
                           <ComboboxInput
                             name={field.name}
-                            placeholder="Select source folder"
+                            placeholder={
+                              sourceFoldersLoading
+                                ? "Loading folders..."
+                                : "Select source folder"
+                            }
                             onBlur={field.handleBlur}
                             aria-invalid={isInvalid || undefined}
                           />
                           <ComboboxContent>
-                            <ComboboxEmpty>No items found.</ComboboxEmpty>
+                            <ComboboxEmpty>No folders found.</ComboboxEmpty>
                             <ComboboxList>
-                              {(item) => (
-                                <ComboboxItem key={item} value={item}>
-                                  {item}
+                              {(folder) => (
+                                <ComboboxItem key={folder.id} value={folder}>
+                                  <span className="flex min-w-0 flex-col">
+                                    <span className="truncate">
+                                      {folder.name}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {folder.virtual_machines.length} VM
+                                      {folder.virtual_machines.length === 1
+                                        ? ""
+                                        : "s"}
+                                    </span>
+                                  </span>
                                 </ComboboxItem>
                               )}
                             </ComboboxList>
@@ -190,18 +227,29 @@ export function PublishPodVirtualMachinesStep({
                         <FieldError
                           errors={showValidation ? field.state.meta.errors : []}
                         />
+                        {sourceFoldersError ? (
+                          <FieldDescription className="text-destructive">
+                            Failed to load source folders.
+                          </FieldDescription>
+                        ) : null}
                         <div className="flex flex-col gap-3 pt-3">
                           <p className="font-medium">
                             Included Virtual Machines
                           </p>
-                          {field.state.value ? (
+                          {sourceFoldersLoading ? (
+                            <div className="flex flex-col gap-3">
+                              <Skeleton className="h-16 w-full" />
+                              <Skeleton className="h-16 w-full" />
+                              <Skeleton className="h-16 w-full" />
+                            </div>
+                          ) : field.state.value ? (
                             <form.Subscribe
                               selector={(state) =>
                                 state.values.virtual_machines
                               }
                             >
                               {(virtualMachines) => (
-                                <div className="space-y-3">
+                                <div className="flex flex-col gap-3">
                                   {virtualMachines.map((vm, index) => (
                                     <Item key={vm.id} variant="muted">
                                       <ItemMedia variant="icon">

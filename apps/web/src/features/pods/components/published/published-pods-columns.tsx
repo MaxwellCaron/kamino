@@ -19,6 +19,7 @@ import {
   IconEye,
   IconEyeOff,
   IconLock,
+  IconTrash,
   IconWorld,
 } from "@tabler/icons-react"
 import { Link } from "@tanstack/react-router"
@@ -31,6 +32,7 @@ import type {
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 
 type PublishedPodColumnsOptions = {
+  onDelete: (pod: PublishedPodCatalogEntry) => void
   onEdit: (pod: PublishedPodCatalogEntry) => void
   onStatusChange: (pod: PublishedPodCatalogEntry, status: PodStatus) => void
 }
@@ -54,6 +56,7 @@ function StatusBadge({ status }: { status: PodStatus }) {
 }
 
 export function getPublishedPodsColumns({
+  onDelete,
   onEdit,
   onStatusChange,
 }: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
@@ -224,6 +227,14 @@ export function getPublishedPodsColumns({
                     </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                 </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onDelete(pod)}
+                >
+                  <IconTrash />
+                  Delete
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

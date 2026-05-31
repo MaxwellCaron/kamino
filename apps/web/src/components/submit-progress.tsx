@@ -36,16 +36,20 @@ export type PodSubmitAction = {
 }
 
 type PodSubmitProgressStateProps<TStepId extends number> = {
-  intervalMs: number
+  detail?: string
+  intervalMs?: number
   onComplete?: () => void
+  progressValue?: number
   stepId?: TStepId
   steps: PodSubmitProgressSteps<TStepId>
   title: string
 }
 
 export function PodSubmitProgressState<TStepId extends number>({
+  detail,
   intervalMs,
   onComplete,
+  progressValue,
   stepId,
   steps,
   title,
@@ -58,10 +62,14 @@ export function PodSubmitProgressState<TStepId extends number>({
     externalStepIndex >= 0 ? externalStepIndex : simulatedStepIndex
   const currentStep = steps[currentStepIndex]
   const colors = getCloneStepColors(currentStep.id)
-  const progress = ((currentStepIndex + 1) / steps.length) * 100
+  const progress =
+    progressValue === undefined
+      ? ((currentStepIndex + 1) / steps.length) * 100
+      : Math.min(Math.max(progressValue, 0), 100)
 
   useEffect(() => {
     if (stepId !== undefined) return
+    if (intervalMs === undefined) return
 
     const timer = window.setTimeout(() => {
       if (simulatedStepIndex === steps.length - 1) {
@@ -122,7 +130,7 @@ export function PodSubmitProgressState<TStepId extends number>({
             {currentStep.title} ({currentStepIndex + 1} / {steps.length})
           </span>
           <span className="text-muted-foreground">
-            {currentStep.description}
+            {detail ?? currentStep.description}
           </span>
         </div>
       </EmptyContent>
@@ -137,11 +145,13 @@ export function PodSubmitLoadingState({
   title,
 }: {
   description: string
-  intervalMs: number
+  intervalMs?: number
   onComplete?: () => void
   title: string
 }) {
   useEffect(() => {
+    if (intervalMs === undefined) return
+
     const timer = window.setTimeout(() => {
       onComplete?.()
     }, intervalMs)

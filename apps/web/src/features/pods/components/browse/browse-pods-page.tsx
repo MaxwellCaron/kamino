@@ -1,11 +1,15 @@
+import { useQuery } from "@tanstack/react-query"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { BrowsePodsCard } from "./browse-pods-card"
-import { clonedPods, pods } from "@/features/pods/types/test-data"
+import { clonedPods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
-
-const clonedPodIds = new Set(clonedPods.map((pod) => pod.pod_id))
-const visiblePods = pods.filter((pod) => pod.status === "listed")
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
+  const catalogQuery = useQuery(podCatalogQueryOptions)
+  const visiblePods = catalogQuery.data ?? []
+  const clonedPodIds = new Set(clonedPods.map((pod) => pod.pod_id))
+
   return (
     <div className="@container/main flex flex-1 flex-col">
       <div className="relative overflow-hidden">
@@ -27,13 +31,17 @@ export function BrowsePodsPage() {
 
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12">
-          {visiblePods.map((pod) => (
-            <BrowsePodsCard
-              key={pod.id}
-              pod={pod}
-              isCloned={clonedPodIds.has(pod.id)}
-            />
-          ))}
+          {catalogQuery.isLoading
+            ? Array.from({ length: 6 }, (_, index) => (
+                <Skeleton key={index} className="h-96 w-full" />
+              ))
+            : visiblePods.map((pod) => (
+                <BrowsePodsCard
+                  key={pod.id}
+                  pod={pod}
+                  isCloned={clonedPodIds.has(pod.id)}
+                />
+              ))}
         </div>
       </div>
     </div>

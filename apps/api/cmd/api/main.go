@@ -328,6 +328,7 @@ func main() {
 		Importer:             server.ProxmoxImport,
 		Service:              inventoryService,
 		Authz:                authzService,
+		DB:                   server.DBPool,
 		RouterTemplateItemID: routerTemplateItemID,
 	}
 	sdnHandler := &handlers.SDNHandler{

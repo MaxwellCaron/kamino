@@ -29,6 +29,10 @@ export type CreatePodResult = {
   }>
 }
 
+export type PodNameAvailability = {
+  available: boolean
+}
+
 export const createPodOptionsQueryOptions = {
   queryKey: ["pods", "create", "options"] as const,
   queryFn: async (): Promise<CreatePodOptions> => {
@@ -41,6 +45,23 @@ export const createPodOptionsQueryOptions = {
     }
     return res.json()
   },
+}
+
+export async function validatePodNameAvailability(
+  name: string,
+  signal?: AbortSignal
+): Promise<PodNameAvailability> {
+  const params = new URLSearchParams({ name })
+  const res = await apiFetch(
+    `/api/v1/pods/create/name-availability?${params.toString()}`,
+    { signal }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to validate pod name: ${res.status}`)
+  }
+
+  return res.json()
 }
 
 export async function createPod(

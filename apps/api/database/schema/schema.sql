@@ -41,6 +41,7 @@ CREATE TYPE inventory_request_power_action AS ENUM (
     'reboot',
     'stop'
 );
+CREATE TYPE published_pod_status AS ENUM ('listed', 'unlisted');
 
 -- ----------------------------------------------------------------------------
 -- Permission bit definitions (reference)
@@ -364,6 +365,125 @@ CREATE INDEX ix_inventory_requests_inventory_item_id
     ON inventory_requests (inventory_item_id);
 
 -- ----------------------------------------------------------------------------
+-- Published pod catalog
+-- ----------------------------------------------------------------------------
+CREATE TABLE published_pods (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title                   TEXT NOT NULL,
+    slug                    TEXT NOT NULL,
+    description             TEXT NOT NULL,
+    image_url               TEXT NOT NULL,
+    status                  published_pod_status NOT NULL DEFAULT 'listed',
+    source_folder_id        UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+    publisher_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    clone_count             INTEGER NOT NULL DEFAULT 0,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pods_title_not_empty
+        CHECK (length(trim(title)) > 0 AND length(title) <= 32),
+    CONSTRAINT published_pods_description_not_empty
+        CHECK (length(trim(description)) > 0 AND length(description) <= 128),
+    CONSTRAINT published_pods_image_url_not_empty
+        CHECK (length(trim(image_url)) > 0),
+    CONSTRAINT published_pods_slug_format
+        CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+    CONSTRAINT published_pods_clone_count_non_negative
+        CHECK (clone_count >= 0)
+);
+
+CREATE UNIQUE INDEX ux_published_pods_slug
+    ON published_pods (slug);
+
+CREATE INDEX ix_published_pods_status_created_at
+    ON published_pods (status, created_at DESC);
+
+CREATE INDEX ix_published_pods_source_folder_id
+    ON published_pods (source_folder_id);
+
+CREATE TABLE published_pod_creators (
+    pod_id        UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    sort_order    INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (pod_id, principal_id)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_creators_order
+    ON published_pod_creators (pod_id, sort_order);
+
+CREATE TABLE published_pod_audience (
+    pod_id        UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    sort_order    INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (pod_id, principal_id)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_audience_order
+    ON published_pod_audience (pod_id, sort_order);
+
+CREATE INDEX ix_published_pod_audience_principal
+    ON published_pod_audience (principal_id);
+
+CREATE TABLE published_pod_vms (
+    id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pod_id                    UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    source_inventory_item_id  UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+    name                      TEXT NOT NULL,
+    cpu_count                 INTEGER NOT NULL CHECK (cpu_count > 0),
+    memory_mb                 INTEGER NOT NULL CHECK (memory_mb > 0),
+    disk_gb                   NUMERIC(12,2) NOT NULL CHECK (disk_gb > 0),
+    allow_mask                BIGINT NOT NULL CHECK (allow_mask >= 0),
+    deny_mask                 BIGINT NOT NULL CHECK (deny_mask >= 0),
+    sort_order                INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pod_vms_name_not_empty
+        CHECK (length(trim(name)) > 0)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_vms_source
+    ON published_pod_vms (pod_id, source_inventory_item_id);
+
+CREATE UNIQUE INDEX ux_published_pod_vms_order
+    ON published_pod_vms (pod_id, sort_order);
+
+CREATE TABLE published_pod_tasks (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pod_id      UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    sort_order  INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pod_tasks_title_not_empty
+        CHECK (length(trim(title)) > 0 AND length(title) <= 64),
+    CONSTRAINT published_pod_tasks_content_not_empty
+        CHECK (length(trim(content)) > 0 AND length(content) <= 4096)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_tasks_order
+    ON published_pod_tasks (pod_id, sort_order);
+
+CREATE TABLE published_pod_task_questions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id         UUID NOT NULL REFERENCES published_pod_tasks(id) ON DELETE CASCADE,
+    title           TEXT NOT NULL,
+    answer_outline  TEXT NOT NULL,
+    description     TEXT NULL,
+    hint            TEXT NULL,
+    sort_order      INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pod_task_questions_title_not_empty
+        CHECK (length(trim(title)) > 0 AND length(title) <= 256),
+    CONSTRAINT published_pod_task_questions_answer_not_empty
+        CHECK (length(trim(answer_outline)) > 0 AND length(answer_outline) <= 256),
+    CONSTRAINT published_pod_task_questions_hint_length
+        CHECK (hint IS NULL OR length(hint) <= 256)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_task_questions_order
+    ON published_pod_task_questions (task_id, sort_order);
+
+-- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -398,6 +518,11 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_requests_set_updated_at
 BEFORE UPDATE ON requests
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_published_pods_set_updated_at
+BEFORE UPDATE ON published_pods
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -651,6 +776,69 @@ BEFORE UPDATE OF kind
 ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION inventory_validate_kind_change();
+
+-- ----------------------------------------------------------------------------
+-- Ensure published pod inventory references keep their expected item kinds
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION published_pods_validate_source_folder()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    item_kind inventory_item_kind;
+BEGIN
+    SELECT kind
+      INTO item_kind
+      FROM inventory_items
+     WHERE id = NEW.source_folder_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Published pod source folder does not exist';
+    END IF;
+
+    IF item_kind <> 'folder' THEN
+        RAISE EXCEPTION 'Published pod source must be a folder';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_published_pods_validate_source_folder
+BEFORE INSERT OR UPDATE OF source_folder_id
+ON published_pods
+FOR EACH ROW
+EXECUTE FUNCTION published_pods_validate_source_folder();
+
+CREATE OR REPLACE FUNCTION published_pod_vms_validate_source_vm()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    item_kind inventory_item_kind;
+BEGIN
+    SELECT kind
+      INTO item_kind
+      FROM inventory_items
+     WHERE id = NEW.source_inventory_item_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Published pod VM source does not exist';
+    END IF;
+
+    IF item_kind <> 'vm' THEN
+        RAISE EXCEPTION 'Published pod VM source must be a VM';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_published_pod_vms_validate_source_vm
+BEFORE INSERT OR UPDATE OF source_inventory_item_id
+ON published_pod_vms
+FOR EACH ROW
+EXECUTE FUNCTION published_pod_vms_validate_source_vm();
 
 -- ----------------------------------------------------------------------------
 -- Ensure group_memberships.group_id is actually a group

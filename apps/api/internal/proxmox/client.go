@@ -1071,6 +1071,19 @@ func maxInt(value, fallback int) int {
 	return value
 }
 
+// TaskProgress describes one observed Proxmox task status poll.
+type TaskProgress struct {
+	Node       string
+	UPID       string
+	Status     string
+	ExitStatus string
+	Elapsed    time.Duration
+}
+
+// TaskProgressFunc receives task status updates while a Proxmox task is
+// running. It must not block for long.
+type TaskProgressFunc func(TaskProgress)
+
 // CloneVM clones a VM and waits for the task to complete.
 func (c *Client) CloneVM(
 	ctx context.Context,
@@ -1080,6 +1093,21 @@ func (c *Client) CloneVM(
 	name string,
 	full bool,
 	target string,
+) error {
+	return c.CloneVMWithProgress(ctx, node, vmid, newid, name, full, target, nil)
+}
+
+// CloneVMWithProgress clones a VM and reports the polled Proxmox task state
+// until the task completes.
+func (c *Client) CloneVMWithProgress(
+	ctx context.Context,
+	node string,
+	vmid int,
+	newid int,
+	name string,
+	full bool,
+	target string,
+	onProgress TaskProgressFunc,
 ) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
@@ -1104,17 +1132,31 @@ func (c *Client) CloneVM(
 	if err := c.post(ctx, path, form, &resp); err != nil {
 		return fmt.Errorf("cloning VM: %w", err)
 	}
-	return c.waitForTask(ctx, taskNode, resp.Data)
+	return c.waitForTaskWithProgress(ctx, taskNode, resp.Data, onProgress)
 }
 
 // ConvertToTemplate converts a VM to a template.
 func (c *Client) ConvertToTemplate(ctx context.Context, node string, vmid int) error {
+	return c.ConvertToTemplateWithProgress(ctx, node, vmid, nil)
+}
+
+// ConvertToTemplateWithProgress converts a VM to a template and reports the
+// polled Proxmox task state until the conversion completes.
+func (c *Client) ConvertToTemplateWithProgress(
+	ctx context.Context,
+	node string,
+	vmid int,
+	onProgress TaskProgressFunc,
+) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/template", node, vmid)
-	var resp apiResponse[any]
-	return c.post(ctx, path, nil, &resp)
+	var resp apiResponse[string]
+	if err := c.post(ctx, path, nil, &resp); err != nil {
+		return fmt.Errorf("converting VM to template: %w", err)
+	}
+	return c.waitForTaskWithProgress(ctx, node, resp.Data, onProgress)
 }
 
 // GetSnapshots returns all snapshots for a VM.
@@ -1412,16 +1454,35 @@ func (c *Client) GetTaskStatus(ctx context.Context, node, upid string) (*TaskSta
 // context is cancelled, or the task fails. It returns nil only when the
 // task finishes with exitstatus == "OK".
 func (c *Client) waitForTask(ctx context.Context, node, upid string) error {
+	return c.waitForTaskWithProgress(ctx, node, upid, nil)
+}
+
+func (c *Client) waitForTaskWithProgress(
+	ctx context.Context,
+	node string,
+	upid string,
+	onProgress TaskProgressFunc,
+) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
+	startedAt := time.Now()
 
 	for {
 		status, err := c.GetTaskStatus(ctx, node, upid)
 		if err != nil {
 			return err
+		}
+		if onProgress != nil {
+			onProgress(TaskProgress{
+				Node:       node,
+				UPID:       upid,
+				Status:     status.Status,
+				ExitStatus: status.ExitStatus,
+				Elapsed:    time.Since(startedAt),
+			})
 		}
 		if status.Status == "stopped" {
 			if status.ExitStatus != "OK" {
