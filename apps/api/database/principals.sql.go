@@ -299,6 +299,37 @@ func (q *Queries) GetPrincipalProvider(ctx context.Context) (uuid.UUID, error) {
 	return id, err
 }
 
+const getPrincipalsByIDs = `-- name: GetPrincipalsByIDs :many
+SELECT id, principal_type
+FROM principals
+WHERE id = ANY($1::UUID[])
+`
+
+type GetPrincipalsByIDsRow struct {
+	ID            uuid.UUID     `json:"id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+}
+
+func (q *Queries) GetPrincipalsByIDs(ctx context.Context, ids []uuid.UUID) ([]GetPrincipalsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getPrincipalsByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPrincipalsByIDsRow
+	for rows.Next() {
+		var i GetPrincipalsByIDsRow
+		if err := rows.Scan(&i.ID, &i.PrincipalType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserGroups = `-- name: GetUserGroups :many
 SELECT p.id, p.principal_type, p.external_id, p.name, p.description
 FROM group_memberships gm

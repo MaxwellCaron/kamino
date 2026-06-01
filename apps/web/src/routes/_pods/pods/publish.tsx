@@ -81,6 +81,8 @@ function RouteComponent() {
             ? `${savedPod.title} updated in the catalog.`
             : `${savedPod.title} added to the catalog.`
         )
+
+        return savedPod
       }}
     />
   )

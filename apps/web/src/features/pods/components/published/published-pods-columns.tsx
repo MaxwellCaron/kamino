@@ -187,7 +187,7 @@ export function getPublishedPodsColumns({
               >
                 <IconDotsVertical className="text-muted-foreground" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>General</DropdownMenuLabel>
                   <DropdownMenuItem

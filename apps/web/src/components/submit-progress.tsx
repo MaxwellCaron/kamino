@@ -13,7 +13,7 @@ import {
 } from "@workspace/ui/components/empty"
 import { Progress } from "@workspace/ui/components/progress"
 import { cn } from "@workspace/ui/lib/utils"
-import type { ComponentProps, ComponentType, MouseEventHandler } from "react"
+import type { ComponentType, MouseEventHandler } from "react"
 import { getCloneStepColors } from "@/features/pods/types/clone-status"
 
 export type PodSubmitProgressStep<TStepId extends number = number> = {
@@ -27,13 +27,23 @@ export type PodSubmitProgressSteps<TStepId extends number = number> = readonly [
   ...Array<PodSubmitProgressStep<TStepId>>,
 ]
 
-export type PodSubmitAction = {
+type PodSubmitActionBase = {
   icon: ComponentType<{ className?: string; "data-icon"?: string }>
   label: string
   onClick?: MouseEventHandler<HTMLAnchorElement>
-  to: ComponentProps<typeof Link>["to"]
-  variant?: "default" | "secondary"
+  variant?: "default" | "secondary" | "outline"
 }
+
+type PodSubmitStaticAction = PodSubmitActionBase & {
+  to: "/" | "/pods/create" | "/pods/published"
+}
+
+type PodSubmitPodAction = PodSubmitActionBase & {
+  params: { podSlug: string }
+  to: "/pods/$podSlug"
+}
+
+export type PodSubmitAction = PodSubmitStaticAction | PodSubmitPodAction
 
 type PodSubmitProgressStateProps<TStepId extends number> = {
   detail?: string
@@ -188,15 +198,31 @@ function PodSubmitActions({ actions }: { actions: Array<PodSubmitAction> }) {
     <EmptyContent className="flex-row justify-center gap-3">
       {actions.map((action) => {
         const Icon = action.icon
+        const className = `${buttonVariants({
+          variant: action.variant ?? "default",
+        })} cursor-default`
+
+        if (action.to === "/pods/$podSlug") {
+          return (
+            <Link
+              key={`${action.to}-${action.label}`}
+              to="/pods/$podSlug"
+              params={action.params}
+              onClick={action.onClick}
+              className={className}
+            >
+              <Icon data-icon="inline-start" />
+              {action.label}
+            </Link>
+          )
+        }
 
         return (
           <Link
             key={`${action.to}-${action.label}`}
             to={action.to}
             onClick={action.onClick}
-            className={`${buttonVariants({
-              variant: action.variant ?? "default",
-            })} cursor-default`}
+            className={className}
           >
             <Icon data-icon="inline-start" />
             {action.label}

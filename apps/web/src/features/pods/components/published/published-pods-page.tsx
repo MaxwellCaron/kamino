@@ -5,8 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   IconCubePlus,
   IconCubeSend,
-  IconPackages,
-  IconPlus,
   IconTrash,
 } from "@tabler/icons-react"
 import {
@@ -27,8 +25,8 @@ import {
 import {
   Empty,
   EmptyContent,
+  EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { PublishedPodsStatCards } from "./published-pods-stat-cards"
@@ -143,17 +141,17 @@ export function PublishedPodsPage() {
             <CardAction className="flex gap-2">
               <Link
                 to="/pods/create"
-                className={`${buttonVariants()} cursor-default`}
+                className={`${buttonVariants({ variant: "outline" })} cursor-default`}
               >
                 <IconCubePlus data-icon="inline-start" />
-                New Pod
+                Create
               </Link>
               <Link
                 to="/pods/publish"
                 className={`${buttonVariants()} cursor-default`}
               >
                 <IconCubeSend data-icon="inline-start" />
-                Publish Pod
+                Publish
               </Link>
             </CardAction>
           </CardHeader>
@@ -181,23 +179,26 @@ export function PublishedPodsPage() {
                 showSelectionSummary={false}
               />
             ) : (
-              <Empty className="mx-6 border border-dashed">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconPackages />
-                  </EmptyMedia>
-                  <EmptyTitle>No published pods yet</EmptyTitle>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Link
-                    to="/pods/publish"
-                    className={`${buttonVariants()} cursor-default`}
-                  >
-                    <IconPlus data-icon="inline-start" />
-                    Create Pod
-                  </Link>
-                </EmptyContent>
-              </Empty>
+              <div className="px-6">
+                <Empty className="min-h-[55vh] bg-muted/50">
+                  <EmptyHeader>
+                    <EmptyTitle>No published pods yet</EmptyTitle>
+                    <EmptyDescription>
+                      You haven&apos;t published any pods yet. Get started by
+                      creating and publishing your first pod.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Link
+                      to="/pods/publish"
+                      className={`${buttonVariants()} cursor-default`}
+                    >
+                      <IconCubeSend data-icon="inline-start" />
+                      Publish
+                    </Link>
+                  </EmptyContent>
+                </Empty>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -233,7 +234,7 @@ export function PublishedPodsPage() {
                 deleteMutation.mutate(pendingDeletePod.id)
               }}
             >
-              Delete Entry
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AppAlertDialogContent>

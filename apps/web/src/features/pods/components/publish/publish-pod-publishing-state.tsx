@@ -49,11 +49,7 @@ const PUBLISH_POD_STEPS = [
   ...Array<PodSubmitProgressStep<PublishPodStepId>>,
 ]
 
-function PublishingState({
-  progress,
-}: {
-  progress?: PublishPodProgress
-}) {
+function PublishingState({ progress }: { progress?: PublishPodProgress }) {
   const stepId = getPublishProgressStepId(progress) ?? 1
 
   return (
@@ -76,7 +72,7 @@ function UpdatingState() {
   )
 }
 
-function SuccessState() {
+function SuccessState({ podSlug }: { podSlug: string }) {
   return (
     <PodSubmitSuccessState
       title="Published"
@@ -86,12 +82,13 @@ function SuccessState() {
           icon: IconListDetails,
           label: "View Catalog",
           to: "/pods/published",
-          variant: "secondary",
+          variant: "outline",
         },
         {
           icon: IconBox,
           label: "View Pod",
-          to: "/pods/publish",
+          to: "/pods/$podSlug",
+          params: { podSlug },
         },
       ]}
     />
@@ -116,9 +113,11 @@ function ErrorState() {
 }
 
 export function PublishPodSubmitState({
+  podSlug,
   progress,
   state,
 }: {
+  podSlug: string | null
   progress?: PublishPodProgress
   state: PublishPodSubmitStatus
 }) {
@@ -128,7 +127,12 @@ export function PublishPodSubmitState({
     case "updating":
       return <UpdatingState />
     case "success":
-      return <SuccessState />
+      if (!podSlug) {
+        throw new Error(
+          "Published Pod slug is required after successful submit"
+        )
+      }
+      return <SuccessState podSlug={podSlug} />
     case "error":
       return <ErrorState />
   }
@@ -172,7 +176,10 @@ function getPublishProgressValue(progress: PublishPodProgress | undefined) {
 function getPublishProgressDetail(progress: PublishPodProgress | undefined) {
   if (!progress?.message) return undefined
 
-  if ((progress.step_id === 3 || progress.step_id === 4) && progress.total_vms) {
+  if (
+    (progress.step_id === 3 || progress.step_id === 4) &&
+    progress.total_vms
+  ) {
     return `${progress.message} ${Math.min(
       progress.completed_vms,
       progress.total_vms

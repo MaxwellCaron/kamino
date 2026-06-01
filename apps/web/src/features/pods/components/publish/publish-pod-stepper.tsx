@@ -38,7 +38,7 @@ export const steps = [
   {
     value: "virtual-machines",
     title: "VMs",
-    fields: ["source_folder"] as const,
+    fields: ["source_folder", "virtual_machines"] as const,
   },
   {
     value: "tasks",

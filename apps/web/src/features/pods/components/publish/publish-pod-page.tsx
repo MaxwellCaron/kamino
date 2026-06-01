@@ -12,7 +12,11 @@ import {
 } from "./publish-pod-form"
 import { PublishPodTasksStep } from "./publish-pod-4-tasks"
 import { PublishPodPreviewStep } from "./publish-pod-5-preview"
-import { PublishPodStepper, defaultPublishPodStep } from "./publish-pod-stepper"
+import {
+  PublishPodStepper,
+  defaultPublishPodStep,
+  steps,
+} from "./publish-pod-stepper"
 import { PublishPodSubmitState } from "./publish-pod-publishing-state"
 import type { PublishPodStep } from "./publish-pod-stepper"
 import type {
@@ -41,16 +45,19 @@ type PublishPodFormState = "form" | PublishPodSubmitStatus
 type PublishPodSubmitOptions = {
   progressId: string
 }
+type PublishPodSubmitResult = {
+  slug: string
+}
 type PublishPodValidationErrors = Awaited<
   ReturnType<PublishPodFormApi["validate"]>
 >
 
 type PublishPodPageProps = {
   initialValues?: PublishPodFormValues
-  onSubmit?: (
+  onSubmit: (
     values: PublishPodFormValues,
     options: PublishPodSubmitOptions
-  ) => Promise<void> | void
+  ) => Promise<PublishPodSubmitResult> | PublishPodSubmitResult
   pendingSubmitState?: PublishPodPendingStatus
   submitLabel?: string
 }
@@ -65,6 +72,7 @@ export function PublishPodPage({
   const [submitState, setSubmitState] =
     React.useState<PublishPodFormState>("form")
   const [progressId, setProgressId] = React.useState<string | null>(null)
+  const [savedPodSlug, setSavedPodSlug] = React.useState<string | null>(null)
   const [submitCompleted, setSubmitCompleted] = React.useState(false)
   const onSubmitRef = React.useRef(onSubmit)
   const defaultValues = React.useMemo(
@@ -78,14 +86,15 @@ export function PublishPodPage({
   const handleValidatedSubmit = React.useCallback(
     (values: PublishPodFormValues) => {
       const nextProgressId = uuid()
-      let submitPromise: Promise<unknown>
+      let submitPromise: Promise<PublishPodSubmitResult>
 
       setProgressId(nextProgressId)
+      setSavedPodSlug(null)
       setSubmitCompleted(false)
 
       try {
         submitPromise = Promise.resolve(
-          onSubmitRef.current?.(values, { progressId: nextProgressId })
+          onSubmitRef.current(values, { progressId: nextProgressId })
         )
       } catch {
         setSubmitState("error")
@@ -94,7 +103,8 @@ export function PublishPodPage({
 
       setSubmitState(pendingSubmitState)
       void submitPromise
-        .then(() => {
+        .then((result) => {
+          setSavedPodSlug(result.slug)
           if (pendingSubmitState === "updating") {
             setSubmitState("success")
             return
@@ -192,18 +202,7 @@ export function PublishPodPage({
   }, [form])
 
   const getSubmitFieldPaths = React.useCallback(() => {
-    const fields: Array<PublishPodFieldPath> = [
-      "title",
-      "description",
-      "image",
-      "creators",
-      "status",
-      "audience",
-      "source_folder",
-      "virtual_machines",
-      "tasks",
-    ]
-
+    const fields = steps.flatMap((s) => s.fields) as Array<PublishPodFieldPath>
     return [...fields, ...getTaskFieldPaths()]
   }, [getTaskFieldPaths])
 
@@ -215,20 +214,7 @@ export function PublishPodPage({
           fields.some((field) => key === field || key.startsWith(`${field}[`))
         )
 
-      if (hasErrorFor(["title", "description", "image", "creators"])) {
-        return "personalize"
-      }
-      if (hasErrorFor(["status", "audience"])) {
-        return "access"
-      }
-      if (hasErrorFor(["source_folder", "virtual_machines"])) {
-        return "virtual-machines"
-      }
-      if (hasErrorFor(["tasks"])) {
-        return "tasks"
-      }
-
-      return "preview"
+      return steps.find((s) => hasErrorFor(s.fields))?.value ?? "preview"
     },
     []
   )
@@ -259,62 +245,22 @@ export function PublishPodPage({
   ])
 
   const validateStep = React.useCallback(async () => {
-    const invalidateCurrentStep = (fields: Array<PublishPodFieldPath>) => {
-      const isValid = !hasFieldErrors(fields)
+    const fields = (steps.find((s) => s.value === step)?.fields ??
+      []) as Array<PublishPodFieldPath>
 
-      if (!isValid) {
-        markFieldsTouched(fields)
-      }
-
-      return isValid
-    }
-
-    if (step === "personalize") {
-      const fields = [
-        "title",
-        "description",
-        "image",
-        "creators",
-      ] satisfies Array<PublishPodFieldPath>
-
-      await Promise.all([
-        form.validateField("title", "submit"),
-        form.validateField("description", "submit"),
-        form.validateField("image", "submit"),
-        form.validateField("creators", "submit"),
-      ])
-
-      return invalidateCurrentStep(fields)
-    }
-
-    if (step === "access") {
-      const fields = ["audience"] satisfies Array<PublishPodFieldPath>
-
-      await Promise.all([
-        form.validateField("status", "submit"),
-        form.validateField("audience", "submit"),
-      ])
-
-      return invalidateCurrentStep(fields)
-    }
-
-    if (step === "virtual-machines") {
-      const fields = ["source_folder"] satisfies Array<PublishPodFieldPath>
-
-      await Promise.all([form.validateField("source_folder", "submit")])
-
-      return invalidateCurrentStep(fields)
-    }
+    await Promise.all(fields.map((field) => form.validateField(field, "submit")))
 
     if (step === "tasks") {
-      await form.validateField("tasks", "submit")
-
       const tasks = form.getFieldValue("tasks")
       if (tasks.length > 0) {
         await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
       }
+    }
 
-      return invalidateCurrentStep(getTaskFieldPaths())
+    const blockingFields = step === "tasks" ? getTaskFieldPaths() : fields
+    if (hasFieldErrors(blockingFields)) {
+      markFieldsTouched(blockingFields)
+      return false
     }
 
     return true
@@ -343,6 +289,7 @@ export function PublishPodPage({
       <div className="@container/main relative flex flex-1 flex-col">
         <PublishPodSubmitState
           state={submitState}
+          podSlug={savedPodSlug}
           progress={
             submitState === "publishing"
               ? publishProgressQuery.data

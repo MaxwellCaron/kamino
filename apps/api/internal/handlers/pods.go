@@ -952,10 +952,6 @@ func (h *PodsHandler) savePublishedPod(
 				Err:         err,
 			}
 		}
-
-		if err := h.replacePublishedPodChildren(ctx, q, normalized); err != nil {
-			return publishedPodResponse{}, err
-		}
 	} else {
 		if _, err := q.CreatePublishedPod(ctx, database.CreatePublishedPodParams{
 			ID:                   normalized.ID,
@@ -974,10 +970,10 @@ func (h *PodsHandler) savePublishedPod(
 				Err:         err,
 			}
 		}
+	}
 
-		if err := h.replacePublishedPodChildren(ctx, q, normalized); err != nil {
-			return publishedPodResponse{}, err
-		}
+	if err := h.replacePublishedPodChildren(ctx, q, normalized); err != nil {
+		return publishedPodResponse{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1113,11 +1109,12 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		return normalizedPublishPodRequest{}, invalidPublishPod("source folder is not available")
 	}
 
-	creatorIDs, reqErr := normalizePrincipalRequests(ctx, database.New(h.DB), req.Creators, 1, 5, "creator")
+	principalQ := database.New(h.DB)
+	creatorIDs, reqErr := normalizePrincipalRequests(ctx, principalQ, req.Creators, 1, 5, "creator")
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}
-	audienceIDs, reqErr := normalizePrincipalRequests(ctx, database.New(h.DB), req.Audience, 0, 1<<31-1, "audience")
+	audienceIDs, reqErr := normalizePrincipalRequests(ctx, principalQ, req.Audience, 0, 1<<31-1, "audience")
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}
@@ -1368,6 +1365,7 @@ func normalizePrincipalRequests(
 
 	seen := make(map[uuid.UUID]struct{}, len(principals))
 	ids := make([]uuid.UUID, 0, len(principals))
+	wantTypes := make(map[uuid.UUID]string, len(principals))
 	for _, principal := range principals {
 		principalID, err := uuid.Parse(principal.ID)
 		if err != nil {
@@ -1376,26 +1374,38 @@ func normalizePrincipalRequests(
 		if _, ok := seen[principalID]; ok {
 			continue
 		}
-		row, err := q.GetPrincipalByID(ctx, principalID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, invalidPublishPod("principal not found")
-		}
-		if err != nil {
-			return nil, &requestError{
-				Status:      http.StatusInternalServerError,
-				UserMessage: "failed to validate principals",
-				Operation:   "validate published pod principal",
-				Err:         err,
-			}
-		}
-		if principal.Type != "" && principal.Type != string(row.PrincipalType) {
-			return nil, invalidPublishPod("principal type does not match")
-		}
 		seen[principalID] = struct{}{}
 		ids = append(ids, principalID)
+		wantTypes[principalID] = principal.Type
 	}
 	if len(ids) < minCount {
 		return nil, invalidPublishPod(fmt.Sprintf("add at least %d %s", minCount, label))
+	}
+	if len(ids) == 0 {
+		return ids, nil
+	}
+
+	rows, err := q.GetPrincipalsByIDs(ctx, ids)
+	if err != nil {
+		return nil, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to validate principals",
+			Operation:   "validate published pod principals",
+			Err:         err,
+		}
+	}
+	gotTypes := make(map[uuid.UUID]database.PrincipalType, len(rows))
+	for _, row := range rows {
+		gotTypes[row.ID] = row.PrincipalType
+	}
+	for _, id := range ids {
+		principalType, ok := gotTypes[id]
+		if !ok {
+			return nil, invalidPublishPod("principal not found")
+		}
+		if want := wantTypes[id]; want != "" && want != string(principalType) {
+			return nil, invalidPublishPod("principal type does not match")
+		}
 	}
 
 	return ids, nil
