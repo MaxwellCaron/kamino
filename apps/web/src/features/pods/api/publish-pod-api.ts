@@ -21,9 +21,6 @@ export type PublishPodProgress = {
   id: string
   state: "running" | "success" | "error"
   step_id: number
-  total_vms: number
-  completed_vms: number
-  current_vm_name?: string
   message: string
   updated_at: string
 }

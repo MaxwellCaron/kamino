@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -22,11 +24,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	podsFolderName               = "Pods"
 	publishedPodSourceFolderName = "Source"
+
+	// publishCloneConcurrency bounds how many source VMs are cloned at once.
+	publishCloneConcurrency = 2
 )
 
 type PodsHandler struct {
@@ -416,13 +422,8 @@ func (h *PodsHandler) SavePublished(c *gin.Context) {
 		return
 	}
 
-	progress := newPublishPodProgressReporter(c.Query("progress_id"), len(req.VirtualMachines))
-	progress.update(
-		publishProgressStepValidating,
-		0,
-		"",
-		"Checking the selected Pod folder and source virtual machines.",
-	)
+	progress := newPublishPodProgressReporter(c.Query("progress_id"))
+	progress.set(publishProgressStepValidating, "Checking the selected Pod folder and source virtual machines.")
 
 	pathID := uuid.Nil
 	if c.Param("id") != "" {
@@ -751,13 +752,26 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	createdVMs := make([]createPodVMResponse, 0, len(specs))
-	for _, spec := range specs {
-		created, reqErr := h.cloneTemplateIntoPod(c.Request.Context(), principalID, podFolderID, spec)
-		if reqErr != nil {
-			writeRequestError(c, reqErr)
+	if len(specs) > 0 {
+		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), podFolderID)
+		if err != nil {
+			writeInventoryError(c, err)
 			return
 		}
-		createdVMs = append(createdVMs, created)
+		targetNode, err := h.resolveCloneTargetNode(c.Request.Context())
+		if err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to resolve target node", "resolve pod clone target node", err)
+			return
+		}
+
+		for _, spec := range specs {
+			created, reqErr := h.cloneTemplateIntoPod(c.Request.Context(), principalID, placement, targetNode, spec)
+			if reqErr != nil {
+				writeRequestError(c, reqErr)
+				return
+			}
+			createdVMs = append(createdVMs, created)
+		}
 	}
 
 	c.JSON(http.StatusOK, createPodResponse{
@@ -905,12 +919,7 @@ func (h *PodsHandler) savePublishedPod(
 		}
 	}
 
-	progress.update(
-		publishProgressStepSaving,
-		len(normalized.VirtualMachines),
-		"",
-		"Writing the published Pod metadata to the catalog.",
-	)
+	progress.set(publishProgressStepSaving, "Writing the published Pod metadata to the catalog.")
 
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
@@ -1535,12 +1544,7 @@ func (h *PodsHandler) preparePublishedPodSourceTemplates(
 		return nil, reqErr
 	}
 
-	progress.update(
-		publishProgressStepPreparing,
-		0,
-		"",
-		"Creating or finding the Source folder inside the selected Pod folder.",
-	)
+	progress.set(publishProgressStepPreparing, "Creating or finding the Source folder inside the selected Pod folder.")
 
 	sourceTemplateFolderID, err := h.Service.EnsureChildFolder(
 		ctx,
@@ -1579,188 +1583,211 @@ func (h *PodsHandler) preparePublishedPodSourceTemplates(
 		}
 	}
 
-	clones := make([]publishedSourceClone, 0, len(req.VirtualMachines))
-	for vmIndex, vm := range req.VirtualMachines {
-		progress.update(
-			publishProgressStepCloning,
-			vmIndex,
-			vm.Name,
-			fmt.Sprintf("Full cloning %s into the Source folder.", vm.Name),
-		)
-
-		clone, reqErr := h.clonePublishedSourceVM(
-			ctx,
-			principalID,
-			placement,
-			targetNode,
-			vm,
-			progress,
-			vmIndex,
-		)
-		if reqErr != nil {
-			return nil, reqErr
-		}
-		clones = append(clones, clone)
-
-		progress.update(
-			publishProgressStepCloning,
-			vmIndex+1,
-			vm.Name,
-			fmt.Sprintf("Finished full cloning %s.", vm.Name),
-		)
-	}
-
-	prepared := make([]normalizedPublishPodVM, 0, len(clones))
-	for cloneIndex, clone := range clones {
-		progress.update(
-			publishProgressStepTemplating,
-			cloneIndex,
-			clone.VM.Name,
-			fmt.Sprintf("Converting %s into a template.", clone.VM.Name),
-		)
-
-		if reqErr := h.convertPublishedSourceCloneToTemplate(ctx, clone, progress, cloneIndex); reqErr != nil {
-			return nil, reqErr
-		}
-
-		vm := clone.VM
-		vm.SourceInventoryItemID = clone.InventoryItemID
-		prepared = append(prepared, vm)
-
-		progress.update(
-			publishProgressStepTemplating,
-			cloneIndex+1,
-			clone.VM.Name,
-			fmt.Sprintf("Finished converting %s into a template.", clone.VM.Name),
-		)
+	prepared, reqErr := h.cloneSourceVMsIntoTemplates(ctx, principalID, placement, targetNode, req.VirtualMachines, progress)
+	if reqErr != nil {
+		return nil, reqErr
 	}
 
 	return prepared, nil
 }
 
-type publishedSourceClone struct {
-	VM              normalizedPublishPodVM
+// cloneSourceVMsIntoTemplates clones each source VM into the Source folder and
+// converts it to a template, a few at a time, cleaning up on any failure.
+func (h *PodsHandler) cloneSourceVMsIntoTemplates(
+	ctx context.Context,
+	principalID uuid.UUID,
+	placement inventory.FolderPlacement,
+	targetNode string,
+	vms []normalizedPublishPodVM,
+	progress *publishPodProgressReporter,
+) ([]normalizedPublishPodVM, *requestError) {
+	prepared := make([]normalizedPublishPodVM, len(vms))
+
+	// allocate serializes VMID allocation; created tracks clones for cleanup.
+	var allocate sync.Mutex
+	created := make(map[int]clonedVM, len(vms))
+	var createdMu sync.Mutex
+
+	group, gctx := errgroup.WithContext(ctx)
+	group.SetLimit(publishCloneConcurrency)
+
+	for i, vm := range vms {
+		group.Go(func() error {
+			progress.set(publishProgressStepCloning, "Cloning "+vm.Name)
+			clone, reqErr := h.cloneVMIntoFolder(gctx, principalID, vm.SourceInventoryItemID, placement, targetNode, vm.Name, true, cloneVMOptions{
+				allocate: &allocate,
+				onStarted: func(node string, vmid int) {
+					createdMu.Lock()
+					created[vmid] = clonedVM{TargetNode: node, VMID: vmid}
+					createdMu.Unlock()
+				},
+			})
+			if reqErr != nil {
+				return reqErr
+			}
+			createdMu.Lock()
+			created[clone.VMID] = clone
+			createdMu.Unlock()
+
+			progress.set(publishProgressStepCloning, "Converting "+vm.Name+" to a template")
+			if reqErr := h.convertCloneToTemplate(gctx, clone); reqErr != nil {
+				return reqErr
+			}
+
+			out := vm
+			out.SourceInventoryItemID = clone.InventoryItemID
+			prepared[i] = out
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		h.cleanupPublishClones(created)
+		var reqErr *requestError
+		if errors.As(err, &reqErr) {
+			return nil, reqErr
+		}
+		return nil, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to clone source VMs",
+			Operation:   "clone published pod source VMs",
+			Err:         err,
+		}
+	}
+
+	return prepared, nil
+}
+
+type clonedVM struct {
+	SourceItemID    uuid.UUID
 	InventoryItemID uuid.UUID
 	TargetNode      string
 	VMID            int
 }
 
-func (h *PodsHandler) clonePublishedSourceVM(
+// cloneVMOptions holds optional concurrency/cleanup hooks; the zero value is the
+// sequential, untracked case.
+type cloneVMOptions struct {
+	allocate  *sync.Mutex
+	onStarted func(node string, vmid int)
+}
+
+// cloneVMIntoFolder authorizes the source, clones it into the folder, stamps a
+// fresh identity, syncs pool membership, and imports it into the inventory.
+func (h *PodsHandler) cloneVMIntoFolder(
 	ctx context.Context,
 	principalID uuid.UUID,
+	sourceItemID uuid.UUID,
 	placement inventory.FolderPlacement,
 	targetNode string,
-	vm normalizedPublishPodVM,
-	progress *publishPodProgressReporter,
-	completedBeforeClone int,
-) (publishedSourceClone, *requestError) {
+	name string,
+	full bool,
+	opts cloneVMOptions,
+) (clonedVM, *requestError) {
 	source, reqErr := resolveVerifiedVMItemPermission(
 		ctx,
 		h.Authz,
 		h.PX,
 		principalID,
-		vm.SourceInventoryItemID,
+		sourceItemID,
 		authorization.CloneVM,
 		true,
 	)
 	if reqErr != nil {
-		return publishedSourceClone{}, reqErr
+		return clonedVM{}, reqErr
 	}
 
-	newID, err := h.PX.GetNextVMID(ctx)
-	if err != nil {
-		return publishedSourceClone{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to fetch next VMID",
-			Operation:   "fetch published pod source clone vmid",
-			Err:         err,
-		}
+	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts.allocate)
+	if reqErr != nil {
+		return clonedVM{}, reqErr
+	}
+	if opts.onStarted != nil {
+		opts.onStarted(targetNode, newID)
 	}
 
-	if err := h.PX.CloneVMWithProgress(
-		ctx,
-		source.Node,
-		source.VMID,
-		newID,
-		vm.Name,
-		true,
-		targetNode,
-		func(task proxmox.TaskProgress) {
-			if task.Status != "running" {
-				return
-			}
-			progress.update(
-				publishProgressStepCloning,
-				completedBeforeClone,
-				vm.Name,
-				fmt.Sprintf("Proxmox is full cloning %s (%s elapsed).", vm.Name, formatTaskElapsed(task.Elapsed)),
-			)
-		},
-	); err != nil {
-		return publishedSourceClone{}, &requestError{
+	if err := h.PX.WaitForTask(ctx, task.Node, task.UPID); err != nil {
+		return clonedVM{}, &requestError{
 			Status:      http.StatusBadGateway,
-			UserMessage: "failed to clone source VM",
-			Operation:   "clone published pod source VM",
+			UserMessage: "failed to clone VM",
+			Operation:   "clone pod VM",
 			Err:         err,
 		}
 	}
 	if err := h.PX.SetVMUpstreamUUID(ctx, targetNode, newID, uuid.New()); err != nil {
-		return publishedSourceClone{}, &requestError{
+		return clonedVM{}, &requestError{
 			Status:      http.StatusBadGateway,
-			UserMessage: "failed to assign source clone identity",
-			Operation:   "assign published pod source clone identity",
+			UserMessage: "failed to assign clone identity",
+			Operation:   "assign pod clone identity",
 			Err:         err,
 		}
 	}
 	if err := h.PX.SyncVMPoolMembership(ctx, targetNode, newID, placement.PoolID, placement.Path); err != nil {
-		return publishedSourceClone{}, &requestError{
+		return clonedVM{}, &requestError{
 			Status:      http.StatusBadGateway,
-			UserMessage: "failed to sync source clone pool membership",
-			Operation:   "sync published pod source clone pool membership",
+			UserMessage: "failed to sync VM pool membership",
+			Operation:   "sync pod clone pool membership",
 			Err:         err,
 		}
 	}
 
 	clonedItemID, err := h.Importer.SyncVM(ctx, placement.FolderID, targetNode, newID)
 	if err != nil {
-		return publishedSourceClone{}, &requestError{
+		return clonedVM{}, &requestError{
 			Status:      http.StatusInternalServerError,
-			UserMessage: "source VM cloned in Proxmox but failed to sync inventory metadata",
-			Operation:   "sync published pod source clone inventory metadata",
+			UserMessage: "vm cloned in Proxmox but failed to sync inventory metadata",
+			Operation:   "sync pod clone inventory metadata",
 			Err:         err,
 		}
 	}
 
-	return publishedSourceClone{
-		VM:              vm,
+	return clonedVM{
+		SourceItemID:    sourceItemID,
 		InventoryItemID: clonedItemID,
 		TargetNode:      targetNode,
 		VMID:            newID,
 	}, nil
 }
 
-func (h *PodsHandler) convertPublishedSourceCloneToTemplate(
+// startVMClone allocates a VMID and starts the clone; holding allocate (when set)
+// across both keeps concurrent callers from grabbing the same nextid.
+func (h *PodsHandler) startVMClone(
 	ctx context.Context,
-	clone publishedSourceClone,
-	progress *publishPodProgressReporter,
-	completedBeforeTemplate int,
-) *requestError {
-	if err := h.PX.ConvertToTemplateWithProgress(
-		ctx,
-		clone.TargetNode,
-		clone.VMID,
-		func(task proxmox.TaskProgress) {
-			if task.Status != "running" {
-				return
-			}
-			progress.update(
-				publishProgressStepTemplating,
-				completedBeforeTemplate,
-				clone.VM.Name,
-				fmt.Sprintf("Proxmox is converting %s into a template (%s elapsed).", clone.VM.Name, formatTaskElapsed(task.Elapsed)),
-			)
-		},
-	); err != nil {
+	source verifiedVMTarget,
+	targetNode string,
+	name string,
+	full bool,
+	allocate *sync.Mutex,
+) (proxmox.CloneTask, int, *requestError) {
+	if allocate != nil {
+		allocate.Lock()
+		defer allocate.Unlock()
+	}
+
+	newID, err := h.PX.GetNextVMID(ctx)
+	if err != nil {
+		return proxmox.CloneTask{}, 0, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to fetch next VMID",
+			Operation:   "fetch pod clone vmid",
+			Err:         err,
+		}
+	}
+
+	task, err := h.PX.StartCloneVM(ctx, source.Node, source.VMID, newID, name, full, targetNode)
+	if err != nil {
+		return proxmox.CloneTask{}, 0, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to clone VM",
+			Operation:   "start pod clone",
+			Err:         err,
+		}
+	}
+
+	return task, newID, nil
+}
+
+func (h *PodsHandler) convertCloneToTemplate(ctx context.Context, clone clonedVM) *requestError {
+	if err := h.PX.ConvertToTemplate(ctx, clone.TargetNode, clone.VMID); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to convert source clone to template",
@@ -1768,13 +1795,6 @@ func (h *PodsHandler) convertPublishedSourceCloneToTemplate(
 			Err:         err,
 		}
 	}
-
-	progress.update(
-		publishProgressStepTemplating,
-		completedBeforeTemplate,
-		clone.VM.Name,
-		fmt.Sprintf("Updating template metadata for %s.", clone.VM.Name),
-	)
 
 	if err := h.Service.UpdateInventoryVMIsTemplate(ctx, clone.InventoryItemID); err != nil {
 		return &requestError{
@@ -1788,6 +1808,28 @@ func (h *PodsHandler) convertPublishedSourceCloneToTemplate(
 	h.Service.NotifyInventoryChanged(ctx, clone.InventoryItemID)
 
 	return nil
+}
+
+// cleanupPublishClones best-effort deletes clones from a failed publish, using a
+// fresh context since the publish context is usually already cancelled.
+func (h *PodsHandler) cleanupPublishClones(created map[int]clonedVM) {
+	if len(created) == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for _, clone := range created {
+		if err := h.PX.DeleteVM(ctx, clone.TargetNode, clone.VMID); err != nil {
+			log.Printf("publish cleanup: failed to delete Proxmox VM %d on %s: %v", clone.VMID, clone.TargetNode, err)
+		}
+		if clone.InventoryItemID != uuid.Nil {
+			if err := h.Service.DeleteInventoryVM(ctx, clone.InventoryItemID); err != nil {
+				log.Printf("publish cleanup: failed to delete inventory item %s: %v", clone.InventoryItemID, err)
+			}
+		}
+	}
 }
 
 func requireInventoryPermissionRequest(
@@ -2231,22 +2273,10 @@ func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, err
 func (h *PodsHandler) cloneTemplateIntoPod(
 	ctx context.Context,
 	principalID uuid.UUID,
-	podFolderID uuid.UUID,
+	placement inventory.FolderPlacement,
+	targetNode string,
 	spec podCloneSpec,
 ) (createPodVMResponse, *requestError) {
-	source, reqErr := resolveVerifiedVMItemPermission(
-		ctx,
-		h.Authz,
-		h.PX,
-		principalID,
-		spec.TemplateItemID,
-		authorization.CloneVM,
-		true,
-	)
-	if reqErr != nil {
-		return createPodVMResponse{}, reqErr
-	}
-
 	item, err := h.Service.GetInventoryItemByID(ctx, spec.TemplateItemID)
 	switch {
 	case err == nil:
@@ -2267,70 +2297,13 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 		}
 	}
 
-	placement, err := h.Service.ResolveFolderPlacement(ctx, podFolderID)
-	if err != nil {
-		return createPodVMResponse{}, inventoryRequestError(err)
-	}
-
-	targetNode, err := h.resolveCloneTargetNode(ctx)
-	if err != nil {
-		return createPodVMResponse{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to resolve target node",
-			Operation:   "resolve pod clone target node",
-			Err:         err,
-		}
-	}
-
-	newID, err := h.PX.GetNextVMID(ctx)
-	if err != nil {
-		return createPodVMResponse{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to fetch next VMID",
-			Operation:   "fetch pod clone vmid",
-			Err:         err,
-		}
-	}
-
-	if err := h.PX.CloneVM(ctx, source.Node, source.VMID, newID, spec.Name, false, targetNode); err != nil {
-		return createPodVMResponse{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to clone VM",
-			Operation:   "clone pod template",
-			Err:         err,
-		}
-	}
-
-	if err := h.PX.SetVMUpstreamUUID(ctx, targetNode, newID, uuid.New()); err != nil {
-		return createPodVMResponse{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to assign clone identity",
-			Operation:   "assign pod clone identity",
-			Err:         err,
-		}
-	}
-
-	if err := h.PX.SyncVMPoolMembership(ctx, targetNode, newID, placement.PoolID, placement.Path); err != nil {
-		return createPodVMResponse{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to sync VM pool membership",
-			Operation:   "sync pod clone pool membership",
-			Err:         err,
-		}
-	}
-
-	clonedItemID, err := h.Importer.SyncVM(ctx, placement.FolderID, targetNode, newID)
-	if err != nil {
-		return createPodVMResponse{}, &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "vm cloned in Proxmox but failed to sync inventory metadata",
-			Operation:   "sync pod clone inventory metadata",
-			Err:         err,
-		}
+	clone, reqErr := h.cloneVMIntoFolder(ctx, principalID, spec.TemplateItemID, placement, targetNode, spec.Name, false, cloneVMOptions{})
+	if reqErr != nil {
+		return createPodVMResponse{}, reqErr
 	}
 
 	if spec.Hardware != nil {
-		if err := h.applyCloneHardware(ctx, targetNode, newID, clonedItemID, *spec.Hardware); err != nil {
+		if err := h.applyCloneHardware(ctx, targetNode, clone.VMID, clone.InventoryItemID, *spec.Hardware); err != nil {
 			return createPodVMResponse{}, &requestError{
 				Status:      http.StatusUnprocessableEntity,
 				UserMessage: err.Error(),
@@ -2340,9 +2313,9 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 		}
 	}
 
-	h.Service.NotifyInventoryChanged(ctx, clonedItemID)
+	h.Service.NotifyInventoryChanged(ctx, clone.InventoryItemID)
 
-	clonedItem, err := h.Service.GetInventoryItemWithPermissions(ctx, principalID, clonedItemID)
+	clonedItem, err := h.Service.GetInventoryItemWithPermissions(ctx, principalID, clone.InventoryItemID)
 	if err != nil {
 		return createPodVMResponse{}, &requestError{
 			Status:      http.StatusInternalServerError,
@@ -2354,8 +2327,8 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 
 	return createPodVMResponse{
 		TemplateItemID: spec.TemplateItemID,
-		VMID:           newID,
-		ItemID:         clonedItemID,
+		VMID:           clone.VMID,
+		ItemID:         clone.InventoryItemID,
 		Item:           buildInventoryItem(clonedItem),
 	}, nil
 }
@@ -2402,19 +2375,6 @@ func (h *PodsHandler) applyCloneHardware(
 		int32(config.Memory*1024),
 		float64(config.DiskSize),
 	)
-}
-
-func formatTaskElapsed(elapsed time.Duration) string {
-	seconds := int(elapsed.Round(time.Second) / time.Second)
-	if seconds < 1 {
-		return "0s"
-	}
-	minutes := seconds / 60
-	remainingSeconds := seconds % 60
-	if minutes == 0 {
-		return fmt.Sprintf("%ds", remainingSeconds)
-	}
-	return fmt.Sprintf("%dm %02ds", minutes, remainingSeconds)
 }
 
 func inventoryRequestError(err error) *requestError {

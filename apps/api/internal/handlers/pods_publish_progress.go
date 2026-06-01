@@ -15,22 +15,20 @@ const (
 	publishProgressStepValidating = 1
 	publishProgressStepPreparing  = 2
 	publishProgressStepCloning    = 3
-	publishProgressStepTemplating = 4
-	publishProgressStepSaving     = 5
+	publishProgressStepSaving     = 4
+
+	publishProgressRetention = 60 * time.Second
 )
 
 var publishedPodProgress = newPublishPodProgressStore()
 
 type publishPodProgressSnapshot struct {
-	Type          string    `json:"type"`
-	ID            string    `json:"id"`
-	State         string    `json:"state"`
-	StepID        int       `json:"step_id"`
-	TotalVMs      int       `json:"total_vms"`
-	CompletedVMs  int       `json:"completed_vms"`
-	CurrentVMName string    `json:"current_vm_name,omitempty"`
-	Message       string    `json:"message"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Type      string    `json:"type"`
+	ID        string    `json:"id"`
+	State     string    `json:"state"`
+	StepID    int       `json:"step_id"`
+	Message   string    `json:"message"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type publishPodProgressStore struct {
@@ -74,6 +72,15 @@ func (s *publishPodProgressStore) set(snapshot publishPodProgressSnapshot) {
 		default:
 		}
 	}
+
+	// Drop terminal snapshots after a grace period so the store stays bounded.
+	if snapshot.State != publishProgressStateRunning {
+		time.AfterFunc(publishProgressRetention, func() {
+			s.mu.Lock()
+			delete(s.items, snapshot.ID)
+			s.mu.Unlock()
+		})
+	}
 }
 
 func (s *publishPodProgressStore) subscribe() (<-chan publishPodProgressSnapshot, func()) {
@@ -93,90 +100,51 @@ func (s *publishPodProgressStore) subscribe() (<-chan publishPodProgressSnapshot
 	}
 }
 
+// publishPodProgressReporter publishes a step + message for a publish run. Its
+// methods are safe to call from concurrent clone workers and no-op on a nil
+// reporter (when no progress id was supplied).
 type publishPodProgressReporter struct {
-	id       string
-	store    *publishPodProgressStore
-	totalVMs int
-	mu       sync.Mutex
-	last     publishPodProgressSnapshot
+	id    string
+	store *publishPodProgressStore
+	mu    sync.Mutex
+	step  int
 }
 
-func newPublishPodProgressReporter(id string, totalVMs int) *publishPodProgressReporter {
+func newPublishPodProgressReporter(id string) *publishPodProgressReporter {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return nil
 	}
-
-	return &publishPodProgressReporter{
-		id:       id,
-		store:    publishedPodProgress,
-		totalVMs: totalVMs,
-	}
+	return &publishPodProgressReporter{id: id, store: publishedPodProgress}
 }
 
-func (r *publishPodProgressReporter) update(stepID int, completedVMs int, currentVMName string, message string) {
-	if r == nil {
-		return
-	}
+func (r *publishPodProgressReporter) set(step int, message string) {
+	r.emit(step, publishProgressStateRunning, message)
+}
 
-	snapshot := publishPodProgressSnapshot{
-		ID:            r.id,
-		State:         publishProgressStateRunning,
-		StepID:        stepID,
-		TotalVMs:      r.totalVMs,
-		CompletedVMs:  completedVMs,
-		CurrentVMName: currentVMName,
-		Message:       message,
-	}
-	r.remember(snapshot)
-	r.store.set(snapshot)
+func (r *publishPodProgressReporter) succeed(message string) {
+	r.emit(publishProgressStepSaving, publishProgressStateSuccess, message)
 }
 
 func (r *publishPodProgressReporter) fail(message string) {
 	if r == nil {
 		return
 	}
-
-	snapshot := r.snapshot()
-	if snapshot.ID == "" {
-		snapshot = publishPodProgressSnapshot{
-			ID:       r.id,
-			StepID:   publishProgressStepValidating,
-			TotalVMs: r.totalVMs,
-		}
+	r.mu.Lock()
+	step := r.step
+	r.mu.Unlock()
+	if step == 0 {
+		step = publishProgressStepValidating
 	}
-	snapshot.State = publishProgressStateError
-	snapshot.Message = message
-	r.remember(snapshot)
-	r.store.set(snapshot)
+	r.emit(step, publishProgressStateError, message)
 }
 
-func (r *publishPodProgressReporter) succeed(message string) {
+func (r *publishPodProgressReporter) emit(step int, state, message string) {
 	if r == nil {
 		return
 	}
-
-	snapshot := publishPodProgressSnapshot{
-		ID:           r.id,
-		State:        publishProgressStateSuccess,
-		StepID:       publishProgressStepSaving,
-		TotalVMs:     r.totalVMs,
-		CompletedVMs: r.totalVMs,
-		Message:      message,
-	}
-	r.remember(snapshot)
-	r.store.set(snapshot)
-}
-
-func (r *publishPodProgressReporter) snapshot() publishPodProgressSnapshot {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.last
-}
-
-func (r *publishPodProgressReporter) remember(snapshot publishPodProgressSnapshot) {
-	r.mu.Lock()
-	r.last = snapshot
+	r.step = step
 	r.mu.Unlock()
+	r.store.set(publishPodProgressSnapshot{ID: r.id, State: state, StepID: step, Message: message})
 }

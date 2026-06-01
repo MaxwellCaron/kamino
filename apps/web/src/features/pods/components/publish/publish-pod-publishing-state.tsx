@@ -8,7 +8,7 @@ import {
   PodSubmitSuccessState,
 } from "@/components/submit-progress"
 
-export const PUBLISH_POD_STEP_IDS = [1, 2, 3, 4, 5] as const
+export const PUBLISH_POD_STEP_IDS = [1, 2, 3, 4] as const
 
 export type PublishPodStepId = (typeof PUBLISH_POD_STEP_IDS)[number]
 export type PublishPodSubmitStatus =
@@ -31,16 +31,12 @@ const PUBLISH_POD_STEPS = [
   },
   {
     id: 3,
-    title: "Full cloning VMs",
-    description: "Copying source virtual machines into the Source folder.",
+    title: "Cloning & converting VMs",
+    description:
+      "Copying source VMs into the Source folder and turning them into reusable templates.",
   },
   {
     id: 4,
-    title: "Converting templates",
-    description: "Turning the cloned virtual machines into reusable templates.",
-  },
-  {
-    id: 5,
     title: "Saving catalog entry",
     description: "Writing the published Pod metadata to the catalog.",
   },
@@ -54,8 +50,7 @@ function PublishingState({ progress }: { progress?: PublishPodProgress }) {
 
   return (
     <PodSubmitProgressState
-      detail={getPublishProgressDetail(progress)}
-      progressValue={getPublishProgressValue(progress)}
+      detail={progress?.message}
       stepId={stepId}
       steps={PUBLISH_POD_STEPS}
       title="Publishing"
@@ -146,45 +141,4 @@ function getPublishProgressStepId(
   return PUBLISH_POD_STEP_IDS.includes(progress.step_id as PublishPodStepId)
     ? (progress.step_id as PublishPodStepId)
     : undefined
-}
-
-function getPublishProgressValue(progress: PublishPodProgress | undefined) {
-  if (!progress) return 4
-
-  const completedRatio =
-    progress.total_vms > 0
-      ? Math.min(progress.completed_vms, progress.total_vms) /
-        progress.total_vms
-      : 0
-
-  switch (progress.step_id) {
-    case 1:
-      return 8
-    case 2:
-      return 18
-    case 3:
-      return 22 + completedRatio * 40
-    case 4:
-      return 65 + completedRatio * 25
-    case 5:
-      return progress.state === "success" ? 100 : 94
-    default:
-      return 4
-  }
-}
-
-function getPublishProgressDetail(progress: PublishPodProgress | undefined) {
-  if (!progress?.message) return undefined
-
-  if (
-    (progress.step_id === 3 || progress.step_id === 4) &&
-    progress.total_vms
-  ) {
-    return `${progress.message} ${Math.min(
-      progress.completed_vms,
-      progress.total_vms
-    )} / ${progress.total_vms} complete.`
-  }
-
-  return progress.message
 }
