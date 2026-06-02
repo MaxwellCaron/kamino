@@ -102,11 +102,15 @@ func unexpectedStatusError(resp *http.Response, path string) error {
 		return fmt.Errorf("unexpected status %d for %s (reading response body: %w)", resp.StatusCode, path, err)
 	}
 
-	detail := strings.TrimSpace(string(body))
+	return unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
+}
+
+func unexpectedStatusErrorWithBody(statusCode int, path string, body string) error {
+	detail := strings.TrimSpace(body)
 	if detail == "" {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return fmt.Errorf("unexpected status %d for %s", statusCode, path)
 	}
-	return fmt.Errorf("unexpected status %d for %s: %s", resp.StatusCode, path, detail)
+	return fmt.Errorf("unexpected status %d for %s: %s", statusCode, path, detail)
 }
 
 func (c *Client) filterNodes(nodes []Node) []Node {
@@ -1371,6 +1375,86 @@ func (c *Client) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// IsVMIDUsableForCreate checks the live resource list plus managed QEMU config
+// files. Proxmox can leave a stale config file behind even when /cluster/nextid
+// returns that ID, and clone/create will reject it.
+func (c *Client) IsVMIDUsableForCreate(ctx context.Context, vmid int) (bool, error) {
+	var resp apiResponse[[]VM]
+	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
+		return false, fmt.Errorf("fetching cluster VM resources: %w", err)
+	}
+	for _, vm := range resp.Data {
+		if vm.VMID == vmid {
+			return false, nil
+		}
+	}
+
+	for _, node := range c.nodes {
+		exists, err := c.qemuConfigExists(ctx, node, vmid)
+		if err != nil {
+			return false, err
+		}
+		if exists {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (c *Client) qemuConfigExists(ctx context.Context, node string, vmid int) (bool, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return false, err
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	if err != nil {
+		return false, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Authorization", c.AuthHeader())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return true, nil
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return false, fmt.Errorf("reading VM config response body: %w", err)
+	}
+	if isMissingVMIDConfigResponse(resp.StatusCode, string(body)) {
+		return false, nil
+	}
+	return false, unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
+}
+
+func isMissingVMIDConfigResponse(statusCode int, body string) bool {
+	if statusCode == http.StatusNotFound {
+		return true
+	}
+
+	message := strings.ToLower(body)
+	return strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "not found") ||
+		strings.Contains(message, "no such vm")
+}
+
+func IsVMIDCreateConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "config file already exists") ||
+		strings.Contains(message, "vmid already exists") ||
+		(strings.Contains(message, "unable to create vm") && strings.Contains(message, "already exists"))
 }
 
 // CreateVM creates a new virtual machine and waits for the task to complete.

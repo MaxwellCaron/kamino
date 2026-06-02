@@ -53,7 +53,7 @@ function useCloneProcess(open: boolean, pod: Pod | null) {
   const progressQuery = useQuery(
     clonePodProgressQueryOptions(
       progressId,
-      open && progressId != null && !cloneMutation.isIdle
+      open && progressId != null && cloneMutation.isPending
     )
   )
   const progressState = progressQuery.data?.state
@@ -62,8 +62,8 @@ function useCloneProcess(open: boolean, pod: Pod | null) {
     (cloneMutation.isPending || cloneMutation.isSuccess || cloneMutation.isError
       ? 1
       : 0)
-  const isFinished = cloneMutation.isSuccess && progressState === "success"
   const isError = cloneMutation.isError || progressState === "error"
+  const isFinished = cloneMutation.isSuccess && !isError
   const isCloning =
     cloneMutation.isPending ||
     cloneMutation.isSuccess ||
@@ -337,8 +337,11 @@ export function ClonePodDialog({
             variant="default"
             className={cn(
               "w-[50%] cursor-default transition-colors duration-500",
-              isError ? "bg-destructive/20" : isBusy ? colors.bg : "bg-primary",
-              "hover:opacity-90 disabled:opacity-100"
+              isError
+                ? "bg-destructive/20 text-muted-foreground"
+                : isBusy
+                  ? colors.bg
+                  : "bg-primary disabled:bg-primary/50 disabled:text-muted-foreground"
             )}
             disabled={isBusy || isFinished || isError}
             onClick={

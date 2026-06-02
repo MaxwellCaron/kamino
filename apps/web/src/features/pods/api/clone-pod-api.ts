@@ -54,6 +54,9 @@ export function clonePodProgressQueryOptions(
       return res.json()
     },
     enabled: enabled && !!progressId,
+    retry: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
     refetchInterval: (
       query: Query<
         ClonePodProgress,

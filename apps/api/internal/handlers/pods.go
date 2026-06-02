@@ -35,6 +35,10 @@ const (
 
 	// publishCloneConcurrency bounds how many source VMs are cloned at once.
 	publishCloneConcurrency = 2
+
+	// cloneVMIDAllocationAttempts bounds how far Kamino will scan past
+	// Proxmox's nextid response when stale config files reserve older IDs.
+	cloneVMIDAllocationAttempts = 25
 )
 
 type PodsHandler struct {
@@ -1780,7 +1784,7 @@ func (h *PodsHandler) startVMClone(
 		defer allocate.Unlock()
 	}
 
-	newID, err := h.PX.GetNextVMID(ctx)
+	firstID, err := h.PX.GetNextVMID(ctx)
 	if err != nil {
 		return proxmox.CloneTask{}, 0, &requestError{
 			Status:      http.StatusBadGateway,
@@ -1790,8 +1794,31 @@ func (h *PodsHandler) startVMClone(
 		}
 	}
 
-	task, err := h.PX.StartCloneVM(ctx, source.Node, source.VMID, newID, name, full, targetNode)
-	if err != nil {
+	var lastErr error
+	for offset := range cloneVMIDAllocationAttempts {
+		newID := firstID + offset
+		available, err := h.PX.IsVMIDUsableForCreate(ctx, newID)
+		if err != nil {
+			return proxmox.CloneTask{}, 0, &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to verify VMID availability",
+				Operation:   "verify pod clone vmid availability",
+				Err:         err,
+			}
+		}
+		if !available {
+			continue
+		}
+
+		task, err := h.PX.StartCloneVM(ctx, source.Node, source.VMID, newID, name, full, targetNode)
+		if err == nil {
+			return task, newID, nil
+		}
+		lastErr = err
+		if proxmox.IsVMIDCreateConflict(err) {
+			continue
+		}
+
 		return proxmox.CloneTask{}, 0, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to clone VM",
@@ -1800,7 +1827,21 @@ func (h *PodsHandler) startVMClone(
 		}
 	}
 
-	return task, newID, nil
+	if lastErr != nil {
+		return proxmox.CloneTask{}, 0, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to allocate an available VMID",
+			Operation:   "allocate pod clone vmid",
+			Err:         lastErr,
+		}
+	}
+
+	return proxmox.CloneTask{}, 0, &requestError{
+		Status:      http.StatusBadGateway,
+		UserMessage: "failed to allocate an available VMID",
+		Operation:   "allocate pod clone vmid",
+		Err:         fmt.Errorf("no available VMID found from %d to %d", firstID, firstID+cloneVMIDAllocationAttempts-1),
+	}
 }
 
 func (h *PodsHandler) convertCloneToTemplate(ctx context.Context, clone clonedVM) *requestError {
