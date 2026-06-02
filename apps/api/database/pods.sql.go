@@ -101,6 +101,17 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 	return i, err
 }
 
+const decrementPublishedPodCloneCount = `-- name: DecrementPublishedPodCloneCount :exec
+UPDATE published_pods
+SET clone_count = GREATEST(clone_count - 1, 0)
+WHERE id = $1
+`
+
+func (q *Queries) DecrementPublishedPodCloneCount(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, decrementPublishedPodCloneCount, id)
+	return err
+}
+
 const deletePublishedPod = `-- name: DeletePublishedPod :execrows
 DELETE FROM published_pods
 WHERE id = $1

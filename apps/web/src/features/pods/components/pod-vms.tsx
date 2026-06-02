@@ -2,7 +2,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -37,7 +36,7 @@ function getStatusTextClass(status: string) {
   }
 
   if (status === "stopped") {
-    return "text-foreground"
+    return "text-destructive"
   }
 
   return "text-amber-600 dark:text-amber-400"
@@ -115,11 +114,6 @@ export function PodVms({ vms }: { vms: Array<PodVM> }) {
           </Empty>
         )}
       </CardContent>
-      <CardFooter className="text-xs text-muted-foreground">
-        If the valid permissions are given to you, you can click on the three
-        dots to the right of each VM and perform actions such as starting,
-        shutting down, or opening the VM in a new tab.
-      </CardFooter>
     </Card>
   )
 }

@@ -7,6 +7,7 @@ import { PodVms } from "./pod-vms"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
+import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function PodPage({
   pod,
@@ -33,9 +34,14 @@ export function PodPage({
 
   const isPreview = localClonedPod == null
   const setClonedPod = useCallback(
-    (next: ClonedPod) => {
+    (next: ClonedPod | null) => {
       setLocalClonedPod(next)
       queryClient.setQueryData(clonedPodQueryOptions(pod.slug).queryKey, next)
+      if (next == null) {
+        queryClient.invalidateQueries({
+          queryKey: podCatalogEntryQueryOptions(pod.slug).queryKey,
+        })
+      }
     },
     [pod.slug, queryClient]
   )
@@ -48,6 +54,7 @@ export function PodPage({
             pod={pod}
             clonedPod={localClonedPod}
             onClone={() => setCloneDialogOpen(true)}
+            onClonedPodChange={setClonedPod}
           />
 
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">

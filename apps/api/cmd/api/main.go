@@ -330,6 +330,7 @@ func main() {
 		Authz:                authzService,
 		DB:                   server.DBPool,
 		Notifier:             vmStatusNotifier,
+		Actions:              vmActionExecutor,
 		RouterTemplateItemID: routerTemplateItemID,
 	}
 	sdnHandler := &handlers.SDNHandler{

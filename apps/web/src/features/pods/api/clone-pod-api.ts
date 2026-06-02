@@ -102,3 +102,38 @@ export async function answerClonedPodQuestion(params: {
   }
   return res.json()
 }
+
+export type ClonedPodPowerAction = "start" | "shutdown"
+
+export async function powerClonedPod(params: {
+  clonedPodId: string
+  action: ClonedPodPowerAction
+}): Promise<ClonedPod> {
+  const res = await apiFetch(
+    `/api/v1/pods/clones/${params.clonedPodId}/power`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: params.action }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to ${params.action} cloned pod: ${res.status}`
+    )
+  }
+  return res.json()
+}
+
+export async function deleteClonedPod(params: {
+  clonedPodId: string
+}): Promise<void> {
+  const res = await apiFetch(`/api/v1/pods/clones/${params.clonedPodId}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to delete cloned pod: ${res.status}`)
+  }
+}

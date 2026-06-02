@@ -91,6 +91,7 @@ function PodTaskQuestionField({
   })
   const answerSubmitted = answer != null
   const answerIsCorrect = answer?.is_correct === true
+  const answerIsIncorrect = answerSubmitted && !answerIsCorrect
   const hint = question.hint?.trim()
   const controlsDisabled = disabled || answerIsCorrect || mutation.isPending
   const canSubmit =
@@ -101,7 +102,10 @@ function PodTaskQuestionField({
   }, [answer?.answer])
 
   return (
-    <Field data-disabled={disabled || undefined}>
+    <Field
+      data-disabled={disabled || undefined}
+      data-invalid={answerIsIncorrect || undefined}
+    >
       <FieldLabel htmlFor={question.id}>
         {questionNumber}. {question.title}
       </FieldLabel>
@@ -116,6 +120,7 @@ function PodTaskQuestionField({
               : "Type your answer here..."
           }
           disabled={controlsDisabled}
+          aria-invalid={answerIsIncorrect || undefined}
           onChange={(event) => setValue(event.target.value)}
         />
         {hint && (
@@ -155,11 +160,6 @@ function PodTaskQuestionField({
       </div>
       {question.description && (
         <FieldDescription>{question.description}</FieldDescription>
-      )}
-      {answerSubmitted && !answerIsCorrect && (
-        <FieldDescription>
-          The submitted answer was not correct.
-        </FieldDescription>
       )}
       {mutation.isError && (
         <FieldDescription>{mutation.error.message}</FieldDescription>

@@ -21,6 +21,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -43,6 +44,7 @@ type PodsHandler struct {
 	Authz                *authorization.Service
 	DB                   *pgxpool.Pool
 	Notifier             *vmstatus.Notifier
+	Actions              *vmactions.Executor
 	RouterTemplateItemID uuid.UUID
 }
 

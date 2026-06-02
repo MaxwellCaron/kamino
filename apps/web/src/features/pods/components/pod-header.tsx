@@ -4,34 +4,13 @@ import {
   CircularProgressRange,
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
 import { Image } from "@unpic/react"
-import {
-  IconCopy,
-  IconCubePlus,
-  IconDotsVertical,
-  IconPlayerPlay,
-  IconPower,
-  IconTrash,
-} from "@tabler/icons-react"
+import { IconCopy, IconCubePlus } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
+import { PodHeaderActions } from "./pod-header-actions"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { FormatPodCreators } from "@/features/pods/components/pod-creators"
 import { createTaskSummary } from "@/features/pods/utils/pod-runtime-state"
@@ -41,12 +20,13 @@ export function PodHeader({
   pod,
   clonedPod,
   onClone,
+  onClonedPodChange,
 }: {
   pod: Pod
   clonedPod?: ClonedPod | null
   onClone?: () => void
+  onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
-  const isPreview = clonedPod == null
   const taskSummary = clonedPod
     ? createTaskSummary(pod.tasks ?? [], clonedPod.task_states)
     : null
@@ -72,66 +52,16 @@ export function PodHeader({
 
           <div className="relative flex flex-1 flex-col md:min-h-56 md:pr-14">
             <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
-              {isPreview ? (
+              {clonedPod == null ? (
                 <Button onClick={onClone} disabled={!onClone}>
                   <IconCopy data-icon="inline-start" />
                   Clone
                 </Button>
               ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button variant="secondary" size="icon-lg">
-                        <IconDotsVertical />
-                      </Button>
-                    }
-                  />
-                  <DropdownMenuContent className="w-full" align="end">
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem key="start">
-                        <Item className="w-full p-2">
-                          <ItemMedia variant="icon">
-                            <IconPlayerPlay className="size-4 text-muted-foreground" />
-                          </ItemMedia>
-                          <ItemContent className="gap-0">
-                            <ItemTitle>Start</ItemTitle>
-                            <ItemDescription className="leading-none">
-                              Power on all of the virtual machines in the pod.
-                            </ItemDescription>
-                          </ItemContent>
-                        </Item>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem key="shutdown">
-                        <Item className="w-full p-2">
-                          <ItemMedia variant="icon">
-                            <IconPower className="size-4 text-muted-foreground" />
-                          </ItemMedia>
-                          <ItemContent className="gap-0">
-                            <ItemTitle>Shutdown</ItemTitle>
-                            <ItemDescription className="leading-none">
-                              Safely power off all of the virtual machines in
-                              the pod.
-                            </ItemDescription>
-                          </ItemContent>
-                        </Item>
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem key="delete" variant="destructive">
-                      <Item className="w-full p-2">
-                        <ItemMedia variant="icon">
-                          <IconTrash className="size-4" />
-                        </ItemMedia>
-                        <ItemContent className="gap-0">
-                          <ItemTitle>Delete</ItemTitle>
-                          <ItemDescription className="leading-none">
-                            Permanently delete your cloned instance of this pod.
-                          </ItemDescription>
-                        </ItemContent>
-                      </Item>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <PodHeaderActions
+                  clonedPod={clonedPod}
+                  onClonedPodChange={onClonedPodChange}
+                />
               )}
             </div>
 
