@@ -293,3 +293,197 @@ SELECT
 FROM published_pod_task_questions
 WHERE task_id = ANY(sqlc.arg(task_ids)::UUID[])
 ORDER BY task_id, sort_order ASC;
+
+-- name: ListPublishedPodVMsForClone :many
+SELECT
+    id,
+    pod_id,
+    source_inventory_item_id,
+    name,
+    cpu_count,
+    memory_mb,
+    disk_gb,
+    allow_mask,
+    deny_mask,
+    sort_order
+FROM published_pod_vms
+WHERE pod_id = $1
+ORDER BY sort_order ASC;
+
+-- name: GetClonedPodForPrincipalByPodID :one
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE pod_id = $1
+  AND user_principal_id = $2;
+
+-- name: GetClonedPodForPrincipalByID :one
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE id = $1
+  AND user_principal_id = $2;
+
+-- name: InsertClonedPod :one
+INSERT INTO cloned_pods (
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id
+) VALUES ($1, $2, $3, $4)
+RETURNING
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at;
+
+-- name: IncrementPublishedPodCloneCount :exec
+UPDATE published_pods
+SET clone_count = clone_count + 1
+WHERE id = $1;
+
+-- name: InsertClonedPodVM :exec
+INSERT INTO cloned_pod_vms (
+    cloned_pod_id,
+    published_pod_vm_id,
+    inventory_item_id,
+    sort_order
+) VALUES ($1, $2, $3, $4);
+
+-- name: ListClonedPodVMs :many
+SELECT
+    cpv.cloned_pod_id,
+    cpv.inventory_item_id,
+    ii.name,
+    pv.node,
+    pv.vmid,
+    pv.is_template,
+    perms.allowed_mask,
+    perms.denied_mask,
+    cpv.sort_order
+FROM cloned_pod_vms cpv
+JOIN inventory_items ii
+  ON ii.id = cpv.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = cpv.inventory_item_id
+CROSS JOIN LATERAL (
+    SELECT
+        gep.allowed_mask::BIGINT AS allowed_mask,
+        gep.denied_mask::BIGINT AS denied_mask
+    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+) AS perms
+WHERE cpv.cloned_pod_id = sqlc.arg(cloned_pod_id)
+ORDER BY cpv.sort_order ASC;
+
+-- name: InsertClonedPodTaskState :exec
+INSERT INTO cloned_pod_task_states (
+    cloned_pod_id,
+    task_id,
+    completed,
+    completed_at
+) VALUES (
+    $1,
+    $2,
+    $3,
+    CASE WHEN $3 THEN now() ELSE NULL END
+)
+ON CONFLICT (cloned_pod_id, task_id) DO NOTHING;
+
+-- name: ListClonedPodTaskStates :many
+SELECT
+    task_id,
+    completed,
+    completed_at
+FROM cloned_pod_task_states
+WHERE cloned_pod_id = $1
+ORDER BY task_id ASC;
+
+-- name: ListClonedPodQuestionAnswers :many
+SELECT
+    question_id,
+    answer,
+    is_correct,
+    answered_at
+FROM cloned_pod_question_answers
+WHERE cloned_pod_id = $1
+ORDER BY answered_at ASC;
+
+-- name: GetQuestionForClonedPod :one
+SELECT
+    q.id,
+    q.task_id,
+    q.answer_outline
+FROM published_pod_task_questions q
+JOIN published_pod_tasks t
+  ON t.id = q.task_id
+JOIN cloned_pods cp
+  ON cp.pod_id = t.pod_id
+WHERE cp.id = sqlc.arg(cloned_pod_id)
+  AND cp.user_principal_id = sqlc.arg(user_principal_id)
+  AND q.id = sqlc.arg(question_id);
+
+-- name: UpsertClonedPodQuestionAnswer :one
+INSERT INTO cloned_pod_question_answers (
+    cloned_pod_id,
+    question_id,
+    answer,
+    is_correct
+) VALUES ($1, $2, $3, $4)
+ON CONFLICT (cloned_pod_id, question_id) DO UPDATE
+SET answer = CASE
+        WHEN cloned_pod_question_answers.is_correct THEN cloned_pod_question_answers.answer
+        ELSE EXCLUDED.answer
+    END,
+    is_correct = cloned_pod_question_answers.is_correct OR EXCLUDED.is_correct,
+    answered_at = CASE
+        WHEN cloned_pod_question_answers.is_correct THEN cloned_pod_question_answers.answered_at
+        ELSE now()
+    END
+RETURNING
+    question_id,
+    answer,
+    is_correct,
+    answered_at;
+
+-- name: CountIncorrectOrUnansweredTaskQuestions :one
+SELECT COUNT(*)::BIGINT
+FROM published_pod_task_questions q
+WHERE q.task_id = $2
+  AND NOT EXISTS (
+      SELECT 1
+      FROM cloned_pod_question_answers answer
+      WHERE answer.cloned_pod_id = $1
+        AND answer.question_id = q.id
+        AND answer.is_correct = true
+  );
+
+-- name: SetClonedPodTaskCompleted :exec
+INSERT INTO cloned_pod_task_states (
+    cloned_pod_id,
+    task_id,
+    completed,
+    completed_at
+) VALUES (
+    sqlc.arg(cloned_pod_id),
+    sqlc.arg(task_id),
+    sqlc.arg(completed),
+    CASE WHEN sqlc.arg(completed)::BOOLEAN THEN now() ELSE NULL END
+)
+ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
+SET completed = EXCLUDED.completed,
+    completed_at = CASE
+        WHEN EXCLUDED.completed THEN COALESCE(cloned_pod_task_states.completed_at, now())
+        ELSE NULL
+    END;

@@ -329,6 +329,7 @@ func main() {
 		Service:              inventoryService,
 		Authz:                authzService,
 		DB:                   server.DBPool,
+		Notifier:             vmStatusNotifier,
 		RouterTemplateItemID: routerTemplateItemID,
 	}
 	sdnHandler := &handlers.SDNHandler{

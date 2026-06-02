@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -95,6 +96,19 @@ func (c *Client) requireAllowedNode(node string) error {
 	return fmt.Errorf("node %q is not managed by Kamino", node)
 }
 
+func unexpectedStatusError(resp *http.Response, path string) error {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return fmt.Errorf("unexpected status %d for %s (reading response body: %w)", resp.StatusCode, path, err)
+	}
+
+	detail := strings.TrimSpace(string(body))
+	if detail == "" {
+		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+	}
+	return fmt.Errorf("unexpected status %d for %s: %s", resp.StatusCode, path, detail)
+}
+
 func (c *Client) filterNodes(nodes []Node) []Node {
 	filtered := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
@@ -133,7 +147,7 @@ func (c *Client) get(ctx context.Context, path string, result any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -162,7 +176,7 @@ func (c *Client) post(ctx context.Context, path string, formData map[string]stri
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -323,7 +337,7 @@ func (c *Client) put(ctx context.Context, path string, formData map[string]strin
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if result != nil {
@@ -348,7 +362,7 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if result != nil {

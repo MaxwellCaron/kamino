@@ -22,6 +22,7 @@ import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { cn } from "@workspace/ui/lib/utils"
 import { PodTaskQuestions } from "./pod-task-questions"
 import type {
+  ClonedPod,
   ClonedPodTaskState,
   PodTask,
   PodTaskQuestionAnswer,
@@ -34,14 +35,18 @@ import {
 
 export function PodTasks({
   tasks,
+  clonedPodId,
   taskStates,
   questionAnswers,
   questionsDisabled = false,
+  onClonedPodChange,
 }: {
   tasks: Array<PodTask>
+  clonedPodId?: string
   taskStates: Array<ClonedPodTaskState> | null
   questionAnswers: Array<PodTaskQuestionAnswer> | null
   questionsDisabled?: boolean
+  onClonedPodChange?: (clonedPod: ClonedPod) => void
 }) {
   const defaultValue = tasks[0] ? [tasks[0].id] : []
   const taskStatesByTaskId = taskStates ? createTaskStateMap(taskStates) : null
@@ -118,8 +123,10 @@ export function PodTasks({
                     {task.questions && (
                       <PodTaskQuestions
                         questions={task.questions}
+                        clonedPodId={clonedPodId}
                         answersByQuestionId={answersByQuestionId}
                         disabled={questionsDisabled}
+                        onAnswered={onClonedPodChange}
                       />
                     )}
                   </div>

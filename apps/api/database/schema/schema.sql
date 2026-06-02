@@ -484,6 +484,57 @@ CREATE UNIQUE INDEX ux_published_pod_task_questions_order
     ON published_pod_task_questions (task_id, sort_order);
 
 -- ----------------------------------------------------------------------------
+-- User pod clones and task progress
+-- ----------------------------------------------------------------------------
+CREATE TABLE cloned_pods (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pod_id              UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    user_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    folder_id           UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (pod_id, user_principal_id),
+    UNIQUE (folder_id)
+);
+
+CREATE INDEX ix_cloned_pods_user_created_at
+    ON cloned_pods (user_principal_id, created_at DESC);
+
+CREATE TABLE cloned_pod_vms (
+    cloned_pod_id       UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    published_pod_vm_id UUID NOT NULL REFERENCES published_pod_vms(id) ON DELETE RESTRICT,
+    inventory_item_id   UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    sort_order          INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (cloned_pod_id, published_pod_vm_id),
+    UNIQUE (inventory_item_id),
+    UNIQUE (cloned_pod_id, sort_order)
+);
+
+CREATE TABLE cloned_pod_task_states (
+    cloned_pod_id   UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    task_id         UUID NOT NULL REFERENCES published_pod_tasks(id) ON DELETE CASCADE,
+    completed       BOOLEAN NOT NULL DEFAULT false,
+    completed_at    TIMESTAMPTZ NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (cloned_pod_id, task_id),
+    CONSTRAINT cloned_pod_task_states_completed_at_matches_state
+        CHECK ((completed AND completed_at IS NOT NULL) OR (NOT completed AND completed_at IS NULL))
+);
+
+CREATE TABLE cloned_pod_question_answers (
+    cloned_pod_id   UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    question_id     UUID NOT NULL REFERENCES published_pod_task_questions(id) ON DELETE CASCADE,
+    answer          TEXT NOT NULL,
+    is_correct      BOOLEAN NOT NULL DEFAULT false,
+    answered_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (cloned_pod_id, question_id),
+    CONSTRAINT cloned_pod_question_answers_answer_not_empty
+        CHECK (length(trim(answer)) > 0 AND length(answer) <= 256)
+);
+
+-- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -523,6 +574,16 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_published_pods_set_updated_at
 BEFORE UPDATE ON published_pods
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_cloned_pods_set_updated_at
+BEFORE UPDATE ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_cloned_pod_task_states_set_updated_at
+BEFORE UPDATE ON cloned_pod_task_states
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

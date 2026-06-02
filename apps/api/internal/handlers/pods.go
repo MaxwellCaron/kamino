@@ -20,6 +20,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -41,6 +42,7 @@ type PodsHandler struct {
 	Service              *inventory.Service
 	Authz                *authorization.Service
 	DB                   *pgxpool.Pool
+	Notifier             *vmstatus.Notifier
 	RouterTemplateItemID uuid.UUID
 }
 
@@ -1697,6 +1699,19 @@ func (h *PodsHandler) cloneVMIntoFolder(
 		return clonedVM{}, reqErr
 	}
 
+	return h.cloneVerifiedVMIntoFolder(ctx, source, sourceItemID, placement, targetNode, name, full, opts)
+}
+
+func (h *PodsHandler) cloneVerifiedVMIntoFolder(
+	ctx context.Context,
+	source verifiedVMTarget,
+	sourceItemID uuid.UUID,
+	placement inventory.FolderPlacement,
+	targetNode string,
+	name string,
+	full bool,
+	opts cloneVMOptions,
+) (clonedVM, *requestError) {
 	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts.allocate)
 	if reqErr != nil {
 		return clonedVM{}, reqErr

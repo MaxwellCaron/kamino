@@ -414,6 +414,15 @@ type AuthSessions struct {
 	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type ClonedPods struct {
+	ID              uuid.UUID          `json:"id"`
+	PodID           uuid.UUID          `json:"pod_id"`
+	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
+	FolderID        uuid.UUID          `json:"folder_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type InventoryRequests struct {
 	RequestID       uuid.UUID                       `json:"request_id"`
 	InventoryItemID uuid.UUID                       `json:"inventory_item_id"`

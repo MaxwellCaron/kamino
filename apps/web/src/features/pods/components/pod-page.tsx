@@ -1,28 +1,12 @@
-import { useEffect, useState } from "react"
-import { uuid } from "@workspace/ui/lib/utils"
+import { useCallback, useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { ClonePodDialog } from "./clone/clone-pod-dialog"
 import { PodTasks } from "./pod-tasks"
 import { PodHeader } from "./pod-header"
 import { PodVms } from "./pod-vms"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
-
-function createClonedPodFromPod(pod: Pod): ClonedPod {
-  return {
-    id: uuid(),
-    pod_id: pod.id,
-    cloned_at: new Date().toISOString(),
-    status: "running",
-    vms: [],
-    task_summary: {
-      total: pod.tasks?.length ?? 0,
-      completed: 0,
-      progress: 0,
-    },
-    task_states: [],
-    question_answers: [],
-  }
-}
+import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 
 export function PodPage({
   pod,
@@ -33,6 +17,7 @@ export function PodPage({
   clonedPod?: ClonedPod | null
   username: string
 }) {
+  const queryClient = useQueryClient()
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
   const [localClonedPod, setLocalClonedPod] = useState<ClonedPod | null>(
     clonedPod ?? null
@@ -40,10 +25,20 @@ export function PodPage({
 
   useEffect(() => {
     setCloneDialogOpen(false)
+  }, [pod.id])
+
+  useEffect(() => {
     setLocalClonedPod(clonedPod ?? null)
-  }, [clonedPod, pod.id])
+  }, [clonedPod])
 
   const isPreview = localClonedPod == null
+  const setClonedPod = useCallback(
+    (next: ClonedPod) => {
+      setLocalClonedPod(next)
+      queryClient.setQueryData(clonedPodQueryOptions(pod.slug).queryKey, next)
+    },
+    [pod.slug, queryClient]
+  )
 
   return (
     <InventoryDialogsProvider>
@@ -59,9 +54,11 @@ export function PodPage({
             {localClonedPod && <PodVms vms={localClonedPod.vms} />}
             <PodTasks
               tasks={pod.tasks ?? []}
+              clonedPodId={localClonedPod?.id}
               taskStates={localClonedPod?.task_states ?? null}
               questionAnswers={localClonedPod?.question_answers ?? null}
               questionsDisabled={isPreview}
+              onClonedPodChange={setClonedPod}
             />
           </div>
         </div>
@@ -71,9 +68,7 @@ export function PodPage({
           onOpenChange={setCloneDialogOpen}
           pod={pod}
           username={username}
-          onCloned={() => {
-            setLocalClonedPod(clonedPod ?? createClonedPodFromPod(pod))
-          }}
+          onCloned={setClonedPod}
         />
       </>
     </InventoryDialogsProvider>

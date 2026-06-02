@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertDialog,
@@ -11,56 +12,76 @@ import {
 import { Progress } from "@workspace/ui/components/progress"
 import { IconLoader2 } from "@tabler/icons-react"
 import { ItemGroup } from "@workspace/ui/components/item"
-import { cn } from "@workspace/ui/lib/utils"
+import { cn, uuid } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { CloneStatusItem } from "./clone-status-item"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
-import type { Pod } from "@/features/pods/types/pod-types"
+import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import {
   DEFAULT_CLONE_TASKS,
   getCloneStepColors,
 } from "@/features/pods/types/clone-status"
+import {
+  clonePod,
+  clonePodProgressQueryOptions,
+} from "@/features/pods/api/clone-pod-api"
 
-function useCloneSimulation(open: boolean) {
-  const [isCloning, setIsCloning] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
+function useCloneProcess(open: boolean, pod: Pod | null) {
+  const [progressId, setProgressId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const cloneMutation = useMutation({
+    mutationFn: clonePod,
+  })
+  const resetCloneMutation = cloneMutation.reset
+  const progressQuery = useQuery(
+    clonePodProgressQueryOptions(
+      progressId,
+      open && progressId != null && !cloneMutation.isIdle
+    )
+  )
+  const progressState = progressQuery.data?.state
+  const currentStep =
+    progressQuery.data?.step_id ??
+    (cloneMutation.isPending || cloneMutation.isSuccess ? 1 : 0)
+  const isFinished = cloneMutation.isSuccess && progressState === "success"
+  const isError = cloneMutation.isError || progressState === "error"
+  const isCloning =
+    cloneMutation.isPending ||
+    cloneMutation.isSuccess ||
+    progressState === "running" ||
+    progressState === "success" ||
+    progressState === "error"
 
   const tasks: Array<CloneStatusTask> = DEFAULT_CLONE_TASKS.map((task) => {
     if (!isCloning) return { ...task, status: "pending" }
-    if (currentStep > task.id) return { ...task, status: "completed" }
+    if (isFinished || currentStep > task.id) {
+      return { ...task, status: "completed" }
+    }
     if (currentStep === task.id) return { ...task, status: "in-progress" }
     return { ...task, status: "pending" }
   })
 
   const completedTasks = tasks.filter((t) => t.status === "completed").length
   const totalTasks = tasks.length
-  const isFinished = completedTasks === totalTasks
   const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
   const activeTask = tasks.find((t) => t.status === "in-progress")
   const colors = getCloneStepColors(activeTask?.id)
 
   useEffect(() => {
     if (!open) {
-      setIsCloning(false)
-      setCurrentStep(0)
+      setProgressId(null)
       setElapsedTime(0)
+      resetCloneMutation()
     }
-  }, [open])
+  }, [open, resetCloneMutation])
 
   useEffect(() => {
-    if (!isCloning || isFinished) return
+    if (!isCloning || isFinished || isError) return
     const interval = setInterval(() => setElapsedTime((p) => p + 1), 1000)
     return () => clearInterval(interval)
-  }, [isCloning, isFinished])
-
-  useEffect(() => {
-    if (!isCloning || currentStep > DEFAULT_CLONE_TASKS.length) return
-    const timer = setTimeout(() => setCurrentStep((s) => s + 1), 2000)
-    return () => clearTimeout(timer)
-  }, [isCloning, currentStep])
+  }, [isCloning, isError, isFinished])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -71,15 +92,24 @@ function useCloneSimulation(open: boolean) {
   return {
     isCloning,
     isFinished,
+    isError,
     tasks,
     progress,
     colors,
     elapsedTime: formatTime(elapsedTime),
     completedTasks,
     totalTasks,
+    clonedPod: cloneMutation.data,
+    errorMessage:
+      progressQuery.data?.state === "error"
+        ? progressQuery.data.message
+        : cloneMutation.error?.message,
     startCloning: () => {
-      setIsCloning(true)
-      setCurrentStep(1)
+      if (!pod) return
+      const nextProgressId = uuid()
+      setElapsedTime(0)
+      setProgressId(nextProgressId)
+      cloneMutation.mutate({ podSlug: pod.slug, progressId: nextProgressId })
     },
   }
 }
@@ -95,30 +125,38 @@ export function ClonePodDialog({
   onOpenChange: (open: boolean) => void
   pod: Pod | null
   username: string
-  onCloned?: () => void
+  onCloned?: (clone: ClonedPod) => void
 }) {
   const {
     isCloning,
     isFinished,
+    isError,
     tasks,
     progress,
     colors,
     elapsedTime,
+    completedTasks,
+    totalTasks,
+    clonedPod,
+    errorMessage,
     startCloning,
-  } = useCloneSimulation(open)
+  } = useCloneProcess(open, pod)
 
   const podTitle = pod?.title ?? "Pod"
+  const isBusy = isCloning && !isFinished && !isError
   const handleOpenChange = (val: boolean) => {
-    if (isCloning && !isFinished) {
+    if (!val && (isBusy || isFinished)) {
       return
-    }
-
-    if (!val && isFinished) {
-      onCloned?.()
     }
 
     onOpenChange(val)
   }
+
+  useEffect(() => {
+    if (isFinished && clonedPod) {
+      onCloned?.(clonedPod)
+    }
+  }, [clonedPod, isFinished, onCloned])
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
@@ -203,7 +241,7 @@ export function ClonePodDialog({
                 variant="ghost"
                 className="text-muted-foreground tabular-nums"
               >
-                {isFinished ? "1 / 1 Completed" : "0 / 1 Completed"}
+                {completedTasks} / {totalTasks} Completed
               </Badge>
             )}
           </AlertDialogTitle>
@@ -229,12 +267,20 @@ export function ClonePodDialog({
             colors={colors}
             elapsedTime={elapsedTime}
           />
+          {errorMessage && (
+            <p className="text-sm text-destructive">{errorMessage}</p>
+          )}
         </ItemGroup>
 
         <AlertDialogFooter>
           <AlertDialogCancel
             className="w-[50%]"
-            disabled={isCloning && !isFinished}
+            disabled={isBusy}
+            onClick={(event) => {
+              if (!isFinished) return
+              event.preventDefault()
+              onOpenChange(false)
+            }}
           >
             {isFinished ? "Close" : "Cancel"}
           </AlertDialogCancel>
@@ -245,11 +291,11 @@ export function ClonePodDialog({
               isCloning ? colors.bg : "bg-primary",
               "hover:opacity-90"
             )}
-            disabled={isCloning || isFinished}
+            disabled={isBusy || isFinished}
             onClick={
               isFinished
                 ? () => {
-                    onCloned?.()
+                    if (clonedPod) onCloned?.(clonedPod)
                     onOpenChange(false)
                   }
                 : startCloning
@@ -260,6 +306,8 @@ export function ClonePodDialog({
                 <IconLoader2 className="size-4 animate-spin" />
                 Cloning...
               </>
+            ) : isError ? (
+              "Retry"
             ) : (
               "Clone"
             )}
