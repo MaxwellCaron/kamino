@@ -7,6 +7,8 @@ import {
   IconCircleCheckFilled,
   IconClock,
   IconLoader2,
+  IconX,
+  IconXFilled,
 } from "@tabler/icons-react"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
@@ -39,6 +41,7 @@ type CloneStatusItemProps = {
   tasks: Array<CloneStatusTask>
   isCloning: boolean
   isFinished: boolean
+  isFailed?: boolean
   colors?: CloneStepColors
   elapsedTime?: string
   defaultExpanded?: boolean
@@ -50,6 +53,7 @@ export function CloneStatusItem({
   tasks,
   isCloning,
   isFinished,
+  isFailed = false,
   colors = DEFAULT_COLORS,
   elapsedTime,
   defaultExpanded = true,
@@ -73,12 +77,25 @@ export function CloneStatusItem({
           variant="image"
           className={cn(
             "transition-colors duration-500",
-            isCloning ? colors.text : "text-muted-foreground",
-            isCloning ? colors.soft : "bg-muted"
+            isFailed
+              ? "bg-destructive/10 text-destructive"
+              : isCloning
+                ? colors.text
+                : "text-muted-foreground",
+            isFailed ? null : isCloning ? colors.soft : "bg-muted"
           )}
         >
           <AnimatePresence mode="wait">
-            {isCloning && !isFinished ? (
+            {isFailed ? (
+              <motion.div
+                key="failed-icon"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <IconXFilled size={24} />
+              </motion.div>
+            ) : isCloning && !isFinished ? (
               <motion.div
                 key="sand-loader"
                 initial={{ opacity: 0 }}
@@ -132,7 +149,11 @@ export function CloneStatusItem({
                           )}
                         />
                       ) : task.status === "in-progress" ? (
-                        <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+                        isFailed ? (
+                          <IconX className="size-5 text-destructive" />
+                        ) : (
+                          <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+                        )
                       ) : (
                         <IconCircle className="size-5 text-muted-foreground" />
                       )}
@@ -160,7 +181,9 @@ export function CloneStatusItem({
               <div key="summary">
                 <span className="text-sm font-medium text-muted-foreground">
                   {isCloning ? (
-                    isFinished ? (
+                    isFailed ? (
+                      "Clone failed"
+                    ) : isFinished ? (
                       "Clone completed successfully"
                     ) : (
                       <>

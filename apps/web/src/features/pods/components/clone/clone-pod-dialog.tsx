@@ -9,15 +9,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import { Progress } from "@workspace/ui/components/progress"
-import { IconLoader2 } from "@tabler/icons-react"
+import { IconAlertTriangle, IconLoader2 } from "@tabler/icons-react"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { cn, uuid } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { CloneStatusItem } from "./clone-status-item"
-import type { CloneStatusTask } from "@/features/pods/types/clone-status"
+import type {
+  CloneStatusTask,
+  CloneStepColors,
+} from "@/features/pods/types/clone-status"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import {
   DEFAULT_CLONE_TASKS,
@@ -27,6 +35,13 @@ import {
   clonePod,
   clonePodProgressQueryOptions,
 } from "@/features/pods/api/clone-pod-api"
+
+const FAILED_CLONE_COLORS: CloneStepColors = {
+  text: "text-destructive!",
+  border: "border-destructive!",
+  bg: "bg-destructive!",
+  soft: "bg-destructive/10!",
+}
 
 function useCloneProcess(open: boolean, pod: Pod | null) {
   const [progressId, setProgressId] = useState<string | null>(null)
@@ -44,12 +59,15 @@ function useCloneProcess(open: boolean, pod: Pod | null) {
   const progressState = progressQuery.data?.state
   const currentStep =
     progressQuery.data?.step_id ??
-    (cloneMutation.isPending || cloneMutation.isSuccess ? 1 : 0)
+    (cloneMutation.isPending || cloneMutation.isSuccess || cloneMutation.isError
+      ? 1
+      : 0)
   const isFinished = cloneMutation.isSuccess && progressState === "success"
   const isError = cloneMutation.isError || progressState === "error"
   const isCloning =
     cloneMutation.isPending ||
     cloneMutation.isSuccess ||
+    cloneMutation.isError ||
     progressState === "running" ||
     progressState === "success" ||
     progressState === "error"
@@ -144,6 +162,7 @@ export function ClonePodDialog({
 
   const podTitle = pod?.title ?? "Pod"
   const isBusy = isCloning && !isFinished && !isError
+  const displayColors = isError ? FAILED_CLONE_COLORS : colors
   const handleOpenChange = (val: boolean) => {
     if (!val && (isBusy || isFinished)) {
       return
@@ -166,7 +185,27 @@ export function ClonePodDialog({
             <div className="flex items-center gap-3">
               <AnimatePresence mode="wait">
                 {isCloning ? (
-                  isFinished ? (
+                  isError ? (
+                    <motion.span
+                      key="failed-loader"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="text-destructive"
+                    >
+                      <Loader
+                        loader="pulse"
+                        renderer="svg-grid"
+                        speed={0.85}
+                        rendererOptions={{
+                          shape: "square",
+                          cellSize: 6,
+                          gap: 2,
+                          inactiveOpacity: 1,
+                        }}
+                      />
+                    </motion.span>
+                  ) : isFinished ? (
                     <motion.span
                       key="finished-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
@@ -194,8 +233,8 @@ export function ClonePodDialog({
                       exit={{ opacity: 0, scale: 0.8 }}
                       className={cn(
                         "transition-colors duration-500",
-                        colors.border,
-                        colors.text
+                        displayColors.border,
+                        displayColors.text
                       )}
                     >
                       <Loader
@@ -250,7 +289,10 @@ export function ClonePodDialog({
         <Progress
           value={progress}
           className="**:h-1.5"
-          indicatorClassName={cn("transition-all duration-500", colors.bg)}
+          indicatorClassName={cn(
+            "transition-all duration-500",
+            displayColors.bg
+          )}
         />
 
         <ItemGroup className="gap-4">
@@ -264,11 +306,18 @@ export function ClonePodDialog({
             tasks={tasks}
             isCloning={isCloning}
             isFinished={isFinished}
-            colors={colors}
+            isFailed={isError}
+            colors={displayColors}
             elapsedTime={elapsedTime}
           />
           {errorMessage && (
-            <p className="text-sm text-destructive">{errorMessage}</p>
+            <Alert variant="destructive" className="bg-muted/50">
+              <IconAlertTriangle />
+              <AlertTitle>Clone failed</AlertTitle>
+              <AlertDescription>
+                {errorMessage.charAt(0).toUpperCase() + errorMessage.slice(1)}
+              </AlertDescription>
+            </Alert>
           )}
         </ItemGroup>
 
@@ -288,10 +337,10 @@ export function ClonePodDialog({
             variant="default"
             className={cn(
               "w-[50%] cursor-default transition-colors duration-500",
-              isCloning ? colors.bg : "bg-primary",
-              "hover:opacity-90"
+              isError ? "bg-destructive/20" : isBusy ? colors.bg : "bg-primary",
+              "hover:opacity-90 disabled:opacity-100"
             )}
-            disabled={isBusy || isFinished}
+            disabled={isBusy || isFinished || isError}
             onClick={
               isFinished
                 ? () => {
@@ -301,13 +350,13 @@ export function ClonePodDialog({
                 : startCloning
             }
           >
-            {isCloning && !isFinished ? (
+            {isBusy ? (
               <>
                 <IconLoader2 className="size-4 animate-spin" />
                 Cloning...
               </>
             ) : isError ? (
-              "Retry"
+              "Failed"
             ) : (
               "Clone"
             )}
