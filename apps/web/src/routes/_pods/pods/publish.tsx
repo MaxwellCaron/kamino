@@ -57,6 +57,7 @@ function RouteComponent() {
     <PublishPodPage
       key={existingPod?.id ?? initialValues.id}
       initialValues={initialValues}
+      publishedPodId={existingPod?.id}
       pendingSubmitState={existingPod ? "updating" : "publishing"}
       submitLabel={existingPod ? "Save Changes" : "Publish"}
       onSubmit={async (values, { progressId }) => {

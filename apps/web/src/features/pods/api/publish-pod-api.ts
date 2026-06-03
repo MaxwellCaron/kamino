@@ -25,18 +25,25 @@ export type PublishPodProgress = {
   updated_at: string
 }
 
-export const publishPodOptionsQueryOptions = {
-  queryKey: ["pods", "publish", "options"] as const,
-  queryFn: async (): Promise<PublishPodOptions> => {
-    const res = await apiFetch("/api/v1/pods/publish/options")
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(
-        body.error ?? `Failed to fetch publish options: ${res.status}`
-      )
-    }
-    return res.json()
-  },
+export function publishPodOptionsQueryOptions(publishedPodId?: string) {
+  return {
+    queryKey: ["pods", "publish", "options", publishedPodId] as const,
+    queryFn: async (): Promise<PublishPodOptions> => {
+      const params = new URLSearchParams()
+      if (publishedPodId) {
+        params.set("published_pod_id", publishedPodId)
+      }
+      const query = params.size > 0 ? `?${params.toString()}` : ""
+      const res = await apiFetch(`/api/v1/pods/publish/options${query}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(
+          body.error ?? `Failed to fetch publish options: ${res.status}`
+        )
+      }
+      return res.json()
+    },
+  }
 }
 
 export function publishedPodProgressQueryOptions(

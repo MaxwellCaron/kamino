@@ -54,6 +54,7 @@ type PublishPodValidationErrors = Awaited<
 
 type PublishPodPageProps = {
   initialValues?: PublishPodFormValues
+  publishedPodId?: string
   onSubmit: (
     values: PublishPodFormValues,
     options: PublishPodSubmitOptions
@@ -64,6 +65,7 @@ type PublishPodPageProps = {
 
 export function PublishPodPage({
   initialValues,
+  publishedPodId,
   onSubmit,
   pendingSubmitState = "publishing",
   submitLabel,
@@ -125,7 +127,9 @@ export function PublishPodPage({
   )
   const usersQuery = useQuery(usersQueryOptions)
   const groupsQuery = useQuery(groupsQueryOptions)
-  const publishOptionsQuery = useQuery(publishPodOptionsQueryOptions)
+  const publishOptionsQuery = useQuery(
+    publishPodOptionsQueryOptions(publishedPodId)
+  )
   const publishProgressQuery = useQuery(
     publishedPodProgressQueryOptions(
       progressId,

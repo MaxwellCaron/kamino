@@ -203,7 +203,17 @@ func (h *PodsHandler) GetPublishOptions(c *gin.Context) {
 		return
 	}
 
-	sourceFolders, err := h.publishSourceFolders(c.Request.Context(), principalID)
+	publishedPodID := uuid.Nil
+	if value := strings.TrimSpace(c.Query("published_pod_id")); value != "" {
+		parsed, err := uuid.Parse(value)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid published pod id"})
+			return
+		}
+		publishedPodID = parsed
+	}
+
+	sourceFolders, err := h.publishSourceFolders(c.Request.Context(), principalID, publishedPodID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load source folders", "load publish source folders", err)
 		return
@@ -792,6 +802,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 func (h *PodsHandler) publishSourceFolders(
 	ctx context.Context,
 	principalID uuid.UUID,
+	publishedPodID uuid.UUID,
 ) ([]publishSourceFolderOption, error) {
 	podsFolderID, found, err := h.Service.FindFolderPath(ctx, []string{podsFolderName})
 	if err != nil {
@@ -806,6 +817,18 @@ func (h *PodsHandler) publishSourceFolders(
 		return nil, err
 	}
 
+	publishedRows, err := database.New(h.DB).ListPublishedPods(ctx)
+	if err != nil {
+		return nil, err
+	}
+	publishedSourceFolderIDs := make(map[uuid.UUID]struct{}, len(publishedRows))
+	for _, row := range publishedRows {
+		if row.ID == publishedPodID {
+			continue
+		}
+		publishedSourceFolderIDs[row.SourceFolderID] = struct{}{}
+	}
+
 	rowsByID := make(map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow, len(rows))
 	for _, row := range rows {
 		rowsByID[row.ID] = row
@@ -816,7 +839,10 @@ func (h *PodsHandler) publishSourceFolders(
 		if row.Kind != database.InventoryItemKindFolder {
 			continue
 		}
-		if row.ID == podsFolderID || !isInventoryDescendantOf(row.ID, podsFolderID, rowsByID) {
+		if row.ParentID == nil || *row.ParentID != podsFolderID {
+			continue
+		}
+		if _, published := publishedSourceFolderIDs[row.ID]; published {
 			continue
 		}
 		if !maskHas(row.AllowedMask, authorization.View) {
@@ -1111,7 +1137,7 @@ func (h *PodsHandler) normalizePublishPodRequest(
 	if err != nil {
 		return normalizedPublishPodRequest{}, invalidPublishPod("select a source folder")
 	}
-	sourceFolders, err := h.publishSourceFolders(ctx, principalID)
+	sourceFolders, err := h.publishSourceFolders(ctx, principalID, podID)
 	if err != nil {
 		return normalizedPublishPodRequest{}, &requestError{
 			Status:      http.StatusInternalServerError,
@@ -2092,24 +2118,6 @@ func inventoryPath(
 	}
 	slices.Reverse(parts)
 	return strings.Join(parts, " / ")
-}
-
-func isInventoryDescendantOf(
-	id uuid.UUID,
-	ancestorID uuid.UUID,
-	rowsByID map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow,
-) bool {
-	for currentID := id; currentID != uuid.Nil; {
-		row, ok := rowsByID[currentID]
-		if !ok || row.ParentID == nil {
-			return false
-		}
-		if *row.ParentID == ancestorID {
-			return true
-		}
-		currentID = *row.ParentID
-	}
-	return false
 }
 
 func slugify(value string) string {
