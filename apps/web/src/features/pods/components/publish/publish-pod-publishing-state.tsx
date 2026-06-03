@@ -1,12 +1,12 @@
 import { IconBox, IconListDetails } from "@tabler/icons-react"
-import type { PodSubmitProgressStep } from "@/components/submit-progress"
+import type { ProgressStateStep } from "@/components/progress-state/progress-state"
 import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import {
-  PodSubmitErrorState,
-  PodSubmitLoadingState,
-  PodSubmitProgressState,
-  PodSubmitSuccessState,
-} from "@/components/submit-progress"
+  ProgressErrorState,
+  ProgressLoadingState,
+  ProgressState,
+  ProgressSuccessState,
+} from "@/components/progress-state/progress-state"
 
 export const PUBLISH_POD_STEP_IDS = [1, 2, 3, 4] as const
 
@@ -41,15 +41,15 @@ const PUBLISH_POD_STEPS = [
     description: "Writing the published Pod metadata to the catalog.",
   },
 ] satisfies [
-  PodSubmitProgressStep<PublishPodStepId>,
-  ...Array<PodSubmitProgressStep<PublishPodStepId>>,
+  ProgressStateStep<PublishPodStepId>,
+  ...Array<ProgressStateStep<PublishPodStepId>>,
 ]
 
 function PublishingState({ progress }: { progress?: PublishPodProgress }) {
   const stepId = getPublishProgressStepId(progress) ?? 1
 
   return (
-    <PodSubmitProgressState
+    <ProgressState
       detail={progress?.message}
       stepId={stepId}
       steps={PUBLISH_POD_STEPS}
@@ -60,7 +60,7 @@ function PublishingState({ progress }: { progress?: PublishPodProgress }) {
 
 function UpdatingState() {
   return (
-    <PodSubmitLoadingState
+    <ProgressLoadingState
       description="Saving the latest changes to this Pod."
       title="Updating"
     />
@@ -69,7 +69,7 @@ function UpdatingState() {
 
 function SuccessState({ podSlug }: { podSlug: string }) {
   return (
-    <PodSubmitSuccessState
+    <ProgressSuccessState
       title="Published"
       description="Your Pod has been successfully published. View it in the catalog or go directly to its page."
       actions={[
@@ -92,7 +92,7 @@ function SuccessState({ podSlug }: { podSlug: string }) {
 
 function ErrorState() {
   return (
-    <PodSubmitErrorState
+    <ProgressErrorState
       title="Publishing Failed"
       description="Your Pod failed to publish. Please try again or contact support if the issue persists."
       actions={[

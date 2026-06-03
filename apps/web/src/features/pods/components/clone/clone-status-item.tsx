@@ -24,16 +24,14 @@ import {
 } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ReactNode } from "react"
-import type {
-  CloneStatusTask,
-  CloneStepColors,
-} from "@/features/pods/types/clone-status"
+import type { CloneStatusTask } from "@/features/pods/types/clone-status"
+import type { ProgressStepColors } from "@/components/progress-state/progress-state-colors"
 import {
-  COMPLETE_CLONE_COLORS,
-  DEFAULT_CLONE_COLORS,
-  FAILED_CLONE_COLORS,
-  IDLE_CLONE_COLORS,
-} from "@/features/pods/types/clone-status"
+  COMPLETE_PROGRESS_COLORS,
+  DEFAULT_PROGRESS_COLORS,
+  FAILED_PROGRESS_COLORS,
+  IDLE_PROGRESS_COLORS,
+} from "@/components/progress-state/progress-state-colors"
 
 type CloneStatusItemProps = {
   title: ReactNode
@@ -41,7 +39,7 @@ type CloneStatusItemProps = {
   isCloning: boolean
   isFinished: boolean
   isFailed?: boolean
-  colors?: CloneStepColors
+  colors?: ProgressStepColors
   elapsedTime?: string
   defaultExpanded?: boolean
   className?: string
@@ -53,7 +51,7 @@ export function CloneStatusItem({
   isCloning,
   isFinished,
   isFailed = false,
-  colors = DEFAULT_CLONE_COLORS,
+  colors = DEFAULT_PROGRESS_COLORS,
   elapsedTime,
   defaultExpanded = true,
   className,
@@ -77,11 +75,11 @@ export function CloneStatusItem({
           className={cn(
             "transition-colors duration-500",
             isFailed
-              ? cn(FAILED_CLONE_COLORS.soft, FAILED_CLONE_COLORS.text)
+              ? cn(FAILED_PROGRESS_COLORS.soft, FAILED_PROGRESS_COLORS.text)
               : isCloning
                 ? colors.text
-                : IDLE_CLONE_COLORS.text,
-            isFailed ? null : isCloning ? colors.soft : IDLE_CLONE_COLORS.bg
+                : IDLE_PROGRESS_COLORS.text,
+            isFailed ? null : isCloning ? colors.soft : IDLE_PROGRESS_COLORS.bg
           )}
         >
           <AnimatePresence mode="wait">
@@ -122,7 +120,7 @@ export function CloneStatusItem({
                 {isFinished ? (
                   <IconCircleCheckFilled
                     size={24}
-                    className={COMPLETE_CLONE_COLORS.text}
+                    className={COMPLETE_PROGRESS_COLORS.text}
                   />
                 ) : (
                   <IconBox size={24} stroke={1.5} />
@@ -153,19 +151,22 @@ export function CloneStatusItem({
                       ) : task.status === "in-progress" ? (
                         isFailed ? (
                           <IconX
-                            className={cn("size-5", FAILED_CLONE_COLORS.text)}
+                            className={cn(
+                              "size-5",
+                              FAILED_PROGRESS_COLORS.text
+                            )}
                           />
                         ) : (
                           <IconLoader2
                             className={cn(
                               "size-5 animate-spin",
-                              IDLE_CLONE_COLORS.text
+                              IDLE_PROGRESS_COLORS.text
                             )}
                           />
                         )
                       ) : (
                         <IconCircle
-                          className={cn("size-5", IDLE_CLONE_COLORS.text)}
+                          className={cn("size-5", IDLE_PROGRESS_COLORS.text)}
                         />
                       )}
                     </div>

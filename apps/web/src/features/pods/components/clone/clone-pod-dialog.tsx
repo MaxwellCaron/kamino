@@ -25,12 +25,12 @@ import { CloneStatusItem } from "./clone-status-item"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import {
-  COMPLETE_CLONE_COLORS,
-  DEFAULT_CLONE_TASKS,
-  FAILED_CLONE_COLORS,
-  IDLE_CLONE_COLORS,
-  getCloneStepColors,
-} from "@/features/pods/types/clone-status"
+  COMPLETE_PROGRESS_COLORS,
+  FAILED_PROGRESS_COLORS,
+  IDLE_PROGRESS_COLORS,
+  getProgressStepColors,
+} from "@/components/progress-state/progress-state-colors"
+import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import {
   clonePod,
   clonePodProgressQueryOptions,
@@ -78,7 +78,7 @@ function useCloneProcess(open: boolean, pod: Pod | null) {
   const totalTasks = tasks.length
   const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
   const activeTask = tasks.find((t) => t.status === "in-progress")
-  const colors = getCloneStepColors(activeTask?.id)
+  const colors = getProgressStepColors(activeTask?.id)
 
   useEffect(() => {
     if (!open) {
@@ -155,7 +155,7 @@ export function ClonePodDialog({
 
   const podTitle = pod?.title ?? "Pod"
   const isBusy = isCloning && !isFinished && !isError
-  const displayColors = isError ? FAILED_CLONE_COLORS : colors
+  const displayColors = isError ? FAILED_PROGRESS_COLORS : colors
   const handleOpenChange = (val: boolean) => {
     if (!val && (isBusy || isFinished)) {
       return
@@ -184,7 +184,7 @@ export function ClonePodDialog({
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      className={FAILED_CLONE_COLORS.text}
+                      className={FAILED_PROGRESS_COLORS.text}
                     >
                       <Loader
                         loader="pulse"
@@ -204,7 +204,7 @@ export function ClonePodDialog({
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      className={COMPLETE_CLONE_COLORS.text}
+                      className={COMPLETE_PROGRESS_COLORS.text}
                     >
                       <Loader
                         loader="pulse"
@@ -248,7 +248,7 @@ export function ClonePodDialog({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
-                    className={IDLE_CLONE_COLORS.text}
+                    className={IDLE_PROGRESS_COLORS.text}
                   >
                     <Loader
                       loader="pulse"

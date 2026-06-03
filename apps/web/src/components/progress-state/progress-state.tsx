@@ -13,49 +13,56 @@ import {
 } from "@workspace/ui/components/empty"
 import { Progress } from "@workspace/ui/components/progress"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  COMPLETE_PROGRESS_COLORS,
+  DEFAULT_PROGRESS_COLORS,
+  FAILED_PROGRESS_COLORS,
+  getProgressStepColors,
+} from "./progress-state-colors"
 import type { ComponentType, MouseEventHandler } from "react"
-import { getCloneStepColors } from "@/features/pods/types/clone-status"
 
-export type PodSubmitProgressStep<TStepId extends number = number> = {
+export type ProgressStateStep<TStepId extends number = number> = {
   id: TStepId
   title: string
   description: string
 }
 
-export type PodSubmitProgressSteps<TStepId extends number = number> = readonly [
-  PodSubmitProgressStep<TStepId>,
-  ...Array<PodSubmitProgressStep<TStepId>>,
+export type ProgressStateSteps<TStepId extends number = number> = readonly [
+  ProgressStateStep<TStepId>,
+  ...Array<ProgressStateStep<TStepId>>,
 ]
 
-type PodSubmitActionBase = {
+type ProgressStateActionBase = {
   icon: ComponentType<{ className?: string; "data-icon"?: string }>
   label: string
   onClick?: MouseEventHandler<HTMLAnchorElement>
   variant?: "default" | "secondary" | "outline"
 }
 
-type PodSubmitStaticAction = PodSubmitActionBase & {
+type ProgressStateStaticAction = ProgressStateActionBase & {
   to: "/" | "/pods/create" | "/pods/published"
 }
 
-type PodSubmitPodAction = PodSubmitActionBase & {
+type ProgressStatePodAction = ProgressStateActionBase & {
   params: { podSlug: string }
   to: "/pods/$podSlug"
 }
 
-export type PodSubmitAction = PodSubmitStaticAction | PodSubmitPodAction
+export type ProgressStateAction =
+  | ProgressStateStaticAction
+  | ProgressStatePodAction
 
-type PodSubmitProgressStateProps<TStepId extends number> = {
+type ProgressStateProps<TStepId extends number> = {
   detail?: string
   intervalMs?: number
   onComplete?: () => void
   progressValue?: number
   stepId?: TStepId
-  steps: PodSubmitProgressSteps<TStepId>
+  steps: ProgressStateSteps<TStepId>
   title: string
 }
 
-export function PodSubmitProgressState<TStepId extends number>({
+export function ProgressState<TStepId extends number>({
   detail,
   intervalMs,
   onComplete,
@@ -63,7 +70,7 @@ export function PodSubmitProgressState<TStepId extends number>({
   stepId,
   steps,
   title,
-}: PodSubmitProgressStateProps<TStepId>) {
+}: ProgressStateProps<TStepId>) {
   const [simulatedStepIndex, setSimulatedStepIndex] = useState(0)
   const hasCompletedRef = useRef(false)
   const externalStepIndex =
@@ -71,7 +78,7 @@ export function PodSubmitProgressState<TStepId extends number>({
   const currentStepIndex =
     externalStepIndex >= 0 ? externalStepIndex : simulatedStepIndex
   const currentStep = steps[currentStepIndex]
-  const colors = getCloneStepColors(currentStep.id)
+  const colors = getProgressStepColors(currentStep.id)
   const progress =
     progressValue === undefined
       ? ((currentStepIndex + 1) / steps.length) * 100
@@ -148,7 +155,7 @@ export function PodSubmitProgressState<TStepId extends number>({
   )
 }
 
-export function PodSubmitLoadingState({
+export function ProgressLoadingState({
   description,
   intervalMs,
   onComplete,
@@ -173,7 +180,9 @@ export function PodSubmitLoadingState({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
-          <span className="flex items-center text-primary">
+          <span
+            className={cn("flex items-center", DEFAULT_PROGRESS_COLORS.text)}
+          >
             <Loader
               loader="braille"
               renderer="svg-grid"
@@ -193,7 +202,11 @@ export function PodSubmitLoadingState({
   )
 }
 
-function PodSubmitActions({ actions }: { actions: Array<PodSubmitAction> }) {
+function ProgressStateActions({
+  actions,
+}: {
+  actions: Array<ProgressStateAction>
+}) {
   return (
     <EmptyContent className="flex-row justify-center gap-3">
       {actions.map((action) => {
@@ -233,12 +246,12 @@ function PodSubmitActions({ actions }: { actions: Array<PodSubmitAction> }) {
   )
 }
 
-export function PodSubmitSuccessState({
+export function ProgressSuccessState({
   actions,
   description,
   title,
 }: {
-  actions: Array<PodSubmitAction>
+  actions: Array<ProgressStateAction>
   description: string
   title: string
 }) {
@@ -246,22 +259,24 @@ export function PodSubmitSuccessState({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
-          <IconCircleCheckFilled className="size-7 text-primary" />
+          <IconCircleCheckFilled
+            className={cn("size-7", COMPLETE_PROGRESS_COLORS.text)}
+          />
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <PodSubmitActions actions={actions} />
+      <ProgressStateActions actions={actions} />
     </Empty>
   )
 }
 
-export function PodSubmitErrorState({
+export function ProgressErrorState({
   actions,
   description,
   title,
 }: {
-  actions: Array<PodSubmitAction>
+  actions: Array<ProgressStateAction>
   description: string
   title: string
 }) {
@@ -269,12 +284,14 @@ export function PodSubmitErrorState({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
-          <IconCircleXFilled className="size-7 text-destructive" />
+          <IconCircleXFilled
+            className={cn("size-7", FAILED_PROGRESS_COLORS.text)}
+          />
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <PodSubmitActions actions={actions} />
+      <ProgressStateActions actions={actions} />
     </Empty>
   )
 }
