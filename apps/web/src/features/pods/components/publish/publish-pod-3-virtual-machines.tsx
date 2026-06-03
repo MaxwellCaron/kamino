@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
 import {
@@ -42,10 +43,11 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import {
+  IconChevronDown,
+  IconChevronRight,
   IconDeviceDesktop,
   IconFolderOpen,
   IconRefresh,
-  IconSettings,
 } from "@tabler/icons-react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
@@ -57,7 +59,12 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
-import type { ColumnDef, RowSelectionState } from "@tanstack/react-table"
+import { createDefaultPublishPodVmPermissions } from "./publish-pod-form"
+import type {
+  ColumnDef,
+  ExpandedState,
+  RowSelectionState,
+} from "@tanstack/react-table"
 import type {
   PublishPodFormApi,
   PublishPodFormValues,
@@ -67,7 +74,7 @@ import type {
   DraftPrincipal,
   PermissionState,
 } from "@/features/inventory/types/inventory-types"
-import { CustomizePermissionsDialog } from "@/features/inventory/components/permissions/customize-permissions-dialog"
+import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
 import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
 import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
 
@@ -100,7 +107,13 @@ function createEditingVmPrincipal(
 
 type PublishPodVirtualMachinesTableProps = {
   canUpdateSourceTemplates: boolean
-  onEditPermissions: (vm: PublishPodVM, index: number) => void
+  onPermissionChange: (
+    vm: PublishPodVM,
+    index: number,
+    bit: number,
+    state: PermissionState
+  ) => void
+  onResetPermissions: (vm: PublishPodVM, index: number) => void
   onUpdateVirtualMachinesChange: (vmIds: Array<string>) => void
   updateVirtualMachines: Array<string>
   virtualMachines: Array<PublishPodVM>
@@ -108,11 +121,13 @@ type PublishPodVirtualMachinesTableProps = {
 
 function PublishPodVirtualMachinesTable({
   canUpdateSourceTemplates,
-  onEditPermissions,
+  onPermissionChange,
+  onResetPermissions,
   onUpdateVirtualMachinesChange,
   updateVirtualMachines,
   virtualMachines,
 }: PublishPodVirtualMachinesTableProps) {
+  const [expanded, setExpanded] = React.useState<ExpandedState>({})
   const rows = React.useMemo<Array<PublishPodVMRow>>(
     () => virtualMachines.map((vm, index) => ({ index, vm })),
     [virtualMachines]
@@ -122,9 +137,7 @@ function PublishPodVirtualMachinesTable({
       return {}
     }
 
-    return Object.fromEntries(
-      updateVirtualMachines.map((vmId) => [vmId, true])
-    )
+    return Object.fromEntries(updateVirtualMachines.map((vmId) => [vmId, true]))
   }, [canUpdateSourceTemplates, updateVirtualMachines])
 
   const columns = React.useMemo<Array<ColumnDef<PublishPodVMRow>>>(
@@ -161,7 +174,7 @@ function PublishPodVirtualMachinesTable({
         header: "Name",
         cell: ({ row }) => (
           <div className="flex min-w-40 items-center gap-2">
-            <IconDeviceDesktop className="text-muted-foreground" />
+            <IconDeviceDesktop className="size-4 text-muted-foreground" />
             <span className="truncate font-medium">{row.original.vm.name}</span>
           </div>
         ),
@@ -193,20 +206,27 @@ function PublishPodVirtualMachinesTable({
           ),
       },
       {
-        id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
+        id: "expand",
+        header: () => <div className="text-right">Permissions</div>,
         cell: ({ row }) => (
           <div className="flex justify-end">
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={`Customize permissions for ${row.original.vm.name}`}
-              onClick={() =>
-                onEditPermissions(row.original.vm, row.original.index)
-              }
+              size="sm"
+              aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} permissions for ${row.original.vm.name}`}
+              onClick={row.getToggleExpandedHandler()}
             >
-              <IconSettings data-icon="inline-end" />
+              {row.getIsExpanded() ? (
+                <>
+                  Hide
+                  <IconChevronDown data-icon="inline-end" />
+                </>
+              ) : (
+                <>
+                  Edit
+                  <IconChevronRight data-icon="inline-end" />
+                </>
+              )}
             </Button>
           </div>
         ),
@@ -214,15 +234,18 @@ function PublishPodVirtualMachinesTable({
         enableSorting: false,
       },
     ],
-    [canUpdateSourceTemplates, onEditPermissions, updateVirtualMachines]
+    [canUpdateSourceTemplates, updateVirtualMachines]
   )
 
   const table = useReactTable({
     data: rows,
     columns,
     enableRowSelection: canUpdateSourceTemplates,
+    getExpandedRowModel: getExpandedRowModel(),
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.vm.id,
+    getRowCanExpand: () => true,
+    onExpandedChange: setExpanded,
     onRowSelectionChange: (updater) => {
       const nextSelection =
         typeof updater === "function" ? updater(rowSelection) : updater
@@ -233,6 +256,7 @@ function PublishPodVirtualMachinesTable({
       )
     },
     state: {
+      expanded,
       rowSelection,
     },
   })
@@ -259,16 +283,63 @@ function PublishPodVirtualMachinesTable({
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <React.Fragment key={row.id}>
+                <TableRow data-state={row.getIsSelected() && "selected"}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {row.getIsExpanded() ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={columns.length}>
+                      <div className="flex flex-col gap-4 py-2">
+                        <div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-4">
+                          <div className="min-w-0">
+                            <p className="text-lg font-semibold tracking-tight">
+                              Permissions for {row.original.vm.name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Choose the default access users receive when they
+                              clone this VM.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              onResetPermissions(
+                                row.original.vm,
+                                row.original.index
+                              )
+                            }
+                          >
+                            <IconRefresh data-icon="inline-start" />
+                            Reset to defaults
+                          </Button>
+                        </div>
+                        <PermissionScopeSection
+                          onPermissionChange={(bit, state) =>
+                            onPermissionChange(
+                              row.original.vm,
+                              row.original.index,
+                              bit,
+                              state
+                            )
+                          }
+                          permissionGroups={publishVmPermissionGroups}
+                          principal={createEditingVmPrincipal(row.original.vm)}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </React.Fragment>
             ))
           ) : (
             <TableRow>
@@ -291,54 +362,25 @@ export function PublishPodVirtualMachinesStep({
   sourceFoldersError,
   sourceFoldersLoading,
 }: PublishPodVirtualMachinesStepProps) {
-  const [editingVmIndex, setEditingVmIndex] = React.useState<number | null>(
-    null
-  )
-  const [editingVmPermissions, setEditingVmPermissions] =
-    React.useState<DraftPrincipal | null>(null)
-  const initialSourceFolderRef = React.useRef(form.getFieldValue("source_folder"))
-
-  const closeVmPermissionDialog = React.useCallback(() => {
-    setEditingVmIndex(null)
-    setEditingVmPermissions(null)
-  }, [])
-
-  const handleStartEditingVm = React.useCallback(
-    (vm: PublishPodFormValues["virtual_machines"][number], index: number) => {
-      setEditingVmIndex(index)
-      setEditingVmPermissions(createEditingVmPrincipal(vm))
-    },
-    []
+  const initialSourceFolderRef = React.useRef(
+    form.getFieldValue("source_folder")
   )
 
   const handleVmPermissionChange = React.useCallback(
-    (bit: number, state: PermissionState) => {
-      if (!editingVmPermissions) return
-
-      setEditingVmPermissions({
-        ...editingVmPermissions,
-        self: setPermissionState(editingVmPermissions.self, bit, state),
-      })
-    },
-    [editingVmPermissions]
-  )
-
-  const handleSaveVmPermissions = React.useCallback(() => {
-    if (editingVmIndex === null || !editingVmPermissions) return
-
-    form.setFieldValue(
-      "virtual_machines",
-      form
-        .getFieldValue("virtual_machines")
-        .map((vm, index) =>
-          index === editingVmIndex
-            ? { ...vm, permissions: editingVmPermissions.self }
+    (_vm: PublishPodVM, vmIndex: number, bit: number, state: PermissionState) =>
+      form.setFieldValue(
+        "virtual_machines",
+        form.getFieldValue("virtual_machines").map((vm, index) =>
+          index === vmIndex
+            ? {
+                ...vm,
+                permissions: setPermissionState(vm.permissions, bit, state),
+              }
             : vm
         )
-    )
-
-    closeVmPermissionDialog()
-  }, [closeVmPermissionDialog, editingVmIndex, editingVmPermissions, form])
+      ),
+    [form]
+  )
 
   const handleUpdateVirtualMachinesChange = React.useCallback(
     (vmIds: Array<string>) =>
@@ -346,212 +388,200 @@ export function PublishPodVirtualMachinesStep({
     [form]
   )
 
+  const handleResetVmPermissions = React.useCallback(
+    (_vm: PublishPodVM, vmIndex: number) =>
+      form.setFieldValue(
+        "virtual_machines",
+        form.getFieldValue("virtual_machines").map((vm, index) =>
+          index === vmIndex
+            ? {
+                ...vm,
+                permissions: createDefaultPublishPodVmPermissions(),
+              }
+            : vm
+        )
+      ),
+    [form]
+  )
+
   return (
-    <>
-      <PublishPodStepLayout form={form}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconDeviceDesktop className="size-5 text-muted-foreground" />
-              Virtual Machines
-            </CardTitle>
-            <CardDescription>
-              Choose the source folder, review the included virtual machines,
-              and adjust their default permissions.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="border-t pt-6">
-            <FieldGroup>
-              <form.Field name="source_folder">
-                {(field) => {
-                  const showValidation =
-                    field.state.meta.isTouched || submissionAttempts > 0
-                  const isInvalid = showValidation && !field.state.meta.isValid
-                  const selectedSourceFolder =
-                    sourceFolders.find(
-                      (folder) => folder.id === field.state.value
-                    ) ?? null
-                  const canUpdateSourceTemplates =
-                    isEditing &&
-                    !!field.state.value &&
-                    field.state.value === initialSourceFolderRef.current
+    <PublishPodStepLayout form={form}>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <IconDeviceDesktop className="size-5 text-muted-foreground" />
+            Virtual Machines
+          </CardTitle>
+          <CardDescription>
+            Choose the source folder, review the included virtual machines, and
+            adjust their default permissions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="border-t pt-6">
+          <FieldGroup>
+            <form.Field name="source_folder">
+              {(field) => {
+                const showValidation =
+                  field.state.meta.isTouched || submissionAttempts > 0
+                const isInvalid = showValidation && !field.state.meta.isValid
+                const selectedSourceFolder =
+                  sourceFolders.find(
+                    (folder) => folder.id === field.state.value
+                  ) ?? null
+                const canUpdateSourceTemplates =
+                  isEditing &&
+                  !!field.state.value &&
+                  field.state.value === initialSourceFolderRef.current
 
-                  return (
-                    <Field data-invalid={isInvalid || undefined}>
-                      <FieldLabel>Folder</FieldLabel>
-                      <FieldContent>
-                        <Combobox
-                          items={sourceFolders}
-                          itemToStringLabel={(folder) => folder.name}
-                          itemToStringValue={(folder) => folder.name}
-                          value={selectedSourceFolder}
-                          onValueChange={(folder) => {
-                            const nextFolderID = folder?.id ?? ""
-                            field.handleChange(nextFolderID)
+                return (
+                  <Field data-invalid={isInvalid || undefined}>
+                    <FieldLabel>Folder</FieldLabel>
+                    <FieldContent>
+                      <Combobox
+                        items={sourceFolders}
+                        itemToStringLabel={(folder) => folder.name}
+                        itemToStringValue={(folder) => folder.name}
+                        value={selectedSourceFolder}
+                        onValueChange={(folder) => {
+                          const nextFolderID = folder?.id ?? ""
+                          field.handleChange(nextFolderID)
 
-                            if (
-                              nextFolderID &&
-                              nextFolderID !== field.state.value
-                            ) {
-                              form.setFieldValue(
-                                "virtual_machines",
-                                structuredClone(folder?.virtual_machines ?? [])
-                              )
-                              form.setFieldValue(
-                                "update_virtual_machines",
-                                []
-                              )
-                            }
+                          if (
+                            nextFolderID &&
+                            nextFolderID !== field.state.value
+                          ) {
+                            form.setFieldValue(
+                              "virtual_machines",
+                              structuredClone(folder?.virtual_machines ?? [])
+                            )
+                            form.setFieldValue("update_virtual_machines", [])
+                          }
 
-                            if (!nextFolderID) {
-                              form.setFieldValue("virtual_machines", [])
-                              form.setFieldValue(
-                                "update_virtual_machines",
-                                []
-                              )
-                            }
-                          }}
-                          disabled={sourceFoldersLoading}
-                          autoHighlight
-                        >
-                          <ComboboxInput
-                            name={field.name}
-                            placeholder={
-                              sourceFoldersLoading
-                                ? "Loading folders..."
-                                : "Select source folder"
-                            }
-                            onBlur={field.handleBlur}
-                            aria-invalid={isInvalid || undefined}
-                          />
-                          <ComboboxContent>
-                            <ComboboxEmpty>No folders found.</ComboboxEmpty>
-                            <ComboboxList>
-                              {(folder) => (
-                                <ComboboxItem key={folder.id} value={folder}>
-                                  <span className="flex min-w-0 flex-col">
-                                    <span className="truncate">
-                                      {folder.name}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {folder.virtual_machines.length} VM
-                                      {folder.virtual_machines.length === 1
-                                        ? ""
-                                        : "s"}
-                                    </span>
-                                  </span>
-                                </ComboboxItem>
-                              )}
-                            </ComboboxList>
-                          </ComboboxContent>
-                        </Combobox>
-                        <FieldDescription className="pt-2">
-                          The selected folder provides the base VMs for this
-                          pod. Publishing does not modify the source folder.
-                        </FieldDescription>
-                        <FieldError
-                          errors={showValidation ? field.state.meta.errors : []}
+                          if (!nextFolderID) {
+                            form.setFieldValue("virtual_machines", [])
+                            form.setFieldValue("update_virtual_machines", [])
+                          }
+                        }}
+                        disabled={sourceFoldersLoading}
+                        autoHighlight
+                      >
+                        <ComboboxInput
+                          name={field.name}
+                          placeholder={
+                            sourceFoldersLoading
+                              ? "Loading folders..."
+                              : "Select source folder"
+                          }
+                          onBlur={field.handleBlur}
+                          aria-invalid={isInvalid || undefined}
                         />
-                        {sourceFoldersError ? (
-                          <FieldDescription className="text-destructive">
-                            Failed to load source folders.
-                          </FieldDescription>
-                        ) : null}
-                        <div className="flex flex-col gap-3 pt-3">
-                          <p className="font-medium">
-                            Included Virtual Machines
-                          </p>
-                          {sourceFoldersLoading ? (
-                            <div className="flex flex-col gap-3">
-                              <Skeleton className="h-16 w-full" />
-                              <Skeleton className="h-16 w-full" />
-                              <Skeleton className="h-16 w-full" />
-                            </div>
-                          ) : field.state.value ? (
-                            <form.Subscribe
-                              selector={(state) => ({
-                                updateVirtualMachines:
-                                  state.values.update_virtual_machines,
-                                virtualMachines:
-                                  state.values.virtual_machines,
-                              })}
-                            >
-                              {({
-                                updateVirtualMachines,
-                                virtualMachines,
-                              }) => (
-                                <>
-                                  {canUpdateSourceTemplates ? (
-                                    <Alert>
-                                      <IconRefresh />
-                                      <AlertTitle>
-                                        Update Source templates
-                                      </AlertTitle>
-                                      <AlertDescription>
-                                        Selected VMs will have their Source
-                                        templates rebuilt when you save.
-                                        Existing clones keep their current VM
-                                        copies until users clone the pod again.
-                                      </AlertDescription>
-                                    </Alert>
-                                  ) : null}
-                                  <PublishPodVirtualMachinesTable
-                                    canUpdateSourceTemplates={
-                                      canUpdateSourceTemplates
-                                    }
-                                    onEditPermissions={handleStartEditingVm}
-                                    onUpdateVirtualMachinesChange={
-                                      handleUpdateVirtualMachinesChange
-                                    }
-                                    updateVirtualMachines={
-                                      updateVirtualMachines
-                                    }
-                                    virtualMachines={virtualMachines}
-                                  />
-                                </>
-                              )}
-                            </form.Subscribe>
-                          ) : (
-                            <Empty className="border border-dashed">
-                              <EmptyHeader>
-                                <EmptyMedia variant="icon">
-                                  <IconFolderOpen />
-                                </EmptyMedia>
-                                <EmptyTitle>No folder selected</EmptyTitle>
-                                <EmptyDescription>
-                                  Select a folder to preview the virtual
-                                  machines that will be included in this pod.
-                                </EmptyDescription>
-                              </EmptyHeader>
-                            </Empty>
-                          )}
-                          <span className="text-muted-foreground">
-                            Default VM access includes view, console, power, and
-                            snapshot actions.
-                          </span>
-                        </div>
-                      </FieldContent>
-                    </Field>
-                  )
-                }}
-              </form.Field>
-            </FieldGroup>
-          </CardContent>
-        </Card>
-      </PublishPodStepLayout>
-
-      <CustomizePermissionsDialog
-        editingPrincipal={editingVmPermissions}
-        onSave={handleSaveVmPermissions}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeVmPermissionDialog()
-          }
-        }}
-        onPermissionChange={handleVmPermissionChange}
-        permissionGroups={publishVmPermissionGroups}
-        showOverlay={true}
-      />
-    </>
+                        <ComboboxContent>
+                          <ComboboxEmpty>No folders found.</ComboboxEmpty>
+                          <ComboboxList>
+                            {(folder) => (
+                              <ComboboxItem key={folder.id} value={folder}>
+                                <span className="flex min-w-0 flex-col">
+                                  <span className="truncate">
+                                    {folder.name}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {folder.virtual_machines.length} VM
+                                    {folder.virtual_machines.length === 1
+                                      ? ""
+                                      : "s"}
+                                  </span>
+                                </span>
+                              </ComboboxItem>
+                            )}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
+                      <FieldDescription className="pt-2">
+                        The selected folder provides the base VMs for this pod.
+                        Publishing does not modify the source folder.
+                      </FieldDescription>
+                      <FieldError
+                        errors={showValidation ? field.state.meta.errors : []}
+                      />
+                      {sourceFoldersError ? (
+                        <FieldDescription className="text-destructive">
+                          Failed to load source folders.
+                        </FieldDescription>
+                      ) : null}
+                      <div className="flex flex-col gap-3 pt-3">
+                        <p className="font-medium">Included Virtual Machines</p>
+                        {sourceFoldersLoading ? (
+                          <div className="flex flex-col gap-3">
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                          </div>
+                        ) : field.state.value ? (
+                          <form.Subscribe
+                            selector={(state) => ({
+                              updateVirtualMachines:
+                                state.values.update_virtual_machines,
+                              virtualMachines: state.values.virtual_machines,
+                            })}
+                          >
+                            {({ updateVirtualMachines, virtualMachines }) => (
+                              <>
+                                {canUpdateSourceTemplates ? (
+                                  <Alert>
+                                    <IconRefresh />
+                                    <AlertTitle>
+                                      Update Source templates
+                                    </AlertTitle>
+                                    <AlertDescription>
+                                      Selected VMs will have their Source
+                                      templates rebuilt when you save. Existing
+                                      clones keep their current VM copies until
+                                      users clone the pod again.
+                                    </AlertDescription>
+                                  </Alert>
+                                ) : null}
+                                <PublishPodVirtualMachinesTable
+                                  canUpdateSourceTemplates={
+                                    canUpdateSourceTemplates
+                                  }
+                                  onPermissionChange={handleVmPermissionChange}
+                                  onResetPermissions={handleResetVmPermissions}
+                                  onUpdateVirtualMachinesChange={
+                                    handleUpdateVirtualMachinesChange
+                                  }
+                                  updateVirtualMachines={updateVirtualMachines}
+                                  virtualMachines={virtualMachines}
+                                />
+                              </>
+                            )}
+                          </form.Subscribe>
+                        ) : (
+                          <Empty className="border border-dashed">
+                            <EmptyHeader>
+                              <EmptyMedia variant="icon">
+                                <IconFolderOpen />
+                              </EmptyMedia>
+                              <EmptyTitle>No folder selected</EmptyTitle>
+                              <EmptyDescription>
+                                Select a folder to preview the virtual machines
+                                that will be included in this pod.
+                              </EmptyDescription>
+                            </EmptyHeader>
+                          </Empty>
+                        )}
+                        <span className="text-muted-foreground">
+                          Default VM access includes view, console, power, and
+                          snapshot actions.
+                        </span>
+                      </div>
+                    </FieldContent>
+                  </Field>
+                )
+              }}
+            </form.Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+    </PublishPodStepLayout>
   )
 }

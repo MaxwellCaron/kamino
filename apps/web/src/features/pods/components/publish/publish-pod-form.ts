@@ -274,11 +274,15 @@ export function createDefaultPublishPodVm(index: number) {
     cpuCount: 2,
     memoryGb: 4,
     storageGb: 100,
-    permissions: {
-      allowMask: defaultPublishPodVmPermissionAllowMask,
-      denyMask: 0,
-    },
+    permissions: createDefaultPublishPodVmPermissions(),
   } satisfies PublishPodFormValues["virtual_machines"][number]
+}
+
+export function createDefaultPublishPodVmPermissions() {
+  return {
+    allowMask: defaultPublishPodVmPermissionAllowMask,
+    denyMask: 0,
+  } satisfies PublishPodFormValues["virtual_machines"][number]["permissions"]
 }
 
 export function toPodAudiencePrincipal(

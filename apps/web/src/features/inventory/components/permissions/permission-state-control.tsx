@@ -28,17 +28,21 @@ export function PermissionStateControl({
       <ToggleGroupItem
         value="deny"
         aria-label="Deny"
-        className="text-destructive!"
+        className="text-destructive! transition-colors aria-pressed:bg-destructive/10!"
       >
         <IconX className="size-4" />
       </ToggleGroupItem>
-      <ToggleGroupItem value="inherit" aria-label="Inherit">
+      <ToggleGroupItem
+        value="inherit"
+        aria-label="Inherit"
+        className="transition-colors"
+      >
         <IconSlash className="size-4" />
       </ToggleGroupItem>
       <ToggleGroupItem
         value="allow"
         aria-label="Allow"
-        className="text-green-600! dark:text-green-400!"
+        className="text-green-600! transition-colors aria-pressed:bg-green-600/10! dark:text-green-400! dark:aria-pressed:bg-green-400/10!"
       >
         <IconCheck className="size-4" />
       </ToggleGroupItem>
