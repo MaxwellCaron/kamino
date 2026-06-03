@@ -157,16 +157,17 @@ type publishPodTaskRequest struct {
 }
 
 type publishPodRequest struct {
-	ID              string                       `json:"id"`
-	Title           string                       `json:"title"`
-	Description     string                       `json:"description"`
-	Image           string                       `json:"image"`
-	Creators        []publishPodPrincipalRequest `json:"creators"`
-	Status          string                       `json:"status"`
-	Audience        []publishPodPrincipalRequest `json:"audience"`
-	SourceFolder    string                       `json:"source_folder"`
-	VirtualMachines []publishPodVMRequest        `json:"virtual_machines"`
-	Tasks           []publishPodTaskRequest      `json:"tasks"`
+	ID                    string                       `json:"id"`
+	Title                 string                       `json:"title"`
+	Description           string                       `json:"description"`
+	Image                 string                       `json:"image"`
+	Creators              []publishPodPrincipalRequest `json:"creators"`
+	Status                string                       `json:"status"`
+	Audience              []publishPodPrincipalRequest `json:"audience"`
+	SourceFolder          string                       `json:"source_folder"`
+	VirtualMachines       []publishPodVMRequest        `json:"virtual_machines"`
+	UpdateVirtualMachines []string                     `json:"update_virtual_machines"`
+	Tasks                 []publishPodTaskRequest      `json:"tasks"`
 }
 
 type updatePublishedPodStatusRequest struct {
@@ -932,6 +933,7 @@ func (h *PodsHandler) savePublishedPod(
 		}
 	}
 
+	replacedSourceTemplateIDs := []uuid.UUID{}
 	if exists && existingRow.SourceFolderID == normalized.SourceFolderID {
 		existingVMs, err := reloadQ.ListPublishedPodVMsByPodIDs(ctx, []uuid.UUID{normalized.ID})
 		if err != nil {
@@ -942,9 +944,16 @@ func (h *PodsHandler) savePublishedPod(
 				Err:         err,
 			}
 		}
-		normalized.VirtualMachines, reqErr = preservePublishedPodSourceTemplates(normalized.VirtualMachines, existingVMs)
-		if reqErr != nil {
-			return publishedPodResponse{}, reqErr
+		if len(normalized.UpdateVirtualMachines) == 0 {
+			normalized.VirtualMachines, reqErr = preservePublishedPodSourceTemplates(normalized.VirtualMachines, existingVMs)
+			if reqErr != nil {
+				return publishedPodResponse{}, reqErr
+			}
+		} else {
+			normalized.VirtualMachines, replacedSourceTemplateIDs, reqErr = h.updatePublishedPodSourceTemplates(ctx, principalID, normalized, existingVMs, progress)
+			if reqErr != nil {
+				return publishedPodResponse{}, reqErr
+			}
 		}
 	} else {
 		normalized.VirtualMachines, reqErr = h.preparePublishedPodSourceTemplates(ctx, principalID, normalized, progress)
@@ -1028,6 +1037,13 @@ func (h *PodsHandler) savePublishedPod(
 		}
 	}
 
+	if len(replacedSourceTemplateIDs) > 0 {
+		progress.set(publishProgressStepSaving, "Deleting replaced Source templates.")
+		if reqErr := h.deletePublishedPodSourceTemplates(ctx, replacedSourceTemplateIDs); reqErr != nil {
+			return publishedPodResponse{}, reqErr
+		}
+	}
+
 	row, err := reloadQ.GetPublishedPodByID(ctx, normalized.ID)
 	if err != nil {
 		return publishedPodResponse{}, &requestError{
@@ -1057,16 +1073,17 @@ func (h *PodsHandler) savePublishedPod(
 }
 
 type normalizedPublishPodRequest struct {
-	ID              uuid.UUID
-	Title           string
-	Description     string
-	Image           string
-	Status          database.PublishedPodStatus
-	SourceFolderID  uuid.UUID
-	CreatorIDs      []uuid.UUID
-	AudienceIDs     []uuid.UUID
-	VirtualMachines []normalizedPublishPodVM
-	Tasks           []normalizedPublishPodTask
+	ID                    uuid.UUID
+	Title                 string
+	Description           string
+	Image                 string
+	Status                database.PublishedPodStatus
+	SourceFolderID        uuid.UUID
+	CreatorIDs            []uuid.UUID
+	AudienceIDs           []uuid.UUID
+	VirtualMachines       []normalizedPublishPodVM
+	UpdateVirtualMachines []uuid.UUID
+	Tasks                 []normalizedPublishPodTask
 }
 
 type normalizedPublishPodVM struct {
@@ -1166,22 +1183,27 @@ func (h *PodsHandler) normalizePublishPodRequest(
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}
+	updateVMs, reqErr := normalizePublishPodUpdateVMs(req.UpdateVirtualMachines)
+	if reqErr != nil {
+		return normalizedPublishPodRequest{}, reqErr
+	}
 	tasks, reqErr := normalizePublishPodTasks(req.Tasks)
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}
 
 	return normalizedPublishPodRequest{
-		ID:              podID,
-		Title:           title,
-		Description:     description,
-		Image:           image,
-		Status:          status,
-		SourceFolderID:  sourceFolderID,
-		CreatorIDs:      creatorIDs,
-		AudienceIDs:     audienceIDs,
-		VirtualMachines: vms,
-		Tasks:           tasks,
+		ID:                    podID,
+		Title:                 title,
+		Description:           description,
+		Image:                 image,
+		Status:                status,
+		SourceFolderID:        sourceFolderID,
+		CreatorIDs:            creatorIDs,
+		AudienceIDs:           audienceIDs,
+		VirtualMachines:       vms,
+		UpdateVirtualMachines: updateVMs,
+		Tasks:                 tasks,
 	}, nil
 }
 
@@ -1509,6 +1531,28 @@ func normalizePublishPodVMs(
 	return vms, nil
 }
 
+func normalizePublishPodUpdateVMs(values []string) ([]uuid.UUID, *requestError) {
+	if len(values) == 0 {
+		return []uuid.UUID{}, nil
+	}
+
+	seen := make(map[uuid.UUID]struct{}, len(values))
+	ids := make([]uuid.UUID, 0, len(values))
+	for _, value := range values {
+		id, err := uuid.Parse(strings.TrimSpace(value))
+		if err != nil {
+			return nil, invalidPublishPod("invalid VM update id")
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
 func preservePublishedPodSourceTemplates(
 	requestVMs []normalizedPublishPodVM,
 	existingVMs []database.ListPublishedPodVMsByPodIDsRow,
@@ -1552,6 +1596,152 @@ func preservePublishedPodSourceTemplates(
 	}
 
 	return preserved, nil
+}
+
+func (h *PodsHandler) updatePublishedPodSourceTemplates(
+	ctx context.Context,
+	principalID uuid.UUID,
+	req normalizedPublishPodRequest,
+	existingVMs []database.ListPublishedPodVMsByPodIDsRow,
+	progress *publishPodProgressReporter,
+) ([]normalizedPublishPodVM, []uuid.UUID, *requestError) {
+	if len(req.VirtualMachines) != len(existingVMs) {
+		return nil, nil, invalidPublishPod("published VMs must match the selected source folder")
+	}
+
+	selected := make(map[uuid.UUID]struct{}, len(req.UpdateVirtualMachines))
+	for _, id := range req.UpdateVirtualMachines {
+		selected[id] = struct{}{}
+	}
+
+	existingByID := make(map[uuid.UUID]database.ListPublishedPodVMsByPodIDsRow, len(existingVMs))
+	existingByName := make(map[string]database.ListPublishedPodVMsByPodIDsRow, len(existingVMs))
+	for _, vm := range existingVMs {
+		existingByID[vm.SourceInventoryItemID] = vm
+		existingByName[strings.ToLower(vm.Name)] = vm
+	}
+
+	seenExisting := make(map[uuid.UUID]struct{}, len(req.VirtualMachines))
+	matchedSelected := make(map[uuid.UUID]struct{}, len(selected))
+	updateSources := make([]normalizedPublishPodVM, 0, len(selected))
+	replacedSourceTemplateIDs := make([]uuid.UUID, 0, len(selected))
+	output := make([]normalizedPublishPodVM, len(req.VirtualMachines))
+
+	for index, requestVM := range req.VirtualMachines {
+		existing, ok := existingByID[requestVM.RequestInventoryItemID]
+		if !ok {
+			existing, ok = existingByName[strings.ToLower(requestVM.Name)]
+		}
+		if !ok {
+			return nil, nil, invalidPublishPod("published VMs must match the existing source templates")
+		}
+		if _, ok := seenExisting[existing.SourceInventoryItemID]; ok {
+			return nil, nil, invalidPublishPod("duplicate VM in publish request")
+		}
+		seenExisting[existing.SourceInventoryItemID] = struct{}{}
+
+		update := markSelectedUpdateVM(
+			selected,
+			matchedSelected,
+			requestVM.RequestInventoryItemID,
+			requestVM.SourceInventoryItemID,
+			existing.SourceInventoryItemID,
+		)
+		if !update {
+			output[index] = normalizedPublishPodVM{
+				RequestInventoryItemID: requestVM.RequestInventoryItemID,
+				SourceInventoryItemID:  existing.SourceInventoryItemID,
+				Name:                   existing.Name,
+				CPUCount:               existing.CpuCount,
+				MemoryGB:               memoryMBToGB(&existing.MemoryMb),
+				StorageGB:              diskGBToInt(&existing.DiskGb),
+				AllowMask:              requestVM.AllowMask,
+				DenyMask:               requestVM.DenyMask,
+			}
+			continue
+		}
+
+		updateSources = append(updateSources, requestVM)
+		replacedSourceTemplateIDs = append(replacedSourceTemplateIDs, existing.SourceInventoryItemID)
+	}
+
+	if len(matchedSelected) != len(selected) {
+		return nil, nil, invalidPublishPod("selected VM updates must match the published pod VMs")
+	}
+	if len(updateSources) == 0 {
+		return output, []uuid.UUID{}, nil
+	}
+
+	progress.set(publishProgressStepPreparing, "Preparing selected Source templates for update.")
+	sourceTemplateFolderID, err := h.Service.EnsureChildFolder(
+		ctx,
+		req.SourceFolderID,
+		publishedPodSourceFolderName,
+	)
+	if err != nil {
+		return nil, nil, inventoryRequestError(err)
+	}
+	if reqErr := requireInventoryPermissionRequest(
+		ctx,
+		h.Authz,
+		principalID,
+		sourceTemplateFolderID,
+		authorization.CreateVM,
+		"authorize published pod source template update",
+	); reqErr != nil {
+		return nil, nil, reqErr
+	}
+
+	placement, err := h.Service.ResolveFolderPlacement(ctx, sourceTemplateFolderID)
+	if err != nil {
+		return nil, nil, inventoryRequestError(err)
+	}
+
+	targetNode, err := h.resolveCloneTargetNode(ctx)
+	if err != nil {
+		return nil, nil, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to resolve target node",
+			Operation:   "resolve published pod source update target node",
+			Err:         err,
+		}
+	}
+
+	updated, reqErr := h.cloneSourceVMsIntoTemplates(ctx, principalID, placement, targetNode, updateSources, progress)
+	if reqErr != nil {
+		return nil, nil, reqErr
+	}
+	updatedByRequestID := make(map[uuid.UUID]normalizedPublishPodVM, len(updated))
+	for _, vm := range updated {
+		updatedByRequestID[vm.RequestInventoryItemID] = vm
+	}
+	for index, requestVM := range req.VirtualMachines {
+		if output[index].SourceInventoryItemID != uuid.Nil {
+			continue
+		}
+		updatedVM, ok := updatedByRequestID[requestVM.RequestInventoryItemID]
+		if !ok {
+			return nil, nil, invalidPublishPod("failed to match updated VM")
+		}
+		output[index] = updatedVM
+	}
+
+	return output, replacedSourceTemplateIDs, nil
+}
+
+func markSelectedUpdateVM(
+	selected map[uuid.UUID]struct{},
+	matched map[uuid.UUID]struct{},
+	ids ...uuid.UUID,
+) bool {
+	update := false
+	for _, id := range ids {
+		if _, ok := selected[id]; ok {
+			matched[id] = struct{}{}
+			update = true
+		}
+	}
+	return update
 }
 
 func (h *PodsHandler) preparePublishedPodSourceTemplates(
@@ -1928,6 +2118,43 @@ func (h *PodsHandler) cleanupPublishClones(created map[int]clonedVM) {
 			}
 		}
 	}
+}
+
+func (h *PodsHandler) deletePublishedPodSourceTemplates(ctx context.Context, sourceTemplateIDs []uuid.UUID) *requestError {
+	q := database.New(h.DB)
+	for _, id := range sourceTemplateIDs {
+		row, err := q.GetProxmoxVMByInventoryItemID(ctx, id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to load replaced Source template",
+				Operation:   "load replaced published pod source template",
+				Err:         err,
+			}
+		}
+
+		if err := h.deleteClonedPodProxmoxVM(ctx, row.Node, int(row.Vmid)); err != nil {
+			return &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to delete replaced Source template",
+				Operation:   "delete replaced published pod source template",
+				Err:         err,
+			}
+		}
+		if err := h.Service.DeleteInventoryVM(ctx, id); err != nil {
+			return &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to delete replaced Source template metadata",
+				Operation:   "delete replaced published pod source template inventory item",
+				Err:         err,
+			}
+		}
+	}
+
+	return nil
 }
 
 func requireInventoryPermissionRequest(

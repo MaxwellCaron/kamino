@@ -234,6 +234,7 @@ export const publishPodFormSchema = z.object({
   status: z.enum(["listed", "unlisted"] satisfies Array<PodStatus>),
   audience: z.array(publishPodAudiencePrincipalSchema),
   virtual_machines: z.array(publishPodVmSchema).min(1),
+  update_virtual_machines: z.array(z.string()),
   tasks: z
     .array(publishPodTaskSchema)
     .min(1, "Add at least one task.")
@@ -310,6 +311,7 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
     status: "listed",
     audience: [],
     virtual_machines: [],
+    update_virtual_machines: [],
     tasks: [
       {
         id: uuid(),
@@ -348,6 +350,7 @@ export type PublishPodFormApi = ReturnType<typeof usePublishPodForm>
 
 export function toPodDraft(values: PublishPodFormValues): Pod {
   const {
+    update_virtual_machines: _updateVirtualMachines,
     source_folder: _sourceFolder,
     virtual_machines: _virtualMachines,
     ...podDraft

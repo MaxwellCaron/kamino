@@ -199,6 +199,7 @@ export function toPublishPodFormValues(
     status: pod.status,
     audience: structuredClone(pod.audience),
     virtual_machines: structuredClone(pod.virtual_machines),
+    update_virtual_machines: [],
     tasks: (pod.tasks ?? []).map((task) => ({
       id: task.id,
       title: task.title,

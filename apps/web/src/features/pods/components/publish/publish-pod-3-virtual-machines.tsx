@@ -1,11 +1,22 @@
 import * as React from "react"
 import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Combobox,
   ComboboxContent,
@@ -31,20 +42,22 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
-import {
   IconDeviceDesktop,
   IconFolderOpen,
+  IconRefresh,
   IconSettings,
 } from "@tabler/icons-react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
+import type { ColumnDef, RowSelectionState } from "@tanstack/react-table"
 import type {
   PublishPodFormApi,
   PublishPodFormValues,
@@ -60,8 +73,15 @@ import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/u
 
 const publishVmPermissionGroups = getInventoryPermissionDefinitionsByGroup("vm")
 
+type PublishPodVM = PublishPodFormValues["virtual_machines"][number]
+type PublishPodVMRow = {
+  index: number
+  vm: PublishPodVM
+}
+
 type PublishPodVirtualMachinesStepProps = {
   form: PublishPodFormApi
+  isEditing: boolean
   submissionAttempts: number
   sourceFolders: Array<PublishPodSourceFolder>
   sourceFoldersError: Error | null
@@ -78,8 +98,194 @@ function createEditingVmPrincipal(
   }
 }
 
+type PublishPodVirtualMachinesTableProps = {
+  canUpdateSourceTemplates: boolean
+  onEditPermissions: (vm: PublishPodVM, index: number) => void
+  onUpdateVirtualMachinesChange: (vmIds: Array<string>) => void
+  updateVirtualMachines: Array<string>
+  virtualMachines: Array<PublishPodVM>
+}
+
+function PublishPodVirtualMachinesTable({
+  canUpdateSourceTemplates,
+  onEditPermissions,
+  onUpdateVirtualMachinesChange,
+  updateVirtualMachines,
+  virtualMachines,
+}: PublishPodVirtualMachinesTableProps) {
+  const rows = React.useMemo<Array<PublishPodVMRow>>(
+    () => virtualMachines.map((vm, index) => ({ index, vm })),
+    [virtualMachines]
+  )
+  const rowSelection = React.useMemo<RowSelectionState>(() => {
+    if (!canUpdateSourceTemplates) {
+      return {}
+    }
+
+    return Object.fromEntries(
+      updateVirtualMachines.map((vmId) => [vmId, true])
+    )
+  }, [canUpdateSourceTemplates, updateVirtualMachines])
+
+  const columns = React.useMemo<Array<ColumnDef<PublishPodVMRow>>>(
+    () => [
+      ...(canUpdateSourceTemplates
+        ? [
+            {
+              id: "update",
+              header: ({ table }) => (
+                <Checkbox
+                  checked={table.getIsAllRowsSelected()}
+                  aria-label="Select all VMs to update"
+                  onCheckedChange={(checked) =>
+                    table.toggleAllRowsSelected(Boolean(checked))
+                  }
+                />
+              ),
+              cell: ({ row }) => (
+                <Checkbox
+                  checked={row.getIsSelected()}
+                  aria-label={`Update ${row.original.vm.name}`}
+                  onCheckedChange={(checked) =>
+                    row.toggleSelected(Boolean(checked))
+                  }
+                />
+              ),
+              enableHiding: false,
+              enableSorting: false,
+            } satisfies ColumnDef<PublishPodVMRow>,
+          ]
+        : []),
+      {
+        id: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <div className="flex min-w-40 items-center gap-2">
+            <IconDeviceDesktop className="text-muted-foreground" />
+            <span className="truncate font-medium">{row.original.vm.name}</span>
+          </div>
+        ),
+      },
+      {
+        id: "cpu",
+        header: "CPU",
+        cell: ({ row }) => `${row.original.vm.cpuCount} CPUs`,
+      },
+      {
+        id: "memory",
+        header: "Memory",
+        cell: ({ row }) => `${row.original.vm.memoryGb}GB RAM`,
+      },
+      {
+        id: "storage",
+        header: "Storage",
+        cell: ({ row }) => `${row.original.vm.storageGb}GB`,
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) =>
+          canUpdateSourceTemplates &&
+          updateVirtualMachines.includes(row.original.vm.id) ? (
+            <span className="text-muted-foreground">Queued for update</span>
+          ) : (
+            <span className="text-muted-foreground">Current</span>
+          ),
+      },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Customize permissions for ${row.original.vm.name}`}
+              onClick={() =>
+                onEditPermissions(row.original.vm, row.original.index)
+              }
+            >
+              <IconSettings data-icon="inline-end" />
+            </Button>
+          </div>
+        ),
+        enableHiding: false,
+        enableSorting: false,
+      },
+    ],
+    [canUpdateSourceTemplates, onEditPermissions, updateVirtualMachines]
+  )
+
+  const table = useReactTable({
+    data: rows,
+    columns,
+    enableRowSelection: canUpdateSourceTemplates,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.vm.id,
+    onRowSelectionChange: (updater) => {
+      const nextSelection =
+        typeof updater === "function" ? updater(rowSelection) : updater
+      onUpdateVirtualMachinesChange(
+        Object.entries(nextSelection)
+          .filter(([, selected]) => selected)
+          .map(([vmId]) => vmId)
+      )
+    },
+    state: {
+      rowSelection,
+    },
+  })
+
+  return (
+    <div className="overflow-hidden rounded-md border">
+      <Table>
+        <TableHeader className="bg-muted">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && "selected"}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                No virtual machines found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 export function PublishPodVirtualMachinesStep({
   form,
+  isEditing,
   submissionAttempts,
   sourceFolders,
   sourceFoldersError,
@@ -90,6 +296,7 @@ export function PublishPodVirtualMachinesStep({
   )
   const [editingVmPermissions, setEditingVmPermissions] =
     React.useState<DraftPrincipal | null>(null)
+  const initialSourceFolderRef = React.useRef(form.getFieldValue("source_folder"))
 
   const closeVmPermissionDialog = React.useCallback(() => {
     setEditingVmIndex(null)
@@ -133,6 +340,12 @@ export function PublishPodVirtualMachinesStep({
     closeVmPermissionDialog()
   }, [closeVmPermissionDialog, editingVmIndex, editingVmPermissions, form])
 
+  const handleUpdateVirtualMachinesChange = React.useCallback(
+    (vmIds: Array<string>) =>
+      form.setFieldValue("update_virtual_machines", vmIds),
+    [form]
+  )
+
   return (
     <>
       <PublishPodStepLayout form={form}>
@@ -158,6 +371,10 @@ export function PublishPodVirtualMachinesStep({
                     sourceFolders.find(
                       (folder) => folder.id === field.state.value
                     ) ?? null
+                  const canUpdateSourceTemplates =
+                    isEditing &&
+                    !!field.state.value &&
+                    field.state.value === initialSourceFolderRef.current
 
                   return (
                     <Field data-invalid={isInvalid || undefined}>
@@ -180,10 +397,18 @@ export function PublishPodVirtualMachinesStep({
                                 "virtual_machines",
                                 structuredClone(folder?.virtual_machines ?? [])
                               )
+                              form.setFieldValue(
+                                "update_virtual_machines",
+                                []
+                              )
                             }
 
                             if (!nextFolderID) {
                               form.setFieldValue("virtual_machines", [])
+                              form.setFieldValue(
+                                "update_virtual_machines",
+                                []
+                              )
                             }
                           }}
                           disabled={sourceFoldersLoading}
@@ -244,41 +469,46 @@ export function PublishPodVirtualMachinesStep({
                             </div>
                           ) : field.state.value ? (
                             <form.Subscribe
-                              selector={(state) =>
-                                state.values.virtual_machines
-                              }
+                              selector={(state) => ({
+                                updateVirtualMachines:
+                                  state.values.update_virtual_machines,
+                                virtualMachines:
+                                  state.values.virtual_machines,
+                              })}
                             >
-                              {(virtualMachines) => (
-                                <div className="flex flex-col gap-3">
-                                  {virtualMachines.map((vm, index) => (
-                                    <Item key={vm.id} variant="muted">
-                                      <ItemMedia variant="icon">
-                                        <IconDeviceDesktop />
-                                      </ItemMedia>
-                                      <ItemContent>
-                                        <ItemTitle>{vm.name}</ItemTitle>
-                                        <ItemDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                          <span>{vm.cpuCount} CPUs</span>
-                                          <span>{vm.memoryGb}GB RAM</span>
-                                          <span>{vm.storageGb}GB Storage</span>
-                                        </ItemDescription>
-                                      </ItemContent>
-                                      <ItemActions>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon"
-                                          aria-label={`Customize permissions for ${vm.name}`}
-                                          onClick={() =>
-                                            handleStartEditingVm(vm, index)
-                                          }
-                                        >
-                                          <IconSettings data-icon="inline-end" />
-                                        </Button>
-                                      </ItemActions>
-                                    </Item>
-                                  ))}
-                                </div>
+                              {({
+                                updateVirtualMachines,
+                                virtualMachines,
+                              }) => (
+                                <>
+                                  {canUpdateSourceTemplates ? (
+                                    <Alert>
+                                      <IconRefresh />
+                                      <AlertTitle>
+                                        Update Source templates
+                                      </AlertTitle>
+                                      <AlertDescription>
+                                        Selected VMs will have their Source
+                                        templates rebuilt when you save.
+                                        Existing clones keep their current VM
+                                        copies until users clone the pod again.
+                                      </AlertDescription>
+                                    </Alert>
+                                  ) : null}
+                                  <PublishPodVirtualMachinesTable
+                                    canUpdateSourceTemplates={
+                                      canUpdateSourceTemplates
+                                    }
+                                    onEditPermissions={handleStartEditingVm}
+                                    onUpdateVirtualMachinesChange={
+                                      handleUpdateVirtualMachinesChange
+                                    }
+                                    updateVirtualMachines={
+                                      updateVirtualMachines
+                                    }
+                                    virtualMachines={virtualMachines}
+                                  />
+                                </>
                               )}
                             </form.Subscribe>
                           ) : (

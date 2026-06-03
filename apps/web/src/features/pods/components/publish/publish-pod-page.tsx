@@ -340,6 +340,7 @@ export function PublishPodPage({
         <StepperContent value="virtual-machines" className="w-full">
           <PublishPodVirtualMachinesStep
             form={form}
+            isEditing={!!publishedPodId}
             submissionAttempts={submissionAttempts}
             sourceFolders={
               publishOptionsQuery.data?.source_folders ??
