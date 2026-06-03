@@ -28,13 +28,12 @@ import type {
   CloneStatusTask,
   CloneStepColors,
 } from "@/features/pods/types/clone-status"
-
-const DEFAULT_COLORS: CloneStepColors = {
-  text: "text-primary dark:text-primary",
-  border: "border-primary dark:border-primary",
-  bg: "bg-primary dark:bg-primary",
-  soft: "bg-primary/10 dark:bg-primary/10",
-}
+import {
+  COMPLETE_CLONE_COLORS,
+  DEFAULT_CLONE_COLORS,
+  FAILED_CLONE_COLORS,
+  IDLE_CLONE_COLORS,
+} from "@/features/pods/types/clone-status"
 
 type CloneStatusItemProps = {
   title: ReactNode
@@ -54,7 +53,7 @@ export function CloneStatusItem({
   isCloning,
   isFinished,
   isFailed = false,
-  colors = DEFAULT_COLORS,
+  colors = DEFAULT_CLONE_COLORS,
   elapsedTime,
   defaultExpanded = true,
   className,
@@ -78,11 +77,11 @@ export function CloneStatusItem({
           className={cn(
             "transition-colors duration-500",
             isFailed
-              ? "bg-destructive/10 text-destructive"
+              ? cn(FAILED_CLONE_COLORS.soft, FAILED_CLONE_COLORS.text)
               : isCloning
                 ? colors.text
-                : "text-muted-foreground",
-            isFailed ? null : isCloning ? colors.soft : "bg-muted"
+                : IDLE_CLONE_COLORS.text,
+            isFailed ? null : isCloning ? colors.soft : IDLE_CLONE_COLORS.bg
           )}
         >
           <AnimatePresence mode="wait">
@@ -121,7 +120,10 @@ export function CloneStatusItem({
                 exit={{ opacity: 0 }}
               >
                 {isFinished ? (
-                  <IconCircleCheckFilled size={24} className="text-primary" />
+                  <IconCircleCheckFilled
+                    size={24}
+                    className={COMPLETE_CLONE_COLORS.text}
+                  />
                 ) : (
                   <IconBox size={24} stroke={1.5} />
                 )}
@@ -150,12 +152,21 @@ export function CloneStatusItem({
                         />
                       ) : task.status === "in-progress" ? (
                         isFailed ? (
-                          <IconX className="size-5 text-destructive" />
+                          <IconX
+                            className={cn("size-5", FAILED_CLONE_COLORS.text)}
+                          />
                         ) : (
-                          <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+                          <IconLoader2
+                            className={cn(
+                              "size-5 animate-spin",
+                              IDLE_CLONE_COLORS.text
+                            )}
+                          />
                         )
                       ) : (
-                        <IconCircle className="size-5 text-muted-foreground" />
+                        <IconCircle
+                          className={cn("size-5", IDLE_CLONE_COLORS.text)}
+                        />
                       )}
                     </div>
 

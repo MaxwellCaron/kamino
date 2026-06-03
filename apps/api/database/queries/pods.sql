@@ -408,12 +408,14 @@ ON CONFLICT (cloned_pod_id, task_id) DO NOTHING;
 
 -- name: ListClonedPodTaskStates :many
 SELECT
-    task_id,
-    completed,
-    completed_at
-FROM cloned_pod_task_states
-WHERE cloned_pod_id = $1
-ORDER BY task_id ASC;
+    state.task_id,
+    state.completed,
+    state.completed_at
+FROM cloned_pod_task_states state
+JOIN published_pod_tasks task
+  ON task.id = state.task_id
+WHERE state.cloned_pod_id = $1
+ORDER BY task.sort_order ASC;
 
 -- name: ListClonedPodQuestionAnswers :many
 SELECT

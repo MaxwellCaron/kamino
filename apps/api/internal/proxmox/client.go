@@ -1377,31 +1377,34 @@ func (c *Client) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
 	return true, nil
 }
 
-// IsVMIDUsableForCreate checks the live resource list plus managed QEMU config
-// files. Proxmox can leave a stale config file behind even when /cluster/nextid
-// returns that ID, and clone/create will reject it.
-func (c *Client) IsVMIDUsableForCreate(ctx context.Context, vmid int) (bool, error) {
+// UsedVMIDs returns VMIDs currently present in the Proxmox cluster resource list.
+func (c *Client) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
 	var resp apiResponse[[]VM]
 	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
-		return false, fmt.Errorf("fetching cluster VM resources: %w", err)
-	}
-	for _, vm := range resp.Data {
-		if vm.VMID == vmid {
-			return false, nil
-		}
+		return nil, fmt.Errorf("fetching cluster VM resources: %w", err)
 	}
 
+	used := make(map[int]struct{}, len(resp.Data))
+	for _, vm := range resp.Data {
+		used[vm.VMID] = struct{}{}
+	}
+	return used, nil
+}
+
+// QEMUConfigExistsForVMID checks managed nodes for a QEMU config file. Proxmox
+// can leave one behind even when /cluster/nextid returns that VMID.
+func (c *Client) QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error) {
 	for _, node := range c.nodes {
 		exists, err := c.qemuConfigExists(ctx, node, vmid)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("checking VMID %d config on %s: %w", vmid, node, err)
 		}
 		if exists {
-			return false, nil
+			return true, nil
 		}
 	}
 
-	return true, nil
+	return false, nil
 }
 
 func (c *Client) qemuConfigExists(ctx context.Context, node string, vmid int) (bool, error) {

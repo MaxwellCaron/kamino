@@ -1425,13 +1425,8 @@ func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int
 	defer cancel()
 
 	for _, clone := range created {
-		if err := h.PX.DeleteVM(ctx, clone.TargetNode, clone.VMID); err != nil {
-			if stopErr := h.PX.StopVM(ctx, clone.TargetNode, clone.VMID); stopErr == nil {
-				err = h.PX.DeleteVM(ctx, clone.TargetNode, clone.VMID)
-			}
-			if err != nil {
-				log.Printf("clone cleanup: failed to delete Proxmox VM %d on %s: %v", clone.VMID, clone.TargetNode, err)
-			}
+		if err := h.deleteClonedPodProxmoxVM(ctx, clone.TargetNode, clone.VMID); err != nil {
+			log.Printf("clone cleanup: failed to delete Proxmox VM %d on %s: %v", clone.VMID, clone.TargetNode, err)
 		}
 		if clone.InventoryItemID != uuid.Nil {
 			if err := h.Service.DeleteInventoryVM(ctx, clone.InventoryItemID); err != nil {

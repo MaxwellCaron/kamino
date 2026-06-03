@@ -22,26 +22,19 @@ import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { CloneStatusItem } from "./clone-status-item"
-import type {
-  CloneStatusTask,
-  CloneStepColors,
-} from "@/features/pods/types/clone-status"
+import type { CloneStatusTask } from "@/features/pods/types/clone-status"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import {
+  COMPLETE_CLONE_COLORS,
   DEFAULT_CLONE_TASKS,
+  FAILED_CLONE_COLORS,
+  IDLE_CLONE_COLORS,
   getCloneStepColors,
 } from "@/features/pods/types/clone-status"
 import {
   clonePod,
   clonePodProgressQueryOptions,
 } from "@/features/pods/api/clone-pod-api"
-
-const FAILED_CLONE_COLORS: CloneStepColors = {
-  text: "text-destructive!",
-  border: "border-destructive!",
-  bg: "bg-destructive!",
-  soft: "bg-destructive/10!",
-}
 
 function useCloneProcess(open: boolean, pod: Pod | null) {
   const [progressId, setProgressId] = useState<string | null>(null)
@@ -191,7 +184,7 @@ export function ClonePodDialog({
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      className="text-destructive"
+                      className={FAILED_CLONE_COLORS.text}
                     >
                       <Loader
                         loader="pulse"
@@ -211,7 +204,7 @@ export function ClonePodDialog({
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      className="text-primary"
+                      className={COMPLETE_CLONE_COLORS.text}
                     >
                       <Loader
                         loader="pulse"
@@ -255,7 +248,7 @@ export function ClonePodDialog({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
-                    className="text-muted-foreground"
+                    className={IDLE_CLONE_COLORS.text}
                   >
                     <Loader
                       loader="pulse"
@@ -334,24 +327,13 @@ export function ClonePodDialog({
             {isFinished ? "Close" : "Cancel"}
           </AlertDialogCancel>
           <Button
-            variant="default"
+            variant={isError ? "destructive" : isBusy ? "default" : undefined}
             className={cn(
               "w-[50%] cursor-default transition-colors duration-500",
-              isError
-                ? "bg-destructive/20 text-muted-foreground"
-                : isBusy
-                  ? colors.bg
-                  : "bg-primary disabled:bg-primary/50 disabled:text-muted-foreground"
+              isBusy ? colors.bg : undefined
             )}
             disabled={isBusy || isFinished || isError}
-            onClick={
-              isFinished
-                ? () => {
-                    if (clonedPod) onCloned?.(clonedPod)
-                    onOpenChange(false)
-                  }
-                : startCloning
-            }
+            onClick={startCloning}
           >
             {isBusy ? (
               <>

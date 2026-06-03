@@ -1794,10 +1794,24 @@ func (h *PodsHandler) startVMClone(
 		}
 	}
 
+	usedVMIDs, err := h.PX.UsedVMIDs(ctx)
+	if err != nil {
+		return proxmox.CloneTask{}, 0, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to verify VMID availability",
+			Operation:   "load used VMIDs for pod clone",
+			Err:         err,
+		}
+	}
+
 	var lastErr error
 	for offset := range cloneVMIDAllocationAttempts {
 		newID := firstID + offset
-		available, err := h.PX.IsVMIDUsableForCreate(ctx, newID)
+		if _, used := usedVMIDs[newID]; used {
+			continue
+		}
+
+		configExists, err := h.PX.QEMUConfigExistsForVMID(ctx, newID)
 		if err != nil {
 			return proxmox.CloneTask{}, 0, &requestError{
 				Status:      http.StatusBadGateway,
@@ -1806,7 +1820,7 @@ func (h *PodsHandler) startVMClone(
 				Err:         err,
 			}
 		}
-		if !available {
+		if configExists {
 			continue
 		}
 

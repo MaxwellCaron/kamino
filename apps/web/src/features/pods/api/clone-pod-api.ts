@@ -1,4 +1,3 @@
-import type { Query } from "@tanstack/react-query"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
@@ -10,13 +9,6 @@ export type ClonePodProgress = {
   message: string
   updated_at: string
 }
-
-type ClonePodProgressQueryKey = readonly [
-  "pods",
-  "clone",
-  "progress",
-  string | null | undefined,
-]
 
 export function clonedPodQueryOptions(podSlug?: string) {
   return {
@@ -57,17 +49,7 @@ export function clonePodProgressQueryOptions(
     retry: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
-    refetchInterval: (
-      query: Query<
-        ClonePodProgress,
-        Error,
-        ClonePodProgress,
-        ClonePodProgressQueryKey
-      >
-    ) => {
-      const state = query.state.data?.state
-      return state === "success" || state === "error" ? false : 750
-    },
+    refetchInterval: 750,
   }
 }
 
