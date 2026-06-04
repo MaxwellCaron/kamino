@@ -73,7 +73,7 @@ export function PublishPodStepper({
   const isPublishAction = submitLabel === "Publish"
   const confirmTitle = isPublishAction ? "Publish Pod?" : "Save Changes?"
   const confirmDescription = isPublishAction
-    ? "This will full clone the selected source VMs into a Source folder, convert those clones to templates, and publish the Pod to the catalog."
+    ? "This will full clone the Pod VMs into a Pod Template Folder, convert those clones to Pod Template VMs, and publish the Pod to the catalog."
     : "This will save the latest changes to the published Pod."
 
   return (
@@ -167,7 +167,9 @@ export function PublishPodStepper({
                 }
               }}
             >
-              {isSubmitting ? <Loader loader="braille" renderer="svg-grid" /> : null}
+              {isSubmitting ? (
+                <Loader loader="braille" renderer="svg-grid" />
+              ) : null}
               {submitLabel}
             </AlertDialogAction>
           </AlertDialogFooter>

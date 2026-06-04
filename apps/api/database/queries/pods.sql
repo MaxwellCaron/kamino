@@ -186,6 +186,11 @@ WHERE pod_id = $1;
 DELETE FROM published_pod_vms
 WHERE pod_id = $1;
 
+-- name: DeletePublishedPodVMsExcept :exec
+DELETE FROM published_pod_vms
+WHERE pod_id = $1
+  AND NOT (id = ANY(sqlc.arg(keep_ids)::UUID[]));
+
 -- name: InsertPublishedPodCreator :exec
 INSERT INTO published_pod_creators (pod_id, principal_id, sort_order)
 VALUES ($1, $2, $3);
@@ -207,6 +212,20 @@ INSERT INTO published_pod_vms (
     deny_mask,
     sort_order
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+
+-- name: UpdatePublishedPodVM :exec
+UPDATE published_pod_vms
+SET
+    source_inventory_item_id = $3,
+    name = $4,
+    cpu_count = $5,
+    memory_mb = $6,
+    disk_gb = $7,
+    allow_mask = $8,
+    deny_mask = $9,
+    sort_order = $10
+WHERE id = $1
+  AND pod_id = $2;
 
 -- name: InsertPublishedPodTask :one
 INSERT INTO published_pod_tasks (id, pod_id, title, content, sort_order)

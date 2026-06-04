@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Loader } from "@dot-loaders/react"
 import { Link } from "@tanstack/react-router"
 import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react"
-import { buttonVariants } from "@workspace/ui/components/button"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
 import {
   Empty,
   EmptyContent,
@@ -19,7 +19,7 @@ import {
   FAILED_PROGRESS_COLORS,
   getProgressStepColors,
 } from "./progress-state-colors"
-import type { ComponentType, MouseEventHandler } from "react"
+import type { ComponentType, MouseEventHandler, ReactNode } from "react"
 
 export type ProgressStateStep<TStepId extends number = number> = {
   id: TStepId
@@ -35,24 +35,31 @@ export type ProgressStateSteps<TStepId extends number = number> = readonly [
 type ProgressStateActionBase = {
   icon: ComponentType<{ className?: string; "data-icon"?: string }>
   label: string
-  onClick?: MouseEventHandler<HTMLAnchorElement>
   variant?: "default" | "secondary" | "outline"
 }
 
 type ProgressStateStaticAction = ProgressStateActionBase & {
+  onClick?: MouseEventHandler<HTMLAnchorElement>
   to: "/" | "/pods/create" | "/pods/published"
 }
 
 type ProgressStatePodAction = ProgressStateActionBase & {
+  onClick?: MouseEventHandler<HTMLAnchorElement>
   params: { podSlug: string }
   to: "/pods/$podSlug"
+}
+
+type ProgressStateButtonAction = ProgressStateActionBase & {
+  onClick: MouseEventHandler<HTMLButtonElement>
 }
 
 export type ProgressStateAction =
   | ProgressStateStaticAction
   | ProgressStatePodAction
+  | ProgressStateButtonAction
 
 type ProgressStateProps<TStepId extends number> = {
+  children?: ReactNode
   detail?: string
   intervalMs?: number
   onComplete?: () => void
@@ -63,6 +70,7 @@ type ProgressStateProps<TStepId extends number> = {
 }
 
 export function ProgressState<TStepId extends number>({
+  children,
   detail,
   intervalMs,
   onComplete,
@@ -150,6 +158,7 @@ export function ProgressState<TStepId extends number>({
             {detail ?? currentStep.description}
           </span>
         </div>
+        {children}
       </EmptyContent>
     </Empty>
   )
@@ -214,6 +223,20 @@ function ProgressStateActions({
         const className = `${buttonVariants({
           variant: action.variant ?? "default",
         })} cursor-default`
+
+        if (!("to" in action)) {
+          return (
+            <Button
+              key={action.label}
+              type="button"
+              variant={action.variant ?? "default"}
+              onClick={action.onClick}
+            >
+              <Icon data-icon="inline-start" />
+              {action.label}
+            </Button>
+          )
+        }
 
         if (action.to === "/pods/$podSlug") {
           return (

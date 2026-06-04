@@ -165,6 +165,22 @@ func (q *Queries) DeletePublishedPodVMs(ctx context.Context, podID uuid.UUID) er
 	return err
 }
 
+const deletePublishedPodVMsExcept = `-- name: DeletePublishedPodVMsExcept :exec
+DELETE FROM published_pod_vms
+WHERE pod_id = $1
+  AND NOT (id = ANY($2::UUID[]))
+`
+
+type DeletePublishedPodVMsExceptParams struct {
+	PodID   uuid.UUID   `json:"pod_id"`
+	KeepIds []uuid.UUID `json:"keep_ids"`
+}
+
+func (q *Queries) DeletePublishedPodVMsExcept(ctx context.Context, arg DeletePublishedPodVMsExceptParams) error {
+	_, err := q.db.Exec(ctx, deletePublishedPodVMsExcept, arg.PodID, arg.KeepIds)
+	return err
+}
+
 const getClonedPodForPrincipalByID = `-- name: GetClonedPodForPrincipalByID :one
 SELECT
     id,
@@ -1397,6 +1413,50 @@ type UpdatePublishedPodStatusParams struct {
 
 func (q *Queries) UpdatePublishedPodStatus(ctx context.Context, arg UpdatePublishedPodStatusParams) error {
 	_, err := q.db.Exec(ctx, updatePublishedPodStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updatePublishedPodVM = `-- name: UpdatePublishedPodVM :exec
+UPDATE published_pod_vms
+SET
+    source_inventory_item_id = $3,
+    name = $4,
+    cpu_count = $5,
+    memory_mb = $6,
+    disk_gb = $7,
+    allow_mask = $8,
+    deny_mask = $9,
+    sort_order = $10
+WHERE id = $1
+  AND pod_id = $2
+`
+
+type UpdatePublishedPodVMParams struct {
+	ID                    uuid.UUID `json:"id"`
+	PodID                 uuid.UUID `json:"pod_id"`
+	SourceInventoryItemID uuid.UUID `json:"source_inventory_item_id"`
+	Name                  string    `json:"name"`
+	CpuCount              int32     `json:"cpu_count"`
+	MemoryMb              int32     `json:"memory_mb"`
+	DiskGb                float64   `json:"disk_gb"`
+	AllowMask             int64     `json:"allow_mask"`
+	DenyMask              int64     `json:"deny_mask"`
+	SortOrder             int32     `json:"sort_order"`
+}
+
+func (q *Queries) UpdatePublishedPodVM(ctx context.Context, arg UpdatePublishedPodVMParams) error {
+	_, err := q.db.Exec(ctx, updatePublishedPodVM,
+		arg.ID,
+		arg.PodID,
+		arg.SourceInventoryItemID,
+		arg.Name,
+		arg.CpuCount,
+		arg.MemoryMb,
+		arg.DiskGb,
+		arg.AllowMask,
+		arg.DenyMask,
+		arg.SortOrder,
+	)
 	return err
 }
 

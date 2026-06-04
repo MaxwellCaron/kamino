@@ -5,7 +5,7 @@ import type {
 } from "@/features/pods/types/pod-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
-export type PublishPodSourceFolder = {
+export type PublishPodFolder = {
   id: string
   name: string
   path: string
@@ -13,7 +13,7 @@ export type PublishPodSourceFolder = {
 }
 
 export type PublishPodOptions = {
-  source_folders: Array<PublishPodSourceFolder>
+  source_folders: Array<PublishPodFolder>
 }
 
 export type PublishPodProgress = {
@@ -65,7 +65,10 @@ export function publishedPodProgressQueryOptions(
       return res.json()
     },
     enabled: enabled && !!progressId,
-    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: 750,
   }
 }
 
@@ -180,7 +183,9 @@ export async function deletePublishedPod(id: string): Promise<void> {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete published pod: ${res.status}`)
+    throw new Error(
+      body.error ?? `Failed to delete published pod: ${res.status}`
+    )
   }
 }
 

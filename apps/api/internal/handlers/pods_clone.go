@@ -218,7 +218,7 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 
 	progress := newClonePodProgressReporter(c.Query("progress_id"))
-	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
+	progress.set(cloneProgressStepFetching, "Fetching Pod Template VMs.")
 
 	pod, reqErr := h.visibleCatalogPodBySlug(c.Request.Context(), principalID, c.Param("slug"))
 	if reqErr != nil {
@@ -723,14 +723,14 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
-	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
+	progress.set(cloneProgressStepCloning, "Cloning Pod Template VMs into Cloned Pod VMs.")
 	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
 	if reqErr != nil {
 		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepWaiting, "Waiting for virtual machines to be ready.")
+	progress.set(cloneProgressStepWaiting, "Waiting for Cloned Pod VMs to be ready.")
 	if reqErr := h.waitForClonedVMsVisible(ctx, results); reqErr != nil {
 		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
@@ -770,8 +770,8 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	for index, publishedVM := range publishedVMs {
 		index, publishedVM := index, publishedVM
 		group.Go(func() error {
-			progress.set(cloneProgressStepCloning, "Cloning "+publishedVM.Name)
-			source, reqErr := h.resolvePublishedPodSourceTemplate(gctx, publishedVM.SourceInventoryItemID)
+			progress.set(cloneProgressStepCloning, "Cloning "+publishedVM.Name+" into a Cloned Pod VM")
+			source, reqErr := h.resolvePublishedPodVMTemplate(gctx, publishedVM.SourceInventoryItemID)
 			if reqErr != nil {
 				return reqErr
 			}
@@ -816,8 +816,8 @@ func (h *PodsHandler) clonePublishedPodVMs(
 		}
 		return nil, created, &requestError{
 			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to clone pod virtual machines",
-			Operation:   "clone published pod VMs",
+			UserMessage: "failed to clone Pod Template VMs",
+			Operation:   "clone published Pod Template VMs",
 			Err:         err,
 		}
 	}
@@ -825,7 +825,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	return results, created, nil
 }
 
-func (h *PodsHandler) resolvePublishedPodSourceTemplate(
+func (h *PodsHandler) resolvePublishedPodVMTemplate(
 	ctx context.Context,
 	sourceItemID uuid.UUID,
 ) (verifiedVMTarget, *requestError) {
@@ -835,13 +835,13 @@ func (h *PodsHandler) resolvePublishedPodSourceTemplate(
 	case errors.Is(err, pgx.ErrNoRows):
 		return verifiedVMTarget{}, &requestError{
 			Status:      http.StatusConflict,
-			UserMessage: "published pod source VM is missing from inventory",
+			UserMessage: "published Pod Template VM is missing from inventory",
 		}
 	default:
 		return verifiedVMTarget{}, &requestError{
 			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to verify source VM",
-			Operation:   "load published pod source VM record",
+			UserMessage: "failed to verify Pod Template VM",
+			Operation:   "load published Pod Template VM record",
 			Err:         err,
 		}
 	}
@@ -852,13 +852,13 @@ func (h *PodsHandler) resolvePublishedPodSourceTemplate(
 	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
 		return verifiedVMTarget{}, &requestError{
 			Status:      http.StatusConflict,
-			UserMessage: "published pod source VM identity is not initialized in Proxmox",
+			UserMessage: "published Pod Template VM identity is not initialized in Proxmox",
 		}
 	default:
 		return verifiedVMTarget{}, &requestError{
 			Status:      http.StatusBadGateway,
-			UserMessage: "failed to verify source VM",
-			Operation:   "verify published pod source VM identity",
+			UserMessage: "failed to verify Pod Template VM",
+			Operation:   "verify published Pod Template VM identity",
 			Err:         err,
 		}
 	}
@@ -866,13 +866,13 @@ func (h *PodsHandler) resolvePublishedPodSourceTemplate(
 	if identity.UpstreamUUID != record.UpstreamUUID {
 		return verifiedVMTarget{}, &requestError{
 			Status:      http.StatusConflict,
-			UserMessage: "published pod source VM has drifted from inventory",
+			UserMessage: "published Pod Template VM has drifted from inventory",
 		}
 	}
 	if !identity.IsTemplate {
 		return verifiedVMTarget{}, &requestError{
 			Status:      http.StatusConflict,
-			UserMessage: "published pod source VM is no longer a template",
+			UserMessage: "published Pod Template VM is no longer a Proxmox template",
 		}
 	}
 

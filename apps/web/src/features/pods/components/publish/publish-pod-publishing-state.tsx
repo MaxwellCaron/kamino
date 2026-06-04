@@ -1,4 +1,10 @@
-import { IconBox, IconListDetails } from "@tabler/icons-react"
+import {
+  IconArrowLeft,
+  IconBox,
+  IconDeviceDesktop,
+  IconListDetails,
+} from "@tabler/icons-react"
+import { Badge } from "@workspace/ui/components/badge"
 import type { ProgressStateStep } from "@/components/progress-state/progress-state"
 import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import {
@@ -16,29 +22,60 @@ export type PublishPodSubmitStatus =
   | "updating"
   | "success"
   | "error"
+export type PublishPodUpdateVirtualMachine = {
+  id: string
+  name: string
+}
 
 const PUBLISH_POD_STEPS = [
   {
     id: 1,
-    title: "Validating source VMs",
-    description:
-      "Checking the selected Pod folder and source virtual machines.",
+    title: "Validating Pod Folder VMs",
+    description: "Checking the selected Pod Folder and Pod VMs.",
   },
   {
     id: 2,
-    title: "Preparing Source folder",
-    description: "Creating or finding the Source folder inside the Pod.",
+    title: "Preparing Pod Template Folder",
+    description:
+      "Creating or finding the Pod Template Folder inside the Pod Folder.",
   },
   {
     id: 3,
     title: "Cloning & converting VMs",
     description:
-      "Copying source VMs into the Source folder and turning them into reusable templates.",
+      "Copying Pod VMs into the Pod Template Folder and turning them into Pod Template VMs.",
   },
   {
     id: 4,
     title: "Saving catalog entry",
     description: "Writing the published Pod metadata to the catalog.",
+  },
+] satisfies [
+  ProgressStateStep<PublishPodStepId>,
+  ...Array<ProgressStateStep<PublishPodStepId>>,
+]
+
+const UPDATE_POD_TEMPLATE_STEPS = [
+  {
+    id: 1,
+    title: "Validating selected VMs",
+    description: "Checking the published Pod and selected Pod VMs.",
+  },
+  {
+    id: 2,
+    title: "Preparing Pod Template Folder",
+    description: "Preparing selected Pod Template VMs for update.",
+  },
+  {
+    id: 3,
+    title: "Cloning & converting VMs",
+    description:
+      "Rebuilding selected Pod Template VMs from the current Pod VMs.",
+  },
+  {
+    id: 4,
+    title: "Saving catalog entry",
+    description: "Writing the updated published Pod metadata to the catalog.",
   },
 ] satisfies [
   ProgressStateStep<PublishPodStepId>,
@@ -58,7 +95,48 @@ function PublishingState({ progress }: { progress?: PublishPodProgress }) {
   )
 }
 
-function UpdatingState() {
+function UpdatingState({
+  progress,
+  updateVirtualMachines,
+}: {
+  progress?: PublishPodProgress
+  updateVirtualMachines: Array<PublishPodUpdateVirtualMachine>
+}) {
+  if (updateVirtualMachines.length > 0) {
+    const stepId = getPublishProgressStepId(progress) ?? 1
+    const templateLabel =
+      updateVirtualMachines.length === 1
+        ? "Pod Template VM"
+        : "Pod Template VMs"
+
+    return (
+      <ProgressState
+        detail={
+          progress?.message ??
+          `Rebuilding ${templateLabel} in the Pod Template Folder.`
+        }
+        stepId={stepId}
+        steps={UPDATE_POD_TEMPLATE_STEPS}
+        title={`Updating ${updateVirtualMachines.length} ${templateLabel}`}
+      >
+        <div
+          className="flex w-full max-w-md flex-col items-center gap-2"
+          aria-label="Virtual machines selected for update"
+        >
+          <span className="text-sm font-medium">Selected VMs</span>
+          <div className="flex flex-wrap justify-center gap-2">
+            {updateVirtualMachines.map((vm) => (
+              <Badge key={vm.id} variant="secondary">
+                <IconDeviceDesktop data-icon="inline-start" />
+                {vm.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </ProgressState>
+    )
+  }
+
   return (
     <ProgressLoadingState
       description="Saving the latest changes to this Pod."
@@ -90,12 +168,27 @@ function SuccessState({ podSlug }: { podSlug: string }) {
   )
 }
 
-function ErrorState() {
+function ErrorState({
+  message,
+  onBackToForm,
+}: {
+  message?: string | null
+  onBackToForm: () => void
+}) {
   return (
     <ProgressErrorState
       title="Publishing Failed"
-      description="Your Pod failed to publish. Please try again or contact support if the issue persists."
+      description={
+        message ??
+        "Your Pod failed to publish. Please try again or contact support if the issue persists."
+      }
       actions={[
+        {
+          icon: IconArrowLeft,
+          label: "Back to Form",
+          onClick: onBackToForm,
+          variant: "outline",
+        },
         {
           icon: IconListDetails,
           label: "View Catalog",
@@ -111,16 +204,27 @@ export function PublishPodSubmitState({
   podSlug,
   progress,
   state,
+  updateVirtualMachines = [],
+  errorMessage,
+  onBackToForm,
 }: {
   podSlug: string | null
   progress?: PublishPodProgress
   state: PublishPodSubmitStatus
+  updateVirtualMachines?: Array<PublishPodUpdateVirtualMachine>
+  errorMessage?: string | null
+  onBackToForm: () => void
 }) {
   switch (state) {
     case "publishing":
       return <PublishingState progress={progress} />
     case "updating":
-      return <UpdatingState />
+      return (
+        <UpdatingState
+          progress={progress}
+          updateVirtualMachines={updateVirtualMachines}
+        />
+      )
     case "success":
       if (!podSlug) {
         throw new Error(
@@ -129,7 +233,9 @@ export function PublishPodSubmitState({
       }
       return <SuccessState podSlug={podSlug} />
     case "error":
-      return <ErrorState />
+      return (
+        <ErrorState message={errorMessage} onBackToForm={onBackToForm} />
+      )
   }
 }
 

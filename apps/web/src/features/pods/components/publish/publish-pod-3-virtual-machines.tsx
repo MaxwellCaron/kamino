@@ -47,6 +47,7 @@ import {
   IconChevronRight,
   IconDeviceDesktop,
   IconFolderOpen,
+  IconInfoCircle,
   IconRefresh,
 } from "@tabler/icons-react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -69,7 +70,7 @@ import type {
   PublishPodFormApi,
   PublishPodFormValues,
 } from "./publish-pod-form"
-import type { PublishPodSourceFolder } from "@/features/pods/api/publish-pod-api"
+import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
 import type {
   DraftPrincipal,
   PermissionState,
@@ -90,9 +91,9 @@ type PublishPodVirtualMachinesStepProps = {
   form: PublishPodFormApi
   isEditing: boolean
   submissionAttempts: number
-  sourceFolders: Array<PublishPodSourceFolder>
-  sourceFoldersError: Error | null
-  sourceFoldersLoading: boolean
+  podFolders: Array<PublishPodFolder>
+  podFoldersError: Error | null
+  podFoldersLoading: boolean
 }
 
 function createEditingVmPrincipal(
@@ -106,7 +107,7 @@ function createEditingVmPrincipal(
 }
 
 type PublishPodVirtualMachinesTableProps = {
-  canUpdateSourceTemplates: boolean
+  canUpdatePodTemplates: boolean
   onPermissionChange: (
     vm: PublishPodVM,
     index: number,
@@ -120,7 +121,7 @@ type PublishPodVirtualMachinesTableProps = {
 }
 
 function PublishPodVirtualMachinesTable({
-  canUpdateSourceTemplates,
+  canUpdatePodTemplates,
   onPermissionChange,
   onResetPermissions,
   onUpdateVirtualMachinesChange,
@@ -133,16 +134,16 @@ function PublishPodVirtualMachinesTable({
     [virtualMachines]
   )
   const rowSelection = React.useMemo<RowSelectionState>(() => {
-    if (!canUpdateSourceTemplates) {
+    if (!canUpdatePodTemplates) {
       return {}
     }
 
     return Object.fromEntries(updateVirtualMachines.map((vmId) => [vmId, true]))
-  }, [canUpdateSourceTemplates, updateVirtualMachines])
+  }, [canUpdatePodTemplates, updateVirtualMachines])
 
   const columns = React.useMemo<Array<ColumnDef<PublishPodVMRow>>>(
     () => [
-      ...(canUpdateSourceTemplates
+      ...(canUpdatePodTemplates
         ? [
             {
               id: "update",
@@ -187,18 +188,18 @@ function PublishPodVirtualMachinesTable({
       {
         id: "memory",
         header: "Memory",
-        cell: ({ row }) => `${row.original.vm.memoryGb}GB RAM`,
+        cell: ({ row }) => `${row.original.vm.memoryGb} GB`,
       },
       {
         id: "storage",
         header: "Storage",
-        cell: ({ row }) => `${row.original.vm.storageGb}GB`,
+        cell: ({ row }) => `${row.original.vm.storageGb} GB`,
       },
       {
         id: "status",
         header: "Status",
         cell: ({ row }) =>
-          canUpdateSourceTemplates &&
+          canUpdatePodTemplates &&
           updateVirtualMachines.includes(row.original.vm.id) ? (
             <span className="text-muted-foreground">Queued for update</span>
           ) : (
@@ -212,6 +213,7 @@ function PublishPodVirtualMachinesTable({
           <div className="flex justify-end">
             <Button
               type="button"
+              variant="outline"
               size="sm"
               aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} permissions for ${row.original.vm.name}`}
               onClick={row.getToggleExpandedHandler()}
@@ -234,13 +236,13 @@ function PublishPodVirtualMachinesTable({
         enableSorting: false,
       },
     ],
-    [canUpdateSourceTemplates, updateVirtualMachines]
+    [canUpdatePodTemplates, updateVirtualMachines]
   )
 
   const table = useReactTable({
     data: rows,
     columns,
-    enableRowSelection: canUpdateSourceTemplates,
+    enableRowSelection: canUpdatePodTemplates,
     getExpandedRowModel: getExpandedRowModel(),
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.vm.id,
@@ -262,7 +264,7 @@ function PublishPodVirtualMachinesTable({
   })
 
   return (
-    <div className="overflow-hidden rounded-md border">
+    <div className="overflow-hidden rounded-3xl border">
       <Table>
         <TableHeader className="bg-muted">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -310,7 +312,7 @@ function PublishPodVirtualMachinesTable({
                           </div>
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="destructive"
                             size="sm"
                             onClick={() =>
                               onResetPermissions(
@@ -344,7 +346,7 @@ function PublishPodVirtualMachinesTable({
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                No virtual machines found.
+                No Pod VMs found.
               </TableCell>
             </TableRow>
           )}
@@ -358,13 +360,11 @@ export function PublishPodVirtualMachinesStep({
   form,
   isEditing,
   submissionAttempts,
-  sourceFolders,
-  sourceFoldersError,
-  sourceFoldersLoading,
+  podFolders,
+  podFoldersError,
+  podFoldersLoading,
 }: PublishPodVirtualMachinesStepProps) {
-  const initialSourceFolderRef = React.useRef(
-    form.getFieldValue("source_folder")
-  )
+  const initialPodFolderRef = React.useRef(form.getFieldValue("source_folder"))
 
   const handleVmPermissionChange = React.useCallback(
     (_vm: PublishPodVM, vmIndex: number, bit: number, state: PermissionState) =>
@@ -410,11 +410,11 @@ export function PublishPodVirtualMachinesStep({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <IconDeviceDesktop className="size-5 text-muted-foreground" />
-            Virtual Machines
+            Pod VMs
           </CardTitle>
           <CardDescription>
-            Choose the source folder, review the included virtual machines, and
-            adjust their default permissions.
+            Choose the Pod Folder, review the included VMs, and adjust their
+            default permissions.
           </CardDescription>
         </CardHeader>
         <CardContent className="border-t pt-6">
@@ -424,24 +424,24 @@ export function PublishPodVirtualMachinesStep({
                 const showValidation =
                   field.state.meta.isTouched || submissionAttempts > 0
                 const isInvalid = showValidation && !field.state.meta.isValid
-                const selectedSourceFolder =
-                  sourceFolders.find(
+                const selectedPodFolder =
+                  podFolders.find(
                     (folder) => folder.id === field.state.value
                   ) ?? null
-                const canUpdateSourceTemplates =
+                const canUpdatePodTemplates =
                   isEditing &&
                   !!field.state.value &&
-                  field.state.value === initialSourceFolderRef.current
+                  field.state.value === initialPodFolderRef.current
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
-                    <FieldLabel>Folder</FieldLabel>
+                    <FieldLabel>Pod Folder</FieldLabel>
                     <FieldContent>
                       <Combobox
-                        items={sourceFolders}
+                        items={podFolders}
                         itemToStringLabel={(folder) => folder.name}
                         itemToStringValue={(folder) => folder.name}
-                        value={selectedSourceFolder}
+                        value={selectedPodFolder}
                         onValueChange={(folder) => {
                           const nextFolderID = folder?.id ?? ""
                           field.handleChange(nextFolderID)
@@ -462,21 +462,21 @@ export function PublishPodVirtualMachinesStep({
                             form.setFieldValue("update_virtual_machines", [])
                           }
                         }}
-                        disabled={sourceFoldersLoading}
+                        disabled={podFoldersLoading}
                         autoHighlight
                       >
                         <ComboboxInput
                           name={field.name}
                           placeholder={
-                            sourceFoldersLoading
-                              ? "Loading folders..."
-                              : "Select source folder"
+                            podFoldersLoading
+                              ? "Loading Pod Folders..."
+                              : "Select Pod Folder"
                           }
                           onBlur={field.handleBlur}
                           aria-invalid={isInvalid || undefined}
                         />
                         <ComboboxContent>
-                          <ComboboxEmpty>No folders found.</ComboboxEmpty>
+                          <ComboboxEmpty>No Pod Folders found.</ComboboxEmpty>
                           <ComboboxList>
                             {(folder) => (
                               <ComboboxItem key={folder.id} value={folder}>
@@ -497,20 +497,26 @@ export function PublishPodVirtualMachinesStep({
                         </ComboboxContent>
                       </Combobox>
                       <FieldDescription className="pt-2">
-                        The selected folder provides the base VMs for this pod.
-                        Publishing does not modify the source folder.
+                        The Pod Folder contains the VMs creators edit and
+                        configure. Publishing clones these VMs and converts them
+                        to templates in its Pod Template Folder, leaving these
+                        VMs untouched to make edits whenever needed.
                       </FieldDescription>
                       <FieldError
                         errors={showValidation ? field.state.meta.errors : []}
                       />
-                      {sourceFoldersError ? (
+                      {podFoldersError ? (
                         <FieldDescription className="text-destructive">
-                          Failed to load source folders.
+                          Failed to load Pod Folders.
                         </FieldDescription>
                       ) : null}
-                      <div className="flex flex-col gap-3 pt-3">
-                        <p className="font-medium">Included Virtual Machines</p>
-                        {sourceFoldersLoading ? (
+                      <div className="flex flex-col gap-1 pt-4">
+                        <p className="font-medium">Pod VMs</p>
+                        <span className="pb-3 text-muted-foreground">
+                          Default VM access includes view, console, power, and
+                          snapshot actions.
+                        </span>
+                        {podFoldersLoading ? (
                           <div className="flex flex-col gap-3">
                             <Skeleton className="h-16 w-full" />
                             <Skeleton className="h-16 w-full" />
@@ -526,24 +532,23 @@ export function PublishPodVirtualMachinesStep({
                           >
                             {({ updateVirtualMachines, virtualMachines }) => (
                               <>
-                                {canUpdateSourceTemplates ? (
-                                  <Alert>
-                                    <IconRefresh />
+                                {canUpdatePodTemplates ? (
+                                  <Alert className="mb-3">
+                                    <IconInfoCircle />
                                     <AlertTitle>
-                                      Update Source templates
+                                      Update Pod Template Folder
                                     </AlertTitle>
                                     <AlertDescription>
-                                      Selected VMs will have their Source
-                                      templates rebuilt when you save. Existing
-                                      clones keep their current VM copies until
-                                      users clone the pod again.
+                                      Selected Pod VMs will have their Pod
+                                      Template VMs rebuilt in the Pod Template
+                                      Folder when you save. Existing clones keep
+                                      their current Cloned Pod VMs until users
+                                      clone the pod again.
                                     </AlertDescription>
                                   </Alert>
                                 ) : null}
                                 <PublishPodVirtualMachinesTable
-                                  canUpdateSourceTemplates={
-                                    canUpdateSourceTemplates
-                                  }
+                                  canUpdatePodTemplates={canUpdatePodTemplates}
                                   onPermissionChange={handleVmPermissionChange}
                                   onResetPermissions={handleResetVmPermissions}
                                   onUpdateVirtualMachinesChange={
@@ -561,18 +566,14 @@ export function PublishPodVirtualMachinesStep({
                               <EmptyMedia variant="icon">
                                 <IconFolderOpen />
                               </EmptyMedia>
-                              <EmptyTitle>No folder selected</EmptyTitle>
+                              <EmptyTitle>No Pod Folder selected</EmptyTitle>
                               <EmptyDescription>
-                                Select a folder to preview the virtual machines
-                                that will be included in this pod.
+                                Select a Pod Folder to preview the Pod VMs that
+                                will be included in this pod.
                               </EmptyDescription>
                             </EmptyHeader>
                           </Empty>
                         )}
-                        <span className="text-muted-foreground">
-                          Default VM access includes view, console, power, and
-                          snapshot actions.
-                        </span>
                       </div>
                     </FieldContent>
                   </Field>

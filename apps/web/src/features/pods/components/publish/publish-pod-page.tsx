@@ -25,7 +25,7 @@ import type {
 } from "./publish-pod-form"
 import type { PublishPodSubmitStatus } from "./publish-pod-publishing-state"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
-import type { PublishPodSourceFolder } from "@/features/pods/api/publish-pod-api"
+import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
 import {
   publishPodOptionsQueryOptions,
   publishedPodProgressQueryOptions,
@@ -75,6 +75,11 @@ export function PublishPodPage({
     React.useState<PublishPodFormState>("form")
   const [progressId, setProgressId] = React.useState<string | null>(null)
   const [savedPodSlug, setSavedPodSlug] = React.useState<string | null>(null)
+  const [submitErrorMessage, setSubmitErrorMessage] = React.useState<
+    string | null
+  >(null)
+  const [submittedValues, setSubmittedValues] =
+    React.useState<PublishPodFormValues | null>(null)
   const [submitCompleted, setSubmitCompleted] = React.useState(false)
   const onSubmitRef = React.useRef(onSubmit)
   const defaultValues = React.useMemo(
@@ -92,13 +97,16 @@ export function PublishPodPage({
 
       setProgressId(nextProgressId)
       setSavedPodSlug(null)
+      setSubmitErrorMessage(null)
+      setSubmittedValues(values)
       setSubmitCompleted(false)
 
       try {
         submitPromise = Promise.resolve(
           onSubmitRef.current(values, { progressId: nextProgressId })
         )
-      } catch {
+      } catch (error) {
+        setSubmitErrorMessage(getErrorMessage(error))
         setSubmitState("error")
         return
       }
@@ -113,7 +121,10 @@ export function PublishPodPage({
           }
           setSubmitCompleted(true)
         })
-        .catch(() => setSubmitState("error"))
+        .catch((error) => {
+          setSubmitErrorMessage(getErrorMessage(error))
+          setSubmitState("error")
+        })
     },
     [pendingSubmitState]
   )
@@ -133,16 +144,17 @@ export function PublishPodPage({
   const publishProgressQuery = useQuery(
     publishedPodProgressQueryOptions(
       progressId,
-      submitState === "publishing"
+      submitState === "publishing" || submitState === "updating"
     )
   )
 
   React.useEffect(() => {
-    if (submitState !== "publishing") {
+    if (submitState !== "publishing" && submitState !== "updating") {
       return
     }
 
     if (publishProgressQuery.data?.state === "error") {
+      setSubmitErrorMessage(publishProgressQuery.data.message)
       setSubmitState("error")
       return
     }
@@ -162,6 +174,20 @@ export function PublishPodPage({
       new Map(principalOptions.map((option) => [option.id, option])),
     [principalOptions]
   )
+
+  const submittedUpdateVirtualMachines = React.useMemo(() => {
+    if (!submittedValues) return []
+
+    const selected = new Set(submittedValues.update_virtual_machines)
+    if (selected.size === 0) return []
+
+    return submittedValues.virtual_machines
+      .filter((vm) => selected.has(vm.id))
+      .map((vm) => ({
+        id: vm.id,
+        name: vm.name,
+      }))
+  }, [submittedValues])
 
   const hasFieldErrors = React.useCallback(
     (fields: Array<PublishPodFieldPath>) =>
@@ -232,7 +258,8 @@ export function PublishPodPage({
     }
 
     const submitFields = getSubmitFieldPaths()
-    const isValid = Object.keys(errors).length === 0 && !hasFieldErrors(submitFields)
+    const isValid =
+      Object.keys(errors).length === 0 && !hasFieldErrors(submitFields)
 
     if (!isValid) {
       markFieldsTouched(submitFields)
@@ -252,7 +279,9 @@ export function PublishPodPage({
     const fields = (steps.find((s) => s.value === step)?.fields ??
       []) as Array<PublishPodFieldPath>
 
-    await Promise.all(fields.map((field) => form.validateField(field, "submit")))
+    await Promise.all(
+      fields.map((field) => form.validateField(field, "submit"))
+    )
 
     if (step === "tasks") {
       const tasks = form.getFieldValue("tasks")
@@ -288,17 +317,26 @@ export function PublishPodPage({
     [submitForm]
   )
 
+  const handleBackToForm = React.useCallback(() => {
+    setSubmitState("form")
+    setProgressId(null)
+    setSubmitCompleted(false)
+  }, [])
+
   if (submitState !== "form") {
     return (
       <div className="@container/main relative flex flex-1 flex-col">
         <PublishPodSubmitState
           state={submitState}
+          errorMessage={submitErrorMessage}
+          onBackToForm={handleBackToForm}
           podSlug={savedPodSlug}
           progress={
-            submitState === "publishing"
+            submitState === "publishing" || submitState === "updating"
               ? publishProgressQuery.data
               : undefined
           }
+          updateVirtualMachines={submittedUpdateVirtualMachines}
         />
       </div>
     )
@@ -342,12 +380,12 @@ export function PublishPodPage({
             form={form}
             isEditing={!!publishedPodId}
             submissionAttempts={submissionAttempts}
-            sourceFolders={
+            podFolders={
               publishOptionsQuery.data?.source_folders ??
-              ([] satisfies Array<PublishPodSourceFolder>)
+              ([] satisfies Array<PublishPodFolder>)
             }
-            sourceFoldersError={publishOptionsQuery.error}
-            sourceFoldersLoading={publishOptionsQuery.isLoading}
+            podFoldersError={publishOptionsQuery.error}
+            podFoldersLoading={publishOptionsQuery.isLoading}
           />
         </StepperContent>
 
@@ -370,4 +408,8 @@ export function PublishPodPage({
       </Stepper>
     </form>
   )
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Failed to save published pod."
 }

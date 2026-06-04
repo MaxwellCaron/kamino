@@ -854,7 +854,7 @@ BEGIN
      WHERE id = NEW.source_folder_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Published pod source folder does not exist';
+        RAISE EXCEPTION 'Published Pod Folder does not exist';
     END IF;
 
     IF item_kind <> 'folder' THEN

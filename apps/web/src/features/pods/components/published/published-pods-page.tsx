@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  IconCubeOff,
   IconCubePlus,
   IconCubeSend,
   IconTrash,
@@ -27,6 +28,7 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { PublishedPodsStatCards } from "./published-pods-stat-cards"
@@ -180,15 +182,25 @@ export function PublishedPodsPage() {
               />
             ) : (
               <div className="px-6">
-                <Empty className="min-h-[55vh] bg-muted/50">
+                <Empty className="min-h-[55vh] border border-dashed">
                   <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconCubeOff />
+                    </EmptyMedia>
                     <EmptyTitle>No published pods yet</EmptyTitle>
                     <EmptyDescription>
                       You haven&apos;t published any pods yet. Get started by
                       creating and publishing your first pod.
                     </EmptyDescription>
                   </EmptyHeader>
-                  <EmptyContent>
+                  <EmptyContent className="flex-row justify-center gap-2">
+                    <Link
+                      to="/pods/create"
+                      className={`${buttonVariants({ variant: "outline" })} cursor-default`}
+                    >
+                      <IconCubePlus data-icon="inline-start" />
+                      Create
+                    </Link>
                     <Link
                       to="/pods/publish"
                       className={`${buttonVariants()} cursor-default`}
@@ -217,7 +229,7 @@ export function PublishedPodsPage() {
           title="Delete Catalog Entry?"
           description={
             pendingDeletePod
-              ? `This deletes "${pendingDeletePod.title}" from the published catalog database only. The Pod folder, Source templates, and Proxmox VMs are not deleted.`
+              ? `This deletes "${pendingDeletePod.title}" from the published catalog database only. The Pod Folder, Pod Template Folder, and Proxmox VMs are not deleted.`
               : ""
           }
         >

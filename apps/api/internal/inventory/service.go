@@ -30,6 +30,7 @@ var (
 	ErrInventoryFolderDepthExceeded = errors.New("folder depth cannot exceed 3 levels below root")
 	ErrInventoryInvalidFolderLimit  = errors.New("folder limit must be greater than zero")
 	ErrInventoryFolderLimitExceeded = errors.New("folder limit exceeded")
+	ErrInventoryItemInUse           = errors.New("inventory item is in use")
 	ErrInventoryInvalidACL          = errors.New("invalid inventory ACL entry")
 	ErrInventoryPrincipalNotFound   = errors.New("principal not found")
 )
@@ -973,6 +974,10 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 		return FolderDeletionPlan{}, ErrInventoryReservedFolder
 	}
 
+	if err := s.EnsureInventorySubtreeDeletable(ctx, id); err != nil {
+		return FolderDeletionPlan{}, err
+	}
+
 	plan := FolderDeletionPlan{}
 
 	var walk func(uuid.UUID)
@@ -999,6 +1004,24 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 
 	walk(id)
 	return plan, nil
+}
+
+func (s *Service) EnsureInventorySubtreeDeletable(ctx context.Context, id uuid.UUID) error {
+	blockers, err := database.New(s.db).ListInventoryDeletionBlockersInSubtree(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(blockers) == 0 {
+		return nil
+	}
+
+	blocker := blockers[0]
+	return fmt.Errorf(
+		"%w: %s %q references this inventory subtree",
+		ErrInventoryItemInUse,
+		blocker.BlockerType,
+		blocker.BlockerName,
+	)
 }
 
 func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.UUID) error {
@@ -1097,6 +1120,9 @@ func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *Service) DeleteInventoryVM(ctx context.Context, itemID uuid.UUID) error {
+	if err := s.EnsureInventorySubtreeDeletable(ctx, itemID); err != nil {
+		return err
+	}
 	if err := database.New(s.db).DeleteInventoryItem(ctx, itemID); err != nil {
 		return err
 	}

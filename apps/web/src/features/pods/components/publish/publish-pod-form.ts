@@ -239,7 +239,7 @@ export const publishPodFormSchema = z.object({
     .array(publishPodTaskSchema)
     .min(1, "Add at least one task.")
     .max(20, "You can add up to 20 tasks."),
-  source_folder: z.string().min(1, "Select a base folder."),
+  source_folder: z.string().min(1, "Select a Pod Folder."),
 })
 
 export type PublishPodFormValues = z.infer<typeof publishPodFormSchema>
