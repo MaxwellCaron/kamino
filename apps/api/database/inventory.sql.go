@@ -580,7 +580,7 @@ SELECT ir.inventory_item_id AS inventory_item_id,
 FROM inventory_requests ir
 JOIN requests r ON r.id = ir.request_id
 WHERE ir.inventory_item_id IN (SELECT id FROM subtree)
-ORDER BY blocker_type, lower(blocker_name)
+ORDER BY blocker_type, blocker_name
 `
 
 type ListInventoryDeletionBlockersInSubtreeRow struct {

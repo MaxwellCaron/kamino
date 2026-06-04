@@ -37,8 +37,8 @@ function Layout() {
       }
     >
       <DashboardEvents />
-      <InventoryTreeProvider>
-        <InventoryDialogsProvider>
+      <InventoryDialogsProvider>
+        <InventoryTreeProvider>
           <AppSidebar user={user} variant="inset" />
           <SidebarInset>
             <SiteHeader command={<CommandManyItems />} />
@@ -46,8 +46,8 @@ function Layout() {
               <Outlet />
             </div>
           </SidebarInset>
-        </InventoryDialogsProvider>
-      </InventoryTreeProvider>
+        </InventoryTreeProvider>
+      </InventoryDialogsProvider>
     </SidebarProvider>
   )
 }
