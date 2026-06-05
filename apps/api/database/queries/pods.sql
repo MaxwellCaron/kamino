@@ -406,6 +406,28 @@ LEFT JOIN proxmox_vms pv
 WHERE cpv.cloned_pod_id = $1
 ORDER BY cpv.sort_order ASC;
 
+-- name: ListVisibleClonedPodVMsForPrincipal :many
+SELECT
+    cpv.cloned_pod_id,
+    cpv.inventory_item_id,
+    ii.name,
+    pv.node,
+    pv.vmid,
+    cpv.sort_order
+FROM cloned_pod_vms cpv
+JOIN inventory_items ii
+  ON ii.id = cpv.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = cpv.inventory_item_id
+CROSS JOIN LATERAL (
+    SELECT
+        gep.allowed_mask::BIGINT AS allowed_mask
+    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+) AS perms
+WHERE cpv.cloned_pod_id = sqlc.arg(cloned_pod_id)
+  AND (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
+ORDER BY cpv.sort_order ASC;
+
 -- name: InsertClonedPodTaskState :exec
 INSERT INTO cloned_pod_task_states (
     cloned_pod_id,

@@ -37,7 +37,12 @@ import {
   reclonePod,
 } from "@/features/pods/api/clone-pod-api"
 
-function useCloneProcess(open: boolean, pod: Pod | null, clonedPodId?: string) {
+function useCloneProcess(
+  open: boolean,
+  pod: Pod | null,
+  clonedPodId?: string,
+  onCloned?: (clone: ClonedPod) => void
+) {
   const [progressId, setProgressId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const cloneMutation = useMutation({
@@ -48,6 +53,7 @@ function useCloneProcess(open: boolean, pod: Pod | null, clonedPodId?: string) {
 
       return clonePod(params)
     },
+    onSuccess: (clone) => onCloned?.(clone),
   })
   const resetCloneMutation = cloneMutation.reset
   const progressQuery = useQuery(
@@ -117,7 +123,6 @@ function useCloneProcess(open: boolean, pod: Pod | null, clonedPodId?: string) {
     elapsedTime: formatTime(elapsedTime),
     completedTasks,
     totalTasks,
-    clonedPod: cloneMutation.data,
     errorMessage:
       progressQuery.data?.state === "error"
         ? progressQuery.data.message
@@ -157,10 +162,9 @@ export function ClonePodDialog({
     elapsedTime,
     completedTasks,
     totalTasks,
-    clonedPod,
     errorMessage,
     startCloning,
-  } = useCloneProcess(open, pod, clonedPodId)
+  } = useCloneProcess(open, pod, clonedPodId, onCloned)
 
   const podTitle = pod?.title ?? "Pod"
   const isReclone = clonedPodId != null
@@ -176,12 +180,6 @@ export function ClonePodDialog({
 
     onOpenChange(val)
   }
-
-  useEffect(() => {
-    if (isFinished && clonedPod) {
-      onCloned?.(clonedPod)
-    }
-  }, [clonedPod, isFinished, onCloned])
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>

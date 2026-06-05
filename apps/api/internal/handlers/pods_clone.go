@@ -190,7 +190,7 @@ func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 		return
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod", err)
 		return
@@ -230,7 +230,7 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		progress.fail("failed to load cloned pod details")
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after clone", err)
@@ -280,7 +280,7 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 		return
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		progress.fail("failed to load cloned pod details")
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after reclone", err)
@@ -353,7 +353,7 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 		}
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after power action", err)
 		return
@@ -501,7 +501,7 @@ func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
 		return
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after answer", err)
 		return
@@ -1366,9 +1366,10 @@ func (h *PodsHandler) cloneTaskQuestionCounts(
 func (h *PodsHandler) hydrateClonedPod(
 	ctx context.Context,
 	q *database.Queries,
+	principalID uuid.UUID,
 	clone database.ClonedPods,
 ) (clonedPodResponse, error) {
-	vms, err := h.hydrateClonedPodVMs(ctx, q, clone.ID)
+	vms, err := h.hydrateClonedPodVMs(ctx, q, principalID, clone.ID)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}
@@ -1434,9 +1435,13 @@ func (h *PodsHandler) hydrateClonedPod(
 func (h *PodsHandler) hydrateClonedPodVMs(
 	ctx context.Context,
 	q *database.Queries,
+	principalID uuid.UUID,
 	cloneID uuid.UUID,
 ) ([]clonedPodVMResponse, error) {
-	rows, err := q.ListClonedPodVMs(ctx, cloneID)
+	rows, err := q.ListVisibleClonedPodVMsForPrincipal(ctx, database.ListVisibleClonedPodVMsForPrincipalParams{
+		PrincipalID: principalID,
+		ClonedPodID: cloneID,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -29,10 +29,13 @@ export function PodPage({
 
   useEffect(() => {
     setCloneDialogMode(null)
+    setLocalClonedPod(clonedPod ?? null)
   }, [pod.id])
 
   useEffect(() => {
-    setLocalClonedPod(clonedPod ?? null)
+    if (clonedPod) {
+      setLocalClonedPod(clonedPod)
+    }
   }, [clonedPod])
 
   const isPreview = localClonedPod == null
