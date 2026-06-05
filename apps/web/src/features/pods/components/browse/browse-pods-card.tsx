@@ -8,24 +8,17 @@ import {
   CutoutCardInsetLabel,
   CutoutCardMedia,
   CutoutCardOverlay,
-  CutoutCardPin,
   CutoutCorner,
   cutoutCardSurfaceClassName,
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
 import { buttonVariants } from "@workspace/ui/components/button"
-import { IconArrowRight, IconCopy } from "@tabler/icons-react"
+import { IconArrowRight } from "@tabler/icons-react"
 import { Link } from "@tanstack/react-router"
 import type { Pod } from "@/features/pods/types/pod-types"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 
-export function BrowsePodsCard({
-  pod,
-  isCloned,
-}: {
-  pod: Pod
-  isCloned: boolean
-}) {
+export function BrowsePodsCard({ pod }: { pod: Pod }) {
   const stagger = useCutoutContentStaggerVariants()
 
   return (
@@ -46,20 +39,6 @@ export function BrowsePodsCard({
           <CutoutCorner className="absolute -right-7.75 -bottom-px rotate-90 text-card" />
           <CutoutCorner className="absolute -top-7.75 -left-px rotate-90 text-card" />
         </CutoutCardInsetLabel>
-        {isCloned && (
-          <CutoutCardPin className="top-0 right-0 flex items-center gap-1 rounded-bl-[16px] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md ring-1 shadow-foreground/10 ring-border/30">
-            <IconCopy className="size-4" />
-            Cloned
-            <CutoutCorner
-              className="absolute top-0 -left-5.75 -rotate-90 text-primary"
-              size={24}
-            />
-            <CutoutCorner
-              className="absolute right-0 -bottom-5.75 -rotate-90 text-primary"
-              size={24}
-            />
-          </CutoutCardPin>
-        )}
       </CutoutCardMedia>
       <CutoutCardContent>
         <motion.div

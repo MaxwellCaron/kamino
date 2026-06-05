@@ -1,4 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -7,13 +8,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@workspace/ui/components/breadcrumb"
-import { pods } from "@/features/pods/types/test-data"
+import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function PodBreadcrumbs() {
   const { podSlug } = useParams({ strict: false })
-  const currentPod = podSlug
-    ? pods.find((pod) => pod.slug === podSlug)
-    : undefined
+  const podQuery = useQuery(podCatalogEntryQueryOptions(podSlug))
 
   return (
     <Breadcrumb className="min-w-0">
@@ -43,7 +42,7 @@ export function PodBreadcrumbs() {
             <BreadcrumbSeparator />
             <BreadcrumbItem className="min-w-0">
               <BreadcrumbPage className="block max-w-48 truncate sm:max-w-64 lg:max-w-80">
-                {currentPod?.title ?? podSlug}
+                {podQuery.data?.title ?? podSlug}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </>

@@ -1,14 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { BrowsePodsCard } from "./browse-pods-card"
-import { clonedPods } from "@/features/pods/types/test-data"
 import { GrainientBackground } from "@/components/grainient-background"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
   const catalogQuery = useQuery(podCatalogQueryOptions)
   const visiblePods = catalogQuery.data ?? []
-  const clonedPodIds = new Set(clonedPods.map((pod) => pod.pod_id))
 
   return (
     <div className="@container/main flex flex-1 flex-col">
@@ -36,11 +34,7 @@ export function BrowsePodsPage() {
                 <Skeleton key={index} className="h-96 w-full" />
               ))
             : visiblePods.map((pod) => (
-                <BrowsePodsCard
-                  key={pod.id}
-                  pod={pod}
-                  isCloned={clonedPodIds.has(pod.id)}
-                />
+                <BrowsePodsCard key={pod.id} pod={pod} />
               ))}
         </div>
       </div>
