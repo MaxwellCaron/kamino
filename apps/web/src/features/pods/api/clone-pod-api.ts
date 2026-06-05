@@ -68,6 +68,21 @@ export async function clonePod(params: {
   return res.json()
 }
 
+export async function reclonePod(params: {
+  clonedPodId: string
+  progressId: string
+}): Promise<ClonedPod> {
+  const res = await apiFetch(
+    `/api/v1/pods/clones/${params.clonedPodId}/reclone?progress_id=${encodeURIComponent(params.progressId)}`,
+    { method: "POST" }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to re-clone pod: ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function answerClonedPodQuestion(params: {
   clonedPodId: string
   questionId: string

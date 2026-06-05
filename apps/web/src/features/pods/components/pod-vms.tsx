@@ -1,7 +1,6 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -19,10 +18,14 @@ import {
   EmptyDescription,
   EmptyHeader,
 } from "@workspace/ui/components/empty"
-import { IconClock, IconDeviceDesktop } from "@tabler/icons-react"
+import {
+  IconClock,
+  IconDeviceDesktop,
+  IconExternalLink,
+} from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
+import { Link } from "@tanstack/react-router"
 import type { PodVM } from "../types/pod-types"
-import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
 import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 import { formatUptime } from "@/features/shared/utils/format"
 
@@ -52,56 +55,55 @@ export function PodVms({ vms }: { vms: Array<PodVM> }) {
             Virtual Machines
           </span>
         </CardTitle>
-        <CardDescription>
-          Virtual machines that belong to this pod and their current status
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {vms.length > 0 ? (
           <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {vms.map((vm) => (
-              <Item key={vm.id} variant="muted">
-                <ItemMedia variant="icon">
-                  <VmIcon status={vm.status} />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle className="text-sm font-medium">
-                    {vm.name}
-                  </ItemTitle>
-                  <ItemDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span
-                      className={cn(
-                        "font-medium",
-                        getStatusTextClass(vm.status)
-                      )}
-                    >
-                      {formatStatusLabel(vm.status)}
-                    </span>
-                    {vm.status === "running" && vm.uptime != null && (
-                      <>
-                        <span aria-hidden="true">•</span>
-                        <span className="inline-flex items-center gap-1 tabular-nums">
-                          <IconClock className="size-3.5" />
-                          {formatUptime(vm.uptime)}
+              <Item
+                key={vm.id}
+                variant="muted"
+                className="cursor-default"
+                render={
+                  <Link
+                    to="/inventory/items/$itemId"
+                    target="_blank"
+                    rel="noreferrer"
+                    params={{ itemId: vm.inventory.itemId }}
+                  >
+                    <ItemMedia variant="icon">
+                      <VmIcon status={vm.status} />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle className="text-sm font-medium">
+                        {vm.name}
+                      </ItemTitle>
+                      <ItemDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span
+                          className={cn(
+                            "font-medium",
+                            getStatusTextClass(vm.status)
+                          )}
+                        >
+                          {formatStatusLabel(vm.status)}
                         </span>
-                      </>
-                    )}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <VmOptionsMenu
-                    nodeId={vm.inventory.nodeId}
-                    itemId={vm.inventory.itemId}
-                    permissions={vm.inventory.permissions}
-                    isTemplate={vm.inventory.isTemplate}
-                    vmid={vm.inventory.vmid}
-                    pveNode={vm.inventory.pveNode}
-                    name={vm.name}
-                    powerStatus={vm.status}
-                    isLoading={false}
-                  />
-                </ItemActions>
-              </Item>
+                        {vm.status === "running" && vm.uptime != null && (
+                          <>
+                            <span aria-hidden="true">•</span>
+                            <span className="inline-flex items-center gap-1 tabular-nums">
+                              <IconClock className="size-3.5" />
+                              {formatUptime(vm.uptime)}
+                            </span>
+                          </>
+                        )}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <IconExternalLink className="size-4 text-muted-foreground" />
+                    </ItemActions>
+                  </Link>
+                }
+              />
             ))}
           </ItemGroup>
         ) : (

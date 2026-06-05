@@ -112,6 +112,16 @@ func (q *Queries) DecrementPublishedPodCloneCount(ctx context.Context, id uuid.U
 	return err
 }
 
+const deleteClonedPodVMs = `-- name: DeleteClonedPodVMs :exec
+DELETE FROM cloned_pod_vms
+WHERE cloned_pod_id = $1
+`
+
+func (q *Queries) DeleteClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteClonedPodVMs, clonedPodID)
+	return err
+}
+
 const deletePublishedPod = `-- name: DeletePublishedPod :execrows
 DELETE FROM published_pods
 WHERE id = $1
@@ -762,29 +772,15 @@ SELECT
     ii.name,
     pv.node,
     pv.vmid,
-    pv.is_template,
-    perms.allowed_mask,
-    perms.denied_mask,
     cpv.sort_order
 FROM cloned_pod_vms cpv
 JOIN inventory_items ii
   ON ii.id = cpv.inventory_item_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = cpv.inventory_item_id
-CROSS JOIN LATERAL (
-    SELECT
-        gep.allowed_mask::BIGINT AS allowed_mask,
-        gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
-) AS perms
-WHERE cpv.cloned_pod_id = $2
+WHERE cpv.cloned_pod_id = $1
 ORDER BY cpv.sort_order ASC
 `
-
-type ListClonedPodVMsParams struct {
-	PrincipalID uuid.UUID `json:"principal_id"`
-	ClonedPodID uuid.UUID `json:"cloned_pod_id"`
-}
 
 type ListClonedPodVMsRow struct {
 	ClonedPodID     uuid.UUID `json:"cloned_pod_id"`
@@ -792,14 +788,11 @@ type ListClonedPodVMsRow struct {
 	Name            string    `json:"name"`
 	Node            *string   `json:"node"`
 	Vmid            *int32    `json:"vmid"`
-	IsTemplate      *bool     `json:"is_template"`
-	AllowedMask     int64     `json:"allowed_mask"`
-	DeniedMask      int64     `json:"denied_mask"`
 	SortOrder       int32     `json:"sort_order"`
 }
 
-func (q *Queries) ListClonedPodVMs(ctx context.Context, arg ListClonedPodVMsParams) ([]ListClonedPodVMsRow, error) {
-	rows, err := q.db.Query(ctx, listClonedPodVMs, arg.PrincipalID, arg.ClonedPodID)
+func (q *Queries) ListClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) ([]ListClonedPodVMsRow, error) {
+	rows, err := q.db.Query(ctx, listClonedPodVMs, clonedPodID)
 	if err != nil {
 		return nil, err
 	}
@@ -813,9 +806,6 @@ func (q *Queries) ListClonedPodVMs(ctx context.Context, arg ListClonedPodVMsPara
 			&i.Name,
 			&i.Node,
 			&i.Vmid,
-			&i.IsTemplate,
-			&i.AllowedMask,
-			&i.DeniedMask,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err

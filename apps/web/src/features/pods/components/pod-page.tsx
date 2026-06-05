@@ -9,6 +9,8 @@ import { InventoryDialogsProvider } from "@/features/inventory/components/invent
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 
+type CloneDialogMode = "clone" | "reclone"
+
 export function PodPage({
   pod,
   clonedPod,
@@ -19,13 +21,14 @@ export function PodPage({
   username: string
 }) {
   const queryClient = useQueryClient()
-  const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
+  const [cloneDialogMode, setCloneDialogMode] =
+    useState<CloneDialogMode | null>(null)
   const [localClonedPod, setLocalClonedPod] = useState<ClonedPod | null>(
     clonedPod ?? null
   )
 
   useEffect(() => {
-    setCloneDialogOpen(false)
+    setCloneDialogMode(null)
   }, [pod.id])
 
   useEffect(() => {
@@ -53,7 +56,8 @@ export function PodPage({
           <PodHeader
             pod={pod}
             clonedPod={localClonedPod}
-            onClone={() => setCloneDialogOpen(true)}
+            onClone={() => setCloneDialogMode("clone")}
+            onReclone={() => setCloneDialogMode("reclone")}
             onClonedPodChange={setClonedPod}
           />
 
@@ -71,10 +75,15 @@ export function PodPage({
         </div>
 
         <ClonePodDialog
-          open={cloneDialogOpen}
-          onOpenChange={setCloneDialogOpen}
+          open={cloneDialogMode != null}
+          onOpenChange={(open) => {
+            if (!open) setCloneDialogMode(null)
+          }}
           pod={pod}
           username={username}
+          clonedPodId={
+            cloneDialogMode === "reclone" ? localClonedPod?.id : undefined
+          }
           onCloned={setClonedPod}
         />
       </>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import {
   IconLoader2,
   IconPlayerPlay,
   IconPower,
+  IconRefresh,
   IconTrash,
 } from "@tabler/icons-react"
 import type { ComponentType } from "react"
@@ -37,7 +38,7 @@ import {
 } from "@/features/pods/api/clone-pod-api"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
-type PodHeaderAction = "start" | "shutdown" | "delete"
+type PodHeaderAction = "start" | "shutdown" | "reclone" | "delete"
 type PodHeaderActionIcon = ComponentType<{ className?: string }>
 
 const POD_HEADER_ACTION_CONFIG: Record<
@@ -46,6 +47,7 @@ const POD_HEADER_ACTION_CONFIG: Record<
     icon: PodHeaderActionIcon
     title: string
     description: string
+    menuDescription: string
     actionLabel: string
     pendingLabel: string
     variant: "default" | "destructive"
@@ -55,6 +57,7 @@ const POD_HEADER_ACTION_CONFIG: Record<
     icon: IconPlayerPlay,
     title: "Start Pod?",
     description: "This will power on all virtual machines in your cloned pod.",
+    menuDescription: "Power on all of the virtual machines in the pod.",
     actionLabel: "Start",
     pendingLabel: "Starting",
     variant: "default",
@@ -64,8 +67,19 @@ const POD_HEADER_ACTION_CONFIG: Record<
     title: "Shutdown Pod?",
     description:
       "This will send a shutdown signal to all running virtual machines in your cloned pod.",
+    menuDescription: "Safely power off all of the virtual machines in the pod.",
     actionLabel: "Shutdown",
     pendingLabel: "Shutting down",
+    variant: "destructive",
+  },
+  reclone: {
+    icon: IconRefresh,
+    title: "Re-clone Pod?",
+    description:
+      "This deletes and recreates your cloned virtual machines while keeping your saved task progress and question answers.",
+    menuDescription: "Recreate the virtual machines and keep task progress.",
+    actionLabel: "Re-clone",
+    pendingLabel: "Preparing",
     variant: "destructive",
   },
   delete: {
@@ -73,6 +87,7 @@ const POD_HEADER_ACTION_CONFIG: Record<
     title: "Delete Pod?",
     description:
       "This permanently deletes your cloned pod, its virtual machines, and your saved task progress.",
+    menuDescription: "Permanently delete your cloned instance of this pod.",
     actionLabel: "Delete",
     pendingLabel: "Deleting",
     variant: "destructive",
@@ -81,9 +96,11 @@ const POD_HEADER_ACTION_CONFIG: Record<
 
 export function PodHeaderActions({
   clonedPod,
+  onReclone,
   onClonedPodChange,
 }: {
   clonedPod: ClonedPod
+  onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
   const [activeAction, setActiveAction] = useState<PodHeaderAction | null>(null)
@@ -106,7 +123,11 @@ export function PodHeaderActions({
     : null
   const actionPending = powerMutation.isPending || deleteMutation.isPending
   const actionError =
-    activeAction === "delete" ? deleteMutation.error : powerMutation.error
+    activeAction === "reclone"
+      ? null
+      : activeAction === "delete"
+        ? deleteMutation.error
+        : powerMutation.error
 
   function openAction(action: PodHeaderAction) {
     powerMutation.reset()
@@ -123,6 +144,12 @@ export function PodHeaderActions({
 
   function confirmActiveAction() {
     if (!activeAction) return
+
+    if (activeAction === "reclone") {
+      setActiveAction(null)
+      onReclone?.()
+      return
+    }
 
     if (activeAction === "delete") {
       deleteMutation.mutate({ clonedPodId: clonedPod.id })
@@ -147,60 +174,42 @@ export function PodHeaderActions({
         />
         <DropdownMenuContent className="w-full" align="end">
           <DropdownMenuGroup>
-            <DropdownMenuItem
-              key="start"
-              disabled={actionPending}
-              onClick={() => openAction("start")}
-            >
-              <Item className="w-full p-2">
-                <ItemMedia variant="icon">
-                  <IconPlayerPlay className="size-4 text-muted-foreground" />
-                </ItemMedia>
-                <ItemContent className="gap-0">
-                  <ItemTitle>Start</ItemTitle>
-                  <ItemDescription className="leading-none">
-                    Power on all of the virtual machines in the pod.
-                  </ItemDescription>
-                </ItemContent>
-              </Item>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              key="shutdown"
-              disabled={actionPending}
-              onClick={() => openAction("shutdown")}
-            >
-              <Item className="w-full p-2">
-                <ItemMedia variant="icon">
-                  <IconPower className="size-4 text-muted-foreground" />
-                </ItemMedia>
-                <ItemContent className="gap-0">
-                  <ItemTitle>Shutdown</ItemTitle>
-                  <ItemDescription className="leading-none">
-                    Safely power off all of the virtual machines in the pod.
-                  </ItemDescription>
-                </ItemContent>
-              </Item>
-            </DropdownMenuItem>
+            {(["start", "shutdown", "reclone", "delete"] as const).map(
+              (action) => {
+                const config = POD_HEADER_ACTION_CONFIG[action]
+                const Icon = config.icon
+
+                return (
+                  <Fragment key={action}>
+                    {action === "delete" && <DropdownMenuSeparator />}
+                    <DropdownMenuItem
+                      variant={
+                        action === "reclone" || action === "delete"
+                          ? "destructive"
+                          : undefined
+                      }
+                      disabled={
+                        actionPending || (action === "reclone" && !onReclone)
+                      }
+                      onClick={() => openAction(action)}
+                    >
+                      <Item className="w-full p-2">
+                        <ItemMedia variant="icon">
+                          <Icon className="size-4 text-muted-foreground" />
+                        </ItemMedia>
+                        <ItemContent className="gap-0">
+                          <ItemTitle>{config.actionLabel}</ItemTitle>
+                          <ItemDescription className="leading-none">
+                            {config.menuDescription}
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    </DropdownMenuItem>
+                  </Fragment>
+                )
+              }
+            )}
           </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            key="delete"
-            variant="destructive"
-            disabled={actionPending}
-            onClick={() => openAction("delete")}
-          >
-            <Item className="w-full p-2">
-              <ItemMedia variant="icon">
-                <IconTrash className="size-4" />
-              </ItemMedia>
-              <ItemContent className="gap-0">
-                <ItemTitle>Delete</ItemTitle>
-                <ItemDescription className="leading-none">
-                  Permanently delete your cloned instance of this pod.
-                </ItemDescription>
-              </ItemContent>
-            </Item>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

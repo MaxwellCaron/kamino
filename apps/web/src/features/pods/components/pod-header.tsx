@@ -20,11 +20,13 @@ export function PodHeader({
   pod,
   clonedPod,
   onClone,
+  onReclone,
   onClonedPodChange,
 }: {
   pod: Pod
   clonedPod?: ClonedPod | null
   onClone?: () => void
+  onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
   const taskSummary = clonedPod
@@ -60,6 +62,7 @@ export function PodHeader({
               ) : (
                 <PodHeaderActions
                   clonedPod={clonedPod}
+                  onReclone={onReclone}
                   onClonedPodChange={onClonedPodChange}
                 />
               )}

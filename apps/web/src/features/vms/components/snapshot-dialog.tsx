@@ -13,7 +13,12 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Textarea } from "@workspace/ui/components/textarea"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@workspace/ui/components/input-group"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -170,18 +175,27 @@ function DirectSnapshotDialog({
                   <FieldLabel htmlFor="description">Description</FieldLabel>
                   <span className="font-mono text-xs text-muted-foreground"></span>
                 </div>
-                <Textarea
-                  id="description"
-                  placeholder="Optional description..."
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  maxLength={255}
-                />
-                <FieldDescription className="text-right font-mono text-xs">
-                  {field.state.value.length}/255
-                </FieldDescription>
+                <InputGroup>
+                  <InputGroupTextarea
+                    id="description"
+                    placeholder="Optional description..."
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    maxLength={255}
+                  />
+                  <InputGroupAddon
+                    align="block-end"
+                    className="justify-end px-4 font-mono text-xs"
+                  >
+                    <InputGroupText>
+                      {field.state.value.length}/255
+                    </InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
                 <FieldError>{field.state.meta.errors[0]}</FieldError>
               </Field>
             )}

@@ -34,13 +34,20 @@ import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import {
   clonePod,
   clonePodProgressQueryOptions,
+  reclonePod,
 } from "@/features/pods/api/clone-pod-api"
 
-function useCloneProcess(open: boolean, pod: Pod | null) {
+function useCloneProcess(open: boolean, pod: Pod | null, clonedPodId?: string) {
   const [progressId, setProgressId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const cloneMutation = useMutation({
-    mutationFn: clonePod,
+    mutationFn: (params: { podSlug: string; progressId: string }) => {
+      if (clonedPodId) {
+        return reclonePod({ clonedPodId, progressId: params.progressId })
+      }
+
+      return clonePod(params)
+    },
   })
   const resetCloneMutation = cloneMutation.reset
   const progressQuery = useQuery(
@@ -130,12 +137,14 @@ export function ClonePodDialog({
   onOpenChange,
   pod,
   username,
+  clonedPodId,
   onCloned,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pod: Pod | null
   username: string
+  clonedPodId?: string
   onCloned?: (clone: ClonedPod) => void
 }) {
   const {
@@ -151,9 +160,13 @@ export function ClonePodDialog({
     clonedPod,
     errorMessage,
     startCloning,
-  } = useCloneProcess(open, pod)
+  } = useCloneProcess(open, pod, clonedPodId)
 
   const podTitle = pod?.title ?? "Pod"
+  const isReclone = clonedPodId != null
+  const dialogTitle = isReclone ? "Re-clone Pod" : "Clone Pod"
+  const actionLabel = isReclone ? "Re-clone" : "Clone"
+  const pendingLabel = isReclone ? "Re-cloning..." : "Cloning..."
   const isBusy = isCloning && !isFinished && !isError
   const displayColors = isError ? FAILED_PROGRESS_COLORS : colors
   const handleOpenChange = (val: boolean) => {
@@ -265,7 +278,7 @@ export function ClonePodDialog({
                 )}
               </AnimatePresence>
               <span className="text-balancet scroll-m-20 text-4xl font-extrabold tracking-tight">
-                Clone Pod
+                {dialogTitle}
               </span>
             </div>
             {isCloning && (
@@ -292,7 +305,7 @@ export function ClonePodDialog({
           <CloneStatusItem
             title={
               <>
-                Clone &apos;{podTitle}&apos; Pod -{" "}
+                {actionLabel} &apos;{podTitle}&apos; Pod -{" "}
                 <span className="text-muted-foreground">{username}</span>
               </>
             }
@@ -306,7 +319,7 @@ export function ClonePodDialog({
           {errorMessage && (
             <Alert variant="destructive" className="bg-muted/50">
               <IconAlertTriangle />
-              <AlertTitle>Clone failed</AlertTitle>
+              <AlertTitle>{actionLabel} failed</AlertTitle>
               <AlertDescription>
                 {errorMessage.charAt(0).toUpperCase() + errorMessage.slice(1)}
               </AlertDescription>
@@ -338,12 +351,12 @@ export function ClonePodDialog({
             {isBusy ? (
               <>
                 <IconLoader2 className="size-4 animate-spin" />
-                Cloning...
+                {pendingLabel}
               </>
             ) : isError ? (
               "Failed"
             ) : (
-              "Clone"
+              actionLabel
             )}
           </Button>
         </AlertDialogFooter>

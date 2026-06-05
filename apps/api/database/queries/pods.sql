@@ -386,6 +386,10 @@ INSERT INTO cloned_pod_vms (
     sort_order
 ) VALUES ($1, $2, $3, $4);
 
+-- name: DeleteClonedPodVMs :exec
+DELETE FROM cloned_pod_vms
+WHERE cloned_pod_id = $1;
+
 -- name: ListClonedPodVMs :many
 SELECT
     cpv.cloned_pod_id,
@@ -393,22 +397,13 @@ SELECT
     ii.name,
     pv.node,
     pv.vmid,
-    pv.is_template,
-    perms.allowed_mask,
-    perms.denied_mask,
     cpv.sort_order
 FROM cloned_pod_vms cpv
 JOIN inventory_items ii
   ON ii.id = cpv.inventory_item_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = cpv.inventory_item_id
-CROSS JOIN LATERAL (
-    SELECT
-        gep.allowed_mask::BIGINT AS allowed_mask,
-        gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
-) AS perms
-WHERE cpv.cloned_pod_id = sqlc.arg(cloned_pod_id)
+WHERE cpv.cloned_pod_id = $1
 ORDER BY cpv.sort_order ASC;
 
 -- name: InsertClonedPodTaskState :exec

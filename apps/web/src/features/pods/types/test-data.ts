@@ -3,48 +3,14 @@ import type {
   Pod,
   PodVM,
 } from "./pod-types"
-import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
-import type { InventoryPermissionKey } from "@/features/inventory/utils/inventory-permissions"
-import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
-
-function createPermissionMask(keys: Array<InventoryPermissionKey>) {
-  return keys.reduce((mask, key) => mask | InventoryPermissionBits[key], 0)
-}
-
-function createPermissions({
-  allowed = [],
-  request = [],
-}: {
-  allowed?: Array<InventoryPermissionKey>
-  request?: Array<InventoryPermissionKey>
-}): ApiTreeNodePermissions {
-  return {
-    allowed_mask: createPermissionMask(allowed),
-    denied_mask: 0,
-    request_mask: createPermissionMask(request),
-  }
-}
 
 function createVmInventory({
   itemId,
-  vmid,
-  pveNode,
-  permissions,
-  isTemplate = false,
 }: {
   itemId: string
-  vmid: number
-  pveNode: string
-  permissions: ApiTreeNodePermissions
-  isTemplate?: boolean
 }): PodVM["inventory"] {
   return {
     itemId,
-    nodeId: itemId,
-    permissions,
-    vmid,
-    pveNode,
-    isTemplate,
   }
 }
 
@@ -746,36 +712,6 @@ Look for false positives, missing blocks, and whether useful logs are generated 
   },
 ]
 
-const podVmPermissions = {
-  adminLike: createPermissions({
-    allowed: [
-      "powerVm",
-      "cloneVm",
-      "snapshotVm",
-      "renameVm",
-      "editVmHardware",
-      "managePermissions",
-      "deleteVm",
-      "templateVm",
-    ],
-  }),
-  operator: createPermissions({
-    allowed: ["powerVm", "cloneVm", "renameVm", "editVmHardware"],
-    request: ["snapshotVm"],
-  }),
-  reviewer: createPermissions({
-    allowed: ["cloneVm", "managePermissions"],
-    request: ["powerVm", "snapshotVm"],
-  }),
-  limited: createPermissions({
-    allowed: ["cloneVm"],
-    request: ["powerVm"],
-  }),
-  destructiveOnly: createPermissions({
-    allowed: ["deleteVm", "managePermissions"],
-  }),
-} as const
-
 export const clonedPods: Array<ClonedPod> = [
   {
     id: "clone-reverse-engineering",
@@ -790,9 +726,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 45324,
         inventory: createVmInventory({
           itemId: "inventory-vm-1",
-          vmid: 301,
-          pveNode: "pve-lab-01",
-          permissions: podVmPermissions.adminLike,
         }),
         resources: {
           cpu: 0.15,
@@ -815,9 +748,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 6234,
         inventory: createVmInventory({
           itemId: "inventory-vm-2",
-          vmid: 302,
-          pveNode: "pve-lab-01",
-          permissions: podVmPermissions.reviewer,
         }),
         resources: {
           cpu: 0,
@@ -878,9 +808,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 18745,
         inventory: createVmInventory({
           itemId: "inventory-vm-3",
-          vmid: 401,
-          pveNode: "pve-red-01",
-          permissions: podVmPermissions.operator,
         }),
         resources: {
           cpu: 0.45,
@@ -903,9 +830,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 817333,
         inventory: createVmInventory({
           itemId: "inventory-vm-4",
-          vmid: 402,
-          pveNode: "pve-red-01",
-          permissions: podVmPermissions.reviewer,
         }),
         resources: {
           cpu: 0.45,
@@ -928,9 +852,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 1234,
         inventory: createVmInventory({
           itemId: "inventory-vm-5",
-          vmid: 403,
-          pveNode: "pve-red-02",
-          permissions: podVmPermissions.destructiveOnly,
         }),
         resources: {
           cpu: 0.45,
@@ -953,9 +874,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 12,
         inventory: createVmInventory({
           itemId: "inventory-vm-6",
-          vmid: 404,
-          pveNode: "pve-red-02",
-          permissions: podVmPermissions.limited,
         }),
         resources: {
           cpu: 0.45,
@@ -978,9 +896,6 @@ export const clonedPods: Array<ClonedPod> = [
         uptime: 6712,
         inventory: createVmInventory({
           itemId: "inventory-vm-7",
-          vmid: 405,
-          pveNode: "pve-red-03",
-          permissions: podVmPermissions.adminLike,
         }),
         resources: {
           cpu: 0.45,

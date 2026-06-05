@@ -67,12 +67,7 @@ type clonedPodVMResponse struct {
 }
 
 type clonedPodVMInventoryResponse struct {
-	ItemID      uuid.UUID          `json:"itemId"`
-	NodeID      uuid.UUID          `json:"nodeId"`
-	Permissions PermissionEnvelope `json:"permissions"`
-	VMID        int32              `json:"vmid"`
-	PVENode     string             `json:"pveNode"`
-	IsTemplate  bool               `json:"isTemplate"`
+	ItemID uuid.UUID `json:"itemId"`
 }
 
 type clonedPodTaskSummaryResponse struct {
@@ -195,7 +190,7 @@ func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 		return
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod", err)
 		return
@@ -235,7 +230,7 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
 	if err != nil {
 		progress.fail("failed to load cloned pod details")
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after clone", err)
@@ -243,6 +238,56 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 
 	progress.succeed("Pod cloned successfully.")
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	cloneID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	progress := newClonePodProgressReporter(c.Query("progress_id"))
+	progress.set(cloneProgressStepFetching, "Fetching Pod Template VMs.")
+
+	q := database.New(h.DB)
+	clone, err := q.GetClonedPodForPrincipalByID(c.Request.Context(), database.GetClonedPodForPrincipalByIDParams{
+		ID:              cloneID,
+		UserPrincipalID: principalID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		progress.fail("cloned pod not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+	if err != nil {
+		progress.fail("failed to load cloned pod")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for reclone", err)
+		return
+	}
+
+	clone, reqErr := h.reclonePublishedPod(c.Request.Context(), principalID, clone, progress)
+	if reqErr != nil {
+		progress.fail(reqErr.UserMessage)
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
+	if err != nil {
+		progress.fail("failed to load cloned pod details")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after reclone", err)
+		return
+	}
+
+	progress.succeed("Pod virtual machines replaced successfully.")
 	c.JSON(http.StatusOK, response)
 }
 
@@ -308,7 +353,7 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 		}
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after power action", err)
 		return
@@ -344,10 +389,7 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 		return
 	}
 
-	rows, err := q.ListClonedPodVMs(c.Request.Context(), database.ListClonedPodVMsParams{
-		PrincipalID: principalID,
-		ClonedPodID: cloneID,
-	})
+	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod virtual machines", "list cloned pod VMs for delete", err)
 		return
@@ -459,7 +501,7 @@ func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
 		return
 	}
 
-	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
+	response, err := h.hydrateClonedPod(c.Request.Context(), q, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after answer", err)
 		return
@@ -494,10 +536,7 @@ func (h *PodsHandler) clonedPodActionTargets(
 		}
 	}
 
-	rows, err := q.ListClonedPodVMs(ctx, database.ListClonedPodVMsParams{
-		PrincipalID: principalID,
-		ClonedPodID: cloneID,
-	})
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
 	if err != nil {
 		return database.ClonedPods{}, nil, &requestError{
 			Status:      http.StatusInternalServerError,
@@ -749,6 +788,120 @@ func (h *PodsHandler) clonePublishedPod(
 	}
 
 	return clone, nil
+}
+
+func (h *PodsHandler) reclonePublishedPod(
+	ctx context.Context,
+	principalID uuid.UUID,
+	clone database.ClonedPods,
+	progress *clonePodProgressReporter,
+) (database.ClonedPods, *requestError) {
+	q := database.New(h.DB)
+	publishedVMs, err := q.ListPublishedPodVMsForClone(ctx, clone.PodID)
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load pod virtual machines",
+			Operation:   "list published pod VMs for reclone",
+			Err:         err,
+		}
+	}
+	if len(publishedVMs) == 0 {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusConflict,
+			UserMessage: "pod has no virtual machines to clone",
+		}
+	}
+
+	progress.set(cloneProgressStepCloning, "Deleting existing Cloned Pod VMs.")
+	if reqErr := h.deleteExistingClonedPodVMs(ctx, q, clone.ID); reqErr != nil {
+		return database.ClonedPods{}, reqErr
+	}
+
+	if err := h.Service.EnsureFolderHasVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs))); err != nil {
+		return database.ClonedPods{}, inventoryRequestError(err)
+	}
+
+	placement, err := h.Service.ResolveFolderPlacement(ctx, clone.FolderID)
+	if err != nil {
+		return database.ClonedPods{}, inventoryRequestError(err)
+	}
+
+	targetNode, err := h.resolveCloneTargetNode(ctx)
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to resolve target node",
+			Operation:   "resolve recloned pod target node",
+			Err:         err,
+		}
+	}
+
+	progress.set(cloneProgressStepCloning, "Cloning Pod Template VMs into fresh Cloned Pod VMs.")
+	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	if reqErr != nil {
+		h.cleanupFailedUserClone(uuid.Nil, created)
+		return database.ClonedPods{}, reqErr
+	}
+
+	progress.set(cloneProgressStepWaiting, "Waiting for fresh Cloned Pod VMs to be ready.")
+	if reqErr := h.waitForClonedVMsVisible(ctx, results); reqErr != nil {
+		h.cleanupFailedUserClone(uuid.Nil, created)
+		return database.ClonedPods{}, reqErr
+	}
+
+	progress.set(cloneProgressStepRouter, "Configuring router.")
+	if reqErr := h.configureClonedRouter(ctx, results); reqErr != nil {
+		h.cleanupFailedUserClone(uuid.Nil, created)
+		return database.ClonedPods{}, reqErr
+	}
+
+	if reqErr := h.recordReclonedPodVMs(ctx, clone.ID, results); reqErr != nil {
+		h.cleanupFailedUserClone(uuid.Nil, created)
+		return database.ClonedPods{}, reqErr
+	}
+
+	return clone, nil
+}
+
+func (h *PodsHandler) deleteExistingClonedPodVMs(
+	ctx context.Context,
+	q *database.Queries,
+	cloneID uuid.UUID,
+) *requestError {
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod virtual machines",
+			Operation:   "list cloned pod VMs for reclone",
+			Err:         err,
+		}
+	}
+
+	for _, row := range rows {
+		if err := h.Service.EnsureInventorySubtreeDeletable(ctx, row.InventoryItemID); err != nil {
+			return inventoryRequestError(err)
+		}
+	}
+
+	for _, row := range rows {
+		if row.Node != nil && row.Vmid != nil {
+			if err := h.deleteClonedPodProxmoxVM(ctx, *row.Node, int(*row.Vmid)); err != nil {
+				return &requestError{
+					Status:      http.StatusBadGateway,
+					UserMessage: "failed to delete cloned pod virtual machine",
+					Operation:   "delete cloned pod VM for reclone",
+					Err:         err,
+				}
+			}
+		}
+		if err := h.Service.DeleteInventoryVM(ctx, row.InventoryItemID); err != nil {
+			return inventoryRequestError(err)
+		}
+	}
+
+	return nil
 }
 
 func (h *PodsHandler) clonePublishedPodVMs(
@@ -1115,6 +1268,60 @@ func (h *PodsHandler) recordClonedPod(
 	return clone, nil
 }
 
+func (h *PodsHandler) recordReclonedPodVMs(
+	ctx context.Context,
+	cloneID uuid.UUID,
+	results []clonePublishedVMResult,
+) *requestError {
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to record cloned pod VMs",
+			Operation:   "begin recloned pod tx",
+			Err:         err,
+		}
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	if err := q.DeleteClonedPodVMs(ctx, cloneID); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace cloned pod VMs",
+			Operation:   "delete cloned pod VM records",
+			Err:         err,
+		}
+	}
+
+	for _, result := range results {
+		if err := q.InsertClonedPodVM(ctx, database.InsertClonedPodVMParams{
+			ClonedPodID:      cloneID,
+			PublishedPodVmID: result.published.ID,
+			InventoryItemID:  result.clone.InventoryItemID,
+			SortOrder:        result.published.SortOrder,
+		}); err != nil {
+			return &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to record cloned pod VMs",
+				Operation:   "insert recloned pod VM",
+				Err:         err,
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to record cloned pod VMs",
+			Operation:   "commit recloned pod tx",
+			Err:         err,
+		}
+	}
+
+	return nil
+}
+
 func (h *PodsHandler) cloneTaskQuestionCounts(
 	ctx context.Context,
 	podID uuid.UUID,
@@ -1159,10 +1366,9 @@ func (h *PodsHandler) cloneTaskQuestionCounts(
 func (h *PodsHandler) hydrateClonedPod(
 	ctx context.Context,
 	q *database.Queries,
-	principalID uuid.UUID,
 	clone database.ClonedPods,
 ) (clonedPodResponse, error) {
-	vms, err := h.hydrateClonedPodVMs(ctx, q, principalID, clone.ID)
+	vms, err := h.hydrateClonedPodVMs(ctx, q, clone.ID)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}
@@ -1228,13 +1434,9 @@ func (h *PodsHandler) hydrateClonedPod(
 func (h *PodsHandler) hydrateClonedPodVMs(
 	ctx context.Context,
 	q *database.Queries,
-	principalID uuid.UUID,
 	cloneID uuid.UUID,
 ) ([]clonedPodVMResponse, error) {
-	rows, err := q.ListClonedPodVMs(ctx, database.ListClonedPodVMsParams{
-		PrincipalID: principalID,
-		ClonedPodID: cloneID,
-	})
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
 	if err != nil {
 		return nil, err
 	}
@@ -1270,15 +1472,6 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 			}
 		}
 
-		node := ""
-		if row.Node != nil {
-			node = *row.Node
-		}
-		isTemplate := false
-		if row.IsTemplate != nil {
-			isTemplate = *row.IsTemplate
-		}
-
 		response = append(response, clonedPodVMResponse{
 			ID:        row.InventoryItemID,
 			Name:      row.Name,
@@ -1287,15 +1480,6 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 			Uptime:    uptime,
 			Inventory: clonedPodVMInventoryResponse{
 				ItemID: row.InventoryItemID,
-				NodeID: row.InventoryItemID,
-				Permissions: inventoryPermissionEnvelope(
-					database.InventoryItemKindVm,
-					row.AllowedMask,
-					row.DeniedMask,
-				),
-				VMID:       vmid,
-				PVENode:    node,
-				IsTemplate: isTemplate,
 			},
 		})
 	}
