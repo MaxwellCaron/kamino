@@ -176,8 +176,9 @@
   }
   html {
     min-height: 100%;
-    background-color: var(--background);
+    background-color: var(--sidebar);
     overscroll-behavior: none;
+    scrollbar-gutter: stable;
   }
   body {
     min-height: 100%;
@@ -190,14 +191,15 @@
 @layer components {
   [data-slot="table-container"] {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: var(--border) var(--sidebar);
+    scrollbar-gutter: stable;
   }
   [data-slot="table-container"]::-webkit-scrollbar {
     height: 8px;
     width: 8px;
   }
   [data-slot="table-container"]::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--sidebar);
   }
   [data-slot="table-container"]::-webkit-scrollbar-thumb {
     background-color: var(--border);
