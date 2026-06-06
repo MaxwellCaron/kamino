@@ -170,9 +170,10 @@ WHERE id = $1;
 DELETE FROM published_pods
 WHERE id = $1;
 
--- name: DeletePublishedPodChildren :exec
+-- name: DeletePublishedPodTasksExcept :exec
 DELETE FROM published_pod_tasks
-WHERE pod_id = $1;
+WHERE pod_id = $1
+  AND NOT (id = ANY(sqlc.arg(keep_ids)::UUID[]));
 
 -- name: DeletePublishedPodCreators :exec
 DELETE FROM published_pod_creators
@@ -232,6 +233,20 @@ INSERT INTO published_pod_tasks (id, pod_id, title, content, sort_order)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id;
 
+-- name: OffsetPublishedPodTaskSortOrders :exec
+UPDATE published_pod_tasks
+SET sort_order = sort_order + sqlc.arg(sort_offset)
+WHERE pod_id = sqlc.arg(pod_id);
+
+-- name: UpdatePublishedPodTask :exec
+UPDATE published_pod_tasks
+SET
+    title = $3,
+    content = $4,
+    sort_order = $5
+WHERE id = $1
+  AND pod_id = $2;
+
 -- name: InsertPublishedPodTaskQuestion :exec
 INSERT INTO published_pod_task_questions (
     id,
@@ -242,6 +257,35 @@ INSERT INTO published_pod_task_questions (
     hint,
     sort_order
 ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: OffsetPublishedPodQuestionSortOrders :exec
+UPDATE published_pod_task_questions q
+SET sort_order = q.sort_order + sqlc.arg(sort_offset)
+FROM published_pod_tasks t
+WHERE q.task_id = t.id
+  AND t.pod_id = sqlc.arg(pod_id);
+
+-- name: UpdatePublishedPodTaskQuestion :exec
+UPDATE published_pod_task_questions
+SET
+    task_id = $2,
+    title = $3,
+    answer_outline = $4,
+    description = $5,
+    hint = $6,
+    sort_order = $7
+WHERE id = $1;
+
+-- name: DeletePublishedPodQuestionsExcept :exec
+DELETE FROM published_pod_task_questions q
+USING published_pod_tasks t
+WHERE q.task_id = t.id
+  AND t.pod_id = $1
+  AND NOT (q.id = ANY(sqlc.arg(keep_ids)::UUID[]));
+
+-- name: DeleteClonedPodQuestionAnswersByQuestionID :exec
+DELETE FROM cloned_pod_question_answers
+WHERE question_id = $1;
 
 -- name: ListPublishedPodCreatorsByPodIDs :many
 SELECT
@@ -528,5 +572,47 @@ ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
 SET completed = EXCLUDED.completed,
     completed_at = CASE
         WHEN EXCLUDED.completed THEN COALESCE(cloned_pod_task_states.completed_at, now())
+        ELSE NULL
+    END;
+
+-- name: RefreshClonedPodTaskStatesForPublishedPod :exec
+WITH task_completion AS (
+    SELECT
+        cp.id AS cloned_pod_id,
+        t.id AS task_id,
+        NOT EXISTS (
+            SELECT 1
+            FROM published_pod_task_questions q
+            WHERE q.task_id = t.id
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM cloned_pod_question_answers answer
+                  WHERE answer.cloned_pod_id = cp.id
+                    AND answer.question_id = q.id
+                    AND answer.is_correct = true
+              )
+        ) AS completed
+    FROM cloned_pods cp
+    JOIN published_pod_tasks t
+      ON t.pod_id = cp.pod_id
+    WHERE cp.pod_id = $1
+)
+INSERT INTO cloned_pod_task_states (
+    cloned_pod_id,
+    task_id,
+    completed,
+    completed_at
+)
+SELECT
+    cloned_pod_id,
+    task_id,
+    completed,
+    CASE WHEN completed THEN now() ELSE NULL END
+FROM task_completion
+ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
+SET completed = EXCLUDED.completed,
+    completed_at = CASE
+        WHEN EXCLUDED.completed AND cloned_pod_task_states.completed THEN cloned_pod_task_states.completed_at
+        WHEN EXCLUDED.completed THEN now()
         ELSE NULL
     END;

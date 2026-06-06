@@ -112,6 +112,16 @@ func (q *Queries) DecrementPublishedPodCloneCount(ctx context.Context, id uuid.U
 	return err
 }
 
+const deleteClonedPodQuestionAnswersByQuestionID = `-- name: DeleteClonedPodQuestionAnswersByQuestionID :exec
+DELETE FROM cloned_pod_question_answers
+WHERE question_id = $1
+`
+
+func (q *Queries) DeleteClonedPodQuestionAnswersByQuestionID(ctx context.Context, questionID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteClonedPodQuestionAnswersByQuestionID, questionID)
+	return err
+}
+
 const deleteClonedPodVMs = `-- name: DeleteClonedPodVMs :exec
 DELETE FROM cloned_pod_vms
 WHERE cloned_pod_id = $1
@@ -145,16 +155,6 @@ func (q *Queries) DeletePublishedPodAudience(ctx context.Context, podID uuid.UUI
 	return err
 }
 
-const deletePublishedPodChildren = `-- name: DeletePublishedPodChildren :exec
-DELETE FROM published_pod_tasks
-WHERE pod_id = $1
-`
-
-func (q *Queries) DeletePublishedPodChildren(ctx context.Context, podID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deletePublishedPodChildren, podID)
-	return err
-}
-
 const deletePublishedPodCreators = `-- name: DeletePublishedPodCreators :exec
 DELETE FROM published_pod_creators
 WHERE pod_id = $1
@@ -162,6 +162,40 @@ WHERE pod_id = $1
 
 func (q *Queries) DeletePublishedPodCreators(ctx context.Context, podID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePublishedPodCreators, podID)
+	return err
+}
+
+const deletePublishedPodQuestionsExcept = `-- name: DeletePublishedPodQuestionsExcept :exec
+DELETE FROM published_pod_task_questions q
+USING published_pod_tasks t
+WHERE q.task_id = t.id
+  AND t.pod_id = $1
+  AND NOT (q.id = ANY($2::UUID[]))
+`
+
+type DeletePublishedPodQuestionsExceptParams struct {
+	PodID   uuid.UUID   `json:"pod_id"`
+	KeepIds []uuid.UUID `json:"keep_ids"`
+}
+
+func (q *Queries) DeletePublishedPodQuestionsExcept(ctx context.Context, arg DeletePublishedPodQuestionsExceptParams) error {
+	_, err := q.db.Exec(ctx, deletePublishedPodQuestionsExcept, arg.PodID, arg.KeepIds)
+	return err
+}
+
+const deletePublishedPodTasksExcept = `-- name: DeletePublishedPodTasksExcept :exec
+DELETE FROM published_pod_tasks
+WHERE pod_id = $1
+  AND NOT (id = ANY($2::UUID[]))
+`
+
+type DeletePublishedPodTasksExceptParams struct {
+	PodID   uuid.UUID   `json:"pod_id"`
+	KeepIds []uuid.UUID `json:"keep_ids"`
+}
+
+func (q *Queries) DeletePublishedPodTasksExcept(ctx context.Context, arg DeletePublishedPodTasksExceptParams) error {
+	_, err := q.db.Exec(ctx, deletePublishedPodTasksExcept, arg.PodID, arg.KeepIds)
 	return err
 }
 
@@ -1363,6 +1397,88 @@ func (q *Queries) ListVisiblePublishedPodsForPrincipal(ctx context.Context, prin
 	return items, nil
 }
 
+const offsetPublishedPodQuestionSortOrders = `-- name: OffsetPublishedPodQuestionSortOrders :exec
+UPDATE published_pod_task_questions q
+SET sort_order = q.sort_order + $1
+FROM published_pod_tasks t
+WHERE q.task_id = t.id
+  AND t.pod_id = $2
+`
+
+type OffsetPublishedPodQuestionSortOrdersParams struct {
+	SortOffset int32     `json:"sort_offset"`
+	PodID      uuid.UUID `json:"pod_id"`
+}
+
+func (q *Queries) OffsetPublishedPodQuestionSortOrders(ctx context.Context, arg OffsetPublishedPodQuestionSortOrdersParams) error {
+	_, err := q.db.Exec(ctx, offsetPublishedPodQuestionSortOrders, arg.SortOffset, arg.PodID)
+	return err
+}
+
+const offsetPublishedPodTaskSortOrders = `-- name: OffsetPublishedPodTaskSortOrders :exec
+UPDATE published_pod_tasks
+SET sort_order = sort_order + $1
+WHERE pod_id = $2
+`
+
+type OffsetPublishedPodTaskSortOrdersParams struct {
+	SortOffset int32     `json:"sort_offset"`
+	PodID      uuid.UUID `json:"pod_id"`
+}
+
+func (q *Queries) OffsetPublishedPodTaskSortOrders(ctx context.Context, arg OffsetPublishedPodTaskSortOrdersParams) error {
+	_, err := q.db.Exec(ctx, offsetPublishedPodTaskSortOrders, arg.SortOffset, arg.PodID)
+	return err
+}
+
+const refreshClonedPodTaskStatesForPublishedPod = `-- name: RefreshClonedPodTaskStatesForPublishedPod :exec
+WITH task_completion AS (
+    SELECT
+        cp.id AS cloned_pod_id,
+        t.id AS task_id,
+        NOT EXISTS (
+            SELECT 1
+            FROM published_pod_task_questions q
+            WHERE q.task_id = t.id
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM cloned_pod_question_answers answer
+                  WHERE answer.cloned_pod_id = cp.id
+                    AND answer.question_id = q.id
+                    AND answer.is_correct = true
+              )
+        ) AS completed
+    FROM cloned_pods cp
+    JOIN published_pod_tasks t
+      ON t.pod_id = cp.pod_id
+    WHERE cp.pod_id = $1
+)
+INSERT INTO cloned_pod_task_states (
+    cloned_pod_id,
+    task_id,
+    completed,
+    completed_at
+)
+SELECT
+    cloned_pod_id,
+    task_id,
+    completed,
+    CASE WHEN completed THEN now() ELSE NULL END
+FROM task_completion
+ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
+SET completed = EXCLUDED.completed,
+    completed_at = CASE
+        WHEN EXCLUDED.completed AND cloned_pod_task_states.completed THEN cloned_pod_task_states.completed_at
+        WHEN EXCLUDED.completed THEN now()
+        ELSE NULL
+    END
+`
+
+func (q *Queries) RefreshClonedPodTaskStatesForPublishedPod(ctx context.Context, podID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, refreshClonedPodTaskStatesForPublishedPod, podID)
+	return err
+}
+
 const setClonedPodTaskCompleted = `-- name: SetClonedPodTaskCompleted :exec
 INSERT INTO cloned_pod_task_states (
     cloned_pod_id,
@@ -1467,6 +1583,70 @@ type UpdatePublishedPodStatusParams struct {
 
 func (q *Queries) UpdatePublishedPodStatus(ctx context.Context, arg UpdatePublishedPodStatusParams) error {
 	_, err := q.db.Exec(ctx, updatePublishedPodStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updatePublishedPodTask = `-- name: UpdatePublishedPodTask :exec
+UPDATE published_pod_tasks
+SET
+    title = $3,
+    content = $4,
+    sort_order = $5
+WHERE id = $1
+  AND pod_id = $2
+`
+
+type UpdatePublishedPodTaskParams struct {
+	ID        uuid.UUID `json:"id"`
+	PodID     uuid.UUID `json:"pod_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	SortOrder int32     `json:"sort_order"`
+}
+
+func (q *Queries) UpdatePublishedPodTask(ctx context.Context, arg UpdatePublishedPodTaskParams) error {
+	_, err := q.db.Exec(ctx, updatePublishedPodTask,
+		arg.ID,
+		arg.PodID,
+		arg.Title,
+		arg.Content,
+		arg.SortOrder,
+	)
+	return err
+}
+
+const updatePublishedPodTaskQuestion = `-- name: UpdatePublishedPodTaskQuestion :exec
+UPDATE published_pod_task_questions
+SET
+    task_id = $2,
+    title = $3,
+    answer_outline = $4,
+    description = $5,
+    hint = $6,
+    sort_order = $7
+WHERE id = $1
+`
+
+type UpdatePublishedPodTaskQuestionParams struct {
+	ID            uuid.UUID `json:"id"`
+	TaskID        uuid.UUID `json:"task_id"`
+	Title         string    `json:"title"`
+	AnswerOutline string    `json:"answer_outline"`
+	Description   *string   `json:"description"`
+	Hint          *string   `json:"hint"`
+	SortOrder     int32     `json:"sort_order"`
+}
+
+func (q *Queries) UpdatePublishedPodTaskQuestion(ctx context.Context, arg UpdatePublishedPodTaskQuestionParams) error {
+	_, err := q.db.Exec(ctx, updatePublishedPodTaskQuestion,
+		arg.ID,
+		arg.TaskID,
+		arg.Title,
+		arg.AnswerOutline,
+		arg.Description,
+		arg.Hint,
+		arg.SortOrder,
+	)
 	return err
 }
 

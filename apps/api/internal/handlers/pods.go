@@ -1223,8 +1223,39 @@ func (h *PodsHandler) replacePublishedPodChildren(
 	q *database.Queries,
 	req normalizedPublishPodRequest,
 ) *requestError {
+	existingTasks, err := q.ListPublishedPodTasksByPodIDs(ctx, []uuid.UUID{req.ID})
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace published pod details",
+			Operation:   "load existing published pod tasks",
+			Err:         err,
+		}
+	}
+	existingTaskIDs := make(map[uuid.UUID]struct{}, len(existingTasks))
+	existingTaskIDList := make([]uuid.UUID, 0, len(existingTasks))
+	for _, task := range existingTasks {
+		existingTaskIDs[task.ID] = struct{}{}
+		existingTaskIDList = append(existingTaskIDList, task.ID)
+	}
+
+	existingQuestionsByID := map[uuid.UUID]database.ListPublishedPodQuestionsByTaskIDsRow{}
+	if len(existingTaskIDList) > 0 {
+		existingQuestions, err := q.ListPublishedPodQuestionsByTaskIDs(ctx, existingTaskIDList)
+		if err != nil {
+			return &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to replace published pod details",
+				Operation:   "load existing published pod questions",
+				Err:         err,
+			}
+		}
+		for _, question := range existingQuestions {
+			existingQuestionsByID[question.ID] = question
+		}
+	}
+
 	for _, deleteFn := range []func(context.Context, uuid.UUID) error{
-		q.DeletePublishedPodChildren,
 		q.DeletePublishedPodCreators,
 		q.DeletePublishedPodAudience,
 	} {
@@ -1235,6 +1266,28 @@ func (h *PodsHandler) replacePublishedPodChildren(
 				Operation:   "delete published pod children",
 				Err:         err,
 			}
+		}
+	}
+	if err := q.OffsetPublishedPodTaskSortOrders(ctx, database.OffsetPublishedPodTaskSortOrdersParams{
+		PodID:      req.ID,
+		SortOffset: publishPodSortOrderOffset,
+	}); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace published pod details",
+			Operation:   "offset published pod task sort orders",
+			Err:         err,
+		}
+	}
+	if err := q.OffsetPublishedPodQuestionSortOrders(ctx, database.OffsetPublishedPodQuestionSortOrdersParams{
+		PodID:      req.ID,
+		SortOffset: publishPodSortOrderOffset,
+	}); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace published pod details",
+			Operation:   "offset published pod question sort orders",
+			Err:         err,
 		}
 	}
 
@@ -1306,29 +1359,100 @@ func (h *PodsHandler) replacePublishedPodChildren(
 			Err:         err,
 		}
 	}
+	keptTaskIDs := make([]uuid.UUID, 0, len(req.Tasks))
+	keptQuestionIDs := make([]uuid.UUID, 0)
 	for taskIndex, task := range req.Tasks {
-		taskID, err := q.InsertPublishedPodTask(ctx, database.InsertPublishedPodTaskParams{
-			ID:        task.ID,
-			PodID:     req.ID,
-			Title:     task.Title,
-			Content:   task.Content,
-			SortOrder: int32(taskIndex),
-		})
-		if err != nil {
-			return childInsertError("insert published pod task", err)
+		taskID := task.ID
+		keptTaskIDs = append(keptTaskIDs, taskID)
+		if _, ok := existingTaskIDs[taskID]; ok {
+			if err := q.UpdatePublishedPodTask(ctx, database.UpdatePublishedPodTaskParams{
+				ID:        taskID,
+				PodID:     req.ID,
+				Title:     task.Title,
+				Content:   task.Content,
+				SortOrder: int32(taskIndex),
+			}); err != nil {
+				return childInsertError("update published pod task", err)
+			}
+		} else {
+			if _, err := q.InsertPublishedPodTask(ctx, database.InsertPublishedPodTaskParams{
+				ID:        taskID,
+				PodID:     req.ID,
+				Title:     task.Title,
+				Content:   task.Content,
+				SortOrder: int32(taskIndex),
+			}); err != nil {
+				return childInsertError("insert published pod task", err)
+			}
 		}
 		for questionIndex, question := range task.Questions {
-			if err := q.InsertPublishedPodTaskQuestion(ctx, database.InsertPublishedPodTaskQuestionParams{
-				ID:            question.ID,
-				TaskID:        taskID,
-				Title:         question.Title,
-				AnswerOutline: question.AnswerOutline,
-				Description:   question.Description,
-				Hint:          question.Hint,
-				SortOrder:     int32(questionIndex),
-			}); err != nil {
-				return childInsertError("insert published pod task question", err)
+			questionID := question.ID
+			keptQuestionIDs = append(keptQuestionIDs, questionID)
+			if existing, ok := existingQuestionsByID[questionID]; ok {
+				if publishedPodQuestionAnswerStateChanged(existing, question) {
+					if err := q.DeleteClonedPodQuestionAnswersByQuestionID(ctx, questionID); err != nil {
+						return &requestError{
+							Status:      http.StatusInternalServerError,
+							UserMessage: "failed to replace published pod details",
+							Operation:   "reset changed published pod question answers",
+							Err:         err,
+						}
+					}
+				}
+				if err := q.UpdatePublishedPodTaskQuestion(ctx, database.UpdatePublishedPodTaskQuestionParams{
+					ID:            questionID,
+					TaskID:        taskID,
+					Title:         question.Title,
+					AnswerOutline: question.AnswerOutline,
+					Description:   question.Description,
+					Hint:          question.Hint,
+					SortOrder:     int32(questionIndex),
+				}); err != nil {
+					return childInsertError("update published pod task question", err)
+				}
+			} else {
+				if err := q.InsertPublishedPodTaskQuestion(ctx, database.InsertPublishedPodTaskQuestionParams{
+					ID:            questionID,
+					TaskID:        taskID,
+					Title:         question.Title,
+					AnswerOutline: question.AnswerOutline,
+					Description:   question.Description,
+					Hint:          question.Hint,
+					SortOrder:     int32(questionIndex),
+				}); err != nil {
+					return childInsertError("insert published pod task question", err)
+				}
 			}
+		}
+	}
+	if err := q.DeletePublishedPodQuestionsExcept(ctx, database.DeletePublishedPodQuestionsExceptParams{
+		PodID:   req.ID,
+		KeepIds: keptQuestionIDs,
+	}); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace published pod details",
+			Operation:   "delete removed published pod questions",
+			Err:         err,
+		}
+	}
+	if err := q.DeletePublishedPodTasksExcept(ctx, database.DeletePublishedPodTasksExceptParams{
+		PodID:   req.ID,
+		KeepIds: keptTaskIDs,
+	}); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace published pod details",
+			Operation:   "delete removed published pod tasks",
+			Err:         err,
+		}
+	}
+	if err := q.RefreshClonedPodTaskStatesForPublishedPod(ctx, req.ID); err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to replace published pod details",
+			Operation:   "refresh cloned pod task states",
+			Err:         err,
 		}
 	}
 
@@ -2348,6 +2472,7 @@ func normalizePublishPodTasks(tasks []publishPodTaskRequest) ([]normalizedPublis
 const (
 	publishPodQuestionTextMaxLength = 256
 	publishPodTaskContentMaxLength  = 4096
+	publishPodSortOrderOffset       = 10000
 )
 
 func validatePublishedPodPermissions(permissions publishPodPermissionRequest) error {
@@ -2389,6 +2514,13 @@ func childInsertError(operation string, err error) *requestError {
 		Operation:   operation,
 		Err:         err,
 	}
+}
+
+func publishedPodQuestionAnswerStateChanged(
+	existing database.ListPublishedPodQuestionsByTaskIDsRow,
+	next normalizedPublishPodQuestion,
+) bool {
+	return existing.Title != next.Title || !answersMatch(existing.AnswerOutline, next.AnswerOutline)
 }
 
 func parseOrNewUUID(value string) (uuid.UUID, error) {
