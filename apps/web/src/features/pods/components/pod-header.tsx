@@ -9,6 +9,7 @@ import { IconCopy, IconCubePlus } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import { PodHeaderActions } from "./pod-header-actions"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
@@ -52,7 +53,12 @@ export function PodHeader({
             </div>
           </div>
 
-          <div className="relative flex flex-1 flex-col md:min-h-56 md:pr-14">
+          <div
+            className={cn(
+              "relative flex flex-1 flex-col md:min-h-56",
+              clonedPod ? "md:pr-48" : "md:pr-24"
+            )}
+          >
             <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
               {clonedPod == null ? (
                 <Button onClick={onClone} disabled={!onClone}>

@@ -7,12 +7,12 @@ import {
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
+import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import {
@@ -23,7 +23,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import {
-  IconDotsVertical,
+  IconChevronDown,
   IconLoader2,
   IconPlayerPlay,
   IconPower,
@@ -31,7 +31,10 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 import type { ComponentType } from "react"
-import type { ClonedPod } from "@/features/pods/types/pod-types"
+import type {
+  ClonedPod,
+  ClonedPodStatus,
+} from "@/features/pods/types/pod-types"
 import {
   deleteClonedPod,
   powerClonedPod,
@@ -39,6 +42,7 @@ import {
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type PodHeaderAction = "start" | "shutdown" | "reclone" | "delete"
+type VisiblePodHeaderAction = Exclude<PodHeaderAction, "reclone" | "delete">
 type PodHeaderActionIcon = ComponentType<{ className?: string }>
 
 const POD_HEADER_ACTION_CONFIG: Record<
@@ -94,6 +98,23 @@ const POD_HEADER_ACTION_CONFIG: Record<
   },
 }
 
+const VISIBLE_ACTIONS_BY_STATUS: Record<
+  ClonedPodStatus,
+  Array<VisiblePodHeaderAction>
+> = {
+  running: ["shutdown"],
+  stopped: ["start"],
+  partial: ["start", "shutdown"],
+}
+
+const ACTION_BUTTON_VARIANT: Record<
+  VisiblePodHeaderAction,
+  "default" | "secondary" | "destructive"
+> = {
+  start: "default",
+  shutdown: "destructive",
+}
+
 export function PodHeaderActions({
   clonedPod,
   onReclone,
@@ -128,6 +149,8 @@ export function PodHeaderActions({
       : activeAction === "delete"
         ? deleteMutation.error
         : powerMutation.error
+  const visibleActions = VISIBLE_ACTIONS_BY_STATUS[clonedPod.status]
+  const overflowActions: Array<PodHeaderAction> = ["reclone", "delete"]
 
   function openAction(action: PodHeaderAction) {
     powerMutation.reset()
@@ -164,24 +187,45 @@ export function PodHeaderActions({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="secondary" size="icon-lg">
-              <IconDotsVertical />
-            </Button>
-          }
-        />
-        <DropdownMenuContent className="w-full" align="end">
-          <DropdownMenuGroup>
-            {(["start", "shutdown", "reclone", "delete"] as const).map(
-              (action) => {
+      <ButtonGroup aria-label="Pod actions" className="rounded-3xl bg-muted">
+        {visibleActions.map((action, _) => {
+          const config = POD_HEADER_ACTION_CONFIG[action]
+          const Icon = config.icon
+
+          return (
+            <Fragment key={action}>
+              <Button
+                variant={ACTION_BUTTON_VARIANT[action]}
+                disabled={actionPending}
+                onClick={() => openAction(action)}
+              >
+                <Icon data-icon="inline-start" />
+                {config.actionLabel}
+              </Button>
+            </Fragment>
+          )
+        })}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label="More pod actions"
+                disabled={actionPending}
+              >
+                <IconChevronDown />
+              </Button>
+            }
+          />
+          <DropdownMenuContent className="w-full" align="end">
+            <DropdownMenuGroup>
+              {overflowActions.map((action, _) => {
                 const config = POD_HEADER_ACTION_CONFIG[action]
                 const Icon = config.icon
 
                 return (
                   <Fragment key={action}>
-                    {action === "delete" && <DropdownMenuSeparator />}
                     <DropdownMenuItem
                       variant={
                         action === "reclone" || action === "delete"
@@ -195,7 +239,7 @@ export function PodHeaderActions({
                     >
                       <Item className="w-full p-2">
                         <ItemMedia variant="icon">
-                          <Icon className="size-4 text-muted-foreground" />
+                          <Icon className="size-4" />
                         </ItemMedia>
                         <ItemContent className="gap-0">
                           <ItemTitle>{config.actionLabel}</ItemTitle>
@@ -207,11 +251,11 @@ export function PodHeaderActions({
                     </DropdownMenuItem>
                   </Fragment>
                 )
-              }
-            )}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              })}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ButtonGroup>
 
       {activeActionConfig && (
         <AlertDialog
