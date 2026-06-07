@@ -57,16 +57,13 @@ export function VmPowerControls({
             return (
               <Button
                 key={action.action}
-                variant="outline"
+                variant={action.label === "Stop" ? "destructive" : "outline"}
                 onClick={() =>
                   powerActions.openPowerAction(action.action, openConfirm)
                 }
                 disabled={action.disabled}
               >
-                <ActionIcon
-                  data-icon="inline-start"
-                  className="text-muted-foreground"
-                />
+                <ActionIcon data-icon="inline-start" />
                 <span className="inline md:hidden 2xl:inline">
                   {action.label}
                 </span>
