@@ -224,7 +224,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
                                 key={favorite.id}
                                 variant="muted"
                                 size="sm"
-                                className="cursor-default"
+                                className="cursor-pointer"
                                 render={
                                   <Link
                                     to="/inventory/items/$itemId"

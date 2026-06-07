@@ -16,7 +16,7 @@ export const cutoutCardSurfaceShadowClassName = cn(
 )
 
 export const cutoutCardSurfaceClassName = cn(
-  "group/cutout relative cursor-default overflow-hidden rounded-[28px] bg-card text-card-foreground",
+  "group/cutout relative cursor-pointer overflow-hidden rounded-[28px] bg-card text-card-foreground",
   cutoutCardSurfaceShadowClassName
 )
 

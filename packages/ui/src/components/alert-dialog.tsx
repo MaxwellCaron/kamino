@@ -10,9 +10,16 @@ function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
 }
 
-function AlertDialogTrigger({ ...props }: AlertDialogPrimitive.Trigger.Props) {
+function AlertDialogTrigger({
+  className,
+  ...props
+}: AlertDialogPrimitive.Trigger.Props) {
   return (
-    <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
+    <AlertDialogPrimitive.Trigger
+      data-slot="alert-dialog-trigger"
+      className={cn("cursor-pointer", className)}
+      {...props}
+    />
   )
 }
 
@@ -118,9 +125,16 @@ function AlertDialogDescription({
   )
 }
 
-function AlertDialogClose({ ...props }: AlertDialogPrimitive.Close.Props) {
+function AlertDialogClose({
+  className,
+  ...props
+}: AlertDialogPrimitive.Close.Props) {
   return (
-    <AlertDialogPrimitive.Close data-slot="alert-dialog-close" {...props} />
+    <AlertDialogPrimitive.Close
+      data-slot="alert-dialog-close"
+      className={cn("cursor-pointer", className)}
+      {...props}
+    />
   )
 }
 

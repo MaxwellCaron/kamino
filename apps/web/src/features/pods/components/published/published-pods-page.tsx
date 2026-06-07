@@ -143,14 +143,14 @@ export function PublishedPodsPage() {
             <CardAction className="flex gap-2">
               <Link
                 to="/pods/create"
-                className={`${buttonVariants({ variant: "outline" })} cursor-default`}
+                className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
               >
                 <IconCubePlus data-icon="inline-start" />
                 Create
               </Link>
               <Link
                 to="/pods/publish"
-                className={`${buttonVariants()} cursor-default`}
+                className={`${buttonVariants()} cursor-pointer`}
               >
                 <IconCubeSend data-icon="inline-start" />
                 Publish
@@ -196,14 +196,14 @@ export function PublishedPodsPage() {
                   <EmptyContent className="flex-row justify-center gap-2">
                     <Link
                       to="/pods/create"
-                      className={`${buttonVariants({ variant: "outline" })} cursor-default`}
+                      className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
                     >
                       <IconCubePlus data-icon="inline-start" />
                       Create
                     </Link>
                     <Link
                       to="/pods/publish"
-                      className={`${buttonVariants()} cursor-default`}
+                      className={`${buttonVariants()} cursor-pointer`}
                     >
                       <IconCubeSend data-icon="inline-start" />
                       Publish

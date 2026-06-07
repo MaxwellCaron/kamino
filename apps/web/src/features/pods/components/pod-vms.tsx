@@ -63,7 +63,7 @@ export function PodVms({ vms }: { vms: Array<PodVM> }) {
               <Item
                 key={vm.id}
                 variant="muted"
-                className="cursor-default"
+                className="cursor-pointer"
                 render={
                   <Link
                     to="/inventory/items/$itemId"

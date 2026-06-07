@@ -52,7 +52,7 @@ function PodPageSkeleton() {
         <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 lg:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:items-start">
             <div className="mx-auto hidden shrink-0 md:mx-0 lg:block">
-              <Skeleton className="h-56 w-72 rounded-3xl" />
+              <Skeleton className="h-56 w-56 rounded-3xl" />
             </div>
 
             <div className="relative flex flex-1 flex-col md:min-h-56 md:pr-48">

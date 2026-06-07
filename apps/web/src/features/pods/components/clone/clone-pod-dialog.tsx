@@ -340,7 +340,7 @@ export function ClonePodDialog({
           <Button
             variant={isError ? "destructive" : isBusy ? "default" : undefined}
             className={cn(
-              "w-[50%] cursor-default transition-colors duration-500",
+              "w-[50%] cursor-pointer transition-colors duration-500",
               isBusy ? colors.bg : undefined
             )}
             disabled={isBusy || isFinished || isError}

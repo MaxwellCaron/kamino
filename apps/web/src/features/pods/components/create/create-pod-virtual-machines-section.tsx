@@ -66,7 +66,11 @@ export function CreatePodVirtualMachinesSection({
             const isInvalid = showValidation && !field.state.meta.isValid
 
             return (
-              <FieldLabel htmlFor={field.name}>
+              <FieldLabel
+                htmlFor={field.name}
+                data-disabled={!routerTemplateConfigured || undefined}
+                className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
+              >
                 <Field
                   orientation="horizontal"
                   data-invalid={isInvalid || undefined}

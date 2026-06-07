@@ -192,7 +192,7 @@ export function RequestDetailDialog({
                 </Item>
                 <Item
                   variant="muted"
-                  className="cursor-default"
+                  className="cursor-pointer"
                   render={
                     <Link
                       to="/inventory/items/$itemId"

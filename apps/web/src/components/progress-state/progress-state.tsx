@@ -222,7 +222,7 @@ function ProgressStateActions({
         const Icon = action.icon
         const className = `${buttonVariants({
           variant: action.variant ?? "default",
-        })} cursor-default`
+        })} cursor-pointer`
 
         if (!("to" in action)) {
           return (

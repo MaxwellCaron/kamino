@@ -145,7 +145,7 @@ export const markdownComponents: Components = {
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "cursor-default font-medium text-primary underline underline-offset-4",
+        "cursor-pointer font-medium text-primary underline underline-offset-4",
         className
       )}
       {...props}
@@ -245,7 +245,7 @@ export const markdownComponents: Components = {
       type={type}
       className={cn(
         type === "checkbox" &&
-          "size-4 align-middle accent-primary disabled:cursor-default",
+          "size-4 align-middle accent-primary disabled:cursor-not-allowed",
         className
       )}
       {...props}

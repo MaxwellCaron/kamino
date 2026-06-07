@@ -80,7 +80,7 @@ export function PublishPodStepper({
     <>
       <div className="sticky bottom-6 z-50 mx-auto w-full max-w-500 px-2 lg:px-6">
         <Card className="bg-muted">
-          <CardContent className="cursor-default space-y-6">
+          <CardContent className="cursor-pointer space-y-6">
             <StepperList className="w-full">
               {steps.map((s) => (
                 <StepperItem key={s.value} value={s.value} className="gap-2">

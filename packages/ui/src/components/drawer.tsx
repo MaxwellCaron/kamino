@@ -10,9 +10,16 @@ function Drawer({
 }
 
 function DrawerTrigger({
+  className,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
-  return <DrawerPrimitive.Trigger data-slot="drawer-trigger" {...props} />
+  return (
+    <DrawerPrimitive.Trigger
+      data-slot="drawer-trigger"
+      className={cn("cursor-pointer", className)}
+      {...props}
+    />
+  )
 }
 
 function DrawerPortal({
@@ -22,9 +29,16 @@ function DrawerPortal({
 }
 
 function DrawerClose({
+  className,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Close>) {
-  return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
+  return (
+    <DrawerPrimitive.Close
+      data-slot="drawer-close"
+      className={cn("cursor-pointer", className)}
+      {...props}
+    />
+  )
 }
 
 function DrawerOverlay({

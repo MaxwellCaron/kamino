@@ -998,7 +998,7 @@ function StepperTrigger(props: ButtonProps) {
         tabIndex: isTabStop ? 0 : -1,
         ref: composedRef,
         className: cn(
-          "inline-flex items-center justify-center gap-3 rounded-md text-left transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          "inline-flex cursor-pointer items-center justify-center gap-3 rounded-md text-left transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           "not-has-data-[slot=description]:rounded-full not-has-data-[slot=title]:rounded-full",
           className
         ),
@@ -1231,7 +1231,13 @@ function StepperContent(props: StepperContentProps) {
 }
 
 function StepperPrev(props: ButtonProps) {
-  const { render, onClick: onClickProp, disabled, ...prevProps } = props
+  const {
+    render,
+    onClick: onClickProp,
+    disabled,
+    className,
+    ...prevProps
+  } = props
 
   const store = useStoreContext(PREV_NAME)
   const value = useStore((state) => state.value)
@@ -1266,6 +1272,7 @@ function StepperPrev(props: ButtonProps) {
       {
         type: "button",
         disabled: isDisabled,
+        className: cn("cursor-pointer", className),
         onClick,
       },
       prevProps
@@ -1278,7 +1285,13 @@ function StepperPrev(props: ButtonProps) {
 }
 
 function StepperNext(props: ButtonProps) {
-  const { render, onClick: onClickProp, disabled, ...nextProps } = props
+  const {
+    render,
+    onClick: onClickProp,
+    disabled,
+    className,
+    ...nextProps
+  } = props
 
   const store = useStoreContext(NEXT_NAME)
   const value = useStore((state) => state.value)
@@ -1313,6 +1326,7 @@ function StepperNext(props: ButtonProps) {
       {
         type: "button",
         disabled: isDisabled,
+        className: cn("cursor-pointer", className),
         onClick,
       },
       nextProps

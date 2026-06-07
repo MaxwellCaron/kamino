@@ -18,7 +18,7 @@ export function PodBreadcrumbs() {
     <Breadcrumb className="min-w-0">
       <BreadcrumbList className="min-w-0 flex-nowrap overflow-hidden whitespace-nowrap">
         <BreadcrumbItem>
-          <BreadcrumbLink className="cursor-default" render={<Link to="/" />}>
+          <BreadcrumbLink className="cursor-pointer" render={<Link to="/" />}>
             Home
           </BreadcrumbLink>
         </BreadcrumbItem>
@@ -26,7 +26,7 @@ export function PodBreadcrumbs() {
         <BreadcrumbItem className="min-w-0">
           {podSlug ? (
             <BreadcrumbLink
-              className="block max-w-24 cursor-default truncate sm:max-w-32"
+              className="block max-w-24 cursor-pointer truncate sm:max-w-32"
               render={<Link to="/pods/browse" />}
             >
               Pods

@@ -245,7 +245,7 @@ function IconRailNavItem({
         <SidebarMenuButton
           isActive={isActive}
           className={cn(
-            "cursor-default justify-center transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
+            "cursor-pointer justify-center transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
             styles.button
           )}
           render={<Link to={item.url} />}
@@ -281,7 +281,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
             >
               <SidebarMenuButton
                 size="lg"
-                className="cursor-default justify-center md:size-9! md:p-0"
+                className="cursor-pointer justify-center md:size-9! md:p-0"
                 render={<Link to="/" />}
               >
                 <img src="/kamino.svg" alt="Kamino" className="size-6!" />
