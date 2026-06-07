@@ -35,7 +35,7 @@ const cloneSchema = z.object({
     .string()
     .nullable()
     .refine((value) => !!value, "Destination folder is required"),
-  node: z.string().default(""),
+  node: z.string().trim().default(""),
   newid: optionalVmidSchema,
   name: optionalVmNameSchema,
   full: z.boolean(),
@@ -83,7 +83,7 @@ export function CloneDialog({
         clone.mutateAsync({
           itemId,
           newid: parsed.newid,
-          name: parsed.name.trim() || currentName,
+          name: parsed.name || currentName,
           full: isTemplate ? parsed.full : true,
           target: parsed.node || undefined,
           target_folder_id: parsed.target_folder_id ?? "",

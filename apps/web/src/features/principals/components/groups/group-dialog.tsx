@@ -46,11 +46,16 @@ import { formatToastError } from "@/features/shared/utils/format"
 
 const groupNameSchema = z
   .string()
+  .trim()
   .min(1, "Name is required")
   .max(64, "Max 64 characters")
   .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only")
 
-const descriptionSchema = z.string().max(256, "Max 256 characters").optional()
+const descriptionSchema = z
+  .string()
+  .trim()
+  .max(256, "Max 256 characters")
+  .optional()
 
 const groupSchema = z.object({
   name: groupNameSchema,
@@ -87,7 +92,7 @@ function normalizeDescription(description: string) {
 }
 
 function parsePositiveInteger(value: string, label: string) {
-  const parsed = Number.parseInt(value, 10)
+  const parsed = Number.parseInt(value.trim(), 10)
   if (!Number.isInteger(parsed) || parsed < 1) {
     throw new Error(`${label} must be a positive whole number`)
   }

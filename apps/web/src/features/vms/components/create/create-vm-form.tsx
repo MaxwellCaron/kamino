@@ -14,41 +14,48 @@ export const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 export type CreateVmMethod = z.infer<typeof createVmMethodSchema>
 
 export const networkInterfaceSchema = z.object({
-  bridge: z.string().min(1, "Network bridge is required").default("vmbr0"),
-  model: z.string().min(1, "NIC model is required").default("virtio"),
+  bridge: z
+    .string()
+    .trim()
+    .min(1, "Network bridge is required")
+    .default("vmbr0"),
+  model: z.string().trim().min(1, "NIC model is required").default("virtio"),
   vlan_tag: z.number().int().min(1).max(4094).optional(),
   firewall: z.boolean().default(true),
 })
 
-export const optionalVmNameSchema = z.union([vmNameSchema, z.literal("")])
+export const optionalVmNameSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? "" : value),
+  z.union([vmNameSchema, z.literal("")])
+)
 export const optionalVmidSchema = z.union([
   z.literal(0),
   z.number().int().min(100, "VM ID must be at least 100"),
 ])
 
 const templateConfigurationSchema = z.object({
-  template_id: z.string().min(1, "Template is required"),
-  target_folder_id: z.string().min(1, "Destination folder is required"),
-  node: z.union([z.string(), z.literal("")]).optional(),
+  template_id: z.string().trim().min(1, "Template is required"),
+  target_folder_id: z.string().trim().min(1, "Destination folder is required"),
+  node: z.string().trim().optional(),
   vmid: optionalVmidSchema,
   name: optionalVmNameSchema,
 })
 
 const isoConfigurationSchema = z.object({
-  target_folder_id: z.string().min(1, "Destination folder is required"),
-  node: z.union([z.string(), z.literal("")]).optional(),
+  target_folder_id: z.string().trim().min(1, "Destination folder is required"),
+  node: z.string().trim().optional(),
   vmid: optionalVmidSchema,
   name: vmNameSchema,
-  ostype: z.string().min(1, "OS type is required"),
-  iso_storage: z.string().min(1, "ISO storage is required"),
-  iso: z.string().min(1, "ISO image is required"),
-  bios: z.string().min(1, "BIOS is required"),
-  machine: z.string().min(1, "Machine type is required"),
-  scsi: z.string().min(1, "SCSI controller is required"),
+  ostype: z.string().trim().min(1, "OS type is required"),
+  iso_storage: z.string().trim().min(1, "ISO storage is required"),
+  iso: z.string().trim().min(1, "ISO image is required"),
+  bios: z.string().trim().min(1, "BIOS is required"),
+  machine: z.string().trim().min(1, "Machine type is required"),
+  scsi: z.string().trim().min(1, "SCSI controller is required"),
   sockets: z.number().int().min(1, "At least one socket is required"),
   cores: z.number().int().min(1, "At least one core is required"),
-  cpu_type: z.string().min(1, "CPU type is required"),
-  storage: z.string().min(1, "Disk storage is required"),
+  cpu_type: z.string().trim().min(1, "CPU type is required"),
+  storage: z.string().trim().min(1, "Disk storage is required"),
   disk_size: z
     .number()
     .int()
@@ -69,30 +76,30 @@ const isoConfigurationSchema = z.object({
 export const createVmFormSchema = z
   .object({
     method: createVmMethodSchema.default("template"),
-    template_id: z.string().optional(),
-    target_folder_id: z.string().default(""),
+    template_id: z.string().trim().optional(),
+    target_folder_id: z.string().trim().default(""),
     full_clone: z.boolean().default(true),
-    node: z.string().default(""),
+    node: z.string().trim().default(""),
     vmid: optionalVmidSchema,
     name: optionalVmNameSchema,
-    ostype: z.string().default("l26"),
-    iso_storage: z.string().optional(),
-    iso: z.string().optional(),
-    bios: z.string().default("seabios"),
-    machine: z.string().default("pc"),
-    scsi: z.string().default("virtio-scsi-single"),
+    ostype: z.string().trim().default("l26"),
+    iso_storage: z.string().trim().optional(),
+    iso: z.string().trim().optional(),
+    bios: z.string().trim().default("seabios"),
+    machine: z.string().trim().default("pc"),
+    scsi: z.string().trim().default("virtio-scsi-single"),
     sockets: z.number().int().min(1).default(1),
     cores: z.number().int().min(1).default(1),
-    cpu_type: z.string().default("x86-64-v2-AES"),
+    cpu_type: z.string().trim().default("x86-64-v2-AES"),
     memory: z.number().int().min(1).default(2),
     balloon: z.number().int().min(0).default(0),
-    storage: z.string().optional(),
+    storage: z.string().trim().optional(),
     disk_size: z.number().int().min(1).default(32),
     networks: z
       .array(networkInterfaceSchema)
       .default([{ bridge: "vmbr0", model: "virtio", firewall: true }]),
-    upload_filename: z.string().optional(),
-    upload_notes: z.string().max(256).optional(),
+    upload_filename: z.string().trim().optional(),
+    upload_notes: z.string().trim().max(256).optional(),
   })
   .superRefine((value, ctx) => {
     const result =

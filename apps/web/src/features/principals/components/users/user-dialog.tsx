@@ -60,11 +60,16 @@ import { formatToastError } from "@/features/shared/utils/format"
 
 const usernameSchema = z
   .string()
+  .trim()
   .min(1, "Username is required")
   .max(20, "Max 20 characters")
   .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only")
 
-const descriptionSchema = z.string().max(256, "Max 256 characters").optional()
+const descriptionSchema = z
+  .string()
+  .trim()
+  .max(256, "Max 256 characters")
+  .optional()
 const requiredPasswordSchema = z.string().min(8, "Minimum 8 characters")
 
 const userSchema = z.object({
@@ -107,7 +112,7 @@ function normalizeDescription(description: string) {
 }
 
 function parsePositiveInteger(value: string, label: string) {
-  const parsed = Number.parseInt(value, 10)
+  const parsed = Number.parseInt(value.trim(), 10)
   if (!Number.isInteger(parsed) || parsed < 1) {
     throw new Error(`${label} must be a positive whole number`)
   }

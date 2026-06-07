@@ -23,15 +23,16 @@ import { createVNet, updateVNet } from "@/features/sdn/api/sdn-api"
 const vnetSchema = z.object({
   vnet: z
     .string()
+    .trim()
     .min(1, "Name is required")
     .max(64)
     .regex(
       /^[a-zA-Z][a-zA-Z0-9_-]*$/,
       "Must start with a letter, alphanumeric/dash/underscore only"
     ),
-  zone: z.string().min(1, "Zone is required"),
-  tag: z.string().optional(),
-  alias: z.string().max(256).optional(),
+  zone: z.string().trim().min(1, "Zone is required"),
+  tag: z.string().trim().optional(),
+  alias: z.string().trim().max(256).optional(),
 })
 
 export function VNetDialog({

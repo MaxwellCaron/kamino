@@ -28,13 +28,13 @@ const publishPodVmPermissionSchema = z.object({
 const publishPodAudiencePrincipalSchema = z.object({
   id: z.string().min(1),
   type: z.enum(["group", "user"]),
-  label: z.string().min(1),
-  description: z.string(),
+  label: z.string().trim().min(1),
+  description: z.string().trim(),
 })
 
 const publishPodVmSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   cpuCount: z.number().int().min(1),
   memoryGb: z.number().int().min(1),
   storageGb: z.number().int().min(1),
@@ -59,7 +59,7 @@ const publishPodQuestionSchema = z.object({
       publishPodQuestionTextMaxLength,
       "Answer must be at most 256 characters."
     ),
-  description: z.string().optional(),
+  description: z.string().trim().optional(),
   hint: z
     .string()
     .trim()
@@ -217,14 +217,16 @@ export const publishPodFormSchema = z.object({
   id: z.string().min(1),
   title: z
     .string()
+    .trim()
     .min(1, "Pod title is required.")
     .max(32, "Pod title must be at most 32 characters."),
-  slug: z.string().min(1),
+  slug: z.string().trim().min(1),
   description: z
     .string()
+    .trim()
     .min(1, "Description is required.")
     .max(128, "Description must be at most 128 characters."),
-  image: z.url("Enter a valid image URL."),
+  image: z.string().trim().pipe(z.url("Enter a valid image URL.")),
   creators: z
     .array(publishPodAudiencePrincipalSchema)
     .min(1, "Add at least one creator.")
@@ -239,7 +241,7 @@ export const publishPodFormSchema = z.object({
     .array(publishPodTaskSchema)
     .min(1, "Add at least one task.")
     .max(20, "You can add up to 20 tasks."),
-  source_folder: z.string().min(1, "Select a Pod Folder."),
+  source_folder: z.string().trim().min(1, "Select a Pod Folder."),
 })
 
 export type PublishPodFormValues = z.infer<typeof publishPodFormSchema>
@@ -345,7 +347,7 @@ export function usePublishPodForm({
       onSubmit: publishPodFormSchema,
     },
     onSubmit: async ({ value }) => {
-      await onSubmit?.(value)
+      await onSubmit?.(publishPodFormSchema.parse(value))
     },
   })
 }

@@ -186,7 +186,7 @@ export function useCreatePodForm({ onSubmit }: UseCreatePodFormOptions = {}) {
       onSubmit: createPodFormSchema,
     },
     onSubmit: async ({ value }) => {
-      await onSubmit?.(value)
+      await onSubmit?.(createPodFormSchema.parse(value))
     },
   })
 }

@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { AuthSession } from "../types/auth-types"
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
@@ -5,6 +6,11 @@ const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
 const API_BASE_URL = import.meta.env.DEV
   ? ""
   : (import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "")
+
+const loginRequestSchema = z.object({
+  username: z.string().trim(),
+  password: z.string(),
+})
 
 let currentSession: AuthSession | null = null
 let refreshPromise: Promise<AuthSession> | null = null
@@ -179,10 +185,11 @@ export async function login(params: {
   username: string
   password: string
 }): Promise<AuthSession> {
+  const payload = loginRequestSchema.parse(params)
   const res = await fetch(apiUrl("/api/v1/auth/login"), {
     ...{ method: "POST", credentials: "include" as const },
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

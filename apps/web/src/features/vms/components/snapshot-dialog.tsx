@@ -50,6 +50,7 @@ const directSnapshotSchema = z.object({
   snapname: snapshotNameSchema,
   description: z
     .string()
+    .trim()
     .max(256, "Description must be 256 characters or less")
     .optional(),
   vmstate: z.boolean().optional(),
