@@ -71,10 +71,8 @@ export function AdminClusterCard({
     if (historyError instanceof Error) {
       return historyError.message
     }
-    return historyQuery.isLoading
-      ? "Loading history..."
-      : "History unavailable."
-  }, [historyError, historyQuery.isLoading])
+    return "History unavailable."
+  }, [historyError])
 
   return (
     <Card className="pb-0.5 xl:col-span-12">
@@ -112,6 +110,7 @@ export function AdminClusterCard({
                 color="var(--chart-1)"
                 formatValue={formatCores}
                 history={cpuHistory}
+                isLoading={historyQuery.isLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
               />
@@ -125,6 +124,7 @@ export function AdminClusterCard({
                 total={clusterCapacity.memoryTotal}
                 color="var(--chart-2)"
                 history={memoryHistory}
+                isLoading={historyQuery.isLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
               />
@@ -138,6 +138,7 @@ export function AdminClusterCard({
                 total={clusterCapacity.storage.total}
                 color="var(--chart-3)"
                 history={storageHistory}
+                isLoading={historyQuery.isLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
               />

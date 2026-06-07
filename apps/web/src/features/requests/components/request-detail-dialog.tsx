@@ -36,7 +36,6 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import {
   STATUS_ICONS,
@@ -54,6 +53,7 @@ import {
   AppDialogContent,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { RequestDetailSkeleton } from "@/features/requests/components/request-detail-skeleton"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestDetailDialogProps = {
@@ -107,20 +107,7 @@ export function RequestDetailDialog({
       >
         <AppDialogScrollBody className="-mb-8 px-4">
           {isLoading ? (
-            <div className="h-125 text-sm text-muted-foreground">
-              <div className="space-y-4">
-                <Skeleton className="h-4 w-24" />
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <Skeleton key={index} className="h-18" />
-                ))}
-              </div>
-              <div className="space-y-4 pt-8">
-                <Skeleton className="h-4 w-24" />
-                {Array.from({ length: 2 }).map((_, index) => (
-                  <Skeleton key={index} className="h-18" />
-                ))}
-              </div>
-            </div>
+            <RequestDetailSkeleton />
           ) : error ? (
             <Empty className="border border-dashed">
               <EmptyHeader>

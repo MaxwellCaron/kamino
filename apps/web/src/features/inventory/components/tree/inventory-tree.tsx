@@ -37,7 +37,7 @@ import { InventoryTreeSearch } from "./tree-search"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ReactNode } from "react"
-import { LoadingTransition } from "@/components/loading-transition"
+import { SidebarListSkeleton } from "@/components/loading-skeletons"
 import { formatToastError } from "@/features/shared/utils/format"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
@@ -324,19 +324,14 @@ export function InventoryTreeBody() {
     )
   }
 
+  if (isLoading) {
+    return <SidebarListSkeleton />
+  }
+
   return (
-    <LoadingTransition
-      isLoading={isLoading}
-      fallback={
-        <div className="px-4 py-2 text-sm text-muted-foreground">
-          Loading...
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-1 pt-1">
-        <InventoryTreeContent tree={tree} getStatus={getStatus} />
-        <InventorySelectionActionBar />
-      </div>
-    </LoadingTransition>
+    <div className="flex flex-col gap-1 pt-1">
+      <InventoryTreeContent tree={tree} getStatus={getStatus} />
+      <InventorySelectionActionBar />
+    </div>
   )
 }

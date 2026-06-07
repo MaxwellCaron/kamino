@@ -3,8 +3,8 @@ import { toast } from "sonner"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import { PublishPodPage } from "@/features/pods/components/publish/publish-pod-page"
+import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"
 import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
 import { createInitialPublishPodValues } from "@/features/pods/components/publish/publish-pod-form"
 import {
@@ -41,12 +41,7 @@ function RouteComponent() {
   )
 
   if (podId && existingPodQuery.isLoading) {
-    return (
-      <div className="@container/main flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    )
+    return <PodPageSkeleton />
   }
 
   if (podId && existingPodQuery.isError) {

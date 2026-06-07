@@ -26,6 +26,7 @@ import type {
 import type { PublishPodSubmitStatus } from "./publish-pod-publishing-state"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
+import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"
 import {
   publishPodOptionsQueryOptions,
   publishedPodProgressQueryOptions,
@@ -168,6 +169,8 @@ export function PublishPodPage({
     () => buildPrincipalOptions(usersQuery.data ?? [], groupsQuery.data ?? []),
     [groupsQuery.data, usersQuery.data]
   )
+  const isLoadingFormOptions =
+    usersQuery.isLoading || groupsQuery.isLoading || publishOptionsQuery.isLoading
 
   const principalOptionMap = React.useMemo(
     (): Map<string, PrincipalOption> =>
@@ -342,6 +345,10 @@ export function PublishPodPage({
     )
   }
 
+  if (isLoadingFormOptions) {
+    return <PodPageSkeleton />
+  }
+
   return (
     <form
       noValidate
@@ -385,7 +392,6 @@ export function PublishPodPage({
               ([] satisfies Array<PublishPodFolder>)
             }
             podFoldersError={publishOptionsQuery.error}
-            podFoldersLoading={publishOptionsQuery.isLoading}
           />
         </StepperContent>
 

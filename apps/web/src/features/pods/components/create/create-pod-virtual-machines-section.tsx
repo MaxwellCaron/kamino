@@ -39,7 +39,6 @@ type CreatePodVirtualMachinesSectionProps = {
   form: CreatePodFormApi
   submissionAttempts: number
   templateOptions: Array<PodTemplateOption>
-  templatesLoading?: boolean
   routerTemplateConfigured?: boolean
 }
 
@@ -47,7 +46,6 @@ export function CreatePodVirtualMachinesSection({
   form,
   submissionAttempts,
   templateOptions,
-  templatesLoading = false,
   routerTemplateConfigured = true,
 }: CreatePodVirtualMachinesSectionProps) {
   const anchor = useComboboxAnchor()
@@ -157,11 +155,7 @@ export function CreatePodVirtualMachinesSection({
                     </ComboboxValue>
                   </ComboboxChips>
                   <ComboboxContent anchor={anchor}>
-                    <ComboboxEmpty>
-                      {templatesLoading
-                        ? "Loading templates..."
-                        : "No items found."}
-                    </ComboboxEmpty>
+                    <ComboboxEmpty>No items found.</ComboboxEmpty>
                     <ComboboxList>
                       {(item) => (
                         <ComboboxItem key={item} value={item}>

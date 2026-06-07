@@ -31,6 +31,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { PublishedPodsStatCards } from "./published-pods-stat-cards"
 import { getPublishedPodsColumns } from "./published-pods-columns"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
@@ -127,6 +128,10 @@ export function PublishedPodsPage() {
       }),
     [navigate, statusMutation]
   )
+
+  if (podsQuery.isLoading) {
+    return <PublishedPodsPageSkeleton />
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">

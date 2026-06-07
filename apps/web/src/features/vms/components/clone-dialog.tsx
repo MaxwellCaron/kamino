@@ -12,6 +12,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
 import {
   CloneDestinationFolderField,
@@ -57,15 +58,19 @@ export function CloneDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const clone = useCloneVM()
-  const { data: inventoryTree = [] } = useQuery({
+  const inventoryTreeQuery = useQuery({
     ...inventoryTreeQueryOptions,
     enabled: open,
   })
-  const { data: nodes = [] } = useQuery({
+  const inventoryTree = inventoryTreeQuery.data ?? []
+  const nodesQuery = useQuery({
     ...nodesQueryOptions,
     enabled: open,
   })
+  const nodes = nodesQuery.data ?? []
   const folderOptions = getInventoryFolderOptions(inventoryTree)
+  const isLoadingOptions = inventoryTreeQuery.isLoading || nodesQuery.isLoading
+  const optionsError = inventoryTreeQuery.error ?? nodesQuery.error
 
   const form = useForm({
     defaultValues: {
@@ -108,64 +113,74 @@ export function CloneDialog({
         currentName
       )} into a new virtual machine.`}
     >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          form.handleSubmit()
-        }}
-      >
-        <FieldSet>
-          <FieldGroup>
-            <CloneNameField
-              FieldComponent={form.Field}
-              fieldName="name"
-              inputId="clone-name"
-              placeholder={`${currentName} (Default)`}
-            />
-
-            <div className="grid grid-cols-2 gap-6">
-              <CloneNodeField
+      {optionsError ? (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          {optionsError instanceof Error
+            ? optionsError.message
+            : "Failed to load clone options."}
+        </div>
+      ) : isLoadingOptions ? (
+        <DialogBodySkeleton rows={4} />
+      ) : (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <FieldSet>
+            <FieldGroup>
+              <CloneNameField
                 FieldComponent={form.Field}
-                fieldName="node"
-                inputId="clone-node"
-                nodes={nodes}
+                fieldName="name"
+                inputId="clone-name"
+                placeholder={`${currentName} (Default)`}
               />
-              <CloneVmidField
+
+              <div className="grid grid-cols-2 gap-6">
+                <CloneNodeField
+                  FieldComponent={form.Field}
+                  fieldName="node"
+                  inputId="clone-node"
+                  nodes={nodes}
+                />
+                <CloneVmidField
+                  FieldComponent={form.Field}
+                  fieldName="newid"
+                  inputId="clone-vmid"
+                />
+              </div>
+
+              <FieldSeparator />
+
+              <CloneDestinationFolderField
                 FieldComponent={form.Field}
-                fieldName="newid"
-                inputId="clone-vmid"
+                fieldName="target_folder_id"
+                folderOptions={folderOptions}
               />
-            </div>
 
-            <FieldSeparator />
+              {isTemplate && (
+                <CloneFullCloneField
+                  FieldComponent={form.Field}
+                  fieldName="full"
+                  inputId="clone-full"
+                  dependencyLabel="source VM"
+                />
+              )}
+            </FieldGroup>
+          </FieldSet>
 
-            <CloneDestinationFolderField
-              FieldComponent={form.Field}
-              fieldName="target_folder_id"
-              folderOptions={folderOptions}
-            />
-
-            {isTemplate && (
-              <CloneFullCloneField
-                FieldComponent={form.Field}
-                fieldName="full"
-                inputId="clone-full"
-                dependencyLabel="source VM"
-              />
-            )}
-          </FieldGroup>
-        </FieldSet>
-
-        <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Cloning..." : "Clone"}
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
+          <DialogFooter className="mt-6">
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <AppDialogPrimaryButton disabled={isSubmitting}>
+                  {isSubmitting ? "Cloning..." : "Clone"}
+                </AppDialogPrimaryButton>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      )}
     </AppDialog>
   )
 }

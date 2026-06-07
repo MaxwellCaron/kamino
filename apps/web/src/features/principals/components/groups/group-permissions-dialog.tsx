@@ -50,6 +50,7 @@ import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
 } from "@/features/principals/api/principals-api"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import { formatToastError } from "@/features/shared/utils/format"
 
 function getGroupLabel(group: ApiPrincipal) {
@@ -180,9 +181,7 @@ export function GroupPermissionsDialog({
       >
         <AppDialogScrollBody className="-mb-6">
           {accessQuery.isLoading ? (
-            <div className="py-8 text-sm text-muted-foreground">
-              Loading management roles...
-            </div>
+            <DialogBodySkeleton rows={3} />
           ) : accessQuery.isError ? (
             <Empty className="border border-dashed">
               <EmptyHeader>

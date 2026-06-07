@@ -42,6 +42,7 @@ import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import {
   getFirstIssueMessage,
   parseNumberInput,
@@ -953,8 +954,8 @@ export function VmHardwareDialog({
             onOpenChange={onOpenChange}
           />
         ) : (
-          <AppDialogScrollBody className="mb-0 h-[40vh] items-center justify-center px-1 py-4 text-sm text-muted-foreground">
-            Loading current hardware...
+          <AppDialogScrollBody className="mb-0 h-[40vh] px-1 py-4">
+            <DialogBodySkeleton rows={4} />
           </AppDialogScrollBody>
         )}
       </AppDialogContent>

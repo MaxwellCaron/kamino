@@ -61,6 +61,7 @@ import {
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
 
 function InventoryPermissionsFormBody({
   props,
@@ -351,14 +352,7 @@ export function InventoryPermissionsDialog(
             </ItemContent>
           </Item>
         ) : loading || !aclQuery.data ? (
-          <Item variant="muted">
-            <ItemContent>
-              <ItemTitle>Loading ACL</ItemTitle>
-              <ItemDescription>
-                Fetching principals and current permissions.
-              </ItemDescription>
-            </ItemContent>
-          </Item>
+          <DialogBodySkeleton rows={3} />
         ) : (
           <InventoryPermissionsFormBody
             key={`${itemId}-${open}`}

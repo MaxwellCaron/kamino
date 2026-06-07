@@ -43,6 +43,7 @@ import {
 } from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const ConfirmDialog = lazy(() =>
@@ -94,11 +95,7 @@ function UsersPage() {
     ...usersQueryOptions,
     enabled: canAdminister,
   })
-  const userCountLabel = isLoading
-    ? "..."
-    : error
-      ? "!"
-      : String(users?.length ?? 0)
+  const userCountLabel = error ? "!" : String(users?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const bulkGroupDialog = useItemDialogState<{
@@ -178,6 +175,10 @@ function UsersPage() {
     return <Navigate to="/" />
   }
 
+  if (isLoading) {
+    return <TablePageSkeleton actionCount={2} titleWidth="w-32" />
+  }
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
@@ -200,9 +201,7 @@ function UsersPage() {
                 <Button
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
-                  disabled={
-                    syncMutation.isPending || isLoading || error !== null
-                  }
+                  disabled={syncMutation.isPending || error !== null}
                 >
                   <IconRefresh data-icon="inline-start" />
                   <span className="hidden lg:block">
@@ -213,7 +212,7 @@ function UsersPage() {
               {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
-                  disabled={isLoading || error !== null}
+                  disabled={error !== null}
                 >
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>

@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import { BrowsePodsCard } from "./browse-pods-card"
+import {
+  BrowsePodsGridSkeleton,
+  browsePodsGridClassName,
+} from "./browse-pods-skeleton"
 import { GrainientBackground } from "@/components/grainient-background"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
@@ -28,15 +31,15 @@ export function BrowsePodsPage() {
       </div>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12">
-          {catalogQuery.isLoading
-            ? Array.from({ length: 6 }, (_, index) => (
-                <Skeleton key={index} className="h-96 w-full" />
-              ))
-            : visiblePods.map((pod) => (
-                <BrowsePodsCard key={pod.id} pod={pod} />
-              ))}
-        </div>
+        {catalogQuery.isLoading ? (
+          <BrowsePodsGridSkeleton />
+        ) : (
+          <div className={browsePodsGridClassName}>
+            {visiblePods.map((pod) => (
+              <BrowsePodsCard key={pod.id} pod={pod} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

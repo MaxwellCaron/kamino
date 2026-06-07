@@ -14,6 +14,7 @@ import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
 import { CreatePodReviewSection } from "./create-pod-review-section"
 import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-section"
 import { CreatePodSubmitState } from "./create-pod-creation-state"
+import { CreatePodFormSkeleton } from "./create-pod-skeleton"
 import type { CreatePodFormValues } from "./create-pod-form"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import {
@@ -122,6 +123,10 @@ export function CreatePodPage() {
     )
   }
 
+  if (createOptionsQuery.isLoading) {
+    return <CreatePodFormSkeleton />
+  }
+
   return (
     <div className="@container/main flex flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
@@ -151,7 +156,6 @@ export function CreatePodPage() {
               submissionAttempts={submissionAttempts}
               routerTemplateConfigured={routerTemplateConfigured}
               templateOptions={createOptionsQuery.data?.templates ?? []}
-              templatesLoading={createOptionsQuery.isLoading}
             />
           </CreatePodFormSection>
 

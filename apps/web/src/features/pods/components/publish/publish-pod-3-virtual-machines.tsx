@@ -50,7 +50,6 @@ import {
   IconInfoCircle,
   IconRefresh,
 } from "@tabler/icons-react"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Table,
   TableBody,
@@ -93,7 +92,6 @@ type PublishPodVirtualMachinesStepProps = {
   submissionAttempts: number
   podFolders: Array<PublishPodFolder>
   podFoldersError: Error | null
-  podFoldersLoading: boolean
 }
 
 function createEditingVmPrincipal(
@@ -362,7 +360,6 @@ export function PublishPodVirtualMachinesStep({
   submissionAttempts,
   podFolders,
   podFoldersError,
-  podFoldersLoading,
 }: PublishPodVirtualMachinesStepProps) {
   const initialPodFolderRef = React.useRef(form.getFieldValue("source_folder"))
 
@@ -462,16 +459,11 @@ export function PublishPodVirtualMachinesStep({
                             form.setFieldValue("update_virtual_machines", [])
                           }
                         }}
-                        disabled={podFoldersLoading}
                         autoHighlight
                       >
                         <ComboboxInput
                           name={field.name}
-                          placeholder={
-                            podFoldersLoading
-                              ? "Loading Pod Folders..."
-                              : "Select Pod Folder"
-                          }
+                          placeholder="Select Pod Folder"
                           onBlur={field.handleBlur}
                           aria-invalid={isInvalid || undefined}
                         />
@@ -516,13 +508,7 @@ export function PublishPodVirtualMachinesStep({
                           Default VM access includes view, console, power, and
                           snapshot actions.
                         </span>
-                        {podFoldersLoading ? (
-                          <div className="flex flex-col gap-3">
-                            <Skeleton className="h-16 w-full" />
-                            <Skeleton className="h-16 w-full" />
-                            <Skeleton className="h-16 w-full" />
-                          </div>
-                        ) : field.state.value ? (
+                        {field.state.value ? (
                           <form.Subscribe
                             selector={(state) => ({
                               updateVirtualMachines:

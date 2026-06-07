@@ -29,6 +29,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import {
   addGroupMember,
   groupsQueryOptions,
@@ -129,51 +130,69 @@ export function UserGroupBulkDialog({
       }
       descriptionProps={{ render: <div /> }}
     >
-      <Item variant="outline">
-        <ItemContent>
-          <ItemDescription>
-            <span className="flex flex-wrap gap-2">
-              {users.map((user) => (
-                <Badge
-                  key={user.id}
-                  variant={mode === "add" ? "default" : "destructive"}
-                >
-                  {user.name ?? user.external_id}
-                </Badge>
-              ))}
-            </span>
-          </ItemDescription>
-        </ItemContent>
-      </Item>
+      {isLoading ? (
+        <DialogBodySkeleton rows={3} />
+      ) : error ? (
+        <Item variant="muted">
+          <ItemContent>
+            <ItemDescription>
+              {error instanceof Error
+                ? error.message
+                : "Failed to load groups."}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      ) : (
+        <>
+          <Item variant="outline">
+            <ItemContent>
+              <ItemDescription>
+                <span className="flex flex-wrap gap-2">
+                  {users.map((user) => (
+                    <Badge
+                      key={user.id}
+                      variant={mode === "add" ? "default" : "destructive"}
+                    >
+                      {user.name ?? user.external_id}
+                    </Badge>
+                  ))}
+                </span>
+              </ItemDescription>
+            </ItemContent>
+          </Item>
 
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="bulk-group-target">Group</FieldLabel>
-          <FieldContent>
-            <Combobox
-              items={groups ?? []}
-              itemToStringLabel={(group) => group.name ?? group.external_id}
-              value={selectedGroup}
-              onValueChange={setSelectedGroup}
-            >
-              <ComboboxInput placeholder="Select a group" />
-              <ComboboxContent>
-                <ComboboxEmpty>No groups found.</ComboboxEmpty>
-                <ComboboxList>
-                  {(group) => (
-                    <ComboboxItem key={group.id} value={group}>
-                      {group.name ?? group.external_id}
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          </FieldContent>
-          <FieldDescription>
-            {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
-          </FieldDescription>
-        </Field>
-      </FieldGroup>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="bulk-group-target">Group</FieldLabel>
+              <FieldContent>
+                <Combobox
+                  items={groups ?? []}
+                  itemToStringLabel={(group) =>
+                    group.name ?? group.external_id
+                  }
+                  value={selectedGroup}
+                  onValueChange={setSelectedGroup}
+                >
+                  <ComboboxInput placeholder="Select a group" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No groups found.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(group) => (
+                        <ComboboxItem key={group.id} value={group}>
+                          {group.name ?? group.external_id}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              </FieldContent>
+              <FieldDescription>
+                {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
+        </>
+      )}
 
       <DialogFooter>
         <AppDialogPrimaryButton

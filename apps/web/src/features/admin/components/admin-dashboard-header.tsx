@@ -14,10 +14,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { ReactNode } from "@tabler/icons-react"
 import type { AdminStats } from "../utils/admin-dashboard"
-import { LoadingTransition } from "@/components/loading-transition"
 
 type Stat = {
   icon: ReactNode
@@ -68,10 +66,8 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
 }
 
 export function AdminDashboardHeader({
-  isLoading,
   stats,
 }: {
-  isLoading: boolean
   stats: AdminStats | null
 }) {
   const statCards = buildStats(stats)
@@ -102,30 +98,18 @@ export function AdminDashboardHeader({
                     {stat.label}
                   </ItemTitle>
                 </div>
-                <LoadingTransition
-                  isLoading={isLoading}
-                  fallback={
-                    <div className="space-y-2">
-                      <Skeleton className="h-8 w-16 rounded-md" />
-                      <Skeleton
-                        className={`h-4 rounded-md ${stat.detail ? "w-24" : "w-0 opacity-0"}`}
-                      />
-                    </div>
-                  }
-                >
-                  <div className="flex min-h-15 flex-col items-start gap-1">
-                    <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
-                      {stat.value}
-                    </h3>
-                    <div className="min-h-5">
-                      {stat.detail && (
-                        <p className="text-sm text-muted-foreground">
-                          {stat.detail}
-                        </p>
-                      )}
-                    </div>
+                <div className="flex min-h-15 flex-col items-start gap-1">
+                  <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                    {stat.value}
+                  </h3>
+                  <div className="min-h-5">
+                    {stat.detail && (
+                      <p className="text-sm text-muted-foreground">
+                        {stat.detail}
+                      </p>
+                    )}
                   </div>
-                </LoadingTransition>
+                </div>
               </Item>
             )
           })}

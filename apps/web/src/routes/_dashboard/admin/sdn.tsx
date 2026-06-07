@@ -25,6 +25,7 @@ import {
 import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 import {
   capitalizeFirstLetter,
@@ -64,11 +65,7 @@ function SdnPage() {
     ...vnetsQueryOptions,
     enabled: canAdminister,
   })
-  const vnetCountLabel = isLoading
-    ? "..."
-    : error
-      ? "!"
-      : String(vnets?.length ?? 0)
+  const vnetCountLabel = error ? "!" : String(vnets?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiVNet>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -125,6 +122,10 @@ function SdnPage() {
     return <Navigate to="/" />
   }
 
+  if (isLoading) {
+    return <TablePageSkeleton titleWidth="w-32" />
+  }
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
@@ -144,7 +145,7 @@ function SdnPage() {
               {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
-                  disabled={isLoading || error !== null}
+                  disabled={error !== null}
                 >
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>

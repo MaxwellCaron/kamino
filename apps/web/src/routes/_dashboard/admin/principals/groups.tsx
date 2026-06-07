@@ -37,6 +37,7 @@ import {
   formatToastError,
 } from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const ConfirmDialog = lazy(() =>
@@ -88,11 +89,7 @@ function GroupsPage() {
     ...groupsQueryOptions,
     enabled: canAdminister,
   })
-  const groupCountLabel = isLoading
-    ? "..."
-    : error
-      ? "!"
-      : String(groups?.length ?? 0)
+  const groupCountLabel = error ? "!" : String(groups?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -171,6 +168,10 @@ function GroupsPage() {
 
   if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
+  }
+
+  if (isLoading) {
+    return <TablePageSkeleton actionCount={2} titleWidth="w-40" />
   }
 
   return (

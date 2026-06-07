@@ -28,6 +28,7 @@ import { AdminClusterCard } from "./admin-cluster-card"
 import { AdminDashboardHeader } from "./admin-dashboard-header"
 import { getPrincipalColumns } from "./admin-principal-columns"
 import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
+import { AdminDashboardSkeleton } from "./admin-dashboard-skeleton"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
@@ -172,21 +173,22 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   }, [nodesQuery.data, storageQueries])
 
   const nodes = nodesQuery.data ?? []
+  const isDashboardLoading =
+    usersQuery.isLoading ||
+    groupsQuery.isLoading ||
+    inventoryQuery.isLoading ||
+    pendingRequestsQuery.isLoading ||
+    completedRequestsQuery.isLoading
+
+  if (isDashboardLoading) {
+    return <AdminDashboardSkeleton />
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
         <div className="xl:col-span-12">
-          <AdminDashboardHeader
-            isLoading={
-              usersQuery.isLoading ||
-              groupsQuery.isLoading ||
-              inventoryQuery.isLoading ||
-              pendingRequestsQuery.isLoading ||
-              completedRequestsQuery.isLoading
-            }
-            stats={adminStats}
-          />
+          <AdminDashboardHeader stats={adminStats} />
         </div>
 
         <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />

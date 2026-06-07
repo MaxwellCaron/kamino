@@ -29,12 +29,12 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { PieChart } from "@workspace/ui/components/charts/pie-chart"
 import { PieSlice } from "@workspace/ui/components/charts/pie-slice"
 import { PieCenter } from "@workspace/ui/components/charts/pie-center"
 import { cn } from "@workspace/ui/lib/utils"
+import { RequestsPageSkeleton } from "./requests-skeleton"
 
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type {
@@ -77,7 +77,6 @@ import {
 } from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
-import { LoadingTransition } from "@/components/loading-transition"
 
 const ConfirmDialog = lazy(() =>
   import("@/components/dialogs/confirm-dialog").then((module) => ({
@@ -124,6 +123,8 @@ function RequestsPage() {
 
   const activeQuery = scope === "pending" ? pendingQuery : completedQuery
   const activeRequests = activeQuery.data ?? []
+  const isRequestsLoading =
+    treeQuery.isLoading || pendingQuery.isLoading || completedQuery.isLoading
   const pendingCount = pendingQuery.data?.length ?? 0
   const completedCount = completedQuery.data?.length ?? 0
   const statusCounts = useMemo(() => {
@@ -305,6 +306,10 @@ function RequestsPage() {
     })
   }
 
+  if (isRequestsLoading) {
+    return <RequestsPageSkeleton />
+  }
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
@@ -353,22 +358,11 @@ function RequestsPage() {
                         <ItemTitle>{formatRequestStatus(status)}</ItemTitle>
                       </ItemContent>
                       <ItemFooter>
-                        <LoadingTransition
-                          isLoading={
-                            pendingQuery.isLoading || completedQuery.isLoading
-                          }
-                          fallback={
-                            <div className="space-y-2">
-                              <Skeleton className="h-8 w-12 rounded-md" />
-                            </div>
-                          }
-                        >
-                          <div>
-                            <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
-                              {statusCounts[status]}
-                            </h3>
-                          </div>
-                        </LoadingTransition>
+                        <div>
+                          <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                            {statusCounts[status]}
+                          </h3>
+                        </div>
                       </ItemFooter>
                     </Item>
                   )

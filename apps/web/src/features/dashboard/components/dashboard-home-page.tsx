@@ -43,6 +43,7 @@ import {
   indexInventoryTree,
 } from "../utils/dashboard-utils"
 import { getDashboardActivityColumns } from "./dashboard-activity-columns"
+import { DashboardHomeSkeleton } from "./dashboard-home-skeleton"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
@@ -138,6 +139,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const activityLoading =
     pendingRequestsQuery.isLoading || historyRequestsQuery.isLoading
+  const isDashboardLoading = treeQuery.isLoading || activityLoading
 
   const stats = [
     {
@@ -146,14 +148,18 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     },
     {
       label: "Folders",
-      value: treeQuery.isLoading ? "—" : String(inventoryStats.folders),
+      value: String(inventoryStats.folders),
     },
     {
       label: "Virtual Machines",
-      value: treeQuery.isLoading ? "—" : String(inventoryStats.vms),
+      value: String(inventoryStats.vms),
     },
   ]
   const roleLabel = getManagementRoleLabel(user.management_permissions)
+
+  if (isDashboardLoading) {
+    return <DashboardHomeSkeleton />
+  }
 
   return (
     <>

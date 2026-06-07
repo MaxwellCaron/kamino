@@ -23,6 +23,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import {
   addGroupMember,
   groupMembersQueryOptions,
@@ -93,6 +94,9 @@ function MembershipEditor({
   // All possible options
   const allGroupsQuery = useQuery(groupsQueryOptions)
   const allUsersQuery = useQuery(usersQueryOptions)
+  const optionsQuery = mode === "user-groups" ? allGroupsQuery : allUsersQuery
+  const isLoading = activeQuery.isLoading || optionsQuery.isLoading
+  const loadError = activeQuery.error ?? optionsQuery.error
   const allOptions: Array<ApiPrincipal> =
     (mode === "user-groups" ? allGroupsQuery.data : allUsersQuery.data) ?? []
 
@@ -182,6 +186,20 @@ function MembershipEditor({
       success: "Memberships updated",
       error: formatToastError,
     })
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        {loadError instanceof Error
+          ? loadError.message
+          : "Failed to load memberships."}
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return <DialogBodySkeleton rows={3} />
   }
 
   return (

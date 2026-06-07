@@ -5,6 +5,7 @@ import {
   ChartTooltip,
   TooltipContent,
 } from "@workspace/ui/components/charts/tooltip"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { XAxis } from "@workspace/ui/components/charts/x-axis"
 import { formatPercent, percentage } from "../utils/admin-dashboard"
 import type { ClusterUsageHistoryTimeframe } from "../api/admin-metrics-api"
@@ -82,6 +83,7 @@ export function UsageAreaChart({
   color,
   timeframe,
   history,
+  isLoading = false,
   unavailableMessage = "History unavailable.",
   formatValue = formatBytes,
 }: {
@@ -91,6 +93,7 @@ export function UsageAreaChart({
   color: string
   timeframe: ClusterUsageHistoryTimeframe
   history: Array<CapacityHistoryPoint>
+  isLoading?: boolean
   unavailableMessage?: string
   formatValue?: (v: number) => string
 }) {
@@ -131,7 +134,17 @@ export function UsageAreaChart({
       </div>
 
       <div className="min-w-0">
-        {chartData.length > 0 ? (
+        {isLoading ? (
+          <Skeleton
+            className="w-full rounded-lg"
+            style={{
+              aspectRatio:
+                timeframe === "hour" || timeframe === "day"
+                  ? "2.8 / 1"
+                  : "2.4 / 1",
+            }}
+          />
+        ) : chartData.length > 0 ? (
           <AreaChart
             aspectRatio={
               timeframe === "hour" || timeframe === "day"
