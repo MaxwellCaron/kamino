@@ -13,6 +13,7 @@ import { PodPage } from "@/features/pods/components/pod-page"
 import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { GrainientBackground } from "@/components/grainient-background"
+import { isApiErrorStatus } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_pods/pods/$podSlug")({
   component: RouteComponent,
@@ -28,8 +29,24 @@ function RouteComponent() {
     return <PodPageSkeleton />
   }
 
-  if (podQuery.isError || !podQuery.data || clonedPodQuery.isError) {
+  if (podQuery.isError) {
+    if (isApiErrorStatus(podQuery.error, 404)) {
+      throw notFound()
+    }
+
+    throw podQuery.error
+  }
+
+  if (!podQuery.data) {
     throw notFound()
+  }
+
+  if (clonedPodQuery.isError) {
+    if (isApiErrorStatus(clonedPodQuery.error, 404)) {
+      throw notFound()
+    }
+
+    throw clonedPodQuery.error
   }
 
   const pod = podQuery.data

@@ -3,7 +3,11 @@ import type {
   PublishedPodCatalogEntry,
   PublishedPodVirtualMachine,
 } from "@/features/pods/types/pod-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import {
+  ApiError,
+  apiFetch,
+  shouldRetryApiQuery,
+} from "@/features/auth/api/auth-api"
 
 export type PublishPodFolder = {
   id: string
@@ -107,11 +111,15 @@ export function podCatalogEntryQueryOptions(podSlug?: string) {
       const res = await apiFetch(`/api/v1/pods/catalog/${podSlug}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? `Failed to fetch pod: ${res.status}`)
+        throw new ApiError(
+          body.error ?? `Failed to fetch pod: ${res.status}`,
+          res.status
+        )
       }
       return res.json()
     },
     enabled: !!podSlug,
+    retry: shouldRetryApiQuery,
   }
 }
 

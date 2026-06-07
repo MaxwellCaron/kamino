@@ -1,5 +1,4 @@
-import { useEffect } from "react"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import {
@@ -16,20 +15,25 @@ import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-tab
 import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
 import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
 import { VmPowerControls } from "@/features/vms/components/dashboard/vm-power-controls"
+import { isApiErrorStatus } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
   component: VmPage,
 })
 
 function VmPage() {
-  const navigate = useNavigate()
   const { itemId } = Route.useParams()
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
   )
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
   const treeNode = tree ? findTreeNode(tree, itemId) : null
-  const { data: item, isLoading: isItemLoading } = useQuery({
+  const {
+    data: item,
+    error: itemError,
+    isError: isItemError,
+    isLoading: isItemLoading,
+  } = useQuery({
     ...inventoryItemQueryOptions(itemId),
     enabled: !treeNode,
   })
@@ -59,16 +63,17 @@ function VmPage() {
   const canViewSnapshots = capabilities.viewSnapshots.enabled
   const canRequestSnapshots = capabilities.snapshot.mode === "request"
   const canUseConsole = capabilities.console.enabled
-  const shouldRedirectHome = !isLoading && (!node || !vm)
 
-  useEffect(() => {
-    if (!shouldRedirectHome) return
+  if (!isLoading && !node && isItemError) {
+    if (isApiErrorStatus(itemError, 404)) {
+      throw notFound()
+    }
 
-    navigate({ to: "/", replace: true })
-  }, [navigate, shouldRedirectHome])
+    throw itemError
+  }
 
-  if (shouldRedirectHome) {
-    return null
+  if (!isLoading && (!node || !vm)) {
+    throw notFound()
   }
 
   return (

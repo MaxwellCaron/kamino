@@ -1,5 +1,9 @@
 import type { ClonedPod } from "@/features/pods/types/pod-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import {
+  ApiError,
+  apiFetch,
+  shouldRetryApiQuery,
+} from "@/features/auth/api/auth-api"
 
 export type ClonePodProgress = {
   type: "pod.clone.progress"
@@ -17,13 +21,15 @@ export function clonedPodQueryOptions(podSlug?: string) {
       const res = await apiFetch(`/api/v1/pods/catalog/${podSlug}/clone`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch cloned pod: ${res.status}`
+        throw new ApiError(
+          body.error ?? `Failed to fetch cloned pod: ${res.status}`,
+          res.status
         )
       }
       return res.json()
     },
     enabled: !!podSlug,
+    retry: shouldRetryApiQuery,
   }
 }
 
