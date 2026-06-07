@@ -175,6 +175,18 @@ export function moveInventoryTreeNode(
   )
 }
 
+export function moveInventoryTreeNodes(
+  nodes: Array<ApiTreeNode>,
+  sourceIds: Array<string>,
+  targetId: string
+): Array<ApiTreeNode> {
+  return sourceIds.reduce(
+    (currentTree, sourceId) =>
+      moveInventoryTreeNode(currentTree, sourceId, targetId),
+    nodes
+  )
+}
+
 export type InventoryFolderOption = {
   id: string
   name: string

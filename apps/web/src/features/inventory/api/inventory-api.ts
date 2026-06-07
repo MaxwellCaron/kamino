@@ -105,6 +105,26 @@ export async function moveInventoryItem(params: {
   }
 }
 
+export async function moveInventoryItems(params: {
+  itemIds: Array<string>
+  parentId: string
+}): Promise<void> {
+  const res = await apiFetch("/api/v1/inventory/move/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      item_ids: params.itemIds,
+      parent_id: params.parentId,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to move inventory items: ${res.status}`
+    )
+  }
+}
+
 export async function createFolder(params: {
   parentId: string
   name: string

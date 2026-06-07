@@ -21,7 +21,7 @@ import {
 } from "@workspace/ui/components/tooltip"
 
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
-import { useMoveInventoryItem } from "../../hooks/use-inventory-actions"
+import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
 import {
@@ -99,7 +99,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     error,
   } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
-  const moveItem = useMoveInventoryItem()
+  const moveItems = useMoveInventoryItems()
   const searchQuery = query.trim()
   const isSearchActive = searchQuery.length >= 2
 
@@ -168,9 +168,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   )
 
   const handleMove = useCallback(
-    (itemId: string, parentId: string) => {
-      moveItem.mutate(
-        { itemId, parentId },
+    (itemIds: Array<string>, parentId: string) => {
+      moveItems.mutate(
+        { itemIds, parentId },
         {
           onError: (moveError) => {
             toast.error(formatToastError(moveError, "Move failed"))
@@ -178,7 +178,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
         }
       )
     },
-    [moveItem]
+    [moveItems]
   )
 
   const handlePrimaryAction = useCallback(

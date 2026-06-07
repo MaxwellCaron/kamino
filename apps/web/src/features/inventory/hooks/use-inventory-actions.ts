@@ -4,12 +4,12 @@ import {
   deleteFolder,
   inventoryAclQueryOptions,
   inventoryTreeQueryOptions,
-  moveInventoryItem,
+  moveInventoryItems,
   renameFolder,
   updateFolderVmLimit,
   updateInventoryAcl,
 } from "../api/inventory-api"
-import { moveInventoryTreeNode } from "../utils/inventory-tree"
+import { moveInventoryTreeNodes } from "../utils/inventory-tree"
 import type { ApiTreeNode } from "../types/inventory-types"
 
 function useInvalidateInventoryTreeMutation<TVariables>(
@@ -27,11 +27,11 @@ function useInvalidateInventoryTreeMutation<TVariables>(
   })
 }
 
-export function useMoveInventoryItem() {
+export function useMoveInventoryItems() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: moveInventoryItem,
+    mutationFn: moveInventoryItems,
     onMutate: async (variables) => {
       await queryClient.cancelQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
@@ -44,9 +44,9 @@ export function useMoveInventoryItem() {
       if (previousTree) {
         queryClient.setQueryData<Array<ApiTreeNode>>(
           inventoryTreeQueryOptions.queryKey,
-          moveInventoryTreeNode(
+          moveInventoryTreeNodes(
             previousTree,
-            variables.itemId,
+            variables.itemIds,
             variables.parentId
           )
         )

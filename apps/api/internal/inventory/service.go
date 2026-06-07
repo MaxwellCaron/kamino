@@ -1033,35 +1033,95 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 
 	q := database.New(tx)
 
-	item, err := q.GetInventoryItemForUpdate(ctx, itemID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrInventoryItemNotFound
-	}
+	moved, err := moveInventoryItemTx(ctx, q, itemID, parentID)
 	if err != nil {
 		return err
+	}
+	if moved {
+		s.notifyTx(ctx, tx, itemID)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if moved {
+		s.scheduleMirror()
+	}
+	return nil
+}
+
+func (s *Service) MoveInventoryItems(ctx context.Context, itemIDs []uuid.UUID, parentID uuid.UUID) error {
+	if len(itemIDs) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	moved := false
+
+	for _, itemID := range itemIDs {
+		itemMoved, err := moveInventoryItemTx(ctx, q, itemID, parentID)
+		if err != nil {
+			return err
+		}
+		moved = moved || itemMoved
+	}
+
+	if moved {
+		s.notify(ctx, tx)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if moved {
+		s.scheduleMirror()
+	}
+	return nil
+}
+
+func moveInventoryItemTx(
+	ctx context.Context,
+	q *database.Queries,
+	itemID uuid.UUID,
+	parentID uuid.UUID,
+) (bool, error) {
+	item, err := q.GetInventoryItemForUpdate(ctx, itemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrInventoryItemNotFound
+	}
+	if err != nil {
+		return false, err
 	}
 
 	parent, err := q.GetInventoryItemForUpdate(ctx, parentID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrInventoryParentNotFound
+		return false, ErrInventoryParentNotFound
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	if parent.Kind != database.InventoryItemKindFolder {
-		return ErrInventoryTargetNotFolder
+		return false, ErrInventoryTargetNotFolder
 	}
 	if item.ID == parent.ID {
-		return ErrInventoryInvalidMove
+		return false, ErrInventoryInvalidMove
 	}
 	if item.ParentID != nil && *item.ParentID == parentID {
-		return tx.Commit(ctx)
+		return false, nil
 	}
 	if isManagedRootFolder(item.ParentID) {
-		return ErrInventoryReservedFolder
+		return false, ErrInventoryReservedFolder
 	}
 	if err := ensureFolderDepthForMove(ctx, q, itemID, parentID); err != nil {
-		return err
+		return false, err
 	}
 
 	err = q.UpdateInventoryItemParent(ctx, database.UpdateInventoryItemParentParams{
@@ -1069,17 +1129,10 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 		ID:       itemID,
 	})
 	if err != nil {
-		return normalizeMutationError(err)
+		return false, normalizeMutationError(err)
 	}
 
-	s.notifyTx(ctx, tx, itemID)
-
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	s.scheduleMirror()
-	return nil
+	return true, nil
 }
 
 func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {

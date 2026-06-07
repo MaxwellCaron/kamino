@@ -284,6 +284,11 @@ type moveInventoryItemRequest struct {
 	ParentID uuid.UUID `json:"parent_id" binding:"required"`
 }
 
+type moveInventoryItemsRequest struct {
+	ItemIDs  []uuid.UUID `json:"item_ids" binding:"required"`
+	ParentID uuid.UUID   `json:"parent_id" binding:"required"`
+}
+
 // MoveItem persists an inventory move initiated from drag and drop.
 // POST /api/v1/inventory/move
 func (h *InventoryHandler) MoveItem(c *gin.Context) {
@@ -333,6 +338,68 @@ func (h *InventoryHandler) MoveItem(c *gin.Context) {
 	}
 
 	if err := h.Service.MoveInventoryItem(c.Request.Context(), req.ItemID, req.ParentID); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// MoveItems persists a bulk inventory move initiated from multiselect drag and drop.
+// POST /api/v1/inventory/move/bulk
+func (h *InventoryHandler) MoveItems(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	var req moveInventoryItemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if len(req.ItemIDs) == 0 {
+		writeInvalidRequest(c, "at least one item is required")
+		return
+	}
+
+	target, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, req.ParentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "parent not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory parent for move", err)
+		return
+	}
+
+	for _, itemID := range req.ItemIDs {
+		item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, itemID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+			return
+		}
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory item for move", err)
+			return
+		}
+
+		requiredOnItem := authorization.MoveFolder
+		requiredOnTarget := authorization.CreateFolder
+		if item.Kind == database.InventoryItemKindVm {
+			requiredOnItem = authorization.MoveVM
+			requiredOnTarget = authorization.CreateVM
+		}
+
+		if (item.AllowedMask&int64(requiredOnItem)) != int64(requiredOnItem) ||
+			(target.AllowedMask&int64(requiredOnTarget)) != int64(requiredOnTarget) {
+			writeForbidden(c)
+			return
+		}
+	}
+
+	if err := h.Service.MoveInventoryItems(c.Request.Context(), req.ItemIDs, req.ParentID); err != nil {
 		writeInventoryError(c, err)
 		return
 	}

@@ -21,7 +21,7 @@ interface UseInventoryHeadlessTreeOptions {
   items: Map<string, ApiTreeNode>
   folderIds: Array<string>
   parentIds: Map<string, string>
-  onMove: (itemId: string, parentId: string) => void
+  onMove: (itemIds: Array<string>, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
   pendingRevealRequest: { itemId: string; requestId: number } | null
   onRevealComplete: (requestId: number) => void
@@ -43,6 +43,21 @@ function updateExpandedItems(
 ) {
   tree.applySubStateUpdate("expandedItems", nextExpandedItems)
   tree.rebuildTree()
+}
+
+function getTopLevelDraggedItemIds(
+  draggedItems: Array<ItemInstance<ApiTreeNode>>
+): Array<string> {
+  return draggedItems
+    .filter(
+      (draggedItem) =>
+        !draggedItems.some(
+          (candidate) =>
+            candidate.getId() !== draggedItem.getId() &&
+            draggedItem.isDescendentOf(candidate.getId())
+        )
+    )
+    .map((draggedItem) => draggedItem.getId())
 }
 
 export function useInventoryHeadlessTree({
@@ -91,20 +106,18 @@ export function useInventoryHeadlessTree({
       draggedItems: Array<ItemInstance<ApiTreeNode>>,
       target: DragTarget<ApiTreeNode>
     ) => {
-      const draggedItem = draggedItems[0]
-      const draggedId = draggedItem.getId()
       const targetParentId = target.item.getId()
+      const draggedIds = getTopLevelDraggedItemIds(draggedItems).filter(
+        (draggedId) => parentIds.get(draggedId) !== targetParentId
+      )
 
-      if (
-        draggedItem.getItemData().kind === "vm" &&
-        draggedItem.getParent()?.getId() === targetParentId
-      ) {
+      if (draggedIds.length === 0) {
         return
       }
 
-      onMove(draggedId, targetParentId)
+      onMove(draggedIds, targetParentId)
     },
-    [onMove]
+    [onMove, parentIds]
   )
 
   const tree = useTree<ApiTreeNode>({
@@ -123,7 +136,7 @@ export function useInventoryHeadlessTree({
     ],
     indent: TREE_INDENT,
     canReorder: false,
-    canDrag: (draggedItems) => draggedItems.length === 1,
+    canDrag: (draggedItems) => draggedItems.length > 0,
     canDrop: (_items, target) => {
       const data = target.item.getItemData()
       return data.kind === "folder"

@@ -59,6 +59,7 @@ func RegisterRoutes(
 	protected.GET("/inventory/items/:id/acl", inventory.GetACL)
 	protected.PUT("/inventory/items/:id/acl", inventory.UpdateACL)
 	protected.POST("/inventory/move", inventory.MoveItem)
+	protected.POST("/inventory/move/bulk", inventory.MoveItems)
 	protected.POST("/inventory/folders", inventory.CreateFolder)
 	protected.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
 	protected.PUT("/inventory/folders/:id/vm-limit", inventory.UpdateFolderVMLimit)
