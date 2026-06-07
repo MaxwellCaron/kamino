@@ -186,7 +186,7 @@ function TreeItemLabel<T = any>({
     <span
       data-slot="tree-item-label"
       className={cn(
-        "flex items-center gap-1 transition-colors not-in-data-[folder=true]:ps-7 hover:bg-muted in-focus-visible:ring-[3px] in-focus-visible:ring-ring/50 in-data-[drag-target=true]:bg-accent in-data-[search-match=true]:bg-blue-50! in-data-[selected=true]:bg-sidebar-border! in-data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex items-center gap-1 transition-colors not-in-data-[folder=true]:ps-7 hover:bg-muted in-focus-visible:ring-[3px] in-focus-visible:ring-ring/50 in-data-[drag-target=true]:bg-muted in-data-[search-match=true]:bg-blue-50! in-data-[selected=true]:bg-sidebar-border! in-data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0",
         "rounded-3xl",
         "py-1.5",
         "px-2",
@@ -282,7 +282,7 @@ function TreeDragLine({
     <div
       style={dragLine}
       className={cn(
-        "absolute z-30 -mt-px h-0.5 w-[unset] before:absolute before:-top-0.75 before:left-0 before:size-2 before:border-2 before:border-primary",
+        "absolute z-30 -mt-px h-0.5 w-[unset] bg-muted-foreground/50 before:absolute before:-top-0.75 before:left-0 before:size-2 before:border-2 before:border-muted-foreground/70",
         "before:rounded-full",
         className
       )}
