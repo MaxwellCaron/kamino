@@ -2,9 +2,13 @@ import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 
 import {
+  IconCubePlus,
+  IconCubeSend,
   IconHome,
   IconLayoutDashboard,
+  IconListDetails,
   IconNetwork,
+  IconPackages,
   IconReceipt,
   IconUser,
   IconUsersGroup,
@@ -49,13 +53,47 @@ const navItems = [
     visibility: "all",
   },
   {
-    title: "Requests",
+    title: "Pods",
+    description: "Browse and launch published pods.",
+    url: "/pods/browse",
+    icon: IconPackages,
+    group: "home",
+    visibility: "all",
+  },
+  {
+    title: "Create Pod",
     description:
-      "Review pending and completed user requests for VM power changes or snapshots.",
+      "Initialize a foundation for your pod by using virutal machine templates and more.",
+    url: "/pods/create",
+    icon: IconCubePlus,
+    group: "manager",
+    visibility: "manager",
+  },
+  {
+    title: "Publish Pod",
+    description:
+      "Configure and publish a new pod for users to clone and interact with.",
+    url: "/pods/publish",
+    icon: IconCubeSend,
+    group: "manager",
+    visibility: "manager",
+  },
+  {
+    title: "Published Pods",
+    description:
+      "Manager-facing catalog for reviewing pod visibility, access, and edit state.",
+    url: "/pods/published",
+    icon: IconListDetails,
+    group: "manager",
+    visibility: "manager",
+  },
+  {
+    title: "Requests",
+    description: "Review pending and completed user requests.",
     url: "/manager/requests",
     icon: IconReceipt,
     group: "manager",
-    visibility: "requests",
+    visibility: "manager",
   },
   {
     title: "Admin",
@@ -94,12 +132,38 @@ const navItems = [
 
 type NavItem = (typeof navItems)[number]
 type NavGroupKey = NavItem["group"]
+type NavGroup = {
+  key: NavGroupKey
+  items: Array<NavItem>
+}
 
 const navGroupStyles = {
-  home: "bg-muted/50",
-  manager: "bg-chart-1/50",
-  admin: "bg-primary/50",
-} as const satisfies Record<NavGroupKey, string>
+  home: {
+    rail: "",
+    button:
+      "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/80 active:text-foreground data-active:bg-muted data-active:text-foreground",
+    indicator: "bg-foreground",
+  },
+  manager: {
+    rail: "bg-yellow-600/5 text-yellow-600 dark:bg-yellow-400/5 dark:text-yellow-400",
+    button:
+      "text-yellow-600 hover:bg-yellow-600/10 hover:text-yellow-700 active:bg-yellow-600/14 active:text-yellow-700 data-active:bg-yellow-600/14 data-active:text-yellow-700 dark:text-yellow-400 dark:hover:bg-yellow-400/10 dark:hover:text-yellow-300 dark:active:bg-yellow-400/14 dark:active:text-yellow-300 dark:data-active:bg-yellow-400/14 dark:data-active:text-yellow-300",
+    indicator: "bg-yellow-600 dark:bg-yellow-400",
+  },
+  admin: {
+    rail: "bg-green-600/5 text-green-600 dark:bg-green-400/5 dark:text-green-400",
+    button:
+      "text-green-600 hover:bg-green-600/10 hover:text-green-700 active:bg-green-600/14 active:text-green-700 data-active:bg-green-600/14 data-active:text-green-700 dark:text-green-400 dark:hover:bg-green-400/10 dark:hover:text-green-300 dark:active:bg-green-400/14 dark:active:text-green-300 dark:data-active:bg-green-400/14 dark:data-active:text-green-300",
+    indicator: "bg-green-600 dark:bg-green-400",
+  },
+} as const satisfies Record<
+  NavGroupKey,
+  {
+    rail: string
+    button: string
+    indicator: string
+  }
+>
 
 function IconRailHoverCard({
   title,
@@ -117,7 +181,7 @@ function IconRailHoverCard({
         side="right"
         align="center"
         sideOffset={14}
-        className="w-64"
+        className="w-xs"
       >
         <div className="flex flex-col gap-1">
           <p className="font-medium text-foreground">{title}</p>
@@ -132,52 +196,17 @@ function isActivePath(pathname: string, url: string) {
   return pathname === url
 }
 
-function IconRailNavItem({
-  item,
-  pathname,
-}: {
-  item: NavItem
-  pathname: string
-}) {
-  const Icon = item.icon
-  const isActive = isActivePath(pathname, item.url)
-
-  return (
-    <SidebarMenuItem key={item.title} className="overflow-visible">
-      <IconRailHoverCard title={item.title} description={item.description}>
-        <SidebarMenuButton
-          isActive={isActive}
-          className="size-9 cursor-default justify-center"
-          render={<Link to={item.url} />}
-        >
-          <Icon className="size-5!" />
-          <span className="sr-only">{item.title}</span>
-        </SidebarMenuButton>
-      </IconRailHoverCard>
-      {isActive && (
-        <span className="absolute top-1/2 -left-4 h-7 w-1 -translate-y-1/2 rounded-r-full bg-foreground" />
-      )}
-    </SidebarMenuItem>
-  )
-}
-
-export function AppSidebar({
-  user,
-  className,
-  ...props
-}: React.ComponentProps<typeof Sidebar> & {
-  user: AuthUser
-}) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const canReviewRequests = canAccessRequestQueue(user.management_permissions)
+function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
+  const canManage = canAccessRequestQueue(user.management_permissions)
   const canAdminister = canAccessAdmin(user.management_permissions)
-  const navGroups = React.useMemo(() => {
+
+  return React.useMemo(() => {
     const visible = navItems.filter((item) => {
       if (item.visibility === "admin") {
         return canAdminister
       }
-      if (item.visibility === "requests") {
-        return canReviewRequests
+      if (item.visibility === "manager") {
+        return canManage
       }
       return true
     })
@@ -196,85 +225,163 @@ export function AppSidebar({
         items: visible.filter((item) => item.group === "admin"),
       },
     ].filter((group) => group.items.length > 0)
-  }, [canAdminister, canReviewRequests])
+  }, [canAdminister, canManage])
+}
+
+function IconRailNavItem({
+  item,
+  pathname,
+}: {
+  item: NavItem
+  pathname: string
+}) {
+  const Icon = item.icon
+  const isActive = isActivePath(pathname, item.url)
+  const styles = navGroupStyles[item.group]
 
   return (
-    navGroups.length > 0 && (
-      <Sidebar
-        collapsible="icon"
-        className={cn("overflow-hidden", className)}
-        {...props}
-      >
-        <div className="flex h-full w-full flex-row">
-          {/* Icon rail */}
-          <Sidebar
-            collapsible="none"
-            className="w-[calc(var(--sidebar-width-icon)+12px)]! border-r pr-1.5 group-data-[state=collapsed]:border-r-0"
-          >
-            <SidebarHeader>
-              <SidebarMenu className="items-center">
-                <SidebarMenuItem>
-                  <IconRailHoverCard
-                    title="Kamino"
-                    description="Return to the main workspace and infrastructure overview."
-                  >
-                    <SidebarMenuButton
-                      size="lg"
-                      className="cursor-default justify-center md:size-9 md:p-0"
-                      render={<Link to="/" />}
-                    >
-                      <img src="/kamino.svg" alt="Kamino" className="size-6!" />
-                    </SidebarMenuButton>
-                  </IconRailHoverCard>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarHeader>
-            <SidebarContent className="overflow-visible">
-              <SidebarGroup className="overflow-visible">
-                <SidebarGroupContent className="overflow-visible">
-                  <SidebarMenu className="flex flex-col items-center gap-2 overflow-visible">
-                    {navGroups.map((group, index) => (
-                      <React.Fragment key={group.key}>
-                        {index > 0 && <Separator className="my-2" />}
-                        <div
-                          className={cn(
-                            "flex flex-col items-center gap-2 rounded-2xl p-1",
-                            navGroupStyles[group.key]
-                          )}
-                        >
-                          {group.items.map((item) => (
-                            <IconRailNavItem
-                              key={item.title}
-                              item={item}
-                              pathname={pathname}
-                            />
-                          ))}
-                        </div>
-                      </React.Fragment>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </SidebarContent>
-            <SidebarFooter>
-              <NavUser user={user} />
-            </SidebarFooter>
-          </Sidebar>
+    <SidebarMenuItem key={item.title} className="overflow-visible">
+      <IconRailHoverCard title={item.title} description={item.description}>
+        <SidebarMenuButton
+          isActive={isActive}
+          className={cn(
+            "cursor-pointer justify-center transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
+            styles.button
+          )}
+          render={<Link to={item.url} />}
+        >
+          <Icon className="size-5!" />
+          <span className="sr-only">{item.title}</span>
+        </SidebarMenuButton>
+      </IconRailHoverCard>
+      {isActive && (
+        <span
+          className={cn(
+            "absolute top-1/2 -left-4 h-7 w-1 -translate-y-1/2 rounded-r-full",
+            styles.indicator
+          )}
+        />
+      )}
+    </SidebarMenuItem>
+  )
+}
 
-          {/* Inventory panel */}
-          <Sidebar collapsible="none" className="flex flex-1">
-            <SidebarHeader className="py-0">
-              <SidebarGroup>
-                <InventoryTreeHeader />
-              </SidebarGroup>
-              <Separator className="-mt-2" />
-            </SidebarHeader>
-            <SidebarContent className="px-2">
-              <InventoryTreeBody />
-            </SidebarContent>
-          </Sidebar>
-        </div>
-      </Sidebar>
-    )
+function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const navGroups = useVisibleNavGroups(user)
+
+  return (
+    <>
+      <SidebarHeader>
+        <SidebarMenu className="items-center">
+          <SidebarMenuItem>
+            <IconRailHoverCard
+              title="Kamino"
+              description="Return to the main workspace and infrastructure overview."
+            >
+              <SidebarMenuButton
+                size="lg"
+                className="cursor-pointer justify-center md:size-9! md:p-0"
+                render={<Link to="/" />}
+              >
+                <img src="/kamino.svg" alt="Kamino" className="size-6!" />
+              </SidebarMenuButton>
+            </IconRailHoverCard>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent className="overflow-visible group-data-[collapsible=icon]:overflow-visible!">
+        <SidebarGroup className="overflow-visible">
+          <SidebarGroupContent className="overflow-visible">
+            <SidebarMenu className="flex flex-col items-center gap-2 overflow-visible">
+              {navGroups.map((group, index) => (
+                <React.Fragment key={group.key}>
+                  {index > 0 && <Separator className="my-2" />}
+                  <div
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-full p-1 py-2",
+                      navGroupStyles[group.key].rail
+                    )}
+                  >
+                    {group.items.map((item) => (
+                      <IconRailNavItem
+                        key={item.title}
+                        item={item}
+                        pathname={pathname}
+                      />
+                    ))}
+                  </div>
+                </React.Fragment>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
+    </>
+  )
+}
+
+export function AppSidebarIconRail({
+  user,
+  className,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  user: AuthUser
+}) {
+  return (
+    <Sidebar
+      collapsible="icon"
+      className={cn("overflow-hidden", className)}
+      {...props}
+    >
+      <AppSidebarIconRailContent user={user} />
+    </Sidebar>
+  )
+}
+
+export function AppSidebar({
+  user,
+  className,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  user: AuthUser
+}) {
+  return (
+    <Sidebar
+      collapsible="icon"
+      className={cn("overflow-hidden", className)}
+      {...props}
+    >
+      <div className="flex h-full w-full flex-row">
+        {/* Icon rail */}
+        <Sidebar
+          collapsible="none"
+          className="group w-[calc(var(--sidebar-width-icon)+2px)]! bg-transparent"
+          data-state="collapsed"
+          data-collapsible="icon"
+        >
+          <AppSidebarIconRailContent user={user} />
+        </Sidebar>
+
+        {/* Inventory panel */}
+        <Sidebar
+          collapsible="none"
+          className="ml-3 flex flex-1 border-l group-data-[state=collapsed]:border-l-0"
+        >
+          <SidebarHeader className="py-0">
+            <SidebarGroup>
+              <InventoryTreeHeader />
+            </SidebarGroup>
+            <Separator className="-mt-2" />
+          </SidebarHeader>
+          <SidebarContent className="px-2">
+            <InventoryTreeBody />
+          </SidebarContent>
+        </Sidebar>
+      </div>
+    </Sidebar>
   )
 }

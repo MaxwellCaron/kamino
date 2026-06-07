@@ -31,7 +31,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 		return
 	}
 
-	if h.InventoryNotifier == nil && h.VMNotifier == nil && h.Requests == nil {
+	if h.InventoryNotifier == nil && h.VMNotifier == nil && h.Requests == nil && publishedPodProgress == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "events unavailable"})
 		return
 	}
@@ -93,6 +93,24 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 		events, unsubscribe := h.Requests.Subscribe()
 		defer unsubscribe()
 		requestEvents = events
+	}
+
+	var publishProgressEvents <-chan publishPodProgressSnapshot
+	if h.Authz != nil {
+		canManagePods, err := h.Authz.HasManagement(
+			c.Request.Context(),
+			principalID,
+			authorization.ManagementPermissionManager,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize publish progress event stream", err)
+			return
+		}
+		if canManagePods {
+			events, unsubscribe := publishedPodProgress.subscribe()
+			defer unsubscribe()
+			publishProgressEvents = events
+		}
 	}
 
 	c.Header("Content-Type", "text/event-stream")
@@ -157,6 +175,15 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				event.Type = "request.changed"
 			}
 			if err := writeSSEvent(c.Writer, event.Type, event); err != nil {
+				return
+			}
+			flusher.Flush()
+		case event, ok := <-publishProgressEvents:
+			if !ok {
+				publishProgressEvents = nil
+				continue
+			}
+			if err := writeSSEvent(c.Writer, publishProgressEventType, event); err != nil {
 				return
 			}
 			flusher.Flush()

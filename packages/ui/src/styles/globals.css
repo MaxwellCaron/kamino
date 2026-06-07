@@ -159,13 +159,31 @@
   --color-chart-foreground-muted: var(----chart-foreground-muted);
   --color-chart-foreground: var(----chart-foreground);
   --color-chart-background: var(----chart-background);
+  --animate-spin-around: spin-around 0.8s linear infinite;
+  @keyframes spin-around {
+  0% {
+    transform: rotate(-90deg);
+    }
+  100% {
+    transform: rotate(270deg);
+    }
+  }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    min-height: 100%;
+    background-color: var(--sidebar);
+    overscroll-behavior: none;
+    scrollbar-gutter: stable;
+  }
   body {
+    min-height: 100%;
+    overflow-x: clip;
+    overscroll-behavior: none;
     @apply bg-background text-foreground;
   }
 }
@@ -173,14 +191,15 @@
 @layer components {
   [data-slot="table-container"] {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: var(--border) var(--sidebar);
+    scrollbar-gutter: stable;
   }
   [data-slot="table-container"]::-webkit-scrollbar {
     height: 8px;
     width: 8px;
   }
   [data-slot="table-container"]::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--sidebar);
   }
   [data-slot="table-container"]::-webkit-scrollbar-thumb {
     background-color: var(--border);

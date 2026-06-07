@@ -32,6 +32,7 @@ type CustomizePermissionsDialogProps = {
   onOpenChange: (open: boolean) => void
   onPermissionChange: (bit: number, state: PermissionState) => void
   permissionGroups: Array<InventoryPermissionSection>
+  showOverlay?: boolean
 }
 
 export function CustomizePermissionsDialog({
@@ -40,6 +41,7 @@ export function CustomizePermissionsDialog({
   onOpenChange,
   onPermissionChange,
   permissionGroups,
+  showOverlay = false,
 }: CustomizePermissionsDialogProps) {
   const [permissionSearch, setPermissionSearch] = React.useState("")
 
@@ -90,7 +92,7 @@ export function CustomizePermissionsDialog({
         icon={IconSettings}
         title="Customize Permissions"
         description={`Update permissions for ${editingPrincipal?.principalName || "this principal"}.`}
-        showOverlay={false}
+        showOverlay={showOverlay}
         className={nestedDialogAnimationClassName}
       >
         <InputGroup>

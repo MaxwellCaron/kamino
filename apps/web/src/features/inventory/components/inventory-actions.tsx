@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import {
   IconCamera,
   IconCopy,
   IconDeviceDesktopPlus,
   IconDots,
   IconEdit,
+  IconExternalLink,
   IconFolderPlus,
   IconGauge,
   IconLock,
@@ -79,6 +81,45 @@ function stopTreeItemEvent(event: { stopPropagation: () => void }) {
 
 function hasFavoriteAction(onToggleFavorite?: () => void) {
   return typeof onToggleFavorite === "function"
+}
+
+function GeneralVmMenuItems({
+  itemId,
+  isFavorite,
+  onToggleFavorite,
+  isLoading,
+}: {
+  itemId: string
+  isFavorite?: boolean
+  onToggleFavorite?: () => void
+  isLoading?: boolean
+}) {
+  const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
+
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuLabel>General</DropdownMenuLabel>
+      <DropdownMenuItem
+        render={
+          <Link
+            to="/inventory/items/$itemId"
+            params={{ itemId }}
+            target="_blank"
+            rel="noreferrer"
+          />
+        }
+      >
+        <IconExternalLink className="text-muted-foreground" />
+        Open
+      </DropdownMenuItem>
+      {canToggleFavorite && (
+        <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
+          <IconStar className="text-muted-foreground" />
+          {isFavorite ? "Unfavorite" : "Favorite"}
+        </DropdownMenuItem>
+      )}
+    </DropdownMenuGroup>
+  )
 }
 
 function FolderMenuItems({
@@ -211,13 +252,22 @@ function VmMenuItems({
     isLoading,
   })
   const capabilities = getVmCapabilities(permissions)
-  const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
-  const hasActionItems = canToggleFavorite || capabilities.hasActionItems
-  const hasTrailingItems =
-    hasActionItems || capabilities.hasEditItems || capabilities.delete.visible
+  const hasActionItems = capabilities.hasActionItems
+  const hasItemsAfterGeneral =
+    powerActions.powerMode !== null ||
+    hasActionItems ||
+    capabilities.hasEditItems ||
+    capabilities.delete.visible
 
   return (
     <>
+      <GeneralVmMenuItems
+        itemId={itemId}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
+        isLoading={isLoading}
+      />
+      {hasItemsAfterGeneral && <DropdownMenuSeparator />}
       {powerActions.powerMode !== null && (
         <>
           <DropdownMenuGroup>
@@ -228,6 +278,9 @@ function VmMenuItems({
               return (
                 <DropdownMenuItem
                   key={action.action}
+                  variant={
+                    action.action === "stop" ? "destructive" : "default"
+                  }
                   disabled={action.disabled}
                   onClick={() =>
                     powerActions.openPowerAction(action.action, onAction)
@@ -239,19 +292,15 @@ function VmMenuItems({
               )
             })}
           </DropdownMenuGroup>
-          {hasTrailingItems && <DropdownMenuSeparator />}
+          {(hasActionItems ||
+            capabilities.hasEditItems ||
+            capabilities.delete.visible) && <DropdownMenuSeparator />}
         </>
       )}
       {hasActionItems && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            {canToggleFavorite && (
-              <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
-                <IconStar className="text-muted-foreground" />
-                {isFavorite ? "Unfavorite" : "Favorite"}
-              </DropdownMenuItem>
-            )}
             {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />
@@ -395,21 +444,23 @@ function TemplateMenuItems({
   const deleteVm = useDeleteVM()
   const vmIdentifier = formatVmReference(vmid, name)
   const capabilities = getVmCapabilities(permissions, { isTemplate: true })
-  const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
-  const hasActionItems = canToggleFavorite || capabilities.clone.visible
+  const hasActionItems = capabilities.clone.visible
 
   return (
     <>
+      <GeneralVmMenuItems
+        itemId={itemId}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
+        isLoading={isLoading}
+      />
+      {(hasActionItems ||
+        capabilities.hasEditItems ||
+        capabilities.delete.visible) && <DropdownMenuSeparator />}
       {hasActionItems && (
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            {canToggleFavorite && (
-              <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
-                <IconStar className="text-muted-foreground" />
-                {isFavorite ? "Unfavorite" : "Favorite"}
-              </DropdownMenuItem>
-            )}
             {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <IconCopy className="text-muted-foreground" />

@@ -191,7 +191,7 @@ export function SnapshotsTable({
                 filtered.map((snapshot) => (
                   <TableRow
                     key={snapshot.name}
-                    className="group cursor-default"
+                    className="group cursor-pointer"
                   >
                     <TableCell className="pl-4">
                       <div className="flex items-center gap-3">

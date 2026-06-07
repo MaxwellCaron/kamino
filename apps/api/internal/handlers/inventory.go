@@ -682,6 +682,7 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
 		errors.Is(err, inventory.ErrInventoryItemNotFolder),
+		errors.Is(err, inventory.ErrInventoryFolderDepthExceeded),
 		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
@@ -691,7 +692,8 @@ func writeInventoryError(c *gin.Context, err error) {
 	case errors.Is(err, inventory.ErrInventoryInvalidMove),
 		errors.Is(err, inventory.ErrInventoryReservedFolder),
 		errors.Is(err, inventory.ErrInventoryFolderConflict),
-		errors.Is(err, inventory.ErrInventoryFolderLimitExceeded):
+		errors.Is(err, inventory.ErrInventoryFolderLimitExceeded),
+		errors.Is(err, inventory.ErrInventoryItemInUse):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)

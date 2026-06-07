@@ -76,6 +76,9 @@ func (e *Executor) PowerAction(ctx context.Context, target Target, action PowerA
 }
 
 func (e *Executor) DeleteVM(ctx context.Context, target Target) error {
+	if err := e.inventory.EnsureInventorySubtreeDeletable(ctx, target.ItemID); err != nil {
+		return err
+	}
 	if err := e.px.DeleteVM(ctx, target.Node, target.VMID); err != nil {
 		return err
 	}

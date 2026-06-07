@@ -16,7 +16,9 @@ import { Input } from "@workspace/ui/components/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
@@ -48,6 +50,7 @@ interface DataTableProps<TData, TValue> {
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
+  showSelectionSummary?: boolean
   renderSelectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
@@ -60,6 +63,7 @@ export function DataTable<TData, TValue>({
   error,
   getRowId,
   initialPageSize = 25,
+  showSelectionSummary = true,
   renderSelectionActions,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
@@ -117,11 +121,14 @@ export function DataTable<TData, TValue>({
               <SelectValue placeholder={table.getState().pagination.pageSize} />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false} align="end">
-              {[10, 20, 25, 30, 40, 50].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectLabel>Rows</SelectLabel>
+                {[10, 20, 25, 30, 40, 50].map((pageSize) => (
+                  <SelectItem key={pageSize} value={`${pageSize}`}>
+                    {pageSize}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
@@ -213,7 +220,10 @@ export function DataTable<TData, TValue>({
           </AnimatePresence>
         </Table>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePagination
+        table={table}
+        showSelectionSummary={showSelectionSummary}
+      />
       {renderSelectionActions && (
         <ActionBar
           open={selectedRows.length > 0}

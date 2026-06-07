@@ -1,45 +1,19 @@
 "use client"
 
 import * as React from "react"
-import {
-  IconBell,
-  IconCalculator,
-  IconCalendar,
-  IconClipboard,
-  IconCode,
-  IconCopy,
-  IconCreditCard,
-  IconFileText,
-  IconFolder,
-  IconFolderPlus,
-  IconHelpCircle,
-  IconHome,
-  IconImageInPicture,
-  IconInbox,
-  IconLayoutGrid,
-  IconList,
-  IconPlus,
-  IconScissors,
-  IconSearch,
-  IconSettings,
-  IconTrash,
-  IconUser,
-  IconZoomIn,
-  IconZoomOut,
-} from "@tabler/icons-react"
+import { IconSearch } from "@tabler/icons-react"
 
 import { Button } from "@workspace/ui/components/button"
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  CommandShortcut,
-} from "@workspace/ui/components/command"
+
+const SiteCommandDialog = React.lazy(() =>
+  import("./site-command-dialog").then((module) => ({
+    default: module.SiteCommandDialog,
+  }))
+)
+
+function preloadSiteCommandDialog() {
+  void import("./site-command-dialog")
+}
 
 export function CommandManyItems() {
   const [open, setOpen] = React.useState(false)
@@ -48,142 +22,20 @@ export function CommandManyItems() {
     <>
       <Button
         onClick={() => setOpen(true)}
+        onFocus={preloadSiteCommandDialog}
+        onPointerEnter={preloadSiteCommandDialog}
         variant="secondary"
         className="w-auto justify-start text-muted-foreground md:w-56 lg:w-72"
         size="sm"
       >
-        <IconSearch data-icon="inline-start" />
+        <IconSearch />
         <span className="hidden sm:inline">Search Kamino...</span>
       </Button>
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <Command>
-          <CommandInput placeholder="Type a command or search..." />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup heading="Navigation">
-              <CommandItem>
-                <IconHome />
-                <span>Home</span>
-                <CommandShortcut>⌘H</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconInbox />
-                <span>Inbox</span>
-                <CommandShortcut>⌘I</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconFileText />
-                <span>Documents</span>
-                <CommandShortcut>⌘D</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconFolder />
-                <span>Folders</span>
-                <CommandShortcut>⌘F</CommandShortcut>
-              </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Actions">
-              <CommandItem>
-                <IconPlus />
-                <span>New File</span>
-                <CommandShortcut>⌘N</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconFolderPlus />
-                <span>New Folder</span>
-                <CommandShortcut>⇧⌘N</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconCopy />
-                <span>Copy</span>
-                <CommandShortcut>⌘C</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconScissors />
-                <span>Cut</span>
-                <CommandShortcut>⌘X</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconClipboard />
-                <span>Paste</span>
-                <CommandShortcut>⌘V</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconTrash />
-                <span>Delete</span>
-                <CommandShortcut>⌫</CommandShortcut>
-              </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="View">
-              <CommandItem>
-                <IconLayoutGrid />
-                <span>Grid View</span>
-              </CommandItem>
-              <CommandItem>
-                <IconList />
-                <span>List View</span>
-              </CommandItem>
-              <CommandItem>
-                <IconZoomIn />
-                <span>Zoom In</span>
-                <CommandShortcut>⌘+</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconZoomOut />
-                <span>Zoom Out</span>
-                <CommandShortcut>⌘-</CommandShortcut>
-              </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Account">
-              <CommandItem>
-                <IconUser />
-                <span>Profile</span>
-                <CommandShortcut>⌘P</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconCreditCard />
-                <span>Billing</span>
-                <CommandShortcut>⌘B</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconSettings />
-                <span>Settings</span>
-                <CommandShortcut>⌘S</CommandShortcut>
-              </CommandItem>
-              <CommandItem>
-                <IconBell />
-                <span>Notifications</span>
-              </CommandItem>
-              <CommandItem>
-                <IconHelpCircle />
-                <span>Help & Support</span>
-              </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Tools">
-              <CommandItem>
-                <IconCalculator />
-                <span>Calculator</span>
-              </CommandItem>
-              <CommandItem>
-                <IconCalendar />
-                <span>Calendar</span>
-              </CommandItem>
-              <CommandItem>
-                <IconImageInPicture />
-                <span>Image Editor</span>
-              </CommandItem>
-              <CommandItem>
-                <IconCode />
-                <span>Code Editor</span>
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </CommandDialog>
+      {open && (
+        <React.Suspense fallback={null}>
+          <SiteCommandDialog open={open} onOpenChange={setOpen} />
+        </React.Suspense>
+      )}
     </>
   )
 }

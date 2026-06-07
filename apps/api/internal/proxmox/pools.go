@@ -30,30 +30,39 @@ func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) e
 	if poolID == "" {
 		return nil
 	}
+	if len(path) == 0 {
+		path = decodePoolPath(poolID)
+	}
 
 	pools, err := c.GetPools(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching pools: %w", err)
 	}
 
-	expectedComment := ManagedPoolComment(path)
-	index := slices.IndexFunc(pools, func(pool Pool) bool {
-		return pool.PoolID == poolID
-	})
+	for i := range path {
+		currentPath := path[:i+1]
+		currentPoolID := EncodePoolPath(currentPath)
+		expectedComment := ManagedPoolComment(currentPath)
+		index := slices.IndexFunc(pools, func(pool Pool) bool {
+			return pool.PoolID == currentPoolID
+		})
 
-	if index == -1 {
-		if err := c.CreatePool(ctx, poolID, expectedComment); err != nil {
-			return fmt.Errorf("creating pool %q: %w", poolID, err)
+		if index == -1 {
+			if err := c.CreatePool(ctx, currentPoolID, expectedComment); err != nil {
+				return fmt.Errorf("creating pool %q: %w", currentPoolID, err)
+			}
+			pools = append(pools, Pool{PoolID: currentPoolID, Comment: expectedComment})
+			continue
 		}
-		return nil
-	}
 
-	if pools[index].Comment == expectedComment {
-		return nil
-	}
+		if pools[index].Comment == expectedComment {
+			continue
+		}
 
-	if err := c.UpdatePoolComment(ctx, poolID, expectedComment); err != nil {
-		return fmt.Errorf("updating pool %q: %w", poolID, err)
+		if err := c.UpdatePoolComment(ctx, currentPoolID, expectedComment); err != nil {
+			return fmt.Errorf("updating pool %q: %w", currentPoolID, err)
+		}
+		pools[index].Comment = expectedComment
 	}
 
 	return nil

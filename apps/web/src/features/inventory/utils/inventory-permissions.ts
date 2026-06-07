@@ -239,8 +239,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     bit: InventoryPermissionBits.snapshotVm,
     key: InventoryPermissionKeys.snapshotVm,
     label: "Snapshot VM",
-    description:
-      "Create, roll back, and delete snapshots. Allow executes directly, inherit requires approval for create and rollback, and delete always requires explicit Allow.",
+    description: "Create or roll back snapshots.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,

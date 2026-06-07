@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import {
   useMutation,
   useQueries,
@@ -47,13 +47,20 @@ import {
   requestDetailQueryOptions,
   requestsQueryOptions,
 } from "@/features/requests/api/requests-api"
-import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
+
+const RequestDetailDialog = lazy(() =>
+  import("@/features/requests/components/request-detail-dialog").then(
+    (module) => ({
+      default: module.RequestDetailDialog,
+    })
+  )
+)
 
 export function AdminDashboardPage({ user }: { user: AuthUser }) {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
@@ -297,53 +304,57 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         </Card>
       </div>
 
-      <RequestDetailDialog
-        canReview={canReview}
-        error={detailQuery.error}
-        isLoading={detailQuery.isLoading}
-        onApprove={() => {
-          if (!selectedRequestId) {
-            return
-          }
-          const id = selectedRequestId
-          setSelectedRequestId(null)
-          toast.promise(approveMutation.mutateAsync([id]), {
-            loading: "Approving request...",
-            success: (result) => {
-              if (result.failed.length > 0) {
-                throw new Error(result.failed[0].error)
+      <Suspense fallback={null}>
+        {selectedRequestId !== null && (
+          <RequestDetailDialog
+            canReview={canReview}
+            error={detailQuery.error}
+            isLoading={detailQuery.isLoading}
+            onApprove={() => {
+              if (!selectedRequestId) {
+                return
               }
-              return "Request approved"
-            },
-            error: formatMutationError,
-          })
-        }}
-        onDeny={() => {
-          if (!selectedRequestId) {
-            return
-          }
-          const id = selectedRequestId
-          setSelectedRequestId(null)
-          toast.promise(denyMutation.mutateAsync([id]), {
-            loading: "Denying request...",
-            success: (result) => {
-              if (result.failed.length > 0) {
-                throw new Error(result.failed[0].error)
+              const id = selectedRequestId
+              setSelectedRequestId(null)
+              toast.promise(approveMutation.mutateAsync([id]), {
+                loading: "Approving request...",
+                success: (result) => {
+                  if (result.failed.length > 0) {
+                    throw new Error(result.failed[0].error)
+                  }
+                  return "Request approved"
+                },
+                error: formatMutationError,
+              })
+            }}
+            onDeny={() => {
+              if (!selectedRequestId) {
+                return
               }
-              return "Request denied"
-            },
-            error: formatMutationError,
-          })
-        }}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedRequestId(null)
-          }
-        }}
-        open={selectedRequestId !== null}
-        request={detailQuery.data ?? null}
-        tree={inventoryQuery.data}
-      />
+              const id = selectedRequestId
+              setSelectedRequestId(null)
+              toast.promise(denyMutation.mutateAsync([id]), {
+                loading: "Denying request...",
+                success: (result) => {
+                  if (result.failed.length > 0) {
+                    throw new Error(result.failed[0].error)
+                  }
+                  return "Request denied"
+                },
+                error: formatMutationError,
+              })
+            }}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedRequestId(null)
+              }
+            }}
+            open={true}
+            request={detailQuery.data ?? null}
+            tree={inventoryQuery.data}
+          />
+        )}
+      </Suspense>
     </div>
   )
 }

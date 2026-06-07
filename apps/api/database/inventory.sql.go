@@ -545,6 +545,70 @@ func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams
 	return err
 }
 
+const listInventoryDeletionBlockersInSubtree = `-- name: ListInventoryDeletionBlockersInSubtree :many
+WITH RECURSIVE subtree AS (
+    SELECT inventory_items.id
+    FROM inventory_items
+    WHERE inventory_items.id = $1
+
+    UNION ALL
+
+    SELECT child.id
+    FROM inventory_items child
+    JOIN subtree parent ON child.parent_id = parent.id
+)
+SELECT pp.source_folder_id AS inventory_item_id,
+       'published pod source folder' AS blocker_type,
+       pp.title AS blocker_name
+FROM published_pods pp
+WHERE pp.source_folder_id IN (SELECT id FROM subtree)
+
+UNION ALL
+
+SELECT ppv.source_inventory_item_id AS inventory_item_id,
+       'published pod VM' AS blocker_type,
+       pp.title || ' / ' || ppv.name AS blocker_name
+FROM published_pod_vms ppv
+JOIN published_pods pp ON pp.id = ppv.pod_id
+WHERE ppv.source_inventory_item_id IN (SELECT id FROM subtree)
+
+UNION ALL
+
+SELECT ir.inventory_item_id AS inventory_item_id,
+       'inventory request' AS blocker_type,
+       r.kind AS blocker_name
+FROM inventory_requests ir
+JOIN requests r ON r.id = ir.request_id
+WHERE ir.inventory_item_id IN (SELECT id FROM subtree)
+ORDER BY blocker_type, blocker_name
+`
+
+type ListInventoryDeletionBlockersInSubtreeRow struct {
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	BlockerType     string    `json:"blocker_type"`
+	BlockerName     string    `json:"blocker_name"`
+}
+
+func (q *Queries) ListInventoryDeletionBlockersInSubtree(ctx context.Context, id uuid.UUID) ([]ListInventoryDeletionBlockersInSubtreeRow, error) {
+	rows, err := q.db.Query(ctx, listInventoryDeletionBlockersInSubtree, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInventoryDeletionBlockersInSubtreeRow
+	for rows.Next() {
+		var i ListInventoryDeletionBlockersInSubtreeRow
+		if err := rows.Scan(&i.InventoryItemID, &i.BlockerType, &i.BlockerName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const normalizeInventoryItemInheritance = `-- name: NormalizeInventoryItemInheritance :execrows
 UPDATE inventory_items
 SET inherit_permissions = true

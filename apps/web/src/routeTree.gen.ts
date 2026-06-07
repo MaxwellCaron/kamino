@@ -10,10 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PodsRouteImport } from './routes/_pods'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as DashboardAdminRouteImport } from './routes/_dashboard/admin'
 import { Route as DashboardAdminIndexRouteImport } from './routes/_dashboard/admin/index'
+import { Route as PodsPodsPublishedRouteImport } from './routes/_pods/pods/published'
+import { Route as PodsPodsPublishRouteImport } from './routes/_pods/pods/publish'
+import { Route as PodsPodsCreateRouteImport } from './routes/_pods/pods/create'
+import { Route as PodsPodsBrowseRouteImport } from './routes/_pods/pods/browse'
+import { Route as PodsPodsPodSlugRouteImport } from './routes/_pods/pods/$podSlug'
 import { Route as DashboardManagerRequestsRouteImport } from './routes/_dashboard/manager/requests'
 import { Route as DashboardAdminSdnRouteImport } from './routes/_dashboard/admin/sdn'
 import { Route as DashboardInventoryItemsItemIdRouteImport } from './routes/_dashboard/inventory/items/$itemId'
@@ -23,6 +29,10 @@ import { Route as DashboardAdminPrincipalsGroupsRouteImport } from './routes/_da
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodsRoute = PodsRouteImport.update({
+  id: '/_pods',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -43,6 +53,31 @@ const DashboardAdminIndexRoute = DashboardAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardAdminRoute,
+} as any)
+const PodsPodsPublishedRoute = PodsPodsPublishedRouteImport.update({
+  id: '/pods/published',
+  path: '/pods/published',
+  getParentRoute: () => PodsRoute,
+} as any)
+const PodsPodsPublishRoute = PodsPodsPublishRouteImport.update({
+  id: '/pods/publish',
+  path: '/pods/publish',
+  getParentRoute: () => PodsRoute,
+} as any)
+const PodsPodsCreateRoute = PodsPodsCreateRouteImport.update({
+  id: '/pods/create',
+  path: '/pods/create',
+  getParentRoute: () => PodsRoute,
+} as any)
+const PodsPodsBrowseRoute = PodsPodsBrowseRouteImport.update({
+  id: '/pods/browse',
+  path: '/pods/browse',
+  getParentRoute: () => PodsRoute,
+} as any)
+const PodsPodsPodSlugRoute = PodsPodsPodSlugRouteImport.update({
+  id: '/pods/$podSlug',
+  path: '/pods/$podSlug',
+  getParentRoute: () => PodsRoute,
 } as any)
 const DashboardManagerRequestsRoute =
   DashboardManagerRequestsRouteImport.update({
@@ -80,16 +115,26 @@ export interface FileRoutesByFullPath {
   '/admin': typeof DashboardAdminRouteWithChildren
   '/admin/sdn': typeof DashboardAdminSdnRoute
   '/manager/requests': typeof DashboardManagerRequestsRoute
+  '/pods/$podSlug': typeof PodsPodsPodSlugRoute
+  '/pods/browse': typeof PodsPodsBrowseRoute
+  '/pods/create': typeof PodsPodsCreateRoute
+  '/pods/publish': typeof PodsPodsPublishRoute
+  '/pods/published': typeof PodsPodsPublishedRoute
   '/admin/': typeof DashboardAdminIndexRoute
   '/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
   '/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
   '/inventory/items/$itemId': typeof DashboardInventoryItemsItemIdRoute
 }
 export interface FileRoutesByTo {
-  '/login': typeof LoginRoute
   '/': typeof DashboardIndexRoute
+  '/login': typeof LoginRoute
   '/admin/sdn': typeof DashboardAdminSdnRoute
   '/manager/requests': typeof DashboardManagerRequestsRoute
+  '/pods/$podSlug': typeof PodsPodsPodSlugRoute
+  '/pods/browse': typeof PodsPodsBrowseRoute
+  '/pods/create': typeof PodsPodsCreateRoute
+  '/pods/publish': typeof PodsPodsPublishRoute
+  '/pods/published': typeof PodsPodsPublishedRoute
   '/admin': typeof DashboardAdminIndexRoute
   '/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
   '/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
@@ -98,11 +143,17 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/_pods': typeof PodsRouteWithChildren
   '/login': typeof LoginRoute
   '/_dashboard/admin': typeof DashboardAdminRouteWithChildren
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/admin/sdn': typeof DashboardAdminSdnRoute
   '/_dashboard/manager/requests': typeof DashboardManagerRequestsRoute
+  '/_pods/pods/$podSlug': typeof PodsPodsPodSlugRoute
+  '/_pods/pods/browse': typeof PodsPodsBrowseRoute
+  '/_pods/pods/create': typeof PodsPodsCreateRoute
+  '/_pods/pods/publish': typeof PodsPodsPublishRoute
+  '/_pods/pods/published': typeof PodsPodsPublishedRoute
   '/_dashboard/admin/': typeof DashboardAdminIndexRoute
   '/_dashboard/admin/principals/groups': typeof DashboardAdminPrincipalsGroupsRoute
   '/_dashboard/admin/principals/users': typeof DashboardAdminPrincipalsUsersRoute
@@ -116,16 +167,26 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/sdn'
     | '/manager/requests'
+    | '/pods/$podSlug'
+    | '/pods/browse'
+    | '/pods/create'
+    | '/pods/publish'
+    | '/pods/published'
     | '/admin/'
     | '/admin/principals/groups'
     | '/admin/principals/users'
     | '/inventory/items/$itemId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/login'
     | '/'
+    | '/login'
     | '/admin/sdn'
     | '/manager/requests'
+    | '/pods/$podSlug'
+    | '/pods/browse'
+    | '/pods/create'
+    | '/pods/publish'
+    | '/pods/published'
     | '/admin'
     | '/admin/principals/groups'
     | '/admin/principals/users'
@@ -133,11 +194,17 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_dashboard'
+    | '/_pods'
     | '/login'
     | '/_dashboard/admin'
     | '/_dashboard/'
     | '/_dashboard/admin/sdn'
     | '/_dashboard/manager/requests'
+    | '/_pods/pods/$podSlug'
+    | '/_pods/pods/browse'
+    | '/_pods/pods/create'
+    | '/_pods/pods/publish'
+    | '/_pods/pods/published'
     | '/_dashboard/admin/'
     | '/_dashboard/admin/principals/groups'
     | '/_dashboard/admin/principals/users'
@@ -146,6 +213,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  PodsRoute: typeof PodsRouteWithChildren
   LoginRoute: typeof LoginRoute
 }
 
@@ -156,6 +224,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_pods': {
+      id: '/_pods'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PodsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard': {
@@ -185,6 +260,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof DashboardAdminIndexRouteImport
       parentRoute: typeof DashboardAdminRoute
+    }
+    '/_pods/pods/published': {
+      id: '/_pods/pods/published'
+      path: '/pods/published'
+      fullPath: '/pods/published'
+      preLoaderRoute: typeof PodsPodsPublishedRouteImport
+      parentRoute: typeof PodsRoute
+    }
+    '/_pods/pods/publish': {
+      id: '/_pods/pods/publish'
+      path: '/pods/publish'
+      fullPath: '/pods/publish'
+      preLoaderRoute: typeof PodsPodsPublishRouteImport
+      parentRoute: typeof PodsRoute
+    }
+    '/_pods/pods/create': {
+      id: '/_pods/pods/create'
+      path: '/pods/create'
+      fullPath: '/pods/create'
+      preLoaderRoute: typeof PodsPodsCreateRouteImport
+      parentRoute: typeof PodsRoute
+    }
+    '/_pods/pods/browse': {
+      id: '/_pods/pods/browse'
+      path: '/pods/browse'
+      fullPath: '/pods/browse'
+      preLoaderRoute: typeof PodsPodsBrowseRouteImport
+      parentRoute: typeof PodsRoute
+    }
+    '/_pods/pods/$podSlug': {
+      id: '/_pods/pods/$podSlug'
+      path: '/pods/$podSlug'
+      fullPath: '/pods/$podSlug'
+      preLoaderRoute: typeof PodsPodsPodSlugRouteImport
+      parentRoute: typeof PodsRoute
     }
     '/_dashboard/manager/requests': {
       id: '/_dashboard/manager/requests'
@@ -260,8 +370,27 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
   DashboardRouteChildren,
 )
 
+interface PodsRouteChildren {
+  PodsPodsPodSlugRoute: typeof PodsPodsPodSlugRoute
+  PodsPodsBrowseRoute: typeof PodsPodsBrowseRoute
+  PodsPodsCreateRoute: typeof PodsPodsCreateRoute
+  PodsPodsPublishRoute: typeof PodsPodsPublishRoute
+  PodsPodsPublishedRoute: typeof PodsPodsPublishedRoute
+}
+
+const PodsRouteChildren: PodsRouteChildren = {
+  PodsPodsPodSlugRoute: PodsPodsPodSlugRoute,
+  PodsPodsBrowseRoute: PodsPodsBrowseRoute,
+  PodsPodsCreateRoute: PodsPodsCreateRoute,
+  PodsPodsPublishRoute: PodsPodsPublishRoute,
+  PodsPodsPublishedRoute: PodsPodsPublishedRoute,
+}
+
+const PodsRouteWithChildren = PodsRoute._addFileChildren(PodsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  PodsRoute: PodsRouteWithChildren,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

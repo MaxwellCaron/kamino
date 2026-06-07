@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, createFileRoute } from "@tanstack/react-router"
 import {
@@ -36,9 +36,6 @@ import {
   triggerADSync,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
-import { MembershipDialog } from "@/features/principals/components/membership-dialog"
-import { UserDialog } from "@/features/principals/components/users/user-dialog"
-import { UserGroupBulkDialog } from "@/features/principals/components/users/user-group-bulk-dialog"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
 import {
   capitalizeFirstLetter,
@@ -46,8 +43,34 @@ import {
 } from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const MembershipDialog = lazy(() =>
+  import("@/features/principals/components/membership-dialog").then(
+    (module) => ({
+      default: module.MembershipDialog,
+    })
+  )
+)
+const UserDialog = lazy(() =>
+  import("@/features/principals/components/users/user-dialog").then(
+    (module) => ({
+      default: module.UserDialog,
+    })
+  )
+)
+const UserGroupBulkDialog = lazy(() =>
+  import("@/features/principals/components/users/user-group-bulk-dialog").then(
+    (module) => ({
+      default: module.UserGroupBulkDialog,
+    })
+  )
+)
 
 export const Route = createFileRoute("/_dashboard/admin/principals/users")({
   component: UsersPage,
@@ -289,40 +312,44 @@ function UsersPage() {
         </Card>
       </div>
 
-      {canAdminister ? (
-        <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
-      {canAdminister && editDialog.data ? (
-        <UserDialog
-          key={editDialog.dialogKey}
-          user={editDialog.data}
-          open={editDialog.open}
-          onOpenChange={editDialog.onOpenChange}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {canAdminister && createOpen ? (
+          <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
+        ) : null}
+        {canAdminister && editDialog.data ? (
+          <UserDialog
+            key={editDialog.dialogKey}
+            user={editDialog.data}
+            open={editDialog.open}
+            onOpenChange={editDialog.onOpenChange}
+          />
+        ) : null}
 
-      {canAdminister && membershipDialog.data ? (
-        <MembershipDialog
-          key={membershipDialog.dialogKey}
-          mode="user-groups"
-          principal={membershipDialog.data}
-          open={membershipDialog.open}
-          onOpenChange={membershipDialog.onOpenChange}
-        />
-      ) : null}
+        {canAdminister && membershipDialog.data ? (
+          <MembershipDialog
+            key={membershipDialog.dialogKey}
+            mode="user-groups"
+            principal={membershipDialog.data}
+            open={membershipDialog.open}
+            onOpenChange={membershipDialog.onOpenChange}
+          />
+        ) : null}
 
-      {canAdminister && bulkGroupDialog.data ? (
-        <UserGroupBulkDialog
-          key={bulkGroupDialog.dialogKey}
-          clearSelection={bulkGroupDialog.data.clearSelection}
-          mode={bulkGroupDialog.data.mode}
-          onOpenChange={bulkGroupDialog.onOpenChange}
-          open={bulkGroupDialog.open}
-          users={bulkGroupDialog.data.users}
-        />
-      ) : null}
+        {canAdminister && bulkGroupDialog.data ? (
+          <UserGroupBulkDialog
+            key={bulkGroupDialog.dialogKey}
+            clearSelection={bulkGroupDialog.data.clearSelection}
+            mode={bulkGroupDialog.data.mode}
+            onOpenChange={bulkGroupDialog.onOpenChange}
+            open={bulkGroupDialog.open}
+            users={bulkGroupDialog.data.users}
+          />
+        ) : null}
 
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

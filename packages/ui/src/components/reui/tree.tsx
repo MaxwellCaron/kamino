@@ -124,7 +124,7 @@ function TreeItem<T = any>({
     "data-slot": "tree-item",
     style: mergedStyle,
     className: cn(
-      "z-10 appearance-none border-0 bg-transparent p-0 ps-(--tree-padding) text-left outline-hidden select-none not-last:pb-0.5 focus:z-20 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "z-10 cursor-pointer appearance-none border-0 bg-transparent p-0 ps-(--tree-padding) text-left outline-hidden select-none not-last:pb-0.5 focus:z-20 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     ),
     "data-focus":
@@ -231,7 +231,7 @@ function TreeItemToggle<T = any>({
       tabIndex={-1}
       aria-label={`${item.isExpanded() ? "Collapse" : "Expand"} ${item.getItemName()}`}
       className={cn(
-        "flex size-4 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted/80",
+        "flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted/80",
         className
       )}
       onMouseDown={(event) => {

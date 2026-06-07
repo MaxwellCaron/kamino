@@ -324,27 +324,5 @@ func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID
 }
 
 func decodePoolPath(poolID string) []string {
-	var (
-		segments []string
-		current  strings.Builder
-	)
-
-	for i := 0; i < len(poolID); i++ {
-		if poolID[i] != '_' {
-			current.WriteByte(poolID[i])
-			continue
-		}
-
-		if i+1 < len(poolID) && poolID[i+1] == '_' {
-			current.WriteByte('_')
-			i++
-			continue
-		}
-
-		segments = append(segments, current.String())
-		current.Reset()
-	}
-
-	segments = append(segments, current.String())
-	return segments
+	return strings.Split(poolID, "/")
 }

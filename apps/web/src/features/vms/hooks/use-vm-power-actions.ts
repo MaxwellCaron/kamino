@@ -178,11 +178,11 @@ function toastVmPowerAction(
   return toast.promise(promise, {
     loading:
       powerMode === "direct"
-        ? `${definition.directLoading} VM ${vmIdentifier}…`
+        ? `${definition.directLoading} ${vmIdentifier}…`
         : `Submitting ${definition.requestLoading} request for ${vmIdentifier}…`,
     success:
       powerMode === "direct"
-        ? `VM ${vmIdentifier} ${definition.directSuccess}`
+        ? `${vmIdentifier} ${definition.directSuccess}`
         : `${definition.label} request for ${vmIdentifier} submitted`,
     error: formatToastError,
   })
@@ -230,7 +230,7 @@ export function useVmPowerActions({
                   .then((result) =>
                     assertSingleItemMutationSucceeded(
                       result,
-                      `Failed to ${action} VM ${formatVmReference(vmid, vmName)}`
+                      `Failed to ${action} ${formatVmReference(vmid, vmName)}`
                     )
                   )
               : submitPowerRequest.mutateAsync({

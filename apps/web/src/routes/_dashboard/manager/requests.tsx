@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import {
@@ -61,7 +61,6 @@ import {
   requestDetailQueryOptions,
   requestsQueryOptions,
 } from "@/features/requests/api/requests-api"
-import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
   STATUS_ICONS,
@@ -78,8 +77,20 @@ import {
 } from "@/features/shared/utils/format"
 
 import { DataTable } from "@/components/data-table/data-table"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { LoadingTransition } from "@/components/loading-transition"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const RequestDetailDialog = lazy(() =>
+  import("@/features/requests/components/request-detail-dialog").then(
+    (module) => ({
+      default: module.RequestDetailDialog,
+    })
+  )
+)
 
 export const Route = createFileRoute("/_dashboard/manager/requests")({
   beforeLoad: ({ context }) => {
@@ -472,55 +483,60 @@ function RequestsPage() {
         </Card>
       </div>
 
-      <RequestDetailDialog
-        canReview={canReview}
-        error={detailQuery.error}
-        isLoading={detailQuery.isLoading}
-        onApprove={() => {
-          if (!selectedRequestId) {
-            return
-          }
-          const id = selectedRequestId
-          setSelectedRequestId(null)
-          toast.promise(approveMutation.mutateAsync([id]), {
-            loading: "Approving request...",
-            success: (result: ApiRequestActionResponse) => {
-              if (result.failed.length > 0) {
-                throw new Error(result.failed[0].error)
+      <Suspense fallback={null}>
+        {selectedRequestId !== null && (
+          <RequestDetailDialog
+            canReview={canReview}
+            error={detailQuery.error}
+            isLoading={detailQuery.isLoading}
+            onApprove={() => {
+              if (!selectedRequestId) {
+                return
               }
-              return "Request approved"
-            },
-            error: formatToastError,
-          })
-        }}
-        onDeny={() => {
-          if (!selectedRequestId) {
-            return
-          }
-          const id = selectedRequestId
-          setSelectedRequestId(null)
-          toast.promise(denyMutation.mutateAsync([id]), {
-            loading: "Denying request...",
-            success: (result: ApiRequestActionResponse) => {
-              if (result.failed.length > 0) {
-                throw new Error(result.failed[0].error)
+              const id = selectedRequestId
+              setSelectedRequestId(null)
+              toast.promise(approveMutation.mutateAsync([id]), {
+                loading: "Approving request...",
+                success: (result: ApiRequestActionResponse) => {
+                  if (result.failed.length > 0) {
+                    throw new Error(result.failed[0].error)
+                  }
+                  return "Request approved"
+                },
+                error: formatToastError,
+              })
+            }}
+            onDeny={() => {
+              if (!selectedRequestId) {
+                return
               }
-              return "Request denied"
-            },
-            error: formatToastError,
-          })
-        }}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedRequestId(null)
-          }
-        }}
-        open={selectedRequestId !== null}
-        request={detailQuery.data ?? null}
-        tree={treeQuery.data}
-      />
-
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+              const id = selectedRequestId
+              setSelectedRequestId(null)
+              toast.promise(denyMutation.mutateAsync([id]), {
+                loading: "Denying request...",
+                success: (result: ApiRequestActionResponse) => {
+                  if (result.failed.length > 0) {
+                    throw new Error(result.failed[0].error)
+                  }
+                  return "Request denied"
+                },
+                error: formatToastError,
+              })
+            }}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedRequestId(null)
+              }
+            }}
+            open={true}
+            request={detailQuery.data ?? null}
+            tree={treeQuery.data}
+          />
+        )}
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, createFileRoute } from "@tanstack/react-router"
 import { IconNetwork, IconPlus, IconTrash } from "@tabler/icons-react"
@@ -23,15 +23,24 @@ import {
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
 import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
-import { VNetDialog } from "@/features/sdn/components/vnet-dialog"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 import {
   capitalizeFirstLetter,
   formatToastError,
 } from "@/features/shared/utils/format"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const VNetDialog = lazy(() =>
+  import("@/features/sdn/components/vnet-dialog").then((module) => ({
+    default: module.VNetDialog,
+  }))
+)
 
 export const Route = createFileRoute("/_dashboard/admin/sdn")({
   component: SdnPage,
@@ -193,20 +202,24 @@ function SdnPage() {
         </Card>
       </div>
 
-      {canAdminister ? (
-        <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
+      <Suspense fallback={null}>
+        {canAdminister && createOpen ? (
+          <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
+        ) : null}
 
-      {canAdminister && editDialog.data ? (
-        <VNetDialog
-          key={editDialog.dialogKey}
-          vnet={editDialog.data}
-          open={editDialog.open}
-          onOpenChange={editDialog.onOpenChange}
-        />
-      ) : null}
+        {canAdminister && editDialog.data ? (
+          <VNetDialog
+            key={editDialog.dialogKey}
+            vnet={editDialog.data}
+            open={editDialog.open}
+            onOpenChange={editDialog.onOpenChange}
+          />
+        ) : null}
 
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

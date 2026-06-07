@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
+import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { subscribeToJsonEventStream } from "@/features/shared/api/event-stream"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
@@ -25,6 +26,7 @@ type RequestChangedEvent = {
 
 type DashboardEventMap = {
   "inventory.changed": InventoryChangedEvent
+  "pod.publish.progress": PublishPodProgress
   "vm.statuses.changed": VmStatusEvent
   "request.changed": RequestChangedEvent
 }
@@ -69,6 +71,12 @@ export function DashboardEvents() {
             queryKey: ["requests", payload.request_id],
           })
         }
+      },
+      "pod.publish.progress": (payload) => {
+        queryClient.setQueryData(
+          ["pods", "published", "progress", payload.id],
+          payload
+        )
       },
     })
   }, [queryClient])

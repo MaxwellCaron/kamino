@@ -31,13 +31,14 @@ function Layout() {
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 96)",
+          "--sidebar-width-icon": "calc(var(--spacing) * 12)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties
       }
     >
       <DashboardEvents />
-      <InventoryTreeProvider>
-        <InventoryDialogsProvider>
+      <InventoryDialogsProvider>
+        <InventoryTreeProvider>
           <AppSidebar user={user} variant="inset" />
           <SidebarInset>
             <SiteHeader command={<CommandManyItems />} />
@@ -45,8 +46,8 @@ function Layout() {
               <Outlet />
             </div>
           </SidebarInset>
-        </InventoryDialogsProvider>
-      </InventoryTreeProvider>
+        </InventoryTreeProvider>
+      </InventoryDialogsProvider>
     </SidebarProvider>
   )
 }

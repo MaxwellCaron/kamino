@@ -12,7 +12,7 @@ export function toastCloneVm(
   const vmIdentifier = formatVmReference(vmid, vmName)
 
   return toast.promise(promise, {
-    loading: `Cloning VM ${vmIdentifier}…`,
+    loading: `Cloning ${vmIdentifier}…`,
     success: (result) => `VM cloned to ${result.vmid}`,
     error: formatToastError,
   })
@@ -125,8 +125,8 @@ export function toastDeleteVm(
   const vmIdentifier = formatVmReference(vmid, vmName)
 
   return toast.promise(promise, {
-    loading: `Deleting VM ${vmIdentifier}…`,
-    success: `VM ${vmIdentifier} deleted`,
+    loading: `Deleting ${vmIdentifier}…`,
+    success: `${vmIdentifier} deleted`,
     error: formatToastError,
   })
 }
@@ -139,8 +139,8 @@ export function toastTemplatizeVm(
   const vmIdentifier = formatVmReference(vmid, vmName)
 
   return toast.promise(promise, {
-    loading: `Templatizing VM ${vmIdentifier}…`,
-    success: `VM ${vmIdentifier} templatized`,
+    loading: `Templatizing ${vmIdentifier}…`,
+    success: `${vmIdentifier} templatized`,
     error: formatToastError,
   })
 }

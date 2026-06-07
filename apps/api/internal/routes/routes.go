@@ -15,6 +15,7 @@ func RegisterRoutes(
 	vnc *handlers.VNCHandler,
 	vm *handlers.VMHandler,
 	vmCreate *handlers.VMCreateHandler,
+	pods *handlers.PodsHandler,
 	sdn *handlers.SDNHandler,
 	principals *handlers.PrincipalsHandler,
 	authz *handlers.AuthorizationHandler,
@@ -90,6 +91,30 @@ func RegisterRoutes(
 	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
 	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
 	protected.GET("/proxmox/cluster/usage-history", vmCreate.GetClusterUsageHistory)
+
+	// Pod endpoints
+	if pods != nil {
+		protected.GET("/pods/create/options", pods.GetCreateOptions)
+		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
+		protected.GET("/pods/publish/options", pods.GetPublishOptions)
+		protected.GET("/pods/published", pods.ListPublished)
+		protected.POST("/pods/published", pods.SavePublished)
+		protected.GET("/pods/published/progress/:id", pods.GetPublishedProgress)
+		protected.GET("/pods/published/:id", pods.GetPublished)
+		protected.PUT("/pods/published/:id", pods.SavePublished)
+		protected.DELETE("/pods/published/:id", pods.DeletePublished)
+		protected.PUT("/pods/published/:id/status", pods.UpdatePublishedStatus)
+		protected.GET("/pods/clones/progress/:id", pods.GetCloneProgress)
+		protected.POST("/pods/clones/:id/reclone", pods.RecloneClonedPod)
+		protected.POST("/pods/clones/:id/power", pods.PowerClonedPod)
+		protected.DELETE("/pods/clones/:id", pods.DeleteClonedPod)
+		protected.PUT("/pods/clones/:id/questions/:questionID", pods.AnswerClonedPodQuestion)
+		protected.GET("/pods/catalog", pods.ListCatalog)
+		protected.GET("/pods/catalog/:slug", pods.GetCatalogPod)
+		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
+		protected.POST("/pods/catalog/:slug/clone", pods.CloneCatalogPod)
+		protected.POST("/pods", pods.Create)
+	}
 
 	// SDN endpoints
 	protected.GET("/sdn/vnets", sdn.GetVNets)
