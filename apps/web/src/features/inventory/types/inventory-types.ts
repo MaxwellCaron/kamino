@@ -132,7 +132,6 @@ export type PrincipalListItem = {
   principalType: "group" | "user" | undefined
   label: string
   hasDraftEntry: boolean
-  hasOverrides: boolean
   hasInheritedPermissions: boolean
   immutable: boolean
   section: PrincipalListSectionKey

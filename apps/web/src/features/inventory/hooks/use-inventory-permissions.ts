@@ -1,5 +1,4 @@
 import React from "react"
-import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 
 import {
@@ -32,6 +31,50 @@ type AclEntry = {
   principal_id: string
 }
 
+function cloneDraftPrincipal(principal: DraftPrincipal): DraftPrincipal {
+  return {
+    ...principal,
+    self: { ...principal.self },
+  }
+}
+
+function toAclEntries(principals: Array<DraftPrincipal>): Array<AclEntry> {
+  return principals.flatMap((principal) => {
+    const scope = normalizeScope(principal.self)
+    const entries: Array<AclEntry> = []
+
+    if (scope.allowMask > 0) {
+      entries.push({
+        principal_id: principal.principalId,
+        effect: "allow",
+        permissions: scope.allowMask,
+      })
+    }
+
+    if (scope.denyMask > 0) {
+      entries.push({
+        principal_id: principal.principalId,
+        effect: "deny",
+        permissions: scope.denyMask,
+      })
+    }
+
+    return entries
+  })
+}
+
+function getAclEntryKey(entry: AclEntry) {
+  return `${entry.principal_id}:${entry.effect}:${entry.permissions}`
+}
+
+function aclEntriesEqual(left: Array<AclEntry>, right: Array<AclEntry>) {
+  if (left.length !== right.length) return false
+
+  const sortedLeft = left.map(getAclEntryKey).sort()
+  const sortedRight = right.map(getAclEntryKey).sort()
+  return sortedLeft.every((entry, index) => entry === sortedRight[index])
+}
+
 const principalSectionLabels: Record<PrincipalListSectionKey, string> = {
   "inherited-groups": "Inherited Groups",
   "inherited-users": "Inherited Users",
@@ -58,43 +101,19 @@ export function useInventoryPermissions({
 }) {
   const updateAcl = useUpdateInventoryAcl()
 
-  // This state now holds the "draft" of the principal currently being edited in the nested dialog
   const [editingPrincipal, setEditingPrincipal] =
     React.useState<DraftPrincipal | null>(null)
-
-  const form = useForm({
-    defaultValues: {
-      principals: createDraftAcl(aclData).principals,
-    },
-    onSubmit: ({ value }) => {
-      const entries: Array<AclEntry> = []
-
-      for (const principal of value.principals) {
-        const scope = normalizeScope(principal.self)
-        if (scope.allowMask > 0) {
-          entries.push({
-            principal_id: principal.principalId,
-            effect: "allow",
-            permissions: scope.allowMask,
-          })
-        }
-        if (scope.denyMask > 0) {
-          entries.push({
-            principal_id: principal.principalId,
-            effect: "deny",
-            permissions: scope.denyMask,
-          })
-        }
-      }
-
-      onOpenChange(false)
-      toast.promise(updateAcl.mutateAsync({ itemId, entries }), {
-        loading: `Updating permissions for ${itemName}...`,
-        success: `Permissions updated for ${itemName}`,
-        error: formatToastError,
-      })
-    },
-  })
+  const initialDraftPrincipals = React.useMemo(
+    () => createDraftAcl(aclData).principals,
+    [aclData]
+  )
+  const initialAclEntries = React.useMemo(
+    () => toAclEntries(initialDraftPrincipals),
+    [initialDraftPrincipals]
+  )
+  const [draftPrincipals, setDraftPrincipals] = React.useState(() =>
+    initialDraftPrincipals.map(cloneDraftPrincipal)
+  )
 
   const principalOptions = React.useMemo(
     () => buildPrincipalOptions(users, groups),
@@ -126,14 +145,13 @@ export function useInventoryPermissions({
       }
     }
 
-    form.state.values.principals.forEach(addToMap)
+    draftPrincipals.forEach(addToMap)
     inheritedPrincipals.forEach(addToMap)
     return map
-  }, [form.state.values.principals, inheritedPrincipals, principalOptions])
+  }, [draftPrincipals, inheritedPrincipals, principalOptions])
 
   const principalListItems = React.useMemo(() => {
     const inheritedIds = new Set(inheritedPrincipals.map((p) => p.principalId))
-    const draftPrincipals = form.state.values.principals
     const draftMap = new Map(draftPrincipals.map((p) => [p.principalId, p]))
     const allIds = new Set([...draftMap.keys(), ...inheritedIds])
 
@@ -151,7 +169,6 @@ export function useInventoryPermissions({
           principalType: type,
           label: principalMap.get(id)?.label ?? id,
           hasDraftEntry: !!draftP,
-          hasOverrides: draftP ? hasPrincipalOverrides(draftP) : false,
           hasInheritedPermissions: inheritedIds.has(id),
           immutable: draftP?.immutable ?? inheritedP?.immutable ?? false,
           section: getPrincipalSectionKey({
@@ -174,7 +191,7 @@ export function useInventoryPermissions({
           sensitivity: "base",
         })
       })
-  }, [form.state.values.principals, inheritedPrincipals, principalMap])
+  }, [draftPrincipals, inheritedPrincipals, principalMap])
 
   const principalSections = React.useMemo(
     () =>
@@ -199,16 +216,12 @@ export function useInventoryPermissions({
   )
 
   const handleStartEditing = (principalId: string) => {
-    // 1. Check if already in draft
-    const draftP = form.state.values.principals.find(
-      (p) => p.principalId === principalId
-    )
+    const draftP = draftPrincipals.find((p) => p.principalId === principalId)
     if (draftP) {
-      setEditingPrincipal({ ...draftP }) // Clone to allow canceling
+      setEditingPrincipal(cloneDraftPrincipal(draftP))
       return
     }
 
-    // 2. Otherwise create from principalMap + inherited status
     const option = principalMap.get(principalId)
     if (!option) return
 
@@ -222,68 +235,90 @@ export function useInventoryPermissions({
   }
 
   const handleAddPrincipals = (selectedIds: Array<string>) => {
-    const existingIds = new Set(
-      form.state.values.principals.map((p) => p.principalId)
-    )
-    selectedIds
-      .filter((id) => !existingIds.has(id))
-      .forEach((id) => {
-        form.pushFieldValue(
-          "principals",
-          createEmptyPrincipal(principalMap.get(id) ?? null)
-        )
-      })
-  }
+    setDraftPrincipals((current) => {
+      const existingIds = new Set(current.map((p) => p.principalId))
+      const nextPrincipals = selectedIds
+        .filter((id) => !existingIds.has(id))
+        .map((id) => createEmptyPrincipal(principalMap.get(id) ?? null))
 
-  const handleRemovePrincipal = (principalId: string) => {
-    const index = form.state.values.principals.findIndex(
-      (p) => p.principalId === principalId
-    )
-    if (index !== -1) form.removeFieldValue("principals", index)
-    if (editingPrincipal?.principalId === principalId) setEditingPrincipal(null)
-  }
-
-  // Updates the BUFFER state, not the form
-  const handleLocalPermissionChange = (bit: number, state: PermissionState) => {
-    if (!editingPrincipal || editingPrincipal.immutable) return
-    setEditingPrincipal({
-      ...editingPrincipal,
-      self: setPermissionState(editingPrincipal.self, bit, state),
+      if (nextPrincipals.length === 0) return current
+      return [...current, ...nextPrincipals]
     })
   }
 
-  // Commits buffered changes to the main form
+  const handleRemovePrincipal = (principalId: string) => {
+    setDraftPrincipals((current) =>
+      current.filter((p) => p.principalId !== principalId)
+    )
+    if (editingPrincipal?.principalId === principalId) setEditingPrincipal(null)
+  }
+
+  const handleLocalPermissionChange = (bit: number, state: PermissionState) => {
+    setEditingPrincipal((current) => {
+      if (!current || current.immutable) return current
+      return {
+        ...current,
+        self: setPermissionState(current.self, bit, state),
+      }
+    })
+  }
+
   const handleSavePermissions = () => {
     if (!editingPrincipal) return
 
-    const index = form.state.values.principals.findIndex(
-      (p) => p.principalId === editingPrincipal.principalId
-    )
+    setDraftPrincipals((current) => {
+      const nextPrincipal = cloneDraftPrincipal(editingPrincipal)
+      const index = current.findIndex(
+        (p) => p.principalId === nextPrincipal.principalId
+      )
 
-    if (index !== -1) {
-      form.setFieldValue(`principals[${index}]`, editingPrincipal)
-    } else {
-      // If it wasn't in draft yet
-      if (hasPrincipalOverrides(editingPrincipal)) {
-        form.pushFieldValue("principals", editingPrincipal)
+      if (!hasPrincipalOverrides(nextPrincipal)) {
+        return index === -1
+          ? current
+          : current.filter((_, currentIndex) => currentIndex !== index)
       }
-    }
+
+      if (index === -1) return [...current, nextPrincipal]
+
+      return current.map((principal, currentIndex) =>
+        currentIndex === index ? nextPrincipal : principal
+      )
+    })
 
     setEditingPrincipal(null)
   }
+
+  const handleSubmit = () => {
+    const entries = toAclEntries(draftPrincipals)
+
+    onOpenChange(false)
+    toast.promise(updateAcl.mutateAsync({ itemId, entries }), {
+      loading: `Updating permissions for ${itemName}...`,
+      success: `Permissions updated for ${itemName}`,
+      error: formatToastError,
+    })
+  }
+
+  const inheritedPrincipalMap = React.useMemo(
+    () => new Map(inheritedPrincipals.map((p) => [p.principalId, p])),
+    [inheritedPrincipals]
+  )
+  const permissionGroups = React.useMemo(
+    () => getInventoryPermissionDefinitionsByGroup(itemKind),
+    [itemKind]
+  )
+  const hasChanges = React.useMemo(
+    () => !aclEntriesEqual(toAclEntries(draftPrincipals), initialAclEntries),
+    [draftPrincipals, initialAclEntries]
+  )
 
   return {
     state: {
       availablePrincipalIds,
       editingPrincipal,
-      hasChanges: form.state.isDirty,
-      inheritedPrincipalMap: new Map(
-        inheritedPrincipals.map((p) => [p.principalId, p])
-      ),
-      permissionGroups: React.useMemo(
-        () => getInventoryPermissionDefinitionsByGroup(itemKind),
-        [itemKind]
-      ),
+      hasChanges,
+      inheritedPrincipalMap,
+      permissionGroups,
       principalMap,
       principalSections,
       isSaving: updateAcl.isPending,
@@ -293,7 +328,7 @@ export function useInventoryPermissions({
       handlePermissionChange: handleLocalPermissionChange,
       handleSavePermissions,
       handleRemovePrincipal,
-      handleSubmit: form.handleSubmit,
+      handleSubmit,
       setEditingPrincipalId: handleStartEditing,
       cancelEditing: () => setEditingPrincipal(null),
     },

@@ -22,7 +22,6 @@ import type { PrincipalOption } from "../../types/inventory-types"
 type AddPrincipalsDialogProps = {
   availablePrincipalIds: Array<string>
   disabled?: boolean
-  itemName: string
   onAdd: (selectedIds: Array<string>) => void
   open: boolean
   onOpenChange: (open: boolean) => void

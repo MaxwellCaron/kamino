@@ -151,8 +151,7 @@ function InventoryPermissionsFormBody({
         </InputGroup>
         <AddPrincipalsDialog
           availablePrincipalIds={state.availablePrincipalIds}
-          disabled={false}
-          itemName={props.itemName}
+          disabled={state.isSaving}
           onAdd={(ids) => {
             actions.handleAddPrincipals(ids)
             setAddDialogOpen(false)
@@ -210,7 +209,8 @@ function InventoryPermissionsFormBody({
                               <Button
                                 variant="outline"
                                 size="xs"
-                                disabled={item.immutable}
+                                disabled={state.isSaving || item.immutable}
+                                type="button"
                                 onClick={() =>
                                   actions.setEditingPrincipalId(
                                     item.principalId
@@ -223,12 +223,19 @@ function InventoryPermissionsFormBody({
                               <Button
                                 variant="destructive"
                                 size="icon-xs"
-                                disabled={item.immutable || !item.hasDraftEntry}
-                                onClick={() =>
+                                disabled={
+                                  state.isSaving ||
+                                  item.immutable ||
+                                  !item.hasDraftEntry
+                                }
+                                type="button"
+                                aria-label={`Remove ${item.label}`}
+                                onClick={(event) => {
+                                  event.stopPropagation()
                                   actions.handleRemovePrincipal(
                                     item.principalId
                                   )
-                                }
+                                }}
                               >
                                 <IconX />
                               </Button>
