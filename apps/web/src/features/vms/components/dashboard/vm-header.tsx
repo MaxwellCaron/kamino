@@ -24,14 +24,12 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import type {
   ApiTreeNode,
   ApiTreeNodeVM,
 } from "@/features/inventory/types/inventory-types"
 import type { VmResources } from "@/features/vms/types/vm-types"
 import type { ReactNode } from "@tabler/icons-react"
-import { LoadingTransition } from "@/components/loading-transition"
 import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
 import {
   formatBytes,
@@ -97,7 +95,7 @@ function getUptimeDetail(
 }
 
 function buildStats(
-  vm: ApiTreeNodeVM | null,
+  vm: ApiTreeNodeVM,
   isTemplate: boolean,
   powerStatus: string | undefined,
   resources: VmResources | undefined
@@ -133,23 +131,23 @@ function buildStats(
     {
       icon: <IconPackages className="size-5 text-muted-foreground" />,
       label: "Node",
-      value: vm?.node ?? "—",
+      value: vm.node,
     },
     {
       icon: <IconId className="size-5 text-muted-foreground" />,
       label: "VMID",
-      value: vm ? String(vm.vmid) : "—",
+      value: String(vm.vmid),
     },
     {
       icon: <IconDatabase className="size-5 text-muted-foreground" />,
       label: "Storage",
-      value: vm?.disk_gb != null ? `${vm.disk_gb} GB` : "—",
+      value: vm.disk_gb != null ? `${vm.disk_gb} GB` : "—",
     },
     {
       icon: <IconCpu className="size-5 text-muted-foreground" />,
       label: "CPU",
       value:
-        vm?.cpu_count != null
+        vm.cpu_count != null
           ? formatCpuCount(vm.cpu_count)
           : resources?.maxcpu != null
             ? formatCpuCount(resources.maxcpu)
@@ -163,7 +161,7 @@ function buildStats(
       ),
       label: "Memory",
       value:
-        vm?.memory_mb != null
+        vm.memory_mb != null
           ? formatMemory(vm.memory_mb)
           : resources?.maxmem != null
             ? formatBytes(resources.maxmem)
@@ -181,15 +179,13 @@ export function VmHeader({
   powerStatus,
   resources,
   isTemplate,
-  isLoading,
 }: {
-  node: ApiTreeNode | null
+  node: ApiTreeNode
   itemId: string
-  vm: ApiTreeNodeVM | null
+  vm: ApiTreeNodeVM
   powerStatus: string | undefined
   resources: VmResources | undefined
   isTemplate: boolean
-  isLoading: boolean
 }) {
   const stats = buildStats(vm, isTemplate, powerStatus, resources)
 
@@ -202,32 +198,24 @@ export function VmHeader({
           ) : (
             <IconDeviceDesktop className="size-7 text-muted-foreground" />
           )}
-          <LoadingTransition
-            isLoading={isLoading}
-            fallback={<Skeleton className="h-10 w-48 rounded-md" />}
-          >
-            <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-              {node?.name ?? "—"}
-            </h1>
-          </LoadingTransition>
+          <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
+            {node.name}
+          </h1>
         </CardTitle>
         <CardDescription>
           {isTemplate ? "Template" : "Virtual Machine"}
         </CardDescription>
         <CardAction>
-          {node && (
-            <VmOptionsMenu
-              nodeId={node.id}
-              permissions={node.permissions}
-              isTemplate={isTemplate}
-              itemId={itemId}
-              vmid={vm?.vmid}
-              pveNode={vm?.node}
-              name={node.name}
-              isLoading={isLoading}
-              powerStatus={powerStatus}
-            />
-          )}
+          <VmOptionsMenu
+            nodeId={node.id}
+            permissions={node.permissions}
+            isTemplate={isTemplate}
+            itemId={itemId}
+            vmid={vm.vmid}
+            pveNode={vm.node}
+            name={node.name}
+            powerStatus={powerStatus}
+          />
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
@@ -247,34 +235,20 @@ export function VmHeader({
                   </ItemTitle>
                 </ItemContent>
                 <ItemFooter>
-                  <LoadingTransition
-                    isLoading={isLoading}
-                    fallback={
-                      <div className="space-y-2">
-                        <Skeleton
-                          className={`h-8 rounded-md ${hasUsage ? "w-20" : "w-16"}`}
-                        />
-                        <Skeleton
-                          className={`h-4 rounded-md ${stat.detail ? "w-12" : "w-0 opacity-0"}`}
-                        />
-                      </div>
-                    }
-                  >
-                    <div className="flex min-h-15 flex-col items-start gap-1">
-                      <h3
-                        className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
-                      >
-                        {stat.value}
-                      </h3>
-                      <div className="min-h-5">
-                        {stat.detail && (
-                          <p className="text-sm text-muted-foreground">
-                            {stat.detail}
-                          </p>
-                        )}
-                      </div>
+                  <div className="flex min-h-15 flex-col items-start gap-1">
+                    <h3
+                      className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
+                    >
+                      {stat.value}
+                    </h3>
+                    <div className="min-h-5">
+                      {stat.detail && (
+                        <p className="text-sm text-muted-foreground">
+                          {stat.detail}
+                        </p>
+                      )}
                     </div>
-                  </LoadingTransition>
+                  </div>
                 </ItemFooter>
                 {stat.usage && (
                   <div className="absolute right-4 flex w-2 items-center justify-center">

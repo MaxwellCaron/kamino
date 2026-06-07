@@ -60,7 +60,6 @@ export function SnapshotsTable({
   canViewSnapshots,
   canManageSnapshots,
   canRequestSnapshots,
-  isLoading: isVmLoading,
 }: {
   itemId: string
   vmid: number | null
@@ -69,13 +68,12 @@ export function SnapshotsTable({
   canViewSnapshots: boolean
   canManageSnapshots: boolean
   canRequestSnapshots: boolean
-  isLoading?: boolean
 }) {
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     ...snapshotsQueryOptions(itemId),
     enabled: !!itemId && vmid != null && canViewSnapshots,
   }) as { data: Array<ApiSnapshot> | undefined; isLoading: boolean }
-  const isLoading = isVmLoading || isSnapshotsLoading
+  const isLoading = isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
   const rollback = useRollbackSnapshot(itemId)

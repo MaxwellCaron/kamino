@@ -7,30 +7,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useState } from "react"
 import type {
   ApiTreeNode,
   ApiTreeNodeVM,
 } from "@/features/inventory/types/inventory-types"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
-import { LoadingTransition } from "@/components/loading-transition"
 import { VmNotesDialog } from "@/features/vms/components/dashboard/vm-notes-dialog"
 
 export function VmNotes({
   node,
   itemId,
   vm,
-  isLoading,
 }: {
-  node: ApiTreeNode | null
+  node: ApiTreeNode
   itemId: string
-  vm: ApiTreeNodeVM | null
-  isLoading: boolean
+  vm: ApiTreeNodeVM
 }) {
   const [isNotesOpen, setIsNotesOpen] = useState(false)
-  const canEditNotes = getVmCapabilities(node?.permissions).notes.enabled
-  const notes = vm?.notes?.trim() ? vm.notes : null
+  const canEditNotes = getVmCapabilities(node.permissions).notes.enabled
+  const notes = vm.notes?.trim() ? vm.notes : null
 
   return (
     <Card className="h-full">
@@ -40,19 +36,18 @@ export function VmNotes({
           <span>Notes</span>
         </CardTitle>
         <CardAction>
-          {vm && canEditNotes && (
+          {canEditNotes && (
             <>
               <Button
                 variant="ghost"
                 size="icon-xs"
-                disabled={isLoading}
                 onClick={() => setIsNotesOpen(true)}
               >
                 <IconEdit className="size-4" />
               </Button>
               <VmNotesDialog
                 itemId={itemId}
-                vmName={node?.name ?? `VM ${vm.vmid}`}
+                vmName={node.name}
                 vmid={vm.vmid}
                 initialNotes={vm.notes}
                 open={isNotesOpen}
@@ -63,20 +58,15 @@ export function VmNotes({
         </CardAction>
       </CardHeader>
       <CardContent className="mx-4 -mt-4 h-full rounded-4xl bg-muted/50 py-4">
-        <LoadingTransition
-          isLoading={isLoading}
-          fallback={<Skeleton className="h-20 w-full rounded-md" />}
-        >
-          {!notes ? (
-            <p className="text-sm text-muted-foreground">
-              No notes saved for this VM.
-            </p>
-          ) : (
-            <p className="text-sm wrap-break-word whitespace-pre-wrap text-muted-foreground">
-              {notes}
-            </p>
-          )}
-        </LoadingTransition>
+        {!notes ? (
+          <p className="text-sm text-muted-foreground">
+            No notes saved for this VM.
+          </p>
+        ) : (
+          <p className="text-sm wrap-break-word whitespace-pre-wrap text-muted-foreground">
+            {notes}
+          </p>
+        )}
       </CardContent>
     </Card>
   )

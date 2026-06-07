@@ -13,12 +13,11 @@ import { useInventoryDialogs } from "@/features/inventory/components/inventory-d
 import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"
 
 interface VmPowerControlsProps {
-  node: ApiTreeNode | null
+  node: ApiTreeNode
   itemId: string
-  vm: { vmid: number; name?: string } | null
+  vm: { vmid: number; name?: string }
   powerStatus?: string
   isTemplate?: boolean
-  isLoading?: boolean
 }
 
 export function VmPowerControls({
@@ -27,19 +26,17 @@ export function VmPowerControls({
   vm,
   powerStatus,
   isTemplate,
-  isLoading: isGlobalLoading,
 }: VmPowerControlsProps) {
   const { openConfirm } = useInventoryDialogs()
   const powerActions = useVmPowerActions({
     itemId,
-    permissions: node?.permissions,
+    permissions: node.permissions,
     powerStatus,
-    vmid: vm?.vmid,
-    vmName: node?.name,
-    isLoading: isGlobalLoading,
+    vmid: vm.vmid,
+    vmName: node.name,
   })
 
-  if (!node || !vm || isTemplate) return null
+  if (isTemplate) return null
 
   return (
     <Card>

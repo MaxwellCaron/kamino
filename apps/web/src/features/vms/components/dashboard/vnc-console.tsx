@@ -37,7 +37,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type RFB from "@novnc/novnc/core/rfb.js"
@@ -46,16 +45,11 @@ import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 type VncConsoleProps = {
   itemId: string
   powerStatus?: string
-  isLoading?: boolean
 }
 
 type Status = "connecting" | "connected" | "disconnected" | "error"
 
-export function VncConsole({
-  itemId,
-  powerStatus,
-  isLoading,
-}: VncConsoleProps) {
+export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
   const [status, setStatus] = useState<Status>("disconnected")
@@ -199,27 +193,21 @@ export function VncConsole({
           <Empty className="w-full max-w-md">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                {isLoading ? (
-                  <Spinner className="size-5" />
-                ) : powerStatus !== "running" ? (
+                {powerStatus !== "running" ? (
                   <IconPower />
                 ) : (
                   <IconPlugConnectedX />
                 )}
               </EmptyMedia>
               <EmptyTitle>
-                {isLoading ? (
-                  <Skeleton className="mx-auto h-5 w-32 rounded-md" />
-                ) : powerStatus !== "running" ? (
+                {powerStatus !== "running" ? (
                   "VM Not Running"
                 ) : (
                   "Not Connected"
                 )}
               </EmptyTitle>
               <EmptyDescription>
-                {isLoading ? (
-                  <Skeleton className="mx-auto h-4 w-64 rounded-md" />
-                ) : powerStatus !== "running" ? (
+                {powerStatus !== "running" ? (
                   "The VM must be running to create a VNC session."
                 ) : (
                   "You haven't created a VNC session. Start a new session to connect."
@@ -230,7 +218,6 @@ export function VncConsole({
               <Button
                 onClick={startConnection}
                 disabled={
-                  isLoading ||
                   status === "connecting" ||
                   powerStatus !== "running" ||
                   !itemId
