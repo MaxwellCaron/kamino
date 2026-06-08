@@ -31,6 +31,7 @@ import {
   capitalizeFirstLetter,
   formatToastError,
 } from "@/features/shared/utils/format"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 const ConfirmDialog = lazy(() =>
   import("@/components/dialogs/confirm-dialog").then((module) => ({
@@ -44,6 +45,7 @@ const VNetDialog = lazy(() =>
 )
 
 export const Route = createFileRoute("/_dashboard/admin/sdn")({
+  head: () => pageTitle("SDN"),
   component: SdnPage,
 })
 

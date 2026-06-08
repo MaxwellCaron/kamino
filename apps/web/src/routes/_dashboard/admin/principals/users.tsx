@@ -45,6 +45,7 @@ import {
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 const ConfirmDialog = lazy(() =>
   import("@/components/dialogs/confirm-dialog").then((module) => ({
@@ -74,6 +75,7 @@ const UserGroupBulkDialog = lazy(() =>
 )
 
 export const Route = createFileRoute("/_dashboard/admin/principals/users")({
+  head: () => pageTitle("Users"),
   component: UsersPage,
 })
 

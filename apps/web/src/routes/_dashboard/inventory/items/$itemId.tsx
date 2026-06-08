@@ -17,8 +17,19 @@ import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
 import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
 import { VmPowerControls } from "@/features/vms/components/dashboard/vm-power-controls"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
+  loader: async ({ context, params }) => {
+    const item = await context.queryClient
+      .ensureQueryData(inventoryItemQueryOptions(params.itemId))
+      .catch(() => null)
+
+    return {
+      title: item?.name ?? null,
+    }
+  },
+  head: ({ loaderData }) => pageTitle(loaderData?.title ?? "Inventory Item"),
   component: VmPage,
 })
 

@@ -12,6 +12,7 @@ import {
 import appCss from "@workspace/ui/globals.css?url"
 import type { QueryClient } from "@tanstack/react-query"
 import { NotFound } from "@/components/not-found"
+import { formatPageTitle } from "@/features/shared/utils/page-title"
 
 type RouterContext = {
   queryClient: QueryClient
@@ -49,7 +50,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Kamino",
+        title: formatPageTitle(),
       },
     ],
     links: [

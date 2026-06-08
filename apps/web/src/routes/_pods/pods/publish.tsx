@@ -14,8 +14,10 @@ import {
   savePublishedPod,
   toPublishPodFormValues,
 } from "@/features/pods/api/publish-pod-api"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_pods/pods/publish")({
+  head: () => pageTitle("Publish Pod"),
   validateSearch: z.object({
     podId: z.string().optional(),
   }),

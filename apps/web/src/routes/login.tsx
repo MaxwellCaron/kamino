@@ -5,8 +5,10 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 import { LoginForm } from "@/features/auth/components/login-form"
 import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 import { GrainientBackground } from "@/components/grainient-background"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/login")({
+  head: () => pageTitle("Sign In"),
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),

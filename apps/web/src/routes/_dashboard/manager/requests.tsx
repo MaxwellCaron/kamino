@@ -75,6 +75,7 @@ import {
   formatToastError,
   formatVmReference,
 } from "@/features/shared/utils/format"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 import { DataTable } from "@/components/data-table/data-table"
 
@@ -92,6 +93,7 @@ const RequestDetailDialog = lazy(() =>
 )
 
 export const Route = createFileRoute("/_dashboard/manager/requests")({
+  head: () => pageTitle("Requests"),
   beforeLoad: ({ context }) => {
     if (!canAccessRequestQueue(context.user.management_permissions)) {
       throw redirect({ to: "/" })

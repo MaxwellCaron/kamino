@@ -5,8 +5,19 @@ import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"
 import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_pods/pods/$podSlug")({
+  loader: async ({ context, params }) => {
+    const pod = await context.queryClient
+      .ensureQueryData(podCatalogEntryQueryOptions(params.podSlug))
+      .catch(() => null)
+
+    return {
+      title: pod?.title ?? null,
+    }
+  },
+  head: ({ loaderData }) => pageTitle(loaderData?.title ?? "Pod"),
   component: RouteComponent,
 })
 

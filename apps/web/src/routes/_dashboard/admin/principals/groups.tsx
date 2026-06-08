@@ -39,6 +39,7 @@ import {
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { pageTitle } from "@/features/shared/utils/page-title"
 
 const ConfirmDialog = lazy(() =>
   import("@/components/dialogs/confirm-dialog").then((module) => ({
@@ -53,11 +54,11 @@ const GroupDialog = lazy(() =>
   )
 )
 const GroupPermissionsDialog = lazy(() =>
-  import(
-    "@/features/principals/components/groups/group-permissions-dialog"
-  ).then((module) => ({
-    default: module.GroupPermissionsDialog,
-  }))
+  import("@/features/principals/components/groups/group-permissions-dialog").then(
+    (module) => ({
+      default: module.GroupPermissionsDialog,
+    })
+  )
 )
 const MembershipDialog = lazy(() =>
   import("@/features/principals/components/membership-dialog").then(
@@ -68,6 +69,7 @@ const MembershipDialog = lazy(() =>
 )
 
 export const Route = createFileRoute("/_dashboard/admin/principals/groups")({
+  head: () => pageTitle("Groups"),
   component: GroupsPage,
 })
 
