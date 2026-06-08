@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClientProvider } from "@tanstack/react-query"
 import { Toaster } from "@workspace/ui/components/sonner"
 import { ThemeProvider } from "@workspace/ui/components/theme-provider"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
@@ -6,11 +6,16 @@ import {
   HeadContent,
   Outlet,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
 } from "@tanstack/react-router"
 
 import appCss from "@workspace/ui/globals.css?url"
+import type { QueryClient } from "@tanstack/react-query"
 import { NotFound } from "@/components/not-found"
+
+type RouterContext = {
+  queryClient: QueryClient
+}
 
 const themeStorageKey = "vite-ui-theme"
 const defaultTheme = "dark"
@@ -33,15 +38,7 @@ const themeScript = `
 })()
 `
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-    },
-  },
-})
-
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       {
@@ -89,6 +86,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const { queryClient } = Route.useRouteContext()
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>

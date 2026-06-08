@@ -1,3 +1,4 @@
+import { queryOptions } from "@tanstack/react-query"
 import { z } from "zod"
 import type { AuthSession } from "../types/auth-types"
 
@@ -195,12 +196,11 @@ export async function ensureAuth(): Promise<AuthSession> {
   }
 }
 
-export const authMeQueryOptions = {
-  queryKey: ["auth", "me"] as const,
-  queryFn: fetchAuthSession,
+export const authSessionQueryOptions = queryOptions({
+  queryKey: ["auth", "session"] as const,
+  queryFn: ensureAuth,
   retry: false,
-  staleTime: Infinity,
-}
+})
 
 export async function login(params: {
   username: string
@@ -254,12 +254,8 @@ export async function refreshAuth(): Promise<AuthSession> {
     })
     if (!res.ok) {
       if (res.status === 401) {
-        try {
-          return await fetchAuthSession()
-        } catch {
-          invalidateAuthState("refresh failed")
-          throw authFailure ?? new AuthenticationError("refresh failed")
-        }
+        invalidateAuthState("refresh failed")
+        throw authFailure ?? new AuthenticationError("refresh failed")
       }
       throw new Error("refresh failed")
     }

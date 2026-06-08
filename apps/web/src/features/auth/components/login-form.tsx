@@ -4,13 +4,6 @@ import { z } from "zod"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import {
   Field,
   FieldContent,
   FieldError,
@@ -18,7 +11,8 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { authMeQueryOptions, login } from "../api/auth-api"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { authSessionQueryOptions, login } from "../api/auth-api"
 
 const loginSchema = z.object({
   username: z.string().trim().min(1, "Username is required"),
@@ -29,13 +23,15 @@ export function LoginForm({
   className,
   onSuccess,
   ...props
-}: React.ComponentProps<"div"> & { onSuccess?: () => void }) {
+}: React.ComponentProps<"div"> & {
+  onSuccess?: () => void
+}) {
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (data) => {
-      queryClient.setQueryData(authMeQueryOptions.queryKey, data)
+      queryClient.setQueryData(authSessionQueryOptions.queryKey, data)
       onSuccess?.()
     },
   })
@@ -51,77 +47,87 @@ export function LoginForm({
   })
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>Enter your credentials to sign in</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              form.handleSubmit()
-            }}
-          >
-            <FieldGroup>
-              <form.Field name="username">
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="username">Username</FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="username"
-                        autoComplete="username"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                        placeholder="jdoe"
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+    <div className={cn("flex flex-col", className)} {...props}>
+      <div className="mb-8">
+        <h1 className="mt-3 font-heading text-3xl leading-tight font-medium">
+          Sign in to Kamino
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Enter your credentials to continue.
+        </p>
+      </div>
 
-              <form.Field name="password">
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="password">Password</FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="password"
-                        type="password"
-                        autoComplete="current-password"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          form.handleSubmit()
+        }}
+      >
+        <FieldGroup className="gap-5">
+          <form.Field name="username">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="username">Username</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="username"
+                    autoComplete="username"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder="jdoe"
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
 
-              {mutation.error && (
-                <FieldError className="text-center">
-                  {mutation.error.message}
-                </FieldError>
-              )}
+          <form.Field name="password">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder="***********"
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
 
-              <form.Subscribe selector={(state) => state.isSubmitting}>
-                {(isSubmitting) => (
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Signing in..." : "Sign in"}
-                  </Button>
+          {mutation.error && (
+            <FieldError className="text-center">
+              {mutation.error.message}
+            </FieldError>
+          )}
+
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button
+                type="submit"
+                size="lg"
+                className="mt-1 w-full transition-transform active:scale-[0.96]"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign in"
                 )}
-              </form.Subscribe>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+              </Button>
+            )}
+          </form.Subscribe>
+        </FieldGroup>
+      </form>
     </div>
   )
 }

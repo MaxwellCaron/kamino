@@ -5,15 +5,17 @@ import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
-import { ensureAuth } from "@/features/auth/api/auth-api"
+import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 import { PodBreadcrumbs } from "@/features/pods/components/pod-breadcrumbs"
 
 const keepSidebarCollapsed = () => {}
 
 export const Route = createFileRoute("/_pods")({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ context, location }) => {
     try {
-      const session = await ensureAuth()
+      const session = await context.queryClient.fetchQuery(
+        authSessionQueryOptions
+      )
       return { user: session.user }
     } catch {
       throw redirect({
