@@ -14,8 +14,8 @@ import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
 import type { ApiTreeNode } from "../../types/inventory-types"
 
-const FAVORITES_COLLAPSED_STORAGE_KEY = "kamino-favorite-inventory-collapsed"
-const favoritesCollapsedListeners = new Set<() => void>()
+const FAVORITES_OPEN_STORAGE_KEY = "kamino-favorite-inventory-open"
+const favoritesOpenListeners = new Set<() => void>()
 
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 4 },
@@ -42,17 +42,17 @@ const sectionVariants: Variants = {
   },
 }
 
-function subscribeToFavoritesCollapsed(onStoreChange: () => void) {
-  favoritesCollapsedListeners.add(onStoreChange)
+function subscribeToFavoritesOpen(onStoreChange: () => void) {
+  favoritesOpenListeners.add(onStoreChange)
 
   if (typeof window === "undefined") {
     return () => {
-      favoritesCollapsedListeners.delete(onStoreChange)
+      favoritesOpenListeners.delete(onStoreChange)
     }
   }
 
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === FAVORITES_COLLAPSED_STORAGE_KEY) {
+    if (event.key === FAVORITES_OPEN_STORAGE_KEY) {
       onStoreChange()
     }
   }
@@ -60,46 +60,46 @@ function subscribeToFavoritesCollapsed(onStoreChange: () => void) {
   window.addEventListener("storage", handleStorage)
 
   return () => {
-    favoritesCollapsedListeners.delete(onStoreChange)
+    favoritesOpenListeners.delete(onStoreChange)
     window.removeEventListener("storage", handleStorage)
   }
 }
 
-function emitFavoritesCollapsedChange() {
-  for (const listener of favoritesCollapsedListeners) {
+function emitFavoritesOpenChange() {
+  for (const listener of favoritesOpenListeners) {
     listener()
   }
 }
 
-function readFavoritesCollapsedSnapshot() {
-  if (typeof window === "undefined") return "false"
-  return localStorage.getItem(FAVORITES_COLLAPSED_STORAGE_KEY) ?? "false"
+function readFavoritesOpenSnapshot() {
+  if (typeof window === "undefined") return "true"
+  return localStorage.getItem(FAVORITES_OPEN_STORAGE_KEY) ?? "true"
 }
 
-function parseFavoritesCollapsed(snapshot: string) {
-  return snapshot === "true"
+function parseFavoritesOpen(snapshot: string) {
+  return snapshot !== "false"
 }
 
-function writeFavoritesCollapsed(collapsed: boolean) {
+function writeFavoritesOpen(open: boolean) {
   if (typeof window === "undefined") return
-  localStorage.setItem(FAVORITES_COLLAPSED_STORAGE_KEY, String(collapsed))
-  emitFavoritesCollapsedChange()
+  localStorage.setItem(FAVORITES_OPEN_STORAGE_KEY, String(open))
+  emitFavoritesOpenChange()
 }
 
 function useFavoritesSectionState() {
   const snapshot = useSyncExternalStore(
-    subscribeToFavoritesCollapsed,
-    readFavoritesCollapsedSnapshot,
-    () => "false"
+    subscribeToFavoritesOpen,
+    readFavoritesOpenSnapshot,
+    () => "true"
   )
 
-  const favoritesCollapsed = parseFavoritesCollapsed(snapshot)
+  const favoritesOpen = parseFavoritesOpen(snapshot)
 
-  const setFavoritesCollapsed = useCallback((collapsed: boolean) => {
-    writeFavoritesCollapsed(collapsed)
+  const setFavoritesOpen = useCallback((open: boolean) => {
+    writeFavoritesOpen(open)
   }, [])
 
-  return { favoritesCollapsed, setFavoritesCollapsed }
+  return { favoritesOpen, setFavoritesOpen }
 }
 
 function FavoriteItemCard({
@@ -175,8 +175,7 @@ export function InventoryFavoritesSection() {
     getItemData,
     handleFavoritePrimaryAction,
   } = useInventoryTreeContext()
-  const { favoritesCollapsed, setFavoritesCollapsed } =
-    useFavoritesSectionState()
+  const { favoritesOpen, setFavoritesOpen } = useFavoritesSectionState()
 
   const favoriteItems = useMemo(() => {
     const result: Array<ApiTreeNode> = []
@@ -190,17 +189,14 @@ export function InventoryFavoritesSection() {
   }, [favoriteIds, getItemData])
 
   return (
-    <Collapsible
-      open={!favoritesCollapsed}
-      onOpenChange={(open) => setFavoritesCollapsed(!open)}
-    >
+    <Collapsible open={favoritesOpen} onOpenChange={setFavoritesOpen}>
       <div className="flex flex-col">
         <CollapsibleTrigger className="group/collapsible-trigger flex w-full items-center gap-1 rounded-2xl px-2 py-1 text-left text-xs font-medium text-sidebar-foreground/70 transition-colors hover:bg-muted/50">
           <span>Favorites ({favoriteItems.length})</span>
           <IconChevronDown className="ml-auto size-3.5 transition-transform group-data-panel-open/collapsible-trigger:rotate-180" />
         </CollapsibleTrigger>
         <AnimatePresence initial={false}>
-          {!favoritesCollapsed && (
+          {favoritesOpen && (
             <CollapsibleContent>
               <motion.div
                 layout
