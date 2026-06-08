@@ -1,0 +1,36 @@
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import { cn } from "@workspace/ui/lib/utils"
+import type { DashboardStat } from "./dashboard-home-types"
+
+export function DashboardStatsGrid({
+  className,
+  stats,
+}: {
+  className?: string
+  stats: Array<DashboardStat>
+}) {
+  return (
+    <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
+      {stats.map((stat) => {
+        const Icon = stat.icon
+
+        return (
+          <Card key={stat.label} className="min-h-36">
+            <CardHeader className="pb-2">
+              <Icon className="text-muted-foreground" />
+              <CardDescription className="mt-4">{stat.label}</CardDescription>
+              <CardTitle className="text-4xl font-extrabold tracking-tight text-balance">
+                {stat.value}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}

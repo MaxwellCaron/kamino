@@ -1,64 +1,43 @@
 import { Suspense, lazy, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconSettings } from "@tabler/icons-react"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
+  IconClock,
+  IconCopy,
+  IconDeviceDesktop,
+  IconPlayerPlay,
+} from "@tabler/icons-react"
 import {
   countAccessibleInventory,
-  getRecentActivityTitle,
   getRequestSortTime,
-  getRequestTargetLabel,
   indexInventoryTree,
 } from "../utils/dashboard-utils"
+import {
+  buildQuestionActivityData,
+  countVmStatusSummary,
+  toTime,
+} from "../utils/dashboard-home-utils"
+import { DashboardActivityTableCard } from "./dashboard-activity-table-card"
 import { getDashboardActivityColumns } from "./dashboard-activity-columns"
+import { DashboardCurrentClonedPodCard } from "./dashboard-current-cloned-pod-card"
+import { DashboardFavoritesCard } from "./dashboard-favorites-card"
 import { DashboardHomeSkeleton } from "./dashboard-home-skeleton"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import { DashboardProfileCard } from "./dashboard-profile-card"
+import { DashboardQuestionActivityCard } from "./dashboard-question-activity-card"
+import { DashboardRecentPodsCard } from "./dashboard-recent-pods-card"
+import { DashboardStatsGrid } from "./dashboard-stats-grid"
+import type { ClonedPodEntry } from "./dashboard-home-types"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
-import { DataTable } from "@/components/data-table/data-table"
-import { GrainientBackground } from "@/components/grainient-background"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
+import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import {
   requestDetailQueryOptions,
   requesterRequestsQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
-const dashboardTabs = ["Overview", "Activity"] as const
 const ChangePasswordDialog = lazy(() =>
   import("./change-password-dialog").then((module) => ({
     default: module.ChangePasswordDialog,
@@ -85,12 +64,17 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const historyRequestsQuery = useQuery(
     requesterRequestsQueryOptions("history")
   )
+  const catalogQuery = useQuery(podCatalogQueryOptions)
   const detailQuery = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
     enabled: !!selectedRequestId,
   })
   const { favoriteIds } = useInventoryFavorites()
-  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
+  const vmStatusQuery = useQuery(vmStatusQueryOptions)
+  const visiblePods = catalogQuery.data ?? []
+  const cloneQueries = useQueries({
+    queries: visiblePods.map((pod) => clonedPodQueryOptions(pod.slug)),
+  })
 
   const inventoryStats = useMemo(
     () => countAccessibleInventory(treeQuery.data ?? []),
@@ -100,6 +84,11 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const inventoryItemsById = useMemo(
     () => indexInventoryTree(treeQuery.data ?? []),
     [treeQuery.data]
+  )
+
+  const vmStatusSummary = useMemo(
+    () => countVmStatusSummary(inventoryItemsById, vmStatusQuery.data),
+    [inventoryItemsById, vmStatusQuery.data]
   )
 
   const favorites = useMemo(
@@ -124,7 +113,35 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     [historyRequestsQuery.data, pendingRequestsQuery.data]
   )
 
-  const recentRequests = requests.slice(0, 4)
+  const recentPods = useMemo(
+    () =>
+      [...visiblePods]
+        .sort(
+          (left, right) => toTime(right.created_at) - toTime(left.created_at)
+        )
+        .slice(0, 3),
+    [visiblePods]
+  )
+  const clonedPodEntries = cloneQueries.flatMap<ClonedPodEntry>(
+    (query, index) => {
+      const clonedPod = query.data
+      const pod = visiblePods[index]
+
+      return clonedPod ? [{ clonedPod, pod }] : []
+    }
+  )
+  const currentClonedPod =
+    [...clonedPodEntries].sort(
+      (left, right) =>
+        toTime(right.clonedPod.cloned_at) - toTime(left.clonedPod.cloned_at)
+    )[0] ?? null
+  const questionActivityData = useMemo(
+    () => buildQuestionActivityData(clonedPodEntries),
+    [clonedPodEntries]
+  )
+  const cloneStatusLoading = cloneQueries.some((query) => query.isLoading)
+  const cloneStatusError =
+    cloneQueries.find((query) => query.error)?.error ?? null
 
   const activityColumns = useMemo(
     () =>
@@ -139,20 +156,29 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const activityLoading =
     pendingRequestsQuery.isLoading || historyRequestsQuery.isLoading
-  const isDashboardLoading = treeQuery.isLoading || activityLoading
+  const isDashboardLoading =
+    treeQuery.isLoading || activityLoading || catalogQuery.isLoading
 
   const stats = [
     {
-      label: "Groups",
-      value: String(user.group_count),
-    },
-    {
-      label: "Folders",
-      value: String(inventoryStats.folders),
-    },
-    {
+      icon: IconDeviceDesktop,
       label: "Virtual Machines",
       value: String(inventoryStats.vms),
+    },
+    {
+      icon: IconPlayerPlay,
+      label: "Running VMs",
+      value: vmStatusQuery.isLoading ? "—" : String(vmStatusSummary.running),
+    },
+    {
+      icon: IconCopy,
+      label: "Cloned Pods",
+      value: String(clonedPodEntries.length),
+    },
+    {
+      icon: IconClock,
+      label: "Pending Requests",
+      value: String(pendingRequestsQuery.data?.length ?? 0),
     },
   ]
   const roleLabel = getManagementRoleLabel(user.management_permissions)
@@ -162,201 +188,45 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   }
 
   return (
-    <>
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-          <Card className="min-h-[90vh] rounded-4xl pt-0">
-            <div className="relative h-48 w-full overflow-hidden">
-              <GrainientBackground />
-            </div>
-
-            <CardHeader className="relative mx-auto -mt-18.5 flex w-full max-w-5xl items-end justify-between gap-4 px-4 sm:px-6">
-              <div className="flex min-w-0 items-end gap-4">
-                <FacehashIcon name={user.username} size={80} />
-                <div className="min-w-0 pb-2">
-                  <CardTitle className="truncate text-2xl tracking-tight">
-                    {user.username}
-                  </CardTitle>
-                  <CardDescription>{roleLabel}</CardDescription>
-                </div>
-              </div>
-              <CardAction className="shrink-0 self-end pb-2">
-                <Button type="button" onClick={() => setSettingsOpen(true)}>
-                  <IconSettings data-icon="inline-start" />
-                  Settings
-                </Button>
-              </CardAction>
-            </CardHeader>
-
-            <CardContent className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pb-4 sm:px-6">
-              <Tabs defaultValue="Overview" className="w-full">
-                <div className="flex flex-col gap-3 border-b border-border/60 lg:flex-row lg:items-center lg:justify-between">
-                  <TabsList variant="line">
-                    {dashboardTabs.map((tab) => (
-                      <TabsTrigger key={tab} value={tab}>
-                        {tab}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                  <div className="order-first flex flex-wrap items-center gap-4 pb-3 text-xs text-muted-foreground lg:order-0 lg:justify-end lg:pb-0">
-                    {stats.map((stat) => (
-                      <span key={stat.label}>
-                        <span className="font-mono text-foreground">
-                          {stat.value}
-                        </span>{" "}
-                        {stat.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <TabsContent value="Overview" className="mt-6">
-                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-                    <section>
-                      <div className="font-semibold text-muted-foreground">
-                        Favorites
-                      </div>
-                      <div className="mt-3 flex flex-col gap-4">
-                        {favorites.length > 0 ? (
-                          favorites.map((favorite) => {
-                            const vmid = favorite.vm?.vmid
-                            const status =
-                              vmid !== undefined
-                                ? vmStatuses?.[vmid]
-                                : undefined
-
-                            return (
-                              <Item
-                                key={favorite.id}
-                                variant="muted"
-                                size="sm"
-                                className="cursor-pointer"
-                                render={
-                                  <Link
-                                    to="/inventory/items/$itemId"
-                                    params={{ itemId: favorite.id }}
-                                  >
-                                    <ItemMedia>
-                                      <VmIcon
-                                        status={status}
-                                        isTemplate={favorite.vm?.is_template}
-                                      />
-                                    </ItemMedia>
-                                    <ItemContent>
-                                      <ItemTitle>{favorite.name}</ItemTitle>
-                                      <ItemDescription>
-                                        {favorite.vm?.is_template
-                                          ? "Template"
-                                          : "Virtual Machine"}
-                                      </ItemDescription>
-                                    </ItemContent>
-                                    <ItemActions>
-                                      <IconArrowUpRight className="size-4" />
-                                    </ItemActions>
-                                  </Link>
-                                }
-                              />
-                            )
-                          })
-                        ) : (
-                          <Empty className="rounded-3xl border border-dashed p-8">
-                            <EmptyHeader>
-                              <EmptyMedia variant="icon">
-                                <IconArrowUpRight />
-                              </EmptyMedia>
-                              <EmptyTitle>No favorites yet</EmptyTitle>
-                              <EmptyDescription>
-                                Add VMs to favorites from the inventory tree to
-                                pin them here.
-                              </EmptyDescription>
-                            </EmptyHeader>
-                          </Empty>
-                        )}
-                      </div>
-                    </section>
-
-                    <section>
-                      <div className="font-semibold text-muted-foreground">
-                        Recent activity
-                      </div>
-                      {recentRequests.length > 0 ? (
-                        <ul className="mt-3 flex flex-col gap-2.5">
-                          {recentRequests.map((request) => (
-                            <li
-                              key={request.id}
-                              className="flex min-w-0 items-baseline gap-2 text-sm text-foreground/85"
-                            >
-                              <span className="size-1.5 rounded-full bg-foreground/40" />
-                              <span className="min-w-0 shrink truncate text-muted-foreground">
-                                {getRecentActivityTitle(request)}
-                              </span>
-                              <Badge
-                                className="shrink-0"
-                                render={
-                                  request.inventory?.item_id ? (
-                                    <Link
-                                      to="/inventory/items/$itemId"
-                                      params={{
-                                        itemId: request.inventory.item_id,
-                                      }}
-                                    >
-                                      {getRequestTargetLabel(request)}
-                                      <IconArrowUpRight data-icon="inline-end" />
-                                    </Link>
-                                  ) : (
-                                    <span>
-                                      {getRequestTargetLabel(request)}
-                                    </span>
-                                  )
-                                }
-                              />
-                              <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/80">
-                                <RelativeTimeCard
-                                  date={
-                                    request.created_at ??
-                                    new Date().toISOString()
-                                  }
-                                  display="relative"
-                                  timezones={["UTC"]}
-                                  delay={50}
-                                  closeDelay={150}
-                                  variant="muted"
-                                />
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <Empty className="mt-3 rounded-3xl border border-dashed p-8">
-                          <EmptyHeader>
-                            <EmptyTitle>No request activity</EmptyTitle>
-                            <EmptyDescription>
-                              Requests you submit for VM power actions and
-                              snapshots will appear here.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                        </Empty>
-                      )}
-                    </section>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="Activity" className="mt-6">
-                  <div className="rounded-4xl border py-6">
-                    <DataTable
-                      columns={activityColumns}
-                      data={requests}
-                      isLoading={activityLoading}
-                      error={activityError}
-                      initialPageSize={10}
-                      getRowId={(request: ApiRequestSummary) => request.id}
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
+    <div className="@container/main flex flex-1 flex-col gap-2">
+      <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
+        <DashboardStatsGrid className="xl:col-span-7" stats={stats} />
+        <DashboardProfileCard
+          className="xl:col-span-5"
+          roleLabel={roleLabel}
+          user={user}
+          onSettingsClick={() => setSettingsOpen(true)}
+        />
+        <DashboardQuestionActivityCard
+          className="xl:col-span-4"
+          data={questionActivityData}
+          error={cloneStatusError}
+          isLoading={cloneStatusLoading}
+        />
+        <DashboardCurrentClonedPodCard
+          className="xl:col-span-8"
+          entry={currentClonedPod}
+          error={cloneStatusError}
+          isLoading={cloneStatusLoading}
+        />
+        <DashboardRecentPodsCard
+          className="xl:col-span-12"
+          error={catalogQuery.error}
+          pods={recentPods}
+          totalPods={visiblePods.length}
+        />
+        <DashboardActivityTableCard
+          className="xl:col-span-9"
+          columns={activityColumns}
+          data={requests}
+          error={activityError}
+          isLoading={activityLoading}
+        />
+        <DashboardFavoritesCard
+          className="xl:col-span-3"
+          favorites={favorites}
+          vmStatuses={vmStatusQuery.data}
+        />
       </div>
 
       <Suspense fallback={null}>
@@ -384,6 +254,6 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           />
         )}
       </Suspense>
-    </>
+    </div>
   )
 }

@@ -121,6 +121,7 @@ export function ChangePasswordDialog({
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined
                     }
+                    placeholder="************"
                   />
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </FieldContent>
@@ -156,6 +157,7 @@ export function ChangePasswordDialog({
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined
                     }
+                    placeholder="************"
                   />
                   <FieldDescription>
                     Use at least 8 characters.
@@ -180,6 +182,7 @@ export function ChangePasswordDialog({
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
+                    placeholder="************"
                   />
                 </FieldContent>
               </Field>
@@ -193,7 +196,7 @@ export function ChangePasswordDialog({
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Updating..." : "Update Password"}
+                {isSubmitting ? "Updating..." : "Update"}
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>
