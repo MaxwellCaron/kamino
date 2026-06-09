@@ -8,6 +8,8 @@ import {
   transformerNotationWordHighlight,
 } from "@shikijs/transformers"
 import { IconCheck, IconCopy } from "@tabler/icons-react"
+import { createBundledHighlighter } from "shiki/core"
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 import {
   createContext,
   useCallback,
@@ -86,7 +88,6 @@ import {
   SiVuedotjs,
   SiWebassembly,
 } from "react-icons/si"
-import { codeToHtml } from "shiki"
 import { Button } from "@workspace/ui/components/button"
 import {
   Select,
@@ -98,7 +99,8 @@ import {
 } from "@workspace/ui/components/select"
 import { cn } from "@workspace/ui/lib/utils"
 import type { IconType } from "react-icons"
-import type { BundledLanguage, CodeOptionsMultipleThemes } from "shiki"
+import type { BundledLanguage } from "shiki"
+import type { CodeOptionsMultipleThemes } from "shiki/core"
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 
 export type { BundledLanguage } from "shiki"
@@ -333,35 +335,114 @@ const codeBlockClassName = cn(
   "[&_.line]:relative"
 )
 
+const highlightLanguageLoaders = {
+  bash: () => import("shiki/langs/bash.mjs"),
+  css: () => import("shiki/langs/css.mjs"),
+  docker: () => import("shiki/langs/docker.mjs"),
+  go: () => import("shiki/langs/go.mjs"),
+  html: () => import("shiki/langs/html.mjs"),
+  javascript: () => import("shiki/langs/javascript.mjs"),
+  json: () => import("shiki/langs/json.mjs"),
+  jsonc: () => import("shiki/langs/jsonc.mjs"),
+  jsx: () => import("shiki/langs/jsx.mjs"),
+  markdown: () => import("shiki/langs/markdown.mjs"),
+  sql: () => import("shiki/langs/sql.mjs"),
+  tsx: () => import("shiki/langs/tsx.mjs"),
+  typescript: () => import("shiki/langs/typescript.mjs"),
+  yaml: () => import("shiki/langs/yaml.mjs"),
+}
+
+const highlightThemeLoaders = {
+  "github-dark-default": () => import("shiki/themes/github-dark-default.mjs"),
+  "github-light": () => import("shiki/themes/github-light.mjs"),
+}
+
+type HighlightLanguage = keyof typeof highlightLanguageLoaders
+type HighlightTheme = keyof typeof highlightThemeLoaders
+
+const highlightLanguageNames = Object.keys(
+  highlightLanguageLoaders
+) as Array<HighlightLanguage>
+
+const languageAliases: Record<string, HighlightLanguage> = {
+  dockerfile: "docker",
+  js: "javascript",
+  md: "markdown",
+  sh: "bash",
+  shell: "bash",
+  shellscript: "bash",
+  ts: "typescript",
+  yml: "yaml",
+  zsh: "bash",
+}
+
+const createHighlighter = createBundledHighlighter<
+  HighlightLanguage,
+  HighlightTheme
+>({
+  engine: () => createJavaScriptRegexEngine(),
+  langs: highlightLanguageLoaders,
+  themes: highlightThemeLoaders,
+})
+
+const highlighterPromise = createHighlighter({
+  langs: highlightLanguageNames,
+  langAlias: languageAliases,
+  themes: ["github-light", "github-dark-default"],
+})
+
+function getHighlightLanguage(language?: string): HighlightLanguage | null {
+  const normalized = language?.toLowerCase()
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized in highlightLanguageLoaders) {
+    return normalized as HighlightLanguage
+  }
+
+  return languageAliases[normalized] ?? null
+}
+
 const highlight = (
   html: string,
   language?: BundledLanguage,
   themes?: CodeOptionsMultipleThemes["themes"]
-) =>
-  codeToHtml(html, {
-    lang: language ?? "typescript",
-    themes: themes ?? {
-      light: "github-light",
-      dark: "github-dark-default",
-    },
-    transformers: [
-      transformerNotationDiff({
-        matchAlgorithm: "v3",
-      }),
-      transformerNotationHighlight({
-        matchAlgorithm: "v3",
-      }),
-      transformerNotationWordHighlight({
-        matchAlgorithm: "v3",
-      }),
-      transformerNotationFocus({
-        matchAlgorithm: "v3",
-      }),
-      transformerNotationErrorLevel({
-        matchAlgorithm: "v3",
-      }),
-    ],
-  })
+) => {
+  const highlightLanguage = getHighlightLanguage(language)
+
+  if (!highlightLanguage) {
+    return Promise.resolve(null)
+  }
+
+  return highlighterPromise.then((highlighter) =>
+    highlighter.codeToHtml(html, {
+      lang: highlightLanguage,
+      themes: themes ?? {
+        light: "github-light",
+        dark: "github-dark-default",
+      },
+      transformers: [
+        transformerNotationDiff({
+          matchAlgorithm: "v3",
+        }),
+        transformerNotationHighlight({
+          matchAlgorithm: "v3",
+        }),
+        transformerNotationWordHighlight({
+          matchAlgorithm: "v3",
+        }),
+        transformerNotationFocus({
+          matchAlgorithm: "v3",
+        }),
+        transformerNotationErrorLevel({
+          matchAlgorithm: "v3",
+        }),
+      ],
+    })
+  )
+}
 
 type CodeBlockData = {
   language: string
@@ -747,8 +828,7 @@ export const CodeBlockContent = ({
 
     highlight(children as string, language, themes)
       .then(setHtml)
-      // biome-ignore lint/suspicious/noConsole: "it's fine"
-      .catch(console.error)
+      .catch(() => setHtml(null))
   }, [children, themes, syntaxHighlighting, language])
 
   if (!(syntaxHighlighting && html)) {

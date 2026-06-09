@@ -26,6 +26,7 @@ dist
 .nitro
 .tanstack
 .vinxi
+apps/api/bin/
 
 # Debug
 npm-debug.log*

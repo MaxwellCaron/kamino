@@ -9,7 +9,7 @@ import {
 } from "@workspace/ui/components/card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-export function VmPageSkeleton() {
+export function VmDashboardSkeleton() {
   return (
     <div
       aria-busy="true"
