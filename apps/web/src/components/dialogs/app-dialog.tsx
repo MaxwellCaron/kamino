@@ -98,10 +98,11 @@ export function AppAlertDialogContent({
   title,
   variant = "default",
   open,
+  className,
   ...props
 }: AppAlertDialogContentProps) {
   return (
-    <AlertDialogContent {...props}>
+    <AlertDialogContent className={cn("sm:max-w-xl", className)} {...props}>
       <Freeze freeze={open === false}>
         <AppAlertDialogHeader
           description={description}
@@ -166,10 +167,11 @@ export function AppDialogContent({
   title,
   variant = "default",
   open,
+  className,
   ...props
 }: AppDialogContentProps) {
   return (
-    <DialogContent {...props}>
+    <DialogContent className={cn("sm:max-w-xl", className)} {...props}>
       <Freeze freeze={open === false}>
         <AppDialogHeader
           description={description}

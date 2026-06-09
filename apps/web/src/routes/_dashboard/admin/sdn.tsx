@@ -1,9 +1,11 @@
-import { Navigate, createFileRoute } from "@tanstack/react-router"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import { IconNetwork, IconPlus, IconTrash } from "@tabler/icons-react"
+import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -12,24 +14,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiVNet } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
-  deleteVNet,
   hasManagementPermission,
-  vnetsQueryOptions,
-} from "@/lib/queries"
-import { useItemDialogState } from "@/hooks/use-item-dialog-state"
-import { VNetDialog } from "@/components/vnet/vnet-dialog"
-import { getVNetColumns } from "@/components/vnet/vnets-columns"
+} from "@/features/auth/utils/management-permissions"
+import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
+import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
+import { pageTitle } from "@/features/shared/utils/page-title"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const VNetDialog = lazy(() =>
+  import("@/features/sdn/components/vnet-dialog").then((module) => ({
+    default: module.VNetDialog,
+  }))
+)
 
 export const Route = createFileRoute("/_dashboard/admin/sdn")({
+  head: () => pageTitle("SDN"),
   component: SdnPage,
 })
 
@@ -51,11 +67,7 @@ function SdnPage() {
     ...vnetsQueryOptions,
     enabled: canAdminister,
   })
-  const vnetCountLabel = isLoading
-    ? "..."
-    : error
-      ? "!"
-      : String(vnets?.length ?? 0)
+  const vnetCountLabel = error ? "!" : String(vnets?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiVNet>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
@@ -75,7 +87,7 @@ function SdnPage() {
 
       if (failedCount === 1) {
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} VNets`)
@@ -84,7 +96,7 @@ function SdnPage() {
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -112,6 +124,10 @@ function SdnPage() {
     return <Navigate to="/" />
   }
 
+  if (isLoading) {
+    return <TablePageSkeleton titleWidth="w-32" />
+  }
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
@@ -131,7 +147,7 @@ function SdnPage() {
               {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
-                  disabled={isLoading || error !== null}
+                  disabled={error !== null}
                 >
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
@@ -189,20 +205,24 @@ function SdnPage() {
         </Card>
       </div>
 
-      {canAdminister ? (
-        <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
+      <Suspense fallback={null}>
+        {canAdminister && createOpen ? (
+          <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
+        ) : null}
 
-      {canAdminister && editDialog.data ? (
-        <VNetDialog
-          key={editDialog.dialogKey}
-          vnet={editDialog.data}
-          open={editDialog.open}
-          onOpenChange={editDialog.onOpenChange}
-        />
-      ) : null}
+        {canAdminister && editDialog.data ? (
+          <VNetDialog
+            key={editDialog.dialogKey}
+            vnet={editDialog.data}
+            open={editDialog.open}
+            onOpenChange={editDialog.onOpenChange}
+          />
+        ) : null}
 
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

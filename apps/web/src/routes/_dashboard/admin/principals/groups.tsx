@@ -1,14 +1,16 @@
-import { Navigate, createFileRoute } from "@tanstack/react-router"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import {
   IconPlus,
   IconRefresh,
   IconTrash,
   IconUsersGroup,
 } from "@tabler/icons-react"
+import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -17,27 +19,57 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Badge } from "@workspace/ui/components/badge"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiPrincipal } from "@/lib/queries"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
+  hasManagementPermission,
+} from "@/features/auth/utils/management-permissions"
+import {
   deleteGroup,
   groupsQueryOptions,
-  hasManagementPermission,
   triggerADSync,
-} from "@/lib/queries"
-import { useItemDialogState } from "@/hooks/use-item-dialog-state"
-import { GroupDialog } from "@/components/principals/groups/group-dialog"
-import { GroupPermissionsDialog } from "@/components/principals/groups/group-permissions-dialog"
-import { MembershipDialog } from "@/components/principals/membership-dialog"
-import { getGroupColumns } from "@/components/principals/groups/groups-columns"
+} from "@/features/principals/api/principals-api"
+import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { pageTitle } from "@/features/shared/utils/page-title"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const GroupDialog = lazy(() =>
+  import("@/features/principals/components/groups/group-dialog").then(
+    (module) => ({
+      default: module.GroupDialog,
+    })
+  )
+)
+const GroupPermissionsDialog = lazy(() =>
+  import("@/features/principals/components/groups/group-permissions-dialog").then(
+    (module) => ({
+      default: module.GroupPermissionsDialog,
+    })
+  )
+)
+const MembershipDialog = lazy(() =>
+  import("@/features/principals/components/membership-dialog").then(
+    (module) => ({
+      default: module.MembershipDialog,
+    })
+  )
+)
 
 export const Route = createFileRoute("/_dashboard/admin/principals/groups")({
+  head: () => pageTitle("Groups"),
   component: GroupsPage,
 })
 
@@ -59,17 +91,21 @@ function GroupsPage() {
     ...groupsQueryOptions,
     enabled: canAdminister,
   })
-  const groupCountLabel = isLoading
-    ? "..."
-    : error
-      ? "!"
-      : String(groups?.length ?? 0)
+  const groupCountLabel = error ? "!" : String(groups?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const accessDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
+  const groupLabelsByID = useMemo(() => {
+    return new Map(
+      (groups ?? []).map((principal) => [
+        principal.id,
+        getGroupLabel(principal),
+      ])
+    )
+  }, [groups])
 
   const deleteMutation = useMutation({
     mutationFn: deleteGroup,
@@ -86,8 +122,10 @@ function GroupsPage() {
       }
 
       if (failedCount === 1) {
+        const failure = result.failed[0]
+        const groupLabel = groupLabelsByID.get(failure.id) ?? failure.id
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+          `Failed to delete ${groupLabel}: ${capitalizeFirstLetter(failure.error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} groups`)
@@ -96,7 +134,7 @@ function GroupsPage() {
       queryClient.invalidateQueries({ queryKey: ["principals", "groups"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -107,7 +145,7 @@ function GroupsPage() {
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -119,7 +157,7 @@ function GroupsPage() {
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onEditAccess: accessDialog.openWith,
-        onDeleteClick: (group) =>
+        onDeleteClick: (group: ApiPrincipal) =>
           setConfirm({
             title: "Delete Group",
             icon: IconTrash,
@@ -142,6 +180,10 @@ function GroupsPage() {
 
   if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
+  }
+
+  if (isLoading) {
+    return <TablePageSkeleton actionCount={2} titleWidth="w-40" />
   }
 
   return (
@@ -186,10 +228,16 @@ function GroupsPage() {
               data={groups || []}
               isLoading={isLoading}
               error={error}
-              getRowId={(group) => group.id}
+              getRowId={(group: ApiPrincipal) => group.id}
               renderSelectionActions={
                 canAdminister
-                  ? ({ clearSelection, selectedRows }) => (
+                  ? ({
+                      clearSelection,
+                      selectedRows,
+                    }: {
+                      clearSelection: () => void
+                      selectedRows: Array<ApiPrincipal>
+                    }) => (
                       <ActionBarItem
                         variant="destructive"
                         onSelect={(event) => event.preventDefault()}
@@ -209,7 +257,8 @@ function GroupsPage() {
                             onConfirm: async () => {
                               const result = await deleteMutation.mutateAsync(
                                 selectedRows.map(
-                                  (selectedGroup) => selectedGroup.id
+                                  (selectedGroup: ApiPrincipal) =>
+                                    selectedGroup.id
                                 )
                               )
                               if (result.failed.length === 0) {
@@ -230,37 +279,41 @@ function GroupsPage() {
         </Card>
       </div>
 
-      {canAdminister ? (
-        <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
-      {canAdminister && editDialog.data ? (
-        <GroupDialog
-          key={editDialog.dialogKey}
-          group={editDialog.data}
-          open={editDialog.open}
-          onOpenChange={editDialog.onOpenChange}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {canAdminister && createOpen ? (
+          <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+        ) : null}
+        {canAdminister && editDialog.data ? (
+          <GroupDialog
+            key={editDialog.dialogKey}
+            group={editDialog.data}
+            open={editDialog.open}
+            onOpenChange={editDialog.onOpenChange}
+          />
+        ) : null}
 
-      {canAdminister && membershipDialog.data ? (
-        <MembershipDialog
-          key={membershipDialog.dialogKey}
-          mode="group-members"
-          principal={membershipDialog.data}
-          open={membershipDialog.open}
-          onOpenChange={membershipDialog.onOpenChange}
-        />
-      ) : null}
-      {canAdminister && accessDialog.data ? (
-        <GroupPermissionsDialog
-          key={accessDialog.dialogKey}
-          group={accessDialog.data}
-          open={accessDialog.open}
-          onOpenChange={accessDialog.onOpenChange}
-        />
-      ) : null}
+        {canAdminister && membershipDialog.data ? (
+          <MembershipDialog
+            key={membershipDialog.dialogKey}
+            mode="group-members"
+            principal={membershipDialog.data}
+            open={membershipDialog.open}
+            onOpenChange={membershipDialog.onOpenChange}
+          />
+        ) : null}
+        {canAdminister && accessDialog.data ? (
+          <GroupPermissionsDialog
+            key={accessDialog.dialogKey}
+            group={accessDialog.data}
+            open={accessDialog.open}
+            onOpenChange={accessDialog.onOpenChange}
+          />
+        ) : null}
 
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

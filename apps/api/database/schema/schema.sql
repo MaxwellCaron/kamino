@@ -41,6 +41,7 @@ CREATE TYPE inventory_request_power_action AS ENUM (
     'reboot',
     'stop'
 );
+CREATE TYPE published_pod_status AS ENUM ('listed', 'unlisted');
 
 -- ----------------------------------------------------------------------------
 -- Permission bit definitions (reference)
@@ -186,6 +187,7 @@ CREATE TABLE inventory_items (
     kind                 inventory_item_kind NOT NULL,
     name                 TEXT NOT NULL,
     inherit_permissions  BOOLEAN NOT NULL DEFAULT true,
+    vm_limit             INTEGER NULL,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT inventory_items_name_not_empty
@@ -195,11 +197,18 @@ CREATE TABLE inventory_items (
     CONSTRAINT inventory_folder_name_frontend_compatible
         CHECK (kind <> 'folder' OR name ~ '^[A-Za-z][A-Za-z0-9-]{0,62}$'),
     CONSTRAINT inventory_root_must_be_folder
-        CHECK (parent_id IS NOT NULL OR kind = 'folder')
+        CHECK (parent_id IS NOT NULL OR kind = 'folder'),
+    CONSTRAINT inventory_folder_vm_limit_positive
+        CHECK (vm_limit IS NULL OR vm_limit > 0),
+    CONSTRAINT inventory_vm_limit_folders_only
+        CHECK (kind = 'folder' OR vm_limit IS NULL)
 );
 
 CREATE UNIQUE INDEX ux_inventory_items_root_folder_name
     ON inventory_items (name) WHERE parent_id IS NULL AND kind = 'folder';
+
+CREATE UNIQUE INDEX ux_inventory_items_child_folder_name
+    ON inventory_items (parent_id, name) WHERE parent_id IS NOT NULL AND kind = 'folder';
 
 CREATE INDEX ix_inventory_items_parent_kind_name
     ON inventory_items (parent_id, kind, name);
@@ -321,6 +330,10 @@ CREATE INDEX ix_requests_status_created_at
 CREATE INDEX ix_requests_requester_created_at
     ON requests (requester_principal_id, created_at DESC);
 
+CREATE INDEX ix_requests_pending_requester
+    ON requests (requester_principal_id)
+    WHERE status = 'pending';
+
 CREATE INDEX ix_requests_reviewer_created_at
     ON requests (reviewer_principal_id, created_at DESC);
 
@@ -350,6 +363,203 @@ CREATE TABLE inventory_requests (
 
 CREATE INDEX ix_inventory_requests_inventory_item_id
     ON inventory_requests (inventory_item_id);
+
+-- ----------------------------------------------------------------------------
+-- Published pod catalog
+-- ----------------------------------------------------------------------------
+CREATE TABLE published_pods (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title                   TEXT NOT NULL,
+    slug                    TEXT NOT NULL,
+    description             TEXT NOT NULL,
+    image_url               TEXT NOT NULL,
+    status                  published_pod_status NOT NULL DEFAULT 'listed',
+    source_folder_id        UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+    publisher_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    clone_count             INTEGER NOT NULL DEFAULT 0,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pods_title_not_empty
+        CHECK (length(trim(title)) > 0 AND length(title) <= 32),
+    CONSTRAINT published_pods_description_not_empty
+        CHECK (length(trim(description)) > 0 AND length(description) <= 128),
+    CONSTRAINT published_pods_image_url_not_empty
+        CHECK (length(trim(image_url)) > 0),
+    CONSTRAINT published_pods_slug_format
+        CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+    CONSTRAINT published_pods_clone_count_non_negative
+        CHECK (clone_count >= 0)
+);
+
+CREATE UNIQUE INDEX ux_published_pods_slug
+    ON published_pods (slug);
+
+CREATE INDEX ix_published_pods_status_created_at
+    ON published_pods (status, created_at DESC);
+
+CREATE INDEX ix_published_pods_source_folder_id
+    ON published_pods (source_folder_id);
+
+CREATE TABLE published_pod_creators (
+    pod_id        UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    sort_order    INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (pod_id, principal_id)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_creators_order
+    ON published_pod_creators (pod_id, sort_order);
+
+CREATE TABLE published_pod_audience (
+    pod_id        UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    sort_order    INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (pod_id, principal_id)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_audience_order
+    ON published_pod_audience (pod_id, sort_order);
+
+CREATE INDEX ix_published_pod_audience_principal
+    ON published_pod_audience (principal_id);
+
+CREATE TABLE published_pod_vms (
+    id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pod_id                    UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    source_inventory_item_id  UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+    name                      TEXT NOT NULL,
+    cpu_count                 INTEGER NOT NULL CHECK (cpu_count > 0),
+    memory_mb                 INTEGER NOT NULL CHECK (memory_mb > 0),
+    disk_gb                   NUMERIC(12,2) NOT NULL CHECK (disk_gb > 0),
+    allow_mask                BIGINT NOT NULL CHECK (allow_mask >= 0),
+    deny_mask                 BIGINT NOT NULL CHECK (deny_mask >= 0),
+    sort_order                INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pod_vms_name_not_empty
+        CHECK (length(trim(name)) > 0)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_vms_source
+    ON published_pod_vms (pod_id, source_inventory_item_id);
+
+CREATE UNIQUE INDEX ux_published_pod_vms_order
+    ON published_pod_vms (pod_id, sort_order);
+
+CREATE TABLE published_pod_tasks (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pod_id      UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    sort_order  INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pod_tasks_title_not_empty
+        CHECK (length(trim(title)) > 0 AND length(title) <= 64),
+    CONSTRAINT published_pod_tasks_content_not_empty
+        CHECK (length(trim(content)) > 0 AND length(content) <= 4096)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_tasks_order
+    ON published_pod_tasks (pod_id, sort_order);
+
+CREATE TABLE published_pod_task_questions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id         UUID NOT NULL REFERENCES published_pod_tasks(id) ON DELETE CASCADE,
+    title           TEXT NOT NULL,
+    answer_outline  TEXT NOT NULL,
+    description     TEXT NULL,
+    hint            TEXT NULL,
+    sort_order      INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT published_pod_task_questions_title_not_empty
+        CHECK (length(trim(title)) > 0 AND length(title) <= 256),
+    CONSTRAINT published_pod_task_questions_answer_not_empty
+        CHECK (length(trim(answer_outline)) > 0 AND length(answer_outline) <= 256),
+    CONSTRAINT published_pod_task_questions_hint_length
+        CHECK (hint IS NULL OR length(hint) <= 256)
+);
+
+CREATE UNIQUE INDEX ux_published_pod_task_questions_order
+    ON published_pod_task_questions (task_id, sort_order);
+
+-- ----------------------------------------------------------------------------
+-- User pod clones and task progress
+-- ----------------------------------------------------------------------------
+CREATE TABLE cloned_pods (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pod_id              UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    user_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    folder_id           UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (pod_id, user_principal_id),
+    UNIQUE (folder_id)
+);
+
+CREATE INDEX ix_cloned_pods_user_created_at
+    ON cloned_pods (user_principal_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE published_pods
+           SET clone_count = clone_count + 1
+         WHERE id = NEW.pod_id;
+        RETURN NEW;
+    END IF;
+
+    UPDATE published_pods
+       SET clone_count = GREATEST(clone_count - 1, 0)
+     WHERE id = OLD.pod_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_cloned_pods_update_clone_count_insert
+AFTER INSERT ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION published_pods_update_clone_count();
+
+CREATE TRIGGER trg_cloned_pods_update_clone_count_delete
+AFTER DELETE ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION published_pods_update_clone_count();
+
+CREATE TABLE cloned_pod_vms (
+    cloned_pod_id       UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    published_pod_vm_id UUID NOT NULL REFERENCES published_pod_vms(id) ON DELETE RESTRICT,
+    inventory_item_id   UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    sort_order          INTEGER NOT NULL CHECK (sort_order >= 0),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (cloned_pod_id, published_pod_vm_id),
+    UNIQUE (inventory_item_id),
+    UNIQUE (cloned_pod_id, sort_order)
+);
+
+CREATE TABLE cloned_pod_task_states (
+    cloned_pod_id   UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    task_id         UUID NOT NULL REFERENCES published_pod_tasks(id) ON DELETE CASCADE,
+    completed       BOOLEAN NOT NULL DEFAULT false,
+    completed_at    TIMESTAMPTZ NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (cloned_pod_id, task_id),
+    CONSTRAINT cloned_pod_task_states_completed_at_matches_state
+        CHECK ((completed AND completed_at IS NOT NULL) OR (NOT completed AND completed_at IS NULL))
+);
+
+CREATE TABLE cloned_pod_question_answers (
+    cloned_pod_id   UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    question_id     UUID NOT NULL REFERENCES published_pod_task_questions(id) ON DELETE CASCADE,
+    answer          TEXT NOT NULL,
+    is_correct      BOOLEAN NOT NULL DEFAULT false,
+    answered_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (cloned_pod_id, question_id),
+    CONSTRAINT cloned_pod_question_answers_answer_not_empty
+        CHECK (length(trim(answer)) > 0 AND length(answer) <= 256)
+);
 
 -- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
@@ -386,6 +596,21 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_requests_set_updated_at
 BEFORE UPDATE ON requests
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_published_pods_set_updated_at
+BEFORE UPDATE ON published_pods
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_cloned_pods_set_updated_at
+BEFORE UPDATE ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_cloned_pod_task_states_set_updated_at
+BEFORE UPDATE ON cloned_pod_task_states
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -480,6 +705,95 @@ FOR EACH ROW
 EXECUTE FUNCTION inventory_prevent_cycles();
 
 -- ----------------------------------------------------------------------------
+-- Folder VM/template limits
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION inventory_folder_effective_vm_limit(folder_id UUID)
+RETURNS INTEGER
+LANGUAGE sql
+STABLE
+AS $$
+    WITH RECURSIVE ancestors AS (
+        SELECT id, parent_id, vm_limit, 0 AS depth
+        FROM inventory_items
+        WHERE id = folder_id
+          AND kind = 'folder'
+
+        UNION ALL
+
+        SELECT parent.id, parent.parent_id, parent.vm_limit, ancestors.depth + 1
+        FROM inventory_items parent
+        JOIN ancestors
+          ON ancestors.parent_id = parent.id
+    )
+    SELECT vm_limit
+    FROM ancestors
+    WHERE vm_limit IS NOT NULL
+    ORDER BY depth ASC
+    LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION inventory_folder_vm_count(
+    folder_id UUID,
+    excluded_item_id UUID DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT COUNT(*)::INTEGER
+    FROM inventory_items
+    WHERE parent_id = folder_id
+      AND kind = 'vm'
+      AND (excluded_item_id IS NULL OR id <> excluded_item_id);
+$$;
+
+CREATE OR REPLACE FUNCTION inventory_enforce_folder_vm_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    current_vm_count INTEGER;
+    effective_vm_limit INTEGER;
+    excluded_id UUID;
+BEGIN
+    IF NEW.parent_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.kind <> 'vm' THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.parent_id IS NOT DISTINCT FROM OLD.parent_id THEN
+            RETURN NEW;
+        END IF;
+        excluded_id := OLD.id;
+    ELSE
+        excluded_id := NULL;
+    END IF;
+
+    effective_vm_limit := inventory_folder_effective_vm_limit(NEW.parent_id);
+    IF effective_vm_limit IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    current_vm_count := inventory_folder_vm_count(NEW.parent_id, excluded_id);
+    IF current_vm_count + 1 > effective_vm_limit THEN
+        RAISE EXCEPTION 'Folder limit exceeded';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_inventory_enforce_folder_vm_limit
+BEFORE INSERT OR UPDATE OF parent_id
+ON inventory_items
+FOR EACH ROW
+EXECUTE FUNCTION inventory_enforce_folder_vm_limit();
+
+-- ----------------------------------------------------------------------------
 -- Enforce:
 --   - proxmox_vms row must point to inventory_items.kind = 'vm'
 -- ----------------------------------------------------------------------------
@@ -550,6 +864,69 @@ BEFORE UPDATE OF kind
 ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION inventory_validate_kind_change();
+
+-- ----------------------------------------------------------------------------
+-- Ensure published pod inventory references keep their expected item kinds
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION published_pods_validate_source_folder()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    item_kind inventory_item_kind;
+BEGIN
+    SELECT kind
+      INTO item_kind
+      FROM inventory_items
+     WHERE id = NEW.source_folder_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Published Pod Folder does not exist';
+    END IF;
+
+    IF item_kind <> 'folder' THEN
+        RAISE EXCEPTION 'Published pod source must be a folder';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_published_pods_validate_source_folder
+BEFORE INSERT OR UPDATE OF source_folder_id
+ON published_pods
+FOR EACH ROW
+EXECUTE FUNCTION published_pods_validate_source_folder();
+
+CREATE OR REPLACE FUNCTION published_pod_vms_validate_source_vm()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    item_kind inventory_item_kind;
+BEGIN
+    SELECT kind
+      INTO item_kind
+      FROM inventory_items
+     WHERE id = NEW.source_inventory_item_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Published pod VM source does not exist';
+    END IF;
+
+    IF item_kind <> 'vm' THEN
+        RAISE EXCEPTION 'Published pod VM source must be a VM';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_published_pod_vms_validate_source_vm
+BEFORE INSERT OR UPDATE OF source_inventory_item_id
+ON published_pod_vms
+FOR EACH ROW
+EXECUTE FUNCTION published_pod_vms_validate_source_vm();
 
 -- ----------------------------------------------------------------------------
 -- Ensure group_memberships.group_id is actually a group
@@ -754,6 +1131,52 @@ BEFORE INSERT OR UPDATE OF permission_key
 ON management_permission_grants
 FOR EACH ROW
 EXECUTE FUNCTION management_permission_grants_validate_key();
+
+-- ----------------------------------------------------------------------------
+-- Limit users to three pending requests
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION requests_enforce_pending_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    pending_count INTEGER;
+BEGIN
+    IF NEW.status <> 'pending' THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE'
+       AND OLD.status = 'pending'
+       AND NEW.requester_principal_id = OLD.requester_principal_id THEN
+        RETURN NEW;
+    END IF;
+
+    PERFORM 1
+      FROM principals
+     WHERE id = NEW.requester_principal_id
+     FOR UPDATE;
+
+    SELECT count(*)::INTEGER
+      INTO pending_count
+      FROM requests
+     WHERE requester_principal_id = NEW.requester_principal_id
+       AND status = 'pending'
+       AND id <> NEW.id;
+
+    IF pending_count >= 3 THEN
+        RAISE EXCEPTION 'Users may only have 3 pending requests at a time';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_requests_enforce_pending_limit
+BEFORE INSERT OR UPDATE OF status, requester_principal_id
+ON requests
+FOR EACH ROW
+EXECUTE FUNCTION requests_enforce_pending_limit();
 
 -- ----------------------------------------------------------------------------
 -- Prevent mutating immutable request payload columns after submission

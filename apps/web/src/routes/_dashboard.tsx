@@ -2,18 +2,18 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
-import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
-import { InventoryTreeProvider } from "@/components/inventory/tree/inventory-tree"
+import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree"
 import { CommandManyItems } from "@/components/app-shell/site-command"
-import { InventoryEvents } from "@/components/inventory/inventory-events"
-import { VmStatusEvents } from "@/components/vm/vm-status-events"
-import { RequestEvents } from "@/components/requests/request-events"
-import { ensureAuth } from "@/lib/queries"
+import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
+import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_dashboard")({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ context, location }) => {
     try {
-      const session = await ensureAuth()
+      const session = await context.queryClient.fetchQuery(
+        authSessionQueryOptions
+      )
       return { user: session.user }
     } catch {
       throw redirect({
@@ -33,15 +33,14 @@ function Layout() {
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 96)",
+          "--sidebar-width-icon": "calc(var(--spacing) * 12)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties
       }
     >
-      <InventoryEvents />
-      <VmStatusEvents />
-      <RequestEvents />
-      <InventoryTreeProvider>
-        <InventoryDialogsProvider>
+      <DashboardEvents />
+      <InventoryDialogsProvider>
+        <InventoryTreeProvider>
           <AppSidebar user={user} variant="inset" />
           <SidebarInset>
             <SiteHeader command={<CommandManyItems />} />
@@ -49,8 +48,8 @@ function Layout() {
               <Outlet />
             </div>
           </SidebarInset>
-        </InventoryDialogsProvider>
-      </InventoryTreeProvider>
+        </InventoryTreeProvider>
+      </InventoryDialogsProvider>
     </SidebarProvider>
   )
 }

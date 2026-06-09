@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -27,12 +25,15 @@ type InventoryHandler struct {
 // JSON response types
 
 type TreeNode struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	Kind        string             `json:"kind"`
-	Permissions PermissionEnvelope `json:"permissions"`
-	Children    []TreeNode         `json:"children,omitempty"`
-	VM          *VMDetail          `json:"vm,omitempty"`
+	ID               uuid.UUID          `json:"id"`
+	Name             string             `json:"name"`
+	Kind             string             `json:"kind"`
+	DirectVMLimit    *int32             `json:"direct_vm_limit"`
+	EffectiveVMLimit *int32             `json:"effective_vm_limit"`
+	VMCount          *int32             `json:"vm_count"`
+	Permissions      PermissionEnvelope `json:"permissions"`
+	Children         []TreeNode         `json:"children,omitempty"`
+	VM               *VMDetail          `json:"vm,omitempty"`
 }
 
 type VMDetail struct {
@@ -51,6 +52,9 @@ type InventoryItem struct {
 	Kind               string             `json:"kind"`
 	Name               string             `json:"name"`
 	InheritPermissions bool               `json:"inherit_permissions"`
+	DirectVMLimit      *int32             `json:"direct_vm_limit"`
+	EffectiveVMLimit   *int32             `json:"effective_vm_limit"`
+	VMCount            *int32             `json:"vm_count"`
 	Permissions        PermissionEnvelope `json:"permissions"`
 	VM                 *VMDetail          `json:"vm,omitempty"`
 }
@@ -280,6 +284,11 @@ type moveInventoryItemRequest struct {
 	ParentID uuid.UUID `json:"parent_id" binding:"required"`
 }
 
+type moveInventoryItemsRequest struct {
+	ItemIDs  []uuid.UUID `json:"item_ids" binding:"required"`
+	ParentID uuid.UUID   `json:"parent_id" binding:"required"`
+}
+
 // MoveItem persists an inventory move initiated from drag and drop.
 // POST /api/v1/inventory/move
 func (h *InventoryHandler) MoveItem(c *gin.Context) {
@@ -336,6 +345,68 @@ func (h *InventoryHandler) MoveItem(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// MoveItems persists a bulk inventory move initiated from multiselect drag and drop.
+// POST /api/v1/inventory/move/bulk
+func (h *InventoryHandler) MoveItems(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	var req moveInventoryItemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+	if len(req.ItemIDs) == 0 {
+		writeInvalidRequest(c, "at least one item is required")
+		return
+	}
+
+	target, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, req.ParentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "parent not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory parent for move", err)
+		return
+	}
+
+	for _, itemID := range req.ItemIDs {
+		item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, itemID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+			return
+		}
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory item for move", err)
+			return
+		}
+
+		requiredOnItem := authorization.MoveFolder
+		requiredOnTarget := authorization.CreateFolder
+		if item.Kind == database.InventoryItemKindVm {
+			requiredOnItem = authorization.MoveVM
+			requiredOnTarget = authorization.CreateVM
+		}
+
+		if (item.AllowedMask&int64(requiredOnItem)) != int64(requiredOnItem) ||
+			(target.AllowedMask&int64(requiredOnTarget)) != int64(requiredOnTarget) {
+			writeForbidden(c)
+			return
+		}
+	}
+
+	if err := h.Service.MoveInventoryItems(c.Request.Context(), req.ItemIDs, req.ParentID); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 type createFolderRequest struct {
 	ParentID uuid.UUID `json:"parent_id" binding:"required"`
 	Name     string    `json:"name" binding:"required"`
@@ -383,6 +454,10 @@ type renameFolderRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+type updateFolderVMLimitRequest struct {
+	VMLimit *int32 `json:"vm_limit"`
+}
+
 // RenameFolder renames a folder without changing its identity.
 // POST /api/v1/inventory/folders/:id/rename
 func (h *InventoryHandler) RenameFolder(c *gin.Context) {
@@ -419,6 +494,49 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 	}
 
 	if err := h.Service.RenameFolder(c.Request.Context(), id, req.Name); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// UpdateFolderVMLimit sets or clears a folder's direct VM/template limit.
+// PUT /api/v1/inventory/folders/:id/vm-limit
+func (h *InventoryHandler) UpdateFolderVMLimit(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req updateFolderVMLimitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder limit update", "load inventory item for folder limit update", err)
+		return
+	}
+	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+		writeForbidden(c)
+		return
+	}
+
+	if err := h.Service.UpdateFolderVMLimit(c.Request.Context(), id, req.VMLimit); err != nil {
 		writeInventoryError(c, err)
 		return
 	}
@@ -490,58 +608,6 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// StreamEvents pushes inventory change events to connected browsers.
-// GET /api/v1/inventory/events
-func (h *InventoryHandler) StreamEvents(c *gin.Context) {
-	if h.Notifier == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "inventory events unavailable"})
-		return
-	}
-
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
-		return
-	}
-
-	events, unsubscribe := h.Notifier.Subscribe()
-	defer unsubscribe()
-
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-
-	fmt.Fprint(c.Writer, ": inventory stream connected\n\n")
-	flusher.Flush()
-
-	ticker := time.NewTicker(20 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-c.Request.Context().Done():
-			return
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-
-			payload, err := json.Marshal(event)
-			if err != nil {
-				continue
-			}
-
-			fmt.Fprintf(c.Writer, "event: %s\n", event.Type)
-			fmt.Fprintf(c.Writer, "data: %s\n\n", payload)
-			flusher.Flush()
-		case <-ticker.C:
-			fmt.Fprint(c.Writer, ": ping\n\n")
-			flusher.Flush()
-		}
-	}
-}
-
 // buildTree converts a flat list of inventory rows into a nested tree.
 func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNode {
 	nodes := make(map[uuid.UUID]*TreeNode, len(rows))
@@ -549,10 +615,13 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 
 	for _, row := range rows {
 		node := &TreeNode{
-			ID:          row.ID,
-			Name:        row.Name,
-			Kind:        string(row.Kind),
-			Permissions: inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
+			ID:               row.ID,
+			Name:             row.Name,
+			Kind:             string(row.Kind),
+			DirectVMLimit:    row.DirectVmLimit,
+			EffectiveVMLimit: positiveInt32Ptr(row.EffectiveVmLimit),
+			VMCount:          folderCountPtr(row.Kind, row.VmCount),
+			Permissions:      inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
 		}
 
 		if row.Node != nil {
@@ -599,6 +668,9 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 		Kind:               string(row.Kind),
 		Name:               row.Name,
 		InheritPermissions: row.InheritPermissions,
+		DirectVMLimit:      row.DirectVmLimit,
+		EffectiveVMLimit:   positiveInt32Ptr(row.EffectiveVmLimit),
+		VMCount:            folderCountPtr(row.Kind, row.VmCount),
 		Permissions:        inventoryPermissionEnvelope(row.Kind, row.AllowedMask, row.DeniedMask),
 	}
 
@@ -615,6 +687,20 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 	}
 
 	return item
+}
+
+func positiveInt32Ptr(value int32) *int32 {
+	if value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func folderCountPtr(kind database.InventoryItemKind, count int32) *int32 {
+	if kind != database.InventoryItemKindFolder {
+		return nil
+	}
+	return &count
 }
 
 func toVMDetail(node *string, vmid *int32, isTemplate *bool, notes *string, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {
@@ -663,6 +749,8 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
 		errors.Is(err, inventory.ErrInventoryItemNotFolder),
+		errors.Is(err, inventory.ErrInventoryFolderDepthExceeded),
+		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
 		errors.Is(err, names.ErrMustStartWithLetter),
@@ -670,7 +758,9 @@ func writeInventoryError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryInvalidMove),
 		errors.Is(err, inventory.ErrInventoryReservedFolder),
-		errors.Is(err, inventory.ErrInventoryFolderConflict):
+		errors.Is(err, inventory.ErrInventoryFolderConflict),
+		errors.Is(err, inventory.ErrInventoryFolderLimitExceeded),
+		errors.Is(err, inventory.ErrInventoryItemInUse):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)

@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -70,90 +68,6 @@ func (h *VMHandler) GetStatuses(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, filtered)
-}
-
-// StreamEvents pushes VM status updates to connected browsers.
-// GET /api/v1/vms/events
-func (h *VMHandler) StreamEvents(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	if h.Notifier == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vm events unavailable"})
-		return
-	}
-
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
-		return
-	}
-
-	events, unsubscribe := h.Notifier.Subscribe()
-	defer unsubscribe()
-
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-
-	fmt.Fprint(c.Writer, ": vm status stream connected\n\n")
-	flusher.Flush()
-
-	initialStatuses, err := h.Authz.FilterVisibleStatuses(c.Request.Context(), principalID, h.Notifier.Current())
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize VM statuses", "filter initial vm status event", err)
-		return
-	}
-
-	initialPayload, err := json.Marshal(vmstatus.Event{
-		Type:      "vm.statuses.changed",
-		Statuses:  initialStatuses,
-		Timestamp: time.Now().UTC(),
-	})
-	if err == nil {
-		fmt.Fprint(c.Writer, "event: vm.statuses.changed\n")
-		fmt.Fprintf(c.Writer, "data: %s\n\n", initialPayload)
-		flusher.Flush()
-	}
-
-	ticker := time.NewTicker(20 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-c.Request.Context().Done():
-			return
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-
-			filteredStatuses, err := h.Authz.FilterVisibleStatuses(c.Request.Context(), principalID, event.Statuses)
-			if err != nil {
-				return
-			}
-
-			payload, err := json.Marshal(vmstatus.Event{
-				Type:      event.Type,
-				Statuses:  filteredStatuses,
-				Timestamp: event.Timestamp,
-			})
-			if err != nil {
-				continue
-			}
-
-			fmt.Fprintf(c.Writer, "event: %s\n", event.Type)
-			fmt.Fprintf(c.Writer, "data: %s\n\n", payload)
-			flusher.Flush()
-		case <-ticker.C:
-			fmt.Fprint(c.Writer, ": ping\n\n")
-			flusher.Flush()
-		}
-	}
 }
 
 // GetResources returns cached resource metrics for a single VM.
@@ -774,6 +688,10 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), targetFolderID, 1); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
 
 	targetNode := strings.TrimSpace(req.Target)
 	if targetNode == "" {
@@ -811,11 +729,13 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	}
 
 	if err := h.PX.SetVMUpstreamUUID(c.Request.Context(), targetNode, newID, uuid.New()); err != nil {
+		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM identity failure")
 		writeLoggedError(c, http.StatusBadGateway, "failed to assign clone identity", "assign cloned vm upstream uuid", err)
 		return
 	}
 
 	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
+		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM pool sync failure")
 		writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
 		return
 	}
@@ -827,6 +747,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		newID,
 	)
 	if err != nil {
+		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM inventory sync failure")
 		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to sync inventory metadata", "sync cloned vm inventory metadata", err)
 		return
 	}

@@ -15,10 +15,12 @@ func RegisterRoutes(
 	vnc *handlers.VNCHandler,
 	vm *handlers.VMHandler,
 	vmCreate *handlers.VMCreateHandler,
+	pods *handlers.PodsHandler,
 	sdn *handlers.SDNHandler,
 	principals *handlers.PrincipalsHandler,
 	authz *handlers.AuthorizationHandler,
 	requests *handlers.RequestsHandler,
+	events *handlers.EventsHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -47,20 +49,24 @@ func RegisterRoutes(
 		protected.GET("/auth/me", authHandler.Me)
 	}
 
+	if events != nil {
+		protected.GET("/events", events.Stream)
+	}
+
 	// Inventory endpoints
 	protected.GET("/inventory/tree", inventory.GetTree)
 	protected.GET("/inventory/items/:id", inventory.GetItem)
 	protected.GET("/inventory/items/:id/acl", inventory.GetACL)
 	protected.PUT("/inventory/items/:id/acl", inventory.UpdateACL)
 	protected.POST("/inventory/move", inventory.MoveItem)
+	protected.POST("/inventory/move/bulk", inventory.MoveItems)
 	protected.POST("/inventory/folders", inventory.CreateFolder)
 	protected.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
+	protected.PUT("/inventory/folders/:id/vm-limit", inventory.UpdateFolderVMLimit)
 	protected.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
-	protected.GET("/inventory/events", inventory.StreamEvents)
 
 	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
-	protected.GET("/vms/events", vm.StreamEvents)
 	protected.POST("/inventory/vms/power", vm.PowerAction)
 	protected.POST("/inventory/vms/template", vm.ConvertToTemplate)
 	protected.DELETE("/inventory/vms", vm.DeleteVM)
@@ -85,6 +91,31 @@ func RegisterRoutes(
 	protected.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
 	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
 	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
+	protected.GET("/proxmox/cluster/usage-history", vmCreate.GetClusterUsageHistory)
+
+	// Pod endpoints
+	if pods != nil {
+		protected.GET("/pods/create/options", pods.GetCreateOptions)
+		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
+		protected.GET("/pods/publish/options", pods.GetPublishOptions)
+		protected.GET("/pods/published", pods.ListPublished)
+		protected.POST("/pods/published", pods.SavePublished)
+		protected.GET("/pods/published/progress/:id", pods.GetPublishedProgress)
+		protected.GET("/pods/published/:id", pods.GetPublished)
+		protected.PUT("/pods/published/:id", pods.SavePublished)
+		protected.DELETE("/pods/published/:id", pods.DeletePublished)
+		protected.PUT("/pods/published/:id/status", pods.UpdatePublishedStatus)
+		protected.GET("/pods/clones/progress/:id", pods.GetCloneProgress)
+		protected.POST("/pods/clones/:id/reclone", pods.RecloneClonedPod)
+		protected.POST("/pods/clones/:id/power", pods.PowerClonedPod)
+		protected.DELETE("/pods/clones/:id", pods.DeleteClonedPod)
+		protected.PUT("/pods/clones/:id/questions/:questionID", pods.AnswerClonedPodQuestion)
+		protected.GET("/pods/catalog", pods.ListCatalog)
+		protected.GET("/pods/catalog/:slug", pods.GetCatalogPod)
+		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
+		protected.POST("/pods/catalog/:slug/clone", pods.CloneCatalogPod)
+		protected.POST("/pods", pods.Create)
+	}
 
 	// SDN endpoints
 	protected.GET("/sdn/vnets", sdn.GetVNets)
@@ -100,7 +131,7 @@ func RegisterRoutes(
 
 	if requests != nil {
 		protected.GET("/requests", requests.List)
-		protected.GET("/requests/events", requests.StreamEvents)
+		protected.GET("/requests/mine", requests.ListMine)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots", requests.SubmitInventorySnapshotCreate)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots/rollback", requests.SubmitInventorySnapshotRollback)
@@ -117,6 +148,7 @@ func RegisterRoutes(
 		protected.DELETE("/principals/users", principals.DeleteUsers)
 		protected.PUT("/principals/users/:id", principals.UpdateUser)
 		protected.POST("/principals/users/:id/password", principals.SetPassword)
+		protected.POST("/principals/self/password", principals.ChangeOwnPassword)
 		protected.POST("/principals/users/:id/enable", principals.EnableUser)
 		protected.POST("/principals/users/:id/disable", principals.DisableUser)
 		protected.GET("/principals/users/:id/groups", principals.GetUserGroups)

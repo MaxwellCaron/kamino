@@ -16,7 +16,9 @@ import { Input } from "@workspace/ui/components/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
@@ -33,31 +35,22 @@ import {
 import { useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import type { ReactNode } from "react"
+import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
   ColumnDef,
-  RowData,
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
 import { loadingTransition } from "@/components/loading-transition"
 
-declare module "@tanstack/react-table" {
-  interface ColumnMeta<TData extends RowData, TValue> {
-    className?: string
-  }
-}
-
-type DataTableSelectionActionsContext<TData> = {
-  clearSelection: () => void
-  selectedRows: Array<TData>
-}
-
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
-  isLoading: boolean
+  isLoading?: boolean
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
+  initialPageSize?: number
+  showSelectionSummary?: boolean
   renderSelectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
@@ -66,9 +59,11 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
-  isLoading,
+  isLoading = false,
   error,
   getRowId,
+  initialPageSize = 25,
+  showSelectionSummary = true,
   renderSelectionActions,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
@@ -94,7 +89,7 @@ export function DataTable<TData, TValue>({
     },
     initialState: {
       pagination: {
-        pageSize: 25,
+        pageSize: initialPageSize,
       },
     },
   })
@@ -126,11 +121,14 @@ export function DataTable<TData, TValue>({
               <SelectValue placeholder={table.getState().pagination.pageSize} />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false} align="end">
-              {[10, 20, 25, 30, 40, 50].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectLabel>Rows</SelectLabel>
+                {[10, 20, 25, 30, 40, 50].map((pageSize) => (
+                  <SelectItem key={pageSize} value={`${pageSize}`}>
+                    {pageSize}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
@@ -222,7 +220,10 @@ export function DataTable<TData, TValue>({
           </AnimatePresence>
         </Table>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePagination
+        table={table}
+        showSelectionSummary={showSelectionSummary}
+      />
       {renderSelectionActions && (
         <ActionBar
           open={selectedRows.length > 0}

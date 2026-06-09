@@ -1,11 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import {
-  IconCreditCard,
-  IconLogout,
-  IconNotification,
-  IconUserCircle,
-} from "@tabler/icons-react"
+import { IconLogout } from "@tabler/icons-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +18,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { ThemeToggleMenuItems } from "./theme-toggle"
-import { logout } from "@/lib/queries"
+import { logout } from "@/features/auth/api/auth-api"
 
 export function NavUser({
   user,
@@ -50,7 +45,7 @@ export function NavUser({
             render={
               <SidebarMenuButton
                 size="lg"
-                className="size-8 justify-center rounded-md p-0!"
+                className="size-9! justify-center p-0!"
               />
             }
           >
@@ -73,21 +68,6 @@ export function NavUser({
                   </div>
                 </div>
               </DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <ThemeToggleMenuItems />

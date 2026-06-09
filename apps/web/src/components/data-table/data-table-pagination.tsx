@@ -9,17 +9,23 @@ import type { Table } from "@tanstack/react-table"
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>
+  showSelectionSummary?: boolean
 }
 
 export function DataTablePagination<TData>({
   table,
+  showSelectionSummary = true,
 }: DataTablePaginationProps<TData>) {
   return (
     <div className="flex items-center justify-between px-6">
-      <div className="text-sm text-muted-foreground">
-        {table.getFilteredSelectedRowModel().rows.length} of{" "}
-        {table.getFilteredRowModel().rows.length} row(s) selected.
-      </div>
+      {showSelectionSummary ? (
+        <div className="text-sm text-muted-foreground">
+          {table.getFilteredSelectedRowModel().rows.length} of{" "}
+          {table.getFilteredRowModel().rows.length} row(s) selected.
+        </div>
+      ) : (
+        <div />
+      )}
       <div className="flex w-25 items-center justify-center text-sm font-medium">
         Page {table.getState().pagination.pageIndex + 1} of{" "}
         {table.getPageCount()}

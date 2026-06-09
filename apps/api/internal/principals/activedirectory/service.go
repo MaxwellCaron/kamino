@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,7 +56,7 @@ func (s *Service) lookupDN(sid string, objectType string) (string, error) {
 			}
 		}
 	}
-	return "", errors.New("principal not found in AD")
+	return "", principals.ErrPrincipalNotFound
 }
 
 func (s *Service) upsertCreatedPrincipal(
@@ -176,6 +177,35 @@ func (s *Service) SetPassword(ctx context.Context, id uuid.UUID, password string
 	return s.client.SetPassword(dn, password)
 }
 
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	id uuid.UUID,
+	oldPassword, newPassword string,
+) error {
+	q := database.New(s.db)
+	p, err := q.GetPrincipalByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return principals.ErrPrincipalNotFound
+		}
+		return err
+	}
+	if p.PrincipalType != database.PrincipalTypeUser {
+		return principals.ErrUnsupportedPrincipal
+	}
+
+	dn, err := s.lookupDN(p.ExternalID, "user")
+	if err != nil {
+		return principals.ErrPrincipalNotFound
+	}
+
+	if err := s.client.AuthenticateDN(dn, oldPassword); err != nil {
+		return principals.ErrInvalidCredentials
+	}
+
+	return s.client.SetPassword(dn, newPassword)
+}
+
 func (s *Service) EnableUser(ctx context.Context, id uuid.UUID) error {
 	q := database.New(s.db)
 	p, err := q.GetPrincipalByID(ctx, id)
@@ -212,9 +242,18 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	if p.PrincipalType != database.PrincipalTypeUser {
+		return principals.ErrUnsupportedPrincipal
+	}
+	if err := ensurePrincipalDeletable(ctx, q, id); err != nil {
+		return err
+	}
 
 	dn, err := s.lookupDN(p.ExternalID, "user")
 	if err != nil {
+		if errors.Is(err, principals.ErrPrincipalNotFound) {
+			return q.DeletePrincipal(ctx, id)
+		}
 		return err
 	}
 
@@ -291,9 +330,18 @@ func (s *Service) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	if p.PrincipalType != database.PrincipalTypeGroup {
+		return principals.ErrUnsupportedPrincipal
+	}
+	if err := ensurePrincipalDeletable(ctx, q, id); err != nil {
+		return err
+	}
 
 	dn, err := s.lookupDN(p.ExternalID, "group")
 	if err != nil {
+		if errors.Is(err, principals.ErrPrincipalNotFound) {
+			return q.DeletePrincipal(ctx, id)
+		}
 		return err
 	}
 
@@ -302,6 +350,24 @@ func (s *Service) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return q.DeletePrincipal(ctx, id)
+}
+
+func ensurePrincipalDeletable(ctx context.Context, q *database.Queries, id uuid.UUID) error {
+	blockers, err := q.ListPrincipalDeletionBlockers(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(blockers) == 0 {
+		return nil
+	}
+
+	blocker := blockers[0]
+	return fmt.Errorf(
+		"%w: %s %q references this principal",
+		principals.ErrPrincipalInUse,
+		blocker.BlockerType,
+		blocker.BlockerName,
+	)
 }
 
 func (s *Service) GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]database.GetGroupMembersRow, error) {

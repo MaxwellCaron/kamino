@@ -5,14 +5,16 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
     "lint": "turbo lint",
     "format": "turbo format",
     "typecheck": "turbo typecheck"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
-    "prettier-plugin-tailwindcss": "^0.7.2",
-    "turbo": "^2.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "turbo": "^2.9.16",
     "typescript": "^6.0.3",
     "web": "workspace:*"
   },
@@ -25,6 +27,9 @@
     "packages/*"
   ],
   "dependencies": {
-    "@tanstack/react-table": "^8.21.3"
+    "@headless-tree/core": "^1.7.0",
+    "@headless-tree/react": "^1.7.0",
+    "@tanstack/react-table": "^8.21.3",
+    "@unpic/react": "^1.0.2"
   }
 }

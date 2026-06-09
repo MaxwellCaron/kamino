@@ -147,6 +147,15 @@ SELECT
     ii.kind,
     ii.name,
     ii.inherit_permissions,
+    ii.vm_limit AS direct_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+      ELSE 0
+    END)::INTEGER AS effective_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+      ELSE 0
+    END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
     pv.is_template,
@@ -179,6 +188,9 @@ type GetInventoryItemWithPermissionsRow struct {
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
 	InheritPermissions bool              `json:"inherit_permissions"`
+	DirectVmLimit      *int32            `json:"direct_vm_limit"`
+	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
+	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
 	IsTemplate         *bool             `json:"is_template"`
@@ -199,6 +211,9 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 		&i.Kind,
 		&i.Name,
 		&i.InheritPermissions,
+		&i.DirectVmLimit,
+		&i.EffectiveVmLimit,
+		&i.VmCount,
 		&i.Node,
 		&i.Vmid,
 		&i.IsTemplate,
@@ -254,6 +269,15 @@ SELECT
     ii.kind,
     ii.name,
     ii.inherit_permissions,
+    ii.vm_limit AS direct_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+      ELSE 0
+    END)::INTEGER AS effective_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+      ELSE 0
+    END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
     pv.is_template,
@@ -285,6 +309,9 @@ type GetVisibleInventoryItemsForPrincipalRow struct {
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
 	InheritPermissions bool              `json:"inherit_permissions"`
+	DirectVmLimit      *int32            `json:"direct_vm_limit"`
+	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
+	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
 	IsTemplate         *bool             `json:"is_template"`
@@ -311,6 +338,9 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 			&i.Kind,
 			&i.Name,
 			&i.InheritPermissions,
+			&i.DirectVmLimit,
+			&i.EffectiveVmLimit,
+			&i.VmCount,
 			&i.Node,
 			&i.Vmid,
 			&i.IsTemplate,

@@ -134,6 +134,7 @@ interface RelativeTimeCardProps
   updateInterval?: number
   className?: string
   children?: React.ReactNode
+  display?: "absolute" | "relative"
 }
 
 function RelativeTimeCard(props: RelativeTimeCardProps) {
@@ -153,6 +154,7 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
     updateInterval = 1000,
     render,
     children,
+    display = "absolute",
     className,
     ...triggerProps
   } = props
@@ -168,7 +170,7 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
   )
 
   const [formattedTime, setFormattedTime] = React.useState<string>(() =>
-    date.toLocaleDateString()
+    formatRelativeTime(date)
   )
 
   React.useEffect(() => {
@@ -195,13 +197,15 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
       >
         {children ?? (
           <time dateTime={date.toISOString()} suppressHydrationWarning>
-            {new Intl.DateTimeFormat(locale, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            }).format(date)}
+            {display === "relative"
+              ? formattedTime
+              : new Intl.DateTimeFormat(locale, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(date)}
           </time>
         )}
       </HoverCardTrigger>

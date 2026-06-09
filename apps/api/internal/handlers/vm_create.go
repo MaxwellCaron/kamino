@@ -246,6 +246,10 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), targetFolderID, 1); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
 
 	params := map[string]string{
 		"name": req.Name,
@@ -346,6 +350,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	}
 
 	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, vmid, placement.PoolID, placement.Path); err != nil {
+		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, vmid, "created VM pool sync failure")
 		writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync vm pool membership", err)
 		return
 	}
@@ -357,6 +362,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		vmid,
 	)
 	if err != nil {
+		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, vmid, "created VM inventory sync failure")
 		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to sync inventory metadata", "sync created vm inventory metadata", err)
 		return
 	}

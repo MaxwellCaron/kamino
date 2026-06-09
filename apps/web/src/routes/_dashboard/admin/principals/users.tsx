@@ -1,7 +1,6 @@
-import { Navigate, createFileRoute } from "@tanstack/react-router"
+import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { Navigate, createFileRoute } from "@tanstack/react-router"
 import {
   IconPlus,
   IconRefresh,
@@ -10,10 +9,13 @@ import {
   IconUsersMinus,
   IconUsersPlus,
 } from "@tabler/icons-react"
+import { toast } from "sonner"
 import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -22,27 +24,58 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import type { ApiPrincipal } from "@/lib/queries"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
-  deleteUser,
   hasManagementPermission,
+} from "@/features/auth/utils/management-permissions"
+import {
+  deleteUser,
   triggerADSync,
   usersQueryOptions,
-} from "@/lib/queries"
-import { useItemDialogState } from "@/hooks/use-item-dialog-state"
-import { UserDialog } from "@/components/principals/users/user-dialog"
-import { MembershipDialog } from "@/components/principals/membership-dialog"
+} from "@/features/principals/api/principals-api"
+import { getUserColumns } from "@/features/principals/components/users/users-columns"
+import {
+  capitalizeFirstLetter,
+  formatToastError,
+} from "@/features/shared/utils/format"
+
 import { DataTable } from "@/components/data-table/data-table"
-import { getUserColumns } from "@/components/principals/users/users-columns"
-import { UserGroupBulkDialog } from "@/components/principals/users/user-group-bulk-dialog"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { pageTitle } from "@/features/shared/utils/page-title"
+
+const ConfirmDialog = lazy(() =>
+  import("@/components/dialogs/confirm-dialog").then((module) => ({
+    default: module.ConfirmDialog,
+  }))
+)
+const MembershipDialog = lazy(() =>
+  import("@/features/principals/components/membership-dialog").then(
+    (module) => ({
+      default: module.MembershipDialog,
+    })
+  )
+)
+const UserDialog = lazy(() =>
+  import("@/features/principals/components/users/user-dialog").then(
+    (module) => ({
+      default: module.UserDialog,
+    })
+  )
+)
+const UserGroupBulkDialog = lazy(() =>
+  import("@/features/principals/components/users/user-group-bulk-dialog").then(
+    (module) => ({
+      default: module.UserGroupBulkDialog,
+    })
+  )
+)
 
 export const Route = createFileRoute("/_dashboard/admin/principals/users")({
+  head: () => pageTitle("Users"),
   component: UsersPage,
 })
 
@@ -64,11 +97,7 @@ function UsersPage() {
     ...usersQueryOptions,
     enabled: canAdminister,
   })
-  const userCountLabel = isLoading
-    ? "..."
-    : error
-      ? "!"
-      : String(users?.length ?? 0)
+  const userCountLabel = error ? "!" : String(users?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
   const bulkGroupDialog = useItemDialogState<{
@@ -79,6 +108,11 @@ function UsersPage() {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
+  const userLabelsByID = useMemo(() => {
+    return new Map(
+      (users ?? []).map((principal) => [principal.id, getUserLabel(principal)])
+    )
+  }, [users])
 
   const deleteMutation = useMutation({
     mutationFn: deleteUser,
@@ -93,8 +127,10 @@ function UsersPage() {
       }
 
       if (failedCount === 1) {
+        const failure = result.failed[0]
+        const userLabel = userLabelsByID.get(failure.id) ?? failure.id
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${result.failed[0].error}`
+          `Failed to delete ${userLabel}: ${capitalizeFirstLetter(failure.error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} users`)
@@ -103,7 +139,7 @@ function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
@@ -113,7 +149,7 @@ function UsersPage() {
         canManage: canAdminister,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
-        onDeleteClick: (targetUser) =>
+        onDeleteClick: (targetUser: ApiPrincipal) =>
           setConfirm({
             title: "Delete User",
             icon: IconTrash,
@@ -140,12 +176,16 @@ function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
     onError: (err) => {
-      toast.error(err.message)
+      toast.error(formatToastError(err))
     },
   })
 
   if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
+  }
+
+  if (isLoading) {
+    return <TablePageSkeleton actionCount={2} titleWidth="w-32" />
   }
 
   return (
@@ -170,9 +210,7 @@ function UsersPage() {
                 <Button
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
-                  disabled={
-                    syncMutation.isPending || isLoading || error !== null
-                  }
+                  disabled={syncMutation.isPending || error !== null}
                 >
                   <IconRefresh data-icon="inline-start" />
                   <span className="hidden lg:block">
@@ -183,7 +221,7 @@ function UsersPage() {
               {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
-                  disabled={isLoading || error !== null}
+                  disabled={error !== null}
                 >
                   <IconPlus data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
@@ -197,10 +235,16 @@ function UsersPage() {
               data={users || []}
               isLoading={isLoading}
               error={error}
-              getRowId={(tableUser) => tableUser.id}
+              getRowId={(tableUser: ApiPrincipal) => tableUser.id}
               renderSelectionActions={
                 canAdminister
-                  ? ({ clearSelection, selectedRows }) => (
+                  ? ({
+                      clearSelection,
+                      selectedRows,
+                    }: {
+                      clearSelection: () => void
+                      selectedRows: Array<ApiPrincipal>
+                    }) => (
                       <>
                         <ActionBarItem
                           onSelect={(event) => event.preventDefault()}
@@ -254,7 +298,8 @@ function UsersPage() {
                               onConfirm: async () => {
                                 const result = await deleteMutation.mutateAsync(
                                   selectedRows.map(
-                                    (selectedUser) => selectedUser.id
+                                    (selectedUser: ApiPrincipal) =>
+                                      selectedUser.id
                                   )
                                 )
                                 if (result.failed.length === 0) {
@@ -275,40 +320,44 @@ function UsersPage() {
         </Card>
       </div>
 
-      {canAdminister ? (
-        <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
-      {canAdminister && editDialog.data ? (
-        <UserDialog
-          key={editDialog.dialogKey}
-          user={editDialog.data}
-          open={editDialog.open}
-          onOpenChange={editDialog.onOpenChange}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {canAdminister && createOpen ? (
+          <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
+        ) : null}
+        {canAdminister && editDialog.data ? (
+          <UserDialog
+            key={editDialog.dialogKey}
+            user={editDialog.data}
+            open={editDialog.open}
+            onOpenChange={editDialog.onOpenChange}
+          />
+        ) : null}
 
-      {canAdminister && membershipDialog.data ? (
-        <MembershipDialog
-          key={membershipDialog.dialogKey}
-          mode="user-groups"
-          principal={membershipDialog.data}
-          open={membershipDialog.open}
-          onOpenChange={membershipDialog.onOpenChange}
-        />
-      ) : null}
+        {canAdminister && membershipDialog.data ? (
+          <MembershipDialog
+            key={membershipDialog.dialogKey}
+            mode="user-groups"
+            principal={membershipDialog.data}
+            open={membershipDialog.open}
+            onOpenChange={membershipDialog.onOpenChange}
+          />
+        ) : null}
 
-      {canAdminister && bulkGroupDialog.data ? (
-        <UserGroupBulkDialog
-          key={bulkGroupDialog.dialogKey}
-          clearSelection={bulkGroupDialog.data.clearSelection}
-          mode={bulkGroupDialog.data.mode}
-          onOpenChange={bulkGroupDialog.onOpenChange}
-          open={bulkGroupDialog.open}
-          users={bulkGroupDialog.data.users}
-        />
-      ) : null}
+        {canAdminister && bulkGroupDialog.data ? (
+          <UserGroupBulkDialog
+            key={bulkGroupDialog.dialogKey}
+            clearSelection={bulkGroupDialog.data.clearSelection}
+            mode={bulkGroupDialog.data.mode}
+            onOpenChange={bulkGroupDialog.onOpenChange}
+            open={bulkGroupDialog.open}
+            users={bulkGroupDialog.data.users}
+          />
+        ) : null}
 
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {confirm && (
+          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        )}
+      </Suspense>
     </div>
   )
 }

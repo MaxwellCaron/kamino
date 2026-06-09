@@ -234,7 +234,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 	{
 		Key:            InventoryPermissionSnapshotVM,
 		Label:          "Snapshot VM",
-		Description:    "Create, roll back, and delete snapshots. Allow executes directly, inherit allows create and rollback requests by default, and delete always requires explicit allow.",
+		Description:    "Create or roll back snapshots.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,

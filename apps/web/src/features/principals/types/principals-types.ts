@@ -1,0 +1,45 @@
+import type { ApiBulkOperationFailure } from "@/features/shared/types/api-types"
+
+export type ApiPrincipal = {
+  id: string
+  external_id: string
+  name: string | null
+  description: string | null
+  created_at?: string | null
+}
+
+export type ApiGroupMember = {
+  id: string
+  principal_type: "user" | "group"
+  external_id: string
+  name: string | null
+  description: string | null
+}
+
+export type ApiBulkMembershipResponse = {
+  succeeded: Array<string>
+  failed: Array<ApiBulkOperationFailure>
+}
+
+export type ApiBulkCreateFailure = {
+  name: string
+  error: string
+}
+
+export type ApiBulkCreateResponse = {
+  successful: number
+  total: number
+  failures: Array<ApiBulkCreateFailure>
+}
+
+export type CreateUserInput = {
+  username: string
+  password: string
+  description?: string
+  group_ids?: Array<string>
+}
+
+export type CreateGroupInput = {
+  name: string
+  description?: string
+}

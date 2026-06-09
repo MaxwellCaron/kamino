@@ -111,6 +111,17 @@ type requestError struct {
 	Err         error
 }
 
+// Error lets a *requestError travel through error channels like errgroup.
+func (e *requestError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return e.UserMessage
+}
+
 func parseItemIDParam(c *gin.Context) (uuid.UUID, bool) {
 	itemID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

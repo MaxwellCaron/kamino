@@ -15,9 +15,11 @@ import (
 const requestsEventsChannel = "requests_events"
 
 type Event struct {
-	Type      string     `json:"type"`
-	RequestID *uuid.UUID `json:"request_id,omitempty"`
-	Timestamp time.Time  `json:"timestamp"`
+	Type                 string     `json:"type"`
+	RequestID            *uuid.UUID `json:"request_id,omitempty"`
+	RequesterPrincipalID *uuid.UUID `json:"requester_principal_id,omitempty"`
+	Kind                 string     `json:"kind,omitempty"`
+	Timestamp            time.Time  `json:"timestamp"`
 }
 
 type Notifier struct {

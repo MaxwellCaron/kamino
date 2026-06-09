@@ -19,17 +19,23 @@ import (
 )
 
 var (
-	ErrInventoryItemNotFound      = errors.New("inventory item not found")
-	ErrInventoryParentNotFound    = errors.New("inventory parent not found")
-	ErrInventoryFolderNotFound    = errors.New("inventory folder not found")
-	ErrInventoryTargetNotFolder   = errors.New("inventory target must be a folder")
-	ErrInventoryItemNotFolder     = errors.New("inventory item is not a folder")
-	ErrInventoryInvalidMove       = errors.New("invalid inventory move")
-	ErrInventoryReservedFolder    = errors.New("reserved inventory folder cannot be changed")
-	ErrInventoryFolderConflict    = errors.New("inventory folder with that name already exists")
-	ErrInventoryInvalidACL        = errors.New("invalid inventory ACL entry")
-	ErrInventoryPrincipalNotFound = errors.New("principal not found")
+	ErrInventoryItemNotFound        = errors.New("inventory item not found")
+	ErrInventoryParentNotFound      = errors.New("inventory parent not found")
+	ErrInventoryFolderNotFound      = errors.New("inventory folder not found")
+	ErrInventoryTargetNotFolder     = errors.New("inventory target must be a folder")
+	ErrInventoryItemNotFolder       = errors.New("inventory item is not a folder")
+	ErrInventoryInvalidMove         = errors.New("invalid inventory move")
+	ErrInventoryReservedFolder      = errors.New("reserved inventory folder cannot be changed")
+	ErrInventoryFolderConflict      = errors.New("inventory folder with that name already exists")
+	ErrInventoryFolderDepthExceeded = errors.New("folder depth cannot exceed 3 levels below root")
+	ErrInventoryInvalidFolderLimit  = errors.New("folder limit must be greater than zero")
+	ErrInventoryFolderLimitExceeded = errors.New("folder limit exceeded")
+	ErrInventoryItemInUse           = errors.New("inventory item is in use")
+	ErrInventoryInvalidACL          = errors.New("invalid inventory ACL entry")
+	ErrInventoryPrincipalNotFound   = errors.New("principal not found")
 )
+
+const maxProxmoxPoolDepth = 3
 
 type Service struct {
 	db                       *pgxpool.Pool
@@ -161,6 +167,9 @@ func expandVisibleInventoryRows(
 					Kind:               parentRow.Kind,
 					Name:               parentRow.Name,
 					InheritPermissions: true,
+					DirectVmLimit:      parentRow.DirectVmLimit,
+					EffectiveVmLimit:   parentRow.EffectiveVmLimit,
+					VmCount:            parentRow.VmCount,
 					AllowedMask:        0,
 					DeniedMask:         0,
 				})
@@ -218,6 +227,9 @@ func toFullAccessInventoryRows(
 			Kind:               row.Kind,
 			Name:               row.Name,
 			InheritPermissions: true,
+			DirectVmLimit:      row.DirectVmLimit,
+			EffectiveVmLimit:   row.EffectiveVmLimit,
+			VmCount:            row.VmCount,
 			Node:               row.Node,
 			Vmid:               row.Vmid,
 			IsTemplate:         row.IsTemplate,
@@ -266,6 +278,9 @@ func (s *Service) GetInventoryItemWithPermissions(
 			Kind:               row.Kind,
 			Name:               row.Name,
 			InheritPermissions: row.InheritPermissions,
+			DirectVmLimit:      row.DirectVmLimit,
+			EffectiveVmLimit:   row.EffectiveVmLimit,
+			VmCount:            row.VmCount,
 			Node:               row.Node,
 			Vmid:               row.Vmid,
 			IsTemplate:         row.IsTemplate,
@@ -460,6 +475,241 @@ func normalizeACLEntries(entries []ACLEntryInput) []ACLEntryInput {
 	return normalized
 }
 
+func findInventoryRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
+	var (
+		namedRootID *uuid.UUID
+		soleRootID  *uuid.UUID
+		rootCount   int
+	)
+
+	for _, row := range rows {
+		if row.ParentID != nil || row.Kind != database.InventoryItemKindFolder {
+			continue
+		}
+
+		rootCount++
+		id := row.ID
+		if row.Name == proxmox.RootFolderName {
+			namedRootID = &id
+		}
+		if soleRootID == nil {
+			soleRootID = &id
+		}
+	}
+
+	if namedRootID != nil {
+		return namedRootID
+	}
+	if rootCount == 1 {
+		return soleRootID
+	}
+
+	return nil
+}
+
+func normalizeFolderPath(path []string) ([]string, error) {
+	normalized := make([]string, 0, len(path))
+	for _, segment := range path {
+		name := names.Normalize(segment)
+		if err := names.ValidateFolder(name); err != nil {
+			return nil, err
+		}
+		normalized = append(normalized, name)
+	}
+
+	return normalized, nil
+}
+
+func ensureFolderChild(
+	ctx context.Context,
+	q *database.Queries,
+	parentID uuid.UUID,
+	name string,
+) (uuid.UUID, bool, error) {
+	id, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err == nil {
+		return id, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, err
+	}
+
+	if err := ensureFolderDepthForCreate(ctx, q, parentID); err != nil {
+		return uuid.Nil, false, err
+	}
+
+	id, err = q.CreateChildFolder(ctx, database.CreateChildFolderParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err != nil {
+		if !isUniqueViolation(err) {
+			return uuid.Nil, false, err
+		}
+
+		id, err = q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+			ParentID: &parentID,
+			Name:     name,
+		})
+		if err != nil {
+			return uuid.Nil, false, err
+		}
+		return id, false, nil
+	}
+
+	return id, true, nil
+}
+
+func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUID, error) {
+	normalizedPath, err := normalizeFolderPath(path)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	rootID := findInventoryRootFolderID(rows)
+	created := false
+	if rootID == nil {
+		id, err := q.CreateRootFolder(ctx, proxmox.RootFolderName)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		rootID = &id
+		created = true
+	}
+
+	currentID := *rootID
+	for _, segment := range normalizedPath {
+		nextID, didCreate, err := ensureFolderChild(ctx, q, currentID, segment)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		currentID = nextID
+		created = created || didCreate
+	}
+
+	if created {
+		s.notifyTx(ctx, tx, currentID)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+
+	if created {
+		s.scheduleMirror()
+	}
+
+	return currentID, nil
+}
+
+func (s *Service) EnsureChildFolder(ctx context.Context, parentID uuid.UUID, name string) (uuid.UUID, error) {
+	normalizedName := names.Normalize(name)
+	if err := names.ValidateFolder(normalizedName); err != nil {
+		return uuid.Nil, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	folderID, created, err := ensureFolderChild(ctx, q, parentID, normalizedName)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if created {
+		s.notifyTx(ctx, tx, folderID)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	if created {
+		s.scheduleMirror()
+	}
+
+	return folderID, nil
+}
+
+func (s *Service) FindFolderPath(ctx context.Context, path []string) (uuid.UUID, bool, error) {
+	normalizedPath, err := normalizeFolderPath(path)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	rootID := findInventoryRootFolderID(rows)
+	if rootID == nil {
+		return uuid.Nil, false, nil
+	}
+
+	currentID := *rootID
+	for _, segment := range normalizedPath {
+		nextID, ok := findInventoryChildFolderID(rows, currentID, segment)
+		if !ok {
+			return uuid.Nil, false, nil
+		}
+		currentID = nextID
+	}
+
+	return currentID, true, nil
+}
+
+func findInventoryChildFolderID(
+	rows []database.GetAllInventoryItemsRow,
+	parentID uuid.UUID,
+	name string,
+) (uuid.UUID, bool) {
+	for _, row := range rows {
+		if row.Kind != database.InventoryItemKindFolder || row.ParentID == nil {
+			continue
+		}
+		if *row.ParentID == parentID && row.Name == name {
+			return row.ID, true
+		}
+	}
+	return uuid.Nil, false
+}
+
+func (s *Service) ChildFolderExists(ctx context.Context, parentID uuid.UUID, name string) (bool, error) {
+	name = names.Normalize(name)
+	if err := names.ValidateFolder(name); err != nil {
+		return false, err
+	}
+
+	_, err := database.New(s.db).GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return false, err
+}
+
 func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (FolderPlacement, error) {
 	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
 	if err != nil {
@@ -528,6 +778,9 @@ func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name str
 	}
 	if parent.Kind != database.InventoryItemKindFolder {
 		return uuid.Nil, ErrInventoryTargetNotFolder
+	}
+	if err := ensureFolderDepthForCreate(ctx, q, parentID); err != nil {
+		return uuid.Nil, err
 	}
 
 	existingID, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
@@ -620,6 +873,80 @@ func (s *Service) RenameFolder(ctx context.Context, id uuid.UUID, name string) e
 	return nil
 }
 
+func (s *Service) UpdateFolderVMLimit(ctx context.Context, id uuid.UUID, limit *int32) error {
+	if limit != nil && *limit <= 0 {
+		return ErrInventoryInvalidFolderLimit
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+
+	item, err := q.GetInventoryItemForUpdate(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInventoryFolderNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return ErrInventoryItemNotFolder
+	}
+
+	if err := q.UpdateInventoryFolderVMLimit(ctx, database.UpdateInventoryFolderVMLimitParams{
+		VmLimit: limit,
+		ID:      id,
+	}); err != nil {
+		return err
+	}
+
+	s.notifyTx(ctx, tx, id)
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) EnsureFolderHasVMCapacity(ctx context.Context, folderID uuid.UUID, addedVMCount int32) error {
+	if addedVMCount <= 0 {
+		return nil
+	}
+
+	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+
+	var item database.GetAllInventoryItemsRow
+	found := false
+	for _, row := range rows {
+		if row.ID == folderID {
+			item = row
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return ErrInventoryFolderNotFound
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return ErrInventoryItemNotFolder
+	}
+
+	if item.EffectiveVmLimit > 0 && item.VmCount+addedVMCount > item.EffectiveVmLimit {
+		return ErrInventoryFolderLimitExceeded
+	}
+
+	return nil
+}
+
 func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (FolderDeletionPlan, error) {
 	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
 	if err != nil {
@@ -645,6 +972,10 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 	}
 	if isManagedRootFolder(item.ParentID) {
 		return FolderDeletionPlan{}, ErrInventoryReservedFolder
+	}
+
+	if err := s.EnsureInventorySubtreeDeletable(ctx, id); err != nil {
+		return FolderDeletionPlan{}, err
 	}
 
 	plan := FolderDeletionPlan{}
@@ -675,6 +1006,24 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 	return plan, nil
 }
 
+func (s *Service) EnsureInventorySubtreeDeletable(ctx context.Context, id uuid.UUID) error {
+	blockers, err := database.New(s.db).ListInventoryDeletionBlockersInSubtree(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(blockers) == 0 {
+		return nil
+	}
+
+	blocker := blockers[0]
+	return fmt.Errorf(
+		"%w: %s %q references this inventory subtree",
+		ErrInventoryItemInUse,
+		blocker.BlockerType,
+		blocker.BlockerName,
+	)
+}
+
 func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.UUID) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -684,32 +1033,95 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 
 	q := database.New(tx)
 
-	item, err := q.GetInventoryItemForUpdate(ctx, itemID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrInventoryItemNotFound
-	}
+	moved, err := moveInventoryItemTx(ctx, q, itemID, parentID)
 	if err != nil {
 		return err
+	}
+	if moved {
+		s.notifyTx(ctx, tx, itemID)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if moved {
+		s.scheduleMirror()
+	}
+	return nil
+}
+
+func (s *Service) MoveInventoryItems(ctx context.Context, itemIDs []uuid.UUID, parentID uuid.UUID) error {
+	if len(itemIDs) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	moved := false
+
+	for _, itemID := range itemIDs {
+		itemMoved, err := moveInventoryItemTx(ctx, q, itemID, parentID)
+		if err != nil {
+			return err
+		}
+		moved = moved || itemMoved
+	}
+
+	if moved {
+		s.notify(ctx, tx)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if moved {
+		s.scheduleMirror()
+	}
+	return nil
+}
+
+func moveInventoryItemTx(
+	ctx context.Context,
+	q *database.Queries,
+	itemID uuid.UUID,
+	parentID uuid.UUID,
+) (bool, error) {
+	item, err := q.GetInventoryItemForUpdate(ctx, itemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrInventoryItemNotFound
+	}
+	if err != nil {
+		return false, err
 	}
 
 	parent, err := q.GetInventoryItemForUpdate(ctx, parentID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrInventoryParentNotFound
+		return false, ErrInventoryParentNotFound
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	if parent.Kind != database.InventoryItemKindFolder {
-		return ErrInventoryTargetNotFolder
+		return false, ErrInventoryTargetNotFolder
 	}
 	if item.ID == parent.ID {
-		return ErrInventoryInvalidMove
+		return false, ErrInventoryInvalidMove
 	}
 	if item.ParentID != nil && *item.ParentID == parentID {
-		return tx.Commit(ctx)
+		return false, nil
 	}
 	if isManagedRootFolder(item.ParentID) {
-		return ErrInventoryReservedFolder
+		return false, ErrInventoryReservedFolder
+	}
+	if err := ensureFolderDepthForMove(ctx, q, itemID, parentID); err != nil {
+		return false, err
 	}
 
 	err = q.UpdateInventoryItemParent(ctx, database.UpdateInventoryItemParentParams{
@@ -717,17 +1129,10 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 		ID:       itemID,
 	})
 	if err != nil {
-		return normalizeMutationError(err)
+		return false, normalizeMutationError(err)
 	}
 
-	s.notifyTx(ctx, tx, itemID)
-
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	s.scheduleMirror()
-	return nil
+	return true, nil
 }
 
 func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
@@ -768,6 +1173,9 @@ func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *Service) DeleteInventoryVM(ctx context.Context, itemID uuid.UUID) error {
+	if err := s.EnsureInventorySubtreeDeletable(ctx, itemID); err != nil {
+		return err
+	}
 	if err := database.New(s.db).DeleteInventoryItem(ctx, itemID); err != nil {
 		return err
 	}
@@ -778,6 +1186,113 @@ func (s *Service) DeleteInventoryVM(ctx context.Context, itemID uuid.UUID) error
 
 func isManagedRootFolder(parentID *uuid.UUID) bool {
 	return parentID == nil
+}
+
+func ensureFolderDepthForCreate(ctx context.Context, q *database.Queries, parentID uuid.UUID) error {
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+
+	itemsByID := inventoryItemsByID(rows)
+	parentDepth, err := folderDepthBelowRoot(parentID, itemsByID)
+	if err != nil {
+		return err
+	}
+	if parentDepth+1 > maxProxmoxPoolDepth {
+		return ErrInventoryFolderDepthExceeded
+	}
+
+	return nil
+}
+
+func ensureFolderDepthForMove(ctx context.Context, q *database.Queries, itemID, parentID uuid.UUID) error {
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+
+	itemsByID := inventoryItemsByID(rows)
+	targetParentDepth, err := folderDepthBelowRoot(parentID, itemsByID)
+	if err != nil {
+		return err
+	}
+	if targetParentDepth > maxProxmoxPoolDepth {
+		return ErrInventoryFolderDepthExceeded
+	}
+
+	item, ok := itemsByID[itemID]
+	if !ok {
+		return ErrInventoryItemNotFound
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return nil
+	}
+
+	childrenByParent := inventoryChildrenByParent(rows)
+	deepestMovedFolderDepth := targetParentDepth + 1 + maxChildFolderDepth(itemID, itemsByID, childrenByParent)
+	if deepestMovedFolderDepth > maxProxmoxPoolDepth {
+		return ErrInventoryFolderDepthExceeded
+	}
+
+	return nil
+}
+
+func inventoryItemsByID(rows []database.GetAllInventoryItemsRow) map[uuid.UUID]database.GetAllInventoryItemsRow {
+	itemsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(rows))
+	for _, row := range rows {
+		itemsByID[row.ID] = row
+	}
+	return itemsByID
+}
+
+func inventoryChildrenByParent(rows []database.GetAllInventoryItemsRow) map[uuid.UUID][]uuid.UUID {
+	childrenByParent := make(map[uuid.UUID][]uuid.UUID, len(rows))
+	for _, row := range rows {
+		if row.ParentID != nil {
+			childrenByParent[*row.ParentID] = append(childrenByParent[*row.ParentID], row.ID)
+		}
+	}
+	return childrenByParent
+}
+
+func folderDepthBelowRoot(id uuid.UUID, itemsByID map[uuid.UUID]database.GetAllInventoryItemsRow) (int, error) {
+	depth := 0
+	current, ok := itemsByID[id]
+	if !ok {
+		return 0, ErrInventoryParentNotFound
+	}
+	if current.Kind != database.InventoryItemKindFolder {
+		return 0, ErrInventoryTargetNotFolder
+	}
+
+	for current.ParentID != nil {
+		depth++
+		parent, ok := itemsByID[*current.ParentID]
+		if !ok {
+			return 0, ErrInventoryParentNotFound
+		}
+		current = parent
+	}
+
+	return depth, nil
+}
+
+func maxChildFolderDepth(id uuid.UUID, itemsByID map[uuid.UUID]database.GetAllInventoryItemsRow, childrenByParent map[uuid.UUID][]uuid.UUID) int {
+	maxDepth := 0
+	for _, childID := range childrenByParent[id] {
+		child := itemsByID[childID]
+		if child.Kind != database.InventoryItemKindFolder {
+			continue
+		}
+
+		childDepth := 1 + maxChildFolderDepth(childID, itemsByID, childrenByParent)
+		if childDepth > maxDepth {
+			maxDepth = childDepth
+		}
+	}
+
+	return maxDepth
 }
 
 func (s *Service) UpdateInventoryVMName(ctx context.Context, itemID uuid.UUID, name string) error {
@@ -870,7 +1385,7 @@ func (s *Service) RegisterProxmoxVM(
 		Name:     name,
 	})
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, normalizeMutationError(err)
 	}
 
 	if err := q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
@@ -944,6 +1459,10 @@ func normalizeMutationError(err error) error {
 
 	if strings.Contains(pgErr.Message, "Parent must be a folder") {
 		return ErrInventoryTargetNotFolder
+	}
+
+	if strings.Contains(pgErr.Message, "Folder limit exceeded") {
+		return ErrInventoryFolderLimitExceeded
 	}
 
 	return fmt.Errorf("%w: %s", ErrInventoryInvalidMove, pgErr.Message)

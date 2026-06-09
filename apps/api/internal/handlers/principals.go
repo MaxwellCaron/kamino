@@ -1,14 +1,18 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // PrincipalsHandler handles user and group CRUD via a generic principal provider.
@@ -69,6 +73,50 @@ type bulkCreateResponse struct {
 	Failures   []bulkCreateFailure `json:"failures"`
 }
 
+type principalResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	ExternalID  string     `json:"external_id"`
+	Name        *string    `json:"name"`
+	Description *string    `json:"description"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+}
+
+func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time
+	return &t
+}
+
+func userPrincipalResponses(rows []database.GetAllUsersRow) []principalResponse {
+	responses := make([]principalResponse, 0, len(rows))
+	for _, row := range rows {
+		responses = append(responses, principalResponse{
+			ID:          row.ID,
+			ExternalID:  row.ExternalID,
+			Name:        row.Name,
+			Description: row.Description,
+			CreatedAt:   timestamptzPtr(row.CreatedAt),
+		})
+	}
+	return responses
+}
+
+func groupPrincipalResponses(rows []database.GetAllGroupsRow) []principalResponse {
+	responses := make([]principalResponse, 0, len(rows))
+	for _, row := range rows {
+		responses = append(responses, principalResponse{
+			ID:          row.ID,
+			ExternalID:  row.ExternalID,
+			Name:        row.Name,
+			Description: row.Description,
+			CreatedAt:   timestamptzPtr(row.CreatedAt),
+		})
+	}
+	return responses
+}
+
 func uniqueUUIDs(ids []uuid.UUID) []uuid.UUID {
 	seen := make(map[uuid.UUID]struct{}, len(ids))
 	deduped := make([]uuid.UUID, 0, len(ids))
@@ -124,7 +172,7 @@ func writeBulkDeleteResponse(
 			logRequestError(c, "bulk delete principal id="+rawID, err)
 			response.Failed = append(response.Failed, bulkDeleteFailure{
 				ID:    rawID,
-				Error: "delete failed",
+				Error: bulkPrincipalDeleteError(err),
 			})
 			continue
 		}
@@ -133,6 +181,17 @@ func writeBulkDeleteResponse(
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func bulkPrincipalDeleteError(err error) string {
+	switch {
+	case errors.Is(err, principals.ErrPrincipalInUse):
+		return err.Error()
+	case errors.Is(err, principals.ErrUnsupportedPrincipal):
+		return "unsupported principal"
+	default:
+		return "delete failed"
+	}
 }
 
 func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
@@ -160,7 +219,7 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 // ListUsers returns all user principals.
 // GET /api/v1/principals/users
 func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
 		return
 	}
 
@@ -173,7 +232,7 @@ func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
 		c.JSON(http.StatusOK, []interface{}{})
 		return
 	}
-	c.JSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, userPrincipalResponses(users))
 }
 
 type createUserRequest struct {
@@ -330,6 +389,11 @@ type setPasswordRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type changeOwnPasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required"`
+}
+
 // SetPassword sets a user's password.
 // POST /api/v1/principals/users/:id/password
 func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
@@ -351,6 +415,43 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 
 	if err := h.Provider.SetPassword(c.Request.Context(), id, req.Password); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to set password", "set user password", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ChangeOwnPassword changes the authenticated user's password after verifying
+// the current password.
+// POST /api/v1/principals/self/password
+func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	var req changeOwnPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	if err := h.Provider.ChangePassword(
+		c.Request.Context(),
+		principalID,
+		req.CurrentPassword,
+		req.NewPassword,
+	); err != nil {
+		switch {
+		case errors.Is(err, principals.ErrInvalidCredentials):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
+		case errors.Is(err, principals.ErrPrincipalNotFound),
+			errors.Is(err, principals.ErrUnsupportedPrincipal):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password change is unavailable for this account"})
+		default:
+			writeLoggedError(c, http.StatusBadGateway, "failed to change password", "change own password", err)
+		}
 		return
 	}
 
@@ -421,7 +522,7 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 // ListGroups returns all group principals.
 // GET /api/v1/principals/groups
 func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
 		return
 	}
 
@@ -434,7 +535,7 @@ func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
 		c.JSON(http.StatusOK, []interface{}{})
 		return
 	}
-	c.JSON(http.StatusOK, groups)
+	c.JSON(http.StatusOK, groupPrincipalResponses(groups))
 }
 
 type createGroupRequest struct {

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createPrincipalProvider = `-- name: CreatePrincipalProvider :one
@@ -90,17 +91,18 @@ func (q *Queries) DeleteStalePrincipals(ctx context.Context, arg DeleteStalePrin
 }
 
 const getAllGroups = `-- name: GetAllGroups :many
-SELECT id, external_id, name, description
+SELECT id, external_id, name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'group'
 ORDER BY name
 `
 
 type GetAllGroupsRow struct {
-	ID          uuid.UUID `json:"id"`
-	ExternalID  string    `json:"external_id"`
-	Name        *string   `json:"name"`
-	Description *string   `json:"description"`
+	ID          uuid.UUID          `json:"id"`
+	ExternalID  string             `json:"external_id"`
+	Name        *string            `json:"name"`
+	Description *string            `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]GetAllGroupsRow, error) {
@@ -117,6 +119,7 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 			&i.ExternalID,
 			&i.Name,
 			&i.Description,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -130,17 +133,18 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 
 const getAllUsers = `-- name: GetAllUsers :many
 
-SELECT id, external_id, name, description
+SELECT id, external_id, name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name
 `
 
 type GetAllUsersRow struct {
-	ID          uuid.UUID `json:"id"`
-	ExternalID  string    `json:"external_id"`
-	Name        *string   `json:"name"`
-	Description *string   `json:"description"`
+	ID          uuid.UUID          `json:"id"`
+	ExternalID  string             `json:"external_id"`
+	Name        *string            `json:"name"`
+	Description *string            `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +164,7 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 			&i.ExternalID,
 			&i.Name,
 			&i.Description,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -294,6 +299,37 @@ func (q *Queries) GetPrincipalProvider(ctx context.Context) (uuid.UUID, error) {
 	return id, err
 }
 
+const getPrincipalsByIDs = `-- name: GetPrincipalsByIDs :many
+SELECT id, principal_type
+FROM principals
+WHERE id = ANY($1::UUID[])
+`
+
+type GetPrincipalsByIDsRow struct {
+	ID            uuid.UUID     `json:"id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+}
+
+func (q *Queries) GetPrincipalsByIDs(ctx context.Context, ids []uuid.UUID) ([]GetPrincipalsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getPrincipalsByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPrincipalsByIDsRow
+	for rows.Next() {
+		var i GetPrincipalsByIDsRow
+		if err := rows.Scan(&i.ID, &i.PrincipalType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserGroups = `-- name: GetUserGroups :many
 SELECT p.id, p.principal_type, p.external_id, p.name, p.description
 FROM group_memberships gm
@@ -350,6 +386,101 @@ type InsertGroupMembershipParams struct {
 func (q *Queries) InsertGroupMembership(ctx context.Context, arg InsertGroupMembershipParams) error {
 	_, err := q.db.Exec(ctx, insertGroupMembership, arg.GroupID, arg.MemberID)
 	return err
+}
+
+const listPrincipalDeletionBlockers = `-- name: ListPrincipalDeletionBlockers :many
+SELECT reserved_principals.principal_id AS principal_id,
+       'reserved principal' AS blocker_type,
+       reserved_principals.reserved_key::TEXT AS blocker_name
+FROM reserved_principals
+WHERE reserved_principals.principal_id = $1
+
+UNION ALL
+
+SELECT requests.requester_principal_id AS principal_id,
+       'request requester' AS blocker_type,
+       requests.kind AS blocker_name
+FROM requests
+WHERE requests.requester_principal_id = $1
+
+UNION ALL
+
+SELECT requests.reviewer_principal_id AS principal_id,
+       'request reviewer' AS blocker_type,
+       requests.kind AS blocker_name
+FROM requests
+WHERE requests.reviewer_principal_id = $1
+
+UNION ALL
+
+SELECT request_events.actor_principal_id AS principal_id,
+       'request event actor' AS blocker_type,
+       request_events.event_kind::TEXT AS blocker_name
+FROM request_events
+WHERE request_events.actor_principal_id = $1
+
+UNION ALL
+
+SELECT published_pods.publisher_principal_id AS principal_id,
+       'published pod publisher' AS blocker_type,
+       published_pods.title AS blocker_name
+FROM published_pods
+WHERE published_pods.publisher_principal_id = $1
+
+UNION ALL
+
+SELECT published_pod_creators.principal_id AS principal_id,
+       'published pod creator' AS blocker_type,
+       published_pods.title AS blocker_name
+FROM published_pod_creators
+JOIN published_pods ON published_pods.id = published_pod_creators.pod_id
+WHERE published_pod_creators.principal_id = $1
+
+UNION ALL
+
+SELECT published_pod_audience.principal_id AS principal_id,
+       'published pod audience' AS blocker_type,
+       published_pods.title AS blocker_name
+FROM published_pod_audience
+JOIN published_pods ON published_pods.id = published_pod_audience.pod_id
+WHERE published_pod_audience.principal_id = $1
+
+UNION ALL
+
+SELECT cloned_pods.user_principal_id AS principal_id,
+       'cloned pod owner' AS blocker_type,
+       published_pods.title AS blocker_name
+FROM cloned_pods
+JOIN published_pods ON published_pods.id = cloned_pods.pod_id
+WHERE cloned_pods.user_principal_id = $1
+
+ORDER BY blocker_type, blocker_name
+`
+
+type ListPrincipalDeletionBlockersRow struct {
+	PrincipalID uuid.UUID `json:"principal_id"`
+	BlockerType string    `json:"blocker_type"`
+	BlockerName string    `json:"blocker_name"`
+}
+
+func (q *Queries) ListPrincipalDeletionBlockers(ctx context.Context, principalID uuid.UUID) ([]ListPrincipalDeletionBlockersRow, error) {
+	rows, err := q.db.Query(ctx, listPrincipalDeletionBlockers, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPrincipalDeletionBlockersRow
+	for rows.Next() {
+		var i ListPrincipalDeletionBlockersRow
+		if err := rows.Scan(&i.PrincipalID, &i.BlockerType, &i.BlockerName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updatePrincipalDescription = `-- name: UpdatePrincipalDescription :exec

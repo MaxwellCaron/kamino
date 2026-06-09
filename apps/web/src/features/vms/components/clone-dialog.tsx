@@ -1,0 +1,186 @@
+import { useForm } from "@tanstack/react-form"
+import { useQuery } from "@tanstack/react-query"
+import { z } from "zod"
+import { IconCopy } from "@tabler/icons-react"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import {
+  FieldGroup,
+  FieldSeparator,
+  FieldSet,
+} from "@workspace/ui/components/field"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
+import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
+import {
+  CloneDestinationFolderField,
+  CloneFullCloneField,
+  CloneNameField,
+  CloneNodeField,
+  CloneVmidField,
+} from "@/features/vms/components/create/clone-form-fields"
+import {
+  optionalVmNameSchema,
+  optionalVmidSchema,
+} from "@/features/vms/components/create/create-vm-form"
+import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-api"
+import { toastCloneVm } from "@/features/vms/utils/vm-toasts"
+import { formatVmReference } from "@/features/shared/utils/format"
+
+const cloneSchema = z.object({
+  target_folder_id: z
+    .string()
+    .nullable()
+    .refine((value) => !!value, "Destination folder is required"),
+  node: z.string().trim().default(""),
+  newid: optionalVmidSchema,
+  name: optionalVmNameSchema,
+  full: z.boolean(),
+})
+
+export function CloneDialog({
+  itemId,
+  currentName,
+  currentVmid,
+  isTemplate,
+  open,
+  onOpenChange,
+}: {
+  itemId: string
+  currentName: string
+  currentVmid?: number
+  isTemplate?: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const clone = useCloneVM()
+  const inventoryTreeQuery = useQuery({
+    ...inventoryTreeQueryOptions,
+    enabled: open,
+  })
+  const inventoryTree = inventoryTreeQuery.data ?? []
+  const nodesQuery = useQuery({
+    ...nodesQueryOptions,
+    enabled: open,
+  })
+  const nodes = nodesQuery.data ?? []
+  const folderOptions = getInventoryFolderOptions(inventoryTree)
+  const isLoadingOptions = inventoryTreeQuery.isLoading || nodesQuery.isLoading
+  const optionsError = inventoryTreeQuery.error ?? nodesQuery.error
+
+  const form = useForm({
+    defaultValues: {
+      target_folder_id: null as string | null,
+      node: "",
+      newid: 0,
+      name: "",
+      full: !isTemplate,
+    },
+    onSubmit: ({ value }) => {
+      const parsed = cloneSchema.parse(value)
+      onOpenChange(false)
+
+      toastCloneVm(
+        clone.mutateAsync({
+          itemId,
+          newid: parsed.newid,
+          name: parsed.name || currentName,
+          full: isTemplate ? parsed.full : true,
+          target: parsed.node || undefined,
+          target_folder_id: parsed.target_folder_id ?? "",
+        }),
+        currentVmid,
+        currentName
+      )
+    },
+  })
+
+  return (
+    <AppDialog
+      className="sm:max-w-xl"
+      open={open}
+      onOpenChange={onOpenChange}
+      onClosed={() => form.reset()}
+      initialFocus={false}
+      icon={IconCopy}
+      title="Clone"
+      description={`Clone ${formatVmReference(
+        currentVmid,
+        currentName
+      )} into a new virtual machine.`}
+    >
+      {optionsError ? (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          {optionsError instanceof Error
+            ? optionsError.message
+            : "Failed to load clone options."}
+        </div>
+      ) : isLoadingOptions ? (
+        <DialogBodySkeleton rows={4} />
+      ) : (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <FieldSet>
+            <FieldGroup>
+              <CloneNameField
+                FieldComponent={form.Field}
+                fieldName="name"
+                inputId="clone-name"
+                placeholder={`${currentName} (Default)`}
+              />
+
+              <div className="grid grid-cols-2 gap-6">
+                <CloneNodeField
+                  FieldComponent={form.Field}
+                  fieldName="node"
+                  inputId="clone-node"
+                  nodes={nodes}
+                />
+                <CloneVmidField
+                  FieldComponent={form.Field}
+                  fieldName="newid"
+                  inputId="clone-vmid"
+                />
+              </div>
+
+              <FieldSeparator />
+
+              <CloneDestinationFolderField
+                FieldComponent={form.Field}
+                fieldName="target_folder_id"
+                folderOptions={folderOptions}
+              />
+
+              {isTemplate && (
+                <CloneFullCloneField
+                  FieldComponent={form.Field}
+                  fieldName="full"
+                  inputId="clone-full"
+                  dependencyLabel="source VM"
+                />
+              )}
+            </FieldGroup>
+          </FieldSet>
+
+          <DialogFooter className="mt-6">
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <AppDialogPrimaryButton disabled={isSubmitting}>
+                  {isSubmitting ? "Cloning..." : "Clone"}
+                </AppDialogPrimaryButton>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      )}
+    </AppDialog>
+  )
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -95,6 +96,23 @@ func (c *Client) requireAllowedNode(node string) error {
 	return fmt.Errorf("node %q is not managed by Kamino", node)
 }
 
+func unexpectedStatusError(resp *http.Response, path string) error {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return fmt.Errorf("unexpected status %d for %s (reading response body: %w)", resp.StatusCode, path, err)
+	}
+
+	return unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
+}
+
+func unexpectedStatusErrorWithBody(statusCode int, path string, body string) error {
+	detail := strings.TrimSpace(body)
+	if detail == "" {
+		return fmt.Errorf("unexpected status %d for %s", statusCode, path)
+	}
+	return fmt.Errorf("unexpected status %d for %s: %s", statusCode, path, detail)
+}
+
 func (c *Client) filterNodes(nodes []Node) []Node {
 	filtered := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
@@ -133,7 +151,7 @@ func (c *Client) get(ctx context.Context, path string, result any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -162,7 +180,7 @@ func (c *Client) post(ctx context.Context, path string, formData map[string]stri
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -323,7 +341,7 @@ func (c *Client) put(ctx context.Context, path string, formData map[string]strin
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if result != nil {
@@ -348,7 +366,7 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, path)
+		return unexpectedStatusError(resp, path)
 	}
 
 	if result != nil {
@@ -371,7 +389,8 @@ func (c *Client) CreatePool(ctx context.Context, poolID, comment string) error {
 // UpdatePoolComment updates metadata for an existing pool.
 func (c *Client) UpdatePoolComment(ctx context.Context, poolID, comment string) error {
 	var resp apiResponse[any]
-	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+	return c.put(ctx, "/api2/json/pools/", map[string]string{
+		"poolid":  poolID,
 		"comment": comment,
 	}, &resp)
 }
@@ -379,24 +398,32 @@ func (c *Client) UpdatePoolComment(ctx context.Context, poolID, comment string) 
 // DeletePool removes an empty pool that is no longer represented by Kamino inventory.
 func (c *Client) DeletePool(ctx context.Context, poolID string) error {
 	var resp apiResponse[any]
-	return c.delete(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), &resp)
+	return c.delete(ctx, poolEndpoint(poolID), &resp)
 }
 
 // AddVMToPool adds a VM to a resource pool.
 func (c *Client) AddVMToPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]
-	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
-		"vms": fmt.Sprintf("%d", vmid),
+	return c.put(ctx, "/api2/json/pools/", map[string]string{
+		"poolid": poolID,
+		"vms":    fmt.Sprintf("%d", vmid),
 	}, &resp)
 }
 
 // RemoveVMFromPool removes a VM from a resource pool.
 func (c *Client) RemoveVMFromPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]
-	return c.put(ctx, fmt.Sprintf("/api2/json/pools/%s", poolID), map[string]string{
+	return c.put(ctx, "/api2/json/pools/", map[string]string{
+		"poolid": poolID,
 		"vms":    fmt.Sprintf("%d", vmid),
 		"delete": "1",
 	}, &resp)
+}
+
+func poolEndpoint(poolID string) string {
+	query := url.Values{}
+	query.Set("poolid", poolID)
+	return "/api2/json/pools/?" + query.Encode()
 }
 
 // StartVM powers on a VM and waits for the Proxmox task to complete.
@@ -1072,8 +1099,32 @@ func (c *Client) CloneVM(
 	full bool,
 	target string,
 ) error {
-	if err := c.requireAllowedNode(node); err != nil {
+	task, err := c.StartCloneVM(ctx, node, vmid, newid, name, full, target)
+	if err != nil {
 		return err
+	}
+	return c.WaitForTask(ctx, task.Node, task.UPID)
+}
+
+// CloneTask is a handle to a started Proxmox clone task.
+type CloneTask struct {
+	Node string
+	UPID string
+}
+
+// StartCloneVM starts a clone task without waiting; serialize it with VMID
+// allocation since Proxmox only reserves newid once the task is created.
+func (c *Client) StartCloneVM(
+	ctx context.Context,
+	node string,
+	vmid int,
+	newid int,
+	name string,
+	full bool,
+	target string,
+) (CloneTask, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return CloneTask{}, err
 	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/clone", node, vmid)
 	form := map[string]string{
@@ -1086,26 +1137,34 @@ func (c *Client) CloneVM(
 	taskNode := node
 	if target != "" {
 		if err := c.requireAllowedNode(target); err != nil {
-			return err
+			return CloneTask{}, err
 		}
 		form["target"] = target
 		taskNode = target
 	}
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, form, &resp); err != nil {
-		return fmt.Errorf("cloning VM: %w", err)
+		return CloneTask{}, fmt.Errorf("cloning VM: %w", err)
 	}
-	return c.waitForTask(ctx, taskNode, resp.Data)
+	return CloneTask{Node: taskNode, UPID: resp.Data}, nil
 }
 
-// ConvertToTemplate converts a VM to a template.
+// WaitForTask polls a previously started task until it completes.
+func (c *Client) WaitForTask(ctx context.Context, node, upid string) error {
+	return c.waitForTask(ctx, node, upid)
+}
+
+// ConvertToTemplate converts a VM to a template and waits for completion.
 func (c *Client) ConvertToTemplate(ctx context.Context, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/template", node, vmid)
-	var resp apiResponse[any]
-	return c.post(ctx, path, nil, &resp)
+	var resp apiResponse[string]
+	if err := c.post(ctx, path, nil, &resp); err != nil {
+		return fmt.Errorf("converting VM to template: %w", err)
+	}
+	return c.waitForTask(ctx, node, resp.Data)
 }
 
 // GetSnapshots returns all snapshots for a VM.
@@ -1316,6 +1375,89 @@ func (c *Client) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// UsedVMIDs returns VMIDs currently present in the Proxmox cluster resource list.
+func (c *Client) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
+	var resp apiResponse[[]VM]
+	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
+		return nil, fmt.Errorf("fetching cluster VM resources: %w", err)
+	}
+
+	used := make(map[int]struct{}, len(resp.Data))
+	for _, vm := range resp.Data {
+		used[vm.VMID] = struct{}{}
+	}
+	return used, nil
+}
+
+// QEMUConfigExistsForVMID checks managed nodes for a QEMU config file. Proxmox
+// can leave one behind even when /cluster/nextid returns that VMID.
+func (c *Client) QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error) {
+	for _, node := range c.nodes {
+		exists, err := c.qemuConfigExists(ctx, node, vmid)
+		if err != nil {
+			return false, fmt.Errorf("checking VMID %d config on %s: %w", vmid, node, err)
+		}
+		if exists {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (c *Client) qemuConfigExists(ctx context.Context, node string, vmid int) (bool, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return false, err
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	if err != nil {
+		return false, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Authorization", c.AuthHeader())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return true, nil
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return false, fmt.Errorf("reading VM config response body: %w", err)
+	}
+	if isMissingVMIDConfigResponse(resp.StatusCode, string(body)) {
+		return false, nil
+	}
+	return false, unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
+}
+
+func isMissingVMIDConfigResponse(statusCode int, body string) bool {
+	if statusCode == http.StatusNotFound {
+		return true
+	}
+
+	message := strings.ToLower(body)
+	return strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "not found") ||
+		strings.Contains(message, "no such vm")
+}
+
+func IsVMIDCreateConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "config file already exists") ||
+		strings.Contains(message, "vmid already exists") ||
+		(strings.Contains(message, "unable to create vm") && strings.Contains(message, "already exists"))
 }
 
 // CreateVM creates a new virtual machine and waits for the task to complete.

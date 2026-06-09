@@ -108,6 +108,20 @@ func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (Requests, er
 	return i, err
 }
 
+const countPendingRequestsByRequester = `-- name: CountPendingRequestsByRequester :one
+SELECT count(*)::int
+FROM requests
+WHERE requester_principal_id = $1
+  AND status = 'pending'
+`
+
+func (q *Queries) CountPendingRequestsByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countPendingRequestsByRequester, requesterPrincipalID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createInventoryRequest = `-- name: CreateInventoryRequest :one
 INSERT INTO inventory_requests (
     request_id,
@@ -154,7 +168,6 @@ func (q *Queries) CreateInventoryRequest(ctx context.Context, arg CreateInventor
 }
 
 const createRequest = `-- name: CreateRequest :one
-
 INSERT INTO requests (
     family,
     kind,
@@ -185,9 +198,6 @@ type CreateRequestParams struct {
 	RequesterPrincipalID uuid.UUID     `json:"requester_principal_id"`
 }
 
-// ---------------------------------------------------------------------------
-// Request creation
-// ---------------------------------------------------------------------------
 func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (Requests, error) {
 	row := q.db.QueryRow(ctx, createRequest, arg.Family, arg.Kind, arg.RequesterPrincipalID)
 	var i Requests
@@ -599,7 +609,7 @@ LEFT JOIN inventory_items ii
   ON ii.id = ir.inventory_item_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
-WHERE r.status <> 'pending'
+WHERE r.status IN ('approved', 'denied', 'executed', 'execution_failed')
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
 `
 
@@ -787,6 +797,117 @@ func (q *Queries) ListPendingRequests(ctx context.Context) ([]ListPendingRequest
 	return items, nil
 }
 
+const listPendingRequestsByRequester = `-- name: ListPendingRequestsByRequester :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status = 'pending'
+ORDER BY r.created_at DESC, r.id DESC
+`
+
+type ListPendingRequestsByRequesterRow struct {
+	ID                    uuid.UUID                       `json:"id"`
+	Family                RequestFamily                   `json:"family"`
+	Kind                  string                          `json:"kind"`
+	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                RequestStatus                   `json:"status"`
+	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError        *string                         `json:"execution_error"`
+	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername     string                          `json:"requester_username"`
+	ReviewerUsername      string                          `json:"reviewer_username"`
+	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName          *string                         `json:"snapshot_name"`
+	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName     *string                         `json:"inventory_item_name"`
+	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryVmNode       *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListPendingRequestsByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) ([]ListPendingRequestsByRequesterRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRequestsByRequester, requesterPrincipalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingRequestsByRequesterRow
+	for rows.Next() {
+		var i ListPendingRequestsByRequesterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RequesterUsername,
+			&i.ReviewerUsername,
+			&i.InventoryItemID,
+			&i.PowerAction,
+			&i.SnapshotName,
+			&i.InventoryItemKind,
+			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
+			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRequestEventsByRequestID = `-- name: ListRequestEventsByRequestID :many
 SELECT
     re.id,
@@ -845,6 +966,134 @@ func (q *Queries) ListRequestEventsByRequestID(ctx context.Context, requestID uu
 		return nil, err
 	}
 	return items, nil
+}
+
+const listRequestHistoryByRequester = `-- name: ListRequestHistoryByRequester :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+`
+
+type ListRequestHistoryByRequesterRow struct {
+	ID                    uuid.UUID                       `json:"id"`
+	Family                RequestFamily                   `json:"family"`
+	Kind                  string                          `json:"kind"`
+	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                RequestStatus                   `json:"status"`
+	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError        *string                         `json:"execution_error"`
+	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername     string                          `json:"requester_username"`
+	ReviewerUsername      string                          `json:"reviewer_username"`
+	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName          *string                         `json:"snapshot_name"`
+	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName     *string                         `json:"inventory_item_name"`
+	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryVmNode       *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListRequestHistoryByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) ([]ListRequestHistoryByRequesterRow, error) {
+	rows, err := q.db.Query(ctx, listRequestHistoryByRequester, requesterPrincipalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRequestHistoryByRequesterRow
+	for rows.Next() {
+		var i ListRequestHistoryByRequesterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RequesterUsername,
+			&i.ReviewerUsername,
+			&i.InventoryItemID,
+			&i.PowerAction,
+			&i.SnapshotName,
+			&i.InventoryItemKind,
+			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
+			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockRequestRequester = `-- name: LockRequestRequester :one
+
+SELECT id
+FROM principals
+WHERE id = $1
+FOR UPDATE
+`
+
+// ---------------------------------------------------------------------------
+// Request creation
+// ---------------------------------------------------------------------------
+func (q *Queries) LockRequestRequester(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockRequestRequester, id)
+	err := row.Scan(&id)
+	return id, err
 }
 
 const markRequestExecuted = `-- name: MarkRequestExecuted :one
