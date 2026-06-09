@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
     "lint": "turbo lint",
     "format": "turbo format",
     "typecheck": "turbo typecheck"
