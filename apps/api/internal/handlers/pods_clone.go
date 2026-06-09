@@ -1373,6 +1373,10 @@ func (h *PodsHandler) hydrateClonedPod(
 	if err != nil {
 		return clonedPodResponse{}, err
 	}
+	status, err := h.hydrateClonedPodRuntimeStatus(ctx, q, clone.ID)
+	if err != nil {
+		return clonedPodResponse{}, err
+	}
 
 	taskRows, err := q.ListPublishedPodTasksByPodIDs(ctx, []uuid.UUID{clone.PodID})
 	if err != nil {
@@ -1420,7 +1424,7 @@ func (h *PodsHandler) hydrateClonedPod(
 		ID:       clone.ID,
 		PodID:    clone.PodID,
 		ClonedAt: pgTime(clone.CreatedAt),
-		Status:   clonedPodRuntimeStatus(vms),
+		Status:   status,
 		VMs:      vms,
 		TaskSummary: clonedPodTaskSummaryResponse{
 			Total:     totalTasks,
@@ -1438,13 +1442,15 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 	principalID uuid.UUID,
 	cloneID uuid.UUID,
 ) ([]clonedPodVMResponse, error) {
-	rows, err := q.ListVisibleClonedPodVMsForPrincipal(ctx, database.ListVisibleClonedPodVMsForPrincipalParams{
-		PrincipalID: principalID,
-		ClonedPodID: cloneID,
-	})
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
 	if err != nil {
 		return nil, err
 	}
+	visibleItemIDs, err := h.visibleInventoryItemIDs(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+	rows = filterVisibleClonedPodVMRows(rows, visibleItemIDs)
 
 	vmids := make([]int, 0, len(rows))
 	for _, row := range rows {
@@ -1490,6 +1496,71 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 	}
 
 	return response, nil
+}
+
+func (h *PodsHandler) visibleInventoryItemIDs(
+	ctx context.Context,
+	principalID uuid.UUID,
+) (map[uuid.UUID]struct{}, error) {
+	rows, err := h.Service.GetVisibleInventoryItems(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make(map[uuid.UUID]struct{}, len(rows))
+	for _, row := range rows {
+		ids[row.ID] = struct{}{}
+	}
+
+	return ids, nil
+}
+
+func filterVisibleClonedPodVMRows(
+	rows []database.ListClonedPodVMsRow,
+	visibleItemIDs map[uuid.UUID]struct{},
+) []database.ListClonedPodVMsRow {
+	filtered := make([]database.ListClonedPodVMsRow, 0, len(rows))
+	for _, row := range rows {
+		if _, ok := visibleItemIDs[row.InventoryItemID]; ok {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+func (h *PodsHandler) hydrateClonedPodRuntimeStatus(
+	ctx context.Context,
+	q *database.Queries,
+	cloneID uuid.UUID,
+) (string, error) {
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
+	if err != nil {
+		return "", err
+	}
+
+	vmids := make([]int, 0, len(rows))
+	for _, row := range rows {
+		if row.Vmid != nil {
+			vmids = append(vmids, int(*row.Vmid))
+		}
+	}
+	statuses, _, err := h.runtimeForVMIDs(ctx, vmids)
+	if err != nil {
+		return "", err
+	}
+
+	vmStatuses := make([]string, 0, len(rows))
+	for _, row := range rows {
+		status := "missing"
+		if row.Vmid != nil {
+			if value, ok := statuses[int(*row.Vmid)]; ok {
+				status = value
+			}
+		}
+		vmStatuses = append(vmStatuses, status)
+	}
+
+	return clonedPodRuntimeStatus(vmStatuses), nil
 }
 
 func (h *PodsHandler) runtimeForVMIDs(
@@ -1588,16 +1659,16 @@ func vmResourcesFromProxmoxVM(vm proxmox.VM) vmstatus.VMResources {
 	}
 }
 
-func clonedPodRuntimeStatus(vms []clonedPodVMResponse) string {
-	if len(vms) == 0 {
+func clonedPodRuntimeStatus(statuses []string) string {
+	if len(statuses) == 0 {
 		return "partial"
 	}
 
 	allRunning := true
 	allStopped := true
-	for _, vm := range vms {
-		allRunning = allRunning && vm.Status == "running"
-		allStopped = allStopped && vm.Status == "stopped"
+	for _, status := range statuses {
+		allRunning = allRunning && status == "running"
+		allStopped = allStopped && status == "stopped"
 	}
 
 	if allRunning {
