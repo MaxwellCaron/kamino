@@ -31,6 +31,7 @@ import (
 
 const (
 	podsFolderName                 = "Pods"
+	templatesFolderName            = "Templates"
 	publishedPodTemplateFolderName = "Pod-Templates"
 
 	// publishCloneConcurrency bounds how many Pod VMs are cloned at once.
@@ -629,6 +630,19 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
+	templatesFolderID, found, err := h.Service.FindFolderPath(c.Request.Context(), []string{templatesFolderName})
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load templates", "find pod template folder", err)
+		return
+	}
+	if !found {
+		c.JSON(http.StatusOK, podCreateOptionsResponse{
+			RouterTemplateConfigured: h.RouterTemplateItemID != uuid.Nil,
+			Templates:                []podTemplateOption{},
+		})
+		return
+	}
+
 	rows, err := h.Service.GetVisibleInventoryItems(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load templates", "load pod template options", err)
@@ -638,6 +652,9 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 	templates := make([]podTemplateOption, 0)
 	for _, row := range rows {
 		if row.Kind != database.InventoryItemKindVm || row.IsTemplate == nil || !*row.IsTemplate {
+			continue
+		}
+		if row.ParentID == nil || *row.ParentID != templatesFolderID {
 			continue
 		}
 		if row.Node == nil || row.Vmid == nil {
@@ -2815,7 +2832,12 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
-		return createPodVMResponse{}, &requestError{Status: http.StatusNotFound, UserMessage: "template not found"}
+		return createPodVMResponse{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "configured pod template was not found",
+			Operation:   "load pod template inventory item",
+			Err:         err,
+		}
 	default:
 		return createPodVMResponse{}, &requestError{
 			Status:      http.StatusInternalServerError,
