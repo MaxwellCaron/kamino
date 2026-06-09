@@ -219,20 +219,8 @@ export function GroupDialog({
       }
 
       if (result.failures.length > 0) {
-        if (result.successful > 0) {
-          toast.success(
-            `Successfully created ${result.successful} group${result.successful === 1 ? "" : "s"}`
-          )
-        }
         setResultSummary(result)
-      } else {
-        toast.success(
-          `Successfully created ${result.successful} group${result.successful === 1 ? "" : "s"}`
-        )
       }
-    },
-    onError: (err) => {
-      toast.error(formatToastError(err))
     },
   })
 

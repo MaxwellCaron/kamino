@@ -69,9 +69,6 @@ export function VNetDialog({
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
       form.reset()
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
 
   const form = useForm({
