@@ -108,6 +108,11 @@ function UsersPage() {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
+  const userLabelsByID = useMemo(() => {
+    return new Map(
+      (users ?? []).map((principal) => [principal.id, getUserLabel(principal)])
+    )
+  }, [users])
 
   const deleteMutation = useMutation({
     mutationFn: deleteUser,
@@ -122,8 +127,10 @@ function UsersPage() {
       }
 
       if (failedCount === 1) {
+        const failure = result.failed[0]
+        const userLabel = userLabelsByID.get(failure.id) ?? failure.id
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
+          `Failed to delete ${userLabel}: ${capitalizeFirstLetter(failure.error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} users`)

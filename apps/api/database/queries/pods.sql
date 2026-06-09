@@ -412,16 +412,6 @@ RETURNING
     created_at,
     updated_at;
 
--- name: IncrementPublishedPodCloneCount :exec
-UPDATE published_pods
-SET clone_count = clone_count + 1
-WHERE id = $1;
-
--- name: DecrementPublishedPodCloneCount :exec
-UPDATE published_pods
-SET clone_count = GREATEST(clone_count - 1, 0)
-WHERE id = $1;
-
 -- name: InsertClonedPodVM :exec
 INSERT INTO cloned_pod_vms (
     cloned_pod_id,

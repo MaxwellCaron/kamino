@@ -11,6 +11,7 @@ import (
 var (
 	ErrInvalidCredentials   = errors.New("invalid credentials")
 	ErrPrincipalNotFound    = errors.New("principal not found")
+	ErrPrincipalInUse       = errors.New("principal is in use")
 	ErrUnsupportedPrincipal = errors.New("unsupported principal")
 )
 

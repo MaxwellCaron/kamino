@@ -98,6 +98,14 @@ function GroupsPage() {
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const accessDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
+  const groupLabelsByID = useMemo(() => {
+    return new Map(
+      (groups ?? []).map((principal) => [
+        principal.id,
+        getGroupLabel(principal),
+      ])
+    )
+  }, [groups])
 
   const deleteMutation = useMutation({
     mutationFn: deleteGroup,
@@ -114,8 +122,10 @@ function GroupsPage() {
       }
 
       if (failedCount === 1) {
+        const failure = result.failed[0]
+        const groupLabel = groupLabelsByID.get(failure.id) ?? failure.id
         toast.error(
-          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
+          `Failed to delete ${groupLabel}: ${capitalizeFirstLetter(failure.error)}`
         )
       } else if (failedCount > 1) {
         toast.error(`Failed to delete ${failedCount} groups`)

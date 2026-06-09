@@ -172,7 +172,7 @@ func writeBulkDeleteResponse(
 			logRequestError(c, "bulk delete principal id="+rawID, err)
 			response.Failed = append(response.Failed, bulkDeleteFailure{
 				ID:    rawID,
-				Error: "delete failed",
+				Error: bulkPrincipalDeleteError(err),
 			})
 			continue
 		}
@@ -181,6 +181,17 @@ func writeBulkDeleteResponse(
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func bulkPrincipalDeleteError(err error) string {
+	switch {
+	case errors.Is(err, principals.ErrPrincipalInUse):
+		return err.Error()
+	case errors.Is(err, principals.ErrUnsupportedPrincipal):
+		return "unsupported principal"
+	default:
+		return "delete failed"
+	}
 }
 
 func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {

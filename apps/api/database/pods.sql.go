@@ -101,17 +101,6 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 	return i, err
 }
 
-const decrementPublishedPodCloneCount = `-- name: DecrementPublishedPodCloneCount :exec
-UPDATE published_pods
-SET clone_count = GREATEST(clone_count - 1, 0)
-WHERE id = $1
-`
-
-func (q *Queries) DecrementPublishedPodCloneCount(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, decrementPublishedPodCloneCount, id)
-	return err
-}
-
 const deleteClonedPodQuestionAnswersByQuestionID = `-- name: DeleteClonedPodQuestionAnswersByQuestionID :exec
 DELETE FROM cloned_pod_question_answers
 WHERE question_id = $1
@@ -473,17 +462,6 @@ func (q *Queries) GetVisiblePublishedPodBySlug(ctx context.Context, arg GetVisib
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const incrementPublishedPodCloneCount = `-- name: IncrementPublishedPodCloneCount :exec
-UPDATE published_pods
-SET clone_count = clone_count + 1
-WHERE id = $1
-`
-
-func (q *Queries) IncrementPublishedPodCloneCount(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, incrementPublishedPodCloneCount, id)
-	return err
 }
 
 const insertClonedPod = `-- name: InsertClonedPod :one

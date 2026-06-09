@@ -500,6 +500,33 @@ CREATE TABLE cloned_pods (
 CREATE INDEX ix_cloned_pods_user_created_at
     ON cloned_pods (user_principal_id, created_at DESC);
 
+CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE published_pods
+           SET clone_count = clone_count + 1
+         WHERE id = NEW.pod_id;
+        RETURN NEW;
+    END IF;
+
+    UPDATE published_pods
+       SET clone_count = GREATEST(clone_count - 1, 0)
+     WHERE id = OLD.pod_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_cloned_pods_update_clone_count_insert
+AFTER INSERT ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION published_pods_update_clone_count();
+
+CREATE TRIGGER trg_cloned_pods_update_clone_count_delete
+AFTER DELETE ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION published_pods_update_clone_count();
+
 CREATE TABLE cloned_pod_vms (
     cloned_pod_id       UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
     published_pod_vm_id UUID NOT NULL REFERENCES published_pod_vms(id) ON DELETE RESTRICT,

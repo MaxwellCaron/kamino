@@ -409,9 +409,6 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
-	if err := q.DecrementPublishedPodCloneCount(c.Request.Context(), clone.PodID); err != nil {
-		logRequestError(c, "decrement published pod clone count", err)
-	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -1244,15 +1241,6 @@ func (h *PodsHandler) recordClonedPod(
 				Operation:   "insert cloned pod task state",
 				Err:         err,
 			}
-		}
-	}
-
-	if err := q.IncrementPublishedPodCloneCount(ctx, podID); err != nil {
-		return database.ClonedPods{}, &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to update clone count",
-			Operation:   "increment published pod clone count",
-			Err:         err,
 		}
 	}
 
