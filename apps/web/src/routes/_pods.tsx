@@ -6,6 +6,7 @@ import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
+import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { PodBreadcrumbs } from "@/features/pods/components/pod-breadcrumbs"
 
 const keepSidebarCollapsed = () => {}
@@ -44,17 +45,19 @@ function PodsLayout() {
       }
     >
       <DashboardEvents />
-      <AppSidebarIconRail user={user} variant="inset" />
-      <SidebarInset>
-        <SiteHeader
-          breadcrumb={<PodBreadcrumbs />}
-          command={<CommandManyItems />}
-          sidebarTrigger="mobile"
-        />
-        <div className="flex flex-1 flex-col">
-          <Outlet />
-        </div>
-      </SidebarInset>
+      <InventoryDialogsProvider>
+        <AppSidebarIconRail user={user} variant="inset" />
+        <SidebarInset>
+          <SiteHeader
+            breadcrumb={<PodBreadcrumbs />}
+            command={<CommandManyItems />}
+            sidebarTrigger="mobile"
+          />
+          <div className="flex flex-1 flex-col">
+            <Outlet />
+          </div>
+        </SidebarInset>
+      </InventoryDialogsProvider>
     </SidebarProvider>
   )
 }
