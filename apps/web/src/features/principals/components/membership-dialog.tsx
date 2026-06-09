@@ -40,6 +40,11 @@ type MembershipDialogProps = {
   principal: ApiPrincipal
 } & ({ mode: "user-groups" } | { mode: "group-members" })
 
+type MembershipOption = {
+  id: string
+  label: string
+}
+
 function uniqueIds(ids: Array<string>): Array<string> {
   return Array.from(new Set(ids))
 }
@@ -86,14 +91,26 @@ function MembershipEditor({
   const [localValue, setLocalValue] = React.useState<Array<string> | null>(null)
 
   // Current memberships
-  const membersQuery = useQuery(groupMembersQueryOptions(principal.id))
-  const userGroupsQuery = useQuery(userGroupsQueryOptions(principal.id))
+  const membersQuery = useQuery({
+    ...groupMembersQueryOptions(principal.id),
+    enabled: open && mode === "group-members",
+  })
+  const userGroupsQuery = useQuery({
+    ...userGroupsQueryOptions(principal.id),
+    enabled: open && mode === "user-groups",
+  })
   const activeQuery = mode === "user-groups" ? userGroupsQuery : membersQuery
   const currentMembers: Array<ApiGroupMember> = activeQuery.data ?? []
 
   // All possible options
-  const allGroupsQuery = useQuery(groupsQueryOptions)
-  const allUsersQuery = useQuery(usersQueryOptions)
+  const allGroupsQuery = useQuery({
+    ...groupsQueryOptions,
+    enabled: open && mode === "user-groups",
+  })
+  const allUsersQuery = useQuery({
+    ...usersQueryOptions,
+    enabled: open && mode === "group-members",
+  })
   const optionsQuery = mode === "user-groups" ? allGroupsQuery : allUsersQuery
   const isLoading = activeQuery.isLoading || optionsQuery.isLoading
   const loadError = activeQuery.error ?? optionsQuery.error
@@ -123,19 +140,29 @@ function MembershipEditor({
     [localValue, serverIds]
   )
 
-  // Build lookup for display names
+  const options = React.useMemo<Array<MembershipOption>>(
+    () =>
+      allOptions.map((option) => ({
+        id: option.id,
+        label: option.name ?? option.external_id,
+      })),
+    [allOptions]
+  )
+
   const optionMap = React.useMemo(() => {
-    const map = new Map<string, string>()
-    for (const o of allOptions) {
-      map.set(o.id, o.name ?? o.external_id)
+    const map = new Map<string, MembershipOption>()
+    for (const option of options) {
+      map.set(option.id, option)
     }
     return map
-  }, [allOptions])
+  }, [options])
 
-  // All option IDs for the combobox (deduplicated)
-  const items = React.useMemo(
-    () => Array.from(new Set(allOptions.map((o) => o.id))),
-    [allOptions]
+  const selectedOptions = React.useMemo(
+    () =>
+      selectedIds
+        .map((id) => optionMap.get(id))
+        .filter((option): option is MembershipOption => !!option),
+    [optionMap, selectedIds]
   )
 
   const hasChanges = React.useMemo(() => {
@@ -207,17 +234,20 @@ function MembershipEditor({
       <Combobox
         multiple
         autoHighlight
-        items={items}
-        value={selectedIds}
-        onValueChange={(newValue) => setLocalValue(uniqueIds(newValue))}
+        items={options}
+        itemToStringLabel={(option) => option.label}
+        value={selectedOptions}
+        onValueChange={(newValue) =>
+          setLocalValue(uniqueIds(newValue.map((option) => option.id)))
+        }
       >
         <ComboboxChips ref={anchor} className="w-full">
           <ComboboxValue>
             {(values) => (
               <React.Fragment>
-                {(values as Array<string>).map((id) => (
-                  <ComboboxChip key={id}>
-                    {optionMap.get(id) ?? id}
+                {(values as Array<MembershipOption>).map((option) => (
+                  <ComboboxChip key={option.id}>
+                    {option.label}
                   </ComboboxChip>
                 ))}
                 <ComboboxChipsInput
@@ -234,9 +264,9 @@ function MembershipEditor({
         <ComboboxContent anchor={anchor}>
           <ComboboxEmpty>No items found.</ComboboxEmpty>
           <ComboboxList>
-            {(id) => (
-              <ComboboxItem key={id as string} value={id as string}>
-                {optionMap.get(id as string) ?? (id as string)}
+            {(option) => (
+              <ComboboxItem key={option.id} value={option}>
+                {option.label}
               </ComboboxItem>
             )}
           </ComboboxList>
