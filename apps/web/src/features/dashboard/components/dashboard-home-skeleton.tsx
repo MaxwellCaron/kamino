@@ -20,10 +20,10 @@ export function DashboardHomeSkeleton() {
       <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
         <StatsGridSkeleton className="xl:col-span-7" />
         <ProfileCardSkeleton className="xl:col-span-5" />
-        <ClonedPodSkeleton className="xl:col-span-8" />
         <QuestionActivitySkeleton className="xl:col-span-4" />
-        <FavoritesSkeleton className="xl:col-span-5" />
+        <ClonedPodSkeleton className="xl:col-span-8" />
         <PublishedPodsSkeleton className="xl:col-span-7" />
+        <FavoritesSkeleton className="xl:col-span-5" />
         <ActivityTableSkeleton className="xl:col-span-12" />
       </div>
     </PageSkeleton>
