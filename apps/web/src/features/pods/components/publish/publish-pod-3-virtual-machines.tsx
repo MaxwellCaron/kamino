@@ -433,6 +433,10 @@ export function PublishPodVirtualMachinesStep({
                 return (
                   <Field data-invalid={isInvalid || undefined}>
                     <FieldLabel>Pod Folder</FieldLabel>
+                    <FieldDescription>
+                      Contains the VMs creators edit and configure. These VMs
+                      are untouched and available to make edits whenever needed.
+                    </FieldDescription>
                     <FieldContent>
                       <Combobox
                         items={podFolders}
@@ -488,12 +492,6 @@ export function PublishPodVirtualMachinesStep({
                           </ComboboxList>
                         </ComboboxContent>
                       </Combobox>
-                      <FieldDescription className="pt-2">
-                        The Pod Folder contains the VMs creators edit and
-                        configure. Publishing clones these VMs and converts them
-                        to templates in its Pod Template Folder, leaving these
-                        VMs untouched to make edits whenever needed.
-                      </FieldDescription>
                       <FieldError
                         errors={showValidation ? field.state.meta.errors : []}
                       />

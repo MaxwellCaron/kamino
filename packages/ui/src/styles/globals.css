@@ -192,7 +192,6 @@
   [data-slot="table-container"] {
     scrollbar-width: thin;
     scrollbar-color: var(--border) var(--sidebar);
-    scrollbar-gutter: stable;
   }
   [data-slot="table-container"]::-webkit-scrollbar {
     height: 8px;
