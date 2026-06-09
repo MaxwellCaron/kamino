@@ -198,26 +198,27 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           user={user}
           onSettingsClick={() => setSettingsOpen(true)}
         />
+
+        <DashboardCurrentClonedPodCard
+          className="xl:col-span-8"
+          entry={cloneStatus.current}
+          error={cloneStatus.error}
+        />
         <DashboardQuestionActivityCard
           className="xl:col-span-4"
           data={questionActivityData}
           error={cloneStatus.error}
         />
-        <DashboardCurrentClonedPodCard
-          className="xl:col-span-8"
-          entry={cloneStatus.current}
-          error={cloneStatus.error}
+        <DashboardFavoritesCard
+          className="xl:col-span-5"
+          favorites={favorites}
+          vmStatuses={vmStatusQuery.data}
         />
         <DashboardRecentPodsCard
           className="xl:col-span-7"
           error={catalogQuery.error}
           pods={recentPods}
           totalPods={visiblePods.length}
-        />
-        <DashboardFavoritesCard
-          className="xl:col-span-5"
-          favorites={favorites}
-          vmStatuses={vmStatusQuery.data}
         />
         <DashboardActivityTableCard
           className="xl:col-span-12"
