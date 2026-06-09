@@ -219,7 +219,7 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 // ListUsers returns all user principals.
 // GET /api/v1/principals/users
 func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
 		return
 	}
 
@@ -522,7 +522,7 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 // ListGroups returns all group principals.
 // GET /api/v1/principals/groups
 func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
 		return
 	}
 
