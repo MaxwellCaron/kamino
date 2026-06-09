@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
-import type { DashboardStat } from "./dashboard-home-types"
+import type { DashboardStat } from "../utils/dashboard-types"
 
 export function DashboardStatsGrid({
   className,

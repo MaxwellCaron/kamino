@@ -8,7 +8,10 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 import { GrainientBackground } from "@/components/grainient-background"
-import { PageSkeleton, TableBlockSkeleton } from "@/components/loading-skeletons"
+import {
+  PageSkeleton,
+  TableBlockSkeleton,
+} from "@/components/loading-skeletons"
 import { BrowsePodsCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
 
 export function DashboardHomeSkeleton() {
@@ -17,10 +20,10 @@ export function DashboardHomeSkeleton() {
       <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
         <StatsGridSkeleton className="xl:col-span-7" />
         <ProfileCardSkeleton className="xl:col-span-5" />
-        <QuestionActivitySkeleton className="xl:col-span-4" />
         <ClonedPodSkeleton className="xl:col-span-8" />
-        <PublishedPodsSkeleton className="xl:col-span-7" />
+        <QuestionActivitySkeleton className="xl:col-span-4" />
         <FavoritesSkeleton className="xl:col-span-5" />
+        <PublishedPodsSkeleton className="xl:col-span-7" />
         <ActivityTableSkeleton className="xl:col-span-12" />
       </div>
     </PageSkeleton>

@@ -28,7 +28,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
-import type { ClonedPodEntry } from "./dashboard-home-types"
+import type { ClonedPodEntry } from "../utils/dashboard-types"
 
 export function DashboardCurrentClonedPodCard({
   className,
