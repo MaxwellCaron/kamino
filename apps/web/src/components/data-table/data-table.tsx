@@ -46,7 +46,7 @@ import { loadingTransition } from "@/components/loading-transition"
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
-  isLoading: boolean
+  isLoading?: boolean
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
@@ -59,7 +59,7 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
-  isLoading,
+  isLoading = false,
   error,
   getRowId,
   initialPageSize = 25,

@@ -31,12 +31,10 @@ export function DashboardQuestionActivityCard({
   className,
   data,
   error,
-  isLoading,
 }: {
   className?: string
   data: Array<Activity>
   error: Error | null
-  isLoading: boolean
 }) {
   return (
     <Card className={cn(className)}>
@@ -49,16 +47,7 @@ export function DashboardQuestionActivityCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex justify-center">
-        {isLoading ? (
-          <Empty className="min-h-48 border border-dashed">
-            <EmptyHeader>
-              <EmptyTitle>Checking question activity</EmptyTitle>
-              <EmptyDescription>
-                Loading question answers from your cloned pods.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : error ? (
+        {error ? (
           <Empty className="min-h-48 border border-dashed">
             <EmptyHeader>
               <EmptyTitle>Could not load question activity</EmptyTitle>

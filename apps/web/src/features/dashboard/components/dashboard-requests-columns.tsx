@@ -7,14 +7,13 @@ import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
+  formatRequestKind,
+  formatRequestPowerAction,
   formatRequestStatus,
   getRequestIcon,
   getRequestStatusClassName,
 } from "@/features/requests/utils/request-presenters"
-import {
-  getRequestTargetLabel,
-  getRequestTitle,
-} from "@/features/dashboard/utils/dashboard-utils"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 type ActivityColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
@@ -114,4 +113,28 @@ export function getDashboardActivityColumns({
       ),
     },
   ]
+}
+
+function getRequestTitle(request: ApiRequestSummary) {
+  const powerAction = formatRequestPowerAction(request.inventory?.power_action)
+  if (powerAction) {
+    return powerAction
+  }
+
+  if (request.inventory?.snapshot_name) {
+    return `${formatRequestKind(request.kind)}: ${request.inventory.snapshot_name}`
+  }
+
+  return formatRequestKind(request.kind)
+}
+
+function getRequestTargetLabel(request: ApiRequestSummary) {
+  if (request.inventory?.vmid) {
+    return formatVmReference(
+      request.inventory.vmid,
+      request.inventory.item_name ?? undefined
+    )
+  }
+
+  return request.inventory?.item_name ?? "Inventory item"
 }

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconBook2 } from "@tabler/icons-react"
+import { IconCube, IconExternalLink } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -16,16 +16,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
 
 export function DashboardRecentPodsCard({
   className,
@@ -50,20 +43,19 @@ export function DashboardRecentPodsCard({
         <CardAction>
           <Button
             nativeButton={false}
-            size="sm"
             render={
               <Link
                 to="/pods/browse"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                All Pods
-                <IconArrowUpRight data-icon="inline-end" />
+                Browse Pods
+                <IconExternalLink data-icon="inline-end" />
               </Link>
             }
           />
         </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className="mx-6 h-full rounded-4xl bg-muted/50 p-6">
         {error ? (
           <Empty className="min-h-52 border border-dashed">
             <EmptyHeader>
@@ -72,39 +64,18 @@ export function DashboardRecentPodsCard({
             </EmptyHeader>
           </Empty>
         ) : pods.length > 0 ? (
-          <div className="flex flex-col gap-2.5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {pods.map((pod) => (
-              <Item
-                key={pod.id}
-                variant="muted"
-                size="sm"
-                render={
-                  <Link to="/pods/$podSlug" params={{ podSlug: pod.slug }}>
-                    <ItemMedia variant="image">
-                      <img src={pod.image} alt={pod.title} />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>{pod.title}</ItemTitle>
-                      <ItemDescription>
-                        {pod.virtual_machines.length} VMs · {pod.clone_count}{" "}
-                        clones
-                      </ItemDescription>
-                    </ItemContent>
-                    <ItemActions>
-                      <IconArrowUpRight className="size-4" />
-                    </ItemActions>
-                  </Link>
-                }
-              />
+              <BrowsePodsCard key={pod.id} pod={pod} />
             ))}
           </div>
         ) : (
-          <Empty className="min-h-52 border border-dashed">
+          <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconBook2 />
+                <IconCube />
               </EmptyMedia>
-              <EmptyTitle>No visible pods</EmptyTitle>
+              <EmptyTitle>No published pods</EmptyTitle>
               <EmptyDescription>
                 Published pods you can access will appear here.
               </EmptyDescription>
@@ -112,7 +83,7 @@ export function DashboardRecentPodsCard({
           </Empty>
         )}
         {totalPods > pods.length && (
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-center text-xs text-muted-foreground">
             Showing {pods.length} of {totalPods} visible pods.
           </p>
         )}

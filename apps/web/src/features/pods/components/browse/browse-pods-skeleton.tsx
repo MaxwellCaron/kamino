@@ -27,7 +27,7 @@ export function BrowsePodsGridSkeleton() {
   )
 }
 
-function BrowsePodsCardSkeleton() {
+export function BrowsePodsCardSkeleton() {
   return (
     <CutoutCard
       className={cn(cutoutCardSurfaceClassName, "cursor-default")}

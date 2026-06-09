@@ -6,27 +6,20 @@ import {
   IconDeviceDesktop,
   IconPlayerPlay,
 } from "@tabler/icons-react"
-import {
-  countAccessibleInventory,
-  getRequestSortTime,
-  indexInventoryTree,
-} from "../utils/dashboard-utils"
-import {
-  buildQuestionActivityData,
-  countVmStatusSummary,
-  toTime,
-} from "../utils/dashboard-home-utils"
-import { DashboardActivityTableCard } from "./dashboard-activity-table-card"
-import { getDashboardActivityColumns } from "./dashboard-activity-columns"
-import { DashboardCurrentClonedPodCard } from "./dashboard-current-cloned-pod-card"
+import { DashboardActivityTableCard } from "./dashboard-requests-card"
+import { getDashboardActivityColumns } from "./dashboard-requests-columns"
+import { DashboardCurrentClonedPodCard } from "./dashboard-cloned-pod-card"
 import { DashboardFavoritesCard } from "./dashboard-favorites-card"
 import { DashboardHomeSkeleton } from "./dashboard-home-skeleton"
 import { DashboardProfileCard } from "./dashboard-profile-card"
 import { DashboardQuestionActivityCard } from "./dashboard-question-activity-card"
-import { DashboardRecentPodsCard } from "./dashboard-recent-pods-card"
-import { DashboardStatsGrid } from "./dashboard-stats-grid"
+import { DashboardRecentPodsCard } from "./dashboard-published-pods-card"
+import { DashboardStatsGrid } from "./dashboard-stat-cards"
 import type { ClonedPodEntry } from "./dashboard-home-types"
+import type { Activity } from "@workspace/ui/components/kibo-ui/contribution-graph"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
@@ -72,8 +65,28 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const { favoriteIds } = useInventoryFavorites()
   const vmStatusQuery = useQuery(vmStatusQueryOptions)
   const visiblePods = catalogQuery.data ?? []
-  const cloneQueries = useQueries({
+  const cloneStatus = useQueries({
     queries: visiblePods.map((pod) => clonedPodQueryOptions(pod.slug)),
+    combine: (results) => {
+      const entries = results.flatMap<ClonedPodEntry>((result, index) => {
+        const clonedPod = result.data
+        const pod = visiblePods[index]
+
+        return clonedPod ? [{ clonedPod, pod }] : []
+      })
+      const current =
+        [...entries].sort(
+          (left, right) =>
+            toTime(right.clonedPod.cloned_at) - toTime(left.clonedPod.cloned_at)
+        )[0] ?? null
+
+      return {
+        current,
+        entries,
+        error: results.find((result) => result.error)?.error ?? null,
+        isLoading: results.some((result) => result.isLoading),
+      }
+    },
   })
 
   const inventoryStats = useMemo(
@@ -86,8 +99,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     [treeQuery.data]
   )
 
-  const vmStatusSummary = useMemo(
-    () => countVmStatusSummary(inventoryItemsById, vmStatusQuery.data),
+  const runningVms = useMemo(
+    () => countRunningVms(inventoryItemsById, vmStatusQuery.data),
     [inventoryItemsById, vmStatusQuery.data]
   )
 
@@ -122,26 +135,10 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         .slice(0, 3),
     [visiblePods]
   )
-  const clonedPodEntries = cloneQueries.flatMap<ClonedPodEntry>(
-    (query, index) => {
-      const clonedPod = query.data
-      const pod = visiblePods[index]
-
-      return clonedPod ? [{ clonedPod, pod }] : []
-    }
-  )
-  const currentClonedPod =
-    [...clonedPodEntries].sort(
-      (left, right) =>
-        toTime(right.clonedPod.cloned_at) - toTime(left.clonedPod.cloned_at)
-    )[0] ?? null
   const questionActivityData = useMemo(
-    () => buildQuestionActivityData(clonedPodEntries),
-    [clonedPodEntries]
+    () => buildQuestionActivityData(cloneStatus.entries),
+    [cloneStatus.entries]
   )
-  const cloneStatusLoading = cloneQueries.some((query) => query.isLoading)
-  const cloneStatusError =
-    cloneQueries.find((query) => query.error)?.error ?? null
 
   const activityColumns = useMemo(
     () =>
@@ -157,7 +154,11 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const activityLoading =
     pendingRequestsQuery.isLoading || historyRequestsQuery.isLoading
   const isDashboardLoading =
-    treeQuery.isLoading || activityLoading || catalogQuery.isLoading
+    treeQuery.isLoading ||
+    activityLoading ||
+    catalogQuery.isLoading ||
+    cloneStatus.isLoading ||
+    vmStatusQuery.isLoading
 
   const stats = [
     {
@@ -168,12 +169,12 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     {
       icon: IconPlayerPlay,
       label: "Running VMs",
-      value: vmStatusQuery.isLoading ? "—" : String(vmStatusSummary.running),
+      value: String(runningVms),
     },
     {
       icon: IconCopy,
       label: "Cloned Pods",
-      value: String(clonedPodEntries.length),
+      value: String(cloneStatus.entries.length),
     },
     {
       icon: IconClock,
@@ -200,32 +201,29 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         <DashboardQuestionActivityCard
           className="xl:col-span-4"
           data={questionActivityData}
-          error={cloneStatusError}
-          isLoading={cloneStatusLoading}
+          error={cloneStatus.error}
         />
         <DashboardCurrentClonedPodCard
           className="xl:col-span-8"
-          entry={currentClonedPod}
-          error={cloneStatusError}
-          isLoading={cloneStatusLoading}
+          entry={cloneStatus.current}
+          error={cloneStatus.error}
         />
         <DashboardRecentPodsCard
-          className="xl:col-span-12"
+          className="xl:col-span-7"
           error={catalogQuery.error}
           pods={recentPods}
           totalPods={visiblePods.length}
         />
+        <DashboardFavoritesCard
+          className="xl:col-span-5"
+          favorites={favorites}
+          vmStatuses={vmStatusQuery.data}
+        />
         <DashboardActivityTableCard
-          className="xl:col-span-9"
+          className="xl:col-span-12"
           columns={activityColumns}
           data={requests}
           error={activityError}
-          isLoading={activityLoading}
-        />
-        <DashboardFavoritesCard
-          className="xl:col-span-3"
-          favorites={favorites}
-          vmStatuses={vmStatusQuery.data}
         />
       </div>
 
@@ -256,4 +254,134 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
       </Suspense>
     </div>
   )
+}
+
+function getRequestSortTime(request: ApiRequestSummary) {
+  const value = request.updated_at ?? request.created_at
+  if (!value) return 0
+  return new Date(value).getTime()
+}
+
+function countAccessibleInventory(nodes: Array<ApiTreeNode>): {
+  folders: number
+  vms: number
+} {
+  return nodes.reduce(
+    (counts, node) => {
+      if (node.kind === "folder") {
+        counts.folders += 1
+      } else {
+        counts.vms += 1
+      }
+
+      if (node.children) {
+        const childCounts = countAccessibleInventory(node.children)
+        counts.folders += childCounts.folders
+        counts.vms += childCounts.vms
+      }
+
+      return counts
+    },
+    { folders: 0, vms: 0 }
+  )
+}
+
+function indexInventoryTree(nodes: Array<ApiTreeNode>) {
+  const items = new Map<string, ApiTreeNode>()
+
+  const visit = (entries: Array<ApiTreeNode>) => {
+    for (const entry of entries) {
+      items.set(entry.id, entry)
+      if (entry.children) {
+        visit(entry.children)
+      }
+    }
+  }
+
+  visit(nodes)
+
+  return items
+}
+
+function countRunningVms(
+  inventoryItemsById: Map<string, ApiTreeNode>,
+  vmStatuses: Record<number, string> | undefined
+) {
+  let running = 0
+
+  for (const item of inventoryItemsById.values()) {
+    if (item.kind !== "vm" || !item.vm) continue
+    if (item.vm.is_template) continue
+
+    if (vmStatuses?.[item.vm.vmid] === "running") {
+      running += 1
+    }
+  }
+
+  return running
+}
+
+function toTime(value: string | null | undefined) {
+  return value ? new Date(value).getTime() : 0
+}
+
+function buildQuestionActivityData(entries: Array<ClonedPodEntry>) {
+  const today = new Date()
+  const startDate = new Date(
+    today.getFullYear(),
+    today.getMonth() - 6,
+    today.getDate()
+  )
+  const todayKey = toLocalDateKey(today)
+  const startDateKey = toLocalDateKey(startDate)
+  const countsByDate = new Map<string, number>()
+
+  for (const entry of entries) {
+    for (const answer of entry.clonedPod.question_answers) {
+      const answeredAt = new Date(answer.answered_at)
+      const dateKey = toLocalDateKey(answeredAt)
+
+      if (
+        Number.isNaN(answeredAt.getTime()) ||
+        dateKey < startDateKey ||
+        dateKey > todayKey
+      ) {
+        continue
+      }
+
+      countsByDate.set(dateKey, (countsByDate.get(dateKey) ?? 0) + 1)
+    }
+  }
+
+  const data: Array<Activity> = []
+  for (
+    let date = new Date(startDate);
+    toLocalDateKey(date) <= todayKey;
+    date.setDate(date.getDate() + 1)
+  ) {
+    const dateKey = toLocalDateKey(date)
+    const count = countsByDate.get(dateKey) ?? 0
+    data.push({
+      date: dateKey,
+      count,
+      level: getQuestionActivityLevel(count),
+    })
+  }
+
+  return data
+}
+
+function getQuestionActivityLevel(count: number) {
+  if (count <= 0) return 0
+  if (count === 1) return 1
+  if (count === 2) return 2
+  if (count <= 4) return 3
+  return 4
+}
+
+function toLocalDateKey(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${date.getFullYear()}-${month}-${day}`
 }

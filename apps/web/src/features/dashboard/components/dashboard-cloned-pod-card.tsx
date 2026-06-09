@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowRight, IconBook2 } from "@tabler/icons-react"
+import { IconArrowRight, IconCopy } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -34,22 +34,18 @@ export function DashboardCurrentClonedPodCard({
   className,
   entry,
   error,
-  isLoading,
 }: {
   className?: string
   entry: ClonedPodEntry | null
   error: Error | null
-  isLoading: boolean
 }) {
   return (
     <Card className={cn(className)}>
       <CardHeader>
-        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-          Recent Pod
+        <CardTitle className="text-2xl font-semibold tracking-tight">
+          Cloned Pod
         </CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
-          Most recently cloned environment.
-        </CardDescription>
+        <CardDescription>Most recently cloned environment.</CardDescription>
         <CardAction>
           {entry && (
             <Button
@@ -65,16 +61,7 @@ export function DashboardCurrentClonedPodCard({
         </CardAction>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <Empty className="min-h-52 border border-dashed">
-            <EmptyHeader>
-              <EmptyTitle>Checking clone status</EmptyTitle>
-              <EmptyDescription>
-                Looking for pod instances owned by your account.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : error ? (
+        {error ? (
           <Empty className="min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyTitle>Could not load clone status</EmptyTitle>
@@ -140,9 +127,9 @@ export function DashboardCurrentClonedPodCard({
           <Empty className="min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconBook2 />
+                <IconCopy />
               </EmptyMedia>
-              <EmptyTitle>No cloned pod</EmptyTitle>
+              <EmptyTitle>No cloned pods</EmptyTitle>
               <EmptyDescription>
                 Clone a pod from the catalog to track it here.
               </EmptyDescription>
