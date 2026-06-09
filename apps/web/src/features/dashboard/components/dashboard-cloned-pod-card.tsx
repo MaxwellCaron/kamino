@@ -88,9 +88,7 @@ export function DashboardCurrentClonedPodCard({
                     <ItemTitle className="line-clamp-1 text-2xl font-semibold tracking-tight">
                       {entry.pod.title}
                     </ItemTitle>
-                    <ItemDescription className="truncate">
-                      {entry.pod.description}
-                    </ItemDescription>
+                    <ItemDescription>{entry.pod.description}</ItemDescription>
                     <span className="text-muted-foreground">
                       Cloned{" "}
                       <RelativeTimeCard
@@ -102,11 +100,11 @@ export function DashboardCurrentClonedPodCard({
                         variant="muted"
                       />
                     </span>
-                    <div className="pt-6">
+                    <div className="sm:pt-6">
                       <Field className="w-full">
                         <FieldLabel htmlFor="task-progress">
-                          <span>Task progress</span>
-                          <span className="ml-auto">
+                          <span className="hidden sm:block">Task progress</span>
+                          <span className="ml-auto hidden sm:block">
                             {entry.clonedPod.task_summary.completed}/
                             {entry.clonedPod.task_summary.total} Tasks Completed
                           </span>
