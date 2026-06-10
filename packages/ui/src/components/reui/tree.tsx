@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react"
+import { createContext, useContext, useMemo } from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { IconChevronDown, IconMinus, IconPlus } from "@tabler/icons-react"
@@ -78,8 +78,13 @@ function Tree({
     "--tree-indent": `${indent}px`,
   } as React.CSSProperties
 
+  const contextValue = useMemo(
+    () => ({ indent, tree, toggleIconType }),
+    [indent, tree, toggleIconType]
+  )
+
   return (
-    <TreeContext.Provider value={{ indent, tree, toggleIconType }}>
+    <TreeContext.Provider value={contextValue}>
       <div
         data-slot="tree"
         style={mergedStyle}
@@ -150,8 +155,13 @@ function TreeItem<T = any>({
     "aria-expanded": item.isExpanded(),
   }
 
+  const contextValue = useMemo(
+    () => ({ ...parentContext, currentItem: item }),
+    [parentContext, item]
+  )
+
   return (
-    <TreeContext.Provider value={{ ...parentContext, currentItem: item }}>
+    <TreeContext.Provider value={contextValue}>
       {useRender({
         defaultTagName: "button",
         render,

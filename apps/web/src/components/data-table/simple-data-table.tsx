@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Table,
@@ -56,7 +56,7 @@ export function SimpleDataTable<TData, TValue>({
   return (
     <div className="overflow-hidden">
       <Table className="border-y">
-        <motion.thead
+        <m.thead
           data-slot="table-header"
           className="bg-muted hover:bg-muted [&_tr]:border-b"
           initial={hasBeenLoading.current ? { opacity: 0 } : false}
@@ -80,9 +80,9 @@ export function SimpleDataTable<TData, TValue>({
               ))}
             </TableRow>
           ))}
-        </motion.thead>
+        </m.thead>
         <AnimatePresence mode="wait">
-          <motion.tbody
+          <m.tbody
             key={isLoading ? "loading" : "loaded"}
             data-slot="table-body"
             initial={hasBeenLoading.current ? { opacity: 0, height: 0 } : false}
@@ -133,7 +133,7 @@ export function SimpleDataTable<TData, TValue>({
                 </TableCell>
               </TableRow>
             )}
-          </motion.tbody>
+          </m.tbody>
         </AnimatePresence>
       </Table>
     </div>

@@ -228,6 +228,8 @@ export type ContributionGraphProps = HTMLAttributes<HTMLDivElement> & {
   className?: string
 }
 
+const EMPTY_STYLE: CSSProperties = {}
+
 export const ContributionGraph = ({
   data,
   blockMargin = 4,
@@ -236,7 +238,7 @@ export const ContributionGraph = ({
   fontSize = 14,
   labels: labelsProp = undefined,
   maxLevel: maxLevelProp = 4,
-  style = {},
+  style = EMPTY_STYLE,
   totalCount: totalCountProp = undefined,
   weekStart = 0,
   className,
@@ -264,25 +266,43 @@ export const ContributionGraph = ({
     return null
   }
 
+  const contextValue = useMemo(
+    () => ({
+      data,
+      weeks,
+      blockMargin,
+      blockRadius,
+      blockSize,
+      fontSize,
+      labels,
+      labelHeight,
+      maxLevel,
+      totalCount,
+      weekStart,
+      year,
+      width,
+      height,
+    }),
+    [
+      data,
+      weeks,
+      blockMargin,
+      blockRadius,
+      blockSize,
+      fontSize,
+      labels,
+      labelHeight,
+      maxLevel,
+      totalCount,
+      weekStart,
+      year,
+      width,
+      height,
+    ]
+  )
+
   return (
-    <ContributionGraphContext.Provider
-      value={{
-        data,
-        weeks,
-        blockMargin,
-        blockRadius,
-        blockSize,
-        fontSize,
-        labels,
-        labelHeight,
-        maxLevel,
-        totalCount,
-        weekStart,
-        year,
-        width,
-        height,
-      }}
-    >
+    <ContributionGraphContext.Provider value={contextValue}>
       <div
         className={cn("flex w-max max-w-full flex-col gap-2", className)}
         style={{ fontSize, ...style }}

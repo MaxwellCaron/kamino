@@ -200,11 +200,13 @@ function ErrorState({
   )
 }
 
+const EMPTY_UPDATE_VIRTUAL_MACHINES: Array<PublishPodUpdateVirtualMachine> = []
+
 export function PublishPodSubmitState({
   podSlug,
   progress,
   state,
-  updateVirtualMachines = [],
+  updateVirtualMachines = EMPTY_UPDATE_VIRTUAL_MACHINES,
   errorMessage,
   onBackToForm,
 }: {

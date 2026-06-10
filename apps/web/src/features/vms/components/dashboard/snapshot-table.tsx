@@ -6,7 +6,7 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -140,7 +140,7 @@ export function SnapshotsTable({
             </TableRow>
           </TableHeader>
           <AnimatePresence mode="wait">
-            <motion.tbody
+            <m.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
               initial={
@@ -302,7 +302,7 @@ export function SnapshotsTable({
                   </TableRow>
                 ))
               )}
-            </motion.tbody>
+            </m.tbody>
           </AnimatePresence>
         </Table>
       </CardContent>

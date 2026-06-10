@@ -1,4 +1,4 @@
-import { motion, useSpring } from "motion/react"
+import { m, useSpring } from "motion/react"
 import { chartCssVars } from "../chart-context"
 
 // Faster spring for crosshair - responsive to mouse movement
@@ -102,7 +102,7 @@ export function TooltipIndicator({
           />
         </linearGradient>
       </defs>
-      <motion.rect
+      <m.rect
         fill={`url(#${gradientId})`}
         height={height}
         width={pixelWidth}

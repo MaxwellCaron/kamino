@@ -1,4 +1,4 @@
-import { motion, useSpring } from "motion/react"
+import { m, useSpring } from "motion/react"
 import { chartCssVars } from "../chart-context"
 
 // Faster spring to stay in sync with indicator
@@ -34,7 +34,7 @@ export function TooltipDot({
   }
 
   return (
-    <motion.circle
+    <m.circle
       cx={animatedX}
       cy={animatedY}
       fill={color}

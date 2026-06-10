@@ -186,6 +186,9 @@ export function CreateVmDialog({
     },
     onSuccess: (result) => {
       seedInventoryItemCache(queryClient, result.item_id, result.item)
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
       onOpenChange(false)
       navigate({
         to: "/inventory/items/$itemId",

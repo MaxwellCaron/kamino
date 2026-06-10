@@ -7,7 +7,7 @@ import React, {
   useCallback,
   useId,
 } from "react";
-import { motion, useInView } from "motion/react";
+import { m, useInView } from "motion/react";
 import { cn } from "@workspace/ui/lib/utils";
 
 const useIsomorphicLayoutEffect =
@@ -484,7 +484,7 @@ export const AsciiArt: React.FC<AsciiArtProps> = ({
 
   if (animationStyle === "fade" && animated && !hasAnimated) {
     return (
-      <motion.div
+      <m.div
         ref={containerRef}
         className={cn("overflow-hidden", className)}
         style={{ backgroundColor }}
@@ -493,7 +493,7 @@ export const AsciiArt: React.FC<AsciiArtProps> = ({
         transition={{ duration: animationDuration * 0.3 }}
       >
         {canvasElement}
-      </motion.div>
+      </m.div>
     );
   }
 

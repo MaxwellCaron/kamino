@@ -1,4 +1,4 @@
-import { motion, useSpring } from "motion/react"
+import { m, useSpring } from "motion/react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@workspace/ui/lib/utils"
@@ -141,7 +141,7 @@ export function TooltipBox({
   }
 
   return createPortal(
-    <motion.div
+    <m.div
       animate={{ opacity: 1 }}
       className={cn("pointer-events-none absolute z-50", className)}
       exit={{ opacity: 0 }}
@@ -150,7 +150,7 @@ export function TooltipBox({
       style={{ left: finalLeft, top: finalTop }}
       transition={{ duration: 0.1 }}
     >
-      <motion.div
+      <m.div
         animate={{ scale: 1, opacity: 1, x: 0 }}
         className="min-w-35 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-lg backdrop-blur-md"
         initial={{ scale: 0.85, opacity: 0, x: isFlipped ? 20 : -20 }}
@@ -159,8 +159,8 @@ export function TooltipBox({
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
       >
         {children}
-      </motion.div>
-    </motion.div>,
+      </m.div>
+    </m.div>,
     container
   )
 }

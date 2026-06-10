@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -190,7 +190,7 @@ export function ClonePodDialog({
               <AnimatePresence mode="wait">
                 {isCloning ? (
                   isError ? (
-                    <motion.span
+                    <m.span
                       key="failed-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -208,9 +208,9 @@ export function ClonePodDialog({
                           inactiveOpacity: 1,
                         }}
                       />
-                    </motion.span>
+                    </m.span>
                   ) : isFinished ? (
-                    <motion.span
+                    <m.span
                       key="finished-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -228,9 +228,9 @@ export function ClonePodDialog({
                           inactiveOpacity: 1,
                         }}
                       />
-                    </motion.span>
+                    </m.span>
                   ) : (
-                    <motion.span
+                    <m.span
                       key="cloning-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -251,10 +251,10 @@ export function ClonePodDialog({
                           gap: 2,
                         }}
                       />
-                    </motion.span>
+                    </m.span>
                   )
                 ) : (
-                  <motion.span
+                  <m.span
                     key="approval-loader"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -272,10 +272,10 @@ export function ClonePodDialog({
                         inactiveOpacity: 1,
                       }}
                     />
-                  </motion.span>
+                  </m.span>
                 )}
               </AnimatePresence>
-              <span className="text-balancet scroll-m-20 text-4xl font-extrabold tracking-tight">
+              <span className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
                 {dialogTitle}
               </span>
             </div>

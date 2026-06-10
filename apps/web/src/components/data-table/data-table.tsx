@@ -11,7 +11,7 @@ import {
   TableHead,
   TableRow,
 } from "@workspace/ui/components/table"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import { Input } from "@workspace/ui/components/input"
 import {
   Select,
@@ -135,7 +135,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="overflow-hidden py-6">
         <Table className="border-y">
-          <motion.thead
+          <m.thead
             data-slot="table-header"
             className="bg-muted hover:bg-muted [&_tr]:border-b"
             initial={hasBeenLoading.current ? { opacity: 0 } : false}
@@ -161,9 +161,9 @@ export function DataTable<TData, TValue>({
                 })}
               </TableRow>
             ))}
-          </motion.thead>
+          </m.thead>
           <AnimatePresence mode="wait">
-            <motion.tbody
+            <m.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
               initial={
@@ -216,7 +216,7 @@ export function DataTable<TData, TValue>({
                   </TableCell>
                 </TableRow>
               )}
-            </motion.tbody>
+            </m.tbody>
           </AnimatePresence>
         </Table>
       </div>

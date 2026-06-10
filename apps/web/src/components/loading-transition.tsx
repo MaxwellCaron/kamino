@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import { useRef } from "react"
 import type { ReactNode } from "react"
 
@@ -21,7 +21,7 @@ export function LoadingTransition({
   return (
     <AnimatePresence mode="wait">
       {isLoading ? (
-        <motion.div
+        <m.div
           key="loading"
           initial={false}
           animate={{ opacity: 1 }}
@@ -30,9 +30,9 @@ export function LoadingTransition({
           className={className}
         >
           {fallback}
-        </motion.div>
+        </m.div>
       ) : (
-        <motion.div
+        <m.div
           key="loaded"
           initial={hasBeenLoading.current ? { opacity: 0, y: 4 } : false}
           animate={{ opacity: 1, y: 0 }}
@@ -40,7 +40,7 @@ export function LoadingTransition({
           className={className}
         >
           {children}
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

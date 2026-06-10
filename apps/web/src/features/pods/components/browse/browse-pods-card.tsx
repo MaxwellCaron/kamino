@@ -1,4 +1,4 @@
-import { motion } from "motion/react"
+import { m } from "motion/react"
 import {
   CutoutCard,
   CutoutCardContent,
@@ -14,6 +14,12 @@ import {
 import { Link } from "@tanstack/react-router"
 import type { Pod } from "@/features/pods/types/pod-types"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
+
+const podDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+})
 
 export function BrowsePodsCard({ pod }: { pod: Pod }) {
   const stagger = useCutoutContentStaggerVariants()
@@ -44,37 +50,33 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
           </CutoutCardInsetLabel>
         </CutoutCardMedia>
         <CutoutCardContent>
-          <motion.div
+          <m.div
             animate="show"
             className="contents"
             initial="hidden"
             variants={stagger.container}
           >
-            <motion.h2
+            <m.h2
               className="mb-2 text-xl leading-snug font-semibold text-balance text-card-foreground"
               variants={stagger.item}
             >
               {pod.title}
-            </motion.h2>
-            <motion.p
+            </m.h2>
+            <m.p
               className="mb-4 text-sm leading-relaxed text-pretty text-muted-foreground"
               variants={stagger.item}
             >
               {pod.description}
-            </motion.p>
-            <motion.div variants={stagger.item}>
+            </m.p>
+            <m.div variants={stagger.item}>
               <CutoutCardFooter className="border-t border-border/80 pt-4">
                 {FormatPodCreatorsShort(pod.creators)}
                 <span className="pr-1 text-xs text-muted-foreground tabular-nums">
-                  {new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  }).format(new Date(pod.created_at))}
+                  {podDateFormatter.format(new Date(pod.created_at))}
                 </span>
               </CutoutCardFooter>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         </CutoutCardContent>
       </CutoutCard>
     </Link>

@@ -158,6 +158,9 @@ export function useCloneVM() {
     mutationFn: cloneVM,
     onSuccess: (result) => {
       seedInventoryItemCache(queryClient, result.item_id, result.item)
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
       navigate({
         to: "/inventory/items/$itemId",
         params: { itemId: result.item_id },

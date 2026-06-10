@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query"
+import { LazyMotion, MotionConfig, domMax } from "motion/react"
 import { Toaster } from "@workspace/ui/components/sonner"
 import { ThemeProvider } from "@workspace/ui/components/theme-provider"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
@@ -91,11 +92,15 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>
-        <TooltipProvider>
-          <Outlet />
-        </TooltipProvider>
-      </ThemeProvider>
+      <LazyMotion features={domMax} strict>
+        <MotionConfig reducedMotion="user">
+          <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>
+            <TooltipProvider>
+              <Outlet />
+            </TooltipProvider>
+          </ThemeProvider>
+        </MotionConfig>
+      </LazyMotion>
     </QueryClientProvider>
   )
 }

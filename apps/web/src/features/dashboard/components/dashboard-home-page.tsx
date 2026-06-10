@@ -74,11 +74,15 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
         return clonedPod ? [{ clonedPod, pod }] : []
       })
-      const current =
-        [...entries].sort(
-          (left, right) =>
-            toTime(right.clonedPod.cloned_at) - toTime(left.clonedPod.cloned_at)
-        )[0] ?? null
+      const current = entries.reduce<ClonedPodEntry | null>(
+        (latest, entry) =>
+          latest &&
+          toTime(latest.clonedPod.cloned_at) >=
+            toTime(entry.clonedPod.cloned_at)
+            ? latest
+            : entry,
+        null
+      )
 
       return {
         current,

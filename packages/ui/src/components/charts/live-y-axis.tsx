@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useChart } from "./chart-context"
@@ -190,7 +190,7 @@ export function LiveYAxis({
       >
         <AnimatePresence initial={false}>
           {tickData.map((tick) => (
-            <motion.div
+            <m.div
               animate={{ opacity: tick.edgeAlpha, y: tick.y }}
               className="absolute w-full"
               exit={{ opacity: 0 }}
@@ -206,7 +206,7 @@ export function LiveYAxis({
               <span className="font-mono text-xs whitespace-nowrap text-chart-label">
                 {tick.label}
               </span>
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
       </div>

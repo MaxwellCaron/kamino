@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo } from "react"
 import { Image } from "@unpic/react"
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import { motion, useReducedMotion } from "motion/react"
+import { m, useReducedMotion } from "motion/react"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ImageProps as UnpicImageProps } from "@unpic/react"
 import type { ComponentProps, HTMLAttributes, MouseEventHandler } from "react"
@@ -20,7 +20,7 @@ export const cutoutCardSurfaceClassName = cn(
   cutoutCardSurfaceShadowClassName
 )
 
-/** Staggered text/footer entrance inside `CutoutCardContent` — use with `motion.div` children. */
+/** Staggered text/footer entrance inside `CutoutCardContent` — use with `m.div` children. */
 export function useCutoutContentStaggerVariants() {
   const reduceMotion = useReducedMotion()
 
@@ -93,7 +93,7 @@ export function useOptionalCutoutCard() {
 // ============================================================================
 
 export type CutoutCardProps = Omit<
-  ComponentProps<typeof motion.div>,
+  ComponentProps<typeof m.div>,
   "defaultValue"
 > & {
   /** When set, hover state is controlled by the parent. */
@@ -160,7 +160,7 @@ export function CutoutCard({
 
   return (
     <CutoutCardContext.Provider value={ctx}>
-      <motion.div
+      <m.div
         animate={{ opacity: 1 }}
         className={cn(className)}
         data-slot="cutout-card"
@@ -176,7 +176,7 @@ export function CutoutCard({
         {...props}
       >
         {children}
-      </motion.div>
+      </m.div>
     </CutoutCardContext.Provider>
   )
 }
@@ -414,7 +414,7 @@ export function CutoutCardPin({ className, ...props }: CutoutCardPinProps) {
 // Context-sensitive action region
 // ============================================================================
 
-export type CutoutCardActionProps = ComponentProps<typeof motion.div> & {
+export type CutoutCardActionProps = ComponentProps<typeof m.div> & {
   /**
    * When true (default), visibility follows card hover from context.
    * Set false to always show the region.
@@ -432,7 +432,7 @@ export function CutoutCardAction({
   const visible = !revealOnHover || hovered
 
   return (
-    <motion.div
+    <m.div
       animate={
         visible
           ? { opacity: 1, transform: "translateY(0px)" }

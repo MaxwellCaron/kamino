@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react"
 import type { ReactNode } from "react"
 
 type VmContextValue = {
@@ -15,7 +21,12 @@ export function VmProvider({ children }: { children: ReactNode }) {
     setSelectedVmId(id)
   }, [])
 
-  return <VmContext value={{ selectedVmId, selectVm }}>{children}</VmContext>
+  const value = useMemo(
+    () => ({ selectedVmId, selectVm }),
+    [selectedVmId, selectVm]
+  )
+
+  return <VmContext value={value}>{children}</VmContext>
 }
 
 export function useVm() {

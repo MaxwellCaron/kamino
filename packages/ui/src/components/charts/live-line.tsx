@@ -1,6 +1,6 @@
 import { curveMonotoneX } from "@visx/curve"
 import { AreaClosed, LinePath } from "@visx/shape"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 import { useCallback, useId, useMemo } from "react"
 import { chartCssVars, useChart } from "./chart-context"
 
@@ -231,7 +231,7 @@ export function LiveLine({
       />
 
       {/* Live indicator (dot + badge) — dims when crosshair is active */}
-      <motion.g
+      <m.g
         animate={{ opacity: isScrubbing ? 0.25 : 1 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
@@ -304,7 +304,7 @@ export function LiveLine({
             </text>
           </g>
         )}
-      </motion.g>
+      </m.g>
     </>
   )
 }
