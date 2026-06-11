@@ -189,10 +189,10 @@ function buildCreateUsers(
   }
 
   if (mode === "list") {
-    const lines = values.listInput
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
+    const lines = values.listInput.split("\n").flatMap((line) => {
+      const trimmed = line.trim()
+      return trimmed ? [trimmed] : []
+    })
 
     if (lines.length === 0) {
       throw new Error("Provide at least one user")
@@ -346,12 +346,16 @@ export function UserDialog({
       return createUser(values as Array<CreateUserInput>)
     },
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ["principals"] })
+      const invalidatePrincipals = queryClient.invalidateQueries({
+        queryKey: ["principals"],
+      })
 
       if (isEdit || result === null) {
+        await invalidatePrincipals
         return
       }
 
+      await invalidatePrincipals
       if (result.failures.length > 0) {
         setResultSummary(result)
       }

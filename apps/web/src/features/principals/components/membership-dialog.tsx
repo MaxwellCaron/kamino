@@ -129,8 +129,8 @@ function MembershipEditor({
       : isMembersLoading || isAllUsersLoading
   const loadError =
     mode === "user-groups"
-      ? userGroupsError ?? allGroupsError
-      : membersError ?? allUsersError
+      ? (userGroupsError ?? allGroupsError)
+      : (membersError ?? allUsersError)
   const allOptions: Array<ApiPrincipal> =
     (mode === "user-groups" ? allGroups : allUsers) ?? []
 
@@ -274,9 +274,7 @@ function MembershipForm({
             {(values) => (
               <React.Fragment>
                 {(values as Array<MembershipOption>).map((option) => (
-                  <ComboboxChip key={option.id}>
-                    {option.label}
-                  </ComboboxChip>
+                  <ComboboxChip key={option.id}>{option.label}</ComboboxChip>
                 ))}
                 <ComboboxChipsInput
                   placeholder={

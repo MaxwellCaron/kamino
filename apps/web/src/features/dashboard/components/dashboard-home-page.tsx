@@ -144,7 +144,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const recentPods = useMemo(
     () =>
-      [...visiblePods]
+      visiblePods
+        .slice()
         .sort(
           (left, right) => toTime(right.created_at) - toTime(left.created_at)
         )
@@ -167,8 +168,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const activityError = pendingRequestsError ?? historyRequestsError
 
-  const activityLoading =
-    isPendingRequestsLoading || isHistoryRequestsLoading
+  const activityLoading = isPendingRequestsLoading || isHistoryRequestsLoading
   const isDashboardLoading =
     isTreeLoading ||
     activityLoading ||

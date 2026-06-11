@@ -643,37 +643,153 @@ export const IsoConfigurationFields = withCreateVmForm({
           <form.Field name="networks" mode="array">
             {(networksField: any) => (
               <div className="flex flex-col gap-4">
-                {networksField.state.value.map((_: any, index: number) => (
-                  <VmHardwareNetworkCard
-                    key={`network-${index}`}
-                    title={`net${index}`}
-                    description="Configure connectivity for this interface."
-                    removeAction={
-                      networksField.state.value.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          aria-label="Remove network interface"
-                          onClick={() => networksField.removeValue(index)}
-                        >
-                          <IconTrash />
-                        </Button>
-                      ) : undefined
-                    }
-                  >
-                    <FieldGroup>
-                      <div className="grid grid-cols-2 gap-6">
+                {networksField.state.value.map(
+                  (network: any, index: number) => (
+                    <VmHardwareNetworkCard
+                      key={`${network.bridge}-${network.model}-${network.vlan_tag ?? "none"}-${index}`}
+                      title={`net${index}`}
+                      description="Configure connectivity for this interface."
+                      removeAction={
+                        networksField.state.value.length > 1 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label="Remove network interface"
+                            onClick={() => networksField.removeValue(index)}
+                          >
+                            <IconTrash />
+                          </Button>
+                        ) : undefined
+                      }
+                    >
+                      <FieldGroup>
+                        <div className="grid grid-cols-2 gap-6">
+                          <form.Field
+                            name={`networks[${index}].bridge` as const}
+                            validators={{
+                              onBlur: ({ value }) =>
+                                getFirstIssueMessage(
+                                  networkInterfaceSchema.shape.bridge.safeParse(
+                                    value
+                                  )
+                                ),
+                            }}
+                          >
+                            {(field) => (
+                              <Field
+                                data-invalid={
+                                  field.state.meta.errors.length > 0 ||
+                                  undefined
+                                }
+                              >
+                                <FieldLabel>Bridge / VNet</FieldLabel>
+                                <Combobox
+                                  items={networkOptions}
+                                  itemToStringValue={(option) => option.label}
+                                  value={
+                                    networkOptions.find(
+                                      (option) =>
+                                        option.value === field.state.value
+                                    ) ?? null
+                                  }
+                                  onValueChange={(option) =>
+                                    field.handleChange(option?.value ?? "")
+                                  }
+                                  autoHighlight
+                                >
+                                  <ComboboxInput
+                                    placeholder="Select network"
+                                    onBlur={field.handleBlur}
+                                    aria-invalid={
+                                      field.state.meta.errors.length > 0 ||
+                                      undefined
+                                    }
+                                  />
+                                  <ComboboxContent>
+                                    <ComboboxEmpty>
+                                      No networks found.
+                                    </ComboboxEmpty>
+                                    <ComboboxList>
+                                      {bridgeOptions.length ? (
+                                        <ComboboxGroup items={bridgeOptions}>
+                                          <ComboboxLabel>Bridges</ComboboxLabel>
+                                          <ComboboxCollection>
+                                            {(option) => (
+                                              <ComboboxItem
+                                                key={option.value}
+                                                value={option}
+                                              >
+                                                {option.label}
+                                              </ComboboxItem>
+                                            )}
+                                          </ComboboxCollection>
+                                        </ComboboxGroup>
+                                      ) : null}
+                                      {bridgeOptions.length &&
+                                      vnetOptions.length ? (
+                                        <ComboboxSeparator />
+                                      ) : null}
+                                      {vnetOptions.length ? (
+                                        <ComboboxGroup items={vnetOptions}>
+                                          <ComboboxLabel>VNets</ComboboxLabel>
+                                          <ComboboxCollection>
+                                            {(option) => (
+                                              <ComboboxItem
+                                                key={option.value}
+                                                value={option}
+                                              >
+                                                {option.label}
+                                              </ComboboxItem>
+                                            )}
+                                          </ComboboxCollection>
+                                        </ComboboxGroup>
+                                      ) : null}
+                                    </ComboboxList>
+                                  </ComboboxContent>
+                                </Combobox>
+                                <FieldError>
+                                  {renderError(field.state.meta.errors[0])}
+                                </FieldError>
+                              </Field>
+                            )}
+                          </form.Field>
+
+                          <form.Field
+                            name={`networks[${index}].model` as const}
+                          >
+                            {(field) => (
+                              <Field>
+                                <FieldLabel>Model</FieldLabel>
+                                <Select
+                                  value={field.state.value}
+                                  onValueChange={(value) =>
+                                    field.handleChange(value ?? "virtio")
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectGroup>
+                                      {nicModels.map((model) => (
+                                        <SelectItem
+                                          key={model.value}
+                                          value={model.value}
+                                        >
+                                          {model.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                              </Field>
+                            )}
+                          </form.Field>
+                        </div>
+
                         <form.Field
-                          name={`networks[${index}].bridge` as const}
-                          validators={{
-                            onBlur: ({ value }) =>
-                              getFirstIssueMessage(
-                                networkInterfaceSchema.shape.bridge.safeParse(
-                                  value
-                                )
-                              ),
-                          }}
+                          name={`networks[${index}].vlan_tag` as const}
                         >
                           {(field) => (
                             <Field
@@ -681,71 +797,25 @@ export const IsoConfigurationFields = withCreateVmForm({
                                 field.state.meta.errors.length > 0 || undefined
                               }
                             >
-                              <FieldLabel>Bridge / VNet</FieldLabel>
-                              <Combobox
-                                items={networkOptions}
-                                itemToStringValue={(option) => option.label}
-                                value={
-                                  networkOptions.find(
-                                    (option) =>
-                                      option.value === field.state.value
-                                  ) ?? null
+                              <FieldLabel htmlFor={`network-vlan-${index}`}>
+                                VLAN Tag
+                              </FieldLabel>
+                              <Input
+                                id={`network-vlan-${index}`}
+                                type="number"
+                                placeholder="Optional"
+                                value={field.state.value ?? ""}
+                                onBlur={field.handleBlur}
+                                onChange={(event) =>
+                                  field.handleChange(
+                                    parseOptionalNumberInput(event.target.value)
+                                  )
                                 }
-                                onValueChange={(option) =>
-                                  field.handleChange(option?.value ?? "")
+                                aria-invalid={
+                                  field.state.meta.errors.length > 0 ||
+                                  undefined
                                 }
-                                autoHighlight
-                              >
-                                <ComboboxInput
-                                  placeholder="Select network"
-                                  onBlur={field.handleBlur}
-                                  aria-invalid={
-                                    field.state.meta.errors.length > 0 ||
-                                    undefined
-                                  }
-                                />
-                                <ComboboxContent>
-                                  <ComboboxEmpty>
-                                    No networks found.
-                                  </ComboboxEmpty>
-                                  <ComboboxList>
-                                    {bridgeOptions.length ? (
-                                      <ComboboxGroup items={bridgeOptions}>
-                                        <ComboboxLabel>Bridges</ComboboxLabel>
-                                        <ComboboxCollection>
-                                          {(option) => (
-                                            <ComboboxItem
-                                              key={option.value}
-                                              value={option}
-                                            >
-                                              {option.label}
-                                            </ComboboxItem>
-                                          )}
-                                        </ComboboxCollection>
-                                      </ComboboxGroup>
-                                    ) : null}
-                                    {bridgeOptions.length &&
-                                    vnetOptions.length ? (
-                                      <ComboboxSeparator />
-                                    ) : null}
-                                    {vnetOptions.length ? (
-                                      <ComboboxGroup items={vnetOptions}>
-                                        <ComboboxLabel>VNets</ComboboxLabel>
-                                        <ComboboxCollection>
-                                          {(option) => (
-                                            <ComboboxItem
-                                              key={option.value}
-                                              value={option}
-                                            >
-                                              {option.label}
-                                            </ComboboxItem>
-                                          )}
-                                        </ComboboxCollection>
-                                      </ComboboxGroup>
-                                    ) : null}
-                                  </ComboboxList>
-                                </ComboboxContent>
-                              </Combobox>
+                              />
                               <FieldError>
                                 {renderError(field.state.meta.errors[0])}
                               </FieldError>
@@ -753,94 +823,36 @@ export const IsoConfigurationFields = withCreateVmForm({
                           )}
                         </form.Field>
 
-                        <form.Field name={`networks[${index}].model` as const}>
+                        <form.Field
+                          name={`networks[${index}].firewall` as const}
+                        >
                           {(field) => (
-                            <Field>
-                              <FieldLabel>Model</FieldLabel>
-                              <Select
-                                value={field.state.value}
-                                onValueChange={(value) =>
-                                  field.handleChange(value ?? "virtio")
+                            <Field orientation="horizontal">
+                              <Checkbox
+                                id={`network-firewall-${index}`}
+                                checked={field.state.value}
+                                onCheckedChange={(checked) =>
+                                  field.handleChange(Boolean(checked))
                                 }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectGroup>
-                                    {nicModels.map((model) => (
-                                      <SelectItem
-                                        key={model.value}
-                                        value={model.value}
-                                      >
-                                        {model.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
+                              />
+                              <FieldContent>
+                                <FieldLabel
+                                  htmlFor={`network-firewall-${index}`}
+                                >
+                                  Firewall
+                                </FieldLabel>
+                                <FieldDescription>
+                                  Enable Proxmox firewall integration for this
+                                  NIC.
+                                </FieldDescription>
+                              </FieldContent>
                             </Field>
                           )}
                         </form.Field>
-                      </div>
-
-                      <form.Field name={`networks[${index}].vlan_tag` as const}>
-                        {(field) => (
-                          <Field
-                            data-invalid={
-                              field.state.meta.errors.length > 0 || undefined
-                            }
-                          >
-                            <FieldLabel htmlFor={`network-vlan-${index}`}>
-                              VLAN Tag
-                            </FieldLabel>
-                            <Input
-                              id={`network-vlan-${index}`}
-                              type="number"
-                              placeholder="Optional"
-                              value={field.state.value ?? ""}
-                              onBlur={field.handleBlur}
-                              onChange={(event) =>
-                                field.handleChange(
-                                  parseOptionalNumberInput(event.target.value)
-                                )
-                              }
-                              aria-invalid={
-                                field.state.meta.errors.length > 0 || undefined
-                              }
-                            />
-                            <FieldError>
-                              {renderError(field.state.meta.errors[0])}
-                            </FieldError>
-                          </Field>
-                        )}
-                      </form.Field>
-
-                      <form.Field name={`networks[${index}].firewall` as const}>
-                        {(field) => (
-                          <Field orientation="horizontal">
-                            <Checkbox
-                              id={`network-firewall-${index}`}
-                              checked={field.state.value}
-                              onCheckedChange={(checked) =>
-                                field.handleChange(Boolean(checked))
-                              }
-                            />
-                            <FieldContent>
-                              <FieldLabel htmlFor={`network-firewall-${index}`}>
-                                Firewall
-                              </FieldLabel>
-                              <FieldDescription>
-                                Enable Proxmox firewall integration for this
-                                NIC.
-                              </FieldDescription>
-                            </FieldContent>
-                          </Field>
-                        )}
-                      </form.Field>
-                    </FieldGroup>
-                  </VmHardwareNetworkCard>
-                ))}
+                      </FieldGroup>
+                    </VmHardwareNetworkCard>
+                  )
+                )}
 
                 <div className="flex justify-center">
                   <Button

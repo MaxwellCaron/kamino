@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Card,
   CardContent,
@@ -24,6 +24,7 @@ import type {
 } from "@/features/pods/types/pod-types"
 import { AppDialogContent } from "@/components/dialogs/app-dialog"
 import { answerClonedPodQuestion } from "@/features/pods/api/clone-pod-api"
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function PodTaskQuestions({
   questions,
@@ -84,10 +85,23 @@ function PodTaskQuestionField({
   disabled: boolean
   onAnswered?: (clonedPod: ClonedPod) => void
 }) {
-  const [value, setValue] = useState(answer?.answer ?? "")
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState<{
+    answer: string | undefined
+    value: string
+  } | null>(null)
+  const value =
+    draft !== null && draft.answer === answer?.answer
+      ? draft.value
+      : (answer?.answer ?? "")
   const mutation = useMutation({
     mutationFn: answerClonedPodQuestion,
-    onSuccess: (clonedPod) => onAnswered?.(clonedPod),
+    onSuccess: async (clonedPod) => {
+      onAnswered?.(clonedPod)
+      await queryClient.invalidateQueries({
+        queryKey: podCatalogQueryOptions.queryKey,
+      })
+    },
   })
   const answerSubmitted = answer != null
   const answerIsCorrect = answer?.is_correct === true
@@ -96,10 +110,6 @@ function PodTaskQuestionField({
   const controlsDisabled = disabled || answerIsCorrect || mutation.isPending
   const canSubmit =
     !controlsDisabled && !!clonedPodId && value.trim().length > 0
-
-  useEffect(() => {
-    setValue(answer?.answer ?? "")
-  }, [answer?.answer])
 
   return (
     <Field
@@ -121,7 +131,9 @@ function PodTaskQuestionField({
           }
           disabled={controlsDisabled}
           aria-invalid={answerIsIncorrect || undefined}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) =>
+            setDraft({ answer: answer?.answer, value: event.target.value })
+          }
         />
         {hint && (
           <Dialog>

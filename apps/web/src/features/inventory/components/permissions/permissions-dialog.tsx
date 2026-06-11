@@ -90,25 +90,31 @@ function InventoryPermissionsFormBody({
       return state.principalSections
     }
 
-    return state.principalSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => {
-          const inheritedSourceNames =
-            state.inheritedPrincipalMap.get(item.principalId)
-              ?.sourceItemNames ?? []
+    return state.principalSections.flatMap((section) => {
+      const items = section.items.filter((item) => {
+        const inheritedSourceNames =
+          state.inheritedPrincipalMap.get(item.principalId)?.sourceItemNames ??
+          []
 
-          return [
-            item.label,
-            item.principalId,
-            item.principalType ? principalTypeLabels[item.principalType] : "",
-            ...inheritedSourceNames,
-          ].some((value) =>
-            value.toLocaleLowerCase().includes(normalizedPrincipalSearch)
-          )
-        }),
-      }))
-      .filter((section) => section.items.length > 0)
+        return [
+          item.label,
+          item.principalId,
+          item.principalType ? principalTypeLabels[item.principalType] : "",
+          ...inheritedSourceNames,
+        ].some((value) =>
+          value.toLocaleLowerCase().includes(normalizedPrincipalSearch)
+        )
+      })
+
+      return items.length > 0
+        ? [
+            {
+              ...section,
+              items,
+            },
+          ]
+        : []
+    })
   }, [
     normalizedPrincipalSearch,
     state.inheritedPrincipalMap,

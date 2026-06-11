@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import {
   useMutation,
   useQueries,
@@ -144,10 +144,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     [pendingRequestsData]
   )
 
-  const recentUsers = useMemo(
-    () => getRecentPrincipals(users ?? []),
-    [users]
-  )
+  const recentUsers = useMemo(() => getRecentPrincipals(users ?? []), [users])
 
   const recentGroups = useMemo(
     () => getRecentPrincipals(groups ?? []),
@@ -173,13 +170,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       templates,
       requests: pendingRequestsData.length + completedRequestsData.length,
     }
-  }, [
-    users,
-    groups,
-    inventoryTree,
-    pendingRequestsData,
-    completedRequestsData,
-  ])
+  }, [users, groups, inventoryTree, pendingRequestsData, completedRequestsData])
 
   const storageByNode = useMemo(() => {
     return buildStorageByNode(
@@ -187,6 +178,45 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       storageQueries.map((query) => query.data)
     )
   }, [nodesData, storageQueries])
+  const handleRequestDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setSelectedRequestId(null)
+    }
+  }, [])
+  const handleApproveRequest = useCallback(() => {
+    if (!selectedRequestId) {
+      return
+    }
+    const id = selectedRequestId
+    setSelectedRequestId(null)
+    toast.promise(approveMutation.mutateAsync([id]), {
+      loading: "Approving request...",
+      success: (result) => {
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0].error)
+        }
+        return "Request approved"
+      },
+      error: formatMutationError,
+    })
+  }, [approveMutation, selectedRequestId])
+  const handleDenyRequest = useCallback(() => {
+    if (!selectedRequestId) {
+      return
+    }
+    const id = selectedRequestId
+    setSelectedRequestId(null)
+    toast.promise(denyMutation.mutateAsync([id]), {
+      loading: "Denying request...",
+      success: (result) => {
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0].error)
+        }
+        return "Request denied"
+      },
+      error: formatMutationError,
+    })
+  }, [denyMutation, selectedRequestId])
 
   const nodes = nodesData ?? []
   const isDashboardLoading =
@@ -328,45 +358,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             canReview={canReview}
             error={requestDetailError}
             isLoading={isRequestDetailLoading}
-            onApprove={() => {
-              if (!selectedRequestId) {
-                return
-              }
-              const id = selectedRequestId
-              setSelectedRequestId(null)
-              toast.promise(approveMutation.mutateAsync([id]), {
-                loading: "Approving request...",
-                success: (result) => {
-                  if (result.failed.length > 0) {
-                    throw new Error(result.failed[0].error)
-                  }
-                  return "Request approved"
-                },
-                error: formatMutationError,
-              })
-            }}
-            onDeny={() => {
-              if (!selectedRequestId) {
-                return
-              }
-              const id = selectedRequestId
-              setSelectedRequestId(null)
-              toast.promise(denyMutation.mutateAsync([id]), {
-                loading: "Denying request...",
-                success: (result) => {
-                  if (result.failed.length > 0) {
-                    throw new Error(result.failed[0].error)
-                  }
-                  return "Request denied"
-                },
-                error: formatMutationError,
-              })
-            }}
-            onOpenChange={(open) => {
-              if (!open) {
-                setSelectedRequestId(null)
-              }
-            }}
+            onApprove={handleApproveRequest}
+            onDeny={handleDenyRequest}
+            onOpenChange={handleRequestDetailOpenChange}
             open={true}
             request={requestDetail ?? null}
             tree={inventoryTree}

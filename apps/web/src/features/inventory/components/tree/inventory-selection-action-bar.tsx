@@ -440,15 +440,17 @@ export function InventorySelectionActionBar() {
   async function runDeleteAction() {
     const failures: Array<string> = []
 
-    for (const folder of deleteFolderTargets) {
-      try {
-        await deleteFolder.mutateAsync({ id: folder.id })
-        toast.success(`Folder "${folder.name}" deleted`)
-      } catch (error) {
-        toast.error(formatMutationError(error, "Failed to delete folder"))
-        failures.push(folder.id)
-      }
-    }
+    await Promise.all(
+      deleteFolderTargets.map(async (folder) => {
+        try {
+          await deleteFolder.mutateAsync({ id: folder.id })
+          toast.success(`Folder "${folder.name}" deleted`)
+        } catch (error) {
+          toast.error(formatMutationError(error, "Failed to delete folder"))
+          failures.push(folder.id)
+        }
+      })
+    )
 
     if (deleteVmTargets.length > 0) {
       const targetVmItemIds = deleteVmTargets.map((item) => item.id)

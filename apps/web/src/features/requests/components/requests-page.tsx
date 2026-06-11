@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   IconCheck,
@@ -161,16 +161,25 @@ export function RequestsPage({ user }: { user: AuthUser }) {
       execution_failed: "fill-orange-600/75 dark:fill-orange-400/75",
     }
 
-    return Object.entries(statusCounts)
-      .map(([status, value]) => ({
-        label: formatRequestStatus(status as ApiRequestStatus),
-        value,
-        className: statusClasses[status as ApiRequestStatus],
-      }))
-      .filter((item) => item.value > 0)
+    return Object.entries(statusCounts).flatMap(([status, value]) =>
+      value > 0
+        ? [
+            {
+              label: formatRequestStatus(status as ApiRequestStatus),
+              value,
+              className: statusClasses[status as ApiRequestStatus],
+            },
+          ]
+        : []
+    )
   }, [statusCounts])
 
   const openRequest = (requestId: string) => setSelectedRequestId(requestId)
+  const handleRequestDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setSelectedRequestId(null)
+    }
+  }, [])
 
   const columns = useMemo(
     () =>
@@ -194,6 +203,40 @@ export function RequestsPage({ user }: { user: AuthUser }) {
       queryClient.invalidateQueries({ queryKey: ["requests"] })
     },
   })
+  const handleApproveRequest = useCallback(() => {
+    if (!selectedRequestId) {
+      return
+    }
+    const id = selectedRequestId
+    setSelectedRequestId(null)
+    toast.promise(approveMutation.mutateAsync([id]), {
+      loading: "Approving request...",
+      success: (result: ApiRequestActionResponse) => {
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0].error)
+        }
+        return "Request approved"
+      },
+      error: formatToastError,
+    })
+  }, [approveMutation, selectedRequestId])
+  const handleDenyRequest = useCallback(() => {
+    if (!selectedRequestId) {
+      return
+    }
+    const id = selectedRequestId
+    setSelectedRequestId(null)
+    toast.promise(denyMutation.mutateAsync([id]), {
+      loading: "Denying request...",
+      success: (result: ApiRequestActionResponse) => {
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0].error)
+        }
+        return "Request denied"
+      },
+      error: formatToastError,
+    })
+  }, [denyMutation, selectedRequestId])
 
   const handleBulkAction = (
     action: "approve" | "deny",
@@ -378,8 +421,8 @@ export function RequestsPage({ user }: { user: AuthUser }) {
                 <Card className="h-full bg-muted/50 shadow-none ring-0">
                   <CardContent className="flex h-full items-center justify-center">
                     <PieChart data={chartData} size={200} innerRadius={60}>
-                      {chartData.map((_, index) => (
-                        <PieSlice key={index} index={index} />
+                      {chartData.map((item, index) => (
+                        <PieSlice key={item.label} index={index} />
                       ))}
                       <PieCenter defaultLabel="Requests" />
                     </PieChart>
@@ -489,45 +532,9 @@ export function RequestsPage({ user }: { user: AuthUser }) {
             canReview={canReview}
             error={requestDetailError}
             isLoading={isRequestDetailLoading}
-            onApprove={() => {
-              if (!selectedRequestId) {
-                return
-              }
-              const id = selectedRequestId
-              setSelectedRequestId(null)
-              toast.promise(approveMutation.mutateAsync([id]), {
-                loading: "Approving request...",
-                success: (result: ApiRequestActionResponse) => {
-                  if (result.failed.length > 0) {
-                    throw new Error(result.failed[0].error)
-                  }
-                  return "Request approved"
-                },
-                error: formatToastError,
-              })
-            }}
-            onDeny={() => {
-              if (!selectedRequestId) {
-                return
-              }
-              const id = selectedRequestId
-              setSelectedRequestId(null)
-              toast.promise(denyMutation.mutateAsync([id]), {
-                loading: "Denying request...",
-                success: (result: ApiRequestActionResponse) => {
-                  if (result.failed.length > 0) {
-                    throw new Error(result.failed[0].error)
-                  }
-                  return "Request denied"
-                },
-                error: formatToastError,
-              })
-            }}
-            onOpenChange={(open) => {
-              if (!open) {
-                setSelectedRequestId(null)
-              }
-            }}
+            onApprove={handleApproveRequest}
+            onDeny={handleDenyRequest}
+            onOpenChange={handleRequestDetailOpenChange}
             open={true}
             request={requestDetail ?? null}
             tree={tree}

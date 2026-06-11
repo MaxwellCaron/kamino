@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +39,7 @@ import {
   deleteClonedPod,
   powerClonedPod,
 } from "@/features/pods/api/clone-pod-api"
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type PodHeaderAction = "start" | "shutdown" | "reclone" | "delete"
@@ -115,6 +116,8 @@ const ACTION_BUTTON_VARIANT: Record<
   shutdown: "destructive",
 }
 
+const OVERFLOW_ACTIONS: Array<PodHeaderAction> = ["reclone", "delete"]
+
 export function PodHeaderActions({
   clonedPod,
   onReclone,
@@ -124,18 +127,25 @@ export function PodHeaderActions({
   onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
+  const queryClient = useQueryClient()
   const [activeAction, setActiveAction] = useState<PodHeaderAction | null>(null)
   const powerMutation = useMutation({
     mutationFn: powerClonedPod,
-    onSuccess: (nextClonedPod) => {
+    onSuccess: async (nextClonedPod) => {
       onClonedPodChange?.(nextClonedPod)
+      await queryClient.invalidateQueries({
+        queryKey: podCatalogQueryOptions.queryKey,
+      })
       setActiveAction(null)
     },
   })
   const deleteMutation = useMutation({
     mutationFn: deleteClonedPod,
-    onSuccess: () => {
+    onSuccess: async () => {
       onClonedPodChange?.(null)
+      await queryClient.invalidateQueries({
+        queryKey: podCatalogQueryOptions.queryKey,
+      })
       setActiveAction(null)
     },
   })
@@ -150,7 +160,6 @@ export function PodHeaderActions({
         ? deleteMutation.error
         : powerMutation.error
   const visibleActions = VISIBLE_ACTIONS_BY_STATUS[clonedPod.status]
-  const overflowActions: Array<PodHeaderAction> = ["reclone", "delete"]
 
   function openAction(action: PodHeaderAction) {
     powerMutation.reset()
@@ -220,7 +229,7 @@ export function PodHeaderActions({
           />
           <DropdownMenuContent className="w-full" align="end">
             <DropdownMenuGroup>
-              {overflowActions.map((action, _) => {
+              {OVERFLOW_ACTIONS.map((action) => {
                 const config = POD_HEADER_ACTION_CONFIG[action]
                 const Icon = config.icon
 

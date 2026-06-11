@@ -195,12 +195,21 @@ export function SiteCommandDialog({
   }, [commands, searchQuery])
 
   const groupedCommands = useMemo(() => {
-    return groupOrder
-      .map((group) => ({
-        group,
-        commands: filteredCommands.filter((command) => command.group === group),
-      }))
-      .filter((group) => group.commands.length > 0)
+    const commandGroups: Array<{
+      group: (typeof groupOrder)[number]
+      commands: typeof filteredCommands
+    }> = []
+
+    for (const group of groupOrder) {
+      const groupCommands = filteredCommands.filter(
+        (command) => command.group === group
+      )
+      if (groupCommands.length > 0) {
+        commandGroups.push({ group, commands: groupCommands })
+      }
+    }
+
+    return commandGroups
   }, [filteredCommands])
 
   const isIndexing =
@@ -211,8 +220,7 @@ export function SiteCommandDialog({
       (isPublishedPodsLoading ||
         isPendingRequestsLoading ||
         isCompletedRequestsLoading)) ||
-    (canAdminister &&
-      (isUsersLoading || isGroupsLoading || isVnetsLoading))
+    (canAdminister && (isUsersLoading || isGroupsLoading || isVnetsLoading))
   const hasIndexError =
     isInventoryError ||
     isPodCatalogError ||

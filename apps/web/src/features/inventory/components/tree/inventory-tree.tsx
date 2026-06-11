@@ -1,11 +1,4 @@
-import {
-  createContext,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { createContext, use, useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
@@ -62,6 +55,11 @@ interface PendingRevealRequest {
   requestId: number
 }
 
+interface SelectionState {
+  activeItemId?: string
+  itemIds: Array<string>
+}
+
 const InventoryTreeContext = createContext<InventoryTreeContextValue | null>(
   null
 )
@@ -80,8 +78,8 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
   const [query, setQuery] = useState("")
-  const [selectedItemIds, setSelectedItemIds] = useState<Array<string>>(() =>
-    activeItemId ? [activeItemId] : []
+  const [selectionState, setSelectionState] = useState<SelectionState | null>(
+    null
   )
   const [pendingRevealRequest, setPendingRevealRequest] =
     useState<PendingRevealRequest | null>(null)
@@ -116,26 +114,40 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [filteredApiTree, fullTree, isSearchActive]
   )
 
-  useEffect(() => {
-    setSelectedItemIds(activeItemId ? [activeItemId] : [])
-  }, [activeItemId])
+  const selectedItemIds = useMemo(() => {
+    const itemIdsForActiveRoute =
+      activeItemId === undefined ? [] : [activeItemId]
+    const itemIds =
+      selectionState?.activeItemId === activeItemId
+        ? (selectionState?.itemIds ?? [])
+        : itemIdsForActiveRoute
 
-  useEffect(() => {
-    setSelectedItemIds((current) => {
-      const next = current.filter(
-        (itemId) => itemId === activeItemId || items.has(itemId)
-      )
-      return next.length === current.length ? current : next
-    })
-  }, [activeItemId, items])
+    return itemIds.filter(
+      (itemId) => itemId === activeItemId || items.has(itemId)
+    )
+  }, [activeItemId, items, selectionState])
+
+  const setSelectedItemIds = useCallback(
+    (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
+      setSelectionState({
+        activeItemId,
+        itemIds:
+          typeof updater === "function" ? updater(selectedItemIds) : updater,
+      })
+    },
+    [activeItemId, selectedItemIds]
+  )
 
   const clearSelection = useCallback(() => {
     setSelectedItemIds([])
-  }, [])
+  }, [setSelectedItemIds])
 
-  const replaceSelection = useCallback((itemIds: Array<string>) => {
-    setSelectedItemIds(itemIds)
-  }, [])
+  const replaceSelection = useCallback(
+    (itemIds: Array<string>) => {
+      setSelectedItemIds(itemIds)
+    },
+    [setSelectedItemIds]
+  )
 
   const toggleFavorite = useCallback(
     (itemId: string) => {

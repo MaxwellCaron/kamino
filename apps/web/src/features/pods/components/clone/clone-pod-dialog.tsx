@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, m } from "motion/react"
 import {
   AlertDialog,
@@ -34,8 +34,10 @@ import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import {
   clonePod,
   clonePodProgressQueryOptions,
+  clonedPodQueryOptions,
   reclonePod,
 } from "@/features/pods/api/clone-pod-api"
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 function useCloneProcess(
   open: boolean,
@@ -43,6 +45,7 @@ function useCloneProcess(
   clonedPodId?: string,
   onCloned?: (clone: ClonedPod) => void
 ) {
+  const queryClient = useQueryClient()
   const [progressId, setProgressId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const cloneMutation = useMutation({
@@ -53,7 +56,17 @@ function useCloneProcess(
 
       return clonePod(params)
     },
-    onSuccess: (clone) => onCloned?.(clone),
+    onSuccess: async (clone) => {
+      onCloned?.(clone)
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: clonedPodQueryOptions(pod?.slug).queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        }),
+      ])
+    },
   })
   const { data: progressData } = useQuery(
     clonePodProgressQueryOptions(
@@ -98,12 +111,6 @@ function useCloneProcess(
     return () => clearInterval(interval)
   }, [isCloning, isError, isFinished])
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
-
   return {
     isCloning,
     isFinished,
@@ -126,6 +133,12 @@ function useCloneProcess(
       cloneMutation.mutate({ podSlug: pod.slug, progressId: nextProgressId })
     },
   }
+}
+
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
 export function ClonePodDialog({

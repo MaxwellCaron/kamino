@@ -94,7 +94,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <LazyMotion features={domMax} strict>
         <MotionConfig reducedMotion="user">
-          <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>
+          <ThemeProvider
+            defaultTheme={defaultTheme}
+            storageKey={themeStorageKey}
+          >
             <TooltipProvider>
               <Outlet />
             </TooltipProvider>

@@ -43,6 +43,11 @@ type PublishPodPendingStatus = Extract<
   "publishing" | "updating"
 >
 type PublishPodFormState = "form" | PublishPodSubmitStatus
+type PublishPodSubmitState = {
+  state: PublishPodFormState
+  savedPodSlug: string | null
+  errorMessage: string | null
+}
 type PublishPodSubmitOptions = {
   progressId: string
 }
@@ -72,17 +77,22 @@ export function PublishPodPage({
   submitLabel,
 }: PublishPodPageProps) {
   const [step, setStep] = React.useState<PublishPodStep>(defaultPublishPodStep)
-  const [submitState, setSubmitState] =
-    React.useState<PublishPodFormState>("form")
+  const [submitStatus, setSubmitStatus] = React.useState<PublishPodSubmitState>(
+    {
+      state: "form",
+      savedPodSlug: null,
+      errorMessage: null,
+    }
+  )
   const [progressId, setProgressId] = React.useState<string | null>(null)
-  const [savedPodSlug, setSavedPodSlug] = React.useState<string | null>(null)
-  const [submitErrorMessage, setSubmitErrorMessage] = React.useState<
-    string | null
-  >(null)
   const [submittedValues, setSubmittedValues] =
     React.useState<PublishPodFormValues | null>(null)
-  const [submitCompleted, setSubmitCompleted] = React.useState(false)
+  const submitCompletedRef = React.useRef(false)
+  const publishProgressStateRef = React.useRef<string | undefined>(undefined)
   const onSubmitRef = React.useRef(onSubmit)
+  const submitState = submitStatus.state
+  const savedPodSlug = submitStatus.savedPodSlug
+  const submitErrorMessage = submitStatus.errorMessage
   const defaultValues = React.useMemo(
     () => initialValues ?? createInitialPublishPodValues(),
     [initialValues]
@@ -97,34 +107,53 @@ export function PublishPodPage({
       let submitPromise: Promise<PublishPodSubmitResult>
 
       setProgressId(nextProgressId)
-      setSavedPodSlug(null)
-      setSubmitErrorMessage(null)
       setSubmittedValues(values)
-      setSubmitCompleted(false)
+      submitCompletedRef.current = false
 
       try {
         submitPromise = Promise.resolve(
           onSubmitRef.current(values, { progressId: nextProgressId })
         )
       } catch (error) {
-        setSubmitErrorMessage(getErrorMessage(error))
-        setSubmitState("error")
+        setSubmitStatus({
+          state: "error",
+          savedPodSlug: null,
+          errorMessage: getErrorMessage(error),
+        })
         return
       }
 
-      setSubmitState(pendingSubmitState)
+      setSubmitStatus({
+        state: pendingSubmitState,
+        savedPodSlug: null,
+        errorMessage: null,
+      })
       void submitPromise
         .then((result) => {
-          setSavedPodSlug(result.slug)
           if (pendingSubmitState === "updating") {
-            setSubmitState("success")
+            setSubmitStatus({
+              state: "success",
+              savedPodSlug: result.slug,
+              errorMessage: null,
+            })
             return
           }
-          setSubmitCompleted(true)
+          submitCompletedRef.current = true
+          setSubmitStatus((current) => ({
+            ...current,
+            state:
+              publishProgressStateRef.current === "success"
+                ? "success"
+                : current.state,
+            savedPodSlug: result.slug,
+          }))
         })
         .catch((error) => {
-          setSubmitErrorMessage(getErrorMessage(error))
-          setSubmitState("error")
+          setSubmitStatus({
+            state: "error",
+            savedPodSlug: null,
+            errorMessage: getErrorMessage(error),
+          })
         })
     },
     [pendingSubmitState]
@@ -153,20 +182,28 @@ export function PublishPodPage({
   )
 
   React.useEffect(() => {
+    publishProgressStateRef.current = publishProgress?.state
     if (submitState !== "publishing" && submitState !== "updating") {
       return
     }
 
     if (publishProgress?.state === "error") {
-      setSubmitErrorMessage(publishProgress.message)
-      setSubmitState("error")
+      setSubmitStatus((current) => ({
+        ...current,
+        state: "error",
+        errorMessage: publishProgress.message,
+      }))
       return
     }
 
-    if (submitCompleted && publishProgress?.state === "success") {
-      setSubmitState("success")
+    if (submitCompletedRef.current && publishProgress?.state === "success") {
+      setSubmitStatus({
+        state: "success",
+        savedPodSlug,
+        errorMessage: null,
+      })
     }
-  }, [publishProgress, submitCompleted, submitState])
+  }, [publishProgress, savedPodSlug, submitState])
 
   const principalOptions = React.useMemo(
     () => buildPrincipalOptions(users ?? [], groups ?? []),
@@ -187,12 +224,16 @@ export function PublishPodPage({
     const selected = new Set(submittedValues.update_virtual_machines)
     if (selected.size === 0) return []
 
-    return submittedValues.virtual_machines
-      .filter((vm) => selected.has(vm.id))
-      .map((vm) => ({
-        id: vm.id,
-        name: vm.name,
-      }))
+    return submittedValues.virtual_machines.flatMap((vm) =>
+      selected.has(vm.id)
+        ? [
+            {
+              id: vm.id,
+              name: vm.name,
+            },
+          ]
+        : []
+    )
   }, [submittedValues])
 
   const hasFieldErrors = React.useCallback(
@@ -324,9 +365,12 @@ export function PublishPodPage({
   )
 
   const handleBackToForm = React.useCallback(() => {
-    setSubmitState("form")
-    setProgressId(null)
-    setSubmitCompleted(false)
+    setSubmitStatus({
+      state: "form",
+      savedPodSlug: null,
+      errorMessage: null,
+    })
+    submitCompletedRef.current = false
   }, [])
 
   if (submitState !== "form") {
@@ -420,5 +464,7 @@ export function PublishPodPage({
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Failed to save published pod."
+  return error instanceof Error
+    ? error.message
+    : "Failed to save published pod."
 }

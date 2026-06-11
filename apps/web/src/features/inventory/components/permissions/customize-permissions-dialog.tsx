@@ -52,22 +52,28 @@ export function CustomizePermissionsDialog({
       return permissionGroups
     }
 
-    return permissionGroups
-      .map((group) => ({
-        ...group,
-        permissions: group.permissions.filter((permission) =>
-          [
-            group.key,
-            group.label,
-            permission.key,
-            permission.label,
-            permission.description,
-          ].some((value) =>
-            value.toLocaleLowerCase().includes(normalizedPermissionSearch)
-          )
-        ),
-      }))
-      .filter((group) => group.permissions.length > 0)
+    return permissionGroups.flatMap((group) => {
+      const permissions = group.permissions.filter((permission) =>
+        [
+          group.key,
+          group.label,
+          permission.key,
+          permission.label,
+          permission.description,
+        ].some((value) =>
+          value.toLocaleLowerCase().includes(normalizedPermissionSearch)
+        )
+      )
+
+      return permissions.length > 0
+        ? [
+            {
+              ...group,
+              permissions,
+            },
+          ]
+        : []
+    })
   }, [normalizedPermissionSearch, permissionGroups])
 
   const filteredPermissionCount = React.useMemo(

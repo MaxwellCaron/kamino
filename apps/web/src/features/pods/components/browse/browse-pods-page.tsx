@@ -8,8 +8,9 @@ import { GrainientBackground } from "@/components/grainient-background"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
-  const { data: catalog, isLoading: isCatalogLoading } =
-    useQuery(podCatalogQueryOptions)
+  const { data: catalog, isLoading: isCatalogLoading } = useQuery(
+    podCatalogQueryOptions
+  )
   const visiblePods = catalog ?? []
 
   return (

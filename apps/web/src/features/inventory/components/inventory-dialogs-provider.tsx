@@ -1,12 +1,4 @@
-import {
-  Suspense,
-  createContext,
-  lazy,
-  use,
-  useContext,
-  useMemo,
-  useState,
-} from "react"
+import { Suspense, createContext, lazy, use, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { SnapshotDialogMode } from "@/features/vms/components/snapshot-dialog"
@@ -127,7 +119,7 @@ const InventoryDialogsContext =
   createContext<InventoryDialogsContextValue | null>(null)
 
 export function useInventoryDialogs() {
-  const context = useContext(InventoryDialogsContext)
+  const context = use(InventoryDialogsContext)
 
   if (!context) {
     throw new Error(

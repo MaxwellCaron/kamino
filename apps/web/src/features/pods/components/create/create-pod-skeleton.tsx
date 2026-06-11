@@ -23,11 +23,7 @@ export function CreatePodFormSkeleton() {
       <div className="flex flex-col">
         <CreatePodStepSkeleton
           numberWidth="w-28"
-          rows={[
-            "h-10 w-full",
-            "h-28 w-full",
-            "h-10 w-full max-w-md",
-          ]}
+          rows={["h-10 w-full", "h-28 w-full", "h-10 w-full max-w-md"]}
         />
         <CreatePodStepSkeleton
           numberWidth="w-40"
@@ -76,8 +72,8 @@ function CreatePodStepSkeleton({
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 border-t pt-6">
-            {rows.map((row, index) => (
-              <Skeleton key={index} className={cn("rounded-3xl", row)} />
+            {rows.map((row) => (
+              <Skeleton key={row} className={cn("rounded-3xl", row)} />
             ))}
           </CardContent>
         </Card>

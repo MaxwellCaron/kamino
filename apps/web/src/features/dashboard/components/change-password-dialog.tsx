@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useForm } from "@tanstack/react-form"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconSettings } from "@tabler/icons-react"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -18,7 +18,10 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { changeOwnPassword } from "@/features/auth/api/auth-api"
+import {
+  authSessionQueryOptions,
+  changeOwnPassword,
+} from "@/features/auth/api/auth-api"
 
 const changePasswordSchema = z
   .object({
@@ -41,9 +44,13 @@ export function ChangePasswordDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: changeOwnPassword,
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: authSessionQueryOptions.queryKey,
+      })
       toast.success("Password updated")
       onOpenChange(false)
     },
