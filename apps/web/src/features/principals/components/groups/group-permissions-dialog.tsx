@@ -115,27 +115,14 @@ export function GroupPermissionsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const [selectedRole, setSelectedRole] = React.useState<
-    ManagementPermissionKey | ""
-  >("")
+  const [override, setOverride] = React.useState<
+    ManagementPermissionKey | "" | null
+  >(null)
 
   const accessQuery = useQuery({
     ...groupManagementAclQueryOptions(group.id),
     enabled: open,
   })
-
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedRole("")
-      return
-    }
-
-    if (!accessQuery.data) {
-      return
-    }
-
-    setSelectedRole(directRoleFromGrants(accessQuery.data.grants))
-  }, [accessQuery.data, open])
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -169,7 +156,8 @@ export function GroupPermissionsDialog({
     () => directRoleFromGrants(accessQuery.data?.grants ?? []),
     [accessQuery.data?.grants]
   )
-  const hasChanges = initialRole !== selectedRole
+  const selectedRole = override ?? initialRole
+  const hasChanges = override !== null && override !== initialRole
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -218,7 +206,7 @@ export function GroupPermissionsDialog({
                   <RadioGroup
                     value={selectedRole}
                     onValueChange={(value) =>
-                      setSelectedRole(value as ManagementPermissionKey | "")
+                      setOverride(value as ManagementPermissionKey | "")
                     }
                     disabled={controlsDisabled || immutable}
                     className="gap-3"
