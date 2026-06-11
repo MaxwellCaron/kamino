@@ -86,10 +86,6 @@ function MembershipEditor({
   principal: ApiPrincipal
   onOpenChange: (open: boolean) => void
 }) {
-  const queryClient = useQueryClient()
-  const anchor = useComboboxAnchor()
-  const [localValue, setLocalValue] = React.useState<Array<string> | null>(null)
-
   // Current memberships
   const membersQuery = useQuery({
     ...groupMembersQueryOptions(principal.id),
@@ -122,24 +118,6 @@ function MembershipEditor({
     [currentMembers]
   )
 
-  React.useEffect(() => {
-    if (!open) {
-      setLocalValue(null)
-    }
-  }, [open])
-
-  // Initialize local value from server data once loaded
-  React.useEffect(() => {
-    if (open && localValue === null && activeQuery.isSuccess) {
-      setLocalValue(serverIds)
-    }
-  }, [open, localValue, activeQuery.isSuccess, serverIds])
-
-  const selectedIds = React.useMemo(
-    () => uniqueIds(localValue ?? serverIds),
-    [localValue, serverIds]
-  )
-
   const options = React.useMemo<Array<MembershipOption>>(
     () =>
       allOptions.map((option) => ({
@@ -148,6 +126,49 @@ function MembershipEditor({
       })),
     [allOptions]
   )
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        {loadError instanceof Error
+          ? loadError.message
+          : "Failed to load memberships."}
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return <DialogBodySkeleton rows={3} />
+  }
+
+  return (
+    <MembershipForm
+      key={`${mode}:${principal.id}`}
+      mode={mode}
+      principal={principal}
+      serverIds={serverIds}
+      options={options}
+      onOpenChange={onOpenChange}
+    />
+  )
+}
+
+function MembershipForm({
+  mode,
+  principal,
+  serverIds,
+  options,
+  onOpenChange,
+}: {
+  mode: "user-groups" | "group-members"
+  principal: ApiPrincipal
+  serverIds: Array<string>
+  options: Array<MembershipOption>
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const anchor = useComboboxAnchor()
+  const [selected, setSelected] = React.useState<Array<string>>(() => serverIds)
 
   const optionMap = React.useMemo(() => {
     const map = new Map<string, MembershipOption>()
@@ -159,29 +180,29 @@ function MembershipEditor({
 
   const selectedOptions = React.useMemo(
     () =>
-      selectedIds
+      selected
         .map((id) => optionMap.get(id))
         .filter((option): option is MembershipOption => !!option),
-    [optionMap, selectedIds]
+    [optionMap, selected]
   )
 
   const hasChanges = React.useMemo(() => {
     const serverSet = new Set(serverIds)
-    const localSet = new Set(selectedIds)
-    if (serverSet.size !== localSet.size) return true
+    const selectedSet = new Set(selected)
+    if (serverSet.size !== selectedSet.size) return true
     for (const id of serverSet) {
-      if (!localSet.has(id)) return true
+      if (!selectedSet.has(id)) return true
     }
     return false
-  }, [serverIds, selectedIds])
+  }, [serverIds, selected])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const serverSet = new Set(serverIds)
-      const localSet = new Set(selectedIds)
+      const selectedSet = new Set(selected)
 
-      const toAdd = selectedIds.filter((id) => !serverSet.has(id))
-      const toRemove = serverIds.filter((id) => !localSet.has(id))
+      const toAdd = selected.filter((id) => !serverSet.has(id))
+      const toRemove = serverIds.filter((id) => !selectedSet.has(id))
 
       if (mode === "user-groups") {
         await Promise.all([
@@ -215,20 +236,6 @@ function MembershipEditor({
     })
   }
 
-  if (loadError) {
-    return (
-      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        {loadError instanceof Error
-          ? loadError.message
-          : "Failed to load memberships."}
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return <DialogBodySkeleton rows={3} />
-  }
-
   return (
     <>
       <Combobox
@@ -238,7 +245,7 @@ function MembershipEditor({
         itemToStringLabel={(option) => option.label}
         value={selectedOptions}
         onValueChange={(newValue) =>
-          setLocalValue(uniqueIds(newValue.map((option) => option.id)))
+          setSelected(uniqueIds(newValue.map((option) => option.id)))
         }
       >
         <ComboboxChips ref={anchor} className="w-full">
