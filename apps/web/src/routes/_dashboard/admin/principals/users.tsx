@@ -172,7 +172,7 @@ function UsersPage() {
   const syncMutation = useMutation({
     mutationFn: triggerADSync,
     onSuccess: () => {
-      toast.success("AD sync complete")
+      toast.success("Sync complete")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
     onError: (err) => {
@@ -326,7 +326,7 @@ function UsersPage() {
         ) : null}
         {canAdminister && editDialog.data ? (
           <UserDialog
-            key={editDialog.dialogKey}
+            key={`edit-${editDialog.dialogKey}`}
             user={editDialog.data}
             open={editDialog.open}
             onOpenChange={editDialog.onOpenChange}
@@ -335,7 +335,7 @@ function UsersPage() {
 
         {canAdminister && membershipDialog.data ? (
           <MembershipDialog
-            key={membershipDialog.dialogKey}
+            key={`members-${membershipDialog.dialogKey}`}
             mode="user-groups"
             principal={membershipDialog.data}
             open={membershipDialog.open}
@@ -345,7 +345,7 @@ function UsersPage() {
 
         {canAdminister && bulkGroupDialog.data ? (
           <UserGroupBulkDialog
-            key={bulkGroupDialog.dialogKey}
+            key={`bulk-${bulkGroupDialog.dialogKey}`}
             clearSelection={bulkGroupDialog.data.clearSelection}
             mode={bulkGroupDialog.data.mode}
             onOpenChange={bulkGroupDialog.onOpenChange}

@@ -266,6 +266,6 @@ export async function triggerADSync(): Promise<void> {
   const res = await apiFetch("/api/v1/principals/sync", { method: "POST" })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `AD sync failed: ${res.status}`)
+    throw new Error(body.error ?? `Sync failed: ${res.status}`)
   }
 }

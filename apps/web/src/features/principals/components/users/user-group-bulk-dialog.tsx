@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { IconUserMinus, IconUserPlus } from "@tabler/icons-react"
@@ -58,12 +58,6 @@ export function UserGroupBulkDialog({
   const queryClient = useQueryClient()
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
   const [selectedGroup, setSelectedGroup] = useState<ApiPrincipal | null>(null)
-
-  useEffect(() => {
-    if (!open) {
-      setSelectedGroup(null)
-    }
-  }, [open])
 
   const mutation = useMutation({
     mutationFn: async () => {

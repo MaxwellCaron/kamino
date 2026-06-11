@@ -141,7 +141,7 @@ function GroupsPage() {
   const syncMutation = useMutation({
     mutationFn: triggerADSync,
     onSuccess: () => {
-      toast.success("AD sync complete")
+      toast.success("Sync complete")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
     onError: (err) => {
@@ -285,7 +285,7 @@ function GroupsPage() {
         ) : null}
         {canAdminister && editDialog.data ? (
           <GroupDialog
-            key={editDialog.dialogKey}
+            key={`edit-${editDialog.dialogKey}`}
             group={editDialog.data}
             open={editDialog.open}
             onOpenChange={editDialog.onOpenChange}
@@ -294,7 +294,7 @@ function GroupsPage() {
 
         {canAdminister && membershipDialog.data ? (
           <MembershipDialog
-            key={membershipDialog.dialogKey}
+            key={`members-${membershipDialog.dialogKey}`}
             mode="group-members"
             principal={membershipDialog.data}
             open={membershipDialog.open}
@@ -303,7 +303,7 @@ function GroupsPage() {
         ) : null}
         {canAdminister && accessDialog.data ? (
           <GroupPermissionsDialog
-            key={accessDialog.dialogKey}
+            key={`access-${accessDialog.dialogKey}`}
             group={accessDialog.data}
             open={accessDialog.open}
             onOpenChange={accessDialog.onOpenChange}
