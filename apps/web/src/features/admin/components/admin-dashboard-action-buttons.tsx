@@ -39,8 +39,16 @@ export function AdminDashboardActionButtons() {
         </CardContent>
       </Card>
 
-      <UserDialog open={userDialogOpen} onOpenChange={setUserDialogOpen} />
-      <GroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} />
+      <UserDialog
+        key={userDialogOpen ? "user-open" : "user-closed"}
+        open={userDialogOpen}
+        onOpenChange={setUserDialogOpen}
+      />
+      <GroupDialog
+        key={groupDialogOpen ? "group-open" : "group-closed"}
+        open={groupDialogOpen}
+        onOpenChange={setGroupDialogOpen}
+      />
       <VNetDialog open={vnetDialogOpen} onOpenChange={setVnetDialogOpen} />
     </>
   )

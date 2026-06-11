@@ -119,7 +119,12 @@ export function GroupPermissionsDialog({
     ManagementPermissionKey | "" | null
   >(null)
 
-  const accessQuery = useQuery({
+  const {
+    data: access,
+    error: accessError,
+    isError: isAccessError,
+    isLoading: isAccessLoading,
+  } = useQuery({
     ...groupManagementAclQueryOptions(group.id),
     enabled: open,
   })
@@ -144,17 +149,16 @@ export function GroupPermissionsDialog({
   })
 
   const roleDefinitions = React.useMemo(
-    () => getRoleDefinitions(accessQuery.data?.sections ?? []),
-    [accessQuery.data?.sections]
+    () => getRoleDefinitions(access?.sections ?? []),
+    [access?.sections]
   )
-  const immutable = accessQuery.data?.immutable ?? false
-  const canEditBootstrapOnly =
-    accessQuery.data?.can_edit_bootstrap_only ?? false
+  const immutable = access?.immutable ?? false
+  const canEditBootstrapOnly = access?.can_edit_bootstrap_only ?? false
   const controlsDisabled =
-    accessQuery.isLoading || accessQuery.isError || mutation.isPending
+    isAccessLoading || isAccessError || mutation.isPending
   const initialRole = React.useMemo(
-    () => directRoleFromGrants(accessQuery.data?.grants ?? []),
-    [accessQuery.data?.grants]
+    () => directRoleFromGrants(access?.grants ?? []),
+    [access?.grants]
   )
   const selectedRole = override ?? initialRole
   const hasChanges = override !== null && override !== initialRole
@@ -168,16 +172,16 @@ export function GroupPermissionsDialog({
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
         <AppDialogScrollBody className="-mb-6">
-          {accessQuery.isLoading ? (
+          {isAccessLoading ? (
             <DialogBodySkeleton rows={3} />
-          ) : accessQuery.isError ? (
+          ) : isAccessError ? (
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <IconAlertTriangle />
                 </EmptyMedia>
                 <EmptyTitle>Could Not Load Roles</EmptyTitle>
-                <EmptyDescription>{accessQuery.error.message}</EmptyDescription>
+                <EmptyDescription>{accessError.message}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (

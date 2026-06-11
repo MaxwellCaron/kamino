@@ -1,7 +1,7 @@
 import {
   createContext,
+  use,
   useCallback,
-  useContext,
   useMemo,
   useState,
 } from "react"
@@ -30,7 +30,7 @@ export function VmProvider({ children }: { children: ReactNode }) {
 }
 
 export function useVm() {
-  const ctx = useContext(VmContext)
+  const ctx = use(VmContext)
   if (!ctx) throw new Error("useVm must be used within VmProvider")
   return ctx
 }

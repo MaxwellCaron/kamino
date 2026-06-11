@@ -47,8 +47,12 @@ import {
 export function PublishedPodsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const podsQuery = useQuery(publishedPodsQueryOptions)
-  const pods = podsQuery.data ?? []
+  const {
+    data: podsData,
+    error: podsError,
+    isLoading: isPodsLoading,
+  } = useQuery(publishedPodsQueryOptions)
+  const pods = podsData ?? []
   const [pendingDeletePod, setPendingDeletePod] =
     useState<PublishedPodCatalogEntry | null>(null)
   const statusMutation = useMutation({
@@ -129,7 +133,7 @@ export function PublishedPodsPage() {
     [navigate, statusMutation]
   )
 
-  if (podsQuery.isLoading) {
+  if (isPodsLoading) {
     return <PublishedPodsPageSkeleton />
   }
 
@@ -179,10 +183,10 @@ export function PublishedPodsPage() {
               <DataTable
                 columns={columns}
                 data={pods}
-                error={podsQuery.error}
+                error={podsError}
                 getRowId={(pod) => pod.id}
                 initialPageSize={10}
-                isLoading={podsQuery.isLoading}
+                isLoading={isPodsLoading}
                 showSelectionSummary={false}
               />
             ) : (

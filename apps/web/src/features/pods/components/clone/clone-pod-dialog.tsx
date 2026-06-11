@@ -55,16 +55,15 @@ function useCloneProcess(
     },
     onSuccess: (clone) => onCloned?.(clone),
   })
-  const resetCloneMutation = cloneMutation.reset
-  const progressQuery = useQuery(
+  const { data: progressData } = useQuery(
     clonePodProgressQueryOptions(
       progressId,
       open && progressId != null && cloneMutation.isPending
     )
   )
-  const progressState = progressQuery.data?.state
+  const progressState = progressData?.state
   const currentStep =
-    progressQuery.data?.step_id ??
+    progressData?.step_id ??
     (cloneMutation.isPending || cloneMutation.isSuccess || cloneMutation.isError
       ? 1
       : 0)
@@ -94,14 +93,6 @@ function useCloneProcess(
   const colors = getProgressStepColors(activeTask?.id)
 
   useEffect(() => {
-    if (!open) {
-      setProgressId(null)
-      setElapsedTime(0)
-      resetCloneMutation()
-    }
-  }, [open, resetCloneMutation])
-
-  useEffect(() => {
     if (!isCloning || isFinished || isError) return
     const interval = setInterval(() => setElapsedTime((p) => p + 1), 1000)
     return () => clearInterval(interval)
@@ -124,8 +115,8 @@ function useCloneProcess(
     completedTasks,
     totalTasks,
     errorMessage:
-      progressQuery.data?.state === "error"
-        ? progressQuery.data.message
+      progressData?.state === "error"
+        ? progressData.message
         : cloneMutation.error?.message,
     startCloning: () => {
       if (!pod) return

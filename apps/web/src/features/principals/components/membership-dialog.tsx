@@ -87,31 +87,52 @@ function MembershipEditor({
   onOpenChange: (open: boolean) => void
 }) {
   // Current memberships
-  const membersQuery = useQuery({
+  const {
+    data: members,
+    error: membersError,
+    isLoading: isMembersLoading,
+  } = useQuery({
     ...groupMembersQueryOptions(principal.id),
     enabled: open && mode === "group-members",
   })
-  const userGroupsQuery = useQuery({
+  const {
+    data: userGroups,
+    error: userGroupsError,
+    isLoading: isUserGroupsLoading,
+  } = useQuery({
     ...userGroupsQueryOptions(principal.id),
     enabled: open && mode === "user-groups",
   })
-  const activeQuery = mode === "user-groups" ? userGroupsQuery : membersQuery
-  const currentMembers: Array<ApiGroupMember> = activeQuery.data ?? []
+  const currentMembers: Array<ApiGroupMember> =
+    (mode === "user-groups" ? userGroups : members) ?? []
 
   // All possible options
-  const allGroupsQuery = useQuery({
+  const {
+    data: allGroups,
+    error: allGroupsError,
+    isLoading: isAllGroupsLoading,
+  } = useQuery({
     ...groupsQueryOptions,
     enabled: open && mode === "user-groups",
   })
-  const allUsersQuery = useQuery({
+  const {
+    data: allUsers,
+    error: allUsersError,
+    isLoading: isAllUsersLoading,
+  } = useQuery({
     ...usersQueryOptions,
     enabled: open && mode === "group-members",
   })
-  const optionsQuery = mode === "user-groups" ? allGroupsQuery : allUsersQuery
-  const isLoading = activeQuery.isLoading || optionsQuery.isLoading
-  const loadError = activeQuery.error ?? optionsQuery.error
+  const isLoading =
+    mode === "user-groups"
+      ? isUserGroupsLoading || isAllGroupsLoading
+      : isMembersLoading || isAllUsersLoading
+  const loadError =
+    mode === "user-groups"
+      ? userGroupsError ?? allGroupsError
+      : membersError ?? allUsersError
   const allOptions: Array<ApiPrincipal> =
-    (mode === "user-groups" ? allGroupsQuery.data : allUsersQuery.data) ?? []
+    (mode === "user-groups" ? allGroups : allUsers) ?? []
 
   const serverIds = React.useMemo(
     () => uniqueIds(currentMembers.map((m) => m.id)),

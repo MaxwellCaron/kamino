@@ -52,34 +52,68 @@ export function SiteCommandDialog({
   const inventoryDialogs = useOptionalInventoryDialogs()
   const [searchQuery, setSearchQuery] = useState("")
 
-  const sessionQuery = useQuery(authSessionQueryOptions)
-  const user = sessionQuery.data?.user
+  const { data: sessionData, isLoading: isSessionLoading } = useQuery(
+    authSessionQueryOptions
+  )
+  const user = sessionData?.user
   const canManage = canAccessRequestQueue(user?.management_permissions)
   const canAdminister = canAccessAdmin(user?.management_permissions)
 
-  const inventoryQuery = useQuery(inventoryTreeQueryOptions)
-  const podCatalogQuery = useQuery(podCatalogQueryOptions)
-  const publishedPodsQuery = useQuery({
+  const {
+    data: inventoryTree,
+    isError: isInventoryError,
+    isLoading: isInventoryLoading,
+  } = useQuery(inventoryTreeQueryOptions)
+  const {
+    data: podCatalog,
+    isError: isPodCatalogError,
+    isLoading: isPodCatalogLoading,
+  } = useQuery(podCatalogQueryOptions)
+  const {
+    data: publishedPods,
+    isError: isPublishedPodsError,
+    isLoading: isPublishedPodsLoading,
+  } = useQuery({
     ...publishedPodsQueryOptions,
     enabled: canManage,
   })
-  const usersQuery = useQuery({
+  const {
+    data: users,
+    isError: isUsersError,
+    isLoading: isUsersLoading,
+  } = useQuery({
     ...usersQueryOptions,
     enabled: canAdminister,
   })
-  const groupsQuery = useQuery({
+  const {
+    data: groups,
+    isError: isGroupsError,
+    isLoading: isGroupsLoading,
+  } = useQuery({
     ...groupsQueryOptions,
     enabled: canAdminister,
   })
-  const vnetsQuery = useQuery({
+  const {
+    data: vnets,
+    isError: isVnetsError,
+    isLoading: isVnetsLoading,
+  } = useQuery({
     ...vnetsQueryOptions,
     enabled: canAdminister,
   })
-  const pendingRequestsQuery = useQuery({
+  const {
+    data: pendingRequests,
+    isError: isPendingRequestsError,
+    isLoading: isPendingRequestsLoading,
+  } = useQuery({
     ...requestsQueryOptions("pending"),
     enabled: canManage,
   })
-  const completedRequestsQuery = useQuery({
+  const {
+    data: completedRequests,
+    isError: isCompletedRequestsError,
+    isLoading: isCompletedRequestsLoading,
+  } = useQuery({
     ...requestsQueryOptions("completed"),
     enabled: canManage,
   })
@@ -127,28 +161,28 @@ export function SiteCommandDialog({
       actions: commandActions,
       canAdminister,
       canManage,
-      completedRequests: completedRequestsQuery.data,
-      groups: groupsQuery.data,
-      inventoryTree: inventoryQuery.data,
-      pendingRequests: pendingRequestsQuery.data,
-      podCatalog: podCatalogQuery.data,
-      publishedPods: publishedPodsQuery.data,
-      users: usersQuery.data,
-      vnets: vnetsQuery.data,
+      completedRequests,
+      groups,
+      inventoryTree,
+      pendingRequests,
+      podCatalog,
+      publishedPods,
+      users,
+      vnets,
     })
   }, [
     canAdminister,
     canManage,
     commandActions,
-    completedRequestsQuery.data,
-    groupsQuery.data,
-    inventoryQuery.data,
-    pendingRequestsQuery.data,
-    podCatalogQuery.data,
-    publishedPodsQuery.data,
+    completedRequests,
+    groups,
+    inventoryTree,
+    pendingRequests,
+    podCatalog,
+    publishedPods,
     user,
-    usersQuery.data,
-    vnetsQuery.data,
+    users,
+    vnets,
   ])
 
   const filteredCommands = useMemo(() => {
@@ -170,24 +204,24 @@ export function SiteCommandDialog({
   }, [filteredCommands])
 
   const isIndexing =
-    sessionQuery.isLoading ||
-    inventoryQuery.isLoading ||
-    podCatalogQuery.isLoading ||
+    isSessionLoading ||
+    isInventoryLoading ||
+    isPodCatalogLoading ||
     (canManage &&
-      (publishedPodsQuery.isLoading ||
-        pendingRequestsQuery.isLoading ||
-        completedRequestsQuery.isLoading)) ||
+      (isPublishedPodsLoading ||
+        isPendingRequestsLoading ||
+        isCompletedRequestsLoading)) ||
     (canAdminister &&
-      (usersQuery.isLoading || groupsQuery.isLoading || vnetsQuery.isLoading))
+      (isUsersLoading || isGroupsLoading || isVnetsLoading))
   const hasIndexError =
-    inventoryQuery.isError ||
-    podCatalogQuery.isError ||
-    publishedPodsQuery.isError ||
-    pendingRequestsQuery.isError ||
-    completedRequestsQuery.isError ||
-    usersQuery.isError ||
-    groupsQuery.isError ||
-    vnetsQuery.isError
+    isInventoryError ||
+    isPodCatalogError ||
+    isPublishedPodsError ||
+    isPendingRequestsError ||
+    isCompletedRequestsError ||
+    isUsersError ||
+    isGroupsError ||
+    isVnetsError
 
   return (
     <CommandDialog

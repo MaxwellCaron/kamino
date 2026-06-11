@@ -17,7 +17,6 @@ import {
 import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_pods/pods/publish")({
-  head: () => pageTitle("Publish Pod"),
   validateSearch: z.object({
     podId: z.string().optional(),
   }),
@@ -26,14 +25,19 @@ export const Route = createFileRoute("/_pods/pods/publish")({
       throw redirect({ to: "/pods/browse" })
     }
   },
+  head: () => pageTitle("Publish Pod"),
   component: RouteComponent,
 })
 
 function RouteComponent() {
   const { podId } = Route.useSearch()
   const queryClient = useQueryClient()
-  const existingPodQuery = useQuery(publishedPodQueryOptions(podId))
-  const existingPod = existingPodQuery.data ?? null
+  const {
+    data: existingPodData,
+    isError: isExistingPodError,
+    isLoading: isExistingPodLoading,
+  } = useQuery(publishedPodQueryOptions(podId))
+  const existingPod = existingPodData ?? null
   const initialValues = useMemo(
     () =>
       existingPod
@@ -42,11 +46,11 @@ function RouteComponent() {
     [existingPod]
   )
 
-  if (podId && existingPodQuery.isLoading) {
+  if (podId && isExistingPodLoading) {
     return <PodPageSkeleton />
   }
 
-  if (podId && existingPodQuery.isError) {
+  if (podId && isExistingPodError) {
     throw redirect({ to: "/pods/published" })
   }
 

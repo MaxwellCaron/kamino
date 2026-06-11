@@ -306,7 +306,7 @@ export function UserDialog({
 }) {
   const isEdit = !!user
   const queryClient = useQueryClient()
-  const groupsQuery = useQuery(groupsQueryOptions)
+  const { data: groups } = useQuery(groupsQueryOptions)
   const [mode, setMode] = React.useState<CreateMode>("single")
   const [resultSummary, setResultSummary] =
     React.useState<ApiBulkCreateResponse | null>(null)
@@ -314,7 +314,7 @@ export function UserDialog({
     []
   )
 
-  const groupOptions = groupsQuery.data ?? []
+  const groupOptions = groups ?? []
   const groupOptionMap = React.useMemo(() => {
     const map = new Map<string, string>()
     for (const group of groupOptions) {
@@ -397,13 +397,6 @@ export function UserDialog({
     resetFields()
     setResultSummary(null)
   }, [resetFields])
-
-  React.useEffect(() => {
-    if (!open) return
-
-    resetFields()
-    setResultSummary(null)
-  }, [open, resetFields])
 
   return (
     <AppDialog

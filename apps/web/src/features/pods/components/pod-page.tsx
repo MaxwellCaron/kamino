@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ClonePodDialog } from "./clone/clone-pod-dialog"
 import { PodTasks } from "./pod-tasks"
@@ -23,25 +23,19 @@ export function PodPage({
   const queryClient = useQueryClient()
   const [cloneDialogMode, setCloneDialogMode] =
     useState<CloneDialogMode | null>(null)
-  const [localClonedPod, setLocalClonedPod] = useState<ClonedPod | null>(
-    clonedPod ?? null
-  )
-
-  useEffect(() => {
-    setCloneDialogMode(null)
-    setLocalClonedPod(clonedPod ?? null)
-  }, [pod.id])
-
-  useEffect(() => {
-    if (clonedPod) {
-      setLocalClonedPod(clonedPod)
-    }
-  }, [clonedPod])
+  const [localClonedPodState, setLocalClonedPodState] = useState<{
+    podId: string
+    clonedPod: ClonedPod | null
+  } | null>(null)
+  const localClonedPod =
+    localClonedPodState?.podId === pod.id
+      ? localClonedPodState.clonedPod
+      : (clonedPod ?? null)
 
   const isPreview = localClonedPod == null
   const setClonedPod = useCallback(
     (next: ClonedPod | null) => {
-      setLocalClonedPod(next)
+      setLocalClonedPodState({ podId: pod.id, clonedPod: next })
       queryClient.setQueryData(clonedPodQueryOptions(pod.slug).queryKey, next)
       if (next == null) {
         queryClient.invalidateQueries({
@@ -49,7 +43,7 @@ export function PodPage({
         })
       }
     },
-    [pod.slug, queryClient]
+    [pod.id, pod.slug, queryClient]
   )
 
   return (
@@ -77,18 +71,20 @@ export function PodPage({
           </div>
         </div>
 
-        <ClonePodDialog
-          open={cloneDialogMode != null}
-          onOpenChange={(open) => {
-            if (!open) setCloneDialogMode(null)
-          }}
-          pod={pod}
-          username={username}
-          clonedPodId={
-            cloneDialogMode === "reclone" ? localClonedPod?.id : undefined
-          }
-          onCloned={setClonedPod}
-        />
+        {cloneDialogMode ? (
+          <ClonePodDialog
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) setCloneDialogMode(null)
+            }}
+            pod={pod}
+            username={username}
+            clonedPodId={
+              cloneDialogMode === "reclone" ? localClonedPod?.id : undefined
+            }
+            onCloned={setClonedPod}
+          />
+        ) : null}
       </>
     </InventoryDialogsProvider>
   )

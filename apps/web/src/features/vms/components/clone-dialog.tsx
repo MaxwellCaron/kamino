@@ -58,19 +58,27 @@ export function CloneDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const clone = useCloneVM()
-  const inventoryTreeQuery = useQuery({
+  const {
+    data: inventoryTreeData,
+    error: inventoryTreeError,
+    isLoading: isInventoryTreeLoading,
+  } = useQuery({
     ...inventoryTreeQueryOptions,
     enabled: open,
   })
-  const inventoryTree = inventoryTreeQuery.data ?? []
-  const nodesQuery = useQuery({
+  const inventoryTree = inventoryTreeData ?? []
+  const {
+    data: nodesData,
+    error: nodesError,
+    isLoading: isNodesLoading,
+  } = useQuery({
     ...nodesQueryOptions,
     enabled: open,
   })
-  const nodes = nodesQuery.data ?? []
+  const nodes = nodesData ?? []
   const folderOptions = getInventoryFolderOptions(inventoryTree)
-  const isLoadingOptions = inventoryTreeQuery.isLoading || nodesQuery.isLoading
-  const optionsError = inventoryTreeQuery.error ?? nodesQuery.error
+  const isLoadingOptions = isInventoryTreeLoading || isNodesLoading
+  const optionsError = inventoryTreeError ?? nodesError
 
   const form = useForm({
     defaultValues: {

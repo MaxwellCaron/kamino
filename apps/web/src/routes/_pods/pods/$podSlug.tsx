@@ -24,35 +24,44 @@ export const Route = createFileRoute("/_pods/pods/$podSlug")({
 function RouteComponent() {
   const { user } = Route.useRouteContext()
   const { podSlug } = Route.useParams()
-  const podQuery = useQuery(podCatalogEntryQueryOptions(podSlug))
-  const clonedPodQuery = useQuery(clonedPodQueryOptions(podSlug))
+  const {
+    data: pod,
+    error: podError,
+    isError: isPodError,
+    isLoading: isPodLoading,
+  } = useQuery(podCatalogEntryQueryOptions(podSlug))
+  const {
+    data: clonedPodData,
+    error: clonedPodError,
+    isError: isClonedPodError,
+    isLoading: isClonedPodLoading,
+  } = useQuery(clonedPodQueryOptions(podSlug))
 
-  if (podQuery.isLoading || clonedPodQuery.isLoading) {
+  if (isPodLoading || isClonedPodLoading) {
     return <PodPageSkeleton />
   }
 
-  if (podQuery.isError) {
-    if (isApiErrorStatus(podQuery.error, 404)) {
+  if (isPodError) {
+    if (isApiErrorStatus(podError, 404)) {
       throw notFound()
     }
 
-    throw podQuery.error
+    throw podError
   }
 
-  if (!podQuery.data) {
+  if (!pod) {
     throw notFound()
   }
 
-  if (clonedPodQuery.isError) {
-    if (isApiErrorStatus(clonedPodQuery.error, 404)) {
+  if (isClonedPodError) {
+    if (isApiErrorStatus(clonedPodError, 404)) {
       throw notFound()
     }
 
-    throw clonedPodQuery.error
+    throw clonedPodError
   }
 
-  const pod = podQuery.data
-  const clonedPod = clonedPodQuery.data ?? null
+  const clonedPod = clonedPodData ?? null
 
   return <PodPage pod={pod} clonedPod={clonedPod} username={user.username} />
 }

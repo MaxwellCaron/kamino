@@ -130,25 +130,32 @@ export function CreateVmDialog({
     setStep("method")
   }
 
-  const inventoryTreeQuery = useQuery({
+  const {
+    data: inventoryTreeData,
+    error: inventoryTreeError,
+    isLoading: isInventoryTreeLoading,
+  } = useQuery({
     ...inventoryTreeQueryOptions,
     enabled: open,
   })
-  const inventoryTree = inventoryTreeQuery.data ?? []
+  const inventoryTree = inventoryTreeData ?? []
   const templateOptions = getVmTemplateOptions(inventoryTree)
   const folderOptions = getInventoryFolderOptions(inventoryTree)
-  const createOptionsQuery = useQuery({
+  const {
+    data: createOptions,
+    error: createOptionsError,
+    isLoading: isCreateOptionsLoading,
+  } = useQuery({
     ...createVmOptionsQueryOptions,
     enabled: open,
   })
-  const createOptions = createOptionsQuery.data
   const { data: isos } = useQuery({
     ...createVmIsosQueryOptions(selectedIsoStorage),
     enabled: open && !!selectedIsoStorage,
   })
   const isLoadingInitialOptions =
-    inventoryTreeQuery.isLoading || createOptionsQuery.isLoading
-  const initialOptionsError = inventoryTreeQuery.error ?? createOptionsQuery.error
+    isInventoryTreeLoading || isCreateOptionsLoading
+  const initialOptionsError = inventoryTreeError ?? createOptionsError
   const nodes = createOptions?.nodes ?? []
   const diskStorages = createOptions?.disk_storages ?? []
   const isoStorages = createOptions?.iso_storages ?? []

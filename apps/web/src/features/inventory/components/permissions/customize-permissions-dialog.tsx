@@ -45,12 +45,6 @@ export function CustomizePermissionsDialog({
 }: CustomizePermissionsDialogProps) {
   const [permissionSearch, setPermissionSearch] = React.useState("")
 
-  React.useEffect(() => {
-    if (!editingPrincipal) {
-      setPermissionSearch("")
-    }
-  }, [editingPrincipal])
-
   const normalizedPermissionSearch = permissionSearch.trim().toLocaleLowerCase()
 
   const filteredPermissionGroups = React.useMemo(() => {

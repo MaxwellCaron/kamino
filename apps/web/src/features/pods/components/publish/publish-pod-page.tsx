@@ -137,12 +137,15 @@ export function PublishPodPage({
     form.store,
     (state) => state.submissionAttempts
   )
-  const usersQuery = useQuery(usersQueryOptions)
-  const groupsQuery = useQuery(groupsQueryOptions)
-  const publishOptionsQuery = useQuery(
-    publishPodOptionsQueryOptions(publishedPodId)
-  )
-  const publishProgressQuery = useQuery(
+  const { data: users, isLoading: isUsersLoading } = useQuery(usersQueryOptions)
+  const { data: groups, isLoading: isGroupsLoading } =
+    useQuery(groupsQueryOptions)
+  const {
+    data: publishOptions,
+    error: publishOptionsError,
+    isLoading: isPublishOptionsLoading,
+  } = useQuery(publishPodOptionsQueryOptions(publishedPodId))
+  const { data: publishProgress } = useQuery(
     publishedPodProgressQueryOptions(
       progressId,
       submitState === "publishing" || submitState === "updating"
@@ -154,23 +157,23 @@ export function PublishPodPage({
       return
     }
 
-    if (publishProgressQuery.data?.state === "error") {
-      setSubmitErrorMessage(publishProgressQuery.data.message)
+    if (publishProgress?.state === "error") {
+      setSubmitErrorMessage(publishProgress.message)
       setSubmitState("error")
       return
     }
 
-    if (submitCompleted && publishProgressQuery.data?.state === "success") {
+    if (submitCompleted && publishProgress?.state === "success") {
       setSubmitState("success")
     }
-  }, [publishProgressQuery.data?.state, submitCompleted, submitState])
+  }, [publishProgress, submitCompleted, submitState])
 
   const principalOptions = React.useMemo(
-    () => buildPrincipalOptions(usersQuery.data ?? [], groupsQuery.data ?? []),
-    [groupsQuery.data, usersQuery.data]
+    () => buildPrincipalOptions(users ?? [], groups ?? []),
+    [groups, users]
   )
   const isLoadingFormOptions =
-    usersQuery.isLoading || groupsQuery.isLoading || publishOptionsQuery.isLoading
+    isUsersLoading || isGroupsLoading || isPublishOptionsLoading
 
   const principalOptionMap = React.useMemo(
     (): Map<string, PrincipalOption> =>
@@ -336,7 +339,7 @@ export function PublishPodPage({
           podSlug={savedPodSlug}
           progress={
             submitState === "publishing" || submitState === "updating"
-              ? publishProgressQuery.data
+              ? publishProgress
               : undefined
           }
           updateVirtualMachines={submittedUpdateVirtualMachines}
@@ -388,10 +391,10 @@ export function PublishPodPage({
             isEditing={!!publishedPodId}
             submissionAttempts={submissionAttempts}
             podFolders={
-              publishOptionsQuery.data?.source_folders ??
+              publishOptions?.source_folders ??
               ([] satisfies Array<PublishPodFolder>)
             }
-            podFoldersError={publishOptionsQuery.error}
+            podFoldersError={publishOptionsError}
           />
         </StepperContent>
 

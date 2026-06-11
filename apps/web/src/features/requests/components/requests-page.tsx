@@ -102,20 +102,37 @@ export function RequestsPage({ user }: { user: AuthUser }) {
     ManagementPermissionKeys.manager
   )
 
-  const treeQuery = useQuery(inventoryTreeQueryOptions)
-  const pendingQuery = useQuery(requestsQueryOptions("pending"))
-  const completedQuery = useQuery(requestsQueryOptions("completed"))
-  const detailQuery = useQuery({
+  const { data: tree, isLoading: isTreeLoading } = useQuery(
+    inventoryTreeQueryOptions
+  )
+  const {
+    data: pendingRequests,
+    error: pendingError,
+    isLoading: isPendingLoading,
+  } = useQuery(requestsQueryOptions("pending"))
+  const {
+    data: completedRequests,
+    error: completedError,
+    isLoading: isCompletedLoading,
+  } = useQuery(requestsQueryOptions("completed"))
+  const {
+    data: requestDetail,
+    error: requestDetailError,
+    isLoading: isRequestDetailLoading,
+  } = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
     enabled: !!selectedRequestId,
   })
 
-  const activeQuery = scope === "pending" ? pendingQuery : completedQuery
-  const activeRequests = activeQuery.data ?? []
+  const activeRequests =
+    (scope === "pending" ? pendingRequests : completedRequests) ?? []
+  const activeError = scope === "pending" ? pendingError : completedError
+  const isActiveLoading =
+    scope === "pending" ? isPendingLoading : isCompletedLoading
   const isRequestsLoading =
-    treeQuery.isLoading || pendingQuery.isLoading || completedQuery.isLoading
-  const pendingCount = pendingQuery.data?.length ?? 0
-  const completedCount = completedQuery.data?.length ?? 0
+    isTreeLoading || isPendingLoading || isCompletedLoading
+  const pendingCount = pendingRequests?.length ?? 0
+  const completedCount = completedRequests?.length ?? 0
   const statusCounts = useMemo(() => {
     const counts: Record<ApiRequestStatus, number> = {
       pending: 0,
@@ -125,15 +142,15 @@ export function RequestsPage({ user }: { user: AuthUser }) {
       execution_failed: 0,
     }
 
-    pendingQuery.data?.forEach((r) => {
+    pendingRequests?.forEach((r) => {
       counts[r.status]++
     })
-    completedQuery.data?.forEach((r) => {
+    completedRequests?.forEach((r) => {
       counts[r.status]++
     })
 
     return counts
-  }, [pendingQuery.data, completedQuery.data])
+  }, [pendingRequests, completedRequests])
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
@@ -159,9 +176,9 @@ export function RequestsPage({ user }: { user: AuthUser }) {
     () =>
       getRequestColumns({
         onOpen: (request) => openRequest(request.id),
-        tree: treeQuery.data,
+        tree,
       }),
-    [treeQuery.data]
+    [tree]
   )
 
   const approveMutation = useMutation({
@@ -203,9 +220,9 @@ export function RequestsPage({ user }: { user: AuthUser }) {
               r.inventory?.power_action
             )
             const Icon = getRequestIcon(r.kind, r.inventory?.power_action)
-            const tree = treeQuery.data ?? []
+            const inventoryTree = tree ?? []
             const path = r.inventory?.item_id
-              ? findTreePath(tree, r.inventory.item_id)
+              ? findTreePath(inventoryTree, r.inventory.item_id)
               : null
 
             const pathLabel = path
@@ -413,8 +430,8 @@ export function RequestsPage({ user }: { user: AuthUser }) {
             <DataTable
               columns={columns}
               data={activeRequests}
-              isLoading={activeQuery.isLoading}
-              error={activeQuery.error}
+              isLoading={isActiveLoading}
+              error={activeError}
               getRowId={(request: ApiRequestSummary) => request.id}
               renderSelectionActions={
                 canReview && scope === "pending"
@@ -470,8 +487,8 @@ export function RequestsPage({ user }: { user: AuthUser }) {
         {selectedRequestId !== null && (
           <RequestDetailDialog
             canReview={canReview}
-            error={detailQuery.error}
-            isLoading={detailQuery.isLoading}
+            error={requestDetailError}
+            isLoading={isRequestDetailLoading}
             onApprove={() => {
               if (!selectedRequestId) {
                 return
@@ -512,8 +529,8 @@ export function RequestsPage({ user }: { user: AuthUser }) {
               }
             }}
             open={true}
-            request={detailQuery.data ?? null}
-            tree={treeQuery.data}
+            request={requestDetail ?? null}
+            tree={tree}
           />
         )}
         {confirm && (

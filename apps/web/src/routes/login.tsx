@@ -8,7 +8,6 @@ import { GrainientBackground } from "@/components/grainient-background"
 import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/login")({
-  head: () => pageTitle("Sign In"),
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
@@ -21,6 +20,7 @@ export const Route = createFileRoute("/login")({
 
     throw redirect({ to: search.redirect ?? "/" })
   },
+  head: () => pageTitle("Sign In"),
   component: LoginPage,
 })
 

@@ -2,6 +2,7 @@ import {
   Suspense,
   createContext,
   lazy,
+  use,
   useContext,
   useMemo,
   useState,
@@ -138,7 +139,7 @@ export function useInventoryDialogs() {
 }
 
 export function useOptionalInventoryDialogs() {
-  return useContext(InventoryDialogsContext)
+  return use(InventoryDialogsContext)
 }
 
 export function InventoryDialogsProvider({

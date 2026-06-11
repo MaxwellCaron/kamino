@@ -12,7 +12,7 @@ import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api
 
 export function PodBreadcrumbs() {
   const { podSlug } = useParams({ strict: false })
-  const podQuery = useQuery(podCatalogEntryQueryOptions(podSlug))
+  const { data: pod } = useQuery(podCatalogEntryQueryOptions(podSlug))
 
   return (
     <Breadcrumb className="min-w-0">
@@ -42,7 +42,7 @@ export function PodBreadcrumbs() {
             <BreadcrumbSeparator />
             <BreadcrumbItem className="min-w-0">
               <BreadcrumbPage className="block max-w-48 truncate sm:max-w-64 lg:max-w-80">
-                {podQuery.data?.title ?? podSlug}
+                {pod?.title ?? podSlug}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </>

@@ -8,8 +8,9 @@ import { GrainientBackground } from "@/components/grainient-background"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
-  const catalogQuery = useQuery(podCatalogQueryOptions)
-  const visiblePods = catalogQuery.data ?? []
+  const { data: catalog, isLoading: isCatalogLoading } =
+    useQuery(podCatalogQueryOptions)
+  const visiblePods = catalog ?? []
 
   return (
     <div className="@container/main flex flex-1 flex-col">
@@ -31,7 +32,7 @@ export function BrowsePodsPage() {
       </div>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
-        {catalogQuery.isLoading ? (
+        {isCatalogLoading ? (
           <BrowsePodsGridSkeleton />
         ) : (
           <div className={browsePodsGridClassName}>

@@ -50,21 +50,36 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     null
   )
 
-  const treeQuery = useQuery(inventoryTreeQueryOptions)
-  const pendingRequestsQuery = useQuery(
-    requesterRequestsQueryOptions("pending")
+  const { data: tree, isLoading: isTreeLoading } = useQuery(
+    inventoryTreeQueryOptions
   )
-  const historyRequestsQuery = useQuery(
-    requesterRequestsQueryOptions("history")
-  )
-  const catalogQuery = useQuery(podCatalogQueryOptions)
-  const detailQuery = useQuery({
+  const {
+    data: pendingRequests,
+    error: pendingRequestsError,
+    isLoading: isPendingRequestsLoading,
+  } = useQuery(requesterRequestsQueryOptions("pending"))
+  const {
+    data: historyRequests,
+    error: historyRequestsError,
+    isLoading: isHistoryRequestsLoading,
+  } = useQuery(requesterRequestsQueryOptions("history"))
+  const {
+    data: catalog,
+    error: catalogError,
+    isLoading: isCatalogLoading,
+  } = useQuery(podCatalogQueryOptions)
+  const {
+    data: requestDetail,
+    error: requestDetailError,
+    isLoading: isRequestDetailLoading,
+  } = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
     enabled: !!selectedRequestId,
   })
   const { favoriteIds } = useInventoryFavorites()
-  const vmStatusQuery = useQuery(vmStatusQueryOptions)
-  const visiblePods = catalogQuery.data ?? []
+  const { data: vmStatuses, isLoading: isVmStatusLoading } =
+    useQuery(vmStatusQueryOptions)
+  const visiblePods = catalog ?? []
   const cloneStatus = useQueries({
     queries: visiblePods.map((pod) => clonedPodQueryOptions(pod.slug)),
     combine: (results) => {
@@ -94,18 +109,18 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   })
 
   const inventoryStats = useMemo(
-    () => countAccessibleInventory(treeQuery.data ?? []),
-    [treeQuery.data]
+    () => countAccessibleInventory(tree ?? []),
+    [tree]
   )
 
   const inventoryItemsById = useMemo(
-    () => indexInventoryTree(treeQuery.data ?? []),
-    [treeQuery.data]
+    () => indexInventoryTree(tree ?? []),
+    [tree]
   )
 
   const runningVms = useMemo(
-    () => countRunningVms(inventoryItemsById, vmStatusQuery.data),
-    [inventoryItemsById, vmStatusQuery.data]
+    () => countRunningVms(inventoryItemsById, vmStatuses),
+    [inventoryItemsById, vmStatuses]
   )
 
   const favorites = useMemo(
@@ -121,13 +136,10 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const requests = useMemo(
     () =>
-      [
-        ...(pendingRequestsQuery.data ?? []),
-        ...(historyRequestsQuery.data ?? []),
-      ].sort(
+      [...(pendingRequests ?? []), ...(historyRequests ?? [])].sort(
         (left, right) => getRequestSortTime(right) - getRequestSortTime(left)
       ),
-    [historyRequestsQuery.data, pendingRequestsQuery.data]
+    [historyRequests, pendingRequests]
   )
 
   const recentPods = useMemo(
@@ -148,21 +160,21 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     () =>
       getDashboardActivityColumns({
         onOpen: (request) => setSelectedRequestId(request.id),
-        tree: treeQuery.data,
+        tree,
       }),
-    [treeQuery.data]
+    [tree]
   )
 
-  const activityError = pendingRequestsQuery.error ?? historyRequestsQuery.error
+  const activityError = pendingRequestsError ?? historyRequestsError
 
   const activityLoading =
-    pendingRequestsQuery.isLoading || historyRequestsQuery.isLoading
+    isPendingRequestsLoading || isHistoryRequestsLoading
   const isDashboardLoading =
-    treeQuery.isLoading ||
+    isTreeLoading ||
     activityLoading ||
-    catalogQuery.isLoading ||
+    isCatalogLoading ||
     cloneStatus.isLoading ||
-    vmStatusQuery.isLoading
+    isVmStatusLoading
 
   const stats = [
     {
@@ -183,7 +195,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     {
       icon: IconClock,
       label: "Pending Requests",
-      value: String(pendingRequestsQuery.data?.length ?? 0),
+      value: String(pendingRequests?.length ?? 0),
     },
   ]
   const roleLabel = getManagementRoleLabel(user.management_permissions)
@@ -214,14 +226,14 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         />
         <DashboardRecentPodsCard
           className="xl:col-span-7"
-          error={catalogQuery.error}
+          error={catalogError}
           pods={recentPods}
           totalPods={visiblePods.length}
         />
         <DashboardFavoritesCard
           className="xl:col-span-5"
           favorites={favorites}
-          vmStatuses={vmStatusQuery.data}
+          vmStatuses={vmStatuses}
         />
 
         <DashboardActivityTableCard
@@ -242,8 +254,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         {selectedRequestId !== null && (
           <RequestDetailDialog
             canReview={false}
-            error={detailQuery.error}
-            isLoading={detailQuery.isLoading}
+            error={requestDetailError}
+            isLoading={isRequestDetailLoading}
             onApprove={() => {}}
             onDeny={() => {}}
             onOpenChange={(open) => {
@@ -252,8 +264,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
               }
             }}
             open={true}
-            request={detailQuery.data ?? null}
-            tree={treeQuery.data}
+            request={requestDetail ?? null}
+            tree={tree}
           />
         )}
       </Suspense>

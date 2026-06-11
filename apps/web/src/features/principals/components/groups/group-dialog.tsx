@@ -263,13 +263,6 @@ export function GroupDialog({
     setResultSummary(null)
   }, [resetFields])
 
-  React.useEffect(() => {
-    if (!open) return
-
-    resetFields()
-    setResultSummary(null)
-  }, [open, resetFields])
-
   return (
     <AppDialog
       open={open}

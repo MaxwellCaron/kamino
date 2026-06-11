@@ -68,13 +68,32 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     null
   )
   const queryClient = useQueryClient()
-  const usersQuery = useQuery(usersQueryOptions)
-  const groupsQuery = useQuery(groupsQueryOptions)
-  const inventoryQuery = useQuery(inventoryTreeQueryOptions)
-  const pendingRequestsQuery = useQuery(requestsQueryOptions("pending"))
-  const completedRequestsQuery = useQuery(requestsQueryOptions("completed"))
-  const nodesQuery = useQuery(nodesQueryOptions)
-  const detailQuery = useQuery({
+  const {
+    data: users,
+    error: usersError,
+    isLoading: isUsersLoading,
+  } = useQuery(usersQueryOptions)
+  const {
+    data: groups,
+    error: groupsError,
+    isLoading: isGroupsLoading,
+  } = useQuery(groupsQueryOptions)
+  const { data: inventoryTree, isLoading: isInventoryLoading } = useQuery(
+    inventoryTreeQueryOptions
+  )
+  const {
+    data: pendingRequestsData,
+    error: pendingRequestsError,
+    isLoading: isPendingRequestsLoading,
+  } = useQuery(requestsQueryOptions("pending"))
+  const { data: completedRequestsData, isLoading: isCompletedRequestsLoading } =
+    useQuery(requestsQueryOptions("completed"))
+  const { data: nodesData } = useQuery(nodesQueryOptions)
+  const {
+    data: requestDetail,
+    error: requestDetailError,
+    isLoading: isRequestDetailLoading,
+  } = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
     enabled: !!selectedRequestId,
   })
@@ -84,9 +103,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   )
 
   const storageQueries = useQueries({
-    queries: (nodesQuery.data ?? []).map((node) =>
-      storagesQueryOptions(node.node)
-    ),
+    queries: (nodesData ?? []).map((node) => storagesQueryOptions(node.node)),
   })
 
   const requestColumns = useMemo(
@@ -94,10 +111,10 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       getRequestColumns({
         onOpen: (request) => setSelectedRequestId(request.id),
         selectable: false,
-        tree: inventoryQuery.data,
+        tree: inventoryTree,
         excludeColumns: ["status", "reviewer_username", "updated_at"],
       }),
-    [inventoryQuery.data]
+    [inventoryTree]
   )
   const userColumns = useMemo(
     () => getPrincipalColumns({ icon: IconUser, label: "User" }),
@@ -123,62 +140,61 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   })
 
   const pendingRequests = useMemo(
-    () => getRecentRequests(pendingRequestsQuery.data ?? []),
-    [pendingRequestsQuery.data]
+    () => getRecentRequests(pendingRequestsData ?? []),
+    [pendingRequestsData]
   )
 
   const recentUsers = useMemo(
-    () => getRecentPrincipals(usersQuery.data ?? []),
-    [usersQuery.data]
+    () => getRecentPrincipals(users ?? []),
+    [users]
   )
 
   const recentGroups = useMemo(
-    () => getRecentPrincipals(groupsQuery.data ?? []),
-    [groupsQuery.data]
+    () => getRecentPrincipals(groups ?? []),
+    [groups]
   )
 
   const adminStats = useMemo<AdminStats | null>(() => {
     if (
-      !usersQuery.data ||
-      !groupsQuery.data ||
-      !inventoryQuery.data ||
-      !pendingRequestsQuery.data ||
-      !completedRequestsQuery.data
+      !users ||
+      !groups ||
+      !inventoryTree ||
+      !pendingRequestsData ||
+      !completedRequestsData
     ) {
       return null
     }
-    const { folders, vms, templates } = countInventoryStats(inventoryQuery.data)
+    const { folders, vms, templates } = countInventoryStats(inventoryTree)
     return {
-      users: usersQuery.data.length,
-      groups: groupsQuery.data.length,
+      users: users.length,
+      groups: groups.length,
       folders,
       vms,
       templates,
-      requests:
-        pendingRequestsQuery.data.length + completedRequestsQuery.data.length,
+      requests: pendingRequestsData.length + completedRequestsData.length,
     }
   }, [
-    usersQuery.data,
-    groupsQuery.data,
-    inventoryQuery.data,
-    pendingRequestsQuery.data,
-    completedRequestsQuery.data,
+    users,
+    groups,
+    inventoryTree,
+    pendingRequestsData,
+    completedRequestsData,
   ])
 
   const storageByNode = useMemo(() => {
     return buildStorageByNode(
-      nodesQuery.data ?? [],
+      nodesData ?? [],
       storageQueries.map((query) => query.data)
     )
-  }, [nodesQuery.data, storageQueries])
+  }, [nodesData, storageQueries])
 
-  const nodes = nodesQuery.data ?? []
+  const nodes = nodesData ?? []
   const isDashboardLoading =
-    usersQuery.isLoading ||
-    groupsQuery.isLoading ||
-    inventoryQuery.isLoading ||
-    pendingRequestsQuery.isLoading ||
-    completedRequestsQuery.isLoading
+    isUsersLoading ||
+    isGroupsLoading ||
+    isInventoryLoading ||
+    isPendingRequestsLoading ||
+    isCompletedRequestsLoading
 
   if (isDashboardLoading) {
     return <AdminDashboardSkeleton />
@@ -221,9 +237,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             <SimpleDataTable
               columns={requestColumns}
               data={pendingRequests}
-              error={pendingRequestsQuery.error}
+              error={pendingRequestsError}
               getRowId={(request: ApiRequestSummary) => request.id}
-              isLoading={pendingRequestsQuery.isLoading}
+              isLoading={isPendingRequestsLoading}
               skeletonRows={3}
             />
           </CardContent>
@@ -261,9 +277,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             <SimpleDataTable
               columns={groupColumns}
               data={recentGroups}
-              error={groupsQuery.error}
+              error={groupsError}
               getRowId={(principal: ApiPrincipal) => principal.id}
-              isLoading={groupsQuery.isLoading}
+              isLoading={isGroupsLoading}
               skeletonRows={3}
             />
           </CardContent>
@@ -297,9 +313,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             <SimpleDataTable
               columns={userColumns}
               data={recentUsers}
-              error={usersQuery.error}
+              error={usersError}
               getRowId={(principal: ApiPrincipal) => principal.id}
-              isLoading={usersQuery.isLoading}
+              isLoading={isUsersLoading}
               skeletonRows={3}
             />
           </CardContent>
@@ -310,8 +326,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         {selectedRequestId !== null && (
           <RequestDetailDialog
             canReview={canReview}
-            error={detailQuery.error}
-            isLoading={detailQuery.isLoading}
+            error={requestDetailError}
+            isLoading={isRequestDetailLoading}
             onApprove={() => {
               if (!selectedRequestId) {
                 return
@@ -352,8 +368,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
               }
             }}
             open={true}
-            request={detailQuery.data ?? null}
-            tree={inventoryQuery.data}
+            request={requestDetail ?? null}
+            tree={inventoryTree}
           />
         )}
       </Suspense>

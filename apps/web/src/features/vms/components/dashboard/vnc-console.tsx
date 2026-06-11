@@ -251,21 +251,16 @@ function formatElapsed(seconds: number): string {
 }
 
 function useElapsed(since: number | null): string {
-  const [elapsed, setElapsed] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    if (since === null) {
-      setElapsed(0)
-      return
-    }
-
-    setElapsed(Math.floor((Date.now() - since) / 1000))
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - since) / 1000))
+      setNow(Date.now())
     }, 1000)
     return () => clearInterval(id)
-  }, [since])
+  }, [])
 
+  const elapsed = since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000))
   return formatElapsed(elapsed)
 }
 

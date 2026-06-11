@@ -45,9 +45,13 @@ export function AdminClusterCard({
 }) {
   const [timeframe, setTimeframe] =
     useState<ClusterUsageHistoryTimeframe>("hour")
-  const historyQuery = useQuery(clusterUsageHistoryQueryOptions(timeframe))
+  const {
+    data: historyData,
+    error: historyError,
+    isLoading: isHistoryLoading,
+  } = useQuery(clusterUsageHistoryQueryOptions(timeframe))
   const clusterCapacity = getClusterCapacitySummary(nodes, storageByNode)
-  const history = historyQuery.data?.points ?? []
+  const history = historyData?.points ?? []
   const cpuHistory = history.map((point) => ({
     date: new Date(point.time * 1000),
     value: point.cpu_percent,
@@ -66,7 +70,6 @@ export function AdminClusterCard({
     used: point.storage_used,
     total: point.storage_total,
   }))
-  const historyError = historyQuery.error
   const historyUnavailableMessage = useMemo(() => {
     if (historyError instanceof Error) {
       return historyError.message
@@ -110,7 +113,7 @@ export function AdminClusterCard({
                 color="var(--chart-1)"
                 formatValue={formatCores}
                 history={cpuHistory}
-                isLoading={historyQuery.isLoading}
+                isLoading={isHistoryLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
               />
@@ -124,7 +127,7 @@ export function AdminClusterCard({
                 total={clusterCapacity.memoryTotal}
                 color="var(--chart-2)"
                 history={memoryHistory}
-                isLoading={historyQuery.isLoading}
+                isLoading={isHistoryLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
               />
@@ -138,7 +141,7 @@ export function AdminClusterCard({
                 total={clusterCapacity.storage.total}
                 color="var(--chart-3)"
                 history={storageHistory}
-                isLoading={historyQuery.isLoading}
+                isLoading={isHistoryLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
               />

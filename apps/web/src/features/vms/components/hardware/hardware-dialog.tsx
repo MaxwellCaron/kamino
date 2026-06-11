@@ -898,29 +898,33 @@ export function VmHardwareDialog({
   open,
   onOpenChange,
 }: VmHardwareDialogProps) {
-  const itemQuery = useQuery({
+  const { data: item } = useQuery({
     ...inventoryItemQueryOptions(itemId),
     enabled: open,
   })
-  const node = itemQuery.data?.vm?.node ?? ""
-  const vmid = itemQuery.data?.vm?.vmid ?? 0
+  const node = item?.vm?.node ?? ""
+  const vmid = item?.vm?.vmid ?? 0
   const isDialogOpen = open && node !== "" && vmid > 0
-  const hardwareQuery = useQuery({
+  const {
+    data: hardware,
+    error: hardwareError,
+    isError: isHardwareError,
+  } = useQuery({
     ...vmHardwareQueryOptions(itemId),
     enabled: isDialogOpen,
   })
-  const storagesQuery = useQuery({
+  const { data: storages } = useQuery({
     ...storagesQueryOptions(node),
     enabled: isDialogOpen,
   })
-  const networksQuery = useQuery({
+  const { data: networks } = useQuery({
     ...bridgesQueryOptions(node),
     enabled: isDialogOpen,
   })
 
   const { bridgeOptions, vnetOptions, networkOptions } =
-    buildVmHardwareNetworkOptions(networksQuery.data ?? {})
-  const storageOptions = (storagesQuery.data ?? []) as Array<StorageOption>
+    buildVmHardwareNetworkOptions(networks ?? {})
+  const storageOptions = (storages ?? []) as Array<StorageOption>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -934,19 +938,19 @@ export function VmHardwareDialog({
           vmName
         )}.`}
       >
-        {hardwareQuery.isError ? (
+        {isHardwareError ? (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-            {hardwareQuery.error instanceof Error
-              ? hardwareQuery.error.message
+            {hardwareError instanceof Error
+              ? hardwareError.message
               : "Failed to load VM hardware."}
           </div>
-        ) : hardwareQuery.data ? (
+        ) : hardware ? (
           <VmHardwareDialogForm
             key={itemId}
             itemId={itemId}
             vmName={vmName}
             vmid={initialVmid ?? vmid}
-            hardware={hardwareQuery.data}
+            hardware={hardware}
             bridgeOptions={bridgeOptions}
             vnetOptions={vnetOptions}
             networkOptions={networkOptions}
