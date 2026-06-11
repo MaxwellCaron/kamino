@@ -54,7 +54,7 @@ type AppAlertDialogHeaderProps = {
   variant?: AppDialogVariant
 }
 
-export function AppAlertDialogHeader({
+function AppAlertDialogHeader({
   description,
   descriptionProps,
   icon: Icon,

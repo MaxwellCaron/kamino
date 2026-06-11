@@ -12,7 +12,7 @@ import type {
   PrincipalOption,
 } from "../types/inventory-types"
 
-export function createEmptyScope(): DraftScope {
+function createEmptyScope(): DraftScope {
   return { allowMask: 0, denyMask: 0 }
 }
 
@@ -100,7 +100,7 @@ export function createInheritedPrincipals(
   return [...principalsMap.values()]
 }
 
-export const hasScopeOverrides = (scope: DraftScope) =>
+const hasScopeOverrides = (scope: DraftScope) =>
   scope.allowMask !== 0 || scope.denyMask !== 0
 
 export const hasPrincipalOverrides = (p: DraftPrincipal) =>
@@ -110,15 +110,6 @@ export const normalizeScope = (scope: DraftScope): DraftScope => ({
   allowMask: scope.allowMask & ~scope.denyMask,
   denyMask: scope.denyMask,
 })
-
-export function normalizeDraftAcl(draft: DraftAcl | null): DraftAcl | null {
-  if (!draft) return null
-  return {
-    principals: draft.principals
-      .map((p) => ({ ...p, self: normalizeScope(p.self) }))
-      .filter(hasPrincipalOverrides),
-  }
-}
 
 export function buildPrincipalOptions(
   users: Array<ApiPrincipal>,
@@ -137,18 +128,6 @@ export function buildPrincipalOptions(
     .sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     )
-}
-
-export function getPrincipalLabel(
-  p: DraftPrincipal,
-  map: Map<string, PrincipalOption>
-) {
-  return (
-    map.get(p.principalId)?.label ??
-    p.principalName ??
-    p.principalExternalId ??
-    p.principalId
-  )
 }
 
 export function getPermissionState(

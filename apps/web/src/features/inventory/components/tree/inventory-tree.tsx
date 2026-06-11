@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
@@ -18,37 +18,20 @@ import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
 import { VIRTUAL_ROOT } from "../../utils/constants"
+import {
+  InventoryTreeContext,
+  useInventoryTreeContext,
+} from "./inventory-tree-context"
 import { InventoryFavoritesSection } from "./favorites-section"
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
 import { InventoryTreeContent } from "./tree-content"
 import { InventoryTreeSearch } from "./tree-search"
+import type { InventoryTreeContextValue } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
-import type { TreeInstance } from "@headless-tree/core"
 import type { ReactNode } from "react"
 import { SidebarListSkeleton } from "@/components/loading-skeletons"
 import { formatToastError } from "@/features/shared/utils/format"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
-
-interface InventoryTreeContextValue {
-  query: string
-  setQuery: (query: string) => void
-  resultCount: number | null
-  tree: TreeInstance<ApiTreeNode>
-  expandAll: () => void
-  collapseAll: () => void
-  getStatus: (itemId: string) => string | undefined
-  isLoading: boolean
-  error: Error | null
-  isEmpty: boolean
-  favoriteIds: Set<string>
-  toggleFavorite: (itemId: string) => void
-  getItemData: (itemId: string) => ApiTreeNode | undefined
-  handlePrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  handleFavoritePrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  selectedItemIds: Array<string>
-  replaceSelection: (itemIds: Array<string>) => void
-  clearSelection: () => void
-}
 
 interface PendingRevealRequest {
   itemId: string
@@ -58,20 +41,6 @@ interface PendingRevealRequest {
 interface SelectionState {
   activeItemId?: string
   itemIds: Array<string>
-}
-
-const InventoryTreeContext = createContext<InventoryTreeContextValue | null>(
-  null
-)
-
-export function useInventoryTreeContext() {
-  const ctx = use(InventoryTreeContext)
-  if (!ctx) {
-    throw new Error(
-      "useInventoryTreeContext must be used within an InventoryTreeProvider"
-    )
-  }
-  return ctx
 }
 
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {

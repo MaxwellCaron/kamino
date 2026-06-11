@@ -108,7 +108,7 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
   },
 ]
 
-export function getVmPowerActionsCardDescription(
+function getVmPowerActionsCardDescription(
   powerMode: VmPowerMode | null
 ) {
   if (powerMode === "request") {

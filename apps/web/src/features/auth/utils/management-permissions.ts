@@ -44,21 +44,6 @@ export function normalizeManagementPermissionGrants(
   return sortManagementPermissionGrants(grants)
 }
 
-export function expandManagementPermissionGrants(
-  grants: Array<ManagementPermissionKey>,
-  _allPermissions: Array<ManagementPermissionKey>
-) {
-  const directGrants = normalizeManagementPermissionGrants(grants)
-  if (!directGrants.includes(ManagementPermissionKeys.administrator)) {
-    return directGrants
-  }
-
-  return sortManagementPermissionGrants([
-    ...directGrants,
-    ManagementPermissionKeys.manager,
-  ])
-}
-
 export function hasManagementPermission(
   permissions:
     | {

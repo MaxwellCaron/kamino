@@ -1,6 +1,6 @@
 import type { ApiTreeNode } from "../types/inventory-types"
 
-export const TREE_ROOT_ID = "root"
+const TREE_ROOT_ID = "root"
 export const TREE_INDENT = 12
 
 export const VIRTUAL_ROOT: ApiTreeNode = {

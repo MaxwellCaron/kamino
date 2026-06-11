@@ -258,17 +258,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
   },
 ]
 
-export const FullInventoryPermissionMask =
-  inventoryPermissionDefinitions.reduce(
-    (mask, permission) => mask | permission.bit,
-    0
-  )
-
-export function inventoryPermissionCatalog() {
-  return [...inventoryPermissionDefinitions]
-}
-
-export function getInventoryPermissionDefinitions(
+function getInventoryPermissionDefinitions(
   kind: InventoryPermissionTargetKind
 ) {
   return inventoryPermissionDefinitions.filter((permission) =>
@@ -299,15 +289,6 @@ export function getInventoryPermissionDefinitionsByGroup(
     const rightDefinition = right.permissions[0]
     return leftDefinition.sectionOrder - rightDefinition.sectionOrder
   })
-}
-
-export function getInventoryPermissionLabels(
-  kind: InventoryPermissionTargetKind,
-  mask: number
-) {
-  return getInventoryPermissionDefinitions(kind).filter(
-    (permission) => (mask & permission.bit) === permission.bit
-  )
 }
 
 export function hasInventoryPermission(

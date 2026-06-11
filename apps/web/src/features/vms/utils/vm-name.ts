@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const vmNamePattern = /^[a-zA-Z0-9-]+$/
+const vmNamePattern = /^[a-zA-Z0-9-]+$/
 
 export const vmNameSchema = z
   .string()

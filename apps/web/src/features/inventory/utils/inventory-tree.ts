@@ -1,7 +1,7 @@
 import { hasDirectInventoryCapability } from "./inventory-capabilities"
 import type { ApiTreeNode } from "../types/inventory-types"
 
-export const INVENTORY_KIND_SORT_ORDER = {
+const INVENTORY_KIND_SORT_ORDER = {
   folder: 0,
   vm: 1,
 } as const
@@ -11,7 +11,7 @@ const inventoryNameCollator = new Intl.Collator(undefined, {
   sensitivity: "base",
 })
 
-export function compareInventoryNodes(
+function compareInventoryNodes(
   left: ApiTreeNode,
   right: ApiTreeNode
 ): number {
@@ -74,21 +74,6 @@ export function findTreePath(
   return null
 }
 
-export function findInventoryParentId(
-  nodes: Array<ApiTreeNode>,
-  id: string,
-  parentId: string | null = null
-): string | null {
-  for (const node of nodes) {
-    if (node.id === id) return parentId
-    if (node.children) {
-      const found = findInventoryParentId(node.children, id, node.id)
-      if (found !== null) return found
-    }
-  }
-  return null
-}
-
 function removeInventoryTreeNode(
   nodes: Array<ApiTreeNode>,
   id: string
@@ -131,7 +116,7 @@ function insertInventoryTreeNode(
   })
 }
 
-export function isInventoryDescendant(
+function isInventoryDescendant(
   nodes: Array<ApiTreeNode>,
   parentId: string,
   childId: string
@@ -152,7 +137,7 @@ export function isInventoryDescendant(
   return false
 }
 
-export function moveInventoryTreeNode(
+function moveInventoryTreeNode(
   nodes: Array<ApiTreeNode>,
   sourceId: string,
   targetId: string
@@ -195,7 +180,7 @@ export type InventoryFolderOption = {
   pool: string
 }
 
-export function encodeInventoryPoolPath(path: Array<string>): string {
+function encodeInventoryPoolPath(path: Array<string>): string {
   return path.map((segment) => segment.replaceAll("_", "__")).join("_")
 }
 
@@ -243,35 +228,6 @@ export function getSelectedFolder(
   folderId: string
 ) {
   return folderOptions.find((folder) => folder.id === folderId)
-}
-
-export function getParentFolderIdForItem(
-  nodes: Array<ApiTreeNode> | undefined,
-  itemId: string
-): string | undefined {
-  if (!nodes) return undefined
-
-  function walk(
-    entries: Array<ApiTreeNode>,
-    parentFolderId?: string
-  ): string | undefined {
-    for (const entry of entries) {
-      if (entry.id === itemId) {
-        return parentFolderId
-      }
-
-      if (!entry.children?.length) continue
-
-      const nextParentId = entry.kind === "folder" ? entry.id : parentFolderId
-      const found = walk(entry.children, nextParentId)
-
-      if (found) return found
-    }
-
-    return undefined
-  }
-
-  return walk(nodes)
 }
 
 export type FolderDeletionSummary = {

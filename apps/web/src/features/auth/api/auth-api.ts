@@ -157,13 +157,13 @@ export async function apiFetch(
   return retried
 }
 
-export async function fetchAuthSession(): Promise<AuthSession> {
+async function fetchAuthSession(): Promise<AuthSession> {
   const res = await apiFetch("/api/v1/auth/me")
   if (!res.ok) throw new Error("not authenticated")
   return applyAuthSession(await res.json())
 }
 
-export async function ensureAuth(): Promise<AuthSession> {
+async function ensureAuth(): Promise<AuthSession> {
   if (authFailure) {
     redirectToLogin()
     throw authFailure

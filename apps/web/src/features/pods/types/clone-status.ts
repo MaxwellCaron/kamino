@@ -21,5 +21,3 @@ export const DEFAULT_CLONE_TASKS = [
   },
   { id: 4, name: "Configure router" },
 ] as const
-
-export const COMPLETE_CLONE_STEP_ID = DEFAULT_CLONE_TASKS.length

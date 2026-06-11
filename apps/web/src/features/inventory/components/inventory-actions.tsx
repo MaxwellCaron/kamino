@@ -526,7 +526,7 @@ function TemplateMenuItems({
   )
 }
 
-export function MenuItems({
+function MenuItems({
   permissions,
   isFavorite,
   onToggleFavorite,

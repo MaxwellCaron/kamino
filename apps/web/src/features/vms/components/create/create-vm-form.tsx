@@ -9,7 +9,7 @@ import { vmNameSchema } from "../../utils/vm-name"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
 
-export const createVmMethodSchema = z.enum(["template", "iso", "upload"])
+const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 
 export type CreateVmMethod = z.infer<typeof createVmMethodSchema>
 

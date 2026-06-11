@@ -21,7 +21,7 @@ import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import { summarizeFolderDeletion } from "../../utils/inventory-tree"
 import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
-import { useInventoryTreeContext } from "./inventory-tree"
+import { useInventoryTreeContext } from "./inventory-tree-context"
 import type { FolderDeletionSummary } from "../../utils/inventory-tree"
 import type {
   ConfirmDialogControls,

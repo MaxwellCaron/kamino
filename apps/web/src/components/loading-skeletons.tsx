@@ -40,7 +40,7 @@ export function PageSkeleton({
   )
 }
 
-export function StatGridSkeleton({ count = 6 }: { count?: number }) {
+function StatGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
       {Array.from({ length: count }, (_, index) => (
