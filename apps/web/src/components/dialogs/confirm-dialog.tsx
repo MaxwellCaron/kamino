@@ -21,7 +21,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType, ReactNode, RefObject } from "react"
 import {
   AppAlertDialogContent,
   AppDialogScrollBody,
@@ -172,35 +172,32 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
   )
 }
 
-export function ConfirmDialog({
+function ConfirmDialogSession({
   config,
   onClose,
+  isPendingRef,
 }: {
-  config: ConfirmConfig | null
+  config: ConfirmConfig
   onClose: () => void
+  isPendingRef: RefObject<boolean>
 }) {
   const [isPending, setIsPending] = useState(false)
   const [hasSubmitted, setHasSubmitted] = useState(false)
-  const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>([])
+  const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>(
+    () => config.statusItems ?? []
+  )
   const statusItemsRef = useRef<Array<ConfirmStatusItem>>([])
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
   const HeaderIcon =
-    config?.icon ??
-    (config?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
+    config.icon ??
+    (config.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
   const hasStatusItems = statusItems.length > 0
   const allActionsSucceeded =
     hasStatusItems && statusItems.every((item) => item.status === "success")
 
   statusItemsRef.current = statusItems
-
-  useEffect(() => {
-    if (!config) return
-
-    setHasSubmitted(false)
-    setIsPending(false)
-    setStatusItems(config.statusItems ?? [])
-  }, [config])
+  isPendingRef.current = isPending
 
   useEffect(() => {
     if (!vmStatuses) {
@@ -246,68 +243,92 @@ export function ConfirmDialog({
   }, [vmStatuses])
 
   return (
+    <AppAlertDialogContent
+      open
+      icon={HeaderIcon}
+      title={config.title}
+      description={config.description}
+      descriptionProps={{
+        render: <div />,
+        className: "space-y-3 text-sm text-muted-foreground",
+      }}
+    >
+      {hasStatusItems && <ConfirmStatusList items={statusItems} />}
+      <AlertDialogFooter>
+        <AlertDialogCancel disabled={isPending}>
+          {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}
+        </AlertDialogCancel>
+        <AlertDialogAction
+          variant={config.variant ?? "default"}
+          disabled={
+            isPending || allActionsSucceeded || config.actionDisabled === true
+          }
+          onClick={async () => {
+            setHasSubmitted(true)
+            const closeOnSuccess = config.closeOnSuccess ?? true
+
+            if (closeOnSuccess) {
+              onClose()
+            } else {
+              setIsPending(true)
+            }
+
+            try {
+              await config.onConfirm({
+                getStatusItems: () => statusItemsRef.current,
+                setStatusItems: (updater) => {
+                  setStatusItems((prev) =>
+                    typeof updater === "function" ? updater(prev) : updater
+                  )
+                },
+              })
+            } catch {
+              // Error feedback is handled by the caller.
+            } finally {
+              if (!closeOnSuccess) {
+                setIsPending(false)
+              }
+            }
+          }}
+        >
+          {config.actionLabel}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AppAlertDialogContent>
+  )
+}
+
+export function ConfirmDialog({
+  config,
+  onClose,
+}: {
+  config: ConfirmConfig | null
+  onClose: () => void
+}) {
+  const prevConfigRef = useRef<ConfirmConfig | null>(null)
+  const sessionKeyRef = useRef(0)
+  const isPendingRef = useRef(false)
+
+  if (config !== prevConfigRef.current && config !== null) {
+    sessionKeyRef.current += 1
+  }
+  prevConfigRef.current = config
+
+  return (
     <AlertDialog
       open={config !== null}
       onOpenChange={(open) => {
-        if (!open && !isPending) onClose()
+        if (!open && !isPendingRef.current) onClose()
       }}
     >
-      <AppAlertDialogContent
-        open={config !== null}
-        icon={HeaderIcon}
-        title={config?.title ?? ""}
-        description={config?.description ?? null}
-        descriptionProps={{
-          render: <div />,
-          className: "space-y-3 text-sm text-muted-foreground",
-        }}
-      >
-        {hasStatusItems && <ConfirmStatusList items={statusItems} />}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>
-            {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            variant={config?.variant ?? "default"}
-            disabled={
-              isPending ||
-              allActionsSucceeded ||
-              config?.actionDisabled === true
-            }
-            onClick={async () => {
-              if (!config) return
-
-              setHasSubmitted(true)
-              const closeOnSuccess = config.closeOnSuccess ?? true
-
-              if (closeOnSuccess) {
-                onClose()
-              } else {
-                setIsPending(true)
-              }
-
-              try {
-                await config.onConfirm({
-                  getStatusItems: () => statusItemsRef.current,
-                  setStatusItems: (updater) => {
-                    setStatusItems((prev) =>
-                      typeof updater === "function" ? updater(prev) : updater
-                    )
-                  },
-                })
-              } catch {
-                // Error feedback is handled by the caller.
-              } finally {
-                if (!closeOnSuccess) {
-                  setIsPending(false)
-                }
-              }
-            }}
-          >
-            {config?.actionLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AppAlertDialogContent>
+      {config ? (
+        <ConfirmDialogSession
+          key={sessionKeyRef.current}
+          config={config}
+          onClose={onClose}
+          isPendingRef={isPendingRef}
+        />
+      ) : null}
     </AlertDialog>
   )
 }
