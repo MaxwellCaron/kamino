@@ -2,6 +2,7 @@ import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { AsciiArt } from "@workspace/ui/components/ascii-art"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { LoginForm } from "@/features/auth/components/login-form"
+import { safeRedirectPath } from "@/features/auth/utils/safe-redirect"
 import { GrainientBackground } from "@/components/grainient-background"
 
 const loginRouteApi = getRouteApi("/login")
@@ -32,7 +33,7 @@ export function LoginPage() {
               <CardContent className="my-auto">
                 <LoginForm
                   onSuccess={() => {
-                    router.navigate({ to: redirectTo ?? "/" })
+                    router.navigate({ to: safeRedirectPath(redirectTo) })
                   }}
                 />
               </CardContent>
