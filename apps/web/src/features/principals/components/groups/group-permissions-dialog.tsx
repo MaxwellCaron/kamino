@@ -29,7 +29,6 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldLegend,
   FieldSet,
   FieldTitle,
 } from "@workspace/ui/components/field"
@@ -165,8 +164,8 @@ function GroupPermissionsForm({
         void form.handleSubmit()
       }}
     >
-      <AppDialogScrollBody className="-mb-6">
-        <div className="flex flex-col gap-5">
+      <AppDialogScrollBody>
+        <div className="flex flex-col">
           {immutable ? (
             <Alert>
               <IconShieldCheck />
@@ -193,10 +192,6 @@ function GroupPermissionsForm({
 
                 return (
                   <FieldSet>
-                    <FieldLegend variant="label">Management role</FieldLegend>
-                    <FieldDescription>
-                      Choose the role this group should hold in Kamino.
-                    </FieldDescription>
                     <RadioGroup
                       name={field.name}
                       value={field.state.value}
@@ -213,7 +208,7 @@ function GroupPermissionsForm({
                           orientation="horizontal"
                           data-invalid={isInvalid}
                         >
-                          <FieldContent>
+                          <FieldContent className="cursor-pointer">
                             <FieldTitle>None</FieldTitle>
                             <FieldDescription>
                               Standard operations. No special management
@@ -241,7 +236,7 @@ function GroupPermissionsForm({
                               orientation="horizontal"
                               data-invalid={isInvalid}
                             >
-                              <FieldContent>
+                              <FieldContent className="cursor-pointer">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <FieldTitle>{role.label}</FieldTitle>
                                   {role.dangerous && (
@@ -329,11 +324,11 @@ export function GroupPermissionsDialog({
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
         {isAccessLoading ? (
-          <AppDialogScrollBody className="-mb-6">
+          <AppDialogScrollBody>
             <DialogBodySkeleton rows={3} />
           </AppDialogScrollBody>
         ) : isAccessError ? (
-          <AppDialogScrollBody className="-mb-6">
+          <AppDialogScrollBody>
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">

@@ -278,7 +278,7 @@ function MembershipForm({
               field.handleChange(uniqueIds(newValue.map((option) => option.id)))
             }
           >
-            <ComboboxChips ref={anchor} className="w-full">
+            <ComboboxChips ref={anchor} className="mb-6 w-full p-3!">
               <ComboboxValue>
                 {(values) => (
                   <React.Fragment>
