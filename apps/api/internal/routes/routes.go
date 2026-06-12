@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
@@ -33,7 +35,7 @@ func RegisterRoutes(
 	// Public auth endpoints
 	if authHandler != nil {
 		authGroup := v1.Group("/auth")
-		authGroup.POST("/login", authHandler.Login)
+		authGroup.POST("/login", middleware.LoginRateLimit(10, time.Minute), authHandler.Login)
 		authGroup.POST("/refresh", authHandler.Refresh)
 		authGroup.POST("/logout", authHandler.Logout)
 	}
