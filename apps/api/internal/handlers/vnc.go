@@ -10,12 +10,15 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -24,25 +27,37 @@ type VNCHandler struct {
 	PX       *proxmox.Client
 	Authz    *authorization.Service
 	sessions *sessionStore
+	upgrader websocket.Upgrader
 }
 
 // NewVNCHandler creates a VNCHandler with an initialized session store.
-func NewVNCHandler(px *proxmox.Client) *VNCHandler {
+func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
+	allowedOrigin := middleware.NormalizeOrigin(frontendURL)
 	return &VNCHandler{
 		PX:       px,
 		sessions: newSessionStore(),
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				origin := strings.TrimSpace(r.Header.Get("Origin"))
+				if origin == "" {
+					return true
+				}
+				return allowedOrigin != "" && middleware.NormalizeOrigin(origin) == allowedOrigin
+			},
+		},
 	}
 }
 
 // --- session store ---
 
 type vncSession struct {
-	node     string
-	vmid     int
-	port     string
-	ticket   string
-	password string
-	expires  time.Time
+	node        string
+	vmid        int
+	port        string
+	ticket      string
+	password    string
+	expires     time.Time
+	principalID uuid.UUID
 }
 
 type sessionStore struct {
@@ -124,11 +139,12 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 	}
 
 	sessionID := h.sessions.store(&vncSession{
-		node:     target.Node,
-		vmid:     target.VMID,
-		port:     vncResp.Port,
-		ticket:   vncResp.Ticket,
-		password: vncResp.Password,
+		node:        target.Node,
+		vmid:        target.VMID,
+		port:        vncResp.Port,
+		ticket:      vncResp.Ticket,
+		password:    vncResp.Password,
+		principalID: principalID,
 	})
 
 	c.JSON(http.StatusOK, gin.H{
@@ -139,10 +155,6 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 
 // --- WebSocket bridge ---
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
 type wsInitMessage struct {
 	SessionID string `json:"sessionId"`
 }
@@ -150,7 +162,13 @@ type wsInitMessage struct {
 // WebSocket handles GET /api/v1/vnc/ws.
 // The client sends a JSON init message with sessionId, then binary VNC frames are bridged.
 func (h *VNCHandler) WebSocket(c *gin.Context) {
-	clientConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	clientConn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("ws upgrade error: %v", err)
 		return
@@ -173,6 +191,12 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 
 	sess, ok := h.sessions.consume(init.SessionID)
 	if !ok {
+		clientConn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid or expired session"))
+		return
+	}
+
+	if sess.principalID != principalID {
 		clientConn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid or expired session"))
 		return
