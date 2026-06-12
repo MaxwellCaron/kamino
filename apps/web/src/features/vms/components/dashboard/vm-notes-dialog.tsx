@@ -42,6 +42,9 @@ export function VmNotesDialog({
     defaultValues: {
       notes: initialNotes ?? "",
     },
+    validators: {
+      onSubmit: vmNotesSchema,
+    },
     onSubmit: ({ value }) => {
       const parsed = vmNotesSchema.parse(value)
       onOpenChange(false)
@@ -74,36 +77,29 @@ export function VmNotesDialog({
         }}
       >
         <FieldGroup>
-          <form.Field
-            name="notes"
-            validators={{
-              onBlur: ({ value }) => {
-                const result = vmNotesSchema.shape.notes.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
+          <form.Field name="notes">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <Textarea
+                    id="notes"
+                    placeholder={`Add notes for ${vmName}...`}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={isInvalid}
+                    maxLength={255}
+                  />
+                  <FieldDescription className="text-right font-mono text-xs">
+                    {field.state.value.length}/255
+                  </FieldDescription>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
             }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <Textarea
-                  id="notes"
-                  placeholder={`Add notes for ${vmName}...`}
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                  maxLength={255}
-                />
-                <FieldDescription className="text-right font-mono text-xs">
-                  {field.state.value.length}/255
-                </FieldDescription>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
           </form.Field>
         </FieldGroup>
         <DialogFooter className="mt-6">

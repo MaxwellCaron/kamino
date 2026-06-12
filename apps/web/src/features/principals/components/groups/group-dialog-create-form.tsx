@@ -21,9 +21,10 @@ import type {
   GroupFormApi,
 } from "@/features/principals/components/groups/group-dialog-utils"
 import {
+  descriptionFieldSchema,
   groupNameSchema,
-  parsePositiveInteger,
-  validateDescription,
+  positiveIntegerStringSchema,
+  prefixSchema,
 } from "@/features/principals/components/groups/group-dialog-utils"
 
 type GroupDialogCreateFormProps = {
@@ -63,69 +64,70 @@ export function GroupDialogCreateForm({
           <form.Field
             name="name"
             validators={{
-              onBlur: ({ value }) => {
-                const result = groupNameSchema.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
+              onSubmit: groupNameSchema,
             }}
           >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="single-name">Name</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="single-name"
-                    maxLength={64}
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="Admins"
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                </FieldContent>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="single-name">Name</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="single-name"
+                      maxLength={64}
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      placeholder="Admins"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
 
           <form.Field
             name="description"
             validators={{
-              onBlur: ({ value }) => validateDescription(value),
+              onSubmit: descriptionFieldSchema,
             }}
           >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="single-description">
-                  Description
-                </FieldLabel>
-                <FieldContent>
-                  <Textarea
-                    id="single-description"
-                    maxLength={256}
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="Optional description"
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                </FieldContent>
-                <FieldDescription className="text-right font-mono text-xs">
-                  {field.state.value.length}/256
-                </FieldDescription>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="single-description">
+                    Description
+                  </FieldLabel>
+                  <FieldContent>
+                    <Textarea
+                      id="single-description"
+                      maxLength={256}
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      placeholder="Optional description"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  <FieldDescription className="text-right font-mono text-xs">
+                    {field.state.value.length}/256
+                  </FieldDescription>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
         </FieldGroup>
       </TabsContent>
@@ -164,154 +166,145 @@ export function GroupDialogCreateForm({
           <form.Field
             name="prefix"
             validators={{
-              onBlur: ({ value }) =>
-                value.trim() ? undefined : "Prefix is required",
+              onSubmit: prefixSchema,
             }}
           >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="prefix">Prefix</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="prefix"
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="team"
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                </FieldContent>
-                <FieldDescription>
-                  Generated group names use the prefix plus a padded number.
-                  i.e. team01, team02, team03.
-                </FieldDescription>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="prefix">Prefix</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="prefix"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      placeholder="team"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  <FieldDescription>
+                    Generated group names use the prefix plus a padded number.
+                    i.e. team01, team02, team03.
+                  </FieldDescription>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
 
           <div className="grid grid-cols-2 gap-6">
             <form.Field
               name="start"
               validators={{
-                onBlur: ({ value }) =>
-                  (() => {
-                    try {
-                      parsePositiveInteger(value, "Starting number")
-                      return undefined
-                    } catch (error) {
-                      return error instanceof Error
-                        ? error.message
-                        : "Starting number is invalid"
-                    }
-                  })(),
+                onSubmit: positiveIntegerStringSchema("Starting number"),
               }}
             >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="start">Starting Number</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="start"
-                      min={1}
-                      step={1}
-                      type="number"
-                      value={field.state.value}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                      onBlur={field.handleBlur}
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                  </FieldContent>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor="start">Starting Number</FieldLabel>
+                    <FieldContent>
+                      <Input
+                        id="start"
+                        min={1}
+                        step={1}
+                        type="number"
+                        value={field.state.value}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        onBlur={field.handleBlur}
+                        aria-invalid={isInvalid}
+                      />
+                    </FieldContent>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                )
+              }}
             </form.Field>
 
             <form.Field
               name="quantity"
               validators={{
-                onBlur: ({ value }) =>
-                  (() => {
-                    try {
-                      parsePositiveInteger(value, "Quantity")
-                      return undefined
-                    } catch (error) {
-                      return error instanceof Error
-                        ? error.message
-                        : "Quantity is invalid"
-                    }
-                  })(),
+                onSubmit: positiveIntegerStringSchema("Quantity"),
               }}
             >
-              {(field) => (
-                <Field
-                  data-invalid={field.state.meta.errors.length > 0 || undefined}
-                >
-                  <FieldLabel htmlFor="quantity">Quantity</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      id="quantity"
-                      min={1}
-                      step={1}
-                      type="number"
-                      value={field.state.value}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                      onBlur={field.handleBlur}
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                  </FieldContent>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )}
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor="quantity">Quantity</FieldLabel>
+                    <FieldContent>
+                      <Input
+                        id="quantity"
+                        min={1}
+                        step={1}
+                        type="number"
+                        value={field.state.value}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        onBlur={field.handleBlur}
+                        aria-invalid={isInvalid}
+                      />
+                    </FieldContent>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                )
+              }}
             </form.Field>
           </div>
 
           <form.Field
             name="prefixDescription"
             validators={{
-              onBlur: ({ value }) => validateDescription(value),
+              onSubmit: descriptionFieldSchema,
             }}
           >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="prefix-description">
-                  Description
-                </FieldLabel>
-                <FieldContent>
-                  <Textarea
-                    id="prefix-description"
-                    maxLength={256}
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="Optional shared description"
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                </FieldContent>
-                <FieldDescription className="text-right font-mono text-xs">
-                  {field.state.value.length}/256
-                </FieldDescription>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="prefix-description">
+                    Description
+                  </FieldLabel>
+                  <FieldContent>
+                    <Textarea
+                      id="prefix-description"
+                      maxLength={256}
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      placeholder="Optional shared description"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  <FieldDescription className="text-right font-mono text-xs">
+                    {field.state.value.length}/256
+                  </FieldDescription>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
         </FieldGroup>
       </TabsContent>

@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconSettings } from "@tabler/icons-react"
@@ -43,7 +42,6 @@ export function ChangePasswordDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const [submitError, setSubmitError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: changeOwnPassword,
@@ -62,17 +60,14 @@ export function ChangePasswordDialog({
       newPassword: "",
       confirmPassword: "",
     },
+    validators: {
+      onSubmit: changePasswordSchema,
+    },
     onSubmit: async ({ value }) => {
-      const parsed = changePasswordSchema.safeParse(value)
-      if (!parsed.success) {
-        setSubmitError(parsed.error.issues[0]?.message ?? "Invalid password")
-        return
-      }
-
-      setSubmitError(null)
+      const parsed = changePasswordSchema.parse(value)
       await mutation.mutateAsync({
-        current_password: parsed.data.currentPassword,
-        new_password: parsed.data.newPassword,
+        current_password: parsed.currentPassword,
+        new_password: parsed.newPassword,
       })
     },
   })
@@ -83,7 +78,6 @@ export function ChangePasswordDialog({
       onOpenChange={onOpenChange}
       onClosed={() => {
         form.reset()
-        setSubmitError(null)
         mutation.reset()
       }}
       initialFocus={false}
@@ -97,105 +91,104 @@ export function ChangePasswordDialog({
         }}
       >
         <FieldGroup>
-          <form.Field
-            name="currentPassword"
-            validators={{
-              onBlur: ({ value }) => {
-                const result =
-                  changePasswordSchema.shape.currentPassword.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
+          <form.Field name="currentPassword">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="current-password">
+                    Current Password
+                  </FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      placeholder="************"
+                    />
+                  </FieldContent>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
             }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="current-password">
-                  Current Password
-                </FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    placeholder="************"
-                  />
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </FieldContent>
-              </Field>
-            )}
           </form.Field>
 
-          <form.Field
-            name="newPassword"
-            validators={{
-              onBlur: ({ value }) => {
-                const result =
-                  changePasswordSchema.shape.newPassword.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
+          <form.Field name="newPassword">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="new-password">New Password</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      placeholder="************"
+                    />
+                    <FieldDescription>
+                      Use at least 8 characters.
+                    </FieldDescription>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </FieldContent>
+                </Field>
+              )
             }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="new-password">New Password</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    placeholder="************"
-                  />
-                  <FieldDescription>
-                    Use at least 8 characters.
-                  </FieldDescription>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </FieldContent>
-              </Field>
-            )}
           </form.Field>
 
           <form.Field name="confirmPassword">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="confirm-password">
-                  Confirm New Password
-                </FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="************"
-                  />
-                </FieldContent>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="confirm-password">
+                    Confirm New Password
+                  </FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      placeholder="************"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
 
-          <FieldError>{submitError ?? mutation.error?.message}</FieldError>
+          {mutation.error && (
+            <FieldError className="text-center">
+              {mutation.error.message}
+            </FieldError>
+          )}
         </FieldGroup>
 
         <DialogFooter className="mt-6">

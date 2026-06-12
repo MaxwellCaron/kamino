@@ -105,6 +105,9 @@ export function RenameDialog(props: RenameDialogProps) {
 
   const form = useForm({
     defaultValues: { name: currentName },
+    validators: {
+      onSubmit: z.object({ name: ui.schema }),
+    },
     onSubmit: ({ value }) => {
       const parsed = ui.schema.parse(value.name)
       props.onOpenChange(false)
@@ -160,32 +163,25 @@ export function RenameDialog(props: RenameDialogProps) {
         }}
       >
         <FieldGroup>
-          <form.Field
-            name="name"
-            validators={{
-              onBlur: ({ value }) => {
-                const result = ui.schema.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0]?.message
-              },
+          <form.Field name="name">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <Input
+                    id="name"
+                    placeholder={ui.placeholder}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={isInvalid}
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
             }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <Input
-                  id="name"
-                  placeholder={ui.placeholder}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                />
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
           </form.Field>
         </FieldGroup>
         <DialogFooter className="mt-6">

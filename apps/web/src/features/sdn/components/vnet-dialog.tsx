@@ -31,8 +31,8 @@ const vnetSchema = z.object({
       "Must start with a letter, alphanumeric/dash/underscore only"
     ),
   zone: z.string().trim().min(1, "Zone is required"),
-  tag: z.string().trim().optional(),
-  alias: z.string().trim().max(256).optional(),
+  tag: z.string().trim(),
+  alias: z.string().trim().max(256),
 })
 
 export function VNetDialog({
@@ -78,6 +78,9 @@ export function VNetDialog({
       tag: vnet?.tag?.toString() ?? "",
       alias: vnet?.alias ?? "",
     },
+    validators: {
+      onSubmit: vnetSchema,
+    },
     onSubmit: ({ value }) => {
       const parsed = vnetSchema.parse(value)
       onOpenChange(false)
@@ -109,71 +112,53 @@ export function VNetDialog({
         }}
       >
         <FieldGroup>
-          <form.Field
-            name="vnet"
-            validators={{
-              onBlur: ({ value }) => {
-                const result = vnetSchema.shape.vnet.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
+          <form.Field name="vnet">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="vnet">Name</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="vnet"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      disabled={isEdit}
+                      placeholder="myvnet"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
             }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="vnet">Name</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="vnet"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    disabled={isEdit}
-                    placeholder="myvnet"
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                </FieldContent>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
           </form.Field>
 
-          <form.Field
-            name="zone"
-            validators={{
-              onBlur: ({ value }) => {
-                const result = vnetSchema.shape.zone.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
+          <form.Field name="zone">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="zone">Zone</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="zone"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="localzone"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
             }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="zone">Zone</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="zone"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="localzone"
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  />
-                </FieldContent>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
           </form.Field>
 
           <form.Field name="tag">
@@ -195,20 +180,27 @@ export function VNetDialog({
           </form.Field>
 
           <form.Field name="alias">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="alias">Alias</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="alias"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="Optional description"
-                  />
-                </FieldContent>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="alias">Alias</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="alias"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="Optional description"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
         </FieldGroup>
 

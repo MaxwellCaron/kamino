@@ -16,13 +16,25 @@ export const usernameSchema = z
   .max(20, "Max 20 characters")
   .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only")
 
-export const descriptionSchema = z
+export const descriptionFieldSchema = z
   .string()
   .trim()
   .max(256, "Max 256 characters")
-  .optional()
+export const descriptionSchema = descriptionFieldSchema.optional()
 
 export const requiredPasswordSchema = z.string().min(8, "Minimum 8 characters")
+export const optionalPasswordSchema = z.union([
+  z.literal(""),
+  requiredPasswordSchema,
+])
+
+export const prefixSchema = z.string().trim().min(1, "Prefix is required")
+
+export const positiveIntegerStringSchema = (label: string) =>
+  z.string().refine((value) => {
+    const parsed = Number.parseInt(value.trim(), 10)
+    return Number.isInteger(parsed) && parsed >= 1
+  }, `${label} must be a positive whole number`)
 
 export const userSchema = z.object({
   username: usernameSchema,
@@ -84,21 +96,6 @@ export function parsePositiveInteger(value: string, label: string) {
     throw new Error(`${label} must be a positive whole number`)
   }
   return parsed
-}
-
-export function validateDescription(value: string) {
-  const result = descriptionSchema.safeParse(value)
-  return result.success ? undefined : result.error.issues[0].message
-}
-
-export function validateRequiredPassword(value: string) {
-  const result = requiredPasswordSchema.safeParse(value)
-  return result.success ? undefined : result.error.issues[0].message
-}
-
-export function validateOptionalPassword(value: string) {
-  if (!value) return undefined
-  return validateRequiredPassword(value)
 }
 
 function buildCreateUserInput(args: {

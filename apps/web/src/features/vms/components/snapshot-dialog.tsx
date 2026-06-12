@@ -51,9 +51,8 @@ const directSnapshotSchema = z.object({
   description: z
     .string()
     .trim()
-    .max(256, "Description must be 256 characters or less")
-    .optional(),
-  vmstate: z.boolean().optional(),
+    .max(256, "Description must be 256 characters or less"),
+  vmstate: z.boolean(),
 })
 
 const createSnapshotRequestSchema = z.object({
@@ -118,6 +117,9 @@ function DirectSnapshotForm({
       description: "",
       vmstate: false,
     },
+    validators: {
+      onSubmit: directSnapshotSchema,
+    },
     onSubmit: ({ value }) => {
       const parsed = directSnapshotSchema.parse(value)
       onOpenChange(false)
@@ -141,73 +143,61 @@ function DirectSnapshotForm({
       }}
     >
       <FieldGroup>
-        <form.Field
-          name="snapname"
-          validators={{
-            onBlur: ({ value }) => {
-              const result =
-                directSnapshotSchema.shape.snapname.safeParse(value)
-              return result.success ? undefined : result.error.issues[0].message
-            },
-          }}
-        >
-          {(field) => (
-            <Field
-              data-invalid={field.state.meta.errors.length > 0 || undefined}
-            >
-              <FieldLabel htmlFor="snapname">Name</FieldLabel>
-              <Input
-                id="snapname"
-                placeholder="my-snapshot"
-                aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onBlur={field.handleBlur}
-              />
-              <FieldError>{field.state.meta.errors[0]}</FieldError>
-            </Field>
-          )}
-        </form.Field>
-        <form.Field
-          name="description"
-          validators={{
-            onBlur: ({ value }) => {
-              const result =
-                directSnapshotSchema.shape.description.safeParse(value)
-              return result.success ? undefined : result.error.issues[0].message
-            },
-          }}
-        >
-          {(field) => (
-            <Field
-              data-invalid={field.state.meta.errors.length > 0 || undefined}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <FieldLabel htmlFor="description">Description</FieldLabel>
-                <span className="font-mono text-xs text-muted-foreground"></span>
-              </div>
-              <InputGroup>
-                <InputGroupTextarea
-                  id="description"
-                  placeholder="Optional description..."
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
+        <form.Field name="snapname">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
+
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor="snapname">Name</FieldLabel>
+                <Input
+                  id="snapname"
+                  placeholder="my-snapshot"
+                  aria-invalid={isInvalid}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
-                  maxLength={255}
                 />
-                <InputGroupAddon
-                  align="block-end"
-                  className="justify-end px-4 font-mono text-xs"
-                >
-                  <InputGroupText>
-                    {field.state.value.length}/255
-                  </InputGroupText>
-                </InputGroupAddon>
-              </InputGroup>
-              <FieldError>{field.state.meta.errors[0]}</FieldError>
-            </Field>
-          )}
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
+        <form.Field name="description">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
+
+            return (
+              <Field data-invalid={isInvalid}>
+                <div className="flex items-center justify-between gap-2">
+                  <FieldLabel htmlFor="description">Description</FieldLabel>
+                  <span className="font-mono text-xs text-muted-foreground"></span>
+                </div>
+                <InputGroup>
+                  <InputGroupTextarea
+                    id="description"
+                    placeholder="Optional description..."
+                    aria-invalid={isInvalid}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    maxLength={255}
+                  />
+                  <InputGroupAddon
+                    align="block-end"
+                    className="justify-end px-4 font-mono text-xs"
+                  >
+                    <InputGroupText>
+                      {field.state.value.length}/255
+                    </InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
         </form.Field>
         <form.Field name="vmstate">
           {(field) => (
@@ -285,6 +275,9 @@ function RequestSnapshotForm({
     defaultValues: {
       snapname: generateSnapshotName(),
     },
+    validators: {
+      onSubmit: createSnapshotRequestSchema,
+    },
     onSubmit: ({ value }) => {
       const parsed = createSnapshotRequestSchema.parse(value)
       onOpenChange(false)
@@ -306,31 +299,25 @@ function RequestSnapshotForm({
       }}
     >
       <FieldGroup>
-        <form.Field
-          name="snapname"
-          validators={{
-            onBlur: ({ value }) => {
-              const result =
-                createSnapshotRequestSchema.shape.snapname.safeParse(value)
-              return result.success ? undefined : result.error.issues[0].message
-            },
+        <form.Field name="snapname">
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
+
+            return (
+              <Field data-invalid={isInvalid}>
+                <Input
+                  id="request-snapname"
+                  placeholder="snapshot-2026-04-22T15-04-05Z"
+                  aria-invalid={isInvalid}
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                />
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
           }}
-        >
-          {(field) => (
-            <Field
-              data-invalid={field.state.meta.errors.length > 0 || undefined}
-            >
-              <Input
-                id="request-snapname"
-                placeholder="snapshot-2026-04-22T15-04-05Z"
-                aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onBlur={field.handleBlur}
-              />
-              <FieldError>{field.state.meta.errors[0]}</FieldError>
-            </Field>
-          )}
         </form.Field>
       </FieldGroup>
       <DialogFooter className="mt-6">
