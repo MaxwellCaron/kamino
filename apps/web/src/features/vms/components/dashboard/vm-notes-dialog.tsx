@@ -2,23 +2,18 @@ import { useForm } from "@tanstack/react-form"
 import { IconEdit } from "@tabler/icons-react"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-} from "@workspace/ui/components/field"
-import { Textarea } from "@workspace/ui/components/textarea"
+import { FieldGroup } from "@workspace/ui/components/field"
 import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
 import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 const vmNotesSchema = z.object({
-  notes: z.string().trim().max(255, "Notes must be 255 characters or less"),
+  notes: z.string().trim().max(256, "Notes must be 256 characters or less"),
 })
 
 export function VmNotesDialog({
@@ -83,21 +78,18 @@ export function VmNotesDialog({
                 field.state.meta.isTouched && !field.state.meta.isValid
 
               return (
-                <Field data-invalid={isInvalid}>
-                  <Textarea
-                    id="notes"
-                    placeholder={`Add notes for ${vmName}...`}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={isInvalid}
-                    maxLength={255}
-                  />
-                  <FieldDescription className="text-right font-mono text-xs">
-                    {field.state.value.length}/255
-                  </FieldDescription>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                </Field>
+                <CountedTextareaField
+                  id="notes"
+                  label="Notes"
+                  placeholder={`Add notes for ${vmName}...`}
+                  isInvalid={isInvalid}
+                  value={field.state.value}
+                  onValueChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                  maxLength={256}
+                  className="max-h-100"
+                  errors={isInvalid ? field.state.meta.errors : []}
+                />
               )
             }}
           </form.Field>

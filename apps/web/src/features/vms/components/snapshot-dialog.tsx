@@ -14,15 +14,10 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupText,
-  InputGroupTextarea,
-} from "@workspace/ui/components/input-group"
-import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import {
   useCreateSnapshot,
   useSubmitInventorySnapshotCreateRequest,
@@ -170,32 +165,18 @@ function DirectSnapshotForm({
               field.state.meta.isTouched && !field.state.meta.isValid
 
             return (
-              <Field data-invalid={isInvalid}>
-                <div className="flex items-center justify-between gap-2">
-                  <FieldLabel htmlFor="description">Description</FieldLabel>
-                  <span className="font-mono text-xs text-muted-foreground"></span>
-                </div>
-                <InputGroup>
-                  <InputGroupTextarea
-                    id="description"
-                    placeholder="Optional description..."
-                    aria-invalid={isInvalid}
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    maxLength={255}
-                  />
-                  <InputGroupAddon
-                    align="block-end"
-                    className="justify-end px-4 font-mono text-xs"
-                  >
-                    <InputGroupText>
-                      {field.state.value.length}/255
-                    </InputGroupText>
-                  </InputGroupAddon>
-                </InputGroup>
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
+              <CountedTextareaField
+                id="description"
+                label="Description"
+                placeholder="Optional description..."
+                isInvalid={isInvalid}
+                value={field.state.value}
+                onValueChange={field.handleChange}
+                onBlur={field.handleBlur}
+                maxLength={256}
+                className="max-h-100"
+                errors={isInvalid ? field.state.meta.errors : []}
+              />
             )
           }}
         </form.Field>

@@ -339,7 +339,7 @@ type renameVMRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
-const maxVMNotesLength = 255
+const maxVMNotesLength = 256
 
 type updateVMNotesRequest struct {
 	Notes string `json:"notes"`

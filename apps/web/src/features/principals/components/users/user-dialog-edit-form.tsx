@@ -1,19 +1,18 @@
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { Textarea } from "@workspace/ui/components/textarea"
 import type { UserFormApi } from "@/features/principals/components/users/user-dialog-utils"
 import {
   descriptionFieldSchema,
   optionalPasswordSchema,
   usernameSchema,
 } from "@/features/principals/components/users/user-dialog-utils"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 
 type UserDialogEditFormProps = {
   form: UserFormApi
@@ -93,24 +92,18 @@ export function UserDialogEditForm({ form }: UserDialogEditFormProps) {
             field.state.meta.isTouched && !field.state.meta.isValid
 
           return (
-            <Field data-invalid={isInvalid}>
-              <FieldLabel htmlFor="description">Description</FieldLabel>
-              <FieldContent>
-                <Textarea
-                  id="description"
-                  maxLength={256}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Optional description"
-                  aria-invalid={isInvalid}
-                />
-              </FieldContent>
-              <FieldDescription className="text-right font-mono text-xs">
-                {field.state.value.length}/256
-              </FieldDescription>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
-            </Field>
+            <CountedTextareaField
+              id="description"
+              label="Description"
+              placeholder="Optional description"
+              isInvalid={isInvalid}
+              value={field.state.value}
+              onValueChange={field.handleChange}
+              onBlur={field.handleBlur}
+              maxLength={256}
+              className="max-h-100"
+              errors={isInvalid ? field.state.meta.errors : []}
+            />
           )
         }}
       </form.Field>

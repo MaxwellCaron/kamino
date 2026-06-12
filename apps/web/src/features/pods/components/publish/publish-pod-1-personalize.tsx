@@ -29,13 +29,13 @@ import {
   InputGroupAddon,
   InputGroupInput,
   InputGroupText,
-  InputGroupTextarea,
 } from "@workspace/ui/components/input-group"
 import { IconSettings } from "@tabler/icons-react"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { toPodCreator } from "./publish-pod-form"
 import type { PublishPodFormApi } from "./publish-pod-form"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 
 type PublishPodPersonalizeStepProps = {
   form: PublishPodFormApi
@@ -111,33 +111,18 @@ export function PublishPodPersonalizeStep({
                 const isInvalid = showValidation && !field.state.meta.isValid
 
                 return (
-                  <Field data-invalid={isInvalid || undefined}>
-                    <FieldLabel htmlFor={field.name}>Description</FieldLabel>
-                    <FieldContent>
-                      <InputGroup>
-                        <InputGroupTextarea
-                          id={field.name}
-                          name={field.name}
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(event) =>
-                            field.handleChange(event.target.value)
-                          }
-                          maxLength={128}
-                          aria-invalid={isInvalid || undefined}
-                          placeholder="What will users learn in this pod?"
-                        />
-                        <InputGroupAddon align="block-end">
-                          <InputGroupText className="ml-auto text-xs">
-                            {field.state.value.length}/128
-                          </InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                      <FieldError
-                        errors={showValidation ? field.state.meta.errors : []}
-                      />
-                    </FieldContent>
-                  </Field>
+                  <CountedTextareaField
+                    id={field.name}
+                    name={field.name}
+                    label="Description"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onValueChange={field.handleChange}
+                    maxLength={128}
+                    isInvalid={isInvalid}
+                    placeholder="What will users learn in this pod?"
+                    errors={showValidation ? field.state.meta.errors : []}
+                  />
                 )
               }}
             </form.Field>
