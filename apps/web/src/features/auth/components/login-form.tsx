@@ -64,40 +64,60 @@ export function LoginForm({
       >
         <FieldGroup className="gap-5">
           <form.Field name="username">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="username">Username</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="username"
-                    autoComplete="username"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="jdoe"
-                  />
-                </FieldContent>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor={field.name}>Username</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      autoComplete="username"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="jdoe"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && (
+                    <FieldError errors={field.state.meta.errors} />
+                  )}
+                </Field>
+              )
+            }}
           </form.Field>
 
           <form.Field name="password">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    placeholder="***********"
-                  />
-                </FieldContent>
-              </Field>
-            )}
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="password"
+                      autoComplete="current-password"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="***********"
+                      aria-invalid={isInvalid}
+                    />
+                  </FieldContent>
+                  {isInvalid && (
+                    <FieldError errors={field.state.meta.errors} />
+                  )}
+                </Field>
+              )
+            }}
           </form.Field>
 
           {mutation.error && (

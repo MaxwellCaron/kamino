@@ -87,21 +87,16 @@ export function CreatePodPage() {
     return Object.keys(errors).length === 0
   }, [form])
 
-  const handleFormSubmit = React.useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault()
-
-      try {
-        const isValid = await validateBeforeConfirm()
-        if (isValid) {
-          setCreateConfirmOpen(true)
-        }
-      } catch {
-        setSubmitState("error")
+  const openCreateConfirm = React.useCallback(async () => {
+    try {
+      const isValid = await validateBeforeConfirm()
+      if (isValid) {
+        setCreateConfirmOpen(true)
       }
-    },
-    [validateBeforeConfirm]
-  )
+    } catch {
+      setSubmitState("error")
+    }
+  }, [validateBeforeConfirm])
 
   const handleCreateConfirm = React.useCallback(() => {
     setCreateConfirmOpen(false)
@@ -140,7 +135,9 @@ export function CreatePodPage() {
         </div>
         <form
           className="flex w-full max-w-5xl flex-col"
-          onSubmit={handleFormSubmit}
+          action={() => {
+            void openCreateConfirm()
+          }}
         >
           <CreatePodFormSection number={1} title="Personalize">
             <CreatePodPersonalizeSection

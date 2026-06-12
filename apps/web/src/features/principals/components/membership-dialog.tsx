@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
@@ -186,7 +187,56 @@ function MembershipForm({
 }) {
   const queryClient = useQueryClient()
   const anchor = useComboboxAnchor()
-  const [selected, setSelected] = React.useState<Array<string>>(() => serverIds)
+  const baselineIdsRef = React.useRef(serverIds)
+
+  const form = useForm({
+    defaultValues: {
+      selectedIds: serverIds,
+    },
+    onSubmit: async ({ value }) => {
+      const serverSet = new Set(baselineIdsRef.current)
+      const selectedSet = new Set(value.selectedIds)
+
+      const toAdd = value.selectedIds.filter((id) => !serverSet.has(id))
+      const toRemove = baselineIdsRef.current.filter((id) => !selectedSet.has(id))
+
+      if (mode === "user-groups") {
+        await Promise.all([
+          ...toAdd.map((groupID) => addGroupMember(groupID, [principal.id])),
+          ...toRemove.map((groupID) =>
+            removeGroupMember(groupID, [principal.id])
+          ),
+        ])
+      } else {
+        if (toAdd.length > 0) {
+          await addGroupMember(principal.id, toAdd)
+        }
+
+        if (toRemove.length > 0) {
+          await removeGroupMember(principal.id, toRemove)
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["principals"] })
+      onOpenChange(false)
+    },
+  })
+
+  React.useEffect(() => {
+    baselineIdsRef.current = serverIds
+    form.reset({ selectedIds: serverIds })
+  }, [form, serverIds])
+
+  const selectedIds = useStore(form.store, (state) => state.values.selectedIds)
+  const hasChanges = React.useMemo(() => {
+    const serverSet = new Set(baselineIdsRef.current)
+    const selectedSet = new Set(selectedIds)
+    if (serverSet.size !== selectedSet.size) return true
+    for (const id of serverSet) {
+      if (!selectedSet.has(id)) return true
+    }
+    return false
+  }, [selectedIds])
 
   const optionMap = React.useMemo(() => {
     const map = new Map<string, MembershipOption>()
@@ -198,111 +248,83 @@ function MembershipForm({
 
   const selectedOptions = React.useMemo(
     () =>
-      selected
+      selectedIds
         .map((id) => optionMap.get(id))
         .filter((option): option is MembershipOption => !!option),
-    [optionMap, selected]
+    [optionMap, selectedIds]
   )
-
-  const hasChanges = React.useMemo(() => {
-    const serverSet = new Set(serverIds)
-    const selectedSet = new Set(selected)
-    if (serverSet.size !== selectedSet.size) return true
-    for (const id of serverSet) {
-      if (!selectedSet.has(id)) return true
-    }
-    return false
-  }, [serverIds, selected])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const serverSet = new Set(serverIds)
-      const selectedSet = new Set(selected)
-
-      const toAdd = selected.filter((id) => !serverSet.has(id))
-      const toRemove = serverIds.filter((id) => !selectedSet.has(id))
-
-      if (mode === "user-groups") {
-        await Promise.all([
-          ...toAdd.map((groupID) => addGroupMember(groupID, [principal.id])),
-          ...toRemove.map((groupID) =>
-            removeGroupMember(groupID, [principal.id])
-          ),
-        ])
-        return
-      }
-
-      if (toAdd.length > 0) {
-        await addGroupMember(principal.id, toAdd)
-      }
-
-      if (toRemove.length > 0) {
-        await removeGroupMember(principal.id, toRemove)
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["principals"] })
+      await form.handleSubmit()
     },
   })
 
-  const handleSave = () => {
-    onOpenChange(false)
-    toast.promise(saveMutation.mutateAsync(), {
-      loading: "Updating memberships...",
-      success: "Memberships updated",
-      error: formatToastError,
-    })
-  }
-
   return (
-    <>
-      <Combobox
-        multiple
-        autoHighlight
-        items={options}
-        itemToStringLabel={(option) => option.label}
-        value={selectedOptions}
-        onValueChange={(newValue) =>
-          setSelected(uniqueIds(newValue.map((option) => option.id)))
-        }
-      >
-        <ComboboxChips ref={anchor} className="w-full">
-          <ComboboxValue>
-            {(values) => (
-              <React.Fragment>
-                {(values as Array<MembershipOption>).map((option) => (
-                  <ComboboxChip key={option.id}>{option.label}</ComboboxChip>
-                ))}
-                <ComboboxChipsInput
-                  placeholder={
-                    mode === "user-groups"
-                      ? "Search groups..."
-                      : "Search users..."
-                  }
-                />
-              </React.Fragment>
-            )}
-          </ComboboxValue>
-        </ComboboxChips>
-        <ComboboxContent anchor={anchor}>
-          <ComboboxEmpty>No items found.</ComboboxEmpty>
-          <ComboboxList>
-            {(option) => (
-              <ComboboxItem key={option.id} value={option}>
-                {option.label}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
+    <form
+      action={() => {
+        onOpenChange(false)
+        toast.promise(saveMutation.mutateAsync(), {
+          loading: "Updating memberships...",
+          success: "Memberships updated",
+          error: formatToastError,
+        })
+      }}
+    >
+      <form.Field name="selectedIds">
+        {(field) => (
+          <Combobox
+            multiple
+            autoHighlight
+            items={options}
+            itemToStringLabel={(option) => option.label}
+            value={selectedOptions}
+            onValueChange={(newValue) =>
+              field.handleChange(uniqueIds(newValue.map((option) => option.id)))
+            }
+          >
+            <ComboboxChips ref={anchor} className="w-full">
+              <ComboboxValue>
+                {(values) => (
+                  <React.Fragment>
+                    {(values as Array<MembershipOption>).map((option) => (
+                      <ComboboxChip key={option.id}>{option.label}</ComboboxChip>
+                    ))}
+                    <ComboboxChipsInput
+                      placeholder={
+                        mode === "user-groups"
+                          ? "Search groups..."
+                          : "Search users..."
+                      }
+                    />
+                  </React.Fragment>
+                )}
+              </ComboboxValue>
+            </ComboboxChips>
+            <ComboboxContent anchor={anchor}>
+              <ComboboxEmpty>No items found.</ComboboxEmpty>
+              <ComboboxList>
+                {(option) => (
+                  <ComboboxItem key={option.id} value={option}>
+                    {option.label}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
+        )}
+      </form.Field>
       <DialogFooter>
-        <AppDialogPrimaryButton
-          onClick={handleSave}
-          disabled={!hasChanges || saveMutation.isPending}
-        >
-          {saveMutation.isPending ? "Saving..." : "Save"}
-        </AppDialogPrimaryButton>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton
+              disabled={!hasChanges || saveMutation.isPending || isSubmitting}
+            >
+              {saveMutation.isPending || isSubmitting ? "Saving..." : "Save"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
       </DialogFooter>
-    </>
+    </form>
   )
 }
