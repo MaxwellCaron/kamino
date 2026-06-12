@@ -140,16 +140,18 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [navigate]
   )
 
-  const { tree, expandAll, collapseAll, revealItem } = useInventoryHeadlessTree({
-    children: treeChildren,
-    items,
-    folderIds,
-    parentIds,
-    onMove: handleMove,
-    onPrimaryAction: handlePrimaryAction,
-    selectedItemIds,
-    setSelectedItemIds,
-  })
+  const { tree, expandAll, collapseAll, revealItem } = useInventoryHeadlessTree(
+    {
+      children: treeChildren,
+      items,
+      folderIds,
+      parentIds,
+      onMove: handleMove,
+      onPrimaryAction: handlePrimaryAction,
+      selectedItemIds,
+      setSelectedItemIds,
+    }
+  )
 
   const handleFavoritePrimaryAction = useCallback(
     (itemId: string, data: ApiTreeNode) => {
@@ -277,4 +279,3 @@ function buildVmIdMap(items: Map<string, ApiTreeNode>): Map<string, number> {
 
   return map
 }
-

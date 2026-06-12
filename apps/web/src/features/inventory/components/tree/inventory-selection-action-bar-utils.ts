@@ -17,17 +17,13 @@ export type SelectedFolderItem = ApiTreeNode & {
   kind: "folder"
 }
 
-export function getPowerSuccessStatus(
+function getPowerSuccessStatus(
   action: "start" | "shutdown" | "reboot" | "stop"
 ) {
   return action === "shutdown" || action === "stop" ? "stopped" : "running"
 }
 
-export function pluralize(
-  count: number,
-  singular: string,
-  plural = `${singular}s`
-) {
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`
 }
 

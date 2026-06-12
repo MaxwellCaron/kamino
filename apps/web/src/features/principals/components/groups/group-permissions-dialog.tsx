@@ -1,6 +1,6 @@
 import React from "react"
 import { useForm, useStore } from "@tanstack/react-form"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   IconAlertTriangle,
@@ -137,15 +137,16 @@ function GroupPermissionsForm({
       role: initialRole,
     } satisfies RoleFormValues,
     onSubmit: async ({ value }) => {
-      await updateGroupManagementAcl(
-        group.id,
-        value.role ? [value.role] : []
-      )
-      toast.success("Management role updated")
-      queryClient.invalidateQueries({
-        queryKey: ["principals", "groups", group.id, "management-access"],
-      })
-      onOpenChange(false)
+      try {
+        await updateGroupManagementAcl(group.id, value.role ? [value.role] : [])
+        toast.success("Management role updated")
+        await queryClient.invalidateQueries({
+          queryKey: ["principals", "groups", group.id, "management-access"],
+        })
+        onOpenChange(false)
+      } catch (error) {
+        toast.error(formatToastError(error))
+      }
     },
   })
 
@@ -156,20 +157,12 @@ function GroupPermissionsForm({
 
   const selectedRole = useStore(form.store, (state) => state.values.role)
   const hasChanges = selectedRole !== baselineRoleRef.current
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      await form.handleSubmit()
-    },
-    onError: (error) => {
-      toast.error(formatToastError(error))
-    },
-  })
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
   return (
     <form
       action={() => {
-        mutation.mutate()
+        void form.handleSubmit()
       }}
     >
       <AppDialogScrollBody className="-mb-6">
@@ -208,13 +201,18 @@ function GroupPermissionsForm({
                       name={field.name}
                       value={field.state.value}
                       onValueChange={(value) =>
-                        field.handleChange(value as ManagementPermissionKey | "")
+                        field.handleChange(
+                          value as ManagementPermissionKey | ""
+                        )
                       }
                       disabled={controlsDisabled || immutable}
                       className="gap-3"
                     >
                       <FieldLabel htmlFor="role-none">
-                        <Field orientation="horizontal" data-invalid={isInvalid}>
+                        <Field
+                          orientation="horizontal"
+                          data-invalid={isInvalid}
+                        >
                           <FieldContent>
                             <FieldTitle>None</FieldTitle>
                             <FieldDescription>
@@ -235,13 +233,21 @@ function GroupPermissionsForm({
                           role.bootstrap_only && !canEditBootstrapOnly
 
                         return (
-                          <FieldLabel key={role.key} htmlFor={`role-${role.key}`}>
-                            <Field orientation="horizontal" data-invalid={isInvalid}>
+                          <FieldLabel
+                            key={role.key}
+                            htmlFor={`role-${role.key}`}
+                          >
+                            <Field
+                              orientation="horizontal"
+                              data-invalid={isInvalid}
+                            >
                               <FieldContent>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <FieldTitle>{role.label}</FieldTitle>
                                   {role.dangerous && (
-                                    <Badge variant="destructive">Dangerous</Badge>
+                                    <Badge variant="destructive">
+                                      Dangerous
+                                    </Badge>
                                   )}
                                 </div>
                                 <FieldDescription>
@@ -271,17 +277,13 @@ function GroupPermissionsForm({
       </AppDialogScrollBody>
 
       <DialogFooter>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              disabled={
-                controlsDisabled || immutable || !hasChanges || mutation.isPending
-              }
-            >
-              {mutation.isPending || isSubmitting ? "Saving..." : "Save"}
-            </AppDialogPrimaryButton>
-          )}
-        </form.Subscribe>
+        <AppDialogPrimaryButton
+          disabled={
+            controlsDisabled || immutable || !hasChanges || isSubmitting
+          }
+        >
+          {isSubmitting ? "Saving..." : "Save"}
+        </AppDialogPrimaryButton>
       </DialogFooter>
     </form>
   )

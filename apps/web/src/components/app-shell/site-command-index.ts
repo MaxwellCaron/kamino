@@ -118,10 +118,7 @@ export type BuildSiteCommandsActions = {
     itemName: string
     itemVmid?: number
   }) => void
-  openRenameFolder?: (config: {
-    currentName: string
-    folderId: string
-  }) => void
+  openRenameFolder?: (config: { currentName: string; folderId: string }) => void
   openRenameVm?: (config: {
     currentName: string
     currentVmid?: number
@@ -316,10 +313,7 @@ function buildPageCommands({
   actions,
   canAdminister,
   canManage,
-}: Pick<
-  BuildSiteCommandsParams,
-  "actions" | "canAdminister" | "canManage"
->) {
+}: Pick<BuildSiteCommandsParams, "actions" | "canAdminister" | "canManage">) {
   const commands: Array<SiteCommandResult> = []
 
   for (const command of staticCommands) {
@@ -662,7 +656,6 @@ function buildAdminCommands({
 >) {
   const results: Array<SiteCommandResult> = []
   if (!canAdminister) return results
-
   ;(users ?? []).forEach((principal) => {
     const label = principalLabel(principal)
     results.push({
@@ -675,7 +668,6 @@ function buildAdminCommands({
       onSelect: runCommand(actions, actions.navigateToUsers),
     })
   })
-
   ;(groups ?? []).forEach((principal) => {
     const label = principalLabel(principal)
     results.push({
@@ -693,7 +685,6 @@ function buildAdminCommands({
       onSelect: runCommand(actions, actions.navigateToGroups),
     })
   })
-
   ;(vnets ?? []).forEach((vnet) => {
     results.push({
       id: `vnet:${vnet.vnet}`,

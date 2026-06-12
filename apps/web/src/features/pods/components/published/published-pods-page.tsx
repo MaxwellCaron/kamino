@@ -105,7 +105,9 @@ export function PublishedPodsPage() {
   const stats = useMemo(() => {
     const publishedPods = podsData ?? []
     const listed = publishedPods.filter((pod) => pod.status === "listed").length
-    const restricted = publishedPods.filter((pod) => pod.audience.length > 0).length
+    const restricted = publishedPods.filter(
+      (pod) => pod.audience.length > 0
+    ).length
     const totalClones = publishedPods.reduce(
       (sum, pod) => sum + pod.clone_count,
       0

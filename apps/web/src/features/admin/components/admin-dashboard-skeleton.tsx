@@ -7,7 +7,10 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import { PageSkeleton, TableBlockSkeleton } from "@/components/loading-skeletons"
+import {
+  PageSkeleton,
+  TableBlockSkeleton,
+} from "@/components/loading-skeletons"
 
 export function AdminDashboardSkeleton() {
   return (

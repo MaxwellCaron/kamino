@@ -9,7 +9,7 @@ export type PublishPodValidationErrors = Awaited<
   ReturnType<PublishPodFormApi["validate"]>
 >
 
-export function hasFieldErrors(
+function hasFieldErrors(
   form: PublishPodFormApi,
   fields: Array<PublishPodFieldPath>
 ) {
@@ -18,7 +18,7 @@ export function hasFieldErrors(
   )
 }
 
-export function markFieldsTouched(
+function markFieldsTouched(
   form: PublishPodFormApi,
   fields: Array<PublishPodFieldPath>
 ) {
@@ -30,7 +30,7 @@ export function markFieldsTouched(
   })
 }
 
-export function getTaskFieldPaths(form: PublishPodFormApi) {
+function getTaskFieldPaths(form: PublishPodFormApi) {
   const tasks = form.getFieldValue("tasks")
   const fields: Array<PublishPodFieldPath> = ["tasks"]
 
@@ -52,12 +52,12 @@ export function getTaskFieldPaths(form: PublishPodFormApi) {
   return fields
 }
 
-export function getSubmitFieldPaths(form: PublishPodFormApi) {
+function getSubmitFieldPaths(form: PublishPodFormApi) {
   const fields = steps.flatMap((s) => s.fields) as Array<PublishPodFieldPath>
   return [...fields, ...getTaskFieldPaths(form)]
 }
 
-export function firstInvalidStepFromErrors(
+function firstInvalidStepFromErrors(
   errors: PublishPodValidationErrors
 ): PublishPodStep {
   const errorKeys = Object.keys(errors)

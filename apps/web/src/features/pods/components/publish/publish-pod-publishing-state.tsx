@@ -5,13 +5,12 @@ import {
   IconListDetails,
 } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
-import {
-  PUBLISH_POD_STEP_IDS
-  
-  
-  
+import { PUBLISH_POD_STEP_IDS } from "./publish-pod-submit-types"
+import type {
+  PublishPodStepId,
+  PublishPodSubmitStatus,
+  PublishPodUpdateVirtualMachine,
 } from "./publish-pod-submit-types"
-import type {PublishPodStepId, PublishPodSubmitStatus, PublishPodUpdateVirtualMachine} from "./publish-pod-submit-types";
 import type { ProgressStateStep } from "@/components/progress-state/progress-state"
 import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import {
@@ -229,9 +228,7 @@ export function PublishPodSubmitState({
       }
       return <SuccessState podSlug={podSlug} />
     case "error":
-      return (
-        <ErrorState message={errorMessage} onBackToForm={onBackToForm} />
-      )
+      return <ErrorState message={errorMessage} onBackToForm={onBackToForm} />
   }
 }
 

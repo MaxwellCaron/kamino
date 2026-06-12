@@ -232,7 +232,9 @@ export function UserGroupBulkDialog({
 
           <DialogFooter>
             <form.Subscribe
-              selector={(state) => [state.values.group, state.isSubmitting] as const}
+              selector={(state) =>
+                [state.values.group, state.isSubmitting] as const
+              }
             >
               {([group, isSubmitting]) => (
                 <AppDialogPrimaryButton

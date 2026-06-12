@@ -22,8 +22,8 @@ import {
   StepperSeparator,
   StepperTitle,
 } from "@workspace/ui/components/stepper"
-import {  steps } from "./publish-pod-steps"
-import type {PublishPodStep} from "./publish-pod-steps";
+import { steps } from "./publish-pod-steps"
+import type { PublishPodStep } from "./publish-pod-steps"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type PublishPodStepperProps = {

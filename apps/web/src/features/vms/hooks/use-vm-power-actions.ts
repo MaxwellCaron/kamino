@@ -108,9 +108,7 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
   },
 ]
 
-function getVmPowerActionsCardDescription(
-  powerMode: VmPowerMode | null
-) {
+function getVmPowerActionsCardDescription(powerMode: VmPowerMode | null) {
   if (powerMode === "request") {
     return "Power actions require approval."
   }

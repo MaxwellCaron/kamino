@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useForm, useStore } from "@tanstack/react-form"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -16,9 +16,7 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
-import type {
-  ApiPrincipal,
-} from "@/features/principals/types/principals-types"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -131,8 +129,9 @@ function MembershipEditor({
   const serverIds = React.useMemo(
     () =>
       uniqueIds(
-        (mode === "user-groups" ? userGroups : members)?.map((member) => member.id) ??
-          []
+        (mode === "user-groups" ? userGroups : members)?.map(
+          (member) => member.id
+        ) ?? []
       ),
     [members, mode, userGroups]
   )
@@ -198,7 +197,9 @@ function MembershipForm({
       const selectedSet = new Set(value.selectedIds)
 
       const toAdd = value.selectedIds.filter((id) => !serverSet.has(id))
-      const toRemove = baselineIdsRef.current.filter((id) => !selectedSet.has(id))
+      const toRemove = baselineIdsRef.current.filter(
+        (id) => !selectedSet.has(id)
+      )
 
       if (mode === "user-groups") {
         await Promise.all([
@@ -254,17 +255,11 @@ function MembershipForm({
     [optionMap, selectedIds]
   )
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      await form.handleSubmit()
-    },
-  })
-
   return (
     <form
       action={() => {
         onOpenChange(false)
-        toast.promise(saveMutation.mutateAsync(), {
+        toast.promise(form.handleSubmit(), {
           loading: "Updating memberships...",
           success: "Memberships updated",
           error: formatToastError,
@@ -288,7 +283,9 @@ function MembershipForm({
                 {(values) => (
                   <React.Fragment>
                     {(values as Array<MembershipOption>).map((option) => (
-                      <ComboboxChip key={option.id}>{option.label}</ComboboxChip>
+                      <ComboboxChip key={option.id}>
+                        {option.label}
+                      </ComboboxChip>
                     ))}
                     <ComboboxChipsInput
                       placeholder={
@@ -317,10 +314,8 @@ function MembershipForm({
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              disabled={!hasChanges || saveMutation.isPending || isSubmitting}
-            >
-              {saveMutation.isPending || isSubmitting ? "Saving..." : "Save"}
+            <AppDialogPrimaryButton disabled={!hasChanges || isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save"}
             </AppDialogPrimaryButton>
           )}
         </form.Subscribe>

@@ -249,7 +249,8 @@ export function InventoryDialogsProvider({
         dispatch({ type: "openCreateFolder", config }),
       openRenameFolder: (config) =>
         dispatch({ type: "openRenameFolder", config }),
-      openFolderLimit: (config) => dispatch({ type: "openFolderLimit", config }),
+      openFolderLimit: (config) =>
+        dispatch({ type: "openFolderLimit", config }),
       openCreateVm: (config) => dispatch({ type: "openCreateVm", config }),
       openSnapshot: (config) => dispatch({ type: "openSnapshot", config }),
       openClone: (config) => dispatch({ type: "openClone", config }),

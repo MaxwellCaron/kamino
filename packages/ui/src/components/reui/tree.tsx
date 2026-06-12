@@ -25,10 +25,7 @@ function useTreeContext<T = any>() {
   return useContext(TreeContext) as TreeContextValue<T>
 }
 
-function renderToggleIcon(
-  isExpanded: boolean,
-  toggleIconType: ToggleIconType
-) {
+function renderToggleIcon(isExpanded: boolean, toggleIconType: ToggleIconType) {
   if (toggleIconType === "plus-minus") {
     return isExpanded ? (
       <IconMinus

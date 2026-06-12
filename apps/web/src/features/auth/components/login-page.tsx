@@ -1,4 +1,4 @@
-import { getRouteApi, useRouter  } from "@tanstack/react-router"
+import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { AsciiArt } from "@workspace/ui/components/ascii-art"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { LoginForm } from "@/features/auth/components/login-form"

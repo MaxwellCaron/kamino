@@ -83,9 +83,7 @@ export function LoginForm({
                       aria-invalid={isInvalid}
                     />
                   </FieldContent>
-                  {isInvalid && (
-                    <FieldError errors={field.state.meta.errors} />
-                  )}
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
                 </Field>
               )
             }}
@@ -112,9 +110,7 @@ export function LoginForm({
                       aria-invalid={isInvalid}
                     />
                   </FieldContent>
-                  {isInvalid && (
-                    <FieldError errors={field.state.meta.errors} />
-                  )}
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
                 </Field>
               )
             }}

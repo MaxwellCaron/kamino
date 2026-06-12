@@ -127,9 +127,7 @@ export function LiveLine({
   // The last point is the queued future point for the fade-out zone.
   const nowPoint = data.length >= 2 ? data.at(-2) : data.at(-1)
   const liveValue =
-    nowPoint && typeof nowPoint[dataKey] === "number"
-      ? nowPoint[dataKey]
-      : 0
+    nowPoint && typeof nowPoint[dataKey] === "number" ? nowPoint[dataKey] : 0
 
   const liveDotX = nowPoint ? xScale(xAccessor(nowPoint)) : innerWidth
   const liveDotY = yScale(liveValue)

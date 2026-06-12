@@ -46,10 +46,12 @@ function parseLimit(value: string) {
 }
 
 const folderLimitFormSchema = z.object({
-  limit: z.string().refine(
-    (value) => parseLimit(value) !== undefined,
-    "Limit must be a whole number greater than zero."
-  ),
+  limit: z
+    .string()
+    .refine(
+      (value) => parseLimit(value) !== undefined,
+      "Limit must be a whole number greater than zero."
+    ),
 })
 
 export function FolderLimitDialog({
@@ -78,11 +80,14 @@ export function FolderLimitDialog({
       }
 
       onOpenChange(false)
-      toast.promise(updateLimit.mutateAsync({ id: folderId, vmLimit: parsed }), {
-        loading: `Updating limit for "${folderName}"...`,
-        success: `Limit updated for "${folderName}"`,
-        error: formatToastError,
-      })
+      toast.promise(
+        updateLimit.mutateAsync({ id: folderId, vmLimit: parsed }),
+        {
+          loading: `Updating limit for "${folderName}"...`,
+          success: `Limit updated for "${folderName}"`,
+          error: formatToastError,
+        }
+      )
     },
   })
 
@@ -113,7 +118,9 @@ export function FolderLimitDialog({
 
               return (
                 <Field data-invalid={isInvalid}>
-                  <FieldLabel htmlFor={field.name}>VM/template limit</FieldLabel>
+                  <FieldLabel htmlFor={field.name}>
+                    VM/template limit
+                  </FieldLabel>
                   <Input
                     id={field.name}
                     name={field.name}
@@ -130,9 +137,7 @@ export function FolderLimitDialog({
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid}
                   />
-                  {isInvalid && (
-                    <FieldError errors={field.state.meta.errors} />
-                  )}
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
                 </Field>
               )
             }}

@@ -85,7 +85,10 @@ export function useChartInteraction({
       }
 
       const x0 = xScale.invert(pixelX)
-      const index = Math.min(Math.max(bisectDate(data, x0, 1), 1), data.length - 1)
+      const index = Math.min(
+        Math.max(bisectDate(data, x0, 1), 1),
+        data.length - 1
+      )
       const d0 = data[index - 1]
       const d1 = data[index]
 
@@ -123,7 +126,10 @@ export function useChartInteraction({
       }
 
       const x0 = xScale.invert(pixelX)
-      const index = Math.min(Math.max(bisectDate(data, x0, 1), 1), data.length - 1)
+      const index = Math.min(
+        Math.max(bisectDate(data, x0, 1), 1),
+        data.length - 1
+      )
       const d0 = data[index - 1]
       const d1 = data[index]
 

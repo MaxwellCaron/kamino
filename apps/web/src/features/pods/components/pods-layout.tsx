@@ -1,4 +1,4 @@
-import { Outlet, getRouteApi  } from "@tanstack/react-router"
+import { Outlet, getRouteApi } from "@tanstack/react-router"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import type { CSSProperties } from "react"
 import { SiteHeader } from "@/components/app-shell/site-header"

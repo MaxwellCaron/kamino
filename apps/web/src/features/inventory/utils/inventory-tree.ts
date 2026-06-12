@@ -11,10 +11,7 @@ const inventoryNameCollator = new Intl.Collator(undefined, {
   sensitivity: "base",
 })
 
-function compareInventoryNodes(
-  left: ApiTreeNode,
-  right: ApiTreeNode
-): number {
+function compareInventoryNodes(left: ApiTreeNode, right: ApiTreeNode): number {
   const leftOrder = INVENTORY_KIND_SORT_ORDER[left.kind]
   const rightOrder = INVENTORY_KIND_SORT_ORDER[right.kind]
 

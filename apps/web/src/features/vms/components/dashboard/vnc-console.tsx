@@ -62,10 +62,12 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
   useEffect(() => {
+    const runRef = connectionRunRef
+    const rfbInstanceRef = rfbRef
     return () => {
-      connectionRunRef.current += 1
-      rfbRef.current?.disconnect()
-      rfbRef.current = null
+      runRef.current += 1
+      rfbInstanceRef.current?.disconnect()
+      rfbInstanceRef.current = null
     }
   }, [])
 
