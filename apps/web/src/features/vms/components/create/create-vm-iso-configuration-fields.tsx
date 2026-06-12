@@ -48,9 +48,10 @@ import {
   parseOptionalNumberInput,
   withCreateVmForm,
 } from "./create-vm-form"
-import { renderError } from "./create-vm-step-shared"
+import { renderError } from "./create-vm-step-utils"
 import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
-import type { NetworkData } from "./create-vm-step-shared"
+import type { NetworkData } from "./create-vm-step-utils"
+import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
 import { validateVMID } from "@/features/vms/api/vm-api"
 import {
   biosTypes,
@@ -66,7 +67,6 @@ import {
   VmHardwareNetworkSection,
   VmHardwareOperatingSystemSection,
   VmHardwareStorageSection,
-  buildVmHardwareNetworkOptions,
 } from "@/features/vms/components/hardware/hardware-sections"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
 

@@ -14,11 +14,5 @@ export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
     }
   },
   head: ({ loaderData }) => pageTitle(loaderData?.title ?? "Inventory Item"),
-  component: VmDashboardRoute,
+  component: VmDashboardPage,
 })
-
-function VmDashboardRoute() {
-  const { itemId } = Route.useParams()
-
-  return <VmDashboardPage itemId={itemId} />
-}

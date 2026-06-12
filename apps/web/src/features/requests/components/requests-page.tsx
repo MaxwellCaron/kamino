@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { getRouteApi } from "@tanstack/react-router"
 import {
   IconCheck,
   IconCheckbox,
@@ -35,7 +36,6 @@ import { PieCenter } from "@workspace/ui/components/charts/pie-center"
 import { cn } from "@workspace/ui/lib/utils"
 import { RequestsPageSkeleton } from "./requests-page-skeleton"
 
-import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type {
   ApiRequestActionResponse,
@@ -90,7 +90,10 @@ const RequestDetailDialog = lazy(() =>
   )
 )
 
-export function RequestsPage({ user }: { user: AuthUser }) {
+const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")
+
+export function RequestsPage() {
+  const { user } = requestsRouteApi.useRouteContext()
   const [scope, setScope] = useState<ApiRequestScope>("pending")
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null

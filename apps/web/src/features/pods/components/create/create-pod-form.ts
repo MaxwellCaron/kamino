@@ -36,7 +36,7 @@ const createPodVmSchema = z.object({
 
 const createPodTemplateSchema = z
   .object({
-    templateItemId: z.string().uuid("Select a valid template."),
+    templateItemId: z.uuid("Select a valid template."),
     templateName: z.string().trim().min(1, "Template name is required."),
     templateDiskGb: z.number().min(0),
     vms: z

@@ -48,16 +48,21 @@ function updateExpandedItems(
 function getTopLevelDraggedItemIds(
   draggedItems: Array<ItemInstance<ApiTreeNode>>
 ): Array<string> {
-  return draggedItems
-    .filter(
-      (draggedItem) =>
-        !draggedItems.some(
-          (candidate) =>
-            candidate.getId() !== draggedItem.getId() &&
-            draggedItem.isDescendentOf(candidate.getId())
-        )
+  const topLevelIds: Array<string> = []
+
+  for (const draggedItem of draggedItems) {
+    const isNested = draggedItems.some(
+      (candidate) =>
+        candidate.getId() !== draggedItem.getId() &&
+        draggedItem.isDescendentOf(candidate.getId())
     )
-    .map((draggedItem) => draggedItem.getId())
+
+    if (!isNested) {
+      topLevelIds.push(draggedItem.getId())
+    }
+  }
+
+  return topLevelIds
 }
 
 export function useInventoryHeadlessTree({

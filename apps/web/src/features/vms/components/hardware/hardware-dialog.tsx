@@ -36,7 +36,12 @@ import {
 } from "@workspace/ui/components/select"
 import { z } from "zod"
 import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
-import type { NetworkOption } from "@/features/vms/components/hardware/hardware-sections"
+import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
+import {
+  buildVmHardwareNetworkOptions,
+  getSelectOptionLabel,
+} from "@/features/vms/components/hardware/hardware-section-utils"
+import { renderError } from "@/features/vms/components/create/create-vm-step-utils"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
@@ -48,7 +53,6 @@ import {
   parseNumberInput,
   parseOptionalNumberInput,
 } from "@/features/vms/components/create/create-vm-form"
-import { renderError } from "@/features/vms/components/create/create-vm-step-shared"
 import {
   biosTypes,
   cpuTypes,
@@ -63,8 +67,6 @@ import {
   VmHardwareNetworkSection,
   VmHardwareOperatingSystemSection,
   VmHardwareStorageSection,
-  buildVmHardwareNetworkOptions,
-  getSelectOptionLabel,
 } from "@/features/vms/components/hardware/hardware-sections"
 import { useUpdateVMHardware } from "@/features/vms/hooks/use-vm-actions"
 import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"

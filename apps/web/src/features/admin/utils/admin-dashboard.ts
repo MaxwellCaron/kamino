@@ -101,8 +101,8 @@ export function getRecentPrincipals(
   principals: Array<ApiPrincipal>,
   limit = 5
 ) {
-  return [...principals]
-    .sort(
+  return principals
+    .toSorted(
       (left, right) => timestamp(right.created_at) - timestamp(left.created_at)
     )
     .slice(0, limit)

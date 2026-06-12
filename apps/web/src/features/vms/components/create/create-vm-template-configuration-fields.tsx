@@ -27,7 +27,7 @@ import {
   getSelectedTemplate,
   withCreateVmForm,
 } from "./create-vm-form"
-import { renderError } from "./create-vm-step-shared"
+import { renderError } from "./create-vm-step-utils"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 

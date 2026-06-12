@@ -14,16 +14,15 @@ import { PublishPodTasksStep } from "./publish-pod-4-tasks"
 import { PublishPodPreviewStep } from "./publish-pod-5-preview"
 import {
   PublishPodStepper,
-  defaultPublishPodStep,
-  steps,
 } from "./publish-pod-stepper"
+import { defaultPublishPodStep, steps } from "./publish-pod-steps"
 import { PublishPodSubmitState } from "./publish-pod-publishing-state"
-import type { PublishPodStep } from "./publish-pod-stepper"
+import type { PublishPodStep } from "./publish-pod-steps"
 import type {
   PublishPodFormApi,
   PublishPodFormValues,
 } from "./publish-pod-form"
-import type { PublishPodSubmitStatus } from "./publish-pod-publishing-state"
+import type { PublishPodSubmitStatus } from "./publish-pod-submit-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
 import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"

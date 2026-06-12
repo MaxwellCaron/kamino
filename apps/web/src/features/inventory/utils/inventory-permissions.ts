@@ -284,7 +284,7 @@ export function getInventoryPermissionDefinitionsByGroup(
     sections.set(permission.sectionKey, section)
   }
 
-  return [...sections.values()].sort((left, right) => {
+  return [...sections.values()].toSorted((left, right) => {
     const leftDefinition = left.permissions[0]
     const rightDefinition = right.permissions[0]
     return leftDefinition.sectionOrder - rightDefinition.sectionOrder

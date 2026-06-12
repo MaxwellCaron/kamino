@@ -72,8 +72,8 @@ function CreatePodStepSkeleton({
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 border-t pt-6">
-            {rows.map((row) => (
-              <Skeleton key={row} className={cn("rounded-3xl", row)} />
+            {rows.map((row, index) => (
+              <Skeleton key={index} className={cn("rounded-3xl", row)} />
             ))}
           </CardContent>
         </Card>

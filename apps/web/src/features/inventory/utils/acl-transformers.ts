@@ -80,6 +80,7 @@ export function createInheritedPrincipals(
   entries: Array<ApiInheritedInventoryAclEntry>
 ): Array<InheritedPrincipal> {
   const principalsMap = new Map<string, InheritedPrincipal>()
+  const sourceNameSets = new Map<string, Set<string>>()
 
   for (const entry of entries) {
     const principal = principalsMap.get(entry.principal_id) ?? {
@@ -91,7 +92,14 @@ export function createInheritedPrincipals(
       sourceItemNames: [],
     }
 
-    if (!principal.sourceItemNames.includes(entry.source_item_name)) {
+    let sourceNames = sourceNameSets.get(entry.principal_id)
+    if (!sourceNames) {
+      sourceNames = new Set<string>()
+      sourceNameSets.set(entry.principal_id, sourceNames)
+    }
+
+    if (!sourceNames.has(entry.source_item_name)) {
+      sourceNames.add(entry.source_item_name)
       principal.sourceItemNames.push(entry.source_item_name)
     }
     principalsMap.set(entry.principal_id, principal)

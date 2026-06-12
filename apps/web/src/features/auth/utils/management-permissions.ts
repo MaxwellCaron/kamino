@@ -30,7 +30,7 @@ function sortManagementPermissionGrants(
 ) {
   const order = new Map(permissionOrder.map((key, index) => [key, index]))
 
-  return [...new Set(grants)].sort((left, right) => {
+  return [...new Set(grants)].toSorted((left, right) => {
     return (
       (order.get(left) ?? Number.MAX_SAFE_INTEGER) -
       (order.get(right) ?? Number.MAX_SAFE_INTEGER)

@@ -10,9 +10,5 @@ export const Route = createFileRoute("/_pods/pods/published")({
     }
   },
   head: () => pageTitle("Published Pods"),
-  component: RouteComponent,
+  component: PublishedPodsPage,
 })
-
-function RouteComponent() {
-  return <PublishedPodsPage />
-}

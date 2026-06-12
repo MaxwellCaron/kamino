@@ -320,24 +320,25 @@ function buildPageCommands({
   BuildSiteCommandsParams,
   "actions" | "canAdminister" | "canManage"
 >) {
-  return staticCommands
-    .filter((command) => {
-      if (command.visibility === "admin") return canAdminister
-      if (command.visibility === "manager") return canManage
-      return true
+  const commands: Array<SiteCommandResult> = []
+
+  for (const command of staticCommands) {
+    if (command.visibility === "admin" && !canAdminister) continue
+    if (command.visibility === "manager" && !canManage) continue
+
+    commands.push({
+      id: `page:${command.id}`,
+      group: command.group,
+      icon: command.icon,
+      label: command.label,
+      subtitle: command.subtitle,
+      shortcut: command.shortcut,
+      keywords: command.keywords,
+      onSelect: runCommand(actions, () => actions.navigateToPage(command.to)),
     })
-    .map(
-      (command): SiteCommandResult => ({
-        id: `page:${command.id}`,
-        group: command.group,
-        icon: command.icon,
-        label: command.label,
-        subtitle: command.subtitle,
-        shortcut: command.shortcut,
-        keywords: command.keywords,
-        onSelect: runCommand(actions, () => actions.navigateToPage(command.to)),
-      })
-    )
+  }
+
+  return commands
 }
 
 function buildInventoryCommands(

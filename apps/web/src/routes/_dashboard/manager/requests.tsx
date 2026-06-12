@@ -10,11 +10,5 @@ export const Route = createFileRoute("/_dashboard/manager/requests")({
     }
   },
   head: () => pageTitle("Requests"),
-  component: RequestsRoute,
+  component: RequestsPage,
 })
-
-function RequestsRoute() {
-  const { user } = Route.useRouteContext()
-
-  return <RequestsPage user={user} />
-}

@@ -28,8 +28,8 @@ function compareInventoryNodes(
 export function sortInventoryTree(
   nodes: Array<ApiTreeNode>
 ): Array<ApiTreeNode> {
-  return [...nodes]
-    .sort(compareInventoryNodes)
+  return nodes
+    .toSorted(compareInventoryNodes)
     .map((node) =>
       node.children
         ? { ...node, children: sortInventoryTree(node.children) }

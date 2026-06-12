@@ -30,7 +30,7 @@ import {
   optionalVmidSchema,
   parseNumberInput,
 } from "./create-vm-form"
-import { renderError } from "./create-vm-step-shared"
+import { renderError } from "./create-vm-step-utils"
 import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"

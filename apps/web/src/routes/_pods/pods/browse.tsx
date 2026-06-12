@@ -4,9 +4,5 @@ import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_pods/pods/browse")({
   head: () => pageTitle("Pods"),
-  component: RouteComponent,
+  component: BrowsePodsPage,
 })
-
-function RouteComponent() {
-  return <BrowsePodsPage />
-}

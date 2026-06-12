@@ -1,4 +1,4 @@
-import { notFound } from "@tanstack/react-router"
+import { getRouteApi, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { VmDashboardSkeleton } from "./vm-dashboard-skeleton"
 import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
@@ -18,7 +18,10 @@ import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
 import { VmPowerControls } from "@/features/vms/components/dashboard/vm-power-controls"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
 
-export function VmDashboardPage({ itemId }: { itemId: string }) {
+const vmDashboardRouteApi = getRouteApi("/_dashboard/inventory/items/$itemId")
+
+export function VmDashboardPage() {
+  const { itemId } = vmDashboardRouteApi.useParams()
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
   )
