@@ -1,4 +1,4 @@
-import { Suspense, createContext, lazy, use, useMemo, useState } from "react"
+import { Suspense, createContext, lazy, use, useMemo, useReducer } from "react"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { SnapshotDialogMode } from "@/features/vms/components/snapshot-dialog"
@@ -102,6 +102,104 @@ type EditVmHardwareDialogConfig = {
   currentVmid?: number
 }
 
+type InventoryDialogsState = {
+  confirm: ConfirmConfig | null
+  createFolder: CreateFolderDialogConfig | null
+  renameFolder: RenameFolderDialogConfig | null
+  folderLimit: FolderLimitDialogConfig | null
+  createVm: CreateVmDialogConfig | null
+  snapshot: SnapshotDialogConfig | null
+  clone: CloneDialogConfig | null
+  renameVm: RenameVmDialogConfig | null
+  editVmHardware: EditVmHardwareDialogConfig | null
+  permissions: PermissionsDialogConfig | null
+}
+
+type InventoryDialogsAction =
+  | { type: "openConfirm"; config: ConfirmConfig }
+  | { type: "closeConfirm" }
+  | { type: "openCreateFolder"; config: CreateFolderDialogConfig }
+  | { type: "closeCreateFolder" }
+  | { type: "openRenameFolder"; config: RenameFolderDialogConfig }
+  | { type: "closeRenameFolder" }
+  | { type: "openFolderLimit"; config: FolderLimitDialogConfig }
+  | { type: "closeFolderLimit" }
+  | { type: "openCreateVm"; config: CreateVmDialogConfig }
+  | { type: "closeCreateVm" }
+  | { type: "openSnapshot"; config: SnapshotDialogConfig }
+  | { type: "closeSnapshot" }
+  | { type: "openClone"; config: CloneDialogConfig }
+  | { type: "closeClone" }
+  | { type: "openRenameVm"; config: RenameVmDialogConfig }
+  | { type: "closeRenameVm" }
+  | { type: "openEditVmHardware"; config: EditVmHardwareDialogConfig }
+  | { type: "closeEditVmHardware" }
+  | { type: "openPermissions"; config: PermissionsDialogConfig }
+  | { type: "closePermissions" }
+
+const initialInventoryDialogsState: InventoryDialogsState = {
+  confirm: null,
+  createFolder: null,
+  renameFolder: null,
+  folderLimit: null,
+  createVm: null,
+  snapshot: null,
+  clone: null,
+  renameVm: null,
+  editVmHardware: null,
+  permissions: null,
+}
+
+function inventoryDialogsReducer(
+  state: InventoryDialogsState,
+  action: InventoryDialogsAction
+): InventoryDialogsState {
+  switch (action.type) {
+    case "openConfirm":
+      return { ...state, confirm: action.config }
+    case "closeConfirm":
+      return { ...state, confirm: null }
+    case "openCreateFolder":
+      return { ...state, createFolder: action.config }
+    case "closeCreateFolder":
+      return { ...state, createFolder: null }
+    case "openRenameFolder":
+      return { ...state, renameFolder: action.config }
+    case "closeRenameFolder":
+      return { ...state, renameFolder: null }
+    case "openFolderLimit":
+      return { ...state, folderLimit: action.config }
+    case "closeFolderLimit":
+      return { ...state, folderLimit: null }
+    case "openCreateVm":
+      return { ...state, createVm: action.config }
+    case "closeCreateVm":
+      return { ...state, createVm: null }
+    case "openSnapshot":
+      return { ...state, snapshot: action.config }
+    case "closeSnapshot":
+      return { ...state, snapshot: null }
+    case "openClone":
+      return { ...state, clone: action.config }
+    case "closeClone":
+      return { ...state, clone: null }
+    case "openRenameVm":
+      return { ...state, renameVm: action.config }
+    case "closeRenameVm":
+      return { ...state, renameVm: null }
+    case "openEditVmHardware":
+      return { ...state, editVmHardware: action.config }
+    case "closeEditVmHardware":
+      return { ...state, editVmHardware: null }
+    case "openPermissions":
+      return { ...state, permissions: action.config }
+    case "closePermissions":
+      return { ...state, permissions: null }
+    default:
+      return state
+  }
+}
+
 type InventoryDialogsContextValue = {
   openConfirm: (config: ConfirmConfig) => void
   openCreateFolder: (config: CreateFolderDialogConfig) => void
@@ -139,34 +237,27 @@ export function InventoryDialogsProvider({
 }: {
   children: ReactNode
 }) {
-  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [createFolder, setCreateFolder] =
-    useState<CreateFolderDialogConfig | null>(null)
-  const [renameFolder, setRenameFolder] =
-    useState<RenameFolderDialogConfig | null>(null)
-  const [folderLimit, setFolderLimit] =
-    useState<FolderLimitDialogConfig | null>(null)
-  const [createVm, setCreateVm] = useState<CreateVmDialogConfig | null>(null)
-  const [snapshot, setSnapshot] = useState<SnapshotDialogConfig | null>(null)
-  const [clone, setClone] = useState<CloneDialogConfig | null>(null)
-  const [renameVm, setRenameVm] = useState<RenameVmDialogConfig | null>(null)
-  const [editVmHardware, setEditVmHardware] =
-    useState<EditVmHardwareDialogConfig | null>(null)
-  const [permissions, setPermissions] =
-    useState<PermissionsDialogConfig | null>(null)
+  const [state, dispatch] = useReducer(
+    inventoryDialogsReducer,
+    initialInventoryDialogsState
+  )
 
   const value = useMemo<InventoryDialogsContextValue>(
     () => ({
-      openConfirm: setConfirm,
-      openCreateFolder: setCreateFolder,
-      openRenameFolder: setRenameFolder,
-      openFolderLimit: setFolderLimit,
-      openCreateVm: setCreateVm,
-      openSnapshot: setSnapshot,
-      openClone: setClone,
-      openRenameVm: setRenameVm,
-      openEditVmHardware: setEditVmHardware,
-      openPermissions: setPermissions,
+      openConfirm: (config) => dispatch({ type: "openConfirm", config }),
+      openCreateFolder: (config) =>
+        dispatch({ type: "openCreateFolder", config }),
+      openRenameFolder: (config) =>
+        dispatch({ type: "openRenameFolder", config }),
+      openFolderLimit: (config) => dispatch({ type: "openFolderLimit", config }),
+      openCreateVm: (config) => dispatch({ type: "openCreateVm", config }),
+      openSnapshot: (config) => dispatch({ type: "openSnapshot", config }),
+      openClone: (config) => dispatch({ type: "openClone", config }),
+      openRenameVm: (config) => dispatch({ type: "openRenameVm", config }),
+      openEditVmHardware: (config) =>
+        dispatch({ type: "openEditVmHardware", config }),
+      openPermissions: (config) =>
+        dispatch({ type: "openPermissions", config }),
     }),
     []
   )
@@ -175,108 +266,111 @@ export function InventoryDialogsProvider({
     <InventoryDialogsContext.Provider value={value}>
       {children}
       <Suspense fallback={null}>
-        {confirm && (
-          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+        {state.confirm && (
+          <ConfirmDialog
+            config={state.confirm}
+            onClose={() => dispatch({ type: "closeConfirm" })}
+          />
         )}
-        {createFolder && (
+        {state.createFolder && (
           <RenameDialog
             mode="create-folder"
             open={true}
-            parentId={createFolder.parentId}
+            parentId={state.createFolder.parentId}
             onOpenChange={(open) => {
-              if (!open) setCreateFolder(null)
+              if (!open) dispatch({ type: "closeCreateFolder" })
             }}
           />
         )}
-        {renameFolder && (
+        {state.renameFolder && (
           <RenameDialog
             mode="rename-folder"
-            currentName={renameFolder.currentName}
-            folderId={renameFolder.folderId}
+            currentName={state.renameFolder.currentName}
+            folderId={state.renameFolder.folderId}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setRenameFolder(null)
+              if (!open) dispatch({ type: "closeRenameFolder" })
             }}
           />
         )}
-        {folderLimit && (
+        {state.folderLimit && (
           <FolderLimitDialog
-            directVmLimit={folderLimit.directVmLimit}
-            effectiveVmLimit={folderLimit.effectiveVmLimit}
-            folderId={folderLimit.folderId}
-            folderName={folderLimit.folderName}
+            directVmLimit={state.folderLimit.directVmLimit}
+            effectiveVmLimit={state.folderLimit.effectiveVmLimit}
+            folderId={state.folderLimit.folderId}
+            folderName={state.folderLimit.folderName}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setFolderLimit(null)
+              if (!open) dispatch({ type: "closeFolderLimit" })
             }}
           />
         )}
-        {createVm && (
+        {state.createVm && (
           <CreateVmDialog
             open={true}
             onOpenChange={(open) => {
-              if (!open) setCreateVm(null)
+              if (!open) dispatch({ type: "closeCreateVm" })
             }}
-            initialFolderId={createVm.initialFolderId}
+            initialFolderId={state.createVm.initialFolderId}
           />
         )}
-        {snapshot && (
+        {state.snapshot && (
           <SnapshotDialog
-            itemId={snapshot.itemId}
-            vmid={snapshot.currentVmid}
-            vmName={snapshot.currentName}
-            mode={snapshot.mode}
+            itemId={state.snapshot.itemId}
+            vmid={state.snapshot.currentVmid}
+            vmName={state.snapshot.currentName}
+            mode={state.snapshot.mode}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setSnapshot(null)
+              if (!open) dispatch({ type: "closeSnapshot" })
             }}
           />
         )}
-        {clone && (
+        {state.clone && (
           <CloneDialog
-            itemId={clone.itemId}
-            currentName={clone.currentName}
-            currentVmid={clone.currentVmid}
-            isTemplate={clone.isTemplate}
+            itemId={state.clone.itemId}
+            currentName={state.clone.currentName}
+            currentVmid={state.clone.currentVmid}
+            isTemplate={state.clone.isTemplate}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setClone(null)
+              if (!open) dispatch({ type: "closeClone" })
             }}
           />
         )}
-        {renameVm && (
+        {state.renameVm && (
           <RenameDialog
             mode="rename-item"
-            itemId={renameVm.itemId}
-            currentName={renameVm.currentName}
-            currentVmid={renameVm.currentVmid}
+            itemId={state.renameVm.itemId}
+            currentName={state.renameVm.currentName}
+            currentVmid={state.renameVm.currentVmid}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setRenameVm(null)
+              if (!open) dispatch({ type: "closeRenameVm" })
             }}
           />
         )}
-        {editVmHardware && (
+        {state.editVmHardware && (
           <VmHardwareDialog
-            key={editVmHardware.itemId}
-            itemId={editVmHardware.itemId}
-            vmName={editVmHardware.currentName}
-            vmid={editVmHardware.currentVmid}
+            key={state.editVmHardware.itemId}
+            itemId={state.editVmHardware.itemId}
+            vmName={state.editVmHardware.currentName}
+            vmid={state.editVmHardware.currentVmid}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setEditVmHardware(null)
+              if (!open) dispatch({ type: "closeEditVmHardware" })
             }}
           />
         )}
-        {permissions && (
+        {state.permissions && (
           <InventoryPermissionsDialog
-            itemId={permissions.itemId}
-            itemKind={permissions.itemKind}
-            itemName={permissions.itemName}
-            itemVmid={permissions.itemVmid}
+            itemId={state.permissions.itemId}
+            itemKind={state.permissions.itemKind}
+            itemName={state.permissions.itemName}
+            itemVmid={state.permissions.itemVmid}
             open={true}
             onOpenChange={(open) => {
-              if (!open) setPermissions(null)
+              if (!open) dispatch({ type: "closePermissions" })
             }}
           />
         )}

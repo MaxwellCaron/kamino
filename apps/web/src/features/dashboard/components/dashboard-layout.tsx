@@ -3,7 +3,7 @@ import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
-import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree"
+import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 

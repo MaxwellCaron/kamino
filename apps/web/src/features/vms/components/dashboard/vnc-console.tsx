@@ -55,6 +55,8 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
   const connectionRunRef = useRef(0)
+  const itemIdRef = useRef(itemId)
+  itemIdRef.current = itemId
   const [status, setStatus] = useState<Status>("disconnected")
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
@@ -83,7 +85,7 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   async function connect(runId: number) {
     try {
       const res = await apiFetch(
-        `/api/v1/inventory/items/${itemId}/vm/vnc/proxy`,
+        `/api/v1/inventory/items/${itemIdRef.current}/vm/vnc/proxy`,
         {
           method: "POST",
         }

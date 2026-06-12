@@ -103,18 +103,22 @@ export function PublishedPodsPage() {
   })
 
   const stats = useMemo(() => {
-    const listed = pods.filter((pod) => pod.status === "listed").length
-    const restricted = pods.filter((pod) => pod.audience.length > 0).length
-    const totalClones = pods.reduce((sum, pod) => sum + pod.clone_count, 0)
+    const publishedPods = podsData ?? []
+    const listed = publishedPods.filter((pod) => pod.status === "listed").length
+    const restricted = publishedPods.filter((pod) => pod.audience.length > 0).length
+    const totalClones = publishedPods.reduce(
+      (sum, pod) => sum + pod.clone_count,
+      0
+    )
 
     return {
-      total: pods.length,
+      total: publishedPods.length,
       listed,
-      unlisted: pods.length - listed,
+      unlisted: publishedPods.length - listed,
       restricted,
       totalClones,
     }
-  }, [pods])
+  }, [podsData])
 
   const columns = useMemo(
     () =>

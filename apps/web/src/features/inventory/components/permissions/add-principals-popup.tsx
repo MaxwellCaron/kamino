@@ -28,31 +28,38 @@ type AddPrincipalsDialogProps = {
   principalMap: Map<string, PrincipalOption>
 }
 
-export function AddPrincipalsDialog(props: AddPrincipalsDialogProps) {
+export function AddPrincipalsDialog({
+  availablePrincipalIds,
+  disabled,
+  onAdd,
+  open,
+  onOpenChange,
+  principalMap,
+}: AddPrincipalsDialogProps) {
   const availablePrincipals = useMemo(() => {
-    return props.availablePrincipalIds
-      .map((id) => props.principalMap.get(id))
+    return availablePrincipalIds
+      .map((id) => principalMap.get(id))
       .filter((p): p is PrincipalOption => !!p)
-  }, [props.availablePrincipalIds, props.principalMap])
+  }, [availablePrincipalIds, principalMap])
 
   const handleValueChange = (principal: PrincipalOption | null) => {
     if (principal) {
-      props.onAdd([principal.id])
-      props.onOpenChange(false)
+      onAdd([principal.id])
+      onOpenChange(false)
     }
   }
 
   return (
     <Combobox
-      open={props.open}
-      onOpenChange={props.onOpenChange}
+      open={open}
+      onOpenChange={onOpenChange}
       items={availablePrincipals}
       itemToStringLabel={(p: PrincipalOption | null) => p?.label ?? ""}
       onValueChange={handleValueChange}
     >
       <ComboboxTrigger
-        disabled={props.disabled}
-        render={<Button size="icon" disabled={props.disabled} />}
+        disabled={disabled}
+        render={<Button size="icon" disabled={disabled} />}
         className="[&>svg:last-child]:hidden"
       >
         <IconPlus />

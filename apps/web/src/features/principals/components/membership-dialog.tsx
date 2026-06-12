@@ -16,7 +16,6 @@ import {
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
 import type {
-  ApiGroupMember,
   ApiPrincipal,
 } from "@/features/principals/types/principals-types"
 import {
@@ -103,9 +102,6 @@ function MembershipEditor({
     ...userGroupsQueryOptions(principal.id),
     enabled: open && mode === "user-groups",
   })
-  const currentMembers: Array<ApiGroupMember> =
-    (mode === "user-groups" ? userGroups : members) ?? []
-
   // All possible options
   const {
     data: allGroups,
@@ -131,21 +127,22 @@ function MembershipEditor({
     mode === "user-groups"
       ? (userGroupsError ?? allGroupsError)
       : (membersError ?? allUsersError)
-  const allOptions: Array<ApiPrincipal> =
-    (mode === "user-groups" ? allGroups : allUsers) ?? []
-
   const serverIds = React.useMemo(
-    () => uniqueIds(currentMembers.map((m) => m.id)),
-    [currentMembers]
+    () =>
+      uniqueIds(
+        (mode === "user-groups" ? userGroups : members)?.map((member) => member.id) ??
+          []
+      ),
+    [members, mode, userGroups]
   )
 
   const options = React.useMemo<Array<MembershipOption>>(
     () =>
-      allOptions.map((option) => ({
+      (mode === "user-groups" ? allGroups : allUsers)?.map((option) => ({
         id: option.id,
         label: option.name ?? option.external_id,
-      })),
-    [allOptions]
+      })) ?? [],
+    [allGroups, allUsers, mode]
   )
 
   if (loadError) {

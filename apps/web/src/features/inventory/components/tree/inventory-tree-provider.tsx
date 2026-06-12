@@ -15,11 +15,6 @@ import type { ApiTreeNode } from "../../types/inventory-types"
 import { formatToastError } from "@/features/shared/utils/format"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
-interface PendingRevealRequest {
-  itemId: string
-  requestId: number
-}
-
 interface SelectionState {
   activeItemId?: string
   itemIds: Array<string>
@@ -32,8 +27,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const [selectionState, setSelectionState] = useState<SelectionState | null>(
     null
   )
-  const [pendingRevealRequest, setPendingRevealRequest] =
-    useState<PendingRevealRequest | null>(null)
   const { favoriteIds, toggleFavorite: toggleSharedFavorite } =
     useInventoryFavorites()
 
@@ -147,36 +140,25 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [navigate]
   )
 
-  const handleFavoritePrimaryAction = useCallback(
-    (itemId: string, data: ApiTreeNode) => {
-      setQuery("")
-      setPendingRevealRequest((current) => ({
-        itemId,
-        requestId: current ? current.requestId + 1 : 1,
-      }))
-      handlePrimaryAction(itemId, data)
-    },
-    [handlePrimaryAction]
-  )
-
-  const handleRevealComplete = useCallback((requestId: number) => {
-    setPendingRevealRequest((current) =>
-      current?.requestId === requestId ? null : current
-    )
-  }, [])
-
-  const { tree, expandAll, collapseAll } = useInventoryHeadlessTree({
+  const { tree, expandAll, collapseAll, revealItem } = useInventoryHeadlessTree({
     children: treeChildren,
     items,
     folderIds,
     parentIds,
     onMove: handleMove,
     onPrimaryAction: handlePrimaryAction,
-    pendingRevealRequest,
-    onRevealComplete: handleRevealComplete,
     selectedItemIds,
     setSelectedItemIds,
   })
+
+  const handleFavoritePrimaryAction = useCallback(
+    (itemId: string, data: ApiTreeNode) => {
+      setQuery("")
+      void revealItem(itemId)
+      handlePrimaryAction(itemId, data)
+    },
+    [handlePrimaryAction, revealItem]
+  )
 
   const value: InventoryTreeContextValue = {
     query,

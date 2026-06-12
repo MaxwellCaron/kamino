@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useRef } from "react"
 import { useForm } from "@tanstack/react-form"
 import { IconCamera } from "@tabler/icons-react"
 import { z } from "zod"
@@ -78,6 +78,38 @@ function DirectSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
+  const sessionKeyRef = useRef(0)
+  const prevOpenRef = useRef(open)
+
+  if (open && !prevOpenRef.current) {
+    sessionKeyRef.current += 1
+  }
+  prevOpenRef.current = open
+
+  return (
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={IconCamera}
+      title="Snapshot"
+      description={`Take a point-in-time snapshot for ${formatVmReference(
+        vmid,
+        vmName
+      )}.`}
+    >
+      <DirectSnapshotForm
+        key={sessionKeyRef.current}
+        itemId={itemId}
+        onOpenChange={onOpenChange}
+      />
+    </AppDialog>
+  )
+}
+
+function DirectSnapshotForm({
+  itemId,
+  onOpenChange,
+}: Pick<SnapshotDialogProps, "itemId" | "onOpenChange">) {
   const create = useCreateSnapshot(itemId)
 
   const form = useForm({
@@ -102,135 +134,116 @@ function DirectSnapshotDialog({
     },
   })
 
-  useEffect(() => {
-    if (open) {
-      form.setFieldValue("snapname", generateSnapshotName())
-    }
-  }, [open, form])
-
   return (
-    <AppDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onClosed={() => form.reset()}
-      icon={IconCamera}
-      title="Snapshot"
-      description={`Take a point-in-time snapshot for ${formatVmReference(
-        vmid,
-        vmName
-      )}.`}
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        form.handleSubmit()
+      }}
     >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          form.handleSubmit()
-        }}
-      >
-        <FieldGroup>
-          <form.Field
-            name="snapname"
-            validators={{
-              onBlur: ({ value }) => {
-                const result =
-                  directSnapshotSchema.shape.snapname.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
-            }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <FieldLabel htmlFor="snapname">Name</FieldLabel>
-                <Input
-                  id="snapname"
-                  placeholder="my-snapshot"
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
+      <FieldGroup>
+        <form.Field
+          name="snapname"
+          validators={{
+            onBlur: ({ value }) => {
+              const result = directSnapshotSchema.shape.snapname.safeParse(value)
+              return result.success
+                ? undefined
+                : result.error.issues[0].message
+            },
+          }}
+        >
+          {(field) => (
+            <Field
+              data-invalid={field.state.meta.errors.length > 0 || undefined}
+            >
+              <FieldLabel htmlFor="snapname">Name</FieldLabel>
+              <Input
+                id="snapname"
+                placeholder="my-snapshot"
+                aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                value={field.state.value}
+                onChange={(event) => field.handleChange(event.target.value)}
+                onBlur={field.handleBlur}
+              />
+              <FieldError>{field.state.meta.errors[0]}</FieldError>
+            </Field>
+          )}
+        </form.Field>
+        <form.Field
+          name="description"
+          validators={{
+            onBlur: ({ value }) => {
+              const result =
+                directSnapshotSchema.shape.description.safeParse(value)
+              return result.success
+                ? undefined
+                : result.error.issues[0].message
+            },
+          }}
+        >
+          {(field) => (
+            <Field
+              data-invalid={field.state.meta.errors.length > 0 || undefined}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel htmlFor="description">Description</FieldLabel>
+                <span className="font-mono text-xs text-muted-foreground"></span>
+              </div>
+              <InputGroup>
+                <InputGroupTextarea
+                  id="description"
+                  placeholder="Optional description..."
+                  aria-invalid={
+                    field.state.meta.errors.length > 0 || undefined
+                  }
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
+                  maxLength={255}
                 />
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
-          </form.Field>
-          <form.Field
-            name="description"
-            validators={{
-              onBlur: ({ value }) => {
-                const result =
-                  directSnapshotSchema.shape.description.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
-            }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <FieldLabel htmlFor="description">Description</FieldLabel>
-                  <span className="font-mono text-xs text-muted-foreground"></span>
-                </div>
-                <InputGroup>
-                  <InputGroupTextarea
-                    id="description"
-                    placeholder="Optional description..."
-                    aria-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    maxLength={255}
-                  />
-                  <InputGroupAddon
-                    align="block-end"
-                    className="justify-end px-4 font-mono text-xs"
-                  >
-                    <InputGroupText>
-                      {field.state.value.length}/255
-                    </InputGroupText>
-                  </InputGroupAddon>
-                </InputGroup>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
-          </form.Field>
-          <form.Field name="vmstate">
-            {(field) => (
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="vmstate"
-                  checked={field.state.value}
-                  onCheckedChange={(checked) => field.handleChange(!!checked)}
-                />
-                <FieldContent>
-                  <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
-                  <FieldDescription>
-                    Save the RAM contents along with the snapshot. Uses more
-                    storage.
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            )}
-          </form.Field>
-        </FieldGroup>
-        <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create"}
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
-    </AppDialog>
+                <InputGroupAddon
+                  align="block-end"
+                  className="justify-end px-4 font-mono text-xs"
+                >
+                  <InputGroupText>
+                    {field.state.value.length}/255
+                  </InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError>{field.state.meta.errors[0]}</FieldError>
+            </Field>
+          )}
+        </form.Field>
+        <form.Field name="vmstate">
+          {(field) => (
+            <Field orientation="horizontal">
+              <Checkbox
+                id="vmstate"
+                checked={field.state.value}
+                onCheckedChange={(checked) => field.handleChange(!!checked)}
+              />
+              <FieldContent>
+                <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
+                <FieldDescription>
+                  Save the RAM contents along with the snapshot. Uses more
+                  storage.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          )}
+        </form.Field>
+      </FieldGroup>
+      <DialogFooter className="mt-6">
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
+      </DialogFooter>
+    </form>
   )
 }
 
@@ -241,8 +254,38 @@ function RequestSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const submitCreateRequest = useSubmitInventorySnapshotCreateRequest()
+  const sessionKeyRef = useRef(0)
+  const prevOpenRef = useRef(open)
+
+  if (open && !prevOpenRef.current) {
+    sessionKeyRef.current += 1
+  }
+  prevOpenRef.current = open
+
   const vmReference = formatVmReference(vmid, vmName)
+
+  return (
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={IconCamera}
+      title="Snapshot"
+      description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
+    >
+      <RequestSnapshotForm
+        key={sessionKeyRef.current}
+        itemId={itemId}
+        onOpenChange={onOpenChange}
+      />
+    </AppDialog>
+  )
+}
+
+function RequestSnapshotForm({
+  itemId,
+  onOpenChange,
+}: Pick<SnapshotDialogProps, "itemId" | "onOpenChange">) {
+  const submitCreateRequest = useSubmitInventorySnapshotCreateRequest()
 
   const form = useForm({
     defaultValues: {
@@ -262,72 +305,53 @@ function RequestSnapshotDialog({
     },
   })
 
-  useEffect(() => {
-    if (open) {
-      form.setFieldValue("snapname", generateSnapshotName())
-    }
-  }, [open, form])
-
-  const resetState = () => {
-    form.reset()
-  }
-
   return (
-    <AppDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onClosed={resetState}
-      icon={IconCamera}
-      title="Snapshot"
-      description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        form.handleSubmit()
+      }}
     >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          form.handleSubmit()
-        }}
-      >
-        <FieldGroup>
-          <form.Field
-            name="snapname"
-            validators={{
-              onBlur: ({ value }) => {
-                const result =
-                  createSnapshotRequestSchema.shape.snapname.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
-            }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <Input
-                  id="request-snapname"
-                  placeholder="snapshot-2026-04-22T15-04-05Z"
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
-          </form.Field>
-        </FieldGroup>
-        <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit"}
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
-    </AppDialog>
+      <FieldGroup>
+        <form.Field
+          name="snapname"
+          validators={{
+            onBlur: ({ value }) => {
+              const result =
+                createSnapshotRequestSchema.shape.snapname.safeParse(value)
+              return result.success
+                ? undefined
+                : result.error.issues[0].message
+            },
+          }}
+        >
+          {(field) => (
+            <Field
+              data-invalid={field.state.meta.errors.length > 0 || undefined}
+            >
+              <Input
+                id="request-snapname"
+                placeholder="snapshot-2026-04-22T15-04-05Z"
+                aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                value={field.state.value}
+                onChange={(event) => field.handleChange(event.target.value)}
+                onBlur={field.handleBlur}
+              />
+              <FieldError>{field.state.meta.errors[0]}</FieldError>
+            </Field>
+          )}
+        </form.Field>
+      </FieldGroup>
+      <DialogFooter className="mt-6">
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
+      </DialogFooter>
+    </form>
   )
 }
 

@@ -1,6 +1,6 @@
 import { Loader } from "@dot-loaders/react"
 import { useQuery } from "@tanstack/react-query"
-import { isValidElement, useEffect, useRef, useState } from "react"
+import { isValidElement, useMemo, useRef, useState } from "react"
 import {
   IconAlertTriangle,
   IconDeviceDesktopX,
@@ -192,55 +192,49 @@ function ConfirmDialogSession({
   const HeaderIcon =
     config.icon ??
     (config.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
-  const hasStatusItems = statusItems.length > 0
-  const allActionsSucceeded =
-    hasStatusItems && statusItems.every((item) => item.status === "success")
-
   statusItemsRef.current = statusItems
   isPendingRef.current = isPending
 
-  useEffect(() => {
+  const resolvedStatusItems = useMemo(() => {
     if (!vmStatuses) {
-      return
+      return statusItems
     }
 
-    setStatusItems((current) => {
-      const next = current.map((item) => {
-        if (item.kind !== "vm" || item.vmid == null) {
-          return item
+    return statusItems.map((item) => {
+      if (item.kind !== "vm" || item.vmid == null) {
+        return item
+      }
+
+      const liveStatus = vmStatuses[item.vmid]
+      let nextItem = item
+
+      if (liveStatus !== item.vmStatus) {
+        nextItem = {
+          ...nextItem,
+          vmStatus: liveStatus,
         }
+      }
 
-        const liveStatus = vmStatuses[item.vmid]
-        let nextItem = item
-
-        if (liveStatus !== item.vmStatus) {
-          nextItem = {
-            ...nextItem,
-            vmStatus: liveStatus,
-          }
+      if (
+        nextItem.status === "pending" &&
+        nextItem.successDisplay !== "deleted" &&
+        nextItem.successVmStatus &&
+        liveStatus === nextItem.successVmStatus
+      ) {
+        nextItem = {
+          ...nextItem,
+          status: "success",
+          error: undefined,
         }
+      }
 
-        if (
-          nextItem.status === "pending" &&
-          nextItem.successDisplay !== "deleted" &&
-          nextItem.successVmStatus &&
-          liveStatus === nextItem.successVmStatus
-        ) {
-          nextItem = {
-            ...nextItem,
-            status: "success",
-            error: undefined,
-          }
-        }
-
-        return nextItem
-      })
-
-      return next.some((item, index) => item !== current[index])
-        ? next
-        : current
+      return nextItem
     })
-  }, [vmStatuses])
+  }, [statusItems, vmStatuses])
+
+  const allActionsSucceeded =
+    resolvedStatusItems.length > 0 &&
+    resolvedStatusItems.every((item) => item.status === "success")
 
   return (
     <AppAlertDialogContent
@@ -253,10 +247,12 @@ function ConfirmDialogSession({
         className: "space-y-3 text-sm text-muted-foreground",
       }}
     >
-      {hasStatusItems && <ConfirmStatusList items={statusItems} />}
+      {resolvedStatusItems.length > 0 && (
+        <ConfirmStatusList items={resolvedStatusItems} />
+      )}
       <AlertDialogFooter>
         <AlertDialogCancel disabled={isPending}>
-          {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}
+          {resolvedStatusItems.length > 0 && hasSubmitted ? "Close" : "Cancel"}
         </AlertDialogCancel>
         <AlertDialogAction
           variant={config.variant ?? "default"}

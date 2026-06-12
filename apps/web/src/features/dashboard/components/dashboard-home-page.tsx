@@ -79,7 +79,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const { favoriteIds } = useInventoryFavorites()
   const { data: vmStatuses, isLoading: isVmStatusLoading } =
     useQuery(vmStatusQueryOptions)
-  const visiblePods = catalog ?? []
+  const visiblePods = useMemo(() => catalog ?? [], [catalog])
   const cloneStatus = useQueries({
     queries: visiblePods.map((pod) => clonedPodQueryOptions(pod.slug)),
     combine: (results) => {

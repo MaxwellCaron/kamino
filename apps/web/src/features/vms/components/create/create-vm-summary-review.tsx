@@ -27,7 +27,7 @@ function getMachineTypeLabel(machine: string) {
   return machine === "pc" ? "i440fx" : machine
 }
 
-export function ReviewField({
+function ReviewField({
   label,
   value,
   className,

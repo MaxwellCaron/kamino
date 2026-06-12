@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
-import { useEffect, useState } from "react"
+import { useRef } from "react"
 import type { ComponentProps, ComponentType, ReactNode } from "react"
 
 function Freeze({
@@ -23,15 +23,9 @@ function Freeze({
   freeze: boolean
   children: ReactNode
 }) {
-  const [frozen, setFrozen] = useState(children)
-
-  useEffect(() => {
-    if (!freeze) {
-      setFrozen(children)
-    }
-  }, [children, freeze])
-
-  return <>{freeze ? frozen : children}</>
+  const frozen = useRef(children)
+  if (!freeze) frozen.current = children
+  return <>{freeze ? frozen.current : children}</>
 }
 
 type AppDialogIcon = ComponentType<{

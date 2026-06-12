@@ -1,4 +1,3 @@
-import { useEffect } from "react"
 import { useForm } from "@tanstack/react-form"
 import { IconEdit } from "@tabler/icons-react"
 import { z } from "zod"
@@ -56,18 +55,15 @@ export function VmNotesDialog({
     },
   })
 
-  useEffect(() => {
-    if (!open) {
-      form.reset({
-        notes: initialNotes ?? "",
-      })
-    }
-  }, [form, initialNotes, open])
-
   return (
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      onClosed={() =>
+        form.reset({
+          notes: initialNotes ?? "",
+        })
+      }
       icon={IconEdit}
       title="Notes"
       description={`Update notes for ${formatVmReference(vmid, vmName)}.`}

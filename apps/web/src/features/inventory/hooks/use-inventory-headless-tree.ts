@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useLayoutEffect, useRef, useState } from "react"
 import {
   dragAndDropFeature,
   expandAllFeature,
@@ -23,8 +23,6 @@ interface UseInventoryHeadlessTreeOptions {
   parentIds: Map<string, string>
   onMove: (itemIds: Array<string>, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  pendingRevealRequest: { itemId: string; requestId: number } | null
-  onRevealComplete: (requestId: number) => void
   selectedItemIds: Array<string>
   setSelectedItemIds: (
     updater: Array<string> | ((prev: Array<string>) => Array<string>)
@@ -36,6 +34,10 @@ interface SelectionDataRef {
 }
 
 const STORAGE_KEY = "kamino-inventory-expanded"
+
+function folderIdsKey(folderIds: Array<string>) {
+  return folderIds.join("\0")
+}
 
 function updateExpandedItems(
   tree: TreeInstance<ApiTreeNode>,
@@ -72,8 +74,6 @@ export function useInventoryHeadlessTree({
   parentIds,
   onMove,
   onPrimaryAction,
-  pendingRevealRequest,
-  onRevealComplete,
   selectedItemIds,
   setSelectedItemIds,
 }: UseInventoryHeadlessTreeOptions) {
@@ -171,41 +171,48 @@ export function useInventoryHeadlessTree({
     },
   })
 
-  const flatKeyRef = useRef("")
-  useEffect(() => {
+  const childrenKeyRef = useRef("")
+  useLayoutEffect(() => {
     const key = JSON.stringify([...children.entries()])
-    if (key !== flatKeyRef.current) {
-      flatKeyRef.current = key
-      tree.rebuildTree()
-    }
-  }, [children, tree])
-
-  useEffect(() => {
-    const dataRef = tree.getDataRef<SelectionDataRef>()
-    const anchorId = dataRef.current.selectUpToAnchorId
-
-    if (anchorId && !items.has(anchorId)) {
-      dataRef.current.selectUpToAnchorId = null
-    }
-
-    if (selectedItemIds.length === 0) {
-      dataRef.current.selectUpToAnchorId = null
+    if (key === childrenKeyRef.current) {
       return
     }
 
-    if (selectedItemIds.length === 1 && items.has(selectedItemIds[0])) {
-      dataRef.current.selectUpToAnchorId = selectedItemIds[0]
-    }
-  }, [items, selectedItemIds, tree])
+    childrenKeyRef.current = key
+    tree.rebuildTree()
+  }, [children, tree])
 
-  useEffect(() => {
+  const appliedDefaultFolderIdsRef = useRef<string | null>(null)
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return
 
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved && folderIds.length > 0) {
-      updateExpandedItems(tree, folderIds)
+    const nextKey = folderIdsKey(folderIds)
+    if (
+      folderIds.length === 0 ||
+      localStorage.getItem(STORAGE_KEY) ||
+      appliedDefaultFolderIdsRef.current === nextKey
+    ) {
+      return
     }
+
+    appliedDefaultFolderIdsRef.current = nextKey
+    updateExpandedItems(tree, folderIds)
   }, [folderIds, tree])
+
+  const selectionDataRef = tree.getDataRef<SelectionDataRef>()
+  const anchorId = selectionDataRef.current.selectUpToAnchorId
+
+  if (anchorId && !items.has(anchorId)) {
+    selectionDataRef.current.selectUpToAnchorId = null
+  } else if (selectedItemIds.length === 0) {
+    selectionDataRef.current.selectUpToAnchorId = null
+  } else if (
+    selectedItemIds.length === 1 &&
+    items.has(selectedItemIds[0]) &&
+    anchorId !== selectedItemIds[0]
+  ) {
+    selectionDataRef.current.selectUpToAnchorId = selectedItemIds[0]
+  }
 
   const expandAll = useCallback(() => {
     updateExpandedItems(tree, folderIds)
@@ -215,15 +222,10 @@ export function useInventoryHeadlessTree({
     updateExpandedItems(tree, [])
   }, [tree])
 
-  useEffect(() => {
-    if (!pendingRevealRequest) return
+  const revealItem = useCallback(
+    async (itemId: string) => {
+      if (!items.has(itemId)) return
 
-    const { itemId, requestId } = pendingRevealRequest
-    if (!items.has(itemId)) return
-
-    let canceled = false
-
-    async function revealItem() {
       const ancestorIds: Array<string> = []
       let parentId = parentIds.get(itemId)
 
@@ -242,18 +244,9 @@ export function useInventoryHeadlessTree({
       await tree
         .getItemInstance(itemId)
         .scrollTo({ block: "center", inline: "nearest" })
+    },
+    [items, parentIds, tree]
+  )
 
-      if (!canceled) {
-        onRevealComplete(requestId)
-      }
-    }
-
-    void revealItem()
-
-    return () => {
-      canceled = true
-    }
-  }, [items, onRevealComplete, parentIds, pendingRevealRequest, tree])
-
-  return { tree, expandAll, collapseAll }
+  return { tree, expandAll, collapseAll, revealItem }
 }

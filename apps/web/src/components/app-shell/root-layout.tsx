@@ -10,9 +10,9 @@ import {
   getRouteApi,
 } from "@tanstack/react-router"
 
-export const themeStorageKey = "vite-ui-theme"
-export const defaultTheme = "dark"
-export const themeScript = `
+const themeStorageKey = "vite-ui-theme"
+const defaultTheme = "dark"
+const themeScript = `
 (() => {
   const storageKey = ${JSON.stringify(themeStorageKey)}
   const defaultTheme = ${JSON.stringify(defaultTheme)}

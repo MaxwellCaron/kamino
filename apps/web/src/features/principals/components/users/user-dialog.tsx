@@ -314,17 +314,16 @@ export function UserDialog({
     []
   )
 
-  const groupOptions = groups ?? []
   const groupOptionMap = React.useMemo(() => {
     const map = new Map<string, string>()
-    for (const group of groupOptions) {
+    for (const group of groups ?? []) {
       map.set(group.id, group.name ?? group.external_id)
     }
     return map
-  }, [groupOptions])
+  }, [groups])
   const groupItems = React.useMemo(
-    () => Array.from(new Set(groupOptions.map((group) => group.id))),
-    [groupOptions]
+    () => Array.from(new Set((groups ?? []).map((group) => group.id))),
+    [groups]
   )
 
   const mutation = useMutation({
