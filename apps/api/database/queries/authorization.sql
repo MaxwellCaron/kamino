@@ -98,6 +98,42 @@ CROSS JOIN LATERAL (
 ) AS perms
 WHERE ii.id = sqlc.arg(inventory_item_id);
 
+-- name: GetInventoryItemsWithPermissions :many
+SELECT
+    ii.id,
+    ii.parent_id,
+    ii.kind,
+    ii.name,
+    ii.inherit_permissions,
+    ii.vm_limit AS direct_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+      ELSE 0
+    END)::INTEGER AS effective_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+      ELSE 0
+    END)::INTEGER AS vm_count,
+    pv.node,
+    pv.vmid,
+    pv.is_template,
+    pv.notes,
+    pv.cpu_count,
+    pv.memory_mb,
+    pv.disk_gb,
+    perms.allowed_mask,
+    perms.denied_mask
+FROM inventory_items ii
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ii.id
+CROSS JOIN LATERAL (
+    SELECT
+        gep.allowed_mask::BIGINT AS allowed_mask,
+        gep.denied_mask::BIGINT AS denied_mask
+    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+) AS perms
+WHERE ii.id = ANY(sqlc.arg(item_ids)::UUID[]);
+
 -- name: GetInventoryItemIDByProxmoxVM :one
 SELECT inventory_item_id
 FROM proxmox_vms

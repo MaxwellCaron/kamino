@@ -374,14 +374,16 @@ func (h *InventoryHandler) MoveItems(c *gin.Context) {
 		return
 	}
 
+	itemMap, err := h.Service.GetInventoryItemsWithPermissions(c.Request.Context(), principalID, req.ItemIDs)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory items for move", err)
+		return
+	}
+
 	for _, itemID := range req.ItemIDs {
-		item, err := h.Service.GetInventoryItemWithPermissions(c.Request.Context(), principalID, itemID)
-		if errors.Is(err, pgx.ErrNoRows) {
+		item, ok := itemMap[itemID]
+		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
-			return
-		}
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to authorize move", "load inventory item for move", err)
 			return
 		}
 
