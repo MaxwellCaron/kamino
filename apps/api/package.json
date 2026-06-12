@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "air",
-    "build": "go build -o bin/api ./cmd/api"
+    "build": "go build -o bin/api ./cmd/api",
+    "test": "go test ./..."
   }
 }

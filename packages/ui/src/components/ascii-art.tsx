@@ -119,7 +119,7 @@ export const AsciiArt: React.FC<AsciiArtProps> = ({
   objectFit = "cover",
 }) => {
   const uniqueId = useId()
-  const [asciiData, setAsciiData] = useState<AsciiPixel[][]>([])
+  const [asciiData, setAsciiData] = useState<Array<Array<AsciiPixel>>>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasAnimated, setHasAnimated] = useState(false)
@@ -214,10 +214,10 @@ export const AsciiArt: React.FC<AsciiArtProps> = ({
       }
 
       const data = imageData.data
-      const result: AsciiPixel[][] = []
+      const result: Array<Array<AsciiPixel>> = []
 
       for (let y = 0; y < rows; y++) {
-        const row: AsciiPixel[] = []
+        const row: Array<AsciiPixel> = []
         for (let x = 0; x < cols; x++) {
           const idx = (y * cols + x) * 4
           const r = data[idx]
@@ -369,9 +369,7 @@ export const AsciiArt: React.FC<AsciiArtProps> = ({
           ? animationDuration * 1000
           : animationStyle === "typewriter"
             ? asciiData.length * asciiData[0]?.length * 2
-            : animationStyle === "matrix"
-              ? 3000
-              : 1000
+            : 3000
 
       const animate = (currentTime: number) => {
         const elapsed = currentTime - startTime

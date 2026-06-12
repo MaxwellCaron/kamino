@@ -9,7 +9,8 @@
     "docker:down": "docker compose down",
     "lint": "turbo lint",
     "format": "turbo format",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "test": "turbo test"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
