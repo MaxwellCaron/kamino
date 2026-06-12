@@ -130,7 +130,7 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch item", "load inventory item", err)
 		return
 	}
-	if (row.AllowedMask & int64(authorization.View)) != int64(authorization.View) {
+	if !authorization.Mask(row.AllowedMask).Has(authorization.View) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
 		return
 	}
@@ -162,7 +162,7 @@ func (h *InventoryHandler) GetACL(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch ACL", "load inventory item ACL", err)
 		return
 	}
-	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+	if !authorization.Mask(item.AllowedMask).Has(authorization.ManagePermissions) {
 		writeForbidden(c)
 		return
 	}
@@ -253,7 +253,7 @@ func (h *InventoryHandler) UpdateACL(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to update ACL", "load inventory item ACL", err)
 		return
 	}
-	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+	if !authorization.Mask(item.AllowedMask).Has(authorization.ManagePermissions) {
 		writeForbidden(c)
 		return
 	}
@@ -331,8 +331,8 @@ func (h *InventoryHandler) MoveItem(c *gin.Context) {
 		requiredOnTarget = authorization.CreateVM
 	}
 
-	if (item.AllowedMask&int64(requiredOnItem)) != int64(requiredOnItem) ||
-		(target.AllowedMask&int64(requiredOnTarget)) != int64(requiredOnTarget) {
+	if !authorization.Mask(item.AllowedMask).Has(requiredOnItem) ||
+		!authorization.Mask(target.AllowedMask).Has(requiredOnTarget) {
 		writeForbidden(c)
 		return
 	}
@@ -392,8 +392,8 @@ func (h *InventoryHandler) MoveItems(c *gin.Context) {
 			requiredOnTarget = authorization.CreateVM
 		}
 
-		if (item.AllowedMask&int64(requiredOnItem)) != int64(requiredOnItem) ||
-			(target.AllowedMask&int64(requiredOnTarget)) != int64(requiredOnTarget) {
+		if !authorization.Mask(item.AllowedMask).Has(requiredOnItem) ||
+			!authorization.Mask(target.AllowedMask).Has(requiredOnTarget) {
 			writeForbidden(c)
 			return
 		}
@@ -436,7 +436,7 @@ func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder create", "load inventory parent for folder create", err)
 		return
 	}
-	if (parent.AllowedMask & int64(authorization.CreateFolder)) != int64(authorization.CreateFolder) {
+	if !authorization.Mask(parent.AllowedMask).Has(authorization.CreateFolder) {
 		writeForbidden(c)
 		return
 	}
@@ -488,7 +488,7 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder rename", "load inventory item for folder rename", err)
 		return
 	}
-	if (item.AllowedMask & int64(authorization.RenameFolder)) != int64(authorization.RenameFolder) {
+	if !authorization.Mask(item.AllowedMask).Has(authorization.RenameFolder) {
 		writeForbidden(c)
 		return
 	}
@@ -531,7 +531,7 @@ func (h *InventoryHandler) UpdateFolderVMLimit(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder limit update", "load inventory item for folder limit update", err)
 		return
 	}
-	if (item.AllowedMask & int64(authorization.ManagePermissions)) != int64(authorization.ManagePermissions) {
+	if !authorization.Mask(item.AllowedMask).Has(authorization.ManagePermissions) {
 		writeForbidden(c)
 		return
 	}
@@ -569,7 +569,7 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to authorize folder delete", "load inventory item for folder delete", err)
 		return
 	}
-	if (item.AllowedMask & int64(authorization.DeleteFolder)) != int64(authorization.DeleteFolder) {
+	if !authorization.Mask(item.AllowedMask).Has(authorization.DeleteFolder) {
 		writeForbidden(c)
 		return
 	}
