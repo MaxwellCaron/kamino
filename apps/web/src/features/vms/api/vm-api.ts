@@ -359,13 +359,6 @@ export async function createVM(
   return res.json()
 }
 
-export async function getNextVMID(): Promise<number> {
-  const res = await apiFetch("/api/v1/proxmox/nextid")
-  if (!res.ok) throw new Error(`Failed to fetch next VMID: ${res.status}`)
-  const data = await res.json()
-  return data.vmid
-}
-
 export async function validateVMID(vmid: number): Promise<boolean> {
   const res = await apiFetch(`/api/v1/proxmox/vmid/${vmid}/validate`)
   if (!res.ok) {

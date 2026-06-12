@@ -47,8 +47,12 @@ import {
 export function PublishedPodsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const podsQuery = useQuery(publishedPodsQueryOptions)
-  const pods = podsQuery.data ?? []
+  const {
+    data: podsData,
+    error: podsError,
+    isLoading: isPodsLoading,
+  } = useQuery(publishedPodsQueryOptions)
+  const pods = podsData ?? []
   const [pendingDeletePod, setPendingDeletePod] =
     useState<PublishedPodCatalogEntry | null>(null)
   const statusMutation = useMutation({
@@ -99,18 +103,24 @@ export function PublishedPodsPage() {
   })
 
   const stats = useMemo(() => {
-    const listed = pods.filter((pod) => pod.status === "listed").length
-    const restricted = pods.filter((pod) => pod.audience.length > 0).length
-    const totalClones = pods.reduce((sum, pod) => sum + pod.clone_count, 0)
+    const publishedPods = podsData ?? []
+    const listed = publishedPods.filter((pod) => pod.status === "listed").length
+    const restricted = publishedPods.filter(
+      (pod) => pod.audience.length > 0
+    ).length
+    const totalClones = publishedPods.reduce(
+      (sum, pod) => sum + pod.clone_count,
+      0
+    )
 
     return {
-      total: pods.length,
+      total: publishedPods.length,
       listed,
-      unlisted: pods.length - listed,
+      unlisted: publishedPods.length - listed,
       restricted,
       totalClones,
     }
-  }, [pods])
+  }, [podsData])
 
   const columns = useMemo(
     () =>
@@ -129,7 +139,7 @@ export function PublishedPodsPage() {
     [navigate, statusMutation]
   )
 
-  if (podsQuery.isLoading) {
+  if (isPodsLoading) {
     return <PublishedPodsPageSkeleton />
   }
 
@@ -179,10 +189,10 @@ export function PublishedPodsPage() {
               <DataTable
                 columns={columns}
                 data={pods}
-                error={podsQuery.error}
+                error={podsError}
                 getRowId={(pod) => pod.id}
                 initialPageSize={10}
-                isLoading={podsQuery.isLoading}
+                isLoading={isPodsLoading}
                 showSelectionSummary={false}
               />
             ) : (

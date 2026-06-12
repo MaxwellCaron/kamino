@@ -160,9 +160,8 @@ function ChartInner({
 
   // Create bisector for finding nearest data point
   const bisectDate = useMemo(
-    () =>
-      (chartData: Array<Record<string, unknown>>, date: Date, lo: number) =>
-        findBisectDateIndex(chartData, date, lo, xAccessor),
+    () => (chartData: Array<Record<string, unknown>>, date: Date, lo: number) =>
+      findBisectDateIndex(chartData, date, lo, xAccessor),
     [xAccessor]
   )
 

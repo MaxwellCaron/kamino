@@ -250,9 +250,9 @@ function PublishPodVirtualMachinesTable({
       const nextSelection =
         typeof updater === "function" ? updater(rowSelection) : updater
       onUpdateVirtualMachinesChange(
-        Object.entries(nextSelection)
-          .filter(([, selected]) => selected)
-          .map(([vmId]) => vmId)
+        Object.entries(nextSelection).flatMap(([vmId, selected]) =>
+          selected ? [vmId] : []
+        )
       )
     },
     state: {
@@ -361,7 +361,9 @@ export function PublishPodVirtualMachinesStep({
   podFolders,
   podFoldersError,
 }: PublishPodVirtualMachinesStepProps) {
-  const initialPodFolderRef = React.useRef(form.getFieldValue("source_folder"))
+  const [initialPodFolder] = React.useState(() =>
+    form.getFieldValue("source_folder")
+  )
 
   const handleVmPermissionChange = React.useCallback(
     (_vm: PublishPodVM, vmIndex: number, bit: number, state: PermissionState) =>
@@ -428,7 +430,7 @@ export function PublishPodVirtualMachinesStep({
                 const canUpdatePodTemplates =
                   isEditing &&
                   !!field.state.value &&
-                  field.state.value === initialPodFolderRef.current
+                  field.state.value === initialPodFolder
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>

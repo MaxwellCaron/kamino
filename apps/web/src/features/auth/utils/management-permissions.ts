@@ -30,7 +30,7 @@ function sortManagementPermissionGrants(
 ) {
   const order = new Map(permissionOrder.map((key, index) => [key, index]))
 
-  return [...new Set(grants)].sort((left, right) => {
+  return [...new Set(grants)].toSorted((left, right) => {
     return (
       (order.get(left) ?? Number.MAX_SAFE_INTEGER) -
       (order.get(right) ?? Number.MAX_SAFE_INTEGER)
@@ -42,21 +42,6 @@ export function normalizeManagementPermissionGrants(
   grants: Array<ManagementPermissionKey>
 ) {
   return sortManagementPermissionGrants(grants)
-}
-
-export function expandManagementPermissionGrants(
-  grants: Array<ManagementPermissionKey>,
-  _allPermissions: Array<ManagementPermissionKey>
-) {
-  const directGrants = normalizeManagementPermissionGrants(grants)
-  if (!directGrants.includes(ManagementPermissionKeys.administrator)) {
-    return directGrants
-  }
-
-  return sortManagementPermissionGrants([
-    ...directGrants,
-    ManagementPermissionKeys.manager,
-  ])
 }
 
 export function hasManagementPermission(

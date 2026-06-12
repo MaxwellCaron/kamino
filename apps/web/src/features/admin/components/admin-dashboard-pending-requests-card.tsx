@@ -1,0 +1,66 @@
+import { Link } from "@tanstack/react-router"
+import { IconArrowUpRight } from "@tabler/icons-react"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import { Button } from "@workspace/ui/components/button"
+import type { ColumnDef } from "@tanstack/react-table"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import { SimpleDataTable } from "@/components/data-table/simple-data-table"
+
+type AdminDashboardPendingRequestsCardProps = {
+  columns: Array<ColumnDef<ApiRequestSummary>>
+  data: Array<ApiRequestSummary>
+  error: Error | null
+  isLoading: boolean
+}
+
+export function AdminDashboardPendingRequestsCard({
+  columns,
+  data,
+  error,
+  isLoading,
+}: AdminDashboardPendingRequestsCardProps) {
+  return (
+    <Card className="xl:col-span-7">
+      <CardHeader>
+        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+          Pending Requests
+        </CardTitle>
+        <CardDescription className="text-sm text-muted-foreground">
+          Newest requests waiting for review.
+        </CardDescription>
+        <CardAction>
+          <Button
+            nativeButton={false}
+            size="sm"
+            render={
+              <Link
+                to="/manager/requests"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Queue
+                <IconArrowUpRight className="size-4" />
+              </Link>
+            }
+          />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-0">
+        <SimpleDataTable
+          columns={columns}
+          data={data}
+          error={error}
+          getRowId={(request: ApiRequestSummary) => request.id}
+          isLoading={isLoading}
+          skeletonRows={3}
+        />
+      </CardContent>
+    </Card>
+  )
+}

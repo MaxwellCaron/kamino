@@ -59,20 +59,6 @@ export function storagesQueryOptions(node: string) {
   }
 }
 
-export function isosQueryOptions(node: string, storage: string) {
-  return {
-    queryKey: ["proxmox", "isos", node, storage] as const,
-    queryFn: async (): Promise<Array<ApiISO>> => {
-      const res = await apiFetch(
-        `/api/v1/proxmox/nodes/${node}/storages/${storage}/isos`
-      )
-      if (!res.ok) throw new Error(`Failed to fetch ISOs: ${res.status}`)
-      return res.json()
-    },
-    enabled: !!node && !!storage,
-  }
-}
-
 export function createVmIsosQueryOptions(storage: string) {
   return {
     queryKey: ["proxmox", "create", "isos", storage] as const,

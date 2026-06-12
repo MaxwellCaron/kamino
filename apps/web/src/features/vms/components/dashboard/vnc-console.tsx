@@ -49,99 +49,126 @@ type VncConsoleProps = {
 
 type Status = "connecting" | "connected" | "disconnected" | "error"
 
+class StaleVncConnectionError extends Error {}
+
 export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const rfbRef = useRef<RFB | null>(null)
+  const connectionRunRef = useRef(0)
+  const itemIdRef = useRef(itemId)
+  itemIdRef.current = itemId
   const [status, setStatus] = useState<Status>("disconnected")
   const [error, setError] = useState<string>()
-  const [connectAttempt, setConnectAttempt] = useState(0)
-  const [shouldConnect, setShouldConnect] = useState(false)
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!shouldConnect || !itemId) return
+    const runRef = connectionRunRef
+    const rfbInstanceRef = rfbRef
+    return () => {
+      runRef.current += 1
+      rfbInstanceRef.current?.disconnect()
+      rfbInstanceRef.current = null
+    }
+  }, [])
 
-    let cancelled = false
+  function isConnectionCurrent(runId: number) {
+    return connectionRunRef.current === runId && screenRef.current !== null
+  }
 
-    async function connect() {
-      try {
-        const res = await apiFetch(
-          `/api/v1/inventory/items/${itemId}/vm/vnc/proxy`,
-          {
-            method: "POST",
-          }
-        )
+  function ensureConnectionCurrent(runId: number, ws?: WebSocket) {
+    if (isConnectionCurrent(runId)) {
+      return
+    }
 
-        if (!res.ok) {
-          throw new Error(`Proxy request failed: ${res.status}`)
+    ws?.close()
+    throw new StaleVncConnectionError()
+  }
+
+  async function connect(runId: number) {
+    try {
+      const res = await apiFetch(
+        `/api/v1/inventory/items/${itemIdRef.current}/vm/vnc/proxy`,
+        {
+          method: "POST",
         }
+      )
 
-        const { sessionId, password } = (await res.json()) as {
-          sessionId: string
-          password: string
+      if (!res.ok) {
+        throw new Error(`Proxy request failed: ${res.status}`)
+      }
+
+      const { sessionId, password } = (await res.json()) as {
+        sessionId: string
+        password: string
+      }
+
+      ensureConnectionCurrent(runId)
+
+      const wsHttpUrl = new URL(
+        apiUrl("/api/v1/vnc/ws"),
+        window.location.origin
+      )
+      wsHttpUrl.protocol = wsHttpUrl.protocol === "https:" ? "wss:" : "ws:"
+      const wsUrl = wsHttpUrl.toString()
+
+      const ws = new WebSocket(wsUrl)
+      await new Promise<void>((resolve, reject) => {
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ sessionId }))
+          resolve()
         }
+        ws.onerror = () => reject(new Error("WebSocket connection failed"))
+      })
 
-        if (cancelled || !screenRef.current) return
+      ensureConnectionCurrent(runId, ws)
 
-        const wsHttpUrl = new URL(
-          apiUrl("/api/v1/vnc/ws"),
-          window.location.origin
-        )
-        wsHttpUrl.protocol = wsHttpUrl.protocol === "https:" ? "wss:" : "ws:"
-        const wsUrl = wsHttpUrl.toString()
+      const { default: RFB } = await import("@novnc/novnc/core/rfb.js")
 
-        const ws = new WebSocket(wsUrl)
-        await new Promise<void>((resolve, reject) => {
-          ws.onopen = () => {
-            ws.send(JSON.stringify({ sessionId }))
-            resolve()
-          }
-          ws.onerror = () => reject(new Error("WebSocket connection failed"))
-        })
+      ensureConnectionCurrent(runId, ws)
+      const screen = screenRef.current
+      if (!screen) {
+        ensureConnectionCurrent(runId, ws)
+        throw new StaleVncConnectionError()
+      }
 
-        const { default: RFB } = await import("@novnc/novnc/core/rfb.js")
+      const rfb = new RFB(screen, ws, {
+        credentials: { password },
+      })
 
-        const rfb = new RFB(screenRef.current, ws, {
-          credentials: { password },
-        })
+      rfb.scaleViewport = true
 
-        rfb.scaleViewport = true
-
-        rfb.addEventListener("connect", () => {
-          if (!cancelled) {
-            setStatus("connected")
-            setConnectedAt(Date.now())
-          }
-        })
-
-        rfb.addEventListener("disconnect", (e: Event) => {
-          if (!cancelled) {
-            setStatus("disconnected")
-            if (!(e as CustomEvent).detail?.clean) {
-              setError("Connection lost unexpectedly")
-            }
-          }
-        })
-
-        rfbRef.current = rfb
-      } catch (err) {
-        if (!cancelled) {
-          setStatus("error")
-          setError(err instanceof Error ? err.message : "Connection failed")
+      rfb.addEventListener("connect", () => {
+        if (connectionRunRef.current === runId) {
+          setStatus("connected")
+          setConnectedAt(Date.now())
         }
+      })
+
+      rfb.addEventListener("disconnect", (e: Event) => {
+        if (connectionRunRef.current === runId) {
+          setStatus("disconnected")
+          if (!(e as CustomEvent).detail?.clean) {
+            setError("Connection lost unexpectedly")
+          }
+        }
+      })
+
+      rfbRef.current = rfb
+    } catch (err) {
+      if (err instanceof StaleVncConnectionError) {
+        return
+      }
+
+      if (connectionRunRef.current === runId) {
+        setStatus("error")
+        setError(err instanceof Error ? err.message : "Connection failed")
       }
     }
-
-    connect()
-
-    return () => {
-      cancelled = true
-      rfbRef.current?.disconnect()
-      rfbRef.current = null
-    }
-  }, [itemId, connectAttempt, shouldConnect])
+  }
 
   function startConnection() {
+    const runId = connectionRunRef.current + 1
+    connectionRunRef.current = runId
     rfbRef.current?.disconnect()
     rfbRef.current = null
     if (screenRef.current) {
@@ -149,17 +176,16 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
     }
     setStatus("connecting")
     setError(undefined)
-    setShouldConnect(true)
-    setConnectAttempt((n) => n + 1)
+    void connect(runId)
   }
 
   function disconnect() {
+    connectionRunRef.current += 1
     rfbRef.current?.disconnect()
     rfbRef.current = null
     if (screenRef.current) {
       screenRef.current.innerHTML = ""
     }
-    setShouldConnect(false)
     setStatus("disconnected")
     setError(undefined)
     setConnectedAt(null)
@@ -200,18 +226,12 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
                 )}
               </EmptyMedia>
               <EmptyTitle>
-                {powerStatus !== "running" ? (
-                  "VM Not Running"
-                ) : (
-                  "Not Connected"
-                )}
+                {powerStatus !== "running" ? "VM Not Running" : "Not Connected"}
               </EmptyTitle>
               <EmptyDescription>
-                {powerStatus !== "running" ? (
-                  "The VM must be running to create a VNC session."
-                ) : (
-                  "You haven't created a VNC session. Start a new session to connect."
-                )}
+                {powerStatus !== "running"
+                  ? "The VM must be running to create a VNC session."
+                  : "You haven't created a VNC session. Start a new session to connect."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center gap-2">
@@ -251,21 +271,17 @@ function formatElapsed(seconds: number): string {
 }
 
 function useElapsed(since: number | null): string {
-  const [elapsed, setElapsed] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    if (since === null) {
-      setElapsed(0)
-      return
-    }
-
-    setElapsed(Math.floor((Date.now() - since) / 1000))
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - since) / 1000))
+      setNow(Date.now())
     }, 1000)
     return () => clearInterval(id)
-  }, [since])
+  }, [])
 
+  const elapsed =
+    since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000))
   return formatElapsed(elapsed)
 }
 

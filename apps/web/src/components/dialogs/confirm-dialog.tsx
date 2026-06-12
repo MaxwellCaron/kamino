@@ -1,6 +1,6 @@
 import { Loader } from "@dot-loaders/react"
 import { useQuery } from "@tanstack/react-query"
-import { isValidElement, useEffect, useRef, useState } from "react"
+import { isValidElement, useMemo, useRef, useState } from "react"
 import {
   IconAlertTriangle,
   IconDeviceDesktopX,
@@ -21,7 +21,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType, ReactNode, RefObject } from "react"
 import {
   AppAlertDialogContent,
   AppDialogScrollBody,
@@ -46,7 +46,7 @@ export type ConfirmStatusItem = {
   successDisplay?: "vm" | "deleted"
 }
 
-function renderStatusIcon(item: ConfirmStatusItem) {
+function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
   const isPending = item.status === "pending"
 
   if (item.icon) {
@@ -147,7 +147,9 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
     <AppDialogScrollBody className="-mb-8 gap-3">
       {items.map((item) => (
         <Item key={item.id} variant="muted">
-          <ItemMedia variant="icon">{renderStatusIcon(item)}</ItemMedia>
+          <ItemMedia variant="icon">
+            <ConfirmStatusIcon item={item} />
+          </ItemMedia>
           <ItemContent>
             <ItemTitle
               className={item.status === "error" ? "text-destructive" : ""}
@@ -172,6 +174,128 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
   )
 }
 
+function ConfirmDialogSession({
+  config,
+  onClose,
+  isPendingRef,
+}: {
+  config: ConfirmConfig
+  onClose: () => void
+  isPendingRef: RefObject<boolean>
+}) {
+  const [isPending, setIsPending] = useState(false)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>(
+    () => config.statusItems ?? []
+  )
+  const statusItemsRef = useRef<Array<ConfirmStatusItem>>([])
+  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
+
+  const HeaderIcon =
+    config.icon ??
+    (config.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
+  statusItemsRef.current = statusItems
+  isPendingRef.current = isPending
+
+  const resolvedStatusItems = useMemo(() => {
+    if (!vmStatuses) {
+      return statusItems
+    }
+
+    return statusItems.map((item) => {
+      if (item.kind !== "vm" || item.vmid == null) {
+        return item
+      }
+
+      const liveStatus = vmStatuses[item.vmid]
+      let nextItem = item
+
+      if (liveStatus !== item.vmStatus) {
+        nextItem = {
+          ...nextItem,
+          vmStatus: liveStatus,
+        }
+      }
+
+      if (
+        nextItem.status === "pending" &&
+        nextItem.successDisplay !== "deleted" &&
+        nextItem.successVmStatus &&
+        liveStatus === nextItem.successVmStatus
+      ) {
+        nextItem = {
+          ...nextItem,
+          status: "success",
+          error: undefined,
+        }
+      }
+
+      return nextItem
+    })
+  }, [statusItems, vmStatuses])
+
+  const allActionsSucceeded =
+    resolvedStatusItems.length > 0 &&
+    resolvedStatusItems.every((item) => item.status === "success")
+
+  return (
+    <AppAlertDialogContent
+      open
+      icon={HeaderIcon}
+      title={config.title}
+      description={config.description}
+      descriptionProps={{
+        render: <div />,
+        className: "space-y-3 text-sm text-muted-foreground",
+      }}
+    >
+      {resolvedStatusItems.length > 0 && (
+        <ConfirmStatusList items={resolvedStatusItems} />
+      )}
+      <AlertDialogFooter>
+        <AlertDialogCancel disabled={isPending}>
+          {resolvedStatusItems.length > 0 && hasSubmitted ? "Close" : "Cancel"}
+        </AlertDialogCancel>
+        <AlertDialogAction
+          variant={config.variant ?? "default"}
+          disabled={
+            isPending || allActionsSucceeded || config.actionDisabled === true
+          }
+          onClick={async () => {
+            setHasSubmitted(true)
+            const closeOnSuccess = config.closeOnSuccess ?? true
+
+            if (closeOnSuccess) {
+              onClose()
+            } else {
+              setIsPending(true)
+            }
+
+            try {
+              await config.onConfirm({
+                getStatusItems: () => statusItemsRef.current,
+                setStatusItems: (updater) => {
+                  setStatusItems((prev) =>
+                    typeof updater === "function" ? updater(prev) : updater
+                  )
+                },
+              })
+            } catch {
+              // Error feedback is handled by the caller.
+            } finally {
+              if (!closeOnSuccess) {
+                setIsPending(false)
+              }
+            }
+          }}
+        >
+          {config.actionLabel}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AppAlertDialogContent>
+  )
+}
+
 export function ConfirmDialog({
   config,
   onClose,
@@ -179,135 +303,30 @@ export function ConfirmDialog({
   config: ConfirmConfig | null
   onClose: () => void
 }) {
-  const [isPending, setIsPending] = useState(false)
-  const [hasSubmitted, setHasSubmitted] = useState(false)
-  const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>([])
-  const statusItemsRef = useRef<Array<ConfirmStatusItem>>([])
-  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
+  const prevConfigRef = useRef<ConfirmConfig | null>(null)
+  const sessionKeyRef = useRef(0)
+  const isPendingRef = useRef(false)
 
-  const HeaderIcon =
-    config?.icon ??
-    (config?.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
-  const hasStatusItems = statusItems.length > 0
-  const allActionsSucceeded =
-    hasStatusItems && statusItems.every((item) => item.status === "success")
-
-  statusItemsRef.current = statusItems
-
-  useEffect(() => {
-    if (!config) return
-
-    setHasSubmitted(false)
-    setIsPending(false)
-    setStatusItems(config.statusItems ?? [])
-  }, [config])
-
-  useEffect(() => {
-    if (!vmStatuses) {
-      return
-    }
-
-    setStatusItems((current) => {
-      const next = current.map((item) => {
-        if (item.kind !== "vm" || item.vmid == null) {
-          return item
-        }
-
-        const liveStatus = vmStatuses[item.vmid]
-        let nextItem = item
-
-        if (liveStatus !== item.vmStatus) {
-          nextItem = {
-            ...nextItem,
-            vmStatus: liveStatus,
-          }
-        }
-
-        if (
-          nextItem.status === "pending" &&
-          nextItem.successDisplay !== "deleted" &&
-          nextItem.successVmStatus &&
-          liveStatus === nextItem.successVmStatus
-        ) {
-          nextItem = {
-            ...nextItem,
-            status: "success",
-            error: undefined,
-          }
-        }
-
-        return nextItem
-      })
-
-      return next.some((item, index) => item !== current[index])
-        ? next
-        : current
-    })
-  }, [vmStatuses])
+  if (config !== prevConfigRef.current && config !== null) {
+    sessionKeyRef.current += 1
+  }
+  prevConfigRef.current = config
 
   return (
     <AlertDialog
       open={config !== null}
       onOpenChange={(open) => {
-        if (!open && !isPending) onClose()
+        if (!open && !isPendingRef.current) onClose()
       }}
     >
-      <AppAlertDialogContent
-        open={config !== null}
-        icon={HeaderIcon}
-        title={config?.title ?? ""}
-        description={config?.description ?? null}
-        descriptionProps={{
-          render: <div />,
-          className: "space-y-3 text-sm text-muted-foreground",
-        }}
-      >
-        {hasStatusItems && <ConfirmStatusList items={statusItems} />}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>
-            {hasStatusItems && hasSubmitted ? "Close" : "Cancel"}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            variant={config?.variant ?? "default"}
-            disabled={
-              isPending ||
-              allActionsSucceeded ||
-              config?.actionDisabled === true
-            }
-            onClick={async () => {
-              if (!config) return
-
-              setHasSubmitted(true)
-              const closeOnSuccess = config.closeOnSuccess ?? true
-
-              if (closeOnSuccess) {
-                onClose()
-              } else {
-                setIsPending(true)
-              }
-
-              try {
-                await config.onConfirm({
-                  getStatusItems: () => statusItemsRef.current,
-                  setStatusItems: (updater) => {
-                    setStatusItems((prev) =>
-                      typeof updater === "function" ? updater(prev) : updater
-                    )
-                  },
-                })
-              } catch {
-                // Error feedback is handled by the caller.
-              } finally {
-                if (!closeOnSuccess) {
-                  setIsPending(false)
-                }
-              }
-            }}
-          >
-            {config?.actionLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AppAlertDialogContent>
+      {config ? (
+        <ConfirmDialogSession
+          key={sessionKeyRef.current}
+          config={config}
+          onClose={onClose}
+          isPendingRef={isPendingRef}
+        />
+      ) : null}
     </AlertDialog>
   )
 }

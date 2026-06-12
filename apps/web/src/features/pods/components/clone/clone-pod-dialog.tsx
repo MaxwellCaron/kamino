@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { AnimatePresence, motion } from "motion/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { AnimatePresence, m } from "motion/react"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -34,8 +34,10 @@ import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import {
   clonePod,
   clonePodProgressQueryOptions,
+  clonedPodQueryOptions,
   reclonePod,
 } from "@/features/pods/api/clone-pod-api"
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 function useCloneProcess(
   open: boolean,
@@ -43,6 +45,7 @@ function useCloneProcess(
   clonedPodId?: string,
   onCloned?: (clone: ClonedPod) => void
 ) {
+  const queryClient = useQueryClient()
   const [progressId, setProgressId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const cloneMutation = useMutation({
@@ -53,18 +56,27 @@ function useCloneProcess(
 
       return clonePod(params)
     },
-    onSuccess: (clone) => onCloned?.(clone),
+    onSuccess: async (clone) => {
+      onCloned?.(clone)
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: clonedPodQueryOptions(pod?.slug).queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        }),
+      ])
+    },
   })
-  const resetCloneMutation = cloneMutation.reset
-  const progressQuery = useQuery(
+  const { data: progressData } = useQuery(
     clonePodProgressQueryOptions(
       progressId,
       open && progressId != null && cloneMutation.isPending
     )
   )
-  const progressState = progressQuery.data?.state
+  const progressState = progressData?.state
   const currentStep =
-    progressQuery.data?.step_id ??
+    progressData?.step_id ??
     (cloneMutation.isPending || cloneMutation.isSuccess || cloneMutation.isError
       ? 1
       : 0)
@@ -94,24 +106,10 @@ function useCloneProcess(
   const colors = getProgressStepColors(activeTask?.id)
 
   useEffect(() => {
-    if (!open) {
-      setProgressId(null)
-      setElapsedTime(0)
-      resetCloneMutation()
-    }
-  }, [open, resetCloneMutation])
-
-  useEffect(() => {
     if (!isCloning || isFinished || isError) return
     const interval = setInterval(() => setElapsedTime((p) => p + 1), 1000)
     return () => clearInterval(interval)
   }, [isCloning, isError, isFinished])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
 
   return {
     isCloning,
@@ -124,8 +122,8 @@ function useCloneProcess(
     completedTasks,
     totalTasks,
     errorMessage:
-      progressQuery.data?.state === "error"
-        ? progressQuery.data.message
+      progressData?.state === "error"
+        ? progressData.message
         : cloneMutation.error?.message,
     startCloning: () => {
       if (!pod) return
@@ -135,6 +133,12 @@ function useCloneProcess(
       cloneMutation.mutate({ podSlug: pod.slug, progressId: nextProgressId })
     },
   }
+}
+
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
 export function ClonePodDialog({
@@ -190,7 +194,7 @@ export function ClonePodDialog({
               <AnimatePresence mode="wait">
                 {isCloning ? (
                   isError ? (
-                    <motion.span
+                    <m.span
                       key="failed-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -208,9 +212,9 @@ export function ClonePodDialog({
                           inactiveOpacity: 1,
                         }}
                       />
-                    </motion.span>
+                    </m.span>
                   ) : isFinished ? (
-                    <motion.span
+                    <m.span
                       key="finished-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -228,9 +232,9 @@ export function ClonePodDialog({
                           inactiveOpacity: 1,
                         }}
                       />
-                    </motion.span>
+                    </m.span>
                   ) : (
-                    <motion.span
+                    <m.span
                       key="cloning-loader"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -251,10 +255,10 @@ export function ClonePodDialog({
                           gap: 2,
                         }}
                       />
-                    </motion.span>
+                    </m.span>
                   )
                 ) : (
-                  <motion.span
+                  <m.span
                     key="approval-loader"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -272,10 +276,10 @@ export function ClonePodDialog({
                         inactiveOpacity: 1,
                       }}
                     />
-                  </motion.span>
+                  </m.span>
                 )}
               </AnimatePresence>
-              <span className="text-balancet scroll-m-20 text-4xl font-extrabold tracking-tight">
+              <span className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
                 {dialogTitle}
               </span>
             </div>

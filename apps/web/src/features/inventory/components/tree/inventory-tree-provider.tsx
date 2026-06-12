@@ -1,90 +1,32 @@
-import {
-  createContext,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
-import { AnimatePresence } from "motion/react"
 import { toast } from "sonner"
-
-import { Button } from "@workspace/ui/components/button"
-import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
 
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
 import { VIRTUAL_ROOT } from "../../utils/constants"
-import { InventoryFavoritesSection } from "./favorites-section"
-import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
-import { InventoryTreeContent } from "./tree-content"
-import { InventoryTreeSearch } from "./tree-search"
-import type { ApiTreeNode } from "../../types/inventory-types"
-import type { TreeInstance } from "@headless-tree/core"
+import { InventoryTreeContext } from "./inventory-tree-context"
 import type { ReactNode } from "react"
-import { SidebarListSkeleton } from "@/components/loading-skeletons"
+import type { InventoryTreeContextValue } from "./inventory-tree-context"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import { formatToastError } from "@/features/shared/utils/format"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
-interface InventoryTreeContextValue {
-  query: string
-  setQuery: (query: string) => void
-  resultCount: number | null
-  tree: TreeInstance<ApiTreeNode>
-  expandAll: () => void
-  collapseAll: () => void
-  getStatus: (itemId: string) => string | undefined
-  isLoading: boolean
-  error: Error | null
-  isEmpty: boolean
-  favoriteIds: Set<string>
-  toggleFavorite: (itemId: string) => void
-  getItemData: (itemId: string) => ApiTreeNode | undefined
-  handlePrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  handleFavoritePrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  selectedItemIds: Array<string>
-  replaceSelection: (itemIds: Array<string>) => void
-  clearSelection: () => void
-}
-
-interface PendingRevealRequest {
-  itemId: string
-  requestId: number
-}
-
-const InventoryTreeContext = createContext<InventoryTreeContextValue | null>(
-  null
-)
-
-export function useInventoryTreeContext() {
-  const ctx = use(InventoryTreeContext)
-  if (!ctx) {
-    throw new Error(
-      "useInventoryTreeContext must be used within an InventoryTreeProvider"
-    )
-  }
-  return ctx
+interface SelectionState {
+  activeItemId?: string
+  itemIds: Array<string>
 }
 
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
   const [query, setQuery] = useState("")
-  const [selectedItemIds, setSelectedItemIds] = useState<Array<string>>(() =>
-    activeItemId ? [activeItemId] : []
+  const [selectionState, setSelectionState] = useState<SelectionState | null>(
+    null
   )
-  const [pendingRevealRequest, setPendingRevealRequest] =
-    useState<PendingRevealRequest | null>(null)
   const { favoriteIds, toggleFavorite: toggleSharedFavorite } =
     useInventoryFavorites()
 
@@ -116,26 +58,40 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [filteredApiTree, fullTree, isSearchActive]
   )
 
-  useEffect(() => {
-    setSelectedItemIds(activeItemId ? [activeItemId] : [])
-  }, [activeItemId])
+  const selectedItemIds = useMemo(() => {
+    const itemIdsForActiveRoute =
+      activeItemId === undefined ? [] : [activeItemId]
+    const itemIds =
+      selectionState?.activeItemId === activeItemId
+        ? (selectionState?.itemIds ?? [])
+        : itemIdsForActiveRoute
 
-  useEffect(() => {
-    setSelectedItemIds((current) => {
-      const next = current.filter(
-        (itemId) => itemId === activeItemId || items.has(itemId)
-      )
-      return next.length === current.length ? current : next
-    })
-  }, [activeItemId, items])
+    return itemIds.filter(
+      (itemId) => itemId === activeItemId || items.has(itemId)
+    )
+  }, [activeItemId, items, selectionState])
+
+  const setSelectedItemIds = useCallback(
+    (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
+      setSelectionState({
+        activeItemId,
+        itemIds:
+          typeof updater === "function" ? updater(selectedItemIds) : updater,
+      })
+    },
+    [activeItemId, selectedItemIds]
+  )
 
   const clearSelection = useCallback(() => {
     setSelectedItemIds([])
-  }, [])
+  }, [setSelectedItemIds])
 
-  const replaceSelection = useCallback((itemIds: Array<string>) => {
-    setSelectedItemIds(itemIds)
-  }, [])
+  const replaceSelection = useCallback(
+    (itemIds: Array<string>) => {
+      setSelectedItemIds(itemIds)
+    },
+    [setSelectedItemIds]
+  )
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
@@ -184,36 +140,27 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [navigate]
   )
 
+  const { tree, expandAll, collapseAll, revealItem } = useInventoryHeadlessTree(
+    {
+      children: treeChildren,
+      items,
+      folderIds,
+      parentIds,
+      onMove: handleMove,
+      onPrimaryAction: handlePrimaryAction,
+      selectedItemIds,
+      setSelectedItemIds,
+    }
+  )
+
   const handleFavoritePrimaryAction = useCallback(
     (itemId: string, data: ApiTreeNode) => {
       setQuery("")
-      setPendingRevealRequest((current) => ({
-        itemId,
-        requestId: current ? current.requestId + 1 : 1,
-      }))
+      void revealItem(itemId)
       handlePrimaryAction(itemId, data)
     },
-    [handlePrimaryAction]
+    [handlePrimaryAction, revealItem]
   )
-
-  const handleRevealComplete = useCallback((requestId: number) => {
-    setPendingRevealRequest((current) =>
-      current?.requestId === requestId ? null : current
-    )
-  }, [])
-
-  const { tree, expandAll, collapseAll } = useInventoryHeadlessTree({
-    children: treeChildren,
-    items,
-    folderIds,
-    parentIds,
-    onMove: handleMove,
-    onPrimaryAction: handlePrimaryAction,
-    pendingRevealRequest,
-    onRevealComplete: handleRevealComplete,
-    selectedItemIds,
-    setSelectedItemIds,
-  })
 
   const value: InventoryTreeContextValue = {
     query,
@@ -237,68 +184,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   }
 
   return <InventoryTreeContext value={value}>{children}</InventoryTreeContext>
-}
-
-export function InventoryTreeHeader() {
-  const {
-    query,
-    setQuery,
-    resultCount,
-    expandAll,
-    collapseAll,
-    isLoading,
-    favoriteIds,
-  } = useInventoryTreeContext()
-
-  return (
-    <>
-      <SidebarGroupLabel className="-ml-1">Inventory</SidebarGroupLabel>
-      <div className="absolute top-3 right-3 flex">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={expandAll}
-                disabled={isLoading}
-              >
-                <IconChevronDown />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            <p>Expand all</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={collapseAll}
-                disabled={isLoading}
-              >
-                <IconChevronUp />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            <p>Collapse all</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <InventoryTreeSearch
-        query={query}
-        resultCount={resultCount}
-        setQuery={setQuery}
-      />
-      <AnimatePresence initial={false}>
-        {favoriteIds.size > 0 && <InventoryFavoritesSection />}
-      </AnimatePresence>
-    </>
-  )
 }
 
 interface FlatTree {
@@ -393,34 +278,4 @@ function buildVmIdMap(items: Map<string, ApiTreeNode>): Map<string, number> {
   }
 
   return map
-}
-
-export function InventoryTreeBody() {
-  const { tree, getStatus, isLoading, error, isEmpty } =
-    useInventoryTreeContext()
-
-  if (error) {
-    return (
-      <div className="px-4 py-2 text-sm text-destructive">{error.message}</div>
-    )
-  }
-
-  if (isEmpty) {
-    return (
-      <div className="px-4 py-2 text-sm text-muted-foreground">
-        No inventory items
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return <SidebarListSkeleton />
-  }
-
-  return (
-    <div className="flex flex-col gap-1 pt-1">
-      <InventoryTreeContent tree={tree} getStatus={getStatus} />
-      <InventorySelectionActionBar />
-    </div>
-  )
 }

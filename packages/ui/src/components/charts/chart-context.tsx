@@ -3,15 +3,9 @@ import type { scaleBand, scaleLinear, scaleTime } from "@visx/scale"
 import type { Dispatch, RefObject, SetStateAction } from "react"
 import type { ChartSelection } from "./use-chart-interaction"
 
-type ScaleLinear<TOutput> = ReturnType<
-  typeof scaleLinear<TOutput>
->
-type ScaleTime<TOutput> = ReturnType<
-  typeof scaleTime<TOutput>
->
-type ScaleBand<TDomain extends string> = ReturnType<
-  typeof scaleBand<TDomain>
->
+type ScaleLinear<TOutput> = ReturnType<typeof scaleLinear<TOutput>>
+type ScaleTime<TOutput> = ReturnType<typeof scaleTime<TOutput>>
+type ScaleBand<TDomain extends string> = ReturnType<typeof scaleBand<TDomain>>
 
 // CSS variable references for theming
 export const chartCssVars = {

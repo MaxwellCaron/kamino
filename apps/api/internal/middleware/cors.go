@@ -10,7 +10,7 @@ import (
 
 // CORS allows the configured frontend origin to make credentialed API calls.
 func CORS(frontendURL string) gin.HandlerFunc {
-	allowedOrigin := normalizeOrigin(frontendURL)
+	allowedOrigin := NormalizeOrigin(frontendURL)
 
 	return func(c *gin.Context) {
 		origin := strings.TrimSpace(c.GetHeader("Origin"))
@@ -31,7 +31,7 @@ func CORS(frontendURL string) gin.HandlerFunc {
 	}
 }
 
-func normalizeOrigin(raw string) string {
+func NormalizeOrigin(raw string) string {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return ""

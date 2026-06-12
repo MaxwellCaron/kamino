@@ -1,0 +1,112 @@
+import { Link } from "@tanstack/react-router"
+import { IconArrowUpRight } from "@tabler/icons-react"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import { Button } from "@workspace/ui/components/button"
+import type { ColumnDef } from "@tanstack/react-table"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { SimpleDataTable } from "@/components/data-table/simple-data-table"
+
+type AdminDashboardPrincipalsCardsProps = {
+  groupColumns: Array<ColumnDef<ApiPrincipal>>
+  recentGroups: Array<ApiPrincipal>
+  groupsError: Error | null
+  isGroupsLoading: boolean
+  userColumns: Array<ColumnDef<ApiPrincipal>>
+  recentUsers: Array<ApiPrincipal>
+  usersError: Error | null
+  isUsersLoading: boolean
+}
+
+export function AdminDashboardPrincipalsCards({
+  groupColumns,
+  recentGroups,
+  groupsError,
+  isGroupsLoading,
+  userColumns,
+  recentUsers,
+  usersError,
+  isUsersLoading,
+}: AdminDashboardPrincipalsCardsProps) {
+  return (
+    <>
+      <Card className="xl:col-span-5">
+        <CardHeader>
+          <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+            Groups
+          </CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">
+            Last five created group principals.
+          </CardDescription>
+          <CardAction>
+            <Button
+              nativeButton={false}
+              size="sm"
+              render={
+                <Link
+                  to="/admin/principals/groups"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  All Groups
+                  <IconArrowUpRight className="size-4" />
+                </Link>
+              }
+            />
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-0">
+          <SimpleDataTable
+            columns={groupColumns}
+            data={recentGroups}
+            error={groupsError}
+            getRowId={(principal: ApiPrincipal) => principal.id}
+            isLoading={isGroupsLoading}
+            skeletonRows={3}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="xl:col-span-7">
+        <CardHeader>
+          <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+            Users
+          </CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">
+            Last five created user principals.
+          </CardDescription>
+          <CardAction>
+            <Button
+              nativeButton={false}
+              size="sm"
+              render={
+                <Link
+                  to="/admin/principals/users"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  All Users
+                  <IconArrowUpRight className="size-4" />
+                </Link>
+              }
+            />
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-0">
+          <SimpleDataTable
+            columns={userColumns}
+            data={recentUsers}
+            error={usersError}
+            getRowId={(principal: ApiPrincipal) => principal.id}
+            isLoading={isUsersLoading}
+            skeletonRows={3}
+          />
+        </CardContent>
+      </Card>
+    </>
+  )
+}

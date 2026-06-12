@@ -13,10 +13,7 @@ function getCommandSearchText(command: SiteCommandResult) {
   )
 }
 
-export function commandMatchesQuery(
-  command: SiteCommandResult,
-  query: string
-) {
+export function commandMatchesQuery(command: SiteCommandResult, query: string) {
   const tokens = normalizeCommandSearchText(query).split(/\s+/).filter(Boolean)
 
   if (tokens.length === 0) {

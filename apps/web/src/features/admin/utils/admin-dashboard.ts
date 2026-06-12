@@ -13,11 +13,11 @@ export function percentage(used: number, total: number) {
   return Math.min(100, Math.max(0, (used / total) * 100))
 }
 
-export function timestamp(value?: string | null) {
+function timestamp(value?: string | null) {
   return value ? new Date(value).getTime() : 0
 }
 
-export function requestTimestamp(request: ApiRequestSummary) {
+function requestTimestamp(request: ApiRequestSummary) {
   return timestamp(
     request.reviewed_at ??
       request.executed_at ??
@@ -38,7 +38,7 @@ export function statusBadgeVariant(status: string): "default" | "destructive" {
   return status === "online" ? "default" : "destructive"
 }
 
-export function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
+function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
   return (storages ?? []).reduce<Capacity>(
     (capacity, storage) => ({
       total: capacity.total + storage.total,
@@ -48,7 +48,7 @@ export function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
   )
 }
 
-export function sumCapacities(capacities: Iterable<Capacity>): Capacity {
+function sumCapacities(capacities: Iterable<Capacity>): Capacity {
   let total = 0
   let used = 0
 
@@ -101,8 +101,8 @@ export function getRecentPrincipals(
   principals: Array<ApiPrincipal>,
   limit = 5
 ) {
-  return [...principals]
-    .sort(
+  return principals
+    .toSorted(
       (left, right) => timestamp(right.created_at) - timestamp(left.created_at)
     )
     .slice(0, limit)

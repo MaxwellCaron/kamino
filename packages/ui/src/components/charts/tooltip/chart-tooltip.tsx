@@ -1,4 +1,4 @@
-import { motion, useSpring } from "motion/react"
+import { m, useSpring } from "motion/react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { chartCssVars, useChart } from "../chart-context"
@@ -215,7 +215,7 @@ export function ChartTooltip({
 
       {/* Date/Category Ticker - only show for vertical charts */}
       {showDatePill && dateLabels.length > 0 && visible && !isHorizontal && (
-        <motion.div
+        <m.div
           className="pointer-events-none absolute z-50"
           style={{
             left: animatedX,
@@ -228,7 +228,7 @@ export function ChartTooltip({
             labels={dateLabels}
             visible={visible}
           />
-        </motion.div>
+        </m.div>
       )}
     </>
   )

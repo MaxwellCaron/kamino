@@ -13,12 +13,6 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupText,
-  InputGroupTextarea,
-} from "@workspace/ui/components/input-group"
 import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { Separator } from "@workspace/ui/components/separator"
 import {
@@ -34,6 +28,7 @@ import type {
   PublishPodFormApi,
   PublishPodFormValues,
 } from "./publish-pod-form"
+import { CountedTextareaInputGroup } from "@/components/forms/counted-textarea-field"
 
 type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
 
@@ -171,27 +166,17 @@ export function PublishPodTaskItem({
                           </TabsList>
                         </div>
                         <TabsContent value="text" className="mt-2">
-                          <InputGroup>
-                            <InputGroupTextarea
-                              id={field.name}
-                              name={field.name}
-                              className="min-h-30 p-4"
-                              value={field.state.value}
-                              onBlur={field.handleBlur}
-                              onChange={(event) =>
-                                field.handleChange(event.target.value)
-                              }
-                              aria-invalid={isInvalid || undefined}
-                              maxLength={publishPodTaskContentMaxLength}
-                              placeholder="Describe the task instructions..."
-                            />
-                            <InputGroupAddon align="block-end">
-                              <InputGroupText className="ml-auto text-xs">
-                                {field.state.value.length}/
-                                {publishPodTaskContentMaxLength}
-                              </InputGroupText>
-                            </InputGroupAddon>
-                          </InputGroup>
+                          <CountedTextareaInputGroup
+                            id={field.name}
+                            name={field.name}
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onValueChange={field.handleChange}
+                            isInvalid={isInvalid}
+                            maxLength={publishPodTaskContentMaxLength}
+                            placeholder="Describe the task instructions..."
+                            className="min-h-30"
+                          />
                         </TabsContent>
                         <TabsContent value="markdown" className="mt-2">
                           {field.state.value ? (

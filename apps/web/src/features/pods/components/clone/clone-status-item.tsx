@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import {
   IconBox,
   IconChevronUp,
@@ -69,7 +69,7 @@ export function CloneStatusItem({
       role="listitem"
       className={cn("shadow ring-1 ring-muted", className)}
     >
-      <motion.div layout className="contents">
+      <m.div layout className="contents">
         <ItemMedia
           variant="image"
           className={cn(
@@ -84,16 +84,16 @@ export function CloneStatusItem({
         >
           <AnimatePresence mode="wait">
             {isFailed ? (
-              <motion.div
+              <m.div
                 key="failed-icon"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
                 <IconXFilled size={24} />
-              </motion.div>
+              </m.div>
             ) : isCloning && !isFinished ? (
-              <motion.div
+              <m.div
                 key="sand-loader"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -109,9 +109,9 @@ export function CloneStatusItem({
                     gap: 1,
                   }}
                 />
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 key="box-icon"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -125,7 +125,7 @@ export function CloneStatusItem({
                 ) : (
                   <IconBox size={24} stroke={1.5} />
                 )}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </ItemMedia>
@@ -135,7 +135,7 @@ export function CloneStatusItem({
             {showDetails ? (
               <div key="tasks" className="mt-1 flex flex-col gap-3">
                 {tasks.map((task) => (
-                  <motion.div
+                  <m.div
                     key={task.id}
                     className="flex items-center gap-3 text-sm"
                     variants={stagger.item}
@@ -186,7 +186,7 @@ export function CloneStatusItem({
                         {task.name}
                       </span>
                     </div>
-                  </motion.div>
+                  </m.div>
                 ))}
               </div>
             ) : (
@@ -236,7 +236,7 @@ export function CloneStatusItem({
             {showDetails ? "Hide" : "Show"}
           </Button>
         </ItemFooter>
-      </motion.div>
+      </m.div>
     </Item>
   )
 }

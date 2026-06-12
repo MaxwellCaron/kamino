@@ -1,21 +1,11 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import {
   useMutation,
   useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconUser, IconUsersGroup } from "@tabler/icons-react"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
+import { IconUser, IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
 import {
   buildStorageByNode,
@@ -29,10 +19,10 @@ import { AdminDashboardHeader } from "./admin-dashboard-header"
 import { getPrincipalColumns } from "./admin-principal-columns"
 import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
 import { AdminDashboardSkeleton } from "./admin-dashboard-skeleton"
+import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-requests-card"
+import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -53,7 +43,6 @@ import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
-import { SimpleDataTable } from "@/components/data-table/simple-data-table"
 
 const RequestDetailDialog = lazy(() =>
   import("@/features/requests/components/request-detail-dialog").then(
@@ -68,13 +57,32 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     null
   )
   const queryClient = useQueryClient()
-  const usersQuery = useQuery(usersQueryOptions)
-  const groupsQuery = useQuery(groupsQueryOptions)
-  const inventoryQuery = useQuery(inventoryTreeQueryOptions)
-  const pendingRequestsQuery = useQuery(requestsQueryOptions("pending"))
-  const completedRequestsQuery = useQuery(requestsQueryOptions("completed"))
-  const nodesQuery = useQuery(nodesQueryOptions)
-  const detailQuery = useQuery({
+  const {
+    data: users,
+    error: usersError,
+    isLoading: isUsersLoading,
+  } = useQuery(usersQueryOptions)
+  const {
+    data: groups,
+    error: groupsError,
+    isLoading: isGroupsLoading,
+  } = useQuery(groupsQueryOptions)
+  const { data: inventoryTree, isLoading: isInventoryLoading } = useQuery(
+    inventoryTreeQueryOptions
+  )
+  const {
+    data: pendingRequestsData,
+    error: pendingRequestsError,
+    isLoading: isPendingRequestsLoading,
+  } = useQuery(requestsQueryOptions("pending"))
+  const { data: completedRequestsData, isLoading: isCompletedRequestsLoading } =
+    useQuery(requestsQueryOptions("completed"))
+  const { data: nodesData } = useQuery(nodesQueryOptions)
+  const {
+    data: requestDetail,
+    error: requestDetailError,
+    isLoading: isRequestDetailLoading,
+  } = useQuery({
     ...requestDetailQueryOptions(selectedRequestId ?? ""),
     enabled: !!selectedRequestId,
   })
@@ -84,9 +92,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   )
 
   const storageQueries = useQueries({
-    queries: (nodesQuery.data ?? []).map((node) =>
-      storagesQueryOptions(node.node)
-    ),
+    queries: (nodesData ?? []).map((node) => storagesQueryOptions(node.node)),
   })
 
   const requestColumns = useMemo(
@@ -94,10 +100,10 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       getRequestColumns({
         onOpen: (request) => setSelectedRequestId(request.id),
         selectable: false,
-        tree: inventoryQuery.data,
+        tree: inventoryTree,
         excludeColumns: ["status", "reviewer_username", "updated_at"],
       }),
-    [inventoryQuery.data]
+    [inventoryTree]
   )
   const userColumns = useMemo(
     () => getPrincipalColumns({ icon: IconUser, label: "User" }),
@@ -123,62 +129,91 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   })
 
   const pendingRequests = useMemo(
-    () => getRecentRequests(pendingRequestsQuery.data ?? []),
-    [pendingRequestsQuery.data]
+    () => getRecentRequests(pendingRequestsData ?? []),
+    [pendingRequestsData]
   )
 
-  const recentUsers = useMemo(
-    () => getRecentPrincipals(usersQuery.data ?? []),
-    [usersQuery.data]
-  )
+  const recentUsers = useMemo(() => getRecentPrincipals(users ?? []), [users])
 
   const recentGroups = useMemo(
-    () => getRecentPrincipals(groupsQuery.data ?? []),
-    [groupsQuery.data]
+    () => getRecentPrincipals(groups ?? []),
+    [groups]
   )
 
   const adminStats = useMemo<AdminStats | null>(() => {
     if (
-      !usersQuery.data ||
-      !groupsQuery.data ||
-      !inventoryQuery.data ||
-      !pendingRequestsQuery.data ||
-      !completedRequestsQuery.data
+      !users ||
+      !groups ||
+      !inventoryTree ||
+      !pendingRequestsData ||
+      !completedRequestsData
     ) {
       return null
     }
-    const { folders, vms, templates } = countInventoryStats(inventoryQuery.data)
+    const { folders, vms, templates } = countInventoryStats(inventoryTree)
     return {
-      users: usersQuery.data.length,
-      groups: groupsQuery.data.length,
+      users: users.length,
+      groups: groups.length,
       folders,
       vms,
       templates,
-      requests:
-        pendingRequestsQuery.data.length + completedRequestsQuery.data.length,
+      requests: pendingRequestsData.length + completedRequestsData.length,
     }
-  }, [
-    usersQuery.data,
-    groupsQuery.data,
-    inventoryQuery.data,
-    pendingRequestsQuery.data,
-    completedRequestsQuery.data,
-  ])
+  }, [users, groups, inventoryTree, pendingRequestsData, completedRequestsData])
 
   const storageByNode = useMemo(() => {
     return buildStorageByNode(
-      nodesQuery.data ?? [],
+      nodesData ?? [],
       storageQueries.map((query) => query.data)
     )
-  }, [nodesQuery.data, storageQueries])
+  }, [nodesData, storageQueries])
+  const handleRequestDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setSelectedRequestId(null)
+    }
+  }, [])
+  const handleApproveRequest = useCallback(() => {
+    if (!selectedRequestId) {
+      return
+    }
+    const id = selectedRequestId
+    setSelectedRequestId(null)
+    toast.promise(approveMutation.mutateAsync([id]), {
+      loading: "Approving request...",
+      success: (result) => {
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0].error)
+        }
+        return "Request approved"
+      },
+      error: formatMutationError,
+    })
+  }, [approveMutation, selectedRequestId])
+  const handleDenyRequest = useCallback(() => {
+    if (!selectedRequestId) {
+      return
+    }
+    const id = selectedRequestId
+    setSelectedRequestId(null)
+    toast.promise(denyMutation.mutateAsync([id]), {
+      loading: "Denying request...",
+      success: (result) => {
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0].error)
+        }
+        return "Request denied"
+      },
+      error: formatMutationError,
+    })
+  }, [denyMutation, selectedRequestId])
 
-  const nodes = nodesQuery.data ?? []
+  const nodes = nodesData ?? []
   const isDashboardLoading =
-    usersQuery.isLoading ||
-    groupsQuery.isLoading ||
-    inventoryQuery.isLoading ||
-    pendingRequestsQuery.isLoading ||
-    completedRequestsQuery.isLoading
+    isUsersLoading ||
+    isGroupsLoading ||
+    isInventoryLoading ||
+    isPendingRequestsLoading ||
+    isCompletedRequestsLoading
 
   if (isDashboardLoading) {
     return <AdminDashboardSkeleton />
@@ -193,167 +228,41 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
 
         <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
 
-        <Card className="xl:col-span-7">
-          <CardHeader>
-            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Pending Requests
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Newest requests waiting for review.
-            </CardDescription>
-            <CardAction>
-              <Button
-                nativeButton={false}
-                size="sm"
-                render={
-                  <Link
-                    to="/manager/requests"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    Queue
-                    <IconArrowUpRight className="size-4" />
-                  </Link>
-                }
-              />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <SimpleDataTable
-              columns={requestColumns}
-              data={pendingRequests}
-              error={pendingRequestsQuery.error}
-              getRowId={(request: ApiRequestSummary) => request.id}
-              isLoading={pendingRequestsQuery.isLoading}
-              skeletonRows={3}
-            />
-          </CardContent>
-        </Card>
+        <AdminDashboardPendingRequestsCard
+          columns={requestColumns}
+          data={pendingRequests}
+          error={pendingRequestsError}
+          isLoading={isPendingRequestsLoading}
+        />
 
         <div className="xl:col-span-5">
           <AdminDashboardActionButtons />
         </div>
 
-        <Card className="xl:col-span-5">
-          <CardHeader>
-            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Groups
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Last five created group principals.
-            </CardDescription>
-            <CardAction>
-              <Button
-                nativeButton={false}
-                size="sm"
-                render={
-                  <Link
-                    to="/admin/principals/groups"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    All Groups
-                    <IconArrowUpRight className="size-4" />
-                  </Link>
-                }
-              />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <SimpleDataTable
-              columns={groupColumns}
-              data={recentGroups}
-              error={groupsQuery.error}
-              getRowId={(principal: ApiPrincipal) => principal.id}
-              isLoading={groupsQuery.isLoading}
-              skeletonRows={3}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-7">
-          <CardHeader>
-            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Users
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Last five created user principals.
-            </CardDescription>
-            <CardAction>
-              <Button
-                nativeButton={false}
-                size="sm"
-                render={
-                  <Link
-                    to="/admin/principals/users"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    All Users
-                    <IconArrowUpRight className="size-4" />
-                  </Link>
-                }
-              />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <SimpleDataTable
-              columns={userColumns}
-              data={recentUsers}
-              error={usersQuery.error}
-              getRowId={(principal: ApiPrincipal) => principal.id}
-              isLoading={usersQuery.isLoading}
-              skeletonRows={3}
-            />
-          </CardContent>
-        </Card>
+        <AdminDashboardPrincipalsCards
+          groupColumns={groupColumns}
+          recentGroups={recentGroups}
+          groupsError={groupsError}
+          isGroupsLoading={isGroupsLoading}
+          userColumns={userColumns}
+          recentUsers={recentUsers}
+          usersError={usersError}
+          isUsersLoading={isUsersLoading}
+        />
       </div>
 
       <Suspense fallback={null}>
         {selectedRequestId !== null && (
           <RequestDetailDialog
             canReview={canReview}
-            error={detailQuery.error}
-            isLoading={detailQuery.isLoading}
-            onApprove={() => {
-              if (!selectedRequestId) {
-                return
-              }
-              const id = selectedRequestId
-              setSelectedRequestId(null)
-              toast.promise(approveMutation.mutateAsync([id]), {
-                loading: "Approving request...",
-                success: (result) => {
-                  if (result.failed.length > 0) {
-                    throw new Error(result.failed[0].error)
-                  }
-                  return "Request approved"
-                },
-                error: formatMutationError,
-              })
-            }}
-            onDeny={() => {
-              if (!selectedRequestId) {
-                return
-              }
-              const id = selectedRequestId
-              setSelectedRequestId(null)
-              toast.promise(denyMutation.mutateAsync([id]), {
-                loading: "Denying request...",
-                success: (result) => {
-                  if (result.failed.length > 0) {
-                    throw new Error(result.failed[0].error)
-                  }
-                  return "Request denied"
-                },
-                error: formatMutationError,
-              })
-            }}
-            onOpenChange={(open) => {
-              if (!open) {
-                setSelectedRequestId(null)
-              }
-            }}
+            error={requestDetailError}
+            isLoading={isRequestDetailLoading}
+            onApprove={handleApproveRequest}
+            onDeny={handleDenyRequest}
+            onOpenChange={handleRequestDetailOpenChange}
             open={true}
-            request={detailQuery.data ?? null}
-            tree={inventoryQuery.data}
+            request={requestDetail ?? null}
+            tree={inventoryTree}
           />
         )}
       </Suspense>

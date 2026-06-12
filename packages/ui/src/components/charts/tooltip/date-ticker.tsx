@@ -1,4 +1,4 @@
-import { motion, useSpring } from "motion/react"
+import { m, useSpring } from "motion/react"
 import { useMemo, useRef } from "react"
 
 const TICKER_ITEM_HEIGHT = 24
@@ -72,7 +72,7 @@ export function DateTicker({ currentIndex, labels, visible }: DateTickerProps) {
         <div className="flex items-center justify-center gap-1">
           {/* Month stack */}
           <div className="relative h-6 overflow-hidden">
-            <motion.div className="flex flex-col" style={{ y: monthY }}>
+            <m.div className="flex flex-col" style={{ y: monthY }}>
               {monthIndices.uniqueMonths.map((month) => (
                 <div
                   className="flex h-6 shrink-0 items-center justify-center"
@@ -83,12 +83,12 @@ export function DateTicker({ currentIndex, labels, visible }: DateTickerProps) {
                   </span>
                 </div>
               ))}
-            </motion.div>
+            </m.div>
           </div>
 
           {/* Day stack */}
           <div className="relative h-6 overflow-hidden">
-            <motion.div className="flex flex-col" style={{ y: dayY }}>
+            <m.div className="flex flex-col" style={{ y: dayY }}>
               {parsedLabels.map((label) => (
                 <div
                   className="flex h-6 shrink-0 items-center justify-center"
@@ -99,7 +99,7 @@ export function DateTicker({ currentIndex, labels, visible }: DateTickerProps) {
                   </span>
                 </div>
               ))}
-            </motion.div>
+            </m.div>
           </div>
         </div>
       </div>

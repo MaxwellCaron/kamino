@@ -1,6 +1,6 @@
 import { curveMonotoneX } from "@visx/curve"
 import { AreaClosed, LinePath } from "@visx/shape"
-import { motion, useMotionTemplate, useSpring } from "motion/react"
+import { m, useMotionTemplate, useSpring } from "motion/react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { chartCssVars, useChart } from "./chart-context"
 
@@ -303,7 +303,7 @@ export function Area({
 
       {/* Main area with clip path */}
       <g clipPath={animate ? `url(#grow-clip-area-${dataKey})` : undefined}>
-        <motion.g
+        <m.g
           animate={{ opacity: isHovering && showHighlight ? 0.6 : 1 }}
           initial={{ opacity: 1 }}
           transition={{ duration: 0.4, ease: "easeInOut" }}
@@ -333,7 +333,7 @@ export function Area({
               y={getY}
             />
           )}
-        </motion.g>
+        </m.g>
       </g>
 
       {/* Highlight segment on hover */}
@@ -342,7 +342,7 @@ export function Area({
         isHovering &&
         isLoaded &&
         pathRef.current && (
-          <motion.path
+          <m.path
             animate={{ opacity: 1 }}
             d={pathRef.current.getAttribute("d") || ""}
             exit={{ opacity: 0 }}

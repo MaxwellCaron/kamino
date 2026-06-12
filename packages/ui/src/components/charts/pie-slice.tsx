@@ -1,5 +1,5 @@
 import { arc as arcGenerator } from "@visx/shape"
-import { motion, useSpring, useTransform } from "motion/react"
+import { m, useSpring, useTransform } from "motion/react"
 import { useEffect, useRef } from "react"
 import { usePie } from "./pie-context"
 
@@ -134,7 +134,7 @@ function AnimatedSliceTranslate({
   const glowColor = color
 
   return (
-    <motion.path
+    <m.path
       animate={{
         opacity: isFaded ? 0.4 : 1,
         x: isHovered ? offset.x : 0,
@@ -242,7 +242,7 @@ function AnimatedSliceGrow({
   const glowColor = color
 
   return (
-    <motion.path
+    <m.path
       animate={{
         opacity: isFaded ? 0.4 : 1,
       }}
@@ -395,7 +395,7 @@ export function PieSlice({
   const renderStaticSlice = () => {
     if (hoverEffect === "grow") {
       return (
-        <motion.path
+        <m.path
           animate={{
             opacity: isFaded ? 0.4 : 1,
             d: grownPath,
@@ -424,7 +424,7 @@ export function PieSlice({
     const translateY = shouldTranslate ? offset.y : 0
 
     return (
-      <motion.path
+      <m.path
         animate={{
           opacity: isFaded ? 0.4 : 1,
           x: translateX,

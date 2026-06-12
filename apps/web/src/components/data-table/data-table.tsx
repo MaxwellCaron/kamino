@@ -11,7 +11,7 @@ import {
   TableHead,
   TableRow,
 } from "@workspace/ui/components/table"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import { Input } from "@workspace/ui/components/input"
 import {
   Select,
@@ -51,7 +51,7 @@ interface DataTableProps<TData, TValue> {
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
   showSelectionSummary?: boolean
-  renderSelectionActions?: (
+  selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
 }
@@ -64,7 +64,7 @@ export function DataTable<TData, TValue>({
   getRowId,
   initialPageSize = 25,
   showSelectionSummary = true,
-  renderSelectionActions,
+  selectionActions,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -135,7 +135,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="overflow-hidden py-6">
         <Table className="border-y">
-          <motion.thead
+          <m.thead
             data-slot="table-header"
             className="bg-muted hover:bg-muted [&_tr]:border-b"
             initial={hasBeenLoading.current ? { opacity: 0 } : false}
@@ -161,9 +161,9 @@ export function DataTable<TData, TValue>({
                 })}
               </TableRow>
             ))}
-          </motion.thead>
+          </m.thead>
           <AnimatePresence mode="wait">
-            <motion.tbody
+            <m.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
               initial={
@@ -216,7 +216,7 @@ export function DataTable<TData, TValue>({
                   </TableCell>
                 </TableRow>
               )}
-            </motion.tbody>
+            </m.tbody>
           </AnimatePresence>
         </Table>
       </div>
@@ -224,7 +224,7 @@ export function DataTable<TData, TValue>({
         table={table}
         showSelectionSummary={showSelectionSummary}
       />
-      {renderSelectionActions && (
+      {selectionActions && (
         <ActionBar
           open={selectedRows.length > 0}
           onOpenChange={(open) => {
@@ -237,7 +237,7 @@ export function DataTable<TData, TValue>({
           </ActionBarSelection>
           <ActionBarSeparator />
           <ActionBarGroup>
-            {renderSelectionActions({ clearSelection, selectedRows })}
+            {selectionActions({ clearSelection, selectedRows })}
           </ActionBarGroup>
           <ActionBarClose aria-label="Clear selection">
             <IconX />

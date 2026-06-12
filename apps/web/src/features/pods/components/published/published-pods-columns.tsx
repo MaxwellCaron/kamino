@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react"
 import { Link } from "@tanstack/react-router"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { PublishedPodStatusBadge } from "./published-pod-status-badge"
 import type { ColumnDef } from "@tanstack/react-table"
 import type {
   PodStatus,
@@ -35,24 +36,6 @@ type PublishedPodColumnsOptions = {
   onDelete: (pod: PublishedPodCatalogEntry) => void
   onEdit: (pod: PublishedPodCatalogEntry) => void
   onStatusChange: (pod: PublishedPodCatalogEntry, status: PodStatus) => void
-}
-
-function StatusBadge({ status }: { status: PodStatus }) {
-  if (status === "listed") {
-    return (
-      <Badge variant="default">
-        <IconEye data-icon="inline-start" />
-        Listed
-      </Badge>
-    )
-  }
-
-  return (
-    <Badge variant="outline">
-      <IconEyeOff data-icon="inline-start" />
-      Unlisted
-    </Badge>
-  )
 }
 
 export function getPublishedPodsColumns({
@@ -81,7 +64,7 @@ export function getPublishedPodsColumns({
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-medium">{pod.title}</span>
-                <StatusBadge status={pod.status} />
+                <PublishedPodStatusBadge status={pod.status} />
               </div>
               <span className="truncate text-xs text-muted-foreground">
                 {pod.slug}

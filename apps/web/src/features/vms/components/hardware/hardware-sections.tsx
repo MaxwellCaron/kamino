@@ -20,62 +20,17 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import type { ReactNode } from "react"
-import type { ApiVNet } from "@/features/sdn/types/sdn-types"
-import type { ApiNetworkBridge } from "@/features/vms/types/vm-types"
-
-export type NetworkOption = {
-  label: string
-  value: string
-}
-
-export function buildVmHardwareNetworkOptions(data: {
-  bridges?: Array<ApiNetworkBridge>
-  vnets?: Array<ApiVNet>
-}) {
-  const bridgeOptions: Array<NetworkOption> =
-    data.bridges?.map((bridge) => ({
-      label: bridge.iface,
-      value: bridge.iface,
-    })) ?? []
-  const vnetOptions: Array<NetworkOption> =
-    data.vnets?.map((vnet) => ({
-      label: vnet.vnet,
-      value: vnet.vnet,
-    })) ?? []
-
-  return {
-    bridgeOptions,
-    vnetOptions,
-    networkOptions: [...bridgeOptions, ...vnetOptions],
-  }
-}
-
-export function getSelectOptionLabel(
-  options: ReadonlyArray<{ label: string; value: string }>,
-  value: string | undefined
-) {
-  if (!value) return undefined
-  return options.find((option) => option.value === value)?.label
-}
 
 export function VmHardwareOperatingSystemSection({
   legendIcon,
   title = "Operating System",
   description,
-  leadingFields,
-  osTypeField,
-  biosField,
-  machineField,
-  scsiField,
+  children,
 }: {
   legendIcon?: ReactNode
   title?: string
   description: string
-  leadingFields?: ReactNode
-  osTypeField: ReactNode
-  biosField: ReactNode
-  machineField: ReactNode
-  scsiField: ReactNode
+  children: ReactNode
 }) {
   return (
     <FieldSet>
@@ -84,35 +39,17 @@ export function VmHardwareOperatingSystemSection({
         {title}
       </FieldLegend>
       <FieldDescription>{description}</FieldDescription>
-      <FieldGroup>
-        {leadingFields}
-        {osTypeField}
-        <div className="grid grid-cols-2 gap-6">
-          {biosField}
-          {machineField}
-        </div>
-        {scsiField}
-      </FieldGroup>
+      <FieldGroup>{children}</FieldGroup>
     </FieldSet>
   )
 }
 
 export function VmHardwareComputeSection({
   description,
-  socketsField,
-  coresField,
-  cpuTypeField,
-  memoryField,
-  balloonField,
-  balloonDescription,
+  children,
 }: {
   description: string
-  socketsField: ReactNode
-  coresField: ReactNode
-  cpuTypeField: ReactNode
-  memoryField: ReactNode
-  balloonField: ReactNode
-  balloonDescription?: string
+  children: ReactNode
 }) {
   return (
     <>
@@ -123,60 +60,63 @@ export function VmHardwareComputeSection({
           Compute
         </FieldLegend>
         <FieldDescription>{description}</FieldDescription>
-        <FieldGroup>
-          <Item variant="muted">
-            <ItemMedia>
-              <IconCpu className="size-5" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle className="pl-1">CPU</ItemTitle>
-              <ItemDescription className="px-1">
-                Adjust socket, core, and CPU model settings.
-              </ItemDescription>
-              <div className="space-y-6 px-1 pt-4">
-                <div className="grid grid-cols-2 gap-6">
-                  {socketsField}
-                  {coresField}
-                </div>
-                {cpuTypeField}
-              </div>
-            </ItemContent>
-          </Item>
-
-          <Item variant="muted">
-            <ItemMedia>
-              <IconTopologyBus className="size-5 rotate-180" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle className="pl-1">Memory</ItemTitle>
-              <ItemDescription className="px-1">
-                Configure assigned memory and ballooning behavior.
-              </ItemDescription>
-              <div className="space-y-4 px-1 pt-4">
-                <div className="grid grid-cols-2 gap-6">
-                  {memoryField}
-                  {balloonField}
-                </div>
-                {balloonDescription ? (
-                  <div className="text-center text-muted-foreground">
-                    {balloonDescription}
-                  </div>
-                ) : null}
-              </div>
-            </ItemContent>
-          </Item>
-        </FieldGroup>
+        <FieldGroup>{children}</FieldGroup>
       </FieldSet>
     </>
   )
 }
 
-export function VmHardwareStorageSection({
-  storageField,
-  diskSizeField,
+export function VmHardwareCpuBlock({ children }: { children: ReactNode }) {
+  return (
+    <Item variant="muted">
+      <ItemMedia>
+        <IconCpu className="size-5" />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="pl-1">CPU</ItemTitle>
+        <ItemDescription className="px-1">
+          Adjust socket, core, and CPU model settings.
+        </ItemDescription>
+        <div className="space-y-6 px-1 pt-4">{children}</div>
+      </ItemContent>
+    </Item>
+  )
+}
+
+export function VmHardwareMemoryBlock({
+  children,
+  balloonDescription,
 }: {
-  storageField: ReactNode
-  diskSizeField: ReactNode
+  children: ReactNode
+  balloonDescription?: string
+}) {
+  return (
+    <Item variant="muted">
+      <ItemMedia>
+        <IconTopologyBus className="size-5 rotate-180" />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="pl-1">Memory</ItemTitle>
+        <ItemDescription className="px-1">
+          Configure assigned memory and ballooning behavior.
+        </ItemDescription>
+        <div className="space-y-4 px-1 pt-4">
+          {children}
+          {balloonDescription ? (
+            <div className="text-center text-muted-foreground">
+              {balloonDescription}
+            </div>
+          ) : null}
+        </div>
+      </ItemContent>
+    </Item>
+  )
+}
+
+export function VmHardwareStorageSection({
+  children,
+}: {
+  children: ReactNode
 }) {
   return (
     <Item variant="muted">
@@ -188,10 +128,7 @@ export function VmHardwareStorageSection({
         <ItemDescription className="px-1">
           Review the primary disk target and size.
         </ItemDescription>
-        <div className="space-y-4 px-1 pt-4">
-          {storageField}
-          {diskSizeField}
-        </div>
+        <div className="space-y-4 px-1 pt-4">{children}</div>
       </ItemContent>
     </Item>
   )

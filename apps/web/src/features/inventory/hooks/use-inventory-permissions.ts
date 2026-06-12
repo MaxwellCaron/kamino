@@ -72,7 +72,10 @@ function aclEntriesEqual(left: Array<AclEntry>, right: Array<AclEntry>) {
 
   const sortedLeft = left.map(getAclEntryKey).sort()
   const sortedRight = right.map(getAclEntryKey).sort()
-  return sortedLeft.every((entry, index) => entry === sortedRight[index])
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((entry, index) => entry === sortedRight[index])
+  )
 }
 
 const principalSectionLabels: Record<PrincipalListSectionKey, string> = {
@@ -193,27 +196,46 @@ export function useInventoryPermissions({
       })
   }, [draftPrincipals, inheritedPrincipals, principalMap])
 
-  const principalSections = React.useMemo(
-    () =>
-      (["inherited-groups", "inherited-users", "groups", "users"] as const)
-        .map((key) => ({
+  const principalSections = React.useMemo(() => {
+    const sections: Array<{
+      key: PrincipalListSectionKey
+      label: string
+      items: typeof principalListItems
+    }> = []
+
+    for (const key of [
+      "inherited-groups",
+      "inherited-users",
+      "groups",
+      "users",
+    ] as const) {
+      const items = principalListItems.filter((item) => item.section === key)
+      if (items.length > 0) {
+        sections.push({
           key,
           label: principalSectionLabels[key],
-          items: principalListItems.filter((item) => item.section === key),
-        }))
-        .filter((s) => s.items.length > 0),
-    [principalListItems]
-  )
+          items,
+        })
+      }
+    }
 
-  const availablePrincipalIds = React.useMemo(
-    () =>
-      principalOptions
-        .filter(
-          (p) => !principalListItems.some((item) => item.principalId === p.id)
-        )
-        .map((p) => p.id),
-    [principalListItems, principalOptions]
-  )
+    return sections
+  }, [principalListItems])
+
+  const availablePrincipalIds = React.useMemo(() => {
+    const assignedIds = new Set(
+      principalListItems.map((item) => item.principalId)
+    )
+    const ids: Array<string> = []
+
+    for (const principal of principalOptions) {
+      if (!assignedIds.has(principal.id)) {
+        ids.push(principal.id)
+      }
+    }
+
+    return ids
+  }, [principalListItems, principalOptions])
 
   const handleStartEditing = (principalId: string) => {
     const draftP = draftPrincipals.find((p) => p.principalId === principalId)
@@ -237,9 +259,15 @@ export function useInventoryPermissions({
   const handleAddPrincipals = (selectedIds: Array<string>) => {
     setDraftPrincipals((current) => {
       const existingIds = new Set(current.map((p) => p.principalId))
-      const nextPrincipals = selectedIds
-        .filter((id) => !existingIds.has(id))
-        .map((id) => createEmptyPrincipal(principalMap.get(id) ?? null))
+      const nextPrincipals: Array<DraftPrincipal> = []
+
+      for (const id of selectedIds) {
+        if (!existingIds.has(id)) {
+          nextPrincipals.push(
+            createEmptyPrincipal(principalMap.get(id) ?? null)
+          )
+        }
+      }
 
       if (nextPrincipals.length === 0) return current
       return [...current, ...nextPrincipals]

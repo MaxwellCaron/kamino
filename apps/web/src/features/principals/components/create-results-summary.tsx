@@ -35,7 +35,7 @@ export function BulkCreateResultsSummary({
       >
         <AppDialogScrollBody>
           {result.failures.map((failure) => (
-            <Alert variant="destructive">
+            <Alert key={failure.name} variant="destructive">
               <IconAlertCircle />
               <AlertTitle>{failure.name}</AlertTitle>
               <AlertDescription>{failure.error}</AlertDescription>

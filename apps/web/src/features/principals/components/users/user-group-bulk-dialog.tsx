@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useForm } from "@tanstack/react-form"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { z } from "zod"
 import { IconUserMinus, IconUserPlus } from "@tabler/icons-react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -12,6 +13,7 @@ import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
@@ -48,6 +50,17 @@ type UserGroupBulkDialogProps = {
   users: Array<ApiPrincipal>
 }
 
+const userGroupBulkFormSchema = z.object({
+  group: z
+    .custom<ApiPrincipal>((value) => value !== null, {
+      message: "Select a group before continuing.",
+    })
+    .nullable()
+    .refine((value): value is ApiPrincipal => value !== null, {
+      message: "Select a group before continuing.",
+    }),
+})
+
 export function UserGroupBulkDialog({
   clearSelection,
   mode,
@@ -57,54 +70,58 @@ export function UserGroupBulkDialog({
 }: UserGroupBulkDialogProps) {
   const queryClient = useQueryClient()
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
-  const [selectedGroup, setSelectedGroup] = useState<ApiPrincipal | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setSelectedGroup(null)
-    }
-  }, [open])
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const userIds = users.map((user) => user.id)
-      if (mode === "add") {
-        return addGroupMember(selectedGroup!.id, userIds)
-      }
-      return removeGroupMember(selectedGroup!.id, userIds)
+  const form = useForm({
+    defaultValues: {
+      group: null as ApiPrincipal | null,
     },
-    onSuccess: async (result) => {
-      const succeededCount = result.succeeded.length
-      const failedCount = result.failed.length
-      const groupLabel = selectedGroup ? selectedGroup.name : "group"
+    validators: {
+      onSubmit: userGroupBulkFormSchema,
+    },
+    onSubmit: async ({ value }) => {
+      const group = value.group
+      if (!group) {
+        return
+      }
 
-      if (succeededCount > 0) {
-        toast.success(
+      try {
+        const userIds = users.map((user) => user.id)
+        const result =
           mode === "add"
-            ? `Added ${succeededCount} user${succeededCount === 1 ? "" : "s"} to ${groupLabel}`
-            : `Removed ${succeededCount} user${succeededCount === 1 ? "" : "s"} from ${groupLabel}`
-        )
-      }
+            ? await addGroupMember(group.id, userIds)
+            : await removeGroupMember(group.id, userIds)
 
-      if (failedCount === 1) {
-        toast.error(
-          `${mode === "add" ? "Failed to add" : "Failed to remove"} ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
-        )
-      } else if (failedCount > 1) {
-        toast.error(
-          `${mode === "add" ? "Failed to add" : "Failed to remove"} ${failedCount} users`
-        )
-      }
+        const succeededCount = result.succeeded.length
+        const failedCount = result.failed.length
+        const groupLabel = group.name ?? group.external_id
 
-      await queryClient.invalidateQueries({ queryKey: ["principals"] })
+        if (succeededCount > 0) {
+          toast.success(
+            mode === "add"
+              ? `Added ${succeededCount} user${succeededCount === 1 ? "" : "s"} to ${groupLabel}`
+              : `Removed ${succeededCount} user${succeededCount === 1 ? "" : "s"} from ${groupLabel}`
+          )
+        }
 
-      if (failedCount === 0) {
-        clearSelection()
-        onOpenChange(false)
+        if (failedCount === 1) {
+          toast.error(
+            `${mode === "add" ? "Failed to add" : "Failed to remove"} ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
+          )
+        } else if (failedCount > 1) {
+          toast.error(
+            `${mode === "add" ? "Failed to add" : "Failed to remove"} ${failedCount} users`
+          )
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ["principals"] })
+
+        if (failedCount === 0) {
+          clearSelection()
+          onOpenChange(false)
+        }
+      } catch (err) {
+        toast.error(formatToastError(err))
       }
-    },
-    onError: (err) => {
-      toast.error(formatToastError(err))
     },
   })
 
@@ -112,6 +129,7 @@ export function UserGroupBulkDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      onClosed={() => form.reset()}
       initialFocus={false}
       icon={mode === "add" ? IconUserPlus : IconUserMinus}
       title={mode === "add" ? "Add Users" : "Remove Users"}
@@ -143,7 +161,11 @@ export function UserGroupBulkDialog({
           </ItemContent>
         </Item>
       ) : (
-        <>
+        <form
+          action={() => {
+            void form.handleSubmit()
+          }}
+        >
           <Item variant="outline">
             <ItemContent>
               <ItemDescription>
@@ -162,55 +184,76 @@ export function UserGroupBulkDialog({
           </Item>
 
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="bulk-group-target">Group</FieldLabel>
-              <FieldContent>
-                <Combobox
-                  items={groups ?? []}
-                  itemToStringLabel={(group) =>
-                    group.name ?? group.external_id
-                  }
-                  value={selectedGroup}
-                  onValueChange={setSelectedGroup}
-                >
-                  <ComboboxInput placeholder="Select a group" />
-                  <ComboboxContent>
-                    <ComboboxEmpty>No groups found.</ComboboxEmpty>
-                    <ComboboxList>
-                      {(group) => (
-                        <ComboboxItem key={group.id} value={group}>
-                          {group.name ?? group.external_id}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </FieldContent>
-              <FieldDescription>
-                {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </>
-      )}
+            <form.Field name="group">
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
 
-      <DialogFooter>
-        <AppDialogPrimaryButton
-          onClick={() => mutation.mutate()}
-          disabled={
-            !selectedGroup || isLoading || error !== null || mutation.isPending
-          }
-          variant={mode === "add" ? "default" : "destructive"}
-        >
-          {mutation.isPending
-            ? mode === "add"
-              ? "Adding..."
-              : "Removing..."
-            : mode === "add"
-              ? "Add"
-              : "Remove"}
-        </AppDialogPrimaryButton>
-      </DialogFooter>
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>Group</FieldLabel>
+                    <FieldContent>
+                      <Combobox
+                        items={groups ?? []}
+                        itemToStringLabel={(group) =>
+                          group.name ?? group.external_id
+                        }
+                        value={field.state.value}
+                        onValueChange={(group) => field.handleChange(group)}
+                      >
+                        <ComboboxInput
+                          id={field.name}
+                          placeholder="Select a group"
+                          aria-invalid={isInvalid}
+                        />
+                        <ComboboxContent>
+                          <ComboboxEmpty>No groups found.</ComboboxEmpty>
+                          <ComboboxList>
+                            {(group) => (
+                              <ComboboxItem key={group.id} value={group}>
+                                {group.name ?? group.external_id}
+                              </ComboboxItem>
+                            )}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
+                    </FieldContent>
+                    <FieldDescription>
+                      {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
+                    </FieldDescription>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                )
+              }}
+            </form.Field>
+          </FieldGroup>
+
+          <DialogFooter>
+            <form.Subscribe
+              selector={(state) =>
+                [state.values.group, state.isSubmitting] as const
+              }
+            >
+              {([group, isSubmitting]) => (
+                <AppDialogPrimaryButton
+                  disabled={!group || isSubmitting}
+                  variant={mode === "add" ? "default" : "destructive"}
+                >
+                  {isSubmitting
+                    ? mode === "add"
+                      ? "Adding..."
+                      : "Removing..."
+                    : mode === "add"
+                      ? "Add"
+                      : "Remove"}
+                </AppDialogPrimaryButton>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      )}
     </AppDialog>
   )
 }

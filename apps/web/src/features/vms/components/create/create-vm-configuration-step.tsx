@@ -3,7 +3,7 @@ import { IsoConfigurationFields } from "./create-vm-iso-configuration-fields"
 import { TemplateConfigurationFields } from "./create-vm-template-configuration-fields"
 import { UploadConfigurationFields } from "./create-vm-upload-configuration-fields"
 import type { VmTemplateOption } from "./create-vm-form"
-import type { NetworkData } from "./create-vm-step-shared"
+import type { NetworkData } from "./create-vm-step-utils"
 import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 
 export const CreateVmConfigurationStep = withCreateVmForm({

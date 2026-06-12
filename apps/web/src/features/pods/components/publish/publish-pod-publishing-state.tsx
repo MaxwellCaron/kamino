@@ -5,6 +5,12 @@ import {
   IconListDetails,
 } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
+import { PUBLISH_POD_STEP_IDS } from "./publish-pod-submit-types"
+import type {
+  PublishPodStepId,
+  PublishPodSubmitStatus,
+  PublishPodUpdateVirtualMachine,
+} from "./publish-pod-submit-types"
 import type { ProgressStateStep } from "@/components/progress-state/progress-state"
 import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import {
@@ -13,19 +19,6 @@ import {
   ProgressState,
   ProgressSuccessState,
 } from "@/components/progress-state/progress-state"
-
-export const PUBLISH_POD_STEP_IDS = [1, 2, 3, 4] as const
-
-export type PublishPodStepId = (typeof PUBLISH_POD_STEP_IDS)[number]
-export type PublishPodSubmitStatus =
-  | "publishing"
-  | "updating"
-  | "success"
-  | "error"
-export type PublishPodUpdateVirtualMachine = {
-  id: string
-  name: string
-}
 
 const PUBLISH_POD_STEPS = [
   {
@@ -200,11 +193,13 @@ function ErrorState({
   )
 }
 
+const EMPTY_UPDATE_VIRTUAL_MACHINES: Array<PublishPodUpdateVirtualMachine> = []
+
 export function PublishPodSubmitState({
   podSlug,
   progress,
   state,
-  updateVirtualMachines = [],
+  updateVirtualMachines = EMPTY_UPDATE_VIRTUAL_MACHINES,
   errorMessage,
   onBackToForm,
 }: {
@@ -233,9 +228,7 @@ export function PublishPodSubmitState({
       }
       return <SuccessState podSlug={podSlug} />
     case "error":
-      return (
-        <ErrorState message={errorMessage} onBackToForm={onBackToForm} />
-      )
+      return <ErrorState message={errorMessage} onBackToForm={onBackToForm} />
   }
 }
 

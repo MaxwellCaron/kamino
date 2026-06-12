@@ -85,26 +85,6 @@ export async function updateInventoryAcl(params: {
   }
 }
 
-export async function moveInventoryItem(params: {
-  itemId: string
-  parentId: string
-}): Promise<void> {
-  const res = await apiFetch("/api/v1/inventory/move", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      item_id: params.itemId,
-      parent_id: params.parentId,
-    }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to move inventory item: ${res.status}`
-    )
-  }
-}
-
 export async function moveInventoryItems(params: {
   itemIds: Array<string>
   parentId: string

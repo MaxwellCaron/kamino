@@ -71,31 +71,21 @@ export function hasDirectInventoryCapability(
   return hasInventoryPermission(permissions, getPermissionBit(permission))
 }
 
-export function canRequestInventoryCapability(
-  permissions: ApiTreeNodePermissions | undefined,
-  permission: InventoryPermissionKey | number
-) {
-  return canRequestInventoryPermission(
-    permissions,
-    getPermissionBit(permission)
-  )
-}
-
-export function getDirectInventoryCapability(
+function getDirectInventoryCapability(
   permissions: ApiTreeNodePermissions | undefined,
   permission: InventoryPermissionKey | number
 ) {
   return directCapability(hasDirectInventoryCapability(permissions, permission))
 }
 
-export function getRequestableInventoryCapability(
+function getRequestableInventoryCapability(
   permissions: ApiTreeNodePermissions | undefined,
   permission: InventoryPermissionKey | number
 ) {
   return modeCapability(getInventoryPermissionMode(permissions, permission))
 }
 
-export function hasAnyDirectInventoryCapability(
+function hasAnyDirectInventoryCapability(
   permissions: ApiTreeNodePermissions | undefined,
   permissionsToCheck: Array<InventoryPermissionKey | number>
 ) {

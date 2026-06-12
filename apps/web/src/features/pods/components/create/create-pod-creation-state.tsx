@@ -9,8 +9,8 @@ import {
   ProgressSuccessState,
 } from "@/components/progress-state/progress-state"
 
-export const CREATE_POD_STEP_IDS = [1, 2] as const
-export const CREATE_POD_STEP_INTERVAL_MS = 2_000
+const CREATE_POD_STEP_IDS = [1, 2] as const
+const CREATE_POD_STEP_INTERVAL_MS = 2_000
 
 export type CreatePodStepId = (typeof CREATE_POD_STEP_IDS)[number]
 export type CreatePodSubmitStatus = "creating" | "success" | "error"

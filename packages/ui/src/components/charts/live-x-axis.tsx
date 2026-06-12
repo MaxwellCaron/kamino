@@ -1,4 +1,4 @@
-import { motion, useSpring } from "motion/react"
+import { m, useSpring } from "motion/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useChart } from "./chart-context"
@@ -110,7 +110,7 @@ export function LiveXAxis({
             justifyContent: "center",
           }}
         >
-          <motion.span
+          <m.span
             animate={{
               opacity: labelFadeOpacity(l.x, crosshairX, isHovering),
             }}
@@ -118,13 +118,13 @@ export function LiveXAxis({
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
             {l.label}
-          </motion.span>
+          </m.span>
         </div>
       ))}
 
       {/* Time pill at crosshair — spring-animated to match crosshair line */}
       {isHovering && pillLabel && (
-        <motion.div
+        <m.div
           className="absolute z-50"
           style={{
             left: animatedPillX,
@@ -137,7 +137,7 @@ export function LiveXAxis({
               {pillLabel}
             </span>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </div>,
     container

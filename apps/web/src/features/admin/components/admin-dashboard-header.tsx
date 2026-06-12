@@ -65,11 +65,7 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
   ]
 }
 
-export function AdminDashboardHeader({
-  stats,
-}: {
-  stats: AdminStats | null
-}) {
+export function AdminDashboardHeader({ stats }: { stats: AdminStats | null }) {
   const statCards = buildStats(stats)
 
   return (

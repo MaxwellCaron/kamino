@@ -152,26 +152,6 @@ export async function setUserPassword(
   }
 }
 
-export async function enableUser(id: string): Promise<void> {
-  const res = await apiFetch(`/api/v1/principals/users/${id}/enable`, {
-    method: "POST",
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to enable user: ${res.status}`)
-  }
-}
-
-export async function disableUser(id: string): Promise<void> {
-  const res = await apiFetch(`/api/v1/principals/users/${id}/disable`, {
-    method: "POST",
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to disable user: ${res.status}`)
-  }
-}
-
 export async function createGroup(
   params: Array<CreateGroupInput>
 ): Promise<ApiBulkCreateResponse> {
@@ -266,6 +246,6 @@ export async function triggerADSync(): Promise<void> {
   const res = await apiFetch("/api/v1/principals/sync", { method: "POST" })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `AD sync failed: ${res.status}`)
+    throw new Error(body.error ?? `Sync failed: ${res.status}`)
   }
 }

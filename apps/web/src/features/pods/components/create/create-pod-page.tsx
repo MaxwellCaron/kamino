@@ -32,7 +32,9 @@ export function CreatePodPage() {
     React.useState<CreatePodFormState>("form")
   const [createConfirmOpen, setCreateConfirmOpen] = React.useState(false)
   const submittedValuesRef = React.useRef<CreatePodFormValues | null>(null)
-  const createOptionsQuery = useQuery(createPodOptionsQueryOptions)
+  const { data: createOptions, isLoading: isCreateOptionsLoading } = useQuery(
+    createPodOptionsQueryOptions
+  )
   const createPodMutation = useMutation({
     mutationFn: createPod,
     onSuccess: async () => {
@@ -55,16 +57,13 @@ export function CreatePodPage() {
   )
   const form = useCreatePodForm({ onSubmit: handleValidatedSubmit })
   const routerTemplateConfigured =
-    createOptionsQuery.data?.router_template_configured ?? true
+    createOptions?.router_template_configured ?? true
 
   React.useEffect(() => {
-    if (
-      createOptionsQuery.data &&
-      !createOptionsQuery.data.router_template_configured
-    ) {
+    if (createOptions && !createOptions.router_template_configured) {
       form.setFieldValue("includeRouter", false)
     }
-  }, [createOptionsQuery.data, form])
+  }, [createOptions, form])
   const latestSubmittedValues = submittedValuesRef.current
   const hasSubmittedVirtualMachines =
     latestSubmittedValues?.includeRouter ||
@@ -88,21 +87,16 @@ export function CreatePodPage() {
     return Object.keys(errors).length === 0
   }, [form])
 
-  const handleFormSubmit = React.useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault()
-
-      try {
-        const isValid = await validateBeforeConfirm()
-        if (isValid) {
-          setCreateConfirmOpen(true)
-        }
-      } catch {
-        setSubmitState("error")
+  const openCreateConfirm = React.useCallback(async () => {
+    try {
+      const isValid = await validateBeforeConfirm()
+      if (isValid) {
+        setCreateConfirmOpen(true)
       }
-    },
-    [validateBeforeConfirm]
-  )
+    } catch {
+      setSubmitState("error")
+    }
+  }, [validateBeforeConfirm])
 
   const handleCreateConfirm = React.useCallback(() => {
     setCreateConfirmOpen(false)
@@ -123,7 +117,7 @@ export function CreatePodPage() {
     )
   }
 
-  if (createOptionsQuery.isLoading) {
+  if (isCreateOptionsLoading) {
     return <CreatePodFormSkeleton />
   }
 
@@ -141,7 +135,9 @@ export function CreatePodPage() {
         </div>
         <form
           className="flex w-full max-w-5xl flex-col"
-          onSubmit={handleFormSubmit}
+          action={() => {
+            void openCreateConfirm()
+          }}
         >
           <CreatePodFormSection number={1} title="Personalize">
             <CreatePodPersonalizeSection
@@ -155,7 +151,7 @@ export function CreatePodPage() {
               form={form}
               submissionAttempts={submissionAttempts}
               routerTemplateConfigured={routerTemplateConfigured}
-              templateOptions={createOptionsQuery.data?.templates ?? []}
+              templateOptions={createOptions?.templates ?? []}
             />
           </CreatePodFormSection>
 

@@ -278,9 +278,7 @@ function VmMenuItems({
               return (
                 <DropdownMenuItem
                   key={action.action}
-                  variant={
-                    action.action === "stop" ? "destructive" : "default"
-                  }
+                  variant={action.action === "stop" ? "destructive" : "default"}
                   disabled={action.disabled}
                   onClick={() =>
                     powerActions.openPowerAction(action.action, onAction)
@@ -526,97 +524,6 @@ function TemplateMenuItems({
   )
 }
 
-export function MenuItems({
-  permissions,
-  isFavorite,
-  onToggleFavorite,
-  isFolder,
-  isTemplate,
-  itemId,
-  vmid,
-  name,
-  onAction,
-  onManagePermissions,
-  onEditLimit,
-  onSnapshot,
-  onClone,
-  onRename,
-  onEditHardware,
-  onCreateVm,
-  onCreateFolder,
-  onDeleteFolder,
-  isLoading,
-  powerStatus,
-}: {
-  permissions: ApiTreeNodePermissions
-  isFavorite?: boolean
-  onToggleFavorite?: () => void
-  isFolder: boolean
-  isTemplate?: boolean
-  itemId: string
-  vmid: number
-  name?: string
-  onAction: (config: ConfirmConfig) => void
-  onManagePermissions: () => void
-  onEditLimit: () => void
-  onSnapshot: (mode: "direct" | "request") => void
-  onClone: () => void
-  onRename: () => void
-  onEditHardware: () => void
-  onCreateVm: () => void
-  onCreateFolder: () => void
-  onDeleteFolder: () => void
-  isLoading?: boolean
-  powerStatus?: string
-}) {
-  if (isFolder)
-    return (
-      <FolderMenuItems
-        permissions={permissions}
-        onCreateFolder={onCreateFolder}
-        onCreateVm={onCreateVm}
-        onManagePermissions={onManagePermissions}
-        onEditLimit={onEditLimit}
-        onRename={onRename}
-        onDelete={onDeleteFolder}
-        isLoading={isLoading}
-      />
-    )
-  if (isTemplate)
-    return (
-      <TemplateMenuItems
-        permissions={permissions}
-        isFavorite={isFavorite}
-        onToggleFavorite={onToggleFavorite}
-        itemId={itemId}
-        vmid={vmid}
-        name={name}
-        onAction={onAction}
-        onManagePermissions={onManagePermissions}
-        onClone={onClone}
-        isLoading={isLoading}
-      />
-    )
-  return (
-    <VmMenuItems
-      permissions={permissions}
-      isFavorite={isFavorite}
-      onToggleFavorite={onToggleFavorite}
-      itemId={itemId}
-      vmid={vmid}
-      name={name}
-      onAction={onAction}
-      onManagePermissions={onManagePermissions}
-      onSnapshot={onSnapshot}
-      onClone={onClone}
-      onRename={onRename}
-      onEditHardware={onEditHardware}
-      isLoading={isLoading}
-      powerStatus={powerStatus}
-    />
-  )
-}
-
 export function InventoryNodeMenu({
   itemId,
   data,
@@ -715,84 +622,126 @@ export function InventoryNodeMenu({
         onPointerDown={stopTreeItemEvent}
         onKeyDown={stopTreeItemEvent}
       >
-        <MenuItems
-          permissions={data.permissions}
-          isFavorite={isFavorite}
-          onToggleFavorite={() =>
-            toggleFavorite(itemId, { disabled: isFolder })
-          }
-          isFolder={isFolder}
-          isTemplate={isTemplate}
-          itemId={itemId}
-          vmid={data.vm?.vmid ?? 0}
-          name={data.name}
-          onAction={openConfirm}
-          onManagePermissions={() =>
-            openPermissions({
-              itemId,
-              itemKind: isFolder ? "folder" : "vm",
-              itemName: data.name,
-              itemVmid: data.vm?.vmid,
-            })
-          }
-          onEditLimit={() =>
-            openFolderLimit({
-              directVmLimit: data.direct_vm_limit,
-              effectiveVmLimit: data.effective_vm_limit,
-              folderId: itemId,
-              folderName: data.name,
-              vmCount: data.vm_count,
-            })
-          }
-          onSnapshot={(mode) => {
-            if (data.vm?.vmid == null) return
-
-            openSnapshot({
-              itemId,
-              currentName: data.name,
-              currentVmid: data.vm.vmid,
-              mode,
-            })
-          }}
-          onClone={() => {
-            if (!data.vm?.node) return
-
-            openClone({
-              itemId,
-              currentName: data.name,
-              currentVmid: data.vm.vmid,
-              isTemplate: data.vm.is_template,
-            })
-          }}
-          onRename={() => {
-            if (isFolder) {
+        {isFolder ? (
+          <FolderMenuItems
+            permissions={data.permissions}
+            onCreateFolder={() => openCreateFolder({ parentId: itemId })}
+            onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
+            onManagePermissions={() =>
+              openPermissions({
+                itemId,
+                itemKind: "folder",
+                itemName: data.name,
+                itemVmid: data.vm?.vmid,
+              })
+            }
+            onEditLimit={() =>
+              openFolderLimit({
+                directVmLimit: data.direct_vm_limit,
+                effectiveVmLimit: data.effective_vm_limit,
+                folderId: itemId,
+                folderName: data.name,
+                vmCount: data.vm_count,
+              })
+            }
+            onRename={() =>
               openRenameFolder({ folderId: itemId, currentName: data.name })
-              return
             }
+            onDelete={handleDeleteFolder}
+            isLoading={false}
+          />
+        ) : isTemplate ? (
+          <TemplateMenuItems
+            permissions={data.permissions}
+            isFavorite={isFavorite}
+            onToggleFavorite={() =>
+              toggleFavorite(itemId, { disabled: isFolder })
+            }
+            itemId={itemId}
+            vmid={data.vm?.vmid ?? 0}
+            name={data.name}
+            onAction={openConfirm}
+            onManagePermissions={() =>
+              openPermissions({
+                itemId,
+                itemKind: "vm",
+                itemName: data.name,
+                itemVmid: data.vm?.vmid,
+              })
+            }
+            onClone={() => {
+              if (!data.vm?.node) return
 
-            if (!isTemplate && data.vm?.node) {
-              openRenameVm({
+              openClone({
                 itemId,
                 currentName: data.name,
                 currentVmid: data.vm.vmid,
+                isTemplate: data.vm.is_template,
+              })
+            }}
+            isLoading={false}
+          />
+        ) : (
+          <VmMenuItems
+            permissions={data.permissions}
+            isFavorite={isFavorite}
+            onToggleFavorite={() =>
+              toggleFavorite(itemId, { disabled: isFolder })
+            }
+            itemId={itemId}
+            vmid={data.vm?.vmid ?? 0}
+            name={data.name}
+            onAction={openConfirm}
+            onManagePermissions={() =>
+              openPermissions({
+                itemId,
+                itemKind: "vm",
+                itemName: data.name,
+                itemVmid: data.vm?.vmid,
               })
             }
-          }}
-          onEditHardware={() => {
-            if (!isFolder && !isTemplate && data.vm?.node) {
-              openEditVmHardware({
+            onSnapshot={(mode) => {
+              if (data.vm?.vmid == null) return
+
+              openSnapshot({
                 itemId,
                 currentName: data.name,
                 currentVmid: data.vm.vmid,
+                mode,
               })
-            }
-          }}
-          onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
-          onCreateFolder={() => openCreateFolder({ parentId: itemId })}
-          onDeleteFolder={handleDeleteFolder}
-          isLoading={false}
-          powerStatus={powerStatus}
-        />
+            }}
+            onClone={() => {
+              if (!data.vm?.node) return
+
+              openClone({
+                itemId,
+                currentName: data.name,
+                currentVmid: data.vm.vmid,
+                isTemplate: data.vm.is_template,
+              })
+            }}
+            onRename={() => {
+              if (data.vm?.node) {
+                openRenameVm({
+                  itemId,
+                  currentName: data.name,
+                  currentVmid: data.vm.vmid,
+                })
+              }
+            }}
+            onEditHardware={() => {
+              if (data.vm?.node) {
+                openEditVmHardware({
+                  itemId,
+                  currentName: data.name,
+                  currentVmid: data.vm.vmid,
+                })
+              }
+            }}
+            isLoading={false}
+            powerStatus={powerStatus}
+          />
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -848,79 +797,121 @@ export function VmOptionsMenu({
           }
         />
         <DropdownMenuContent align="end">
-          <MenuItems
-            permissions={permissions}
-            isFavorite={!isFolder && favoriteIds.has(nodeId)}
-            onToggleFavorite={() =>
-              toggleFavorite(nodeId, { disabled: isFolder })
-            }
-            isFolder={isFolder}
-            isTemplate={isTemplate}
-            itemId={itemId}
-            vmid={vmid ?? 0}
-            name={name}
-            onAction={openConfirm}
-            onManagePermissions={() =>
-              openPermissions({
-                itemId: nodeId,
-                itemKind: isFolder ? "folder" : "vm",
-                itemName: name ?? "",
-                itemVmid: vmid,
-              })
-            }
-            onEditLimit={() => {}}
-            onSnapshot={(mode) => {
-              if (vmid === undefined) return
-
-              openSnapshot({
-                itemId,
-                currentName: name,
-                currentVmid: vmid,
-                mode,
-              })
-            }}
-            onClone={() => {
-              if (!pveNode || vmid === undefined) return
-
-              openClone({
-                itemId,
-                currentName: name ?? "",
-                currentVmid: vmid,
-                isTemplate,
-              })
-            }}
-            onRename={() => {
-              if (isFolder) {
+          {isFolder ? (
+            <FolderMenuItems
+              permissions={permissions}
+              onCreateFolder={() => openCreateFolder({ parentId: nodeId })}
+              onCreateVm={() => openCreateVm({ initialFolderId: nodeId })}
+              onManagePermissions={() =>
+                openPermissions({
+                  itemId: nodeId,
+                  itemKind: "folder",
+                  itemName: name ?? "",
+                  itemVmid: vmid,
+                })
+              }
+              onEditLimit={() => {}}
+              onRename={() =>
                 openRenameFolder({
                   folderId: nodeId,
                   currentName: name ?? "",
                 })
-                return
               }
+              onDelete={() => {}}
+              isLoading={isLoading}
+            />
+          ) : isTemplate ? (
+            <TemplateMenuItems
+              permissions={permissions}
+              isFavorite={favoriteIds.has(nodeId)}
+              onToggleFavorite={() =>
+                toggleFavorite(nodeId, { disabled: false })
+              }
+              itemId={itemId}
+              vmid={vmid ?? 0}
+              name={name}
+              onAction={openConfirm}
+              onManagePermissions={() =>
+                openPermissions({
+                  itemId: nodeId,
+                  itemKind: "vm",
+                  itemName: name ?? "",
+                  itemVmid: vmid,
+                })
+              }
+              onClone={() => {
+                if (!pveNode || vmid === undefined) return
 
-              if (!isTemplate && pveNode && vmid !== undefined) {
-                openRenameVm({
+                openClone({
                   itemId,
                   currentName: name ?? "",
                   currentVmid: vmid,
+                  isTemplate,
+                })
+              }}
+              isLoading={isLoading}
+            />
+          ) : (
+            <VmMenuItems
+              permissions={permissions}
+              isFavorite={favoriteIds.has(nodeId)}
+              onToggleFavorite={() =>
+                toggleFavorite(nodeId, { disabled: false })
+              }
+              itemId={itemId}
+              vmid={vmid ?? 0}
+              name={name}
+              onAction={openConfirm}
+              onManagePermissions={() =>
+                openPermissions({
+                  itemId: nodeId,
+                  itemKind: "vm",
+                  itemName: name ?? "",
+                  itemVmid: vmid,
                 })
               }
-            }}
-            onEditHardware={() => {
-              if (!isFolder && !isTemplate && pveNode && vmid !== undefined) {
-                openEditVmHardware({
+              onSnapshot={(mode) => {
+                if (vmid === undefined) return
+
+                openSnapshot({
+                  itemId,
+                  currentName: name,
+                  currentVmid: vmid,
+                  mode,
+                })
+              }}
+              onClone={() => {
+                if (!pveNode || vmid === undefined) return
+
+                openClone({
                   itemId,
                   currentName: name ?? "",
                   currentVmid: vmid,
+                  isTemplate,
                 })
-              }
-            }}
-            onCreateVm={() => openCreateVm({ initialFolderId: nodeId })}
-            onCreateFolder={() => openCreateFolder({ parentId: nodeId })}
-            onDeleteFolder={() => {}}
-            isLoading={isLoading}
-            powerStatus={powerStatus}
-          />
+              }}
+              onRename={() => {
+                if (pveNode && vmid !== undefined) {
+                  openRenameVm({
+                    itemId,
+                    currentName: name ?? "",
+                    currentVmid: vmid,
+                  })
+                }
+              }}
+              onEditHardware={() => {
+                if (pveNode && vmid !== undefined) {
+                  openEditVmHardware({
+                    itemId,
+                    currentName: name ?? "",
+                    currentVmid: vmid,
+                  })
+                }
+              }}
+              isLoading={isLoading}
+              powerStatus={powerStatus}
+            />
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>

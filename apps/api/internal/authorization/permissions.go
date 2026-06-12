@@ -276,8 +276,12 @@ type EffectivePermissions struct {
 	RequestMask Mask `json:"request_mask"`
 }
 
+func (m Mask) Has(required Mask) bool {
+	return (m & required) == required
+}
+
 func (p EffectivePermissions) Has(required Mask) bool {
-	return (p.AllowedMask & required) == required
+	return p.AllowedMask.Has(required)
 }
 
 func (p EffectivePermissions) CanRequest(required Mask) bool {

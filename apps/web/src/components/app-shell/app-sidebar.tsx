@@ -38,10 +38,8 @@ import {
   canAccessAdmin,
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
-import {
-  InventoryTreeBody,
-  InventoryTreeHeader,
-} from "@/features/inventory/components/tree/inventory-tree"
+import { InventoryTreeBody } from "@/features/inventory/components/tree/inventory-tree-body"
+import { InventoryTreeHeader } from "@/features/inventory/components/tree/inventory-tree-header"
 
 const navItems = [
   {

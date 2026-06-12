@@ -9,6 +9,11 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 import { PageSkeleton } from "@/components/loading-skeletons"
 
+type SkeletonRow = {
+  key: string
+  className: string
+}
+
 export function CreatePodFormSkeleton() {
   return (
     <PageSkeleton
@@ -24,19 +29,27 @@ export function CreatePodFormSkeleton() {
         <CreatePodStepSkeleton
           numberWidth="w-28"
           rows={[
-            "h-10 w-full",
-            "h-28 w-full",
-            "h-10 w-full max-w-md",
+            { key: "personalize-title", className: "h-10 w-full" },
+            { key: "personalize-description", className: "h-28 w-full" },
+            { key: "personalize-image", className: "h-10 w-full max-w-md" },
           ]}
         />
         <CreatePodStepSkeleton
           numberWidth="w-40"
-          rows={["h-20 w-full", "h-10 w-full", "h-32 w-full"]}
+          rows={[
+            { key: "vms-router", className: "h-20 w-full" },
+            { key: "vms-templates", className: "h-10 w-full" },
+            { key: "vms-selection", className: "h-32 w-full" },
+          ]}
         />
         <CreatePodStepSkeleton
           isLast
           numberWidth="w-24"
-          rows={["h-16 w-full", "h-16 w-full", "h-10 w-full"]}
+          rows={[
+            { key: "review-summary", className: "h-16 w-full" },
+            { key: "review-details", className: "h-16 w-full" },
+            { key: "review-submit", className: "h-10 w-full" },
+          ]}
         />
       </div>
     </PageSkeleton>
@@ -50,7 +63,7 @@ function CreatePodStepSkeleton({
 }: {
   isLast?: boolean
   numberWidth: string
-  rows: Array<string>
+  rows: Array<SkeletonRow>
 }) {
   return (
     <section className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-4">
@@ -76,8 +89,11 @@ function CreatePodStepSkeleton({
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 border-t pt-6">
-            {rows.map((row, index) => (
-              <Skeleton key={index} className={cn("rounded-3xl", row)} />
+            {rows.map((row) => (
+              <Skeleton
+                key={row.key}
+                className={cn("rounded-3xl", row.className)}
+              />
             ))}
           </CardContent>
         </Card>

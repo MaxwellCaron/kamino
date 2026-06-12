@@ -11,10 +11,7 @@ function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
-function SheetTrigger({
-  className,
-  ...props
-}: SheetPrimitive.Trigger.Props) {
+function SheetTrigger({ className, ...props }: SheetPrimitive.Trigger.Props) {
   return (
     <SheetPrimitive.Trigger
       data-slot="sheet-trigger"

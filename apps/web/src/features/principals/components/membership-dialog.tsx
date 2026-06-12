@@ -1,5 +1,6 @@
 import * as React from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useForm, useStore } from "@tanstack/react-form"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -15,10 +16,7 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
-import type {
-  ApiGroupMember,
-  ApiPrincipal,
-} from "@/features/principals/types/principals-types"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -86,68 +84,160 @@ function MembershipEditor({
   principal: ApiPrincipal
   onOpenChange: (open: boolean) => void
 }) {
-  const queryClient = useQueryClient()
-  const anchor = useComboboxAnchor()
-  const [localValue, setLocalValue] = React.useState<Array<string> | null>(null)
-
   // Current memberships
-  const membersQuery = useQuery({
+  const {
+    data: members,
+    error: membersError,
+    isLoading: isMembersLoading,
+  } = useQuery({
     ...groupMembersQueryOptions(principal.id),
     enabled: open && mode === "group-members",
   })
-  const userGroupsQuery = useQuery({
+  const {
+    data: userGroups,
+    error: userGroupsError,
+    isLoading: isUserGroupsLoading,
+  } = useQuery({
     ...userGroupsQueryOptions(principal.id),
     enabled: open && mode === "user-groups",
   })
-  const activeQuery = mode === "user-groups" ? userGroupsQuery : membersQuery
-  const currentMembers: Array<ApiGroupMember> = activeQuery.data ?? []
-
   // All possible options
-  const allGroupsQuery = useQuery({
+  const {
+    data: allGroups,
+    error: allGroupsError,
+    isLoading: isAllGroupsLoading,
+  } = useQuery({
     ...groupsQueryOptions,
     enabled: open && mode === "user-groups",
   })
-  const allUsersQuery = useQuery({
+  const {
+    data: allUsers,
+    error: allUsersError,
+    isLoading: isAllUsersLoading,
+  } = useQuery({
     ...usersQueryOptions,
     enabled: open && mode === "group-members",
   })
-  const optionsQuery = mode === "user-groups" ? allGroupsQuery : allUsersQuery
-  const isLoading = activeQuery.isLoading || optionsQuery.isLoading
-  const loadError = activeQuery.error ?? optionsQuery.error
-  const allOptions: Array<ApiPrincipal> =
-    (mode === "user-groups" ? allGroupsQuery.data : allUsersQuery.data) ?? []
-
+  const isLoading =
+    mode === "user-groups"
+      ? isUserGroupsLoading || isAllGroupsLoading
+      : isMembersLoading || isAllUsersLoading
+  const loadError =
+    mode === "user-groups"
+      ? (userGroupsError ?? allGroupsError)
+      : (membersError ?? allUsersError)
   const serverIds = React.useMemo(
-    () => uniqueIds(currentMembers.map((m) => m.id)),
-    [currentMembers]
-  )
-
-  React.useEffect(() => {
-    if (!open) {
-      setLocalValue(null)
-    }
-  }, [open])
-
-  // Initialize local value from server data once loaded
-  React.useEffect(() => {
-    if (open && localValue === null && activeQuery.isSuccess) {
-      setLocalValue(serverIds)
-    }
-  }, [open, localValue, activeQuery.isSuccess, serverIds])
-
-  const selectedIds = React.useMemo(
-    () => uniqueIds(localValue ?? serverIds),
-    [localValue, serverIds]
+    () =>
+      uniqueIds(
+        (mode === "user-groups" ? userGroups : members)?.map(
+          (member) => member.id
+        ) ?? []
+      ),
+    [members, mode, userGroups]
   )
 
   const options = React.useMemo<Array<MembershipOption>>(
     () =>
-      allOptions.map((option) => ({
+      (mode === "user-groups" ? allGroups : allUsers)?.map((option) => ({
         id: option.id,
         label: option.name ?? option.external_id,
-      })),
-    [allOptions]
+      })) ?? [],
+    [allGroups, allUsers, mode]
   )
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        {loadError instanceof Error
+          ? loadError.message
+          : "Failed to load memberships."}
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return <DialogBodySkeleton rows={3} />
+  }
+
+  return (
+    <MembershipForm
+      key={`${mode}:${principal.id}`}
+      mode={mode}
+      principal={principal}
+      serverIds={serverIds}
+      options={options}
+      onOpenChange={onOpenChange}
+    />
+  )
+}
+
+function MembershipForm({
+  mode,
+  principal,
+  serverIds,
+  options,
+  onOpenChange,
+}: {
+  mode: "user-groups" | "group-members"
+  principal: ApiPrincipal
+  serverIds: Array<string>
+  options: Array<MembershipOption>
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const anchor = useComboboxAnchor()
+  const baselineIdsRef = React.useRef(serverIds)
+
+  const form = useForm({
+    defaultValues: {
+      selectedIds: serverIds,
+    },
+    onSubmit: async ({ value }) => {
+      const serverSet = new Set(baselineIdsRef.current)
+      const selectedSet = new Set(value.selectedIds)
+
+      const toAdd = value.selectedIds.filter((id) => !serverSet.has(id))
+      const toRemove = baselineIdsRef.current.filter(
+        (id) => !selectedSet.has(id)
+      )
+
+      if (mode === "user-groups") {
+        await Promise.all([
+          ...toAdd.map((groupID) => addGroupMember(groupID, [principal.id])),
+          ...toRemove.map((groupID) =>
+            removeGroupMember(groupID, [principal.id])
+          ),
+        ])
+      } else {
+        if (toAdd.length > 0) {
+          await addGroupMember(principal.id, toAdd)
+        }
+
+        if (toRemove.length > 0) {
+          await removeGroupMember(principal.id, toRemove)
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["principals"] })
+      onOpenChange(false)
+    },
+  })
+
+  React.useEffect(() => {
+    baselineIdsRef.current = serverIds
+    form.reset({ selectedIds: serverIds })
+  }, [form, serverIds])
+
+  const selectedIds = useStore(form.store, (state) => state.values.selectedIds)
+  const hasChanges = React.useMemo(() => {
+    const serverSet = new Set(baselineIdsRef.current)
+    const selectedSet = new Set(selectedIds)
+    if (serverSet.size !== selectedSet.size) return true
+    for (const id of serverSet) {
+      if (!selectedSet.has(id)) return true
+    }
+    return false
+  }, [selectedIds])
 
   const optionMap = React.useMemo(() => {
     const map = new Map<string, MembershipOption>()
@@ -165,121 +255,71 @@ function MembershipEditor({
     [optionMap, selectedIds]
   )
 
-  const hasChanges = React.useMemo(() => {
-    const serverSet = new Set(serverIds)
-    const localSet = new Set(selectedIds)
-    if (serverSet.size !== localSet.size) return true
-    for (const id of serverSet) {
-      if (!localSet.has(id)) return true
-    }
-    return false
-  }, [serverIds, selectedIds])
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const serverSet = new Set(serverIds)
-      const localSet = new Set(selectedIds)
-
-      const toAdd = selectedIds.filter((id) => !serverSet.has(id))
-      const toRemove = serverIds.filter((id) => !localSet.has(id))
-
-      if (mode === "user-groups") {
-        await Promise.all([
-          ...toAdd.map((groupID) => addGroupMember(groupID, [principal.id])),
-          ...toRemove.map((groupID) =>
-            removeGroupMember(groupID, [principal.id])
-          ),
-        ])
-        return
-      }
-
-      if (toAdd.length > 0) {
-        await addGroupMember(principal.id, toAdd)
-      }
-
-      if (toRemove.length > 0) {
-        await removeGroupMember(principal.id, toRemove)
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["principals"] })
-    },
-  })
-
-  const handleSave = () => {
-    onOpenChange(false)
-    toast.promise(saveMutation.mutateAsync(), {
-      loading: "Updating memberships...",
-      success: "Memberships updated",
-      error: formatToastError,
-    })
-  }
-
-  if (loadError) {
-    return (
-      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        {loadError instanceof Error
-          ? loadError.message
-          : "Failed to load memberships."}
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return <DialogBodySkeleton rows={3} />
-  }
-
   return (
-    <>
-      <Combobox
-        multiple
-        autoHighlight
-        items={options}
-        itemToStringLabel={(option) => option.label}
-        value={selectedOptions}
-        onValueChange={(newValue) =>
-          setLocalValue(uniqueIds(newValue.map((option) => option.id)))
-        }
-      >
-        <ComboboxChips ref={anchor} className="w-full">
-          <ComboboxValue>
-            {(values) => (
-              <React.Fragment>
-                {(values as Array<MembershipOption>).map((option) => (
-                  <ComboboxChip key={option.id}>
+    <form
+      action={() => {
+        onOpenChange(false)
+        toast.promise(form.handleSubmit(), {
+          loading: "Updating memberships...",
+          success: "Memberships updated",
+          error: formatToastError,
+        })
+      }}
+    >
+      <form.Field name="selectedIds">
+        {(field) => (
+          <Combobox
+            multiple
+            autoHighlight
+            items={options}
+            itemToStringLabel={(option) => option.label}
+            value={selectedOptions}
+            onValueChange={(newValue) =>
+              field.handleChange(uniqueIds(newValue.map((option) => option.id)))
+            }
+          >
+            <ComboboxChips ref={anchor} className="mb-6 w-full p-3!">
+              <ComboboxValue>
+                {(values) => (
+                  <React.Fragment>
+                    {(values as Array<MembershipOption>).map((option) => (
+                      <ComboboxChip key={option.id}>
+                        {option.label}
+                      </ComboboxChip>
+                    ))}
+                    <ComboboxChipsInput
+                      placeholder={
+                        mode === "user-groups"
+                          ? "Search groups..."
+                          : "Search users..."
+                      }
+                    />
+                  </React.Fragment>
+                )}
+              </ComboboxValue>
+            </ComboboxChips>
+            <ComboboxContent anchor={anchor}>
+              <ComboboxEmpty>No items found.</ComboboxEmpty>
+              <ComboboxList>
+                {(option) => (
+                  <ComboboxItem key={option.id} value={option}>
                     {option.label}
-                  </ComboboxChip>
-                ))}
-                <ComboboxChipsInput
-                  placeholder={
-                    mode === "user-groups"
-                      ? "Search groups..."
-                      : "Search users..."
-                  }
-                />
-              </React.Fragment>
-            )}
-          </ComboboxValue>
-        </ComboboxChips>
-        <ComboboxContent anchor={anchor}>
-          <ComboboxEmpty>No items found.</ComboboxEmpty>
-          <ComboboxList>
-            {(option) => (
-              <ComboboxItem key={option.id} value={option}>
-                {option.label}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
+        )}
+      </form.Field>
       <DialogFooter>
-        <AppDialogPrimaryButton
-          onClick={handleSave}
-          disabled={!hasChanges || saveMutation.isPending}
-        >
-          {saveMutation.isPending ? "Saving..." : "Save"}
-        </AppDialogPrimaryButton>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton disabled={!hasChanges || isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
       </DialogFooter>
-    </>
+    </form>
   )
 }

@@ -5,11 +5,11 @@ import {
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
 import { useCallback, useMemo, useSyncExternalStore } from "react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 import { IconChevronDown, IconFolder, IconStar } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
-import { useInventoryTreeContext } from "./inventory-tree"
+import { useInventoryTreeContext } from "./inventory-tree-context"
 import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
 import type { ApiTreeNode } from "../../types/inventory-types"
@@ -117,7 +117,7 @@ function FavoriteItemCard({
   const isTemplate = item.vm?.is_template
 
   return (
-    <motion.div
+    <m.div
       layoutId={`favorite-${item.id}`}
       layout
       variants={itemVariants}
@@ -163,7 +163,7 @@ function FavoriteItemCard({
           className="bg-transparent! opacity-0 transition-opacity group-hover/favorite:opacity-100 data-popup-open:opacity-100"
         />
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -198,7 +198,7 @@ export function InventoryFavoritesSection() {
         <AnimatePresence initial={false}>
           {favoritesOpen && (
             <CollapsibleContent>
-              <motion.div
+              <m.div
                 layout
                 variants={sectionVariants}
                 initial="hidden"
@@ -217,7 +217,7 @@ export function InventoryFavoritesSection() {
                     />
                   ))}
                 </AnimatePresence>
-              </motion.div>
+              </m.div>
             </CollapsibleContent>
           )}
         </AnimatePresence>

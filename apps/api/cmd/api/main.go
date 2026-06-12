@@ -298,7 +298,7 @@ func main() {
 		PX:       server.ProxmoxClient,
 		Authz:    authzService,
 	}
-	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient)
+	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
 	vncHandler.Authz = authzService
 	vmActionExecutor := vmactions.NewExecutor(
 		server.ProxmoxClient,

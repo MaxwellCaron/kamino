@@ -12,7 +12,7 @@ import type {
   PrincipalOption,
 } from "../types/inventory-types"
 
-export function createEmptyScope(): DraftScope {
+function createEmptyScope(): DraftScope {
   return { allowMask: 0, denyMask: 0 }
 }
 
@@ -80,6 +80,7 @@ export function createInheritedPrincipals(
   entries: Array<ApiInheritedInventoryAclEntry>
 ): Array<InheritedPrincipal> {
   const principalsMap = new Map<string, InheritedPrincipal>()
+  const sourceNameSets = new Map<string, Set<string>>()
 
   for (const entry of entries) {
     const principal = principalsMap.get(entry.principal_id) ?? {
@@ -91,7 +92,14 @@ export function createInheritedPrincipals(
       sourceItemNames: [],
     }
 
-    if (!principal.sourceItemNames.includes(entry.source_item_name)) {
+    let sourceNames = sourceNameSets.get(entry.principal_id)
+    if (!sourceNames) {
+      sourceNames = new Set<string>()
+      sourceNameSets.set(entry.principal_id, sourceNames)
+    }
+
+    if (!sourceNames.has(entry.source_item_name)) {
+      sourceNames.add(entry.source_item_name)
       principal.sourceItemNames.push(entry.source_item_name)
     }
     principalsMap.set(entry.principal_id, principal)
@@ -100,7 +108,7 @@ export function createInheritedPrincipals(
   return [...principalsMap.values()]
 }
 
-export const hasScopeOverrides = (scope: DraftScope) =>
+const hasScopeOverrides = (scope: DraftScope) =>
   scope.allowMask !== 0 || scope.denyMask !== 0
 
 export const hasPrincipalOverrides = (p: DraftPrincipal) =>
@@ -110,15 +118,6 @@ export const normalizeScope = (scope: DraftScope): DraftScope => ({
   allowMask: scope.allowMask & ~scope.denyMask,
   denyMask: scope.denyMask,
 })
-
-export function normalizeDraftAcl(draft: DraftAcl | null): DraftAcl | null {
-  if (!draft) return null
-  return {
-    principals: draft.principals
-      .map((p) => ({ ...p, self: normalizeScope(p.self) }))
-      .filter(hasPrincipalOverrides),
-  }
-}
 
 export function buildPrincipalOptions(
   users: Array<ApiPrincipal>,
@@ -137,18 +136,6 @@ export function buildPrincipalOptions(
     .sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     )
-}
-
-export function getPrincipalLabel(
-  p: DraftPrincipal,
-  map: Map<string, PrincipalOption>
-) {
-  return (
-    map.get(p.principalId)?.label ??
-    p.principalName ??
-    p.principalExternalId ??
-    p.principalId
-  )
 }
 
 export function getPermissionState(

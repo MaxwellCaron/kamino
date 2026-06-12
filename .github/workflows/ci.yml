@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+
+      - name: gofmt
+        working-directory: apps/api
+        run: test -z "$(gofmt -l .)"
+
+      - name: build
+        working-directory: apps/api
+        run: go build ./cmd/api
+
+      - name: test
+        working-directory: apps/api
+        run: go test ./...
+
+      - name: govulncheck
+        working-directory: apps/api
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        continue-on-error: true
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+
+      - name: install
+        run: bun install --frozen-lockfile
+
+      - name: typecheck
+        run: bun run typecheck
+
+      - name: lint
+        run: bun run lint
+
+      - name: react-doctor
+        working-directory: apps/web
+        run: bunx react-doctor@latest --blocking warning

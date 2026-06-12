@@ -1,25 +1,19 @@
-import { useEffect } from "react"
 import { useForm } from "@tanstack/react-form"
 import { IconEdit } from "@tabler/icons-react"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-} from "@workspace/ui/components/field"
-import { Textarea } from "@workspace/ui/components/textarea"
+import { FieldGroup } from "@workspace/ui/components/field"
 import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
 import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 const vmNotesSchema = z.object({
-  notes: z.string().trim().max(255, "Notes must be 255 characters or less"),
+  notes: z.string().trim().max(256, "Notes must be 256 characters or less"),
 })
 
 export function VmNotesDialog({
@@ -43,6 +37,9 @@ export function VmNotesDialog({
     defaultValues: {
       notes: initialNotes ?? "",
     },
+    validators: {
+      onSubmit: vmNotesSchema,
+    },
     onSubmit: ({ value }) => {
       const parsed = vmNotesSchema.parse(value)
       onOpenChange(false)
@@ -56,59 +53,45 @@ export function VmNotesDialog({
     },
   })
 
-  useEffect(() => {
-    if (!open) {
-      form.reset({
-        notes: initialNotes ?? "",
-      })
-    }
-  }, [form, initialNotes, open])
-
   return (
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      onClosed={() =>
+        form.reset({
+          notes: initialNotes ?? "",
+        })
+      }
       icon={IconEdit}
       title="Notes"
       description={`Update notes for ${formatVmReference(vmid, vmName)}.`}
     >
       <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          form.handleSubmit()
+        action={() => {
+          void form.handleSubmit()
         }}
       >
         <FieldGroup>
-          <form.Field
-            name="notes"
-            validators={{
-              onBlur: ({ value }) => {
-                const result = vmNotesSchema.shape.notes.safeParse(value)
-                return result.success
-                  ? undefined
-                  : result.error.issues[0].message
-              },
-            }}
-          >
-            {(field) => (
-              <Field
-                data-invalid={field.state.meta.errors.length > 0 || undefined}
-              >
-                <Textarea
+          <form.Field name="notes">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <CountedTextareaField
                   id="notes"
+                  label="Notes"
                   placeholder={`Add notes for ${vmName}...`}
+                  isInvalid={isInvalid}
                   value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onValueChange={field.handleChange}
                   onBlur={field.handleBlur}
-                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                  maxLength={255}
+                  maxLength={256}
+                  className="max-h-100"
+                  errors={isInvalid ? field.state.meta.errors : []}
                 />
-                <FieldDescription className="text-right font-mono text-xs">
-                  {field.state.value.length}/255
-                </FieldDescription>
-                <FieldError>{field.state.meta.errors[0]}</FieldError>
-              </Field>
-            )}
+              )
+            }}
           </form.Field>
         </FieldGroup>
         <DialogFooter className="mt-6">

@@ -39,14 +39,14 @@ export const STATUS_ICONS: Record<ApiRequestStatus, typeof IconClock> = {
   execution_failed: IconAlertCircle,
 }
 
-export const POWER_ICONS: Record<string, typeof IconClock> = {
+const POWER_ICONS: Record<string, typeof IconClock> = {
   power_on: IconPlayerPlay,
   shutdown: IconPower,
   reboot: IconRefresh,
   stop: IconPlayerStop,
 }
 
-export const REQUEST_ICONS: Record<string, typeof IconClock> = {
+const REQUEST_ICONS: Record<string, typeof IconClock> = {
   "inventory.vm.power": IconPower,
   "inventory.vm.snapshot.create": IconCamera,
   "inventory.vm.snapshot.rollback": IconHistory,

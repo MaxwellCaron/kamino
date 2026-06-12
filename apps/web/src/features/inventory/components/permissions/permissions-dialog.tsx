@@ -83,12 +83,6 @@ function InventoryPermissionsFormBody({
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
   const [principalSearch, setPrincipalSearch] = React.useState("")
 
-  React.useEffect(() => {
-    if (!props.open) {
-      setPrincipalSearch("")
-    }
-  }, [props.open])
-
   const normalizedPrincipalSearch = principalSearch.trim().toLocaleLowerCase()
 
   const filteredPrincipalSections = React.useMemo(() => {
@@ -96,25 +90,31 @@ function InventoryPermissionsFormBody({
       return state.principalSections
     }
 
-    return state.principalSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => {
-          const inheritedSourceNames =
-            state.inheritedPrincipalMap.get(item.principalId)
-              ?.sourceItemNames ?? []
+    return state.principalSections.flatMap((section) => {
+      const items = section.items.filter((item) => {
+        const inheritedSourceNames =
+          state.inheritedPrincipalMap.get(item.principalId)?.sourceItemNames ??
+          []
 
-          return [
-            item.label,
-            item.principalId,
-            item.principalType ? principalTypeLabels[item.principalType] : "",
-            ...inheritedSourceNames,
-          ].some((value) =>
-            value.toLocaleLowerCase().includes(normalizedPrincipalSearch)
-          )
-        }),
-      }))
-      .filter((section) => section.items.length > 0)
+        return [
+          item.label,
+          item.principalId,
+          item.principalType ? principalTypeLabels[item.principalType] : "",
+          ...inheritedSourceNames,
+        ].some((value) =>
+          value.toLocaleLowerCase().includes(normalizedPrincipalSearch)
+        )
+      })
+
+      return items.length > 0
+        ? [
+            {
+              ...section,
+              items,
+            },
+          ]
+        : []
+    })
   }, [
     normalizedPrincipalSearch,
     state.inheritedPrincipalMap,
@@ -278,6 +278,7 @@ function InventoryPermissionsFormBody({
       </AppDialogScrollBody>
 
       <CustomizePermissionsDialog
+        key={state.editingPrincipal?.principalId ?? "closed"}
         editingPrincipal={state.editingPrincipal}
         onSave={actions.handleSavePermissions}
         onOpenChange={(nextOpen) => !nextOpen && actions.cancelEditing()}
@@ -302,22 +303,33 @@ export function InventoryPermissionsDialog(
 ) {
   const { itemId, onOpenChange, open } = props
 
-  const aclQuery = useQuery({
+  const {
+    data: acl,
+    error: aclError,
+    isLoading: isAclLoading,
+  } = useQuery({
     ...inventoryAclQueryOptions(itemId),
     enabled: open && !!itemId,
   })
-  const usersQuery = useQuery({
+  const {
+    data: users,
+    error: usersError,
+    isLoading: isUsersLoading,
+  } = useQuery({
     ...usersQueryOptions,
     enabled: open,
   })
-  const groupsQuery = useQuery({
+  const {
+    data: groups,
+    error: groupsError,
+    isLoading: isGroupsLoading,
+  } = useQuery({
     ...groupsQueryOptions,
     enabled: open,
   })
 
-  const loading =
-    aclQuery.isLoading || usersQuery.isLoading || groupsQuery.isLoading
-  const loadError = aclQuery.error ?? usersQuery.error ?? groupsQuery.error
+  const loading = isAclLoading || isUsersLoading || isGroupsLoading
+  const loadError = aclError ?? usersError ?? groupsError
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -351,15 +363,15 @@ export function InventoryPermissionsDialog(
               </ItemDescription>
             </ItemContent>
           </Item>
-        ) : loading || !aclQuery.data ? (
+        ) : loading || !acl ? (
           <DialogBodySkeleton rows={3} />
         ) : (
           <InventoryPermissionsFormBody
             key={`${itemId}-${open}`}
             props={props}
-            aclData={aclQuery.data}
-            users={usersQuery.data ?? []}
-            groups={groupsQuery.data ?? []}
+            aclData={acl}
+            users={users ?? []}
+            groups={groups ?? []}
           />
         )}
       </AppDialogContent>

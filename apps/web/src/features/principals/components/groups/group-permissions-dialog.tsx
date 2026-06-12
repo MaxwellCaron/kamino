@@ -1,5 +1,6 @@
 import React from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useForm, useStore } from "@tanstack/react-form"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   IconAlertTriangle,
@@ -25,6 +26,7 @@ import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldSet,
@@ -105,6 +107,183 @@ function directRoleFromGrants(
   return ""
 }
 
+type RoleFormValues = {
+  role: ManagementPermissionKey | ""
+}
+
+function GroupPermissionsForm({
+  group,
+  initialRole,
+  roleDefinitions,
+  canEditBootstrapOnly,
+  immutable,
+  controlsDisabled,
+  onOpenChange,
+}: {
+  group: ApiPrincipal
+  initialRole: ManagementPermissionKey | ""
+  roleDefinitions: Array<ApiManagementPermissionDefinition>
+  canEditBootstrapOnly: boolean
+  immutable: boolean
+  controlsDisabled: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const baselineRoleRef = React.useRef(initialRole)
+
+  const form = useForm({
+    defaultValues: {
+      role: initialRole,
+    } satisfies RoleFormValues,
+    onSubmit: async ({ value }) => {
+      try {
+        await updateGroupManagementAcl(group.id, value.role ? [value.role] : [])
+        toast.success("Management role updated")
+        await queryClient.invalidateQueries({
+          queryKey: ["principals", "groups", group.id, "management-access"],
+        })
+        onOpenChange(false)
+      } catch (error) {
+        toast.error(formatToastError(error))
+      }
+    },
+  })
+
+  React.useEffect(() => {
+    baselineRoleRef.current = initialRole
+    form.reset({ role: initialRole })
+  }, [form, initialRole])
+
+  const selectedRole = useStore(form.store, (state) => state.values.role)
+  const hasChanges = selectedRole !== baselineRoleRef.current
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+
+  return (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
+    >
+      <AppDialogScrollBody>
+        <div className="flex flex-col">
+          {immutable ? (
+            <Alert>
+              <IconShieldCheck />
+              <AlertTitle>Protected bootstrap group</AlertTitle>
+              <AlertDescription>
+                This group stays administrator-owned and cannot be edited here.
+              </AlertDescription>
+            </Alert>
+          ) : !canEditBootstrapOnly ? (
+            <Alert>
+              <IconUserCog />
+              <AlertTitle>Administrator role is restricted</AlertTitle>
+              <AlertDescription>
+                You can assign the manager role here, but administrator remains
+                reserved for the bootstrap admin group.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="w-full">
+            <form.Field name="role">
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
+
+                return (
+                  <FieldSet>
+                    <RadioGroup
+                      name={field.name}
+                      value={field.state.value}
+                      onValueChange={(value) =>
+                        field.handleChange(
+                          value as ManagementPermissionKey | ""
+                        )
+                      }
+                      disabled={controlsDisabled || immutable}
+                      className="gap-3"
+                    >
+                      <FieldLabel htmlFor="role-none">
+                        <Field
+                          orientation="horizontal"
+                          data-invalid={isInvalid}
+                        >
+                          <FieldContent className="cursor-pointer">
+                            <FieldTitle>None</FieldTitle>
+                            <FieldDescription>
+                              Standard operations. No special management
+                              permissions.
+                            </FieldDescription>
+                          </FieldContent>
+                          <RadioGroupItem
+                            value=""
+                            id="role-none"
+                            aria-invalid={isInvalid}
+                          />
+                        </Field>
+                      </FieldLabel>
+
+                      {roleDefinitions.map((role) => {
+                        const roleDisabled =
+                          role.bootstrap_only && !canEditBootstrapOnly
+
+                        return (
+                          <FieldLabel
+                            key={role.key}
+                            htmlFor={`role-${role.key}`}
+                          >
+                            <Field
+                              orientation="horizontal"
+                              data-invalid={isInvalid}
+                            >
+                              <FieldContent className="cursor-pointer">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <FieldTitle>{role.label}</FieldTitle>
+                                  {role.dangerous && (
+                                    <Badge variant="destructive">
+                                      Dangerous
+                                    </Badge>
+                                  )}
+                                </div>
+                                <FieldDescription>
+                                  {role.description}
+                                </FieldDescription>
+                              </FieldContent>
+                              <RadioGroupItem
+                                value={role.key}
+                                id={`role-${role.key}`}
+                                disabled={roleDisabled}
+                                aria-invalid={isInvalid}
+                              />
+                            </Field>
+                          </FieldLabel>
+                        )
+                      })}
+                    </RadioGroup>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </FieldSet>
+                )
+              }}
+            </form.Field>
+          </FieldGroup>
+        </div>
+      </AppDialogScrollBody>
+
+      <DialogFooter>
+        <AppDialogPrimaryButton
+          disabled={
+            controlsDisabled || immutable || !hasChanges || isSubmitting
+          }
+        >
+          {isSubmitting ? "Saving..." : "Save"}
+        </AppDialogPrimaryButton>
+      </DialogFooter>
+    </form>
+  )
+}
+
 export function GroupPermissionsDialog({
   group,
   open,
@@ -114,62 +293,27 @@ export function GroupPermissionsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const queryClient = useQueryClient()
-  const [selectedRole, setSelectedRole] = React.useState<
-    ManagementPermissionKey | ""
-  >("")
-
-  const accessQuery = useQuery({
+  const {
+    data: access,
+    error: accessError,
+    isError: isAccessError,
+    isLoading: isAccessLoading,
+  } = useQuery({
     ...groupManagementAclQueryOptions(group.id),
     enabled: open,
   })
 
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedRole("")
-      return
-    }
-
-    if (!accessQuery.data) {
-      return
-    }
-
-    setSelectedRole(directRoleFromGrants(accessQuery.data.grants))
-  }, [accessQuery.data, open])
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      await updateGroupManagementAcl(
-        group.id,
-        selectedRole ? [selectedRole] : []
-      )
-    },
-    onSuccess: () => {
-      toast.success("Management role updated")
-      queryClient.invalidateQueries({
-        queryKey: ["principals", "groups", group.id, "management-access"],
-      })
-      onOpenChange(false)
-    },
-    onError: (error) => {
-      toast.error(formatToastError(error))
-    },
-  })
-
   const roleDefinitions = React.useMemo(
-    () => getRoleDefinitions(accessQuery.data?.sections ?? []),
-    [accessQuery.data?.sections]
+    () => getRoleDefinitions(access?.sections ?? []),
+    [access?.sections]
   )
-  const immutable = accessQuery.data?.immutable ?? false
-  const canEditBootstrapOnly =
-    accessQuery.data?.can_edit_bootstrap_only ?? false
-  const controlsDisabled =
-    accessQuery.isLoading || accessQuery.isError || mutation.isPending
+  const immutable = access?.immutable ?? false
+  const canEditBootstrapOnly = access?.can_edit_bootstrap_only ?? false
+  const controlsDisabled = isAccessLoading || isAccessError
   const initialRole = React.useMemo(
-    () => directRoleFromGrants(accessQuery.data?.grants ?? []),
-    [accessQuery.data?.grants]
+    () => directRoleFromGrants(access?.grants ?? []),
+    [access?.grants]
   )
-  const hasChanges = initialRole !== selectedRole
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,105 +323,34 @@ export function GroupPermissionsDialog({
         title="Management Roles"
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
-        <AppDialogScrollBody className="-mb-6">
-          {accessQuery.isLoading ? (
+        {isAccessLoading ? (
+          <AppDialogScrollBody>
             <DialogBodySkeleton rows={3} />
-          ) : accessQuery.isError ? (
+          </AppDialogScrollBody>
+        ) : isAccessError ? (
+          <AppDialogScrollBody>
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <IconAlertTriangle />
                 </EmptyMedia>
                 <EmptyTitle>Could Not Load Roles</EmptyTitle>
-                <EmptyDescription>{accessQuery.error.message}</EmptyDescription>
+                <EmptyDescription>{accessError.message}</EmptyDescription>
               </EmptyHeader>
             </Empty>
-          ) : (
-            <div className="flex flex-col gap-5">
-              {immutable ? (
-                <Alert>
-                  <IconShieldCheck />
-                  <AlertTitle>Protected bootstrap group</AlertTitle>
-                  <AlertDescription>
-                    This group stays administrator-owned and cannot be edited
-                    here.
-                  </AlertDescription>
-                </Alert>
-              ) : !canEditBootstrapOnly ? (
-                <Alert>
-                  <IconUserCog />
-                  <AlertTitle>Administrator role is restricted</AlertTitle>
-                  <AlertDescription>
-                    You can assign the manager role here, but administrator
-                    remains reserved for the bootstrap admin group.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <FieldGroup className="w-full">
-                <FieldSet>
-                  <RadioGroup
-                    value={selectedRole}
-                    onValueChange={(value) =>
-                      setSelectedRole(value as ManagementPermissionKey | "")
-                    }
-                    disabled={controlsDisabled || immutable}
-                    className="gap-3"
-                  >
-                    <FieldLabel htmlFor="role-none">
-                      <Field orientation="horizontal">
-                        <FieldContent>
-                          <FieldTitle>None</FieldTitle>
-                          <FieldDescription>
-                            Standard operations. No special management
-                            permissions.
-                          </FieldDescription>
-                        </FieldContent>
-                        <RadioGroupItem value="" id="role-none" />
-                      </Field>
-                    </FieldLabel>
-
-                    {roleDefinitions.map((role) => {
-                      const roleDisabled =
-                        role.bootstrap_only && !canEditBootstrapOnly
-
-                      return (
-                        <FieldLabel key={role.key} htmlFor={`role-${role.key}`}>
-                          <Field orientation="horizontal">
-                            <FieldContent>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <FieldTitle>{role.label}</FieldTitle>
-                                {role.dangerous && (
-                                  <Badge variant="destructive">Dangerous</Badge>
-                                )}
-                              </div>
-                              <FieldDescription>
-                                {role.description}
-                              </FieldDescription>
-                            </FieldContent>
-                            <RadioGroupItem
-                              value={role.key}
-                              id={`role-${role.key}`}
-                              disabled={roleDisabled}
-                            />
-                          </Field>
-                        </FieldLabel>
-                      )
-                    })}
-                  </RadioGroup>
-                </FieldSet>
-              </FieldGroup>
-            </div>
-          )}
-        </AppDialogScrollBody>
-
-        <DialogFooter>
-          <AppDialogPrimaryButton
-            disabled={controlsDisabled || immutable || !hasChanges}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? "Saving..." : "Save"}
-          </AppDialogPrimaryButton>
-        </DialogFooter>
+          </AppDialogScrollBody>
+        ) : (
+          <GroupPermissionsForm
+            key={`${group.id}:${initialRole}`}
+            group={group}
+            initialRole={initialRole}
+            roleDefinitions={roleDefinitions}
+            canEditBootstrapOnly={canEditBootstrapOnly}
+            immutable={immutable}
+            controlsDisabled={controlsDisabled}
+            onOpenChange={onOpenChange}
+          />
+        )}
       </AppDialogContent>
     </Dialog>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { useStore } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -130,25 +130,32 @@ export function CreateVmDialog({
     setStep("method")
   }
 
-  const inventoryTreeQuery = useQuery({
+  const {
+    data: inventoryTreeData,
+    error: inventoryTreeError,
+    isLoading: isInventoryTreeLoading,
+  } = useQuery({
     ...inventoryTreeQueryOptions,
     enabled: open,
   })
-  const inventoryTree = inventoryTreeQuery.data ?? []
+  const inventoryTree = inventoryTreeData ?? []
   const templateOptions = getVmTemplateOptions(inventoryTree)
   const folderOptions = getInventoryFolderOptions(inventoryTree)
-  const createOptionsQuery = useQuery({
+  const {
+    data: createOptions,
+    error: createOptionsError,
+    isLoading: isCreateOptionsLoading,
+  } = useQuery({
     ...createVmOptionsQueryOptions,
     enabled: open,
   })
-  const createOptions = createOptionsQuery.data
   const { data: isos } = useQuery({
     ...createVmIsosQueryOptions(selectedIsoStorage),
     enabled: open && !!selectedIsoStorage,
   })
   const isLoadingInitialOptions =
-    inventoryTreeQuery.isLoading || createOptionsQuery.isLoading
-  const initialOptionsError = inventoryTreeQuery.error ?? createOptionsQuery.error
+    isInventoryTreeLoading || isCreateOptionsLoading
+  const initialOptionsError = inventoryTreeError ?? createOptionsError
   const nodes = createOptions?.nodes ?? []
   const diskStorages = createOptions?.disk_storages ?? []
   const isoStorages = createOptions?.iso_storages ?? []
@@ -186,6 +193,9 @@ export function CreateVmDialog({
     },
     onSuccess: (result) => {
       seedInventoryItemCache(queryClient, result.item_id, result.item)
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
       onOpenChange(false)
       navigate({
         to: "/inventory/items/$itemId",
@@ -194,22 +204,13 @@ export function CreateVmDialog({
     },
   })
 
-  useEffect(() => {
-    if (!open) {
-      didPrefillTargetFolder.current = false
-      resetDialog()
-    }
-  }, [form, open])
-
-  useEffect(() => {
-    if (!open || didPrefillTargetFolder.current) return
-
+  if (open && folderOptions.length > 0 && !didPrefillTargetFolder.current) {
+    didPrefillTargetFolder.current = true
     form.setFieldValue(
       "target_folder_id",
       getSelectedFolder(folderOptions, initialFolderId)?.id ?? ""
     )
-    didPrefillTargetFolder.current = true
-  }, [folderOptions, form, initialFolderId, open])
+  }
 
   function handleCreate() {
     if (method === "upload") {
@@ -226,6 +227,7 @@ export function CreateVmDialog({
       onOpenChange={(isOpen) => {
         onOpenChange(isOpen)
         if (!isOpen) {
+          didPrefillTargetFolder.current = false
           resetDialog()
         }
       }}
@@ -259,11 +261,7 @@ export function CreateVmDialog({
             ))}
           </StepperList>
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-            }}
-          >
+          <form action={() => {}}>
             <AppDialogScrollBody className="h-[40vh]">
               {initialOptionsError ? (
                 <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">

@@ -299,6 +299,78 @@ func (s *Service) GetInventoryItemWithPermissions(
 	})
 }
 
+func (s *Service) GetInventoryItemsWithPermissions(
+	ctx context.Context,
+	principalID uuid.UUID,
+	ids []uuid.UUID,
+) (map[uuid.UUID]database.GetInventoryItemWithPermissionsRow, error) {
+	isProtected, err := s.hasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID]database.GetInventoryItemWithPermissionsRow, len(ids))
+
+	if isProtected {
+		for _, id := range ids {
+			row, err := database.New(s.db).GetInventoryItemByID(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			result[row.ID] = database.GetInventoryItemWithPermissionsRow{
+				ID:                 row.ID,
+				ParentID:           row.ParentID,
+				Kind:               row.Kind,
+				Name:               row.Name,
+				InheritPermissions: row.InheritPermissions,
+				DirectVmLimit:      row.DirectVmLimit,
+				EffectiveVmLimit:   row.EffectiveVmLimit,
+				VmCount:            row.VmCount,
+				Node:               row.Node,
+				Vmid:               row.Vmid,
+				IsTemplate:         row.IsTemplate,
+				Notes:              row.Notes,
+				CpuCount:           row.CpuCount,
+				MemoryMb:           row.MemoryMb,
+				DiskGb:             row.DiskGb,
+				AllowedMask:        int64(authorization.FullAccessMask),
+				DeniedMask:         0,
+			}
+		}
+		return result, nil
+	}
+
+	rows, err := database.New(s.db).GetInventoryItemsWithPermissions(ctx, database.GetInventoryItemsWithPermissionsParams{
+		PrincipalID: principalID,
+		ItemIds:     ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.ID] = database.GetInventoryItemWithPermissionsRow{
+			ID:                 row.ID,
+			ParentID:           row.ParentID,
+			Kind:               row.Kind,
+			Name:               row.Name,
+			InheritPermissions: row.InheritPermissions,
+			DirectVmLimit:      row.DirectVmLimit,
+			EffectiveVmLimit:   row.EffectiveVmLimit,
+			VmCount:            row.VmCount,
+			Node:               row.Node,
+			Vmid:               row.Vmid,
+			IsTemplate:         row.IsTemplate,
+			Notes:              row.Notes,
+			CpuCount:           row.CpuCount,
+			MemoryMb:           row.MemoryMb,
+			DiskGb:             row.DiskGb,
+			AllowedMask:        row.AllowedMask,
+			DeniedMask:         row.DeniedMask,
+		}
+	}
+	return result, nil
+}
+
 func (s *Service) ListInventoryACLEntries(
 	ctx context.Context,
 	itemID uuid.UUID,

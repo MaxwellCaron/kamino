@@ -213,7 +213,7 @@ Quoted filenames are supported too:
 
 Use this space for task instructions, lab notes, walkthroughs, code snippets, reference commands, and any rich markdown content you want end users to read.`
 
-export const publishPodFormSchema = z.object({
+const publishPodFormSchema = z.object({
   id: z.string().min(1),
   title: z
     .string()
@@ -267,17 +267,6 @@ export function createEmptyTask() {
     content: defaultPublishPodTaskContent,
     questions: [],
   } satisfies PublishPodFormValues["tasks"][number]
-}
-
-export function createDefaultPublishPodVm(index: number) {
-  return {
-    id: uuid(),
-    name: `Virtual Machine ${index + 1}`,
-    cpuCount: 2,
-    memoryGb: 4,
-    storageGb: 100,
-    permissions: createDefaultPublishPodVmPermissions(),
-  } satisfies PublishPodFormValues["virtual_machines"][number]
 }
 
 export function createDefaultPublishPodVmPermissions() {
