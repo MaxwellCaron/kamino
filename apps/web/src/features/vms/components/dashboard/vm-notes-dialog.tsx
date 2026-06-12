@@ -69,9 +69,8 @@ export function VmNotesDialog({
       description={`Update notes for ${formatVmReference(vmid, vmName)}.`}
     >
       <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          form.handleSubmit()
+        action={() => {
+          void form.handleSubmit()
         }}
       >
         <FieldGroup>

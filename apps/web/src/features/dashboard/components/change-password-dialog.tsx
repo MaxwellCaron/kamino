@@ -92,9 +92,8 @@ export function ChangePasswordDialog({
       description="Change your password by confirming the current one first."
     >
       <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          form.handleSubmit()
+        action={() => {
+          void form.handleSubmit()
         }}
       >
         <FieldGroup>

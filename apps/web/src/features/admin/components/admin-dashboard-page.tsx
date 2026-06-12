@@ -5,17 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconUser, IconUsersGroup } from "@tabler/icons-react"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
+import { IconUser, IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
 import {
   buildStorageByNode,
@@ -29,10 +19,10 @@ import { AdminDashboardHeader } from "./admin-dashboard-header"
 import { getPrincipalColumns } from "./admin-principal-columns"
 import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
 import { AdminDashboardSkeleton } from "./admin-dashboard-skeleton"
+import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-requests-card"
+import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -53,7 +43,6 @@ import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
-import { SimpleDataTable } from "@/components/data-table/simple-data-table"
 
 const RequestDetailDialog = lazy(() =>
   import("@/features/requests/components/request-detail-dialog").then(
@@ -239,117 +228,27 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
 
         <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
 
-        <Card className="xl:col-span-7">
-          <CardHeader>
-            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Pending Requests
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Newest requests waiting for review.
-            </CardDescription>
-            <CardAction>
-              <Button
-                nativeButton={false}
-                size="sm"
-                render={
-                  <Link
-                    to="/manager/requests"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    Queue
-                    <IconArrowUpRight className="size-4" />
-                  </Link>
-                }
-              />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <SimpleDataTable
-              columns={requestColumns}
-              data={pendingRequests}
-              error={pendingRequestsError}
-              getRowId={(request: ApiRequestSummary) => request.id}
-              isLoading={isPendingRequestsLoading}
-              skeletonRows={3}
-            />
-          </CardContent>
-        </Card>
+        <AdminDashboardPendingRequestsCard
+          columns={requestColumns}
+          data={pendingRequests}
+          error={pendingRequestsError}
+          isLoading={isPendingRequestsLoading}
+        />
 
         <div className="xl:col-span-5">
           <AdminDashboardActionButtons />
         </div>
 
-        <Card className="xl:col-span-5">
-          <CardHeader>
-            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Groups
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Last five created group principals.
-            </CardDescription>
-            <CardAction>
-              <Button
-                nativeButton={false}
-                size="sm"
-                render={
-                  <Link
-                    to="/admin/principals/groups"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    All Groups
-                    <IconArrowUpRight className="size-4" />
-                  </Link>
-                }
-              />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <SimpleDataTable
-              columns={groupColumns}
-              data={recentGroups}
-              error={groupsError}
-              getRowId={(principal: ApiPrincipal) => principal.id}
-              isLoading={isGroupsLoading}
-              skeletonRows={3}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-7">
-          <CardHeader>
-            <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-              Users
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Last five created user principals.
-            </CardDescription>
-            <CardAction>
-              <Button
-                nativeButton={false}
-                size="sm"
-                render={
-                  <Link
-                    to="/admin/principals/users"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    All Users
-                    <IconArrowUpRight className="size-4" />
-                  </Link>
-                }
-              />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <SimpleDataTable
-              columns={userColumns}
-              data={recentUsers}
-              error={usersError}
-              getRowId={(principal: ApiPrincipal) => principal.id}
-              isLoading={isUsersLoading}
-              skeletonRows={3}
-            />
-          </CardContent>
-        </Card>
+        <AdminDashboardPrincipalsCards
+          groupColumns={groupColumns}
+          recentGroups={recentGroups}
+          groupsError={groupsError}
+          isGroupsLoading={isGroupsLoading}
+          userColumns={userColumns}
+          recentUsers={recentUsers}
+          usersError={usersError}
+          isUsersLoading={isUsersLoading}
+        />
       </div>
 
       <Suspense fallback={null}>

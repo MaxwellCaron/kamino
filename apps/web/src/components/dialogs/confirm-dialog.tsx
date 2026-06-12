@@ -46,7 +46,7 @@ export type ConfirmStatusItem = {
   successDisplay?: "vm" | "deleted"
 }
 
-function renderStatusIcon(item: ConfirmStatusItem) {
+function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
   const isPending = item.status === "pending"
 
   if (item.icon) {
@@ -147,7 +147,9 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
     <AppDialogScrollBody className="-mb-8 gap-3">
       {items.map((item) => (
         <Item key={item.id} variant="muted">
-          <ItemMedia variant="icon">{renderStatusIcon(item)}</ItemMedia>
+          <ItemMedia variant="icon">
+            <ConfirmStatusIcon item={item} />
+          </ItemMedia>
           <ItemContent>
             <ItemTitle
               className={item.status === "error" ? "text-destructive" : ""}

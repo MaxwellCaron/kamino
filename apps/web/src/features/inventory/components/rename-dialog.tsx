@@ -155,9 +155,8 @@ export function RenameDialog(props: RenameDialogProps) {
       description={ui.description}
     >
       <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          form.handleSubmit()
+        action={() => {
+          void form.handleSubmit()
         }}
       >
         <FieldGroup>

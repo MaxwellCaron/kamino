@@ -51,7 +51,7 @@ interface DataTableProps<TData, TValue> {
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
   showSelectionSummary?: boolean
-  renderSelectionActions?: (
+  selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
 }
@@ -64,7 +64,7 @@ export function DataTable<TData, TValue>({
   getRowId,
   initialPageSize = 25,
   showSelectionSummary = true,
-  renderSelectionActions,
+  selectionActions,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -224,7 +224,7 @@ export function DataTable<TData, TValue>({
         table={table}
         showSelectionSummary={showSelectionSummary}
       />
-      {renderSelectionActions && (
+      {selectionActions && (
         <ActionBar
           open={selectedRows.length > 0}
           onOpenChange={(open) => {
@@ -237,7 +237,7 @@ export function DataTable<TData, TValue>({
           </ActionBarSelection>
           <ActionBarSeparator />
           <ActionBarGroup>
-            {renderSelectionActions({ clearSelection, selectedRows })}
+            {selectionActions({ clearSelection, selectedRows })}
           </ActionBarGroup>
           <ActionBarClose aria-label="Clear selection">
             <IconX />

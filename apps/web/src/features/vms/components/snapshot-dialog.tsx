@@ -136,9 +136,8 @@ function DirectSnapshotForm({
 
   return (
     <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        form.handleSubmit()
+      action={() => {
+        void form.handleSubmit()
       }}
     >
       <FieldGroup>
@@ -146,10 +145,9 @@ function DirectSnapshotForm({
           name="snapname"
           validators={{
             onBlur: ({ value }) => {
-              const result = directSnapshotSchema.shape.snapname.safeParse(value)
-              return result.success
-                ? undefined
-                : result.error.issues[0].message
+              const result =
+                directSnapshotSchema.shape.snapname.safeParse(value)
+              return result.success ? undefined : result.error.issues[0].message
             },
           }}
         >
@@ -176,9 +174,7 @@ function DirectSnapshotForm({
             onBlur: ({ value }) => {
               const result =
                 directSnapshotSchema.shape.description.safeParse(value)
-              return result.success
-                ? undefined
-                : result.error.issues[0].message
+              return result.success ? undefined : result.error.issues[0].message
             },
           }}
         >
@@ -194,9 +190,7 @@ function DirectSnapshotForm({
                 <InputGroupTextarea
                   id="description"
                   placeholder="Optional description..."
-                  aria-invalid={
-                    field.state.meta.errors.length > 0 || undefined
-                  }
+                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
@@ -307,9 +301,8 @@ function RequestSnapshotForm({
 
   return (
     <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        form.handleSubmit()
+      action={() => {
+        void form.handleSubmit()
       }}
     >
       <FieldGroup>
@@ -319,9 +312,7 @@ function RequestSnapshotForm({
             onBlur: ({ value }) => {
               const result =
                 createSnapshotRequestSchema.shape.snapname.safeParse(value)
-              return result.success
-                ? undefined
-                : result.error.issues[0].message
+              return result.success ? undefined : result.error.issues[0].message
             },
           }}
         >

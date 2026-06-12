@@ -86,8 +86,7 @@ export function FolderLimitDialog({
       description={`Set the limit for "${folderName}".`}
     >
       <form
-        onSubmit={(event) => {
-          event.preventDefault()
+        action={() => {
           submit()
         }}
       >

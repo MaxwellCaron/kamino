@@ -131,9 +131,8 @@ export function CloneDialog({
         <DialogBodySkeleton rows={4} />
       ) : (
         <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            form.handleSubmit()
+          action={() => {
+            void form.handleSubmit()
           }}
         >
           <FieldSet>

@@ -1,27 +1,17 @@
 import * as React from "react"
 import { useStore } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
-import { Stepper, StepperContent } from "@workspace/ui/components/stepper"
 import { uuid } from "@workspace/ui/lib/utils"
-import { PublishPodPersonalizeStep } from "./publish-pod-1-personalize"
-import { PublishPodAccessStep } from "./publish-pod-2-access"
-import { PublishPodVirtualMachinesStep } from "./publish-pod-3-virtual-machines"
 import {
   createInitialPublishPodValues,
   usePublishPodForm,
 } from "./publish-pod-form"
-import { PublishPodTasksStep } from "./publish-pod-4-tasks"
-import { PublishPodPreviewStep } from "./publish-pod-5-preview"
-import {
-  PublishPodStepper,
-} from "./publish-pod-stepper"
-import { defaultPublishPodStep, steps } from "./publish-pod-steps"
+import { defaultPublishPodStep } from "./publish-pod-steps"
 import { PublishPodSubmitState } from "./publish-pod-publishing-state"
+import { PublishPodFormView } from "./publish-pod-form-view"
+import { validateFormForSubmit, validateStep } from "./publish-pod-validation"
 import type { PublishPodStep } from "./publish-pod-steps"
-import type {
-  PublishPodFormApi,
-  PublishPodFormValues,
-} from "./publish-pod-form"
+import type { PublishPodFormValues } from "./publish-pod-form"
 import type { PublishPodSubmitStatus } from "./publish-pod-submit-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
@@ -36,7 +26,6 @@ import {
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 
-type PublishPodFieldPath = Parameters<PublishPodFormApi["getFieldMeta"]>[0]
 type PublishPodPendingStatus = Extract<
   PublishPodSubmitStatus,
   "publishing" | "updating"
@@ -53,9 +42,6 @@ type PublishPodSubmitOptions = {
 type PublishPodSubmitResult = {
   slug: string
 }
-type PublishPodValidationErrors = Awaited<
-  ReturnType<PublishPodFormApi["validate"]>
->
 
 type PublishPodPageProps = {
   initialValues?: PublishPodFormValues
@@ -231,133 +217,15 @@ export function PublishPodPage({
     )
   }, [submittedValues])
 
-  const hasFieldErrors = React.useCallback(
-    (fields: Array<PublishPodFieldPath>) =>
-      fields.some(
-        (field) => (form.getFieldMeta(field)?.errors.length ?? 0) > 0
-      ),
-    [form]
-  )
-
-  const markFieldsTouched = React.useCallback(
-    (fields: Array<PublishPodFieldPath>) => {
-      fields.forEach((field) => {
-        form.setFieldMeta(field, (meta) => ({
-          ...meta,
-          isTouched: true,
-        }))
-      })
-    },
-    [form]
-  )
-
-  const getTaskFieldPaths = React.useCallback(() => {
-    const tasks = form.getFieldValue("tasks")
-    const fields: Array<PublishPodFieldPath> = ["tasks"]
-
-    tasks.forEach((task, taskIndex) => {
-      fields.push(
-        `tasks[${taskIndex}].title` as PublishPodFieldPath,
-        `tasks[${taskIndex}].content` as PublishPodFieldPath
-      )
-
-      task.questions.forEach((_, questionIndex) => {
-        fields.push(
-          `tasks[${taskIndex}].questions[${questionIndex}].title` as PublishPodFieldPath,
-          `tasks[${taskIndex}].questions[${questionIndex}].answerOutline` as PublishPodFieldPath,
-          `tasks[${taskIndex}].questions[${questionIndex}].hint` as PublishPodFieldPath
-        )
-      })
-    })
-
-    return fields
-  }, [form])
-
-  const getSubmitFieldPaths = React.useCallback(() => {
-    const fields = steps.flatMap((s) => s.fields) as Array<PublishPodFieldPath>
-    return [...fields, ...getTaskFieldPaths()]
-  }, [getTaskFieldPaths])
-
-  const firstInvalidStepFromErrors = React.useCallback(
-    (errors: PublishPodValidationErrors): PublishPodStep => {
-      const errorKeys = Object.keys(errors)
-      const hasErrorFor = (fields: ReadonlyArray<string>) =>
-        errorKeys.some((key) =>
-          fields.some((field) => key === field || key.startsWith(`${field}[`))
-        )
-
-      return steps.find((s) => hasErrorFor(s.fields))?.value ?? "preview"
-    },
-    []
-  )
-
-  const validateFormForSubmit = React.useCallback(async () => {
-    const errors = await form.validate("submit")
-
-    const tasks = form.getFieldValue("tasks")
-    if (tasks.length > 0) {
-      await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
-    }
-
-    const submitFields = getSubmitFieldPaths()
-    const isValid =
-      Object.keys(errors).length === 0 && !hasFieldErrors(submitFields)
-
-    if (!isValid) {
-      markFieldsTouched(submitFields)
-      setStep(firstInvalidStepFromErrors(errors))
-    }
-
-    return isValid
-  }, [
-    firstInvalidStepFromErrors,
-    form,
-    getSubmitFieldPaths,
-    hasFieldErrors,
-    markFieldsTouched,
-  ])
-
-  const validateStep = React.useCallback(async () => {
-    const fields = (steps.find((s) => s.value === step)?.fields ??
-      []) as Array<PublishPodFieldPath>
-
-    await Promise.all(
-      fields.map((field) => form.validateField(field, "submit"))
-    )
-
-    if (step === "tasks") {
-      const tasks = form.getFieldValue("tasks")
-      if (tasks.length > 0) {
-        await form.validateArrayFieldsStartingFrom("tasks", 0, "submit")
-      }
-    }
-
-    const blockingFields = step === "tasks" ? getTaskFieldPaths() : fields
-    if (hasFieldErrors(blockingFields)) {
-      markFieldsTouched(blockingFields)
-      return false
-    }
-
-    return true
-  }, [form, getTaskFieldPaths, hasFieldErrors, markFieldsTouched, step])
-
   const submitForm = React.useCallback(async () => {
-    const isValid = await validateFormForSubmit()
+    const isValid = await validateFormForSubmit(form, setStep)
     if (!isValid) {
       return false
     }
 
     await form.handleSubmit()
     return true
-  }, [form, validateFormForSubmit])
-
-  const handleSubmit = React.useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault()
-      await submitForm()
-    },
-    [submitForm]
-  )
+  }, [form])
 
   const handleBackToForm = React.useCallback(() => {
     setSubmitStatus({
@@ -367,6 +235,11 @@ export function PublishPodPage({
     })
     submitCompletedRef.current = false
   }, [])
+
+  const handleValidateStep = React.useCallback(
+    () => validateStep(form, step),
+    [form, step]
+  )
 
   if (resolvedSubmitState !== "form") {
     return (
@@ -393,69 +266,22 @@ export function PublishPodPage({
   }
 
   return (
-    <form
-      noValidate
-      className="@container/main relative flex flex-1 flex-col"
-      onSubmit={handleSubmit}
-    >
-      <Stepper
-        value={step}
-        onValueChange={(value) => setStep(value)}
-        onValidate={(_, direction) => {
-          if (direction === "prev") return true
-          return validateStep()
-        }}
-        className="w-full flex-1"
-      >
-        <StepperContent value="personalize" className="w-full">
-          <PublishPodPersonalizeStep
-            form={form}
-            principalOptionMap={principalOptionMap}
-            principalOptions={principalOptions}
-            submissionAttempts={submissionAttempts}
-          />
-        </StepperContent>
-
-        <StepperContent value="access" className="w-full">
-          <PublishPodAccessStep
-            form={form}
-            principalOptionMap={principalOptionMap}
-            principalOptions={principalOptions}
-            submissionAttempts={submissionAttempts}
-          />
-        </StepperContent>
-
-        <StepperContent value="virtual-machines" className="w-full">
-          <PublishPodVirtualMachinesStep
-            form={form}
-            isEditing={!!publishedPodId}
-            submissionAttempts={submissionAttempts}
-            podFolders={
-              publishOptions?.source_folders ??
-              ([] satisfies Array<PublishPodFolder>)
-            }
-            podFoldersError={publishOptionsError}
-          />
-        </StepperContent>
-
-        <StepperContent value="tasks" className="w-full">
-          <PublishPodTasksStep
-            form={form}
-            submissionAttempts={submissionAttempts}
-          />
-        </StepperContent>
-
-        <StepperContent value="preview" className="w-full">
-          <PublishPodPreviewStep form={form} />
-        </StepperContent>
-
-        <PublishPodStepper
-          step={step}
-          submitLabel={submitLabel}
-          onSubmitConfirm={submitForm}
-        />
-      </Stepper>
-    </form>
+    <PublishPodFormView
+      step={step}
+      onStepChange={setStep}
+      onValidateStep={handleValidateStep}
+      form={form}
+      principalOptionMap={principalOptionMap}
+      principalOptions={principalOptions}
+      submissionAttempts={submissionAttempts}
+      publishedPodId={publishedPodId}
+      podFolders={
+        publishOptions?.source_folders ?? ([] satisfies Array<PublishPodFolder>)
+      }
+      podFoldersError={publishOptionsError}
+      submitLabel={submitLabel}
+      onSubmitConfirm={submitForm}
+    />
   )
 }
 

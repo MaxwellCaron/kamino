@@ -261,11 +261,7 @@ export function CreateVmDialog({
             ))}
           </StepperList>
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-            }}
-          >
+          <form action={() => {}}>
             <AppDialogScrollBody className="h-[40vh]">
               {initialOptionsError ? (
                 <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">

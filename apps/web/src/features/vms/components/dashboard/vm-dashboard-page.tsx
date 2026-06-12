@@ -102,15 +102,17 @@ export function VmDashboardPage() {
             <VmNotes node={node} itemId={itemId} vm={vm} />
           </div>
         </div>
-        {canViewSnapshots && (
+        {capabilities.viewSnapshots.enabled && (
           <SnapshotsTable
             itemId={itemId}
             vmid={vm.vmid}
             vmName={node.name}
             isTemplate={isTemplate}
-            canViewSnapshots={canViewSnapshots}
-            canManageSnapshots={canManageSnapshots}
-            canRequestSnapshots={canRequestSnapshots}
+            permissions={{
+              canView: canViewSnapshots,
+              canManage: canManageSnapshots,
+              canRequest: canRequestSnapshots,
+            }}
           />
         )}
         {!isTemplate && canUseConsole && (

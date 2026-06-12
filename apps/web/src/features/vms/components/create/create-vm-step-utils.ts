@@ -6,6 +6,6 @@ export type NetworkData = {
   vnets: Array<ApiVNet>
 }
 
-export function renderError(error: unknown) {
+export function formatFieldError(error: unknown) {
   return typeof error === "string" ? error : undefined
 }

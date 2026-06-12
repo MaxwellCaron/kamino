@@ -30,7 +30,7 @@ import {
   optionalVmidSchema,
   parseNumberInput,
 } from "./create-vm-form"
-import { renderError } from "./create-vm-step-utils"
+import { formatFieldError } from "./create-vm-step-utils"
 import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"
@@ -73,7 +73,9 @@ export function CloneNameField({
             placeholder={placeholder}
             aria-invalid={field.state.meta.errors.length > 0 || undefined}
           />
-          <FieldError>{renderError(field.state.meta.errors[0])}</FieldError>
+          <FieldError>
+            {formatFieldError(field.state.meta.errors[0])}
+          </FieldError>
         </Field>
       )}
     </FieldComponent>
@@ -163,7 +165,9 @@ export function CloneVmidField({
             }
             aria-invalid={field.state.meta.errors.length > 0 || undefined}
           />
-          <FieldError>{renderError(field.state.meta.errors[0])}</FieldError>
+          <FieldError>
+            {formatFieldError(field.state.meta.errors[0])}
+          </FieldError>
         </Field>
       )}
     </FieldComponent>
@@ -217,7 +221,9 @@ export function CloneDestinationFolderField({
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
-          <FieldError>{renderError(field.state.meta.errors[0])}</FieldError>
+          <FieldError>
+            {formatFieldError(field.state.meta.errors[0])}
+          </FieldError>
           <FieldDescription>
             Where the vm will be placed once cloned.
           </FieldDescription>

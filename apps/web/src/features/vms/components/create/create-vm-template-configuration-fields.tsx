@@ -27,7 +27,7 @@ import {
   getSelectedTemplate,
   withCreateVmForm,
 } from "./create-vm-form"
-import { renderError } from "./create-vm-step-utils"
+import { formatFieldError } from "./create-vm-step-utils"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 
@@ -87,7 +87,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
                     </ComboboxContent>
                   </Combobox>
                   <FieldError>
-                    {renderError(field.state.meta.errors[0])}
+                    {formatFieldError(field.state.meta.errors[0])}
                   </FieldError>
                 </Field>
               )}

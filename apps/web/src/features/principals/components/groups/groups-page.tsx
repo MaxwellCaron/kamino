@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Navigate, getRouteApi  } from "@tanstack/react-router"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
 import {
   IconPlus,
   IconRefresh,
@@ -224,7 +224,7 @@ export function GroupsPage() {
               isLoading={isLoading}
               error={error}
               getRowId={(group: ApiPrincipal) => group.id}
-              renderSelectionActions={
+              selectionActions={
                 canAdminister
                   ? ({
                       clearSelection,

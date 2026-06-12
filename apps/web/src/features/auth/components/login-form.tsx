@@ -58,9 +58,8 @@ export function LoginForm({
       </div>
 
       <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          form.handleSubmit()
+        action={() => {
+          void form.handleSubmit()
         }}
       >
         <FieldGroup className="gap-5">

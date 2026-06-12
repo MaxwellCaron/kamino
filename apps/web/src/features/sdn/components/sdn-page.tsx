@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Navigate, getRouteApi  } from "@tanstack/react-router"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { IconNetwork, IconPlus, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
@@ -157,7 +157,7 @@ export function SdnPage() {
               isLoading={isLoading}
               error={error}
               getRowId={(vnet) => vnet.vnet}
-              renderSelectionActions={
+              selectionActions={
                 canAdminister
                   ? ({ clearSelection: clearTableSelection, selectedRows }) => (
                       <ActionBarItem

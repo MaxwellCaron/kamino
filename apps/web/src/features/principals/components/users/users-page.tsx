@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Navigate, getRouteApi  } from "@tanstack/react-router"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
 import {
   IconPlus,
   IconRefresh,
@@ -231,7 +231,7 @@ export function UsersPage() {
               isLoading={isLoading}
               error={error}
               getRowId={(tableUser: ApiPrincipal) => tableUser.id}
-              renderSelectionActions={
+              selectionActions={
                 canAdminister
                   ? ({
                       clearSelection,

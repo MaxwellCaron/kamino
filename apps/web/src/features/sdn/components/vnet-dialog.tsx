@@ -104,9 +104,8 @@ export function VNetDialog({
       }
     >
       <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          form.handleSubmit()
+        action={() => {
+          void form.handleSubmit()
         }}
       >
         <FieldGroup>
