@@ -227,6 +227,106 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 	return i, err
 }
 
+const getInventoryItemsWithPermissions = `-- name: GetInventoryItemsWithPermissions :many
+SELECT
+    ii.id,
+    ii.parent_id,
+    ii.kind,
+    ii.name,
+    ii.inherit_permissions,
+    ii.vm_limit AS direct_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+      ELSE 0
+    END)::INTEGER AS effective_vm_limit,
+    (CASE
+      WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+      ELSE 0
+    END)::INTEGER AS vm_count,
+    pv.node,
+    pv.vmid,
+    pv.is_template,
+    pv.notes,
+    pv.cpu_count,
+    pv.memory_mb,
+    pv.disk_gb,
+    perms.allowed_mask,
+    perms.denied_mask
+FROM inventory_items ii
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ii.id
+CROSS JOIN LATERAL (
+    SELECT
+        gep.allowed_mask::BIGINT AS allowed_mask,
+        gep.denied_mask::BIGINT AS denied_mask
+    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+) AS perms
+WHERE ii.id = ANY($2::UUID[])
+`
+
+type GetInventoryItemsWithPermissionsParams struct {
+	PrincipalID uuid.UUID   `json:"principal_id"`
+	ItemIds     []uuid.UUID `json:"item_ids"`
+}
+
+type GetInventoryItemsWithPermissionsRow struct {
+	ID                 uuid.UUID         `json:"id"`
+	ParentID           *uuid.UUID        `json:"parent_id"`
+	Kind               InventoryItemKind `json:"kind"`
+	Name               string            `json:"name"`
+	InheritPermissions bool              `json:"inherit_permissions"`
+	DirectVmLimit      *int32            `json:"direct_vm_limit"`
+	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
+	VmCount            int32             `json:"vm_count"`
+	Node               *string           `json:"node"`
+	Vmid               *int32            `json:"vmid"`
+	IsTemplate         *bool             `json:"is_template"`
+	Notes              *string           `json:"notes"`
+	CpuCount           *int32            `json:"cpu_count"`
+	MemoryMb           *int32            `json:"memory_mb"`
+	DiskGb             *float64          `json:"disk_gb"`
+	AllowedMask        int64             `json:"allowed_mask"`
+	DeniedMask         int64             `json:"denied_mask"`
+}
+
+func (q *Queries) GetInventoryItemsWithPermissions(ctx context.Context, arg GetInventoryItemsWithPermissionsParams) ([]GetInventoryItemsWithPermissionsRow, error) {
+	rows, err := q.db.Query(ctx, getInventoryItemsWithPermissions, arg.PrincipalID, arg.ItemIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetInventoryItemsWithPermissionsRow
+	for rows.Next() {
+		var i GetInventoryItemsWithPermissionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Kind,
+			&i.Name,
+			&i.InheritPermissions,
+			&i.DirectVmLimit,
+			&i.EffectiveVmLimit,
+			&i.VmCount,
+			&i.Node,
+			&i.Vmid,
+			&i.IsTemplate,
+			&i.Notes,
+			&i.CpuCount,
+			&i.MemoryMb,
+			&i.DiskGb,
+			&i.AllowedMask,
+			&i.DeniedMask,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPrincipalGroupsByName = `-- name: GetPrincipalGroupsByName :many
 SELECT p.id, p.name
 FROM principals p

@@ -2,6 +2,32 @@ package authorization
 
 import "testing"
 
+// TestMaskHas characterizes the Mask.Has bit-check helper.
+func TestMaskHas(t *testing.T) {
+	cases := []struct {
+		name     string
+		mask     Mask
+		required Mask
+		want     bool
+	}{
+		{"exact match", View, View, true},
+		{"superset", View | PowerVM | ConsoleVM, PowerVM, true},
+		{"two bits both present", View | PowerVM, View | PowerVM, true},
+		{"two bits one missing", View, View | PowerVM, false},
+		{"zero mask nonzero required", 0, View, false},
+		{"zero required always true", View, 0, true},
+		{"both zero", 0, 0, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.mask.Has(tc.required); got != tc.want {
+				t.Errorf("Mask(%b).Has(%b): got %v, want %v", tc.mask, tc.required, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestEffectivePermissionsHas characterizes EffectivePermissions.Has behavior.
 func TestEffectivePermissionsHas(t *testing.T) {
 	cases := []struct {
