@@ -8,6 +8,22 @@ import type {
   ApiPrincipal,
   CreateGroupInput,
 } from "@/features/principals/types/principals-types"
+import type { CreateMode } from "@/features/principals/utils/principal-dialog-utils"
+import {
+  descriptionSchema,
+  normalizeDescription,
+  parsePositiveIntegerString,
+  splitNonEmptyLines,
+} from "@/features/principals/utils/principal-dialog-utils"
+
+export {
+  descriptionFieldSchema,
+  descriptionSchema,
+  normalizeDescription,
+  positiveIntegerStringSchema,
+  prefixSchema,
+} from "@/features/principals/utils/principal-dialog-utils"
+export type { CreateMode } from "@/features/principals/utils/principal-dialog-utils"
 
 export const groupNameSchema = z
   .string()
@@ -16,27 +32,10 @@ export const groupNameSchema = z
   .max(64, "Max 64 characters")
   .regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric, dot, dash, underscore only")
 
-export const descriptionFieldSchema = z
-  .string()
-  .trim()
-  .max(256, "Max 256 characters")
-
-export const descriptionSchema = descriptionFieldSchema.optional()
-
-export const prefixSchema = z.string().trim().min(1, "Prefix is required")
-
-export const positiveIntegerStringSchema = (label: string) =>
-  z.string().refine((value) => {
-    const parsed = Number.parseInt(value.trim(), 10)
-    return Number.isInteger(parsed) && parsed >= 1
-  }, `${label} must be a positive whole number`)
-
 export const groupSchema = z.object({
   name: groupNameSchema,
   description: descriptionSchema,
 })
-
-export type CreateMode = "single" | "list" | "prefix"
 
 export type GroupFormValues = {
   description: string
@@ -75,19 +74,6 @@ export function getDefaultGroupFormValues(
     quantity: "10",
     prefixDescription: "",
   }
-}
-
-export function normalizeDescription(description: string) {
-  const value = description.trim()
-  return value.length > 0 ? value : undefined
-}
-
-export function parsePositiveInteger(value: string, label: string) {
-  const parsed = Number.parseInt(value.trim(), 10)
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new Error(`${label} must be a positive whole number`)
-  }
-  return parsed
 }
 
 function buildCreateGroupInput(args: {
@@ -129,10 +115,7 @@ export function buildCreateGroups(
   }
 
   if (mode === "list") {
-    const lines = values.listInput.split("\n").flatMap((line) => {
-      const trimmed = line.trim()
-      return trimmed ? [trimmed] : []
-    })
+    const lines = splitNonEmptyLines(values.listInput)
 
     if (lines.length === 0) {
       throw new Error("Provide at least one group")
@@ -153,8 +136,8 @@ export function buildCreateGroups(
     throw new Error("Prefix is required")
   }
 
-  const start = parsePositiveInteger(values.start, "Starting number")
-  const quantity = parsePositiveInteger(values.quantity, "Quantity")
+  const start = parsePositiveIntegerString(values.start, "Starting number")
+  const quantity = parsePositiveIntegerString(values.quantity, "Quantity")
   const width = Math.max(2, String(start + quantity - 1).length)
 
   return Array.from({ length: quantity }, (_, offset) => {
