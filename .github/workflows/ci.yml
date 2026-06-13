@@ -8,6 +8,7 @@ jobs:
   api:
     name: API
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +36,9 @@ jobs:
   web:
     name: Web
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GIT_TERMINAL_PROMPT: "0"
     steps:
       - uses: actions/checkout@v4
 
@@ -53,4 +57,4 @@ jobs:
 
       - name: react-doctor
         working-directory: apps/web
-        run: bunx react-doctor@latest --blocking warning
+        run: bunx react-doctor@latest --fail-on warning
