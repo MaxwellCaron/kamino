@@ -105,6 +105,11 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
     setConnectedAt(null)
   }
 
+  function handleConnect() {
+    setStatus("connected")
+    setConnectedAt(Date.now())
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -174,10 +179,7 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
             qualityLevel={8}
             compressionLevel={2}
             background="transparent"
-            onConnect={() => {
-              setStatus("connected")
-              setConnectedAt(Date.now())
-            }}
+            onConnect={handleConnect}
             onDisconnect={() => {
               setStatus("disconnected")
             }}
