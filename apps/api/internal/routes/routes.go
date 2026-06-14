@@ -23,6 +23,7 @@ func RegisterRoutes(
 	authz *handlers.AuthorizationHandler,
 	requests *handlers.RequestsHandler,
 	events *handlers.EventsHandler,
+	proxmoxSync *handlers.ProxmoxSyncHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -141,6 +142,12 @@ func RegisterRoutes(
 		protected.POST("/requests/approve", requests.Approve)
 		protected.POST("/requests/deny", requests.Deny)
 		protected.POST("/requests/:id/cancel", requests.Cancel)
+	}
+
+	// Proxmox drift sync endpoints
+	if proxmoxSync != nil {
+		protected.GET("/admin/proxmox/sync/preview", proxmoxSync.Preview)
+		protected.POST("/admin/proxmox/sync/apply", proxmoxSync.Apply)
 	}
 
 	// Principals endpoints (AD users & groups)

@@ -4,6 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import {
   IconCubePlus,
   IconCubeSend,
+  IconDeviceDesktopQuestion,
   IconHome,
   IconLayoutDashboard,
   IconListDetails,
@@ -123,6 +124,14 @@ const navItems = [
     description: "Manage shared access, memberships, and management roles.",
     url: "/admin/principals/groups",
     icon: IconUsersGroup,
+    group: "admin",
+    visibility: "admin",
+  },
+  {
+    title: "Proxmox Sync",
+    description: "Reconcile inventory drift against Proxmox.",
+    url: "/admin/proxmox-sync",
+    icon: IconDeviceDesktopQuestion,
     group: "admin",
     visibility: "admin",
   },

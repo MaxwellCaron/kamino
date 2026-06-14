@@ -337,6 +337,11 @@ func main() {
 		PX:    server.ProxmoxClient,
 		Authz: authzService,
 	}
+	proxmoxSyncHandler := &handlers.ProxmoxSyncHandler{
+		Importer: server.ProxmoxImport,
+		Service:  inventoryService,
+		Authz:    authzService,
+	}
 	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
 	requestService := requestqueue.NewService(
 		server.DBPool,
@@ -397,6 +402,7 @@ func main() {
 		authzHandler,
 		requestsHandler,
 		eventsHandler,
+		proxmoxSyncHandler,
 	)
 
 	r.Run(config.Port)

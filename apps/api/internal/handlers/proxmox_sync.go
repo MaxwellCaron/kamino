@@ -1,0 +1,90 @@
+package handlers
+
+import (
+	"net/http"
+
+	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/gin-gonic/gin"
+)
+
+// ProxmoxSyncHandler serves the admin Proxmox drift sync endpoints.
+type ProxmoxSyncHandler struct {
+	Importer *proxmox.InventoryImporter
+	Service  *inventory.Service
+	Authz    *authorization.Service
+}
+
+func (h *ProxmoxSyncHandler) requireAdmin(c *gin.Context) bool {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return false
+	}
+	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator)
+}
+
+// Preview computes and returns the drift diff without making any changes.
+// GET /api/v1/admin/proxmox/sync/preview
+func (h *ProxmoxSyncHandler) Preview(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+
+	diff, err := h.Importer.Plan(c.Request.Context())
+	if err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to compute sync diff", "plan proxmox sync", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, diff)
+}
+
+type syncApplyResponse struct {
+	Results []proxmox.SyncApplyResult `json:"results"`
+	Applied int                       `json:"applied"`
+	Failed  int                       `json:"failed"`
+	Skipped int                       `json:"skipped"`
+}
+
+// Apply re-derives the live diff, applies the selected changes, then notifies
+// the inventory tree and schedules a mirror reconcile.
+// POST /api/v1/admin/proxmox/sync/apply
+func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+
+	var sel proxmox.SyncSelection
+	if err := c.ShouldBindJSON(&sel); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	ctx := c.Request.Context()
+	results, err := h.Importer.ApplySync(ctx, sel)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "sync apply failed", "apply proxmox sync", err)
+		return
+	}
+
+	h.Service.NotifyInventoryTreeChanged(ctx)
+
+	resp := syncApplyResponse{Results: results}
+	for _, r := range results {
+		switch r.Status {
+		case "success":
+			resp.Applied++
+		case "error":
+			resp.Failed++
+		default:
+			resp.Skipped++
+		}
+	}
+	if resp.Results == nil {
+		resp.Results = []proxmox.SyncApplyResult{}
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
