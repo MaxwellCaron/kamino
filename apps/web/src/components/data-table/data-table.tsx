@@ -28,6 +28,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   useReactTable,
@@ -38,6 +39,7 @@ import type { ReactNode } from "react"
 import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
   ColumnDef,
+  ExpandedState,
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
@@ -54,6 +56,8 @@ interface DataTableProps<TData, TValue> {
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
+  renderExpandedRow?: (row: TData) => ReactNode
+  getRowCanExpand?: (row: TData) => boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -65,9 +69,12 @@ export function DataTable<TData, TValue>({
   initialPageSize = 25,
   showSelectionSummary = true,
   selectionActions,
+  renderExpandedRow,
+  getRowCanExpand,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [expanded, setExpanded] = useState<ExpandedState>({})
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
   const notReady = isLoading || error !== null
@@ -77,15 +84,19 @@ export function DataTable<TData, TValue>({
     columns,
     getRowId,
     enableRowSelection: true,
+    getExpandedRowModel: getExpandedRowModel(),
+    getRowCanExpand: getRowCanExpand ? (row) => getRowCanExpand(row.original) : undefined,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onExpandedChange: setExpanded,
     globalFilterFn: "includesString",
     state: {
       globalFilter,
       rowSelection,
+      expanded,
     },
     initialState: {
       pagination: {
@@ -189,22 +200,34 @@ export function DataTable<TData, TValue>({
                 ))
               ) : table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cell.column.columnDef.meta?.className}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                  <>
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className={cell.column.columnDef.meta?.className}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {row.getIsExpanded() && renderExpandedRow && (
+                      <TableRow key={`${row.id}-expanded`} className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={row.getVisibleCells().length}
+                          className="p-0"
+                        >
+                          {renderExpandedRow(row.original)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 ))
               ) : (
                 <TableRow>

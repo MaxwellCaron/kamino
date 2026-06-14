@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import {
+  IconChevronRight,
   IconDotsVertical,
   IconEdit,
   IconExternalLink,
@@ -135,11 +136,33 @@ export function getPublishedPodsColumns({
     {
       accessorKey: "clone_count",
       header: "Clones",
-      cell: ({ row }) => (
-        <span className="py-1 font-medium tabular-nums">
-          {row.original.clone_count}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const pod = row.original
+        if (!row.getCanExpand()) {
+          return (
+            <span className="py-1 font-medium tabular-nums">0</span>
+          )
+        }
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={row.getIsExpanded()}
+            aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
+            onClick={() => row.toggleExpanded()}
+          >
+            <IconChevronRight
+              data-icon="inline-start"
+              className={
+                row.getIsExpanded()
+                  ? "rotate-90 transition-transform"
+                  : "transition-transform"
+              }
+            />
+            <span className="font-medium tabular-nums">{pod.clone_count}</span>
+          </Button>
+        )
+      },
     },
     {
       accessorKey: "created_at",

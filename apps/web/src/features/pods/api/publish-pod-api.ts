@@ -1,8 +1,10 @@
 import type { PublishPodFormValues } from "@/features/pods/components/publish/publish-pod-form"
 import type {
   PublishedPodCatalogEntry,
+  PublishedPodCloneSummary,
   PublishedPodVirtualMachine,
 } from "@/features/pods/types/pod-types"
+import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
 import {
   ApiError,
   apiFetch,
@@ -137,6 +139,62 @@ export function publishedPodQueryOptions(podId?: string) {
       return res.json()
     },
     enabled: !!podId,
+  }
+}
+
+export function publishedPodClonesQueryOptions(podId?: string) {
+  return {
+    queryKey: ["pods", "published", podId, "clones"] as const,
+    queryFn: async (): Promise<Array<PublishedPodCloneSummary>> => {
+      const res = await apiFetch(`/api/v1/pods/published/${podId}/clones`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(
+          body.error ?? `Failed to fetch published pod clones: ${res.status}`
+        )
+      }
+      return res.json()
+    },
+    enabled: !!podId,
+  }
+}
+
+export async function powerPublishedPodClone(params: {
+  podId: string
+  clonedPodId: string
+  action: ClonedPodPowerAction
+}): Promise<PublishedPodCloneSummary> {
+  const res = await apiFetch(
+    `/api/v1/pods/published/${params.podId}/clones/${params.clonedPodId}/power`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: params.action }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ??
+        `Failed to ${params.action} cloned pod: ${res.status}`
+    )
+  }
+  return res.json()
+}
+
+export async function deletePublishedPodClone(params: {
+  podId: string
+  clonedPodId: string
+}): Promise<void> {
+  const res = await apiFetch(
+    `/api/v1/pods/published/${params.podId}/clones/${params.clonedPodId}`,
+    { method: "DELETE" }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to delete cloned pod: ${res.status}`
+    )
   }
 }
 

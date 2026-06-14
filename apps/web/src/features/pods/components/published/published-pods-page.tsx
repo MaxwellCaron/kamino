@@ -31,6 +31,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import { PublishedPodClonesTable } from "./published-pod-clones-table"
 import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { PublishedPodsStatCards } from "./published-pods-stat-cards"
 import { getPublishedPodsColumns } from "./published-pods-columns"
@@ -190,9 +191,13 @@ export function PublishedPodsPage() {
                 columns={columns}
                 data={pods}
                 error={podsError}
+                getRowCanExpand={(pod) => pod.clone_count > 0}
                 getRowId={(pod) => pod.id}
                 initialPageSize={10}
                 isLoading={isPodsLoading}
+                renderExpandedRow={(pod) => (
+                  <PublishedPodClonesTable pod={pod} />
+                )}
                 showSelectionSummary={false}
               />
             ) : (

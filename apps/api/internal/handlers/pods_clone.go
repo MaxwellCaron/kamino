@@ -1690,6 +1690,234 @@ func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int
 	}
 }
 
+func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+	if h.Actions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vm actions unavailable"})
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	cloneID, err := uuid.Parse(c.Param("cloneID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		return
+	}
+
+	var req clonedPodPowerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	q := database.New(h.DB)
+	clone, err := q.GetClonedPodByID(c.Request.Context(), cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for manager power", err)
+		return
+	}
+	if clone.PodID != podID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+
+	targets, reqErr := h.clonedPodManagerActionTargets(c.Request.Context(), q, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	statuses, _, err := h.runtimeForVMIDs(c.Request.Context(), vmidsFromTargets(targets))
+	if err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to load VM statuses", "load cloned pod vm statuses for manager power", err)
+		return
+	}
+
+	expectedStatus := "running"
+	if req.Action == string(vmactions.PowerActionShutdown) {
+		expectedStatus = "stopped"
+	}
+
+	for _, target := range targets {
+		if clonedPodVMAlreadyInPowerState(req.Action, statuses[target.VMID]) {
+			continue
+		}
+		if err := h.Actions.PowerAction(c.Request.Context(), target, vmactions.PowerAction(req.Action)); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to update cloned pod power state", "manager power cloned pod vm", err)
+			return
+		}
+		if err := h.waitForVMStatus(c.Request.Context(), target.VMID, expectedStatus); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to confirm cloned pod power state", "wait for manager cloned pod vm power state", err)
+			return
+		}
+	}
+
+	clones, err := h.hydratePublishedPodClones(c.Request.Context(), q, podID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to reload cloned pods", "hydrate published pod clones after manager power", err)
+		return
+	}
+
+	for _, resp := range clones {
+		if resp.ID == cloneID {
+			c.JSON(http.StatusOK, resp)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{})
+}
+
+func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	cloneID, err := uuid.Parse(c.Param("cloneID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		return
+	}
+
+	q := database.New(h.DB)
+	clone, err := q.GetClonedPodByID(c.Request.Context(), cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for manager delete", err)
+		return
+	}
+	if clone.PodID != podID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+
+	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod virtual machines", "list cloned pod VMs for manager delete", err)
+		return
+	}
+
+	for _, row := range rows {
+		if row.Node == nil || row.Vmid == nil {
+			continue
+		}
+		if err := h.deleteClonedPodProxmoxVM(c.Request.Context(), *row.Node, int(*row.Vmid)); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to delete cloned pod virtual machine", "manager delete cloned pod VM", err)
+			return
+		}
+	}
+
+	if err := h.Service.DeleteFolder(c.Request.Context(), clone.FolderID); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *PodsHandler) clonedPodManagerActionTargets(
+	ctx context.Context,
+	q *database.Queries,
+	cloneID uuid.UUID,
+) ([]vmactions.Target, *requestError) {
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
+	if err != nil {
+		return nil, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod virtual machines",
+			Operation:   "list cloned pod VMs for manager action",
+			Err:         err,
+		}
+	}
+
+	targets := make([]vmactions.Target, 0, len(rows))
+	for _, row := range rows {
+		record, err := h.Authz.GetVMRecord(ctx, row.InventoryItemID)
+		switch {
+		case err == nil:
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned pod VM is missing from inventory",
+			}
+		default:
+			return nil, &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to verify cloned pod VM",
+				Operation:   "load cloned pod VM record for manager action",
+				Err:         err,
+			}
+		}
+
+		identity, err := h.PX.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+		switch {
+		case err == nil:
+		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned pod VM identity is not initialized in Proxmox",
+			}
+		default:
+			return nil, &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to verify cloned pod VM",
+				Operation:   "verify cloned pod VM identity for manager action",
+				Err:         err,
+			}
+		}
+
+		if identity.UpstreamUUID != record.UpstreamUUID {
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned pod VM has drifted from inventory",
+			}
+		}
+
+		targets = append(targets, vmactions.Target{
+			ItemID: record.InventoryItemID,
+			Node:   record.Node,
+			VMID:   int(record.Vmid),
+		})
+	}
+
+	if len(targets) == 0 {
+		return nil, &requestError{
+			Status:      http.StatusConflict,
+			UserMessage: "cloned pod has no virtual machines",
+		}
+	}
+
+	return targets, nil
+}
+
 func currentUsername(c *gin.Context) (string, bool) {
 	value, ok := c.Get("username")
 	if !ok {
