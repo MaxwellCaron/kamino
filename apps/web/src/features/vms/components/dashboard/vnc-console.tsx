@@ -38,8 +38,9 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { VncScreen } from "react-vnc"
+import type { VncScreenHandle } from "react-vnc"
 
-import type RFB from "@novnc/novnc/core/rfb.js"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 
 type VncConsoleProps = {
@@ -49,48 +50,29 @@ type VncConsoleProps = {
 
 type Status = "connecting" | "connected" | "disconnected" | "error"
 
-class StaleVncConnectionError extends Error {}
+type Session = {
+  url: string
+  password: string
+}
 
 export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
-  const screenRef = useRef<HTMLDivElement>(null)
-  const rfbRef = useRef<RFB | null>(null)
-  const connectionRunRef = useRef(0)
-  const itemIdRef = useRef(itemId)
-  itemIdRef.current = itemId
+  const vncRef = useRef<VncScreenHandle>(null)
+  const connectingRef = useRef(false)
+  const [session, setSession] = useState<Session | null>(null)
   const [status, setStatus] = useState<Status>("disconnected")
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
-  useEffect(() => {
-    const runRef = connectionRunRef
-    const rfbInstanceRef = rfbRef
-    return () => {
-      runRef.current += 1
-      rfbInstanceRef.current?.disconnect()
-      rfbInstanceRef.current = null
-    }
-  }, [])
+  async function startConnection() {
+    if (connectingRef.current) return
+    connectingRef.current = true
+    setStatus("connecting")
+    setError(undefined)
 
-  function isConnectionCurrent(runId: number) {
-    return connectionRunRef.current === runId && screenRef.current !== null
-  }
-
-  function ensureConnectionCurrent(runId: number, ws?: WebSocket) {
-    if (isConnectionCurrent(runId)) {
-      return
-    }
-
-    ws?.close()
-    throw new StaleVncConnectionError()
-  }
-
-  async function connect(runId: number) {
     try {
       const res = await apiFetch(
-        `/api/v1/inventory/items/${itemIdRef.current}/vm/vnc/proxy`,
-        {
-          method: "POST",
-        }
+        `/api/v1/inventory/items/${itemId}/vm/vnc/proxy`,
+        { method: "POST" }
       )
 
       if (!res.ok) {
@@ -102,93 +84,30 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
         password: string
       }
 
-      ensureConnectionCurrent(runId)
-
-      const wsHttpUrl = new URL(
-        apiUrl("/api/v1/vnc/ws"),
-        window.location.origin
-      )
+      const wsHttpUrl = new URL(apiUrl("/api/v1/vnc/ws"), window.location.origin)
       wsHttpUrl.protocol = wsHttpUrl.protocol === "https:" ? "wss:" : "ws:"
-      const wsUrl = wsHttpUrl.toString()
+      wsHttpUrl.searchParams.set("sessionId", sessionId)
 
-      const ws = new WebSocket(wsUrl)
-      await new Promise<void>((resolve, reject) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({ sessionId }))
-          resolve()
-        }
-        ws.onerror = () => reject(new Error("WebSocket connection failed"))
-      })
-
-      ensureConnectionCurrent(runId, ws)
-
-      const { default: RFB } = await import("@novnc/novnc/core/rfb.js")
-
-      ensureConnectionCurrent(runId, ws)
-      const screen = screenRef.current
-      if (!screen) {
-        ensureConnectionCurrent(runId, ws)
-        throw new StaleVncConnectionError()
-      }
-
-      const rfb = new RFB(screen, ws, {
-        credentials: { password },
-      })
-
-      rfb.scaleViewport = true
-
-      rfb.addEventListener("connect", () => {
-        if (connectionRunRef.current === runId) {
-          setStatus("connected")
-          setConnectedAt(Date.now())
-        }
-      })
-
-      rfb.addEventListener("disconnect", (e: Event) => {
-        if (connectionRunRef.current === runId) {
-          setStatus("disconnected")
-          if (!(e as CustomEvent).detail?.clean) {
-            setError("Connection lost unexpectedly")
-          }
-        }
-      })
-
-      rfbRef.current = rfb
+      setSession({ url: wsHttpUrl.toString(), password })
     } catch (err) {
-      if (err instanceof StaleVncConnectionError) {
-        return
-      }
-
-      if (connectionRunRef.current === runId) {
-        setStatus("error")
-        setError(err instanceof Error ? err.message : "Connection failed")
-      }
+      setStatus("error")
+      setError(err instanceof Error ? err.message : "Connection failed")
+    } finally {
+      connectingRef.current = false
     }
-  }
-
-  function startConnection() {
-    const runId = connectionRunRef.current + 1
-    connectionRunRef.current = runId
-    rfbRef.current?.disconnect()
-    rfbRef.current = null
-    if (screenRef.current) {
-      screenRef.current.innerHTML = ""
-    }
-    setStatus("connecting")
-    setError(undefined)
-    void connect(runId)
   }
 
   function disconnect() {
-    connectionRunRef.current += 1
-    rfbRef.current?.disconnect()
-    rfbRef.current = null
-    if (screenRef.current) {
-      screenRef.current.innerHTML = ""
-    }
+    vncRef.current?.disconnect()
+    setSession(null)
     setStatus("disconnected")
     setError(undefined)
     setConnectedAt(null)
+  }
+
+  function handleConnect() {
+    setStatus("connected")
+    setConnectedAt(Date.now())
   }
 
   return (
@@ -208,7 +127,7 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
             status={status}
             error={error}
             connectedAt={connectedAt}
-            rfb={rfbRef}
+            vncRef={vncRef}
             onDisconnect={disconnect}
           />
         </CardAction>
@@ -250,14 +169,27 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
           </Empty>
         )}
 
-        <div
-          ref={screenRef}
-          className={`absolute inset-0 h-full w-full ${
-            status === "connected"
-              ? "opacity-100"
-              : "pointer-events-none opacity-0"
-          }`}
-        />
+        {session && (
+          <VncScreen
+            ref={vncRef}
+            url={session.url}
+            rfbOptions={{ credentials: { password: session.password } }}
+            scaleViewport
+            resizeSession={false}
+            qualityLevel={8}
+            compressionLevel={2}
+            background="transparent"
+            onConnect={handleConnect}
+            onDisconnect={() => {
+              setStatus("disconnected")
+            }}
+            onSecurityFailure={() => {
+              setStatus("error")
+              setError("Authentication failed")
+            }}
+            style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
+          />
+        )}
       </CardContent>
     </Card>
   )
@@ -288,19 +220,19 @@ function useElapsed(since: number | null): string {
 const KEY_COMBOS = [
   {
     label: "Ctrl + Alt + Del",
-    action: (rfb: RFB) => rfb.sendCtrlAltDel(),
+    action: (ref: VncScreenHandle) => ref.sendCtrlAltDel(),
   },
   {
     label: "Tab",
-    action: (rfb: RFB) => rfb.sendKey(0xff09, "Tab"),
+    action: (ref: VncScreenHandle) => ref.sendKey(0xff09, "Tab"),
   },
   {
     label: "Escape",
-    action: (rfb: RFB) => rfb.sendKey(0xff1b, "Escape"),
+    action: (ref: VncScreenHandle) => ref.sendKey(0xff1b, "Escape"),
   },
   {
     label: "F11",
-    action: (rfb: RFB) => rfb.sendKey(0xffc8, "F11"),
+    action: (ref: VncScreenHandle) => ref.sendKey(0xffc8, "F11"),
   },
 ] as const
 
@@ -308,21 +240,21 @@ function ConsoleToolbar({
   status,
   error,
   connectedAt,
-  rfb,
+  vncRef,
   onDisconnect,
 }: {
   status: Status
   error: string | undefined
   connectedAt: number | null
-  rfb: React.RefObject<RFB | null>
+  vncRef: React.RefObject<VncScreenHandle | null>
   onDisconnect: () => void
 }) {
   const elapsed = useElapsed(status === "connected" ? connectedAt : null)
 
-  function send(action: (rfb: RFB) => void) {
-    if (rfb.current) {
-      action(rfb.current)
-      rfb.current.focus()
+  function send(action: (ref: VncScreenHandle) => void) {
+    if (vncRef.current) {
+      action(vncRef.current)
+      vncRef.current.focus()
     }
   }
 

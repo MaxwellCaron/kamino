@@ -20,7 +20,6 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@headless-tree/core": "^1.7.0",
     "@headless-tree/react": "^1.7.0",
-    "@novnc/novnc": "github:novnc/noVNC#v1.6.0",
     "@number-flow/react": "^0.6.0",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@shikijs/transformers": "^4.2.0",

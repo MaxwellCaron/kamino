@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@dot-loaders/react": "^0.1.0",
-    "@novnc/novnc": "github:novnc/noVNC#v1.6.0",
     "@tabler/icons-react": "^3.44.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-form": "^1.33.0",
@@ -24,6 +23,7 @@
     "motion": "^12.40.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-vnc": "^3.2.0",
     "sonner": "^2.0.7",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3"

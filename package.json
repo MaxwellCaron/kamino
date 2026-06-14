@@ -5,6 +5,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "doctor": "bunx react-doctor@latest ./apps/web --diff main --lint --verbose",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "lint": "turbo lint",

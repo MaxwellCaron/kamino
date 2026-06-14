@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -155,12 +154,8 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 
 // --- WebSocket bridge ---
 
-type wsInitMessage struct {
-	SessionID string `json:"sessionId"`
-}
-
 // WebSocket handles GET /api/v1/vnc/ws.
-// The client sends a JSON init message with sessionId, then binary VNC frames are bridged.
+// The session ID is read from the ?sessionId query parameter.
 func (h *VNCHandler) WebSocket(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -175,21 +170,7 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	}
 	defer clientConn.Close()
 
-	// Read init message with session ID
-	_, msg, err := clientConn.ReadMessage()
-	if err != nil {
-		log.Printf("ws read init error: %v", err)
-		return
-	}
-
-	var init wsInitMessage
-	if err := json.Unmarshal(msg, &init); err != nil {
-		clientConn.WriteMessage(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "invalid init message"))
-		return
-	}
-
-	sess, ok := h.sessions.consume(init.SessionID)
+	sess, ok := h.sessions.consume(c.Query("sessionId"))
 	if !ok {
 		clientConn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid or expired session"))
