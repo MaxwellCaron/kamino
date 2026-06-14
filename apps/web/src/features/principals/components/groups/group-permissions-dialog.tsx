@@ -1,6 +1,7 @@
 import React from "react"
-import { useForm, useStore } from "@tanstack/react-form"
+import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSelector } from "@tanstack/react-store"
 import { toast } from "sonner"
 import {
   IconAlertTriangle,
@@ -154,9 +155,9 @@ function GroupPermissionsForm({
     form.reset({ role: initialRole })
   }, [form, initialRole])
 
-  const selectedRole = useStore(form.store, (state) => state.values.role)
+  const selectedRole = useSelector(form.store, (state) => state.values.role)
   const hasChanges = selectedRole !== baselineRoleRef.current
-  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting)
 
   return (
     <form

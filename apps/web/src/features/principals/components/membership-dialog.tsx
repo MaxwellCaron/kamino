@@ -1,6 +1,7 @@
 import * as React from "react"
-import { useForm, useStore } from "@tanstack/react-form"
+import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSelector } from "@tanstack/react-store"
 import { IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -228,7 +229,10 @@ function MembershipForm({
     form.reset({ selectedIds: serverIds })
   }, [form, serverIds])
 
-  const selectedIds = useStore(form.store, (state) => state.values.selectedIds)
+  const selectedIds = useSelector(
+    form.store,
+    (state) => state.values.selectedIds
+  )
   const hasChanges = React.useMemo(() => {
     const serverSet = new Set(baselineIdsRef.current)
     const selectedSet = new Set(selectedIds)

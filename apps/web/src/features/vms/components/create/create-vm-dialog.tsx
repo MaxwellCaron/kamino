@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
-import { useStore } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { useSelector } from "@tanstack/react-store"
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -119,8 +119,8 @@ export function CreateVmDialog({
     },
   })
 
-  const method = useStore(form.store, (state) => state.values.method)
-  const selectedIsoStorage = useStore(
+  const method = useSelector(form.store, (state) => state.values.method)
+  const selectedIsoStorage = useSelector(
     form.store,
     (state) => state.values.iso_storage ?? ""
   )
