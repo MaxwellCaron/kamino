@@ -391,14 +391,18 @@ function CloneActionsMenu({
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
           <DropdownMenuItem
-            disabled={!canRunPodCloneAction(clone.status, "start") || isMutating}
+            disabled={
+              !canRunPodCloneAction(clone.status, "start") || isMutating
+            }
             onClick={() => onAction({ type: "start", clone })}
           >
             <IconPlayerPlay className="text-muted-foreground" />
             {POD_CLONE_ACTION_CONFIG.start.label}
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={!canRunPodCloneAction(clone.status, "shutdown") || isMutating}
+            disabled={
+              !canRunPodCloneAction(clone.status, "shutdown") || isMutating
+            }
             onClick={() => onAction({ type: "shutdown", clone })}
           >
             <POD_CLONE_ACTION_CONFIG.shutdown.icon className="text-muted-foreground" />

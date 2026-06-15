@@ -33,9 +33,9 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { useRef, useState } from "react"
+import { Fragment, useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
-import type { ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
   ColumnDef,
@@ -44,6 +44,8 @@ import type {
   TableOptions,
 } from "@tanstack/react-table"
 import { loadingTransition } from "@/components/loading-transition"
+
+const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
 
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
@@ -56,7 +58,7 @@ interface DataTableProps<TData, TValue> {
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
-  renderExpandedRow?: (row: TData) => ReactNode
+  expandedRowComponent?: ComponentType<{ row: TData }>
   getRowCanExpand?: (row: TData) => boolean
 }
 
@@ -69,7 +71,7 @@ export function DataTable<TData, TValue>({
   initialPageSize = 25,
   showSelectionSummary = true,
   selectionActions,
-  renderExpandedRow,
+  expandedRowComponent: ExpandedRowComponent,
   getRowCanExpand,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
@@ -85,7 +87,9 @@ export function DataTable<TData, TValue>({
     getRowId,
     enableRowSelection: true,
     getExpandedRowModel: getExpandedRowModel(),
-    getRowCanExpand: getRowCanExpand ? (row) => getRowCanExpand(row.original) : undefined,
+    getRowCanExpand: getRowCanExpand
+      ? (row) => getRowCanExpand(row.original)
+      : undefined,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -186,13 +190,13 @@ export function DataTable<TData, TValue>({
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
               {isLoading ? (
-                Array.from({ length: 3 }, (_, i) => (
-                  <TableRow key={i}>
+                LOADING_ROW_IDS.map((rowID) => (
+                  <TableRow key={rowID}>
                     <TableCell className="pl-6">
                       <Skeleton className="size-5 rounded" />
                     </TableCell>
-                    {columns.slice(1).map((__, j) => (
-                      <TableCell key={j}>
+                    {table.getAllLeafColumns().slice(1).map((column) => (
+                      <TableCell key={column.id}>
                         <Skeleton className="h-6 w-3/4 rounded" />
                       </TableCell>
                     ))}
@@ -200,11 +204,8 @@ export function DataTable<TData, TValue>({
                 ))
               ) : table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <>
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
+                  <Fragment key={row.id}>
+                    <TableRow data-state={row.getIsSelected() && "selected"}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell
                           key={cell.id}
@@ -217,17 +218,17 @@ export function DataTable<TData, TValue>({
                         </TableCell>
                       ))}
                     </TableRow>
-                    {row.getIsExpanded() && renderExpandedRow && (
-                      <TableRow key={`${row.id}-expanded`} className="hover:bg-transparent">
+                    {row.getIsExpanded() && ExpandedRowComponent && (
+                      <TableRow className="hover:bg-transparent">
                         <TableCell
                           colSpan={row.getVisibleCells().length}
                           className="p-0"
                         >
-                          {renderExpandedRow(row.original)}
+                          <ExpandedRowComponent row={row.original} />
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))
               ) : (
                 <TableRow>

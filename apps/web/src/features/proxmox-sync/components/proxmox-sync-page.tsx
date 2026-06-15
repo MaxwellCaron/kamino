@@ -33,6 +33,7 @@ import type {
 import type {
   SyncApplyResult,
   SyncChange,
+  SyncSelection,
 } from "@/features/proxmox-sync/api/proxmox-sync-api"
 import {
   ManagementPermissionKeys,
@@ -73,6 +74,26 @@ function buildStatusItems(
     description: `${c.node}/${c.vmid} — ${c.kind}`,
     status: "idle" as const,
   }))
+}
+
+function buildSyncSelection(selected: Array<SyncChange>): SyncSelection {
+  const selection: SyncSelection = {
+    add_ids: [],
+    remove_ids: [],
+    update_ids: [],
+  }
+
+  for (const row of selected) {
+    if (row.kind === "add") {
+      selection.add_ids.push(row.id)
+    } else if (row.kind === "remove") {
+      selection.remove_ids.push(row.id)
+    } else {
+      selection.update_ids.push(row.id)
+    }
+  }
+
+  return selection
 }
 
 function applyResultToStatus(
@@ -241,17 +262,7 @@ export function ProxmoxSyncPage() {
                               }))
                             )
 
-                            const selection = {
-                              add_ids: selectableRows
-                                .filter((r) => r.kind === "add")
-                                .map((r) => r.id),
-                              remove_ids: selectableRows
-                                .filter((r) => r.kind === "remove")
-                                .map((r) => r.id),
-                              update_ids: selectableRows
-                                .filter((r) => r.kind === "update")
-                                .map((r) => r.id),
-                            }
+                            const selection = buildSyncSelection(selectableRows)
 
                             try {
                               const response = await applyProxmoxSync(selection)
