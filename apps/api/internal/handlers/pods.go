@@ -175,6 +175,30 @@ type updatePublishedPodStatusRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
+type publishedPodCloneOwnerResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Type        string    `json:"type"`
+	Label       string    `json:"label"`
+	Description string    `json:"description"`
+}
+
+type publishedPodCloneTaskSummaryResponse struct {
+	Total     int32   `json:"total"`
+	Completed int32   `json:"completed"`
+	Progress  float64 `json:"progress"`
+}
+
+type publishedPodCloneResponse struct {
+	ID          uuid.UUID                            `json:"id"`
+	PodID       uuid.UUID                            `json:"pod_id"`
+	Owner       publishedPodCloneOwnerResponse       `json:"owner"`
+	ClonedAt    time.Time                            `json:"cloned_at"`
+	UpdatedAt   time.Time                            `json:"updated_at"`
+	Status      string                               `json:"status"`
+	VMCount     int32                                `json:"vm_count"`
+	TaskSummary publishedPodCloneTaskSummaryResponse `json:"task_summary"`
+}
+
 type publishedPodBase struct {
 	ID             uuid.UUID
 	Title          string
@@ -555,6 +579,125 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *PodsHandler) ListPublishedPodClones(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	q := database.New(h.DB)
+	if _, err := q.GetPublishedPodByID(c.Request.Context(), podID); errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
+		return
+	} else if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load published pod", "load published pod for clone list", err)
+		return
+	}
+
+	clones, err := h.hydratePublishedPodClones(c.Request.Context(), q, podID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load published pod clones", "hydrate published pod clones", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, clones)
+}
+
+func (h *PodsHandler) hydratePublishedPodClones(
+	ctx context.Context,
+	q *database.Queries,
+	podID uuid.UUID,
+) ([]publishedPodCloneResponse, error) {
+	summaries, err := q.ListClonedPodSummariesByPodID(ctx, podID)
+	if err != nil {
+		return nil, err
+	}
+	if len(summaries) == 0 {
+		return []publishedPodCloneResponse{}, nil
+	}
+
+	cloneIDs := make([]uuid.UUID, 0, len(summaries))
+	for _, s := range summaries {
+		cloneIDs = append(cloneIDs, s.ID)
+	}
+
+	vmRows, err := q.ListClonedPodRuntimeVMsByCloneIDs(ctx, cloneIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	allVMIDs := make([]int, 0, len(vmRows))
+	vmsByClone := make(map[uuid.UUID][]database.ListClonedPodRuntimeVMsByCloneIDsRow, len(cloneIDs))
+	for _, row := range vmRows {
+		vmsByClone[row.ClonedPodID] = append(vmsByClone[row.ClonedPodID], row)
+		if row.Vmid != nil {
+			allVMIDs = append(allVMIDs, int(*row.Vmid))
+		}
+	}
+
+	statuses, _, err := h.runtimeForVMIDs(ctx, allVMIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	response := make([]publishedPodCloneResponse, 0, len(summaries))
+	for _, s := range summaries {
+		vmStatusList := make([]string, 0, len(vmsByClone[s.ID]))
+		for _, row := range vmsByClone[s.ID] {
+			if row.Vmid == nil {
+				vmStatusList = append(vmStatusList, "missing")
+				continue
+			}
+			st, ok := statuses[int(*row.Vmid)]
+			if !ok {
+				vmStatusList = append(vmStatusList, "missing")
+				continue
+			}
+			vmStatusList = append(vmStatusList, st)
+		}
+		if len(vmStatusList) == 0 {
+			vmStatusList = []string{"missing"}
+		}
+
+		progress := 0.0
+		if s.TaskTotal > 0 {
+			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
+		}
+
+		response = append(response, publishedPodCloneResponse{
+			ID:    s.ID,
+			PodID: s.PodID,
+			Owner: publishedPodCloneOwnerResponse{
+				ID:          s.UserPrincipalID,
+				Type:        string(s.PrincipalType),
+				Label:       s.UserLabel,
+				Description: s.UserDescription,
+			},
+			ClonedAt:  s.CreatedAt.Time,
+			UpdatedAt: s.UpdatedAt.Time,
+			Status:    clonedPodRuntimeStatus(vmStatusList),
+			VMCount:   int32(s.VmCount),
+			TaskSummary: publishedPodCloneTaskSummaryResponse{
+				Total:     s.TaskTotal,
+				Completed: s.TaskCompleted,
+				Progress:  progress,
+			},
+		})
+	}
+
+	return response, nil
 }
 
 type podTemplateOption struct {

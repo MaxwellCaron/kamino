@@ -105,3 +105,21 @@ export interface PodTaskQuestionAnswer {
   is_correct: boolean
   answered_at: string
 }
+
+export interface PublishedPodCloneOwner {
+  id: UUID
+  type: "group" | "user"
+  label: string
+  description: string
+}
+
+export interface PublishedPodCloneSummary {
+  id: UUID
+  pod_id: UUID
+  owner: PublishedPodCloneOwner
+  cloned_at: string
+  updated_at: string
+  status: ClonedPodStatus
+  vm_count: number
+  task_summary: ClonedPodTaskSummary
+}
