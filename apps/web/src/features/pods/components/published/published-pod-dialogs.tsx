@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { IconLoader2, IconTrash } from "@tabler/icons-react"
+import { IconCopy, IconLoader2, IconTrash } from "@tabler/icons-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,24 +20,21 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import { useQuery } from "@tanstack/react-query"
 import type {
   CloneBulkAction,
   PendingCloneBulkAction,
-  PendingPrincipalCloneRow,
+  PendingCloneRow,
 } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
-import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import {
+  AppAlertDialogContent,
+  AppDialog,
+} from "@/components/dialogs/app-dialog"
 import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
 import {
   groupsQueryOptions,
@@ -120,7 +117,7 @@ export function DeletePublishedPodDialog({
   )
 }
 
-export function CloneForPrincipalsDialog({
+export function ManagerCloneDialog({
   pod,
   open,
   onOpenChange,
@@ -130,7 +127,7 @@ export function CloneForPrincipalsDialog({
   pod: PublishedPodCatalogEntry | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  pendingRowsByPodId: Record<string, Array<PendingPrincipalCloneRow>>
+  pendingRowsByPodId: Record<string, Array<PendingCloneRow>>
   onConfirm: (
     pod: PublishedPodCatalogEntry,
     principals: Array<PrincipalOption>
@@ -166,75 +163,72 @@ export function CloneForPrincipalsDialog({
     availableOptions.length === 0 && selectedPrincipals.length === 0
 
   return (
-    <Dialog
+    <AppDialog
       open={open}
-      onOpenChange={(next) => {
-        if (!next) setSelectedPrincipals([])
-        onOpenChange(next)
-      }}
+      onOpenChange={onOpenChange}
+      onClosed={() => setSelectedPrincipals([])}
+      icon={IconCopy}
+      title="Clone"
+      description={pod ? `Clone "${pod.title}" for selected principals.` : ""}
     >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Clone For Principals</DialogTitle>
-        </DialogHeader>
-        {noAvailable ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            All principals already have a clone of this pod.
-          </p>
-        ) : (
-          <Combobox
-            multiple
-            autoHighlight
-            items={availableOptions}
-            itemToStringLabel={(p) => p.label}
-            value={resolvedSelected}
-            onValueChange={(value) => setSelectedPrincipals(value)}
-          >
-            <ComboboxChips ref={anchor}>
-              <ComboboxValue>
-                {(values) => (
-                  <>
-                    {(values as Array<PrincipalOption>).map((p) => (
-                      <ComboboxChip key={p.id}>{p.label}</ComboboxChip>
-                    ))}
-                    <ComboboxChipsInput placeholder="Search for users or groups" />
-                  </>
-                )}
-              </ComboboxValue>
-            </ComboboxChips>
-            <ComboboxContent anchor={anchor}>
-              <ComboboxEmpty>No principals found.</ComboboxEmpty>
-              <ComboboxList>
-                {availableOptions.map((p) => (
-                  <ComboboxItem key={p.id} value={p}>
-                    <span className="flex-1 truncate">{p.label}</span>
-                    <Badge variant="outline" className="ml-auto text-xs">
-                      {p.type.charAt(0).toUpperCase() + p.type.slice(1)}
-                    </Badge>
-                  </ComboboxItem>
-                ))}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={noAvailable || resolvedSelected.length === 0}
-            onClick={() => {
-              if (!pod) return
-              onConfirm(pod, resolvedSelected)
-              setSelectedPrincipals([])
-              onOpenChange(false)
-            }}
-          >
-            Start Cloning
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {noAvailable ? (
+        <p className="py-2 text-sm text-muted-foreground">
+          All principals already have a clone of this pod.
+        </p>
+      ) : (
+        <Combobox
+          multiple
+          autoHighlight
+          items={availableOptions}
+          itemToStringLabel={(p) => p.label}
+          itemToStringValue={(p) => p.label}
+          value={resolvedSelected}
+          onValueChange={(value) => setSelectedPrincipals(value)}
+        >
+          <ComboboxChips ref={anchor}>
+            <ComboboxValue>
+              {(values) => (
+                <>
+                  {(values as Array<PrincipalOption>).map((p) => (
+                    <ComboboxChip key={p.id}>{p.label}</ComboboxChip>
+                  ))}
+                  <ComboboxChipsInput placeholder="Search for users or groups" />
+                </>
+              )}
+            </ComboboxValue>
+          </ComboboxChips>
+          <ComboboxContent anchor={anchor}>
+            <ComboboxEmpty>No principals found.</ComboboxEmpty>
+            <ComboboxList>
+              {(p) => (
+                <ComboboxItem key={p.id} value={p}>
+                  <span className="flex-1 truncate">{p.label}</span>
+                  <Badge variant="outline" className="ml-auto text-xs">
+                    {p.type.charAt(0).toUpperCase() + p.type.slice(1)}
+                  </Badge>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      )}
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button
+          disabled={noAvailable || resolvedSelected.length === 0}
+          onClick={() => {
+            if (!pod) return
+            onConfirm(pod, resolvedSelected)
+            setSelectedPrincipals([])
+            onOpenChange(false)
+          }}
+        >
+          Clone
+        </Button>
+      </DialogFooter>
+    </AppDialog>
   )
 }
 

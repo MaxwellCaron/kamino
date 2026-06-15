@@ -9,16 +9,12 @@ export type PendingCloneBulkAction = {
 
 export type CloneBulkAction = Exclude<PendingCloneBulkAction, null>
 
-export type PendingPrincipalCloneRowState =
-  | "queued"
-  | "running"
-  | "success"
-  | "error"
+export type PendingCloneRowState = "queued" | "running" | "success" | "error"
 
-export type PendingPrincipalCloneRow = {
+export type PendingCloneRow = {
   progressId: string
   principal: PrincipalOption
-  state: PendingPrincipalCloneRowState
+  state: PendingCloneRowState
   message?: string
 }
 

@@ -5,8 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { uuid } from "@workspace/ui/lib/utils"
 import {
   BulkCloneActionDialog,
-  CloneForPrincipalsDialog,
   DeletePublishedPodDialog,
+  ManagerCloneDialog,
 } from "./published-pod-dialogs"
 import { PublishedPodsCatalogCard } from "./published-pods-catalog-card"
 import { PublishedPodsHeaderCard } from "./published-pods-header-card"
@@ -14,7 +14,7 @@ import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { getPublishedPodsColumns } from "./published-pods-columns"
 import type {
   PendingCloneBulkAction,
-  PendingPrincipalCloneRow,
+  PendingCloneRow,
 } from "../../types/published-pods-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type {
@@ -46,10 +46,10 @@ export function PublishedPodsPage() {
     useState<PublishedPodCatalogEntry | null>(null)
   const [pendingCloneBulkAction, setPendingCloneBulkAction] =
     useState<PendingCloneBulkAction>(null)
-  const [pendingCloneForPrincipalsPod, setPendingCloneForPrincipalsPod] =
+  const [pendingManagerClonePod, setPendingManagerClonePod] =
     useState<PublishedPodCatalogEntry | null>(null)
   const [pendingCloneRowsByPodId, setPendingCloneRowsByPodId] = useState<
-    Record<string, Array<PendingPrincipalCloneRow>>
+    Record<string, Array<PendingCloneRow>>
   >({})
 
   const statusMutation = useMutation({
@@ -149,7 +149,7 @@ export function PublishedPodsPage() {
     },
   })
 
-  const handleDismissPendingCloneRow = useCallback(
+  const handleDismissCloneRow = useCallback(
     (podId: string, progressId: string) => {
       setPendingCloneRowsByPodId((prev) => {
         const rows = prev[podId] ?? []
@@ -164,9 +164,9 @@ export function PublishedPodsPage() {
     []
   )
 
-  const handleCloneForPrincipals = useCallback(
+  const handleManagerClone = useCallback(
     async (pod: PublishedPodCatalogEntry, principals: Array<PrincipalOption>) => {
-      const rows: Array<PendingPrincipalCloneRow> = principals.map((p) => ({
+      const rows: Array<PendingCloneRow> = principals.map((p) => ({
         progressId: uuid(),
         principal: p,
         state: "queued" as const,
@@ -286,7 +286,7 @@ export function PublishedPodsPage() {
           setPendingCloneBulkAction({ pod, action })
         },
         cloneBulkActionPending: bulkCloneActionMutation.isPending,
-        onCloneForPrincipals: setPendingCloneForPrincipalsPod,
+        onManagerClone: setPendingManagerClonePod,
       }),
     [navigate, statusMutation, bulkCloneActionMutation.isPending]
   )
@@ -305,7 +305,7 @@ export function PublishedPodsPage() {
           isLoading={isPodsLoading}
           pods={pods}
           pendingCloneRowsByPodId={pendingCloneRowsByPodId}
-          onDismissPendingCloneRow={handleDismissPendingCloneRow}
+          onDismissCloneRow={handleDismissCloneRow}
         />
       </div>
 
@@ -327,15 +327,15 @@ export function PublishedPodsPage() {
         }}
         pendingAction={pendingCloneBulkAction}
       />
-      <CloneForPrincipalsDialog
-        pod={pendingCloneForPrincipalsPod}
-        open={pendingCloneForPrincipalsPod !== null}
+      <ManagerCloneDialog
+        pod={pendingManagerClonePod}
+        open={pendingManagerClonePod !== null}
         onOpenChange={(open) => {
-          if (!open) setPendingCloneForPrincipalsPod(null)
+          if (!open) setPendingManagerClonePod(null)
         }}
         pendingRowsByPodId={pendingCloneRowsByPodId}
         onConfirm={(pod, principals) => {
-          void handleCloneForPrincipals(pod, principals)
+          void handleManagerClone(pod, principals)
         }}
       />
     </div>

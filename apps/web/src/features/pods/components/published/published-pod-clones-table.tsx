@@ -2,7 +2,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  IconBolt,
+  IconCubeOff,
   IconDotsVertical,
   IconPlayerPlay,
   IconPlayerStop,
@@ -49,7 +49,7 @@ import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
-import type { PendingPrincipalCloneRow } from "@/features/pods/types/published-pods-types"
+import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { clonePodProgressQueryOptions } from "@/features/pods/api/clone-pod-api"
 import {
@@ -81,7 +81,7 @@ export function PublishedPodClonesTable({
   onDismissPendingRow,
 }: {
   pod: PublishedPodCatalogEntry
-  pendingRows: Array<PendingPrincipalCloneRow>
+  pendingRows: Array<PendingCloneRow>
   onDismissPendingRow: (progressId: string) => void
 }) {
   const queryClient = useQueryClient()
@@ -188,7 +188,7 @@ export function PublishedPodClonesTable({
         <Empty className="py-8">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <IconBolt />
+              <IconCubeOff />
             </EmptyMedia>
             <EmptyTitle>No clones yet</EmptyTitle>
             <EmptyDescription>No users have cloned this pod.</EmptyDescription>
@@ -393,7 +393,7 @@ function PendingCloneProgressRow({
   pod,
   onDismiss,
 }: {
-  row: PendingPrincipalCloneRow
+  row: PendingCloneRow
   pod: PublishedPodCatalogEntry
   onDismiss: (progressId: string) => void
 }) {
@@ -454,10 +454,7 @@ function PendingCloneProgressRow({
       </TableCell>
       <TableCell className="text-sm">
         <div className="flex flex-col gap-1">
-          <Progress
-            value={percent}
-            className="h-1.5 w-24"
-          />
+          <Progress value={percent} className="h-1.5 w-24" />
           {progressData?.message && row.state === "running" && (
             <span className="max-w-40 truncate text-xs text-muted-foreground">
               {progressData.message}
@@ -481,9 +478,7 @@ function PendingCloneProgressRow({
             <IconX className="text-muted-foreground" />
           </Button>
         )}
-        {isActive && (
-          <div className="size-8" />
-        )}
+        {isActive && <div className="size-8" />}
       </TableCell>
     </TableRow>
   )

@@ -14,7 +14,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import {
   IconChevronRight,
-  IconCopyPlus,
+  IconCopy,
   IconDotsVertical,
   IconEdit,
   IconExternalLink,
@@ -48,8 +48,8 @@ type PublishedPodColumnsOptions = {
     action: PodCloneAction
   ) => void
   cloneBulkActionPending?: boolean
-  onCloneForPrincipals: (pod: PublishedPodCatalogEntry) => void
-  cloneForPrincipalsPending?: boolean
+  onManagerClone: (pod: PublishedPodCatalogEntry) => void
+  managerClonePending?: boolean
 }
 
 export function getPublishedPodsColumns({
@@ -58,8 +58,8 @@ export function getPublishedPodsColumns({
   onStatusChange,
   onCloneBulkAction,
   cloneBulkActionPending,
-  onCloneForPrincipals,
-  cloneForPrincipalsPending,
+  onManagerClone,
+  managerClonePending,
 }: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
   return [
     {
@@ -248,14 +248,14 @@ export function getPublishedPodsColumns({
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Clones</DropdownMenuLabel>
                   <DropdownMenuItem
-                    disabled={cloneForPrincipalsPending}
+                    disabled={managerClonePending}
                     onClick={() => {
                       row.toggleExpanded(true)
-                      onCloneForPrincipals(pod)
+                      onManagerClone(pod)
                     }}
                   >
-                    <IconCopyPlus className="text-muted-foreground" />
-                    Clone for principals
+                    <IconCopy className="text-muted-foreground" />
+                    Clone
                   </DropdownMenuItem>
                   {POD_CLONE_ACTIONS.map((action) => {
                     const config = POD_CLONE_ACTION_CONFIG[action]
