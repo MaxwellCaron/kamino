@@ -168,7 +168,7 @@ function GroupPermissionsForm({
       <AppDialogScrollBody>
         <div className="flex flex-col">
           {immutable ? (
-            <Alert>
+            <Alert className="mb-3">
               <IconShieldCheck />
               <AlertTitle>Protected bootstrap group</AlertTitle>
               <AlertDescription>
@@ -176,7 +176,7 @@ function GroupPermissionsForm({
               </AlertDescription>
             </Alert>
           ) : !canEditBootstrapOnly ? (
-            <Alert>
+            <Alert className="mb-3">
               <IconUserCog />
               <AlertTitle>Administrator role is restricted</AlertTitle>
               <AlertDescription>
