@@ -4,7 +4,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -15,6 +14,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { useRef } from "react"
 import type { ComponentProps, ComponentType, ReactNode } from "react"
+import { AppActionButton } from "@/components/actions/app-action-button"
 
 function Freeze({
   freeze,
@@ -222,10 +222,16 @@ export function AppDialogScrollBody({
   )
 }
 
+type AppDialogPrimaryButtonProps = ComponentProps<typeof AppActionButton> & {
+  type?: "submit" | "button" | "reset"
+}
+
 export function AppDialogPrimaryButton({
   className,
   type = "submit",
   ...props
-}: ComponentProps<typeof Button>) {
-  return <Button className={cn("w-full", className)} type={type} {...props} />
+}: AppDialogPrimaryButtonProps) {
+  return (
+    <AppActionButton className={cn("w-full", className)} type={type} {...props} />
+  )
 }

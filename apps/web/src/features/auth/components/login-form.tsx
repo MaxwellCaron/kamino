@@ -2,7 +2,6 @@ import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { cn } from "@workspace/ui/lib/utils"
-import { Button } from "@workspace/ui/components/button"
 import {
   Field,
   FieldContent,
@@ -11,8 +10,9 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { Spinner } from "@workspace/ui/components/spinner"
 import { authSessionQueryOptions, login } from "../api/auth-api"
+import { AppActionButton } from "@/components/actions/app-action-button"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 
 const loginSchema = z.object({
   username: z.string().trim().min(1, "Username is required"),
@@ -65,8 +65,7 @@ export function LoginForm({
         <FieldGroup className="gap-5">
           <form.Field name="username">
             {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -91,8 +90,7 @@ export function LoginForm({
 
           <form.Field name="password">
             {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -124,21 +122,15 @@ export function LoginForm({
 
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <Button
+              <AppActionButton
                 type="submit"
                 size="lg"
                 className="mt-1 w-full transition-transform active:scale-[0.96]"
-                disabled={isSubmitting}
+                pending={isSubmitting}
+                pendingLabel="Signing in..."
               >
-                {isSubmitting ? (
-                  <>
-                    <Spinner data-icon="inline-start" />
-                    Signing in...
-                  </>
-                ) : (
-                  "Sign in"
-                )}
-              </Button>
+                Sign in
+              </AppActionButton>
             )}
           </form.Subscribe>
         </FieldGroup>

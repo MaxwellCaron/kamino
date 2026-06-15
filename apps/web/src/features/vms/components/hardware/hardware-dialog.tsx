@@ -5,6 +5,7 @@ import {
   AppDialogContent,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
@@ -76,11 +77,7 @@ export function VmHardwareDialog({
         )}.`}
       >
         {isHardwareError ? (
-          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-            {hardwareError instanceof Error
-              ? hardwareError.message
-              : "Failed to load VM hardware."}
-          </div>
+          <InlineErrorAlert error={hardwareError} fallback="Failed to load VM hardware." />
         ) : hardware ? (
           <VmHardwareDialogForm
             key={itemId}

@@ -23,6 +23,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import {
   addGroupMember,
   groupMembersQueryOptions,
@@ -148,11 +149,7 @@ function MembershipEditor({
 
   if (loadError) {
     return (
-      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        {loadError instanceof Error
-          ? loadError.message
-          : "Failed to load memberships."}
-      </div>
+      <InlineErrorAlert error={loadError} fallback="Failed to load memberships." />
     )
   }
 

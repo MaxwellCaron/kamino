@@ -18,6 +18,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import {
   formatToastError,
   formatVmReference,
@@ -165,8 +166,7 @@ export function RenameDialog(props: RenameDialogProps) {
         <FieldGroup>
           <form.Field name="name">
             {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -187,8 +187,11 @@ export function RenameDialog(props: RenameDialogProps) {
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? ui.pendingLabel : ui.submitLabel}
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                pendingLabel={ui.pendingLabel}
+              >
+                {ui.submitLabel}
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>
