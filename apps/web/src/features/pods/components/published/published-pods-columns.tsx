@@ -46,13 +46,48 @@ export function getPublishedPodsColumns({
 }: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
   return [
     {
+      id: "expand",
+      header: "",
+      cell: ({ row }) => {
+        const pod = row.original
+
+        if (!row.getCanExpand()) {
+          return <span className="block size-9" aria-hidden="true" />
+        }
+
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-expanded={row.getIsExpanded()}
+            aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
+            onClick={() => row.toggleExpanded()}
+          >
+            <IconChevronRight
+              data-icon="inline-start"
+              className={
+                row.getIsExpanded()
+                  ? "rotate-90 transition-transform"
+                  : "transition-transform"
+              }
+            />
+          </Button>
+        )
+      },
+      enableHiding: false,
+      enableSorting: false,
+      meta: {
+        className: "w-12 pl-4 pr-0",
+      },
+    },
+    {
       id: "pod",
-      header: () => <span className="pl-4">Pod</span>,
+      header: "Pod",
       cell: ({ row }) => {
         const pod = row.original
 
         return (
-          <div className="flex items-center gap-4 py-1 pl-4">
+          <div className="flex items-center gap-4 py-1">
             <div className="overflow-hidden rounded-2xl border bg-muted">
               <Image
                 src={pod.image}
@@ -136,33 +171,11 @@ export function getPublishedPodsColumns({
     {
       accessorKey: "clone_count",
       header: "Clones",
-      cell: ({ row }) => {
-        const pod = row.original
-        if (!row.getCanExpand()) {
-          return (
-            <span className="py-1 font-medium tabular-nums">0</span>
-          )
-        }
-        return (
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-expanded={row.getIsExpanded()}
-            aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
-            onClick={() => row.toggleExpanded()}
-          >
-            <IconChevronRight
-              data-icon="inline-start"
-              className={
-                row.getIsExpanded()
-                  ? "rotate-90 transition-transform"
-                  : "transition-transform"
-              }
-            />
-            <span className="font-medium tabular-nums">{pod.clone_count}</span>
-          </Button>
-        )
-      },
+      cell: ({ row }) => (
+        <span className="py-1 font-medium tabular-nums">
+          {row.original.clone_count}
+        </span>
+      ),
     },
     {
       accessorKey: "created_at",

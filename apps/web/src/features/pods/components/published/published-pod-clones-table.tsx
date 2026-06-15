@@ -6,6 +6,7 @@ import {
   IconDotsVertical,
   IconPlayerPlay,
   IconPlayerStop,
+  IconPower,
   IconTrash,
 } from "@tabler/icons-react"
 import {
@@ -90,15 +91,15 @@ export function PublishedPodClonesTable({
       )
       setPendingAction(null)
       toast.success(
-        pendingAction?.type === "start"
-          ? "Clone started."
-          : "Clone shut down."
+        pendingAction?.type === "start" ? "Clone started." : "Clone shut down."
       )
     },
     onError: (err) => {
       setPendingAction(null)
       toast.error(
-        err instanceof Error ? err.message : "Failed to update clone power state."
+        err instanceof Error
+          ? err.message
+          : "Failed to update clone power state."
       )
     },
   })
@@ -132,14 +133,12 @@ export function PublishedPodClonesTable({
   const isMutating = powerMutation.isPending || deleteMutation.isPending
 
   return (
-    <div className="border-t bg-muted/30 px-2 pb-2 pt-1">
+    <div>
       {isLoading ? (
         <ClonesTableSkeleton />
       ) : error ? (
         <p className="px-4 py-3 text-sm text-destructive">
-          {error instanceof Error
-            ? error.message
-            : "Failed to load clones."}
+          {error instanceof Error ? error.message : "Failed to load clones."}
         </p>
       ) : !clones || clones.length === 0 ? (
         <Empty className="py-8">
@@ -148,9 +147,7 @@ export function PublishedPodClonesTable({
               <IconBolt />
             </EmptyMedia>
             <EmptyTitle>No clones yet</EmptyTitle>
-            <EmptyDescription>
-              No users have cloned this pod.
-            </EmptyDescription>
+            <EmptyDescription>No users have cloned this pod.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -158,7 +155,7 @@ export function PublishedPodClonesTable({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-4">Cloned by</TableHead>
+                <TableHead className="pl-7">Principal</TableHead>
                 <TableHead>Cloned</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>VMs</TableHead>
@@ -169,23 +166,28 @@ export function PublishedPodClonesTable({
             <TableBody>
               {clones.map((clone) => (
                 <TableRow key={clone.id} className="hover:bg-muted/50">
-                  <TableCell className="pl-4">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="truncate max-w-48 text-sm font-medium">
+                  <TableCell className="pl-7">
+                    <div className="flex items-center gap-2">
+                      <span className="max-w-48 truncate text-sm font-medium">
                         {clone.owner.label}
                       </span>
                       <Badge variant="outline" className="w-fit text-xs">
-                        {clone.owner.type}
+                        {clone.owner.type.charAt(0).toUpperCase() +
+                          clone.owner.type.slice(1)}
                       </Badge>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    <RelativeTimeCard date={clone.cloned_at} />
+                    <RelativeTimeCard
+                      date={clone.cloned_at}
+                      delay={50}
+                      closeDelay={150}
+                    />
                   </TableCell>
                   <TableCell>
                     <ClonedPodStatusBadge status={clone.status} />
                   </TableCell>
-                  <TableCell className="tabular-nums text-sm">
+                  <TableCell className="text-sm tabular-nums">
                     {clone.vm_count}
                   </TableCell>
                   <TableCell className="text-sm">
@@ -198,7 +200,7 @@ export function PublishedPodClonesTable({
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="pr-2">
+                  <TableCell className="pr-7">
                     <CloneActionsMenu
                       clone={clone}
                       isMutating={isMutating}
@@ -214,8 +216,7 @@ export function PublishedPodClonesTable({
 
       <AlertDialog
         open={
-          pendingAction?.type === "start" ||
-          pendingAction?.type === "shutdown"
+          pendingAction?.type === "start" || pendingAction?.type === "shutdown"
         }
         onOpenChange={(open) => {
           if (!open && !isMutating) setPendingAction(null)
@@ -311,10 +312,8 @@ function CloneActionsMenu({
   isMutating: boolean
   onAction: (action: PendingAction) => void
 }) {
-  const canStart =
-    clone.status === "stopped" || clone.status === "partial"
-  const canShutdown =
-    clone.status === "running" || clone.status === "partial"
+  const canStart = clone.status === "stopped" || clone.status === "partial"
+  const canShutdown = clone.status === "running" || clone.status === "partial"
 
   return (
     <DropdownMenu>
@@ -343,8 +342,8 @@ function CloneActionsMenu({
             disabled={!canShutdown || isMutating}
             onClick={() => onAction({ type: "shutdown", clone })}
           >
-            <IconPlayerStop className="text-muted-foreground" />
-            Shut Down
+            <IconPower className="text-muted-foreground" />
+            Shutdown
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -367,7 +366,7 @@ function ClonesTableSkeleton() {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="pl-4">Cloned by</TableHead>
+            <TableHead className="pl-7">Principal</TableHead>
             <TableHead>Cloned</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>VMs</TableHead>
@@ -378,7 +377,7 @@ function ClonesTableSkeleton() {
         <TableBody>
           {Array.from({ length: 2 }, (_, i) => (
             <TableRow key={i} className="hover:bg-transparent">
-              <TableCell className="pl-4">
+              <TableCell className="pl-7">
                 <div className="flex flex-col gap-1.5">
                   <Skeleton className="h-4 w-32 rounded" />
                   <Skeleton className="h-4 w-14 rounded" />
@@ -396,7 +395,7 @@ function ClonesTableSkeleton() {
               <TableCell>
                 <Skeleton className="h-4 w-12 rounded" />
               </TableCell>
-              <TableCell>
+              <TableCell className="pr-7">
                 <Skeleton className="size-8 rounded" />
               </TableCell>
             </TableRow>
