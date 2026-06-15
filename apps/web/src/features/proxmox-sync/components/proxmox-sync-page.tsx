@@ -216,18 +216,20 @@ export function ProxmoxSyncPage() {
           </CardHeader>
           <CardContent className="px-0">
             {isEmpty ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconCircleCheck />
-                  </EmptyMedia>
-                  <EmptyTitle>Synced</EmptyTitle>
-                  <EmptyDescription>
-                    Proxmox has {diff?.proxmox_vm_count ?? 0} VMs, all matching
-                    inventory.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+              <div className="mx-6">
+                <Empty className="min-h-[80vh] border border-dashed">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconCircleCheck className="size-6 text-primary" />
+                    </EmptyMedia>
+                    <EmptyTitle>Synced</EmptyTitle>
+                    <EmptyDescription>
+                      Proxmox has {diff?.proxmox_vm_count ?? 0} VMs, all
+                      matching inventory.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </div>
             ) : (
               <DataTable
                 columns={columns}
