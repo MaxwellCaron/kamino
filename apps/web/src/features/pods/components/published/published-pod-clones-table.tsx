@@ -1,13 +1,14 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  IconBolt,
+  IconCubeOff,
   IconDotsVertical,
   IconPlayerPlay,
   IconPlayerStop,
   IconRefresh,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react"
 import {
   AlertDialog,
@@ -32,6 +33,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import { ItemGroup } from "@workspace/ui/components/item"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
@@ -43,11 +45,14 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
+import type { CloneStatusTask } from "@/features/pods/types/clone-status"
 import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
+import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import { clonePodProgressQueryOptions } from "@/features/pods/api/clone-pod-api"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -56,11 +61,17 @@ import {
   publishedPodsQueryOptions,
   reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
+import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
 import {
   POD_CLONE_ACTION_CONFIG,
   canRunPodCloneAction,
 } from "@/features/pods/utils/pod-clone-actions"
+import { CloneStatusItem } from "@/features/pods/components/clone/clone-status-item"
+import {
+  FAILED_PROGRESS_COLORS,
+  getProgressStepColors,
+} from "@/components/progress-state/progress-state-colors"
 
 type PendingAction =
   | { type: "start" | "shutdown"; clone: PublishedPodCloneSummary }
@@ -68,10 +79,20 @@ type PendingAction =
   | { type: "delete"; clone: PublishedPodCloneSummary }
   | null
 
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
 export function PublishedPodClonesTable({
   pod,
+  pendingRows,
+  onDismissPendingRow,
 }: {
   pod: PublishedPodCatalogEntry
+  pendingRows: Array<PendingCloneRow>
+  onDismissPendingRow: (progressId: string) => void
 }) {
   const queryClient = useQueryClient()
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
@@ -169,78 +190,100 @@ export function PublishedPodClonesTable({
         <p className="px-4 py-3 text-sm text-destructive">
           {error instanceof Error ? error.message : "Failed to load clones."}
         </p>
-      ) : !clones || clones.length === 0 ? (
-        <Empty className="py-8">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <IconBolt />
-            </EmptyMedia>
-            <EmptyTitle>No clones yet</EmptyTitle>
-            <EmptyDescription>No users have cloned this pod.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-7">Principal</TableHead>
-                <TableHead>Cloned</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>VMs</TableHead>
-                <TableHead>Tasks</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {clones.map((clone) => (
-                <TableRow key={clone.id} className="hover:bg-muted/50">
-                  <TableCell className="pl-7">
-                    <div className="flex items-center gap-2">
-                      <span className="max-w-48 truncate text-sm font-medium">
-                        {clone.owner.label}
-                      </span>
-                      <Badge variant="outline" className="w-fit text-xs">
-                        {clone.owner.type.charAt(0).toUpperCase() +
-                          clone.owner.type.slice(1)}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    <RelativeTimeCard
-                      date={clone.cloned_at}
-                      delay={50}
-                      closeDelay={150}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ClonedPodStatusBadge status={clone.status} />
-                  </TableCell>
-                  <TableCell className="text-sm tabular-nums">
-                    {clone.vm_count}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <span className="tabular-nums">
-                      {clone.task_summary.completed}/{clone.task_summary.total}
-                    </span>
-                    {clone.task_summary.total > 0 && (
-                      <span className="ml-1.5 text-muted-foreground tabular-nums">
-                        {Math.round(clone.task_summary.progress)}%
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="pr-7">
-                    <CloneActionsMenu
-                      clone={clone}
-                      isMutating={isMutating}
-                      onAction={setPendingAction}
-                    />
-                  </TableCell>
-                </TableRow>
+        <>
+          {pendingRows.length > 0 && (
+            <ItemGroup
+              role="list"
+              className="grid p-6 md:grid-cols-2 xl:grid-cols-3"
+            >
+              {pendingRows.map((row) => (
+                <PendingCloneStatusItem
+                  key={row.progressId}
+                  row={row}
+                  pod={pod}
+                  onDismiss={onDismissPendingRow}
+                />
               ))}
-            </TableBody>
-          </Table>
-        </div>
+            </ItemGroup>
+          )}
+          {clones && clones.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="pl-7">Principal</TableHead>
+                    <TableHead>Cloned</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>VMs</TableHead>
+                    <TableHead>Tasks</TableHead>
+                    <TableHead className="w-12" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clones.map((clone) => (
+                    <TableRow key={clone.id} className="hover:bg-muted/50">
+                      <TableCell className="pl-7">
+                        <div className="flex items-center gap-2">
+                          <span className="max-w-48 truncate text-sm font-medium">
+                            {clone.owner.label}
+                          </span>
+                          <Badge variant="outline" className="w-fit text-xs">
+                            {clone.owner.type.charAt(0).toUpperCase() +
+                              clone.owner.type.slice(1)}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        <RelativeTimeCard
+                          date={clone.cloned_at}
+                          delay={50}
+                          closeDelay={150}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <ClonedPodStatusBadge status={clone.status} />
+                      </TableCell>
+                      <TableCell className="text-sm tabular-nums">
+                        {clone.vm_count}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <span className="tabular-nums">
+                          {clone.task_summary.completed}/
+                          {clone.task_summary.total}
+                        </span>
+                        {clone.task_summary.total > 0 && (
+                          <span className="ml-1.5 text-muted-foreground tabular-nums">
+                            {Math.round(clone.task_summary.progress)}%
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="pr-7">
+                        <CloneActionsMenu
+                          clone={clone}
+                          isMutating={isMutating}
+                          onAction={setPendingAction}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : pendingRows.length === 0 ? (
+            <Empty className="py-8">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconCubeOff />
+                </EmptyMedia>
+                <EmptyTitle>No clones yet</EmptyTitle>
+                <EmptyDescription>
+                  No users have cloned this pod.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
+        </>
       )}
 
       <AlertDialog
@@ -361,6 +404,87 @@ export function PublishedPodClonesTable({
           </AlertDialogFooter>
         </AppAlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+function PendingCloneStatusItem({
+  row,
+  onDismiss,
+}: {
+  row: PendingCloneRow
+  pod: PublishedPodCatalogEntry
+  onDismiss: (progressId: string) => void
+}) {
+  const { data: progressData } = useQuery(
+    clonePodProgressQueryOptions(row.progressId, row.state === "running")
+  )
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  const currentStep =
+    progressData?.step_id ??
+    (row.state === "queued" ? 0 : row.state === "running" ? 1 : 0)
+  const isFailed = row.state === "error" || progressData?.state === "error"
+  const isFinished = row.state === "success" && !isFailed
+  const isCloning =
+    row.state !== "queued" ||
+    progressData?.state === "running" ||
+    progressData?.state === "success" ||
+    progressData?.state === "error"
+
+  useEffect(() => {
+    if (!isCloning || isFinished || isFailed) return
+    const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000)
+    return () => clearInterval(interval)
+  }, [isCloning, isFinished, isFailed])
+
+  const tasks: Array<CloneStatusTask> = DEFAULT_CLONE_TASKS.map((task) => {
+    if (!isCloning || row.state === "queued")
+      return { ...task, status: "pending" }
+    if (isFinished || currentStep > task.id)
+      return { ...task, status: "completed" }
+    if (currentStep === task.id) return { ...task, status: "in-progress" }
+    return { ...task, status: "pending" }
+  })
+  const activeTask = tasks.find((task) => task.status === "in-progress")
+  const colors = isFailed
+    ? FAILED_PROGRESS_COLORS
+    : getProgressStepColors(activeTask?.id)
+
+  return (
+    <div className="relative">
+      <CloneStatusItem
+        title={
+          <>
+            {row.principal.label}{" "}
+            <Badge variant="outline" className="text-xs">
+              {row.principal.type.charAt(0).toUpperCase() +
+                row.principal.type.slice(1)}
+            </Badge>
+          </>
+        }
+        tasks={tasks}
+        isCloning={isCloning}
+        isFinished={isFinished}
+        isFailed={isFailed}
+        colors={colors}
+        elapsedTime={formatTime(elapsedSeconds)}
+        defaultExpanded={row.state !== "queued"}
+      />
+
+      {row.state === "error" && (
+        <div className="absolute top-2 right-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Dismiss failed clone for ${row.principal.label}`}
+            onClick={() => onDismiss(row.progressId)}
+          >
+            <IconX className="text-muted-foreground" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

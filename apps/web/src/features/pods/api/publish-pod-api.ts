@@ -223,6 +223,32 @@ export async function reclonePublishedPodClone(params: {
   return res.json()
 }
 
+export type CreatePublishedPodCloneParams = {
+  podId: string
+  principalId: string
+  progressId: string
+}
+
+export async function createPublishedPodClone(
+  params: CreatePublishedPodCloneParams
+): Promise<PublishedPodCloneSummary> {
+  const res = await apiFetch(`/api/v1/pods/published/${params.podId}/clones`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      principal_id: params.principalId,
+      progress_id: params.progressId,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to clone pod for principal: ${res.status}`
+    )
+  }
+  return res.json()
+}
+
 export async function bulkActionPublishedPodClones(params: {
   podId: string
   action: PodCloneAction
