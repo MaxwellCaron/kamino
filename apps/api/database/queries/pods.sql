@@ -423,6 +423,18 @@ GROUP BY
     cp.updated_at
 ORDER BY cp.created_at DESC;
 
+-- name: ListClonedPodsByPodID :many
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE pod_id = $1
+ORDER BY created_at DESC;
+
 -- name: GetClonedPodByID :one
 SELECT
     id,

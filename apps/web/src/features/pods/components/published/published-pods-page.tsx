@@ -6,6 +6,7 @@ import {
   IconCubeOff,
   IconCubePlus,
   IconCubeSend,
+  IconLoader2,
   IconTrash,
 } from "@tabler/icons-react"
 import {
@@ -36,14 +37,56 @@ import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { PublishedPodsStatCards } from "./published-pods-stat-cards"
 import { getPublishedPodsColumns } from "./published-pods-columns"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { DataTable } from "@/components/data-table/data-table"
 import {
+  bulkActionPublishedPodClones,
   deletePublishedPod,
   podCatalogQueryOptions,
+  publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
   setPublishedPodStatus,
 } from "@/features/pods/api/publish-pod-api"
+import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+
+type PendingCloneBulkAction = {
+  pod: PublishedPodCatalogEntry
+  action: PodCloneAction
+} | null
+
+const BULK_CLONE_DIALOG_CONFIG: Record<
+  PodCloneAction,
+  {
+    title: string
+    description: (pod: PublishedPodCatalogEntry) => string
+    variant: "default" | "destructive"
+  }
+> = {
+  start: {
+    title: "Start All Clones?",
+    description: (pod) => `Start every cloned instance of "${pod.title}".`,
+    variant: "default",
+  },
+  shutdown: {
+    title: "Shutdown All Clones?",
+    description: (pod) =>
+      `Send a shutdown signal to every cloned instance of "${pod.title}".`,
+    variant: "destructive",
+  },
+  reclone: {
+    title: "Re-clone All Clones?",
+    description: (pod) =>
+      `Delete and recreate VMs for every cloned instance of "${pod.title}". Task progress and question answers stay.`,
+    variant: "destructive",
+  },
+  delete: {
+    title: "Delete All Clones?",
+    description: (pod) =>
+      `Permanently delete every cloned instance of "${pod.title}", including their VMs, inventory folders, and saved task progress.`,
+    variant: "destructive",
+  },
+}
 
 export function PublishedPodsPage() {
   const navigate = useNavigate()
@@ -56,6 +99,9 @@ export function PublishedPodsPage() {
   const pods = podsData ?? []
   const [pendingDeletePod, setPendingDeletePod] =
     useState<PublishedPodCatalogEntry | null>(null)
+  const [pendingCloneBulkAction, setPendingCloneBulkAction] =
+    useState<PendingCloneBulkAction>(null)
+
   const statusMutation = useMutation({
     mutationFn: setPublishedPodStatus,
     onSuccess: (updated) => {
@@ -77,6 +123,7 @@ export function PublishedPodsPage() {
       )
     },
   })
+
   const deleteMutation = useMutation({
     mutationFn: deletePublishedPod,
     onSuccess: (_, deletedPodID) => {
@@ -99,6 +146,49 @@ export function PublishedPodsPage() {
         error instanceof Error
           ? error.message
           : "Failed to delete published Pod catalog entry."
+      )
+    },
+  })
+
+  const bulkCloneActionMutation = useMutation({
+    mutationFn: (params: { pod: PublishedPodCatalogEntry; action: PodCloneAction }) =>
+      bulkActionPublishedPodClones({ podId: params.pod.id, action: params.action }),
+    onSuccess: (result, { pod, action }) => {
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodsQueryOptions.queryKey,
+      })
+      if (action === "delete") {
+        void queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        })
+      }
+      setPendingCloneBulkAction(null)
+
+      const actionConfig = POD_CLONE_ACTION_CONFIG[action]
+      const succeeded = result.succeeded.length
+      const failed = result.failed.length
+
+      if (succeeded === 0 && failed === 0) {
+        toast.success("No cloned instances to update.")
+      } else if (failed === 0) {
+        toast.success(
+          `${actionConfig.label} applied to ${succeeded} cloned instance${succeeded === 1 ? "" : "s"}.`
+        )
+      } else {
+        toast.warning(
+          `${actionConfig.label} applied to ${succeeded} cloned instance${succeeded === 1 ? "" : "s"}; ${failed} failed.`
+        )
+      }
+    },
+    onError: (error) => {
+      setPendingCloneBulkAction(null)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to apply bulk clone action."
       )
     },
   })
@@ -136,13 +226,24 @@ export function PublishedPodsPage() {
         onStatusChange: (pod, status) => {
           statusMutation.mutate({ id: pod.id, status })
         },
+        onCloneBulkAction: (pod, action) => {
+          setPendingCloneBulkAction({ pod, action })
+        },
+        cloneBulkActionPending: bulkCloneActionMutation.isPending,
       }),
-    [navigate, statusMutation]
+    [navigate, statusMutation, bulkCloneActionMutation.isPending]
   )
 
   if (isPodsLoading) {
     return <PublishedPodsPageSkeleton />
   }
+
+  const bulkBaseConfig = pendingCloneBulkAction
+    ? POD_CLONE_ACTION_CONFIG[pendingCloneBulkAction.action]
+    : null
+  const bulkDialogConfig = pendingCloneBulkAction
+    ? BULK_CLONE_DIALOG_CONFIG[pendingCloneBulkAction.action]
+    : null
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -235,6 +336,7 @@ export function PublishedPodsPage() {
           </CardContent>
         </Card>
       </div>
+
       <AlertDialog
         open={pendingDeletePod !== null}
         onOpenChange={(open) => {
@@ -271,6 +373,48 @@ export function PublishedPodsPage() {
           </AlertDialogFooter>
         </AppAlertDialogContent>
       </AlertDialog>
+
+      {bulkBaseConfig && bulkDialogConfig && pendingCloneBulkAction && (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !bulkCloneActionMutation.isPending) {
+              setPendingCloneBulkAction(null)
+            }
+          }}
+        >
+          <AppAlertDialogContent
+            open
+            icon={bulkBaseConfig.icon}
+            title={bulkDialogConfig.title}
+            description={bulkDialogConfig.description(pendingCloneBulkAction.pod)}
+          >
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={bulkCloneActionMutation.isPending}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant={bulkDialogConfig.variant}
+                disabled={bulkCloneActionMutation.isPending}
+                onClick={(event) => {
+                  event.preventDefault()
+                  bulkCloneActionMutation.mutate(pendingCloneBulkAction)
+                }}
+              >
+                {bulkCloneActionMutation.isPending && (
+                  <IconLoader2
+                    data-icon="inline-start"
+                    className="animate-spin"
+                  />
+                )}
+                {bulkCloneActionMutation.isPending
+                  ? `${bulkBaseConfig.pendingLabel}...`
+                  : bulkBaseConfig.label}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AppAlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }

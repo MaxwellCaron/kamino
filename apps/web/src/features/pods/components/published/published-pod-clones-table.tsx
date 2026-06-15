@@ -6,7 +6,7 @@ import {
   IconDotsVertical,
   IconPlayerPlay,
   IconPlayerStop,
-  IconPower,
+  IconRefresh,
   IconTrash,
 } from "@tabler/icons-react"
 import {
@@ -54,11 +54,17 @@ import {
   powerPublishedPodClone,
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
+  reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
+import {
+  POD_CLONE_ACTION_CONFIG,
+  canRunPodCloneAction,
+} from "@/features/pods/utils/pod-clone-actions"
 
 type PendingAction =
   | { type: "start" | "shutdown"; clone: PublishedPodCloneSummary }
+  | { type: "reclone"; clone: PublishedPodCloneSummary }
   | { type: "delete"; clone: PublishedPodCloneSummary }
   | null
 
@@ -104,6 +110,26 @@ export function PublishedPodClonesTable({
     },
   })
 
+  const recloneMutation = useMutation({
+    mutationFn: (clonedPodId: string) =>
+      reclonePublishedPodClone({ podId: pod.id, clonedPodId }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(
+        clonesQueryKey,
+        (current: Array<PublishedPodCloneSummary> | undefined) =>
+          current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
+      )
+      setPendingAction(null)
+      toast.success("Clone re-cloned.")
+    },
+    onError: (err) => {
+      setPendingAction(null)
+      toast.error(
+        err instanceof Error ? err.message : "Failed to re-clone clone."
+      )
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (clonedPodId: string) =>
       deletePublishedPodClone({ podId: pod.id, clonedPodId }),
@@ -130,7 +156,10 @@ export function PublishedPodClonesTable({
     },
   })
 
-  const isMutating = powerMutation.isPending || deleteMutation.isPending
+  const isMutating =
+    powerMutation.isPending ||
+    recloneMutation.isPending ||
+    deleteMutation.isPending
 
   return (
     <div>
@@ -268,6 +297,39 @@ export function PublishedPodClonesTable({
       </AlertDialog>
 
       <AlertDialog
+        open={pendingAction?.type === "reclone"}
+        onOpenChange={(open) => {
+          if (!open && !isMutating) setPendingAction(null)
+        }}
+      >
+        <AppAlertDialogContent
+          open={pendingAction?.type === "reclone"}
+          icon={IconRefresh}
+          title="Re-clone Clone?"
+          description={
+            pendingAction?.type === "reclone"
+              ? `Delete and recreate the VMs in the clone owned by ${pendingAction.clone.owner.label}. Task progress and question answers stay.`
+              : ""
+          }
+        >
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isMutating}
+              onClick={(e) => {
+                e.preventDefault()
+                if (pendingAction?.type !== "reclone") return
+                recloneMutation.mutate(pendingAction.clone.id)
+              }}
+            >
+              Re-clone
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AppAlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
         open={pendingAction?.type === "delete"}
         onOpenChange={(open) => {
           if (!open && !isMutating) setPendingAction(null)
@@ -312,9 +374,6 @@ function CloneActionsMenu({
   isMutating: boolean
   onAction: (action: PendingAction) => void
 }) {
-  const canStart = clone.status === "stopped" || clone.status === "partial"
-  const canShutdown = clone.status === "running" || clone.status === "partial"
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -332,29 +391,39 @@ function CloneActionsMenu({
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
           <DropdownMenuItem
-            disabled={!canStart || isMutating}
+            disabled={!canRunPodCloneAction(clone.status, "start") || isMutating}
             onClick={() => onAction({ type: "start", clone })}
           >
             <IconPlayerPlay className="text-muted-foreground" />
-            Start
+            {POD_CLONE_ACTION_CONFIG.start.label}
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={!canShutdown || isMutating}
+            disabled={!canRunPodCloneAction(clone.status, "shutdown") || isMutating}
             onClick={() => onAction({ type: "shutdown", clone })}
           >
-            <IconPower className="text-muted-foreground" />
-            Shutdown
+            <POD_CLONE_ACTION_CONFIG.shutdown.icon className="text-muted-foreground" />
+            {POD_CLONE_ACTION_CONFIG.shutdown.label}
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={isMutating}
-          onClick={() => onAction({ type: "delete", clone })}
-        >
-          <IconTrash />
-          Delete
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={isMutating}
+            onClick={() => onAction({ type: "reclone", clone })}
+          >
+            <IconRefresh />
+            {POD_CLONE_ACTION_CONFIG.reclone.label}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={isMutating}
+            onClick={() => onAction({ type: "delete", clone })}
+          >
+            <IconTrash />
+            {POD_CLONE_ACTION_CONFIG.delete.label}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

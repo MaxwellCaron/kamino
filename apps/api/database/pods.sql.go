@@ -996,6 +996,46 @@ func (q *Queries) ListClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) (
 	return items, nil
 }
 
+const listClonedPodsByPodID = `-- name: ListClonedPodsByPodID :many
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE pod_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListClonedPodsByPodID(ctx context.Context, podID uuid.UUID) ([]ClonedPods, error) {
+	rows, err := q.db.Query(ctx, listClonedPodsByPodID, podID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ClonedPods
+	for rows.Next() {
+		var i ClonedPods
+		if err := rows.Scan(
+			&i.ID,
+			&i.PodID,
+			&i.UserPrincipalID,
+			&i.FolderID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPublishedPodAudienceByPodIDs = `-- name: ListPublishedPodAudienceByPodIDs :many
 SELECT
     audience.pod_id,

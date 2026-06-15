@@ -5,11 +5,21 @@ import type {
   PublishedPodVirtualMachine,
 } from "@/features/pods/types/pod-types"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import {
   ApiError,
   apiFetch,
   shouldRetryApiQuery,
 } from "@/features/auth/api/auth-api"
+
+export type PublishedPodCloneBulkActionResponse = {
+  action: PodCloneAction
+  succeeded: Array<string>
+  failed: Array<{
+    id: string
+    error: string
+  }>
+}
 
 export type PublishPodFolder = {
   id: string
@@ -196,6 +206,42 @@ export async function deletePublishedPodClone(params: {
       body.error ?? `Failed to delete cloned pod: ${res.status}`
     )
   }
+}
+
+export async function reclonePublishedPodClone(params: {
+  podId: string
+  clonedPodId: string
+}): Promise<PublishedPodCloneSummary> {
+  const res = await apiFetch(
+    `/api/v1/pods/published/${params.podId}/clones/${params.clonedPodId}/reclone`,
+    { method: "POST" }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to re-clone cloned pod: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function bulkActionPublishedPodClones(params: {
+  podId: string
+  action: PodCloneAction
+}): Promise<PublishedPodCloneBulkActionResponse> {
+  const res = await apiFetch(
+    `/api/v1/pods/published/${params.podId}/clone-actions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: params.action }),
+    }
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(
+      body.error ?? `Failed to apply bulk clone action: ${res.status}`
+    )
+  }
+  return res.json()
 }
 
 export async function savePublishedPod(

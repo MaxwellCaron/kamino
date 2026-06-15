@@ -31,18 +31,30 @@ import type {
   PodStatus,
   PublishedPodCatalogEntry,
 } from "@/features/pods/types/pod-types"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
+import {
+  POD_CLONE_ACTIONS,
+  POD_CLONE_ACTION_CONFIG,
+} from "@/features/pods/utils/pod-clone-actions"
 
 type PublishedPodColumnsOptions = {
   onDelete: (pod: PublishedPodCatalogEntry) => void
   onEdit: (pod: PublishedPodCatalogEntry) => void
   onStatusChange: (pod: PublishedPodCatalogEntry, status: PodStatus) => void
+  onCloneBulkAction: (
+    pod: PublishedPodCatalogEntry,
+    action: PodCloneAction
+  ) => void
+  cloneBulkActionPending?: boolean
 }
 
 export function getPublishedPodsColumns({
   onDelete,
   onEdit,
   onStatusChange,
+  onCloneBulkAction,
+  cloneBulkActionPending,
 }: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
   return [
     {
@@ -245,6 +257,32 @@ export function getPublishedPodsColumns({
                       Unlisted
                     </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Clones</DropdownMenuLabel>
+                  {POD_CLONE_ACTIONS.map((action) => {
+                    const config = POD_CLONE_ACTION_CONFIG[action]
+                    const Icon = config.icon
+
+                    return (
+                      <DropdownMenuItem
+                        key={action}
+                        variant={
+                          action === "reclone" || action === "delete"
+                            ? "destructive"
+                            : undefined
+                        }
+                        disabled={
+                          pod.clone_count === 0 || cloneBulkActionPending
+                        }
+                        onClick={() => onCloneBulkAction(pod, action)}
+                      >
+                        <Icon className="text-muted-foreground" />
+                        {config.label}
+                      </DropdownMenuItem>
+                    )
+                  })}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
