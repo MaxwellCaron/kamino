@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   IconKeyboard,
   IconPlugConnected,
@@ -38,15 +38,10 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { VncScreen } from "react-vnc"
 import type { VncScreenHandle } from "react-vnc"
 
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
-
-const LazyVncScreen = lazy(() =>
-  import("./vnc-screen-client").then((module) => ({
-    default: module.VncScreenClient,
-  }))
-)
 
 type VncConsoleProps = {
   itemId: string
@@ -175,36 +170,25 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
         )}
 
         {session && (
-          <Suspense
-            fallback={
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ width: "100%", height: "100%" }}
-              >
-                <Spinner />
-              </div>
-            }
-          >
-            <LazyVncScreen
-              ref={vncRef}
-              url={session.url}
-              rfbOptions={{ credentials: { password: session.password } }}
-              scaleViewport
-              resizeSession={false}
-              qualityLevel={8}
-              compressionLevel={2}
-              background="transparent"
-              onConnect={handleConnect}
-              onDisconnect={() => {
-                setStatus("disconnected")
-              }}
-              onSecurityFailure={() => {
-                setStatus("error")
-                setError("Authentication failed")
-              }}
-              style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
-            />
-          </Suspense>
+          <VncScreen
+            ref={vncRef}
+            url={session.url}
+            rfbOptions={{ credentials: { password: session.password } }}
+            scaleViewport
+            resizeSession={false}
+            qualityLevel={8}
+            compressionLevel={2}
+            background="transparent"
+            onConnect={handleConnect}
+            onDisconnect={() => {
+              setStatus("disconnected")
+            }}
+            onSecurityFailure={() => {
+              setStatus("error")
+              setError("Authentication failed")
+            }}
+            style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
+          />
         )}
       </CardContent>
     </Card>
