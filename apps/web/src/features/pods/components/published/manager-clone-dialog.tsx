@@ -1,11 +1,5 @@
 import { useState } from "react"
-import { IconCopy, IconLoader2, IconTrash } from "@tabler/icons-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogFooter,
-} from "@workspace/ui/components/alert-dialog"
+import { IconCopy } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -22,100 +16,16 @@ import {
 } from "@workspace/ui/components/combobox"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { useQuery } from "@tanstack/react-query"
-import type {
-  CloneBulkAction,
-  PendingCloneBulkAction,
-  PendingCloneRow,
-} from "../../types/published-pods-types"
+import type { PendingCloneRow } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
-import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
-import {
-  AppAlertDialogContent,
-  AppDialog,
-} from "@/components/dialogs/app-dialog"
-import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+import { AppDialog } from "@/components/dialogs/app-dialog"
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import { publishedPodClonesQueryOptions } from "@/features/pods/api/publish-pod-api"
-
-const BULK_CLONE_DIALOG_CONFIG: Record<
-  PodCloneAction,
-  {
-    title: string
-    description: (pod: PublishedPodCatalogEntry) => string
-    variant: "default" | "destructive"
-  }
-> = {
-  start: {
-    title: "Start All Clones?",
-    description: (pod) => `Start every cloned instance of "${pod.title}".`,
-    variant: "default",
-  },
-  shutdown: {
-    title: "Shutdown All Clones?",
-    description: (pod) =>
-      `Send a shutdown signal to every cloned instance of "${pod.title}".`,
-    variant: "destructive",
-  },
-  reclone: {
-    title: "Re-clone All Clones?",
-    description: (pod) =>
-      `Delete and recreate VMs for every cloned instance of "${pod.title}". Task progress and question answers stay.`,
-    variant: "destructive",
-  },
-  delete: {
-    title: "Delete All Clones?",
-    description: (pod) =>
-      `Permanently delete every cloned instance of "${pod.title}", including their VMs, inventory folders, and saved task progress.`,
-    variant: "destructive",
-  },
-}
-
-export function DeletePublishedPodDialog({
-  isPending,
-  onConfirm,
-  onOpenChange,
-  pod,
-}: {
-  isPending: boolean
-  onConfirm: (pod: PublishedPodCatalogEntry) => void
-  onOpenChange: (open: boolean) => void
-  pod: PublishedPodCatalogEntry | null
-}) {
-  return (
-    <AlertDialog open={pod !== null} onOpenChange={onOpenChange}>
-      <AppAlertDialogContent
-        open={pod !== null}
-        icon={IconTrash}
-        title="Delete Catalog Entry?"
-        description={
-          pod
-            ? `This deletes "${pod.title}" from the published catalog database only. The Pod Folder, Pod Template Folder, and Proxmox VMs are not deleted.`
-            : ""
-        }
-      >
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={isPending}
-            onClick={(event) => {
-              event.preventDefault()
-              if (!pod) return
-              onConfirm(pod)
-            }}
-          >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AppAlertDialogContent>
-    </AlertDialog>
-  )
-}
 
 export function ManagerCloneDialog({
   pod,
@@ -229,50 +139,5 @@ export function ManagerCloneDialog({
         </Button>
       </DialogFooter>
     </AppDialog>
-  )
-}
-
-export function BulkCloneActionDialog({
-  isPending,
-  onConfirm,
-  onOpenChange,
-  pendingAction,
-}: {
-  isPending: boolean
-  onConfirm: (action: CloneBulkAction) => void
-  onOpenChange: (open: boolean) => void
-  pendingAction: PendingCloneBulkAction
-}) {
-  if (!pendingAction) return null
-
-  const baseConfig = POD_CLONE_ACTION_CONFIG[pendingAction.action]
-  const dialogConfig = BULK_CLONE_DIALOG_CONFIG[pendingAction.action]
-
-  return (
-    <AlertDialog open onOpenChange={onOpenChange}>
-      <AppAlertDialogContent
-        open
-        icon={baseConfig.icon}
-        title={dialogConfig.title}
-        description={dialogConfig.description(pendingAction.pod)}
-      >
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant={dialogConfig.variant}
-            disabled={isPending}
-            onClick={(event) => {
-              event.preventDefault()
-              onConfirm(pendingAction)
-            }}
-          >
-            {isPending && (
-              <IconLoader2 data-icon="inline-start" className="animate-spin" />
-            )}
-            {isPending ? `${baseConfig.pendingLabel}...` : baseConfig.label}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AppAlertDialogContent>
-    </AlertDialog>
   )
 }
