@@ -22,7 +22,7 @@ export function LoginPage() {
           color="var(--muted-foreground)"
           animationStyle="none"
           objectFit="cover"
-          className="pointer-events-none absolute bottom-[-18svh] left-[-12vw] hidden aspect-square w-[min(94vw,72rem)] md:block"
+          className="pointer-events-none absolute bottom-[-18svh] left-[-12vw] hidden aspect-square w-[min(94vw,72rem)] md:block firefox:hidden"
         />
 
         <div className="relative grid items-center md:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] md:p-10">
