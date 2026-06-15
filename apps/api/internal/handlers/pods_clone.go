@@ -101,6 +101,11 @@ type publishedPodCloneBulkActionRequest struct {
 	Action string `json:"action" binding:"required,oneof=start shutdown reclone delete"`
 }
 
+type createPublishedPodCloneRequest struct {
+	PrincipalID uuid.UUID `json:"principal_id" binding:"required"`
+	ProgressID  string    `json:"progress_id"`
+}
+
 type publishedPodCloneBulkActionFailure struct {
 	ID    uuid.UUID `json:"id"`
 	Error string    `json:"error"`
@@ -237,7 +242,14 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 		return
 	}
 
-	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, username, pod, progress)
+	folderName, err := cloneFolderName(username)
+	if err != nil {
+		progress.fail(err.Error())
+		writeRequestError(c, &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()})
+		return
+	}
+
+	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, folderName, pod, progress)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
@@ -696,10 +708,17 @@ func (h *PodsHandler) visibleCatalogPodBySlug(
 func (h *PodsHandler) clonePublishedPod(
 	ctx context.Context,
 	principalID uuid.UUID,
-	username string,
+	folderName string,
 	pod publishedPodBase,
 	progress *clonePodProgressReporter,
 ) (database.ClonedPods, *requestError) {
+	if err := names.ValidateFolder(folderName); err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusUnprocessableEntity,
+			UserMessage: err.Error(),
+		}
+	}
+
 	q := database.New(h.DB)
 	if _, err := q.GetClonedPodForPrincipalByPodID(ctx, database.GetClonedPodForPrincipalByPodIDParams{
 		PodID:           pod.ID,
@@ -731,13 +750,6 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
-	folderName, err := cloneFolderName(username)
-	if err != nil {
-		return database.ClonedPods{}, &requestError{
-			Status:      http.StatusUnprocessableEntity,
-			UserMessage: err.Error(),
-		}
-	}
 	if exists, err := h.Service.ChildFolderExists(ctx, pod.SourceFolderID, folderName); err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
 	} else if exists {
@@ -2187,6 +2199,88 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req createPublishedPodCloneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	progress := newClonePodProgressReporter(req.ProgressID)
+	progress.set(cloneProgressStepFetching, "Fetching Pod Template VMs.")
+
+	q := database.New(h.DB)
+	podRow, err := q.GetPublishedPodByID(c.Request.Context(), podID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		progress.fail("pod not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
+		return
+	}
+	if err != nil {
+		progress.fail("failed to load pod")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load published pod", "load published pod for manager clone", err)
+		return
+	}
+	pod := publishedRowToBase(podRow)
+
+	principals, err := q.ListPrincipalDetailsByIDs(c.Request.Context(), []uuid.UUID{req.PrincipalID})
+	if err != nil {
+		progress.fail("failed to load principal")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load principal", "load target principal for manager clone", err)
+		return
+	}
+	if len(principals) == 0 {
+		progress.fail("principal not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "principal not found"})
+		return
+	}
+	target := principals[0]
+
+	displayLabel := target.ExternalID
+	if target.Name != nil && *target.Name != "" {
+		displayLabel = *target.Name
+	}
+
+	folderName, err := managerCloneFolderName(req.PrincipalID, string(target.PrincipalType), displayLabel)
+	if err != nil {
+		progress.fail(err.Error())
+		writeRequestError(c, &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()})
+		return
+	}
+
+	clone, reqErr := h.clonePublishedPod(c.Request.Context(), req.PrincipalID, folderName, pod, progress)
+	if reqErr != nil {
+		progress.fail(reqErr.UserMessage)
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	summary, reqErr := h.publishedPodCloneSummaryByID(c.Request.Context(), q, podID, clone.ID)
+	if reqErr != nil {
+		progress.fail(reqErr.UserMessage)
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	progress.succeed("Pod cloned successfully.")
+	c.JSON(http.StatusOK, summary)
+}
+
 func currentUsername(c *gin.Context) (string, bool) {
 	value, ok := c.Get("username")
 	if !ok {
@@ -2197,15 +2291,36 @@ func currentUsername(c *gin.Context) (string, bool) {
 	return username, ok && username != ""
 }
 
-func cloneFolderName(username string) (string, error) {
-	name := names.Normalize(username)
-	if err := names.ValidateFolder(name); err == nil {
-		return name, nil
+func managerCloneFolderName(principalID uuid.UUID, principalType string, displayLabel string) (string, error) {
+	suffix := principalID.String()[:8]
+	prefix := strings.ToLower(principalType) + "-" + displayLabel + "-" + suffix
+	name := sanitizeFolderNameString(prefix)
+	if name == "" {
+		return "", fmt.Errorf("principal cannot be used as a pod folder name")
 	}
+	if name[0] >= '0' && name[0] <= '9' {
+		name = "p-" + name
+	}
+	const maxLen = 63
+	if len(name) > maxLen {
+		suffixWithDash := "-" + suffix
+		if len(suffixWithDash) >= maxLen {
+			return "", fmt.Errorf("principal cannot be used as a pod folder name")
+		}
+		truncated := name[:maxLen-len(suffixWithDash)]
+		truncated = strings.TrimRight(truncated, "-")
+		name = truncated + suffixWithDash
+	}
+	if err := names.ValidateFolder(name); err != nil {
+		return "", fmt.Errorf("principal cannot be used as a pod folder name")
+	}
+	return name, nil
+}
 
+func sanitizeFolderNameString(input string) string {
 	var builder strings.Builder
 	lastDash := false
-	for _, r := range name {
+	for _, r := range input {
 		isAllowed := (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
 		if isAllowed {
 			builder.WriteRune(r)
@@ -2217,8 +2332,16 @@ func cloneFolderName(username string) (string, error) {
 			lastDash = true
 		}
 	}
+	return strings.Trim(builder.String(), "-")
+}
 
-	folderName := strings.Trim(builder.String(), "-")
+func cloneFolderName(username string) (string, error) {
+	name := names.Normalize(username)
+	if err := names.ValidateFolder(name); err == nil {
+		return name, nil
+	}
+
+	folderName := sanitizeFolderNameString(name)
 	if folderName == "" {
 		return "", fmt.Errorf("username cannot be used as a pod folder name")
 	}

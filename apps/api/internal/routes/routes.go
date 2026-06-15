@@ -109,6 +109,7 @@ func RegisterRoutes(
 		protected.DELETE("/pods/published/:id", pods.DeletePublished)
 		protected.PUT("/pods/published/:id/status", pods.UpdatePublishedStatus)
 		protected.GET("/pods/published/:id/clones", pods.ListPublishedPodClones)
+		protected.POST("/pods/published/:id/clones", pods.CreatePublishedPodCloneForPrincipal)
 		protected.POST("/pods/published/:id/clones/:cloneID/power", pods.PowerPublishedPodClone)
 		protected.POST("/pods/published/:id/clones/:cloneID/reclone", pods.ReclonePublishedPodClone)
 		protected.DELETE("/pods/published/:id/clones/:cloneID", pods.DeletePublishedPodClone)
