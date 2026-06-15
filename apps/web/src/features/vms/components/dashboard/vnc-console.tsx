@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react"
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import {
   IconKeyboard,
   IconPlugConnected,
@@ -89,7 +89,10 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
         password: string
       }
 
-      const wsHttpUrl = new URL(apiUrl("/api/v1/vnc/ws"), window.location.origin)
+      const wsHttpUrl = new URL(
+        apiUrl("/api/v1/vnc/ws"),
+        window.location.origin
+      )
       wsHttpUrl.protocol = wsHttpUrl.protocol === "https:" ? "wss:" : "ws:"
       wsHttpUrl.searchParams.set("sessionId", sessionId)
 
@@ -110,10 +113,19 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
     setConnectedAt(null)
   }
 
-  function handleConnect() {
+  const handleConnect = useCallback(() => {
     setStatus("connected")
     setConnectedAt(Date.now())
-  }
+  }, [])
+
+  const handleDisconnect = useCallback(() => {
+    setStatus("disconnected")
+  }, [])
+
+  const handleSecurityFailure = useCallback(() => {
+    setStatus("error")
+    setError("Authentication failed")
+  }, [])
 
   return (
     <Card>
@@ -195,14 +207,14 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
               compressionLevel={2}
               background="transparent"
               onConnect={handleConnect}
-              onDisconnect={() => {
-                setStatus("disconnected")
+              onDisconnect={handleDisconnect}
+              onSecurityFailure={handleSecurityFailure}
+              style={{
+                width: "100%",
+                height: "100%",
+                position: "absolute",
+                inset: 0,
               }}
-              onSecurityFailure={() => {
-                setStatus("error")
-                setError("Authentication failed")
-              }}
-              style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
             />
           </Suspense>
         )}
