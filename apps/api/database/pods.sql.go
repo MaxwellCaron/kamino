@@ -214,6 +214,32 @@ func (q *Queries) DeletePublishedPodVMsExcept(ctx context.Context, arg DeletePub
 	return err
 }
 
+const getClonedPodByID = `-- name: GetClonedPodByID :one
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE id = $1
+`
+
+func (q *Queries) GetClonedPodByID(ctx context.Context, id uuid.UUID) (ClonedPods, error) {
+	row := q.db.QueryRow(ctx, getClonedPodByID, id)
+	var i ClonedPods
+	err := row.Scan(
+		&i.ID,
+		&i.PodID,
+		&i.UserPrincipalID,
+		&i.FolderID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getClonedPodForPrincipalByID = `-- name: GetClonedPodForPrincipalByID :one
 SELECT
     id,
@@ -739,6 +765,146 @@ func (q *Queries) ListClonedPodQuestionAnswers(ctx context.Context, clonedPodID 
 	return items, nil
 }
 
+const listClonedPodRuntimeVMsByCloneIDs = `-- name: ListClonedPodRuntimeVMsByCloneIDs :many
+SELECT
+    cpv.cloned_pod_id,
+    cpv.inventory_item_id,
+    ii.name,
+    pv.node,
+    pv.vmid,
+    cpv.sort_order
+FROM cloned_pod_vms cpv
+JOIN inventory_items ii
+  ON ii.id = cpv.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = cpv.inventory_item_id
+WHERE cpv.cloned_pod_id = ANY($1::UUID[])
+ORDER BY cpv.cloned_pod_id, cpv.sort_order ASC
+`
+
+type ListClonedPodRuntimeVMsByCloneIDsRow struct {
+	ClonedPodID     uuid.UUID `json:"cloned_pod_id"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Name            string    `json:"name"`
+	Node            *string   `json:"node"`
+	Vmid            *int32    `json:"vmid"`
+	SortOrder       int32     `json:"sort_order"`
+}
+
+func (q *Queries) ListClonedPodRuntimeVMsByCloneIDs(ctx context.Context, cloneIds []uuid.UUID) ([]ListClonedPodRuntimeVMsByCloneIDsRow, error) {
+	rows, err := q.db.Query(ctx, listClonedPodRuntimeVMsByCloneIDs, cloneIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClonedPodRuntimeVMsByCloneIDsRow
+	for rows.Next() {
+		var i ListClonedPodRuntimeVMsByCloneIDsRow
+		if err := rows.Scan(
+			&i.ClonedPodID,
+			&i.InventoryItemID,
+			&i.Name,
+			&i.Node,
+			&i.Vmid,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClonedPodSummariesByPodID = `-- name: ListClonedPodSummariesByPodID :many
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    p.principal_type,
+    COALESCE(NULLIF(p.name, ''), p.external_id) AS user_label,
+    COALESCE(p.description, '') AS user_description,
+    cp.folder_id,
+    cp.created_at,
+    cp.updated_at,
+    COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
+    COUNT(DISTINCT task.id)::int AS task_total,
+    COUNT(DISTINCT state.task_id) FILTER (WHERE state.completed)::int AS task_completed
+FROM cloned_pods cp
+JOIN principals p
+  ON p.id = cp.user_principal_id
+LEFT JOIN cloned_pod_vms cpv
+  ON cpv.cloned_pod_id = cp.id
+LEFT JOIN published_pod_tasks task
+  ON task.pod_id = cp.pod_id
+LEFT JOIN cloned_pod_task_states state
+  ON state.cloned_pod_id = cp.id
+ AND state.task_id = task.id
+WHERE cp.pod_id = $1
+GROUP BY
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    p.principal_type,
+    p.name,
+    p.external_id,
+    p.description,
+    cp.folder_id,
+    cp.created_at,
+    cp.updated_at
+ORDER BY cp.created_at DESC
+`
+
+type ListClonedPodSummariesByPodIDRow struct {
+	ID              uuid.UUID          `json:"id"`
+	PodID           uuid.UUID          `json:"pod_id"`
+	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
+	PrincipalType   PrincipalType      `json:"principal_type"`
+	UserLabel       string             `json:"user_label"`
+	UserDescription string             `json:"user_description"`
+	FolderID        uuid.UUID          `json:"folder_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	VmCount         int32              `json:"vm_count"`
+	TaskTotal       int32              `json:"task_total"`
+	TaskCompleted   int32              `json:"task_completed"`
+}
+
+func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.UUID) ([]ListClonedPodSummariesByPodIDRow, error) {
+	rows, err := q.db.Query(ctx, listClonedPodSummariesByPodID, podID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClonedPodSummariesByPodIDRow
+	for rows.Next() {
+		var i ListClonedPodSummariesByPodIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PodID,
+			&i.UserPrincipalID,
+			&i.PrincipalType,
+			&i.UserLabel,
+			&i.UserDescription,
+			&i.FolderID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.VmCount,
+			&i.TaskTotal,
+			&i.TaskCompleted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClonedPodTaskStates = `-- name: ListClonedPodTaskStates :many
 SELECT
     state.task_id,
@@ -819,6 +985,46 @@ func (q *Queries) ListClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) (
 			&i.Node,
 			&i.Vmid,
 			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClonedPodsByPodID = `-- name: ListClonedPodsByPodID :many
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE pod_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListClonedPodsByPodID(ctx context.Context, podID uuid.UUID) ([]ClonedPods, error) {
+	rows, err := q.db.Query(ctx, listClonedPodsByPodID, podID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ClonedPods
+	for rows.Next() {
+		var i ClonedPods
+		if err := rows.Scan(
+			&i.ID,
+			&i.PodID,
+			&i.UserPrincipalID,
+			&i.FolderID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

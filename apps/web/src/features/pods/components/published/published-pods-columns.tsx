@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import {
+  IconChevronRight,
+  IconCopy,
   IconDotsVertical,
   IconEdit,
   IconExternalLink,
@@ -30,28 +32,79 @@ import type {
   PodStatus,
   PublishedPodCatalogEntry,
 } from "@/features/pods/types/pod-types"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
+import {
+  POD_CLONE_ACTIONS,
+  POD_CLONE_ACTION_CONFIG,
+} from "@/features/pods/utils/pod-clone-actions"
 
 type PublishedPodColumnsOptions = {
   onDelete: (pod: PublishedPodCatalogEntry) => void
   onEdit: (pod: PublishedPodCatalogEntry) => void
   onStatusChange: (pod: PublishedPodCatalogEntry, status: PodStatus) => void
+  onCloneBulkAction: (
+    pod: PublishedPodCatalogEntry,
+    action: PodCloneAction
+  ) => void
+  cloneBulkActionPending?: boolean
+  onManagerClone: (pod: PublishedPodCatalogEntry) => void
+  managerClonePending?: boolean
 }
 
 export function getPublishedPodsColumns({
   onDelete,
   onEdit,
   onStatusChange,
+  onCloneBulkAction,
+  cloneBulkActionPending,
+  onManagerClone,
+  managerClonePending,
 }: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
   return [
     {
+      id: "expand",
+      header: "",
+      cell: ({ row }) => {
+        const pod = row.original
+
+        if (!row.getCanExpand()) {
+          return <span className="block size-9" aria-hidden="true" />
+        }
+
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-expanded={row.getIsExpanded()}
+            aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
+            onClick={() => row.toggleExpanded()}
+          >
+            <IconChevronRight
+              data-icon="inline-start"
+              className={
+                row.getIsExpanded()
+                  ? "rotate-90 transition-transform"
+                  : "transition-transform"
+              }
+            />
+          </Button>
+        )
+      },
+      enableHiding: false,
+      enableSorting: false,
+      meta: {
+        className: "w-12 pl-4 pr-0",
+      },
+    },
+    {
       id: "pod",
-      header: () => <span className="pl-4">Pod</span>,
+      header: "Pod",
       cell: ({ row }) => {
         const pod = row.original
 
         return (
-          <div className="flex items-center gap-4 py-1 pl-4">
+          <div className="flex items-center gap-4 py-1">
             <div className="overflow-hidden rounded-2xl border bg-muted">
               <Image
                 src={pod.image}
@@ -193,6 +246,42 @@ export function getPublishedPodsColumns({
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
+                  <DropdownMenuLabel>Clones</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    disabled={managerClonePending}
+                    onClick={() => {
+                      row.toggleExpanded(true)
+                      onManagerClone(pod)
+                    }}
+                  >
+                    <IconCopy className="text-muted-foreground" />
+                    Clone
+                  </DropdownMenuItem>
+                  {POD_CLONE_ACTIONS.map((action) => {
+                    const config = POD_CLONE_ACTION_CONFIG[action]
+                    const Icon = config.icon
+
+                    return (
+                      <DropdownMenuItem
+                        key={action}
+                        variant={
+                          action === "reclone" || action === "delete"
+                            ? "destructive"
+                            : undefined
+                        }
+                        disabled={
+                          pod.clone_count === 0 || cloneBulkActionPending
+                        }
+                        onClick={() => onCloneBulkAction(pod, action)}
+                      >
+                        <Icon className="text-muted-foreground" />
+                        {config.label}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
                   <DropdownMenuLabel>Status</DropdownMenuLabel>
                   <DropdownMenuRadioGroup
                     value={pod.status}
@@ -216,7 +305,7 @@ export function getPublishedPodsColumns({
                   onClick={() => onDelete(pod)}
                 >
                   <IconTrash />
-                  Delete
+                  Delete Pod
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

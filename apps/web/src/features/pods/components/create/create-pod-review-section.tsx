@@ -23,7 +23,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { getReviewVmNames } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
-import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
+import { VmIcon } from "@/components/status/vm-icon"
 
 const treePreviewRowClass =
   "bg-transparent flex min-h-8 items-center gap-1 rounded-3xl bg-sidebar px-2 py-1.5 text-sm transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0"

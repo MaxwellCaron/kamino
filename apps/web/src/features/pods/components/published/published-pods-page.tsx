@@ -1,48 +1,25 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  IconCubeOff,
-  IconCubePlus,
-  IconCubeSend,
-  IconTrash,
-} from "@tabler/icons-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogFooter,
-} from "@workspace/ui/components/alert-dialog"
-import { buttonVariants } from "@workspace/ui/components/button"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
+import { PublishedPodsCatalogCard } from "./published-pods-catalog-card"
+import { PublishedPodsHeaderCard } from "./published-pods-header-card"
 import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
-import { PublishedPodsStatCards } from "./published-pods-stat-cards"
 import { getPublishedPodsColumns } from "./published-pods-columns"
+import { PublishedPodsPageDialogs } from "./published-pods-page-dialogs"
+import type { PendingCloneBulkAction } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
-import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
-import { DataTable } from "@/components/data-table/data-table"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-published-pods-manager-clones"
 import {
+  bulkActionPublishedPodClones,
   deletePublishedPod,
   podCatalogQueryOptions,
+  publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
   setPublishedPodStatus,
 } from "@/features/pods/api/publish-pod-api"
+import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
 
 export function PublishedPodsPage() {
   const navigate = useNavigate()
@@ -55,6 +32,17 @@ export function PublishedPodsPage() {
   const pods = podsData ?? []
   const [pendingDeletePod, setPendingDeletePod] =
     useState<PublishedPodCatalogEntry | null>(null)
+  const [pendingCloneBulkAction, setPendingCloneBulkAction] =
+    useState<PendingCloneBulkAction>(null)
+
+  const {
+    pendingCloneRowsByPodId,
+    pendingManagerClonePod,
+    setPendingManagerClonePod,
+    handleDismissCloneRow,
+    handleManagerClone,
+  } = usePublishedPodsManagerClones()
+
   const statusMutation = useMutation({
     mutationFn: setPublishedPodStatus,
     onSuccess: (updated) => {
@@ -76,6 +64,7 @@ export function PublishedPodsPage() {
       )
     },
   })
+
   const deleteMutation = useMutation({
     mutationFn: deletePublishedPod,
     onSuccess: (_, deletedPodID) => {
@@ -98,6 +87,55 @@ export function PublishedPodsPage() {
         error instanceof Error
           ? error.message
           : "Failed to delete published Pod catalog entry."
+      )
+    },
+  })
+
+  const bulkCloneActionMutation = useMutation({
+    mutationFn: (params: {
+      pod: PublishedPodCatalogEntry
+      action: PodCloneAction
+    }) =>
+      bulkActionPublishedPodClones({
+        podId: params.pod.id,
+        action: params.action,
+      }),
+    onSuccess: (result, { pod, action }) => {
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodsQueryOptions.queryKey,
+      })
+      if (action === "delete") {
+        void queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        })
+      }
+      setPendingCloneBulkAction(null)
+
+      const actionConfig = POD_CLONE_ACTION_CONFIG[action]
+      const succeeded = result.succeeded.length
+      const failed = result.failed.length
+
+      if (succeeded === 0 && failed === 0) {
+        toast.success("No cloned instances to update.")
+      } else if (failed === 0) {
+        toast.success(
+          `${actionConfig.label} applied to ${succeeded} cloned instance${succeeded === 1 ? "" : "s"}.`
+        )
+      } else {
+        toast.warning(
+          `${actionConfig.label} applied to ${succeeded} cloned instance${succeeded === 1 ? "" : "s"}; ${failed} failed.`
+        )
+      }
+    },
+    onError: (error) => {
+      setPendingCloneBulkAction(null)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to apply bulk clone action."
       )
     },
   })
@@ -135,8 +173,13 @@ export function PublishedPodsPage() {
         onStatusChange: (pod, status) => {
           statusMutation.mutate({ id: pod.id, status })
         },
+        onCloneBulkAction: (pod, action) => {
+          setPendingCloneBulkAction({ pod, action })
+        },
+        cloneBulkActionPending: bulkCloneActionMutation.isPending,
+        onManagerClone: setPendingManagerClonePod,
       }),
-    [navigate, statusMutation]
+    [navigate, statusMutation, bulkCloneActionMutation.isPending, setPendingManagerClonePod]
   )
 
   if (isPodsLoading) {
@@ -146,126 +189,41 @@ export function PublishedPodsPage() {
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-4xl font-extrabold tracking-tight text-balance">
-              Published Pods
-            </CardTitle>
-            <CardDescription>
-              Review catalog metadata, flip visibility between listed and
-              unlisted, and jump straight into the publish workflow for editing.
-            </CardDescription>
-            <CardAction className="flex gap-2">
-              <Link
-                to="/pods/create"
-                className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
-              >
-                <IconCubePlus data-icon="inline-start" />
-                Create
-              </Link>
-              <Link
-                to="/pods/publish"
-                className={`${buttonVariants()} cursor-pointer`}
-              >
-                <IconCubeSend data-icon="inline-start" />
-                Publish
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <PublishedPodsStatCards stats={stats} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pod Catalog</CardTitle>
-            <CardDescription>
-              All published pods. Search by title, creator, or slug.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-0">
-            {pods.length > 0 ? (
-              <DataTable
-                columns={columns}
-                data={pods}
-                error={podsError}
-                getRowId={(pod) => pod.id}
-                initialPageSize={10}
-                isLoading={isPodsLoading}
-                showSelectionSummary={false}
-              />
-            ) : (
-              <div className="px-6">
-                <Empty className="min-h-[55vh] border border-dashed">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <IconCubeOff />
-                    </EmptyMedia>
-                    <EmptyTitle>No published pods yet</EmptyTitle>
-                    <EmptyDescription>
-                      You haven&apos;t published any pods yet. Get started by
-                      creating and publishing your first pod.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent className="flex-row justify-center gap-2">
-                    <Link
-                      to="/pods/create"
-                      className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
-                    >
-                      <IconCubePlus data-icon="inline-start" />
-                      Create
-                    </Link>
-                    <Link
-                      to="/pods/publish"
-                      className={`${buttonVariants()} cursor-pointer`}
-                    >
-                      <IconCubeSend data-icon="inline-start" />
-                      Publish
-                    </Link>
-                  </EmptyContent>
-                </Empty>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <PublishedPodsHeaderCard stats={stats} />
+        <PublishedPodsCatalogCard
+          columns={columns}
+          error={podsError}
+          isLoading={isPodsLoading}
+          pods={pods}
+          pendingCloneRowsByPodId={pendingCloneRowsByPodId}
+          onDismissCloneRow={handleDismissCloneRow}
+        />
       </div>
-      <AlertDialog
-        open={pendingDeletePod !== null}
-        onOpenChange={(open) => {
-          if (!open && !deleteMutation.isPending) {
-            setPendingDeletePod(null)
+
+      <PublishedPodsPageDialogs
+        pendingDeletePod={pendingDeletePod}
+        isDeletePending={deleteMutation.isPending}
+        onDeleteConfirm={(pod) => deleteMutation.mutate(pod.id)}
+        onDeleteOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setPendingDeletePod(null)
+        }}
+        pendingCloneBulkAction={pendingCloneBulkAction}
+        isBulkClonePending={bulkCloneActionMutation.isPending}
+        onBulkCloneConfirm={(action) => bulkCloneActionMutation.mutate(action)}
+        onBulkCloneOpenChange={(open) => {
+          if (!open && !bulkCloneActionMutation.isPending) {
+            setPendingCloneBulkAction(null)
           }
         }}
-      >
-        <AppAlertDialogContent
-          open={pendingDeletePod !== null}
-          icon={IconTrash}
-          title="Delete Catalog Entry?"
-          description={
-            pendingDeletePod
-              ? `This deletes "${pendingDeletePod.title}" from the published catalog database only. The Pod Folder, Pod Template Folder, and Proxmox VMs are not deleted.`
-              : ""
-          }
-        >
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                if (!pendingDeletePod) return
-                deleteMutation.mutate(pendingDeletePod.id)
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AppAlertDialogContent>
-      </AlertDialog>
+        pendingManagerClonePod={pendingManagerClonePod}
+        pendingCloneRowsByPodId={pendingCloneRowsByPodId}
+        onManagerCloneOpenChange={(open) => {
+          if (!open) setPendingManagerClonePod(null)
+        }}
+        onManagerCloneConfirm={(pod, principals) => {
+          void handleManagerClone(pod, principals)
+        }}
+      />
     </div>
   )
 }

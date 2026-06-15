@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
-import { useStore } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { useSelector } from "@tanstack/react-store"
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -44,6 +44,7 @@ import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import {
   getInventoryFolderOptions,
@@ -119,8 +120,8 @@ export function CreateVmDialog({
     },
   })
 
-  const method = useStore(form.store, (state) => state.values.method)
-  const selectedIsoStorage = useStore(
+  const method = useSelector(form.store, (state) => state.values.method)
+  const selectedIsoStorage = useSelector(
     form.store,
     (state) => state.values.iso_storage ?? ""
   )
@@ -264,11 +265,7 @@ export function CreateVmDialog({
           <form action={() => {}}>
             <AppDialogScrollBody className="h-[40vh]">
               {initialOptionsError ? (
-                <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-                  {initialOptionsError instanceof Error
-                    ? initialOptionsError.message
-                    : "Failed to load VM creation options."}
-                </div>
+                <InlineErrorAlert error={initialOptionsError} fallback="Failed to load VM creation options." />
               ) : isLoadingInitialOptions ? (
                 <DialogBodySkeleton rows={4} />
               ) : (
@@ -320,15 +317,16 @@ export function CreateVmDialog({
                 {step === "confirmation" ? (
                   <AppDialogPrimaryButton
                     type="button"
+                    pending={mutation.isPending}
+                    pendingLabel="Creating..."
                     disabled={
                       isLoadingInitialOptions ||
                       initialOptionsError !== null ||
-                      mutation.isPending ||
                       method === "upload"
                     }
                     onClick={handleCreate}
                   >
-                    {mutation.isPending ? "Creating..." : "Create"}
+                    Create
                   </AppDialogPrimaryButton>
                 ) : null}
               </div>

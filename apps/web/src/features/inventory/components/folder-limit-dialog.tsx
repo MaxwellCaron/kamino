@@ -17,6 +17,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { formatToastError } from "@/features/shared/utils/format"
 
 type FolderLimitDialogProps = {
@@ -113,8 +114,7 @@ export function FolderLimitDialog({
         <FieldGroup>
           <form.Field name="limit">
             {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -144,8 +144,11 @@ export function FolderLimitDialog({
           </form.Field>
         </FieldGroup>
         <DialogFooter className="mt-6">
-          <AppDialogPrimaryButton disabled={updateLimit.isPending}>
-            {updateLimit.isPending ? "Saving..." : "Save Limit"}
+          <AppDialogPrimaryButton
+            pending={updateLimit.isPending}
+            pendingLabel="Saving..."
+          >
+            Save Limit
           </AppDialogPrimaryButton>
         </DialogFooter>
       </form>

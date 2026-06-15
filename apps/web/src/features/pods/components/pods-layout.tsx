@@ -12,6 +12,7 @@ const podsRouteApi = getRouteApi("/_pods")
 
 const keepSidebarCollapsed = () => {}
 
+const podIconRailMobileWidth = "calc(var(--spacing) * 16 + 2px)"
 const podBreadcrumbsElement = <PodBreadcrumbs />
 const commandManyItemsElement = <CommandManyItems />
 
@@ -33,7 +34,11 @@ export function PodsLayout() {
     >
       <DashboardEvents />
       <InventoryDialogsProvider>
-        <AppSidebarIconRail user={user} variant="inset" />
+        <AppSidebarIconRail
+          user={user}
+          variant="inset"
+          mobileWidth={podIconRailMobileWidth}
+        />
         <SidebarInset>
           <SiteHeader
             breadcrumb={podBreadcrumbsElement}

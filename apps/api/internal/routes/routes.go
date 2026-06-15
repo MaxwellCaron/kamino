@@ -23,6 +23,7 @@ func RegisterRoutes(
 	authz *handlers.AuthorizationHandler,
 	requests *handlers.RequestsHandler,
 	events *handlers.EventsHandler,
+	proxmoxSync *handlers.ProxmoxSyncHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -107,6 +108,12 @@ func RegisterRoutes(
 		protected.PUT("/pods/published/:id", pods.SavePublished)
 		protected.DELETE("/pods/published/:id", pods.DeletePublished)
 		protected.PUT("/pods/published/:id/status", pods.UpdatePublishedStatus)
+		protected.GET("/pods/published/:id/clones", pods.ListPublishedPodClones)
+		protected.POST("/pods/published/:id/clones", pods.CreatePublishedPodCloneForPrincipal)
+		protected.POST("/pods/published/:id/clones/:cloneID/power", pods.PowerPublishedPodClone)
+		protected.POST("/pods/published/:id/clones/:cloneID/reclone", pods.ReclonePublishedPodClone)
+		protected.DELETE("/pods/published/:id/clones/:cloneID", pods.DeletePublishedPodClone)
+		protected.POST("/pods/published/:id/clone-actions", pods.BulkActionPublishedPodClones)
 		protected.GET("/pods/clones/progress/:id", pods.GetCloneProgress)
 		protected.POST("/pods/clones/:id/reclone", pods.RecloneClonedPod)
 		protected.POST("/pods/clones/:id/power", pods.PowerClonedPod)
@@ -141,6 +148,12 @@ func RegisterRoutes(
 		protected.POST("/requests/approve", requests.Approve)
 		protected.POST("/requests/deny", requests.Deny)
 		protected.POST("/requests/:id/cancel", requests.Cancel)
+	}
+
+	// Proxmox drift sync endpoints
+	if proxmoxSync != nil {
+		protected.GET("/admin/proxmox/sync/preview", proxmoxSync.Preview)
+		protected.POST("/admin/proxmox/sync/apply", proxmoxSync.Apply)
 	}
 
 	// Principals endpoints (AD users & groups)

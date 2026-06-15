@@ -483,6 +483,48 @@ func (q *Queries) ListPrincipalDeletionBlockers(ctx context.Context, principalID
 	return items, nil
 }
 
+const listPrincipalDetailsByIDs = `-- name: ListPrincipalDetailsByIDs :many
+SELECT id, provider_id, principal_type, external_id, name, description
+FROM principals
+WHERE id = ANY($1::UUID[])
+`
+
+type ListPrincipalDetailsByIDsRow struct {
+	ID            uuid.UUID     `json:"id"`
+	ProviderID    uuid.UUID     `json:"provider_id"`
+	PrincipalType PrincipalType `json:"principal_type"`
+	ExternalID    string        `json:"external_id"`
+	Name          *string       `json:"name"`
+	Description   *string       `json:"description"`
+}
+
+func (q *Queries) ListPrincipalDetailsByIDs(ctx context.Context, ids []uuid.UUID) ([]ListPrincipalDetailsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, listPrincipalDetailsByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPrincipalDetailsByIDsRow
+	for rows.Next() {
+		var i ListPrincipalDetailsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProviderID,
+			&i.PrincipalType,
+			&i.ExternalID,
+			&i.Name,
+			&i.Description,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updatePrincipalDescription = `-- name: UpdatePrincipalDescription :exec
 UPDATE principals SET description = $1 WHERE id = $2
 `

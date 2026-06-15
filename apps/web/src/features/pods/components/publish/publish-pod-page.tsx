@@ -1,6 +1,6 @@
 import * as React from "react"
-import { useStore } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
+import { useSelector } from "@tanstack/react-store"
 import { uuid } from "@workspace/ui/lib/utils"
 import {
   createInitialPublishPodValues,
@@ -139,7 +139,7 @@ export function PublishPodPage({
     defaultValues,
     onSubmit: handleValidatedSubmit,
   })
-  const submissionAttempts = useStore(
+  const submissionAttempts = useSelector(
     form.store,
     (state) => state.submissionAttempts
   )

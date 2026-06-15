@@ -5,14 +5,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-
-type PublishedPodsStats = {
-  total: number
-  listed: number
-  unlisted: number
-  restricted: number
-  totalClones: number
-}
+import type { PublishedPodsStats } from "../../types/published-pods-types"
 
 export function PublishedPodsStatCards({
   stats,

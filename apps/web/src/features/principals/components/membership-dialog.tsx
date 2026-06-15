@@ -1,6 +1,7 @@
 import * as React from "react"
-import { useForm, useStore } from "@tanstack/react-form"
+import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSelector } from "@tanstack/react-store"
 import { IconUsersGroup } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -22,6 +23,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import {
   addGroupMember,
   groupMembersQueryOptions,
@@ -147,11 +149,7 @@ function MembershipEditor({
 
   if (loadError) {
     return (
-      <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        {loadError instanceof Error
-          ? loadError.message
-          : "Failed to load memberships."}
-      </div>
+      <InlineErrorAlert error={loadError} fallback="Failed to load memberships." />
     )
   }
 
@@ -228,7 +226,10 @@ function MembershipForm({
     form.reset({ selectedIds: serverIds })
   }, [form, serverIds])
 
-  const selectedIds = useStore(form.store, (state) => state.values.selectedIds)
+  const selectedIds = useSelector(
+    form.store,
+    (state) => state.values.selectedIds
+  )
   const hasChanges = React.useMemo(() => {
     const serverSet = new Set(baselineIdsRef.current)
     const selectedSet = new Set(selectedIds)

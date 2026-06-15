@@ -75,8 +75,8 @@ export function PublishPodAccessStep({
                   <FieldContent>
                     <FieldLabel htmlFor={field.name}>Unlisted</FieldLabel>
                     <FieldDescription>
-                      Hidden from normal users and reserved for the
-                      manager-facing catalog. They can be listed at any time.
+                      Hidden from users in the browse pods page and also
+                      inventory tree, can be listed at any time.
                     </FieldDescription>
                   </FieldContent>
                 </Field>

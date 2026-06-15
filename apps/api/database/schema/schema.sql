@@ -500,6 +500,9 @@ CREATE TABLE cloned_pods (
 CREATE INDEX ix_cloned_pods_user_created_at
     ON cloned_pods (user_principal_id, created_at DESC);
 
+CREATE INDEX ix_cloned_pods_pod_created_at
+    ON cloned_pods (pod_id, created_at DESC);
+
 CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
 RETURNS TRIGGER AS $$
 BEGIN

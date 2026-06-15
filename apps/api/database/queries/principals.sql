@@ -139,6 +139,11 @@ SELECT id, principal_type
 FROM principals
 WHERE id = ANY(sqlc.arg(ids)::UUID[]);
 
+-- name: ListPrincipalDetailsByIDs :many
+SELECT id, provider_id, principal_type, external_id, name, description
+FROM principals
+WHERE id = ANY(sqlc.arg(ids)::UUID[]);
+
 -- name: GetPrincipalByExternalID :one
 SELECT id, provider_id, principal_type, external_id, name, description
 FROM principals

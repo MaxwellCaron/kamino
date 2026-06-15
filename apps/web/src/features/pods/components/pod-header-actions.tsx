@@ -22,91 +22,22 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import {
-  IconChevronDown,
-  IconLoader2,
-  IconPlayerPlay,
-  IconPower,
-  IconRefresh,
-  IconTrash,
-} from "@tabler/icons-react"
-import type { ComponentType } from "react"
-import type {
-  ClonedPod,
-  ClonedPodStatus,
-} from "@/features/pods/types/pod-types"
+import { IconChevronDown, IconLoader2 } from "@tabler/icons-react"
+import type { ClonedPod } from "@/features/pods/types/pod-types"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import {
   deleteClonedPod,
   powerClonedPod,
 } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
-import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import {
+  POD_CLONE_ACTION_CONFIG,
+  POD_CLONE_OVERFLOW_ACTIONS,
+  POD_CLONE_POWER_ACTIONS_BY_STATUS,
+} from "@/features/pods/utils/pod-clone-actions"
 
-type PodHeaderAction = "start" | "shutdown" | "reclone" | "delete"
-type VisiblePodHeaderAction = Exclude<PodHeaderAction, "reclone" | "delete">
-type PodHeaderActionIcon = ComponentType<{ className?: string }>
-
-const POD_HEADER_ACTION_CONFIG: Record<
-  PodHeaderAction,
-  {
-    icon: PodHeaderActionIcon
-    title: string
-    description: string
-    menuDescription: string
-    actionLabel: string
-    pendingLabel: string
-    variant: "default" | "destructive"
-  }
-> = {
-  start: {
-    icon: IconPlayerPlay,
-    title: "Start Pod?",
-    description: "This will power on all virtual machines in your cloned pod.",
-    menuDescription: "Power on all of the virtual machines in the pod.",
-    actionLabel: "Start",
-    pendingLabel: "Starting",
-    variant: "default",
-  },
-  shutdown: {
-    icon: IconPower,
-    title: "Shutdown Pod?",
-    description:
-      "This will send a shutdown signal to all running virtual machines in your cloned pod.",
-    menuDescription: "Safely power off all of the virtual machines in the pod.",
-    actionLabel: "Shutdown",
-    pendingLabel: "Shutting down",
-    variant: "destructive",
-  },
-  reclone: {
-    icon: IconRefresh,
-    title: "Re-clone Pod?",
-    description:
-      "This deletes and recreates your cloned virtual machines while keeping your saved task progress and question answers.",
-    menuDescription: "Recreate the virtual machines and keep task progress.",
-    actionLabel: "Re-clone",
-    pendingLabel: "Preparing",
-    variant: "destructive",
-  },
-  delete: {
-    icon: IconTrash,
-    title: "Delete Pod?",
-    description:
-      "This permanently deletes your cloned pod, its virtual machines, and your saved task progress.",
-    menuDescription: "Permanently delete your cloned instance of this pod.",
-    actionLabel: "Delete",
-    pendingLabel: "Deleting",
-    variant: "destructive",
-  },
-}
-
-const VISIBLE_ACTIONS_BY_STATUS: Record<
-  ClonedPodStatus,
-  Array<VisiblePodHeaderAction>
-> = {
-  running: ["shutdown"],
-  stopped: ["start"],
-  partial: ["start", "shutdown"],
-}
+type VisiblePodHeaderAction = "start" | "shutdown"
 
 const ACTION_BUTTON_VARIANT: Record<
   VisiblePodHeaderAction,
@@ -116,7 +47,30 @@ const ACTION_BUTTON_VARIANT: Record<
   shutdown: "destructive",
 }
 
-const OVERFLOW_ACTIONS: Array<PodHeaderAction> = ["reclone", "delete"]
+const POD_HEADER_DIALOG_CONFIG: Record<
+  PodCloneAction,
+  { title: string; description: string }
+> = {
+  start: {
+    title: "Start Pod?",
+    description: "This will power on all virtual machines in your cloned pod.",
+  },
+  shutdown: {
+    title: "Shutdown Pod?",
+    description:
+      "This will send a shutdown signal to all running virtual machines in your cloned pod.",
+  },
+  reclone: {
+    title: "Re-clone Pod?",
+    description:
+      "This deletes and recreates your cloned virtual machines while keeping your saved task progress and question answers.",
+  },
+  delete: {
+    title: "Delete Pod?",
+    description:
+      "This permanently deletes your cloned pod, its virtual machines, and your saved task progress.",
+  },
+}
 
 export function PodHeaderActions({
   clonedPod,
@@ -128,7 +82,7 @@ export function PodHeaderActions({
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
   const queryClient = useQueryClient()
-  const [activeAction, setActiveAction] = useState<PodHeaderAction | null>(null)
+  const [activeAction, setActiveAction] = useState<PodCloneAction | null>(null)
   const powerMutation = useMutation({
     mutationFn: powerClonedPod,
     onSuccess: async (nextClonedPod) => {
@@ -150,7 +104,10 @@ export function PodHeaderActions({
     },
   })
   const activeActionConfig = activeAction
-    ? POD_HEADER_ACTION_CONFIG[activeAction]
+    ? POD_CLONE_ACTION_CONFIG[activeAction]
+    : null
+  const activeDialogConfig = activeAction
+    ? POD_HEADER_DIALOG_CONFIG[activeAction]
     : null
   const actionPending = powerMutation.isPending || deleteMutation.isPending
   const actionError =
@@ -159,9 +116,9 @@ export function PodHeaderActions({
       : activeAction === "delete"
         ? deleteMutation.error
         : powerMutation.error
-  const visibleActions = VISIBLE_ACTIONS_BY_STATUS[clonedPod.status]
+  const visibleActions = POD_CLONE_POWER_ACTIONS_BY_STATUS[clonedPod.status]
 
-  function openAction(action: PodHeaderAction) {
+  function openAction(action: PodCloneAction) {
     powerMutation.reset()
     deleteMutation.reset()
     setActiveAction(action)
@@ -197,8 +154,8 @@ export function PodHeaderActions({
   return (
     <>
       <ButtonGroup aria-label="Pod actions" className="rounded-3xl bg-muted">
-        {visibleActions.map((action, _) => {
-          const config = POD_HEADER_ACTION_CONFIG[action]
+        {visibleActions.map((action) => {
+          const config = POD_CLONE_ACTION_CONFIG[action]
           const Icon = config.icon
 
           return (
@@ -209,7 +166,7 @@ export function PodHeaderActions({
                 onClick={() => openAction(action)}
               >
                 <Icon data-icon="inline-start" />
-                {config.actionLabel}
+                {config.label}
               </Button>
             </Fragment>
           )
@@ -229,18 +186,14 @@ export function PodHeaderActions({
           />
           <DropdownMenuContent className="w-full" align="end">
             <DropdownMenuGroup>
-              {OVERFLOW_ACTIONS.map((action) => {
-                const config = POD_HEADER_ACTION_CONFIG[action]
+              {POD_CLONE_OVERFLOW_ACTIONS.map((action) => {
+                const config = POD_CLONE_ACTION_CONFIG[action]
                 const Icon = config.icon
 
                 return (
                   <Fragment key={action}>
                     <DropdownMenuItem
-                      variant={
-                        action === "reclone" || action === "delete"
-                          ? "destructive"
-                          : undefined
-                      }
+                      variant="destructive"
                       disabled={
                         actionPending || (action === "reclone" && !onReclone)
                       }
@@ -251,7 +204,7 @@ export function PodHeaderActions({
                           <Icon className="size-4" />
                         </ItemMedia>
                         <ItemContent className="gap-0">
-                          <ItemTitle>{config.actionLabel}</ItemTitle>
+                          <ItemTitle>{config.label}</ItemTitle>
                           <ItemDescription className="leading-none">
                             {config.menuDescription}
                           </ItemDescription>
@@ -266,7 +219,7 @@ export function PodHeaderActions({
         </DropdownMenu>
       </ButtonGroup>
 
-      {activeActionConfig && (
+      {activeActionConfig && activeDialogConfig && (
         <AlertDialog
           open={activeAction != null}
           onOpenChange={handleActionOpenChange}
@@ -274,8 +227,8 @@ export function PodHeaderActions({
           <AppAlertDialogContent
             open={activeAction != null}
             icon={activeActionConfig.icon}
-            title={activeActionConfig.title}
-            description={activeActionConfig.description}
+            title={activeDialogConfig.title}
+            description={activeDialogConfig.description}
           >
             {actionError && (
               <p className="text-sm text-destructive">{actionError.message}</p>
@@ -297,7 +250,7 @@ export function PodHeaderActions({
                 )}
                 {actionPending
                   ? `${activeActionConfig.pendingLabel}...`
-                  : activeActionConfig.actionLabel}
+                  : activeActionConfig.label}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AppAlertDialogContent>

@@ -17,6 +17,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import {
   authSessionQueryOptions,
   changeOwnPassword,
@@ -94,7 +95,7 @@ export function ChangePasswordDialog({
           <form.Field name="currentPassword">
             {(field) => {
               const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+                isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -124,7 +125,7 @@ export function ChangePasswordDialog({
           <form.Field name="newPassword">
             {(field) => {
               const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+                isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -157,7 +158,7 @@ export function ChangePasswordDialog({
           <form.Field name="confirmPassword">
             {(field) => {
               const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+                isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -194,8 +195,11 @@ export function ChangePasswordDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Updating..." : "Update"}
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                pendingLabel="Updating..."
+              >
+                Update
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>

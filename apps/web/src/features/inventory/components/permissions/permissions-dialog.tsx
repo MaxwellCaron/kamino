@@ -26,11 +26,6 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
-import {
   Item,
   ItemActions,
   ItemContent,
@@ -50,6 +45,7 @@ import type {
   InventoryPermissionsDialogProps,
 } from "../../types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 import { formatVmReference } from "@/features/shared/utils/format"
 import {
   groupsQueryOptions,
@@ -135,21 +131,13 @@ function InventoryPermissionsFormBody({
   return (
     <React.Fragment>
       <div className="flex justify-between gap-2">
-        <InputGroup>
-          <InputGroupInput
-            placeholder="Search principals..."
-            value={principalSearch}
-            onChange={(event) => setPrincipalSearch(event.target.value)}
-            aria-label="Search added principals"
-          />
-          <InputGroupAddon>
-            <IconSearch />
-          </InputGroupAddon>
-          <InputGroupAddon align="inline-end">
-            {filteredPrincipalCount}{" "}
-            {filteredPrincipalCount === 1 ? "result" : "results"}
-          </InputGroupAddon>
-        </InputGroup>
+        <SearchInputGroup
+          value={principalSearch}
+          onValueChange={setPrincipalSearch}
+          placeholder="Search principals..."
+          aria-label="Search added principals"
+          resultCount={filteredPrincipalCount}
+        />
         <AddPrincipalsDialog
           availablePrincipalIds={state.availablePrincipalIds}
           disabled={state.isSaving}
@@ -288,10 +276,13 @@ function InventoryPermissionsFormBody({
 
       <DialogFooter className="mt-0">
         <AppDialogPrimaryButton
-          onClick={actions.handleSubmit}
-          disabled={state.isSaving || !state.hasChanges}
+          type="button"
+          onClick={() => void actions.handleSubmit()}
+          disabled={!state.hasChanges}
+          pending={state.isSaving}
+          pendingLabel="Submitting..."
         >
-          {state.isSaving ? "Submitting..." : "Submit"}
+          Submit
         </AppDialogPrimaryButton>
       </DialogFooter>
     </React.Fragment>
@@ -306,6 +297,8 @@ export function InventoryPermissionsDialog(
   const {
     data: acl,
     error: aclError,
+    isFetchedAfterMount: isAclFetchedAfterMount,
+    isFetching: isAclFetching,
     isLoading: isAclLoading,
   } = useQuery({
     ...inventoryAclQueryOptions(itemId),
@@ -328,7 +321,9 @@ export function InventoryPermissionsDialog(
     enabled: open,
   })
 
-  const loading = isAclLoading || isUsersLoading || isGroupsLoading
+  const waitingForFreshAcl = isAclFetching && !isAclFetchedAfterMount
+  const loading =
+    isAclLoading || waitingForFreshAcl || isUsersLoading || isGroupsLoading
   const loadError = aclError ?? usersError ?? groupsError
 
   return (

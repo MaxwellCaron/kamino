@@ -1485,6 +1485,13 @@ func (s *Service) NotifyInventoryChanged(ctx context.Context, itemID uuid.UUID) 
 	s.scheduleMirror()
 }
 
+// NotifyInventoryTreeChanged broadcasts a tree-level inventory change and
+// schedules a mirror reconcile without targeting a specific item.
+func (s *Service) NotifyInventoryTreeChanged(ctx context.Context) {
+	s.notify(ctx, nil)
+	s.scheduleMirror()
+}
+
 func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, itemID uuid.UUID) {
 	s.notify(ctx, tx, &itemID)
 }

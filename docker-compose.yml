@@ -8,7 +8,6 @@ services:
       - path: .env.docker
         required: false
     environment:
-      FRONTEND_URL: http://localhost:3000
       GIN_MODE: release
       PORT: :8080
     ports:

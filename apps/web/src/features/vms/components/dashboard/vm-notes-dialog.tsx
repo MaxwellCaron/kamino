@@ -7,6 +7,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
 import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
@@ -74,8 +75,7 @@ export function VmNotesDialog({
         <FieldGroup>
           <form.Field name="notes">
             {(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <CountedTextareaField
@@ -97,8 +97,11 @@ export function VmNotesDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save"}
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                pendingLabel="Saving..."
+              >
+                Save
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>

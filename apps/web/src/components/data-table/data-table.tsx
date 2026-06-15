@@ -28,20 +28,25 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { useRef, useState } from "react"
+import { Fragment, useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
-import type { ReactNode } from "react"
+import { DataTableStateRow } from "./data-table-state-row"
+import type { ComponentType, ReactNode } from "react"
 import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
   ColumnDef,
+  ExpandedState,
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
 import { loadingTransition } from "@/components/loading-transition"
+
+const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
 
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
@@ -54,6 +59,8 @@ interface DataTableProps<TData, TValue> {
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
+  expandedRowComponent?: ComponentType<{ row: TData }>
+  getRowCanExpand?: (row: TData) => boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -65,9 +72,12 @@ export function DataTable<TData, TValue>({
   initialPageSize = 25,
   showSelectionSummary = true,
   selectionActions,
+  expandedRowComponent: ExpandedRowComponent,
+  getRowCanExpand,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [expanded, setExpanded] = useState<ExpandedState>({})
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
   const notReady = isLoading || error !== null
@@ -77,15 +87,21 @@ export function DataTable<TData, TValue>({
     columns,
     getRowId,
     enableRowSelection: true,
+    getExpandedRowModel: getExpandedRowModel(),
+    getRowCanExpand: getRowCanExpand
+      ? (row) => getRowCanExpand(row.original)
+      : undefined,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onExpandedChange: setExpanded,
     globalFilterFn: "includesString",
     state: {
       globalFilter,
       rowSelection,
+      expanded,
     },
     initialState: {
       pagination: {
@@ -175,13 +191,13 @@ export function DataTable<TData, TValue>({
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
               {isLoading ? (
-                Array.from({ length: 3 }, (_, i) => (
-                  <TableRow key={i}>
+                LOADING_ROW_IDS.map((rowID) => (
+                  <TableRow key={rowID}>
                     <TableCell className="pl-6">
                       <Skeleton className="size-5 rounded" />
                     </TableCell>
-                    {columns.slice(1).map((__, j) => (
-                      <TableCell key={j}>
+                    {table.getAllLeafColumns().slice(1).map((column) => (
+                      <TableCell key={column.id}>
                         <Skeleton className="h-6 w-3/4 rounded" />
                       </TableCell>
                     ))}
@@ -189,32 +205,34 @@ export function DataTable<TData, TValue>({
                 ))
               ) : table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cell.column.columnDef.meta?.className}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                  <Fragment key={row.id}>
+                    <TableRow data-state={row.getIsSelected() && "selected"}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className={cell.column.columnDef.meta?.className}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {row.getIsExpanded() && ExpandedRowComponent && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={row.getVisibleCells().length}
+                          className="p-0"
+                        >
+                          <ExpandedRowComponent row={row.original} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className={`h-24 text-center ${error !== null ? "text-destructive" : ""}`}
-                  >
-                    {error ? error.message : "No results."}
-                  </TableCell>
-                </TableRow>
+                <DataTableStateRow colSpan={columns.length} error={error} />
               )}
             </m.tbody>
           </AnimatePresence>

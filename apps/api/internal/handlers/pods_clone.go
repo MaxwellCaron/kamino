@@ -97,6 +97,26 @@ type clonedPodPowerRequest struct {
 	Action string `json:"action" binding:"required,oneof=start shutdown"`
 }
 
+type publishedPodCloneBulkActionRequest struct {
+	Action string `json:"action" binding:"required,oneof=start shutdown reclone delete"`
+}
+
+type createPublishedPodCloneRequest struct {
+	PrincipalID uuid.UUID `json:"principal_id" binding:"required"`
+	ProgressID  string    `json:"progress_id"`
+}
+
+type publishedPodCloneBulkActionFailure struct {
+	ID    uuid.UUID `json:"id"`
+	Error string    `json:"error"`
+}
+
+type publishedPodCloneBulkActionResponse struct {
+	Action    string                               `json:"action"`
+	Succeeded []uuid.UUID                          `json:"succeeded"`
+	Failed    []publishedPodCloneBulkActionFailure `json:"failed"`
+}
+
 func newClonePodProgressReporter(id string) *clonePodProgressReporter {
 	id = strings.TrimSpace(id)
 	if id == "" {
@@ -222,7 +242,14 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 		return
 	}
 
-	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, username, pod, progress)
+	folderName, err := cloneFolderName(username)
+	if err != nil {
+		progress.fail(err.Error())
+		writeRequestError(c, &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()})
+		return
+	}
+
+	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, folderName, pod, progress)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
@@ -681,10 +708,17 @@ func (h *PodsHandler) visibleCatalogPodBySlug(
 func (h *PodsHandler) clonePublishedPod(
 	ctx context.Context,
 	principalID uuid.UUID,
-	username string,
+	folderName string,
 	pod publishedPodBase,
 	progress *clonePodProgressReporter,
 ) (database.ClonedPods, *requestError) {
+	if err := names.ValidateFolder(folderName); err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusUnprocessableEntity,
+			UserMessage: err.Error(),
+		}
+	}
+
 	q := database.New(h.DB)
 	if _, err := q.GetClonedPodForPrincipalByPodID(ctx, database.GetClonedPodForPrincipalByPodIDParams{
 		PodID:           pod.ID,
@@ -716,13 +750,6 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
-	folderName, err := cloneFolderName(username)
-	if err != nil {
-		return database.ClonedPods{}, &requestError{
-			Status:      http.StatusUnprocessableEntity,
-			UserMessage: err.Error(),
-		}
-	}
 	if exists, err := h.Service.ChildFolderExists(ctx, pod.SourceFolderID, folderName); err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
 	} else if exists {
@@ -1690,6 +1717,570 @@ func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int
 	}
 }
 
+func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+	if h.Actions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vm actions unavailable"})
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	cloneID, err := uuid.Parse(c.Param("cloneID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		return
+	}
+
+	var req clonedPodPowerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	q := database.New(h.DB)
+	clone, err := q.GetClonedPodByID(c.Request.Context(), cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for manager power", err)
+		return
+	}
+	if clone.PodID != podID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+
+	targets, reqErr := h.clonedPodManagerActionTargets(c.Request.Context(), q, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	statuses, _, err := h.runtimeForVMIDs(c.Request.Context(), vmidsFromTargets(targets))
+	if err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to load VM statuses", "load cloned pod vm statuses for manager power", err)
+		return
+	}
+
+	expectedStatus := "running"
+	if req.Action == string(vmactions.PowerActionShutdown) {
+		expectedStatus = "stopped"
+	}
+
+	for _, target := range targets {
+		if clonedPodVMAlreadyInPowerState(req.Action, statuses[target.VMID]) {
+			continue
+		}
+		if err := h.Actions.PowerAction(c.Request.Context(), target, vmactions.PowerAction(req.Action)); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to update cloned pod power state", "manager power cloned pod vm", err)
+			return
+		}
+		if err := h.waitForVMStatus(c.Request.Context(), target.VMID, expectedStatus); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to confirm cloned pod power state", "wait for manager cloned pod vm power state", err)
+			return
+		}
+	}
+
+	clones, err := h.hydratePublishedPodClones(c.Request.Context(), q, podID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to reload cloned pods", "hydrate published pod clones after manager power", err)
+		return
+	}
+
+	for _, resp := range clones {
+		if resp.ID == cloneID {
+			c.JSON(http.StatusOK, resp)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{})
+}
+
+func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	cloneID, err := uuid.Parse(c.Param("cloneID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		return
+	}
+
+	q := database.New(h.DB)
+	clone, err := q.GetClonedPodByID(c.Request.Context(), cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for manager delete", err)
+		return
+	}
+	if clone.PodID != podID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
+		return
+	}
+
+	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod virtual machines", "list cloned pod VMs for manager delete", err)
+		return
+	}
+
+	for _, row := range rows {
+		if row.Node == nil || row.Vmid == nil {
+			continue
+		}
+		if err := h.deleteClonedPodProxmoxVM(c.Request.Context(), *row.Node, int(*row.Vmid)); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to delete cloned pod virtual machine", "manager delete cloned pod VM", err)
+			return
+		}
+	}
+
+	if err := h.Service.DeleteFolder(c.Request.Context(), clone.FolderID); err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *PodsHandler) clonedPodManagerActionTargets(
+	ctx context.Context,
+	q *database.Queries,
+	cloneID uuid.UUID,
+) ([]vmactions.Target, *requestError) {
+	rows, err := q.ListClonedPodVMs(ctx, cloneID)
+	if err != nil {
+		return nil, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod virtual machines",
+			Operation:   "list cloned pod VMs for manager action",
+			Err:         err,
+		}
+	}
+
+	targets := make([]vmactions.Target, 0, len(rows))
+	for _, row := range rows {
+		record, err := h.Authz.GetVMRecord(ctx, row.InventoryItemID)
+		switch {
+		case err == nil:
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned pod VM is missing from inventory",
+			}
+		default:
+			return nil, &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to verify cloned pod VM",
+				Operation:   "load cloned pod VM record for manager action",
+				Err:         err,
+			}
+		}
+
+		identity, err := h.PX.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+		switch {
+		case err == nil:
+		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned pod VM identity is not initialized in Proxmox",
+			}
+		default:
+			return nil, &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to verify cloned pod VM",
+				Operation:   "verify cloned pod VM identity for manager action",
+				Err:         err,
+			}
+		}
+
+		if identity.UpstreamUUID != record.UpstreamUUID {
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned pod VM has drifted from inventory",
+			}
+		}
+
+		targets = append(targets, vmactions.Target{
+			ItemID: record.InventoryItemID,
+			Node:   record.Node,
+			VMID:   int(record.Vmid),
+		})
+	}
+
+	if len(targets) == 0 {
+		return nil, &requestError{
+			Status:      http.StatusConflict,
+			UserMessage: "cloned pod has no virtual machines",
+		}
+	}
+
+	return targets, nil
+}
+
+func (h *PodsHandler) loadPublishedPodCloneForManager(
+	ctx context.Context,
+	q *database.Queries,
+	podID uuid.UUID,
+	cloneID uuid.UUID,
+) (database.ClonedPods, *requestError) {
+	clone, err := q.GetClonedPodByID(ctx, cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod",
+			Operation:   "load cloned pod for manager action",
+			Err:         err,
+		}
+	}
+	if clone.PodID != podID {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+	return clone, nil
+}
+
+func (h *PodsHandler) powerPublishedPodCloneForManager(
+	ctx context.Context,
+	q *database.Queries,
+	clone database.ClonedPods,
+	action string,
+) *requestError {
+	targets, reqErr := h.clonedPodManagerActionTargets(ctx, q, clone.ID)
+	if reqErr != nil {
+		return reqErr
+	}
+
+	statuses, _, err := h.runtimeForVMIDs(ctx, vmidsFromTargets(targets))
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to load VM statuses",
+			Operation:   "load cloned pod vm statuses for manager power",
+			Err:         err,
+		}
+	}
+
+	expectedStatus := "running"
+	if action == string(vmactions.PowerActionShutdown) {
+		expectedStatus = "stopped"
+	}
+
+	for _, target := range targets {
+		if clonedPodVMAlreadyInPowerState(action, statuses[target.VMID]) {
+			continue
+		}
+		if err := h.Actions.PowerAction(ctx, target, vmactions.PowerAction(action)); err != nil {
+			return &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to update cloned pod power state",
+				Operation:   "manager power cloned pod vm",
+				Err:         err,
+			}
+		}
+		if err := h.waitForVMStatus(ctx, target.VMID, expectedStatus); err != nil {
+			return &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to confirm cloned pod power state",
+				Operation:   "wait for manager cloned pod vm power state",
+				Err:         err,
+			}
+		}
+	}
+	return nil
+}
+
+func (h *PodsHandler) deletePublishedPodCloneForManager(
+	ctx context.Context,
+	q *database.Queries,
+	clone database.ClonedPods,
+) *requestError {
+	rows, err := q.ListClonedPodVMs(ctx, clone.ID)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod virtual machines",
+			Operation:   "list cloned pod VMs for manager delete",
+			Err:         err,
+		}
+	}
+
+	for _, row := range rows {
+		if row.Node == nil || row.Vmid == nil {
+			continue
+		}
+		if err := h.deleteClonedPodProxmoxVM(ctx, *row.Node, int(*row.Vmid)); err != nil {
+			return &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to delete cloned pod virtual machine",
+				Operation:   "manager delete cloned pod VM",
+				Err:         err,
+			}
+		}
+	}
+
+	if err := h.Service.DeleteFolder(ctx, clone.FolderID); err != nil {
+		return inventoryRequestError(err)
+	}
+	return nil
+}
+
+func (h *PodsHandler) publishedPodCloneSummaryByID(
+	ctx context.Context,
+	q *database.Queries,
+	podID uuid.UUID,
+	cloneID uuid.UUID,
+) (publishedPodCloneResponse, *requestError) {
+	clones, err := h.hydratePublishedPodClones(ctx, q, podID)
+	if err != nil {
+		return publishedPodCloneResponse{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to reload cloned pods",
+			Operation:   "hydrate published pod clones for summary",
+			Err:         err,
+		}
+	}
+	for _, resp := range clones {
+		if resp.ID == cloneID {
+			return resp, nil
+		}
+	}
+	return publishedPodCloneResponse{}, &requestError{
+		Status:      http.StatusNotFound,
+		UserMessage: "cloned pod not found after action",
+	}
+}
+
+func (h *PodsHandler) ReclonePublishedPodClone(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	cloneID, err := uuid.Parse(c.Param("cloneID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		return
+	}
+
+	q := database.New(h.DB)
+	clone, reqErr := h.loadPublishedPodCloneForManager(c.Request.Context(), q, podID, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	if _, reqErr := h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil); reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	summary, reqErr := h.publishedPodCloneSummaryByID(c.Request.Context(), q, podID, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+	c.JSON(http.StatusOK, summary)
+}
+
+func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	var req publishedPodCloneBulkActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	if (req.Action == "start" || req.Action == "shutdown") && h.Actions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vm actions unavailable"})
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	q := database.New(h.DB)
+	if _, err := q.GetPublishedPodByID(c.Request.Context(), podID); errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "published pod not found"})
+		return
+	} else if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load published pod", "load published pod for bulk clone action", err)
+		return
+	}
+
+	clones, err := q.ListClonedPodsByPodID(c.Request.Context(), podID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pods", "list cloned pods for bulk action", err)
+		return
+	}
+
+	resp := publishedPodCloneBulkActionResponse{
+		Action:    req.Action,
+		Succeeded: []uuid.UUID{},
+		Failed:    []publishedPodCloneBulkActionFailure{},
+	}
+
+	for _, clone := range clones {
+		var reqErr *requestError
+		switch req.Action {
+		case "start", "shutdown":
+			reqErr = h.powerPublishedPodCloneForManager(c.Request.Context(), q, clone, req.Action)
+		case "reclone":
+			_, reqErr = h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil)
+		case "delete":
+			reqErr = h.deletePublishedPodCloneForManager(c.Request.Context(), q, clone)
+		}
+		if reqErr != nil {
+			log.Printf("bulk clone action %s clone_id=%s: %v", req.Action, clone.ID, reqErr.UserMessage)
+			resp.Failed = append(resp.Failed, publishedPodCloneBulkActionFailure{
+				ID:    clone.ID,
+				Error: reqErr.UserMessage,
+			})
+			continue
+		}
+		resp.Succeeded = append(resp.Succeeded, clone.ID)
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	podID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req createPublishedPodCloneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	progress := newClonePodProgressReporter(req.ProgressID)
+	progress.set(cloneProgressStepFetching, "Fetching Pod Template VMs.")
+
+	q := database.New(h.DB)
+	podRow, err := q.GetPublishedPodByID(c.Request.Context(), podID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		progress.fail("pod not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
+		return
+	}
+	if err != nil {
+		progress.fail("failed to load pod")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load published pod", "load published pod for manager clone", err)
+		return
+	}
+	pod := publishedRowToBase(podRow)
+
+	principals, err := q.ListPrincipalDetailsByIDs(c.Request.Context(), []uuid.UUID{req.PrincipalID})
+	if err != nil {
+		progress.fail("failed to load principal")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load principal", "load target principal for manager clone", err)
+		return
+	}
+	if len(principals) == 0 {
+		progress.fail("principal not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "principal not found"})
+		return
+	}
+	target := principals[0]
+
+	displayLabel := target.ExternalID
+	if target.Name != nil && *target.Name != "" {
+		displayLabel = *target.Name
+	}
+
+	folderName, err := managerCloneFolderName(req.PrincipalID, string(target.PrincipalType), displayLabel)
+	if err != nil {
+		progress.fail(err.Error())
+		writeRequestError(c, &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()})
+		return
+	}
+
+	clone, reqErr := h.clonePublishedPod(c.Request.Context(), req.PrincipalID, folderName, pod, progress)
+	if reqErr != nil {
+		progress.fail(reqErr.UserMessage)
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	summary, reqErr := h.publishedPodCloneSummaryByID(c.Request.Context(), q, podID, clone.ID)
+	if reqErr != nil {
+		progress.fail(reqErr.UserMessage)
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	progress.succeed("Pod cloned successfully.")
+	c.JSON(http.StatusOK, summary)
+}
+
 func currentUsername(c *gin.Context) (string, bool) {
 	value, ok := c.Get("username")
 	if !ok {
@@ -1700,15 +2291,36 @@ func currentUsername(c *gin.Context) (string, bool) {
 	return username, ok && username != ""
 }
 
-func cloneFolderName(username string) (string, error) {
-	name := names.Normalize(username)
-	if err := names.ValidateFolder(name); err == nil {
-		return name, nil
+func managerCloneFolderName(principalID uuid.UUID, principalType string, displayLabel string) (string, error) {
+	suffix := principalID.String()[:8]
+	prefix := strings.ToLower(principalType) + "-" + displayLabel + "-" + suffix
+	name := sanitizeFolderNameString(prefix)
+	if name == "" {
+		return "", fmt.Errorf("principal cannot be used as a pod folder name")
 	}
+	if name[0] >= '0' && name[0] <= '9' {
+		name = "p-" + name
+	}
+	const maxLen = 63
+	if len(name) > maxLen {
+		suffixWithDash := "-" + suffix
+		if len(suffixWithDash) >= maxLen {
+			return "", fmt.Errorf("principal cannot be used as a pod folder name")
+		}
+		truncated := name[:maxLen-len(suffixWithDash)]
+		truncated = strings.TrimRight(truncated, "-")
+		name = truncated + suffixWithDash
+	}
+	if err := names.ValidateFolder(name); err != nil {
+		return "", fmt.Errorf("principal cannot be used as a pod folder name")
+	}
+	return name, nil
+}
 
+func sanitizeFolderNameString(input string) string {
 	var builder strings.Builder
 	lastDash := false
-	for _, r := range name {
+	for _, r := range input {
 		isAllowed := (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
 		if isAllowed {
 			builder.WriteRune(r)
@@ -1720,8 +2332,16 @@ func cloneFolderName(username string) (string, error) {
 			lastDash = true
 		}
 	}
+	return strings.Trim(builder.String(), "-")
+}
 
-	folderName := strings.Trim(builder.String(), "-")
+func cloneFolderName(username string) (string, error) {
+	name := names.Normalize(username)
+	if err := names.ValidateFolder(name); err == nil {
+		return name, nil
+	}
+
+	folderName := sanitizeFolderNameString(name)
 	if folderName == "" {
 		return "", fmt.Errorf("username cannot be used as a pod folder name")
 	}

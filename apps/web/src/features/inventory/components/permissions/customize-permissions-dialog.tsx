@@ -8,17 +8,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
 import { PermissionScopeSection } from "./permission-scope-section"
 import type { InventoryPermissionSection } from "../../utils/inventory-permissions"
 import type {
   DraftPrincipal,
   PermissionState,
 } from "../../types/inventory-types"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
@@ -95,21 +91,13 @@ export function CustomizePermissionsDialog({
         showOverlay={showOverlay}
         className={nestedDialogAnimationClassName}
       >
-        <InputGroup>
-          <InputGroupInput
-            placeholder="Search permissions..."
-            value={permissionSearch}
-            onChange={(event) => setPermissionSearch(event.target.value)}
-            aria-label="Search permissions"
-          />
-          <InputGroupAddon>
-            <IconSearch />
-          </InputGroupAddon>
-          <InputGroupAddon align="inline-end">
-            {filteredPermissionCount}{" "}
-            {filteredPermissionCount === 1 ? "result" : "results"}
-          </InputGroupAddon>
-        </InputGroup>
+        <SearchInputGroup
+          value={permissionSearch}
+          onValueChange={setPermissionSearch}
+          placeholder="Search permissions..."
+          aria-label="Search permissions"
+          resultCount={filteredPermissionCount}
+        />
         <AppDialogScrollBody className="-mb-8 px-0">
           {editingPrincipal ? (
             filteredPermissionCount > 0 ? (
