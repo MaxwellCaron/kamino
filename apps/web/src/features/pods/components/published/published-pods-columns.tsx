@@ -241,25 +241,6 @@ export function getPublishedPodsColumns({
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Status</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={pod.status}
-                    onValueChange={(value) =>
-                      onStatusChange(pod, value as PodStatus)
-                    }
-                  >
-                    <DropdownMenuRadioItem value="listed">
-                      <IconEye className="text-muted-foreground" />
-                      Listed
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="unlisted">
-                      <IconEyeOff className="text-muted-foreground" />
-                      Unlisted
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
                   <DropdownMenuLabel>Clones</DropdownMenuLabel>
                   {POD_CLONE_ACTIONS.map((action) => {
                     const config = POD_CLONE_ACTION_CONFIG[action]
@@ -285,12 +266,31 @@ export function getPublishedPodsColumns({
                   })}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Status</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={pod.status}
+                    onValueChange={(value) =>
+                      onStatusChange(pod, value as PodStatus)
+                    }
+                  >
+                    <DropdownMenuRadioItem value="listed">
+                      <IconEye className="text-muted-foreground" />
+                      Listed
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="unlisted">
+                      <IconEyeOff className="text-muted-foreground" />
+                      Unlisted
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => onDelete(pod)}
                 >
                   <IconTrash />
-                  Delete
+                  Delete Pod
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
