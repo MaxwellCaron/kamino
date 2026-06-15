@@ -1,30 +1,18 @@
-import { useCallback, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { uuid } from "@workspace/ui/lib/utils"
-import {
-  BulkCloneActionDialog,
-  DeletePublishedPodDialog,
-  ManagerCloneDialog,
-} from "./published-pod-dialogs"
 import { PublishedPodsCatalogCard } from "./published-pods-catalog-card"
 import { PublishedPodsHeaderCard } from "./published-pods-header-card"
 import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { getPublishedPodsColumns } from "./published-pods-columns"
-import type {
-  PendingCloneBulkAction,
-  PendingCloneRow,
-} from "../../types/published-pods-types"
-import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
-import type {
-  PublishedPodCatalogEntry,
-  PublishedPodCloneSummary,
-} from "@/features/pods/types/pod-types"
+import { PublishedPodsPageDialogs } from "./published-pods-page-dialogs"
+import type { PendingCloneBulkAction } from "../../types/published-pods-types"
+import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-published-pods-manager-clones"
 import {
   bulkActionPublishedPodClones,
-  createPublishedPodClone,
   deletePublishedPod,
   podCatalogQueryOptions,
   publishedPodClonesQueryOptions,
@@ -46,11 +34,14 @@ export function PublishedPodsPage() {
     useState<PublishedPodCatalogEntry | null>(null)
   const [pendingCloneBulkAction, setPendingCloneBulkAction] =
     useState<PendingCloneBulkAction>(null)
-  const [pendingManagerClonePod, setPendingManagerClonePod] =
-    useState<PublishedPodCatalogEntry | null>(null)
-  const [pendingCloneRowsByPodId, setPendingCloneRowsByPodId] = useState<
-    Record<string, Array<PendingCloneRow>>
-  >({})
+
+  const {
+    pendingCloneRowsByPodId,
+    pendingManagerClonePod,
+    setPendingManagerClonePod,
+    handleDismissCloneRow,
+    handleManagerClone,
+  } = usePublishedPodsManagerClones()
 
   const statusMutation = useMutation({
     mutationFn: setPublishedPodStatus,
@@ -149,106 +140,6 @@ export function PublishedPodsPage() {
     },
   })
 
-  const handleDismissCloneRow = useCallback(
-    (podId: string, progressId: string) => {
-      setPendingCloneRowsByPodId((prev) => {
-        const rows = prev[podId] ?? []
-        const next = rows.filter((r) => r.progressId !== progressId)
-        if (next.length === 0) {
-          const { [podId]: _, ...rest } = prev
-          return rest
-        }
-        return { ...prev, [podId]: next }
-      })
-    },
-    []
-  )
-
-  const handleManagerClone = useCallback(
-    async (pod: PublishedPodCatalogEntry, principals: Array<PrincipalOption>) => {
-      const rows: Array<PendingCloneRow> = principals.map((p) => ({
-        progressId: uuid(),
-        principal: p,
-        state: "queued" as const,
-      }))
-
-      setPendingCloneRowsByPodId((prev) => ({
-        ...prev,
-        [pod.id]: [...(prev[pod.id] ?? []), ...rows],
-      }))
-
-      const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
-
-      let succeeded = 0
-      let failed = 0
-
-      for (const row of rows) {
-        setPendingCloneRowsByPodId((prev) => ({
-          ...prev,
-          [pod.id]: (prev[pod.id] ?? []).map((r) =>
-            r.progressId === row.progressId ? { ...r, state: "running" as const } : r
-          ),
-        }))
-
-        try {
-          const summary = await createPublishedPodClone({
-            podId: pod.id,
-            principalId: row.principal.id,
-            progressId: row.progressId,
-          })
-          queryClient.setQueryData(
-            clonesQueryKey,
-            (current: Array<PublishedPodCloneSummary> | undefined) => {
-              if (!current) return [summary]
-              const exists = current.some((c) => c.id === summary.id)
-              return exists
-                ? current.map((c) => (c.id === summary.id ? summary : c))
-                : [...current, summary]
-            }
-          )
-          void queryClient.invalidateQueries({
-            queryKey: publishedPodsQueryOptions.queryKey,
-          })
-          void queryClient.invalidateQueries({
-            queryKey: podCatalogQueryOptions.queryKey,
-          })
-          setPendingCloneRowsByPodId((prev) => ({
-            ...prev,
-            [pod.id]: (prev[pod.id] ?? []).filter(
-              (r) => r.progressId !== row.progressId
-            ),
-          }))
-          succeeded++
-        } catch (err) {
-          const message =
-            err instanceof Error ? err.message : "Clone failed."
-          setPendingCloneRowsByPodId((prev) => ({
-            ...prev,
-            [pod.id]: (prev[pod.id] ?? []).map((r) =>
-              r.progressId === row.progressId
-                ? { ...r, state: "error" as const, message }
-                : r
-            ),
-          }))
-          failed++
-        }
-      }
-
-      if (failed === 0) {
-        toast.success(
-          `Cloned pod for ${succeeded} principal${succeeded !== 1 ? "s" : ""}.`
-        )
-      } else if (succeeded === 0) {
-        toast.error("Failed to clone pod for the selected principals.")
-      } else {
-        toast.warning(
-          `Cloned pod for ${succeeded} principal${succeeded !== 1 ? "s" : ""}; ${failed} failed.`
-        )
-      }
-    },
-    [queryClient]
-  )
-
   const stats = useMemo(() => {
     const publishedPods = podsData ?? []
     const listed = publishedPods.filter((pod) => pod.status === "listed").length
@@ -288,7 +179,7 @@ export function PublishedPodsPage() {
         cloneBulkActionPending: bulkCloneActionMutation.isPending,
         onManagerClone: setPendingManagerClonePod,
       }),
-    [navigate, statusMutation, bulkCloneActionMutation.isPending]
+    [navigate, statusMutation, bulkCloneActionMutation.isPending, setPendingManagerClonePod]
   )
 
   if (isPodsLoading) {
@@ -309,32 +200,27 @@ export function PublishedPodsPage() {
         />
       </div>
 
-      <DeletePublishedPodDialog
-        isPending={deleteMutation.isPending}
-        onConfirm={(pod) => deleteMutation.mutate(pod.id)}
-        onOpenChange={(open) => {
+      <PublishedPodsPageDialogs
+        pendingDeletePod={pendingDeletePod}
+        isDeletePending={deleteMutation.isPending}
+        onDeleteConfirm={(pod) => deleteMutation.mutate(pod.id)}
+        onDeleteOpenChange={(open) => {
           if (!open && !deleteMutation.isPending) setPendingDeletePod(null)
         }}
-        pod={pendingDeletePod}
-      />
-      <BulkCloneActionDialog
-        isPending={bulkCloneActionMutation.isPending}
-        onConfirm={(action) => bulkCloneActionMutation.mutate(action)}
-        onOpenChange={(open) => {
+        pendingCloneBulkAction={pendingCloneBulkAction}
+        isBulkClonePending={bulkCloneActionMutation.isPending}
+        onBulkCloneConfirm={(action) => bulkCloneActionMutation.mutate(action)}
+        onBulkCloneOpenChange={(open) => {
           if (!open && !bulkCloneActionMutation.isPending) {
             setPendingCloneBulkAction(null)
           }
         }}
-        pendingAction={pendingCloneBulkAction}
-      />
-      <ManagerCloneDialog
-        pod={pendingManagerClonePod}
-        open={pendingManagerClonePod !== null}
-        onOpenChange={(open) => {
+        pendingManagerClonePod={pendingManagerClonePod}
+        pendingCloneRowsByPodId={pendingCloneRowsByPodId}
+        onManagerCloneOpenChange={(open) => {
           if (!open) setPendingManagerClonePod(null)
         }}
-        pendingRowsByPodId={pendingCloneRowsByPodId}
-        onConfirm={(pod, principals) => {
+        onManagerCloneConfirm={(pod, principals) => {
           void handleManagerClone(pod, principals)
         }}
       />
