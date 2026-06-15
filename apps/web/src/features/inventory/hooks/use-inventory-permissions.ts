@@ -316,15 +316,22 @@ export function useInventoryPermissions({
     setEditingPrincipal(null)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const entries = toAclEntries(draftPrincipals)
+    const updatePromise = updateAcl.mutateAsync({ itemId, entries })
 
-    onOpenChange(false)
-    toast.promise(updateAcl.mutateAsync({ itemId, entries }), {
+    toast.promise(updatePromise, {
       loading: `Updating permissions for ${itemName}...`,
       success: `Permissions updated for ${itemName}`,
       error: formatToastError,
     })
+
+    try {
+      await updatePromise
+      onOpenChange(false)
+    } catch {
+      // toast.promise reports the error; keep the draft open for correction.
+    }
   }
 
   const inheritedPrincipalMap = React.useMemo(

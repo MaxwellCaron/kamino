@@ -276,10 +276,13 @@ function InventoryPermissionsFormBody({
 
       <DialogFooter className="mt-0">
         <AppDialogPrimaryButton
-          onClick={actions.handleSubmit}
-          disabled={state.isSaving || !state.hasChanges}
+          type="button"
+          onClick={() => void actions.handleSubmit()}
+          disabled={!state.hasChanges}
+          pending={state.isSaving}
+          pendingLabel="Submitting..."
         >
-          {state.isSaving ? "Submitting..." : "Submit"}
+          Submit
         </AppDialogPrimaryButton>
       </DialogFooter>
     </React.Fragment>
@@ -294,6 +297,8 @@ export function InventoryPermissionsDialog(
   const {
     data: acl,
     error: aclError,
+    isFetchedAfterMount: isAclFetchedAfterMount,
+    isFetching: isAclFetching,
     isLoading: isAclLoading,
   } = useQuery({
     ...inventoryAclQueryOptions(itemId),
@@ -316,7 +321,9 @@ export function InventoryPermissionsDialog(
     enabled: open,
   })
 
-  const loading = isAclLoading || isUsersLoading || isGroupsLoading
+  const waitingForFreshAcl = isAclFetching && !isAclFetchedAfterMount
+  const loading =
+    isAclLoading || waitingForFreshAcl || isUsersLoading || isGroupsLoading
   const loadError = aclError ?? usersError ?? groupsError
 
   return (
