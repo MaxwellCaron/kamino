@@ -12,6 +12,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
 import {
@@ -122,11 +123,7 @@ export function CloneDialog({
       )} into a new virtual machine.`}
     >
       {optionsError ? (
-        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          {optionsError instanceof Error
-            ? optionsError.message
-            : "Failed to load clone options."}
-        </div>
+        <InlineErrorAlert error={optionsError} fallback="Failed to load clone options." />
       ) : isLoadingOptions ? (
         <DialogBodySkeleton rows={4} />
       ) : (
@@ -180,8 +177,11 @@ export function CloneDialog({
           <DialogFooter className="mt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <AppDialogPrimaryButton disabled={isSubmitting}>
-                  {isSubmitting ? "Cloning..." : "Clone"}
+                <AppDialogPrimaryButton
+                  pending={isSubmitting}
+                  pendingLabel="Cloning..."
+                >
+                  Clone
                 </AppDialogPrimaryButton>
               )}
             </form.Subscribe>

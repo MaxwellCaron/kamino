@@ -9,24 +9,12 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
-import { VmIcon } from "@/features/inventory/components/tree/vm-icon"
+import {
+  VmIcon,
+  formatVmPowerStatus,
+  getVmPowerStatusTextClassName,
+} from "@/components/status/vm-icon"
 import { formatUptime } from "@/features/shared/utils/format"
-
-function formatStatusLabel(status: string) {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
-function getStatusTextClass(status: string) {
-  if (status === "running") {
-    return "text-green-600 dark:text-green-400"
-  }
-
-  if (status === "stopped") {
-    return "text-destructive"
-  }
-
-  return "text-amber-600 dark:text-amber-400"
-}
 
 export function VmListItem({
   isTemplate = false,
@@ -65,12 +53,14 @@ export function VmListItem({
               <span
                 className={cn(
                   "font-medium",
-                  !isTemplate && status ? getStatusTextClass(status) : null
+                  !isTemplate && status
+                    ? getVmPowerStatusTextClassName(status)
+                    : null
                 )}
               >
                 {isTemplate || !status
                   ? statusLabel
-                  : formatStatusLabel(status)}
+                  : formatVmPowerStatus(status)}
               </span>
               {!isTemplate && status === "running" && uptime != null && (
                 <>

@@ -11,10 +11,10 @@ import { Button } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { TREE_INDENT } from "../../utils/constants"
 import { useInventoryTreeContext } from "./inventory-tree-context"
-import { VmIcon } from "./vm-icon"
 import type { MouseEvent as ReactMouseEvent } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { VmIcon } from "@/components/status/vm-icon"
 
 interface SelectionDataRef {
   selectUpToAnchorId?: string | null

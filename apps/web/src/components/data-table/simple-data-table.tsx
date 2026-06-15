@@ -13,6 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 
+import { DataTableStateRow } from "./data-table-state-row"
 import type {
   ColumnDef,
   RowSelectionState,
@@ -124,14 +125,7 @@ export function SimpleDataTable<TData, TValue>({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className={`h-24 text-center ${error !== null ? "text-destructive" : ""}`}
-                >
-                  {error ? error.message : "No results."}
-                </TableCell>
-              </TableRow>
+              <DataTableStateRow colSpan={columns.length} error={error} />
             )}
           </m.tbody>
         </AnimatePresence>

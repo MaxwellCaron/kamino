@@ -35,6 +35,7 @@ import {
 } from "@tanstack/react-table"
 import { Fragment, useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
+import { DataTableStateRow } from "./data-table-state-row"
 import type { ComponentType, ReactNode } from "react"
 import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
@@ -231,14 +232,7 @@ export function DataTable<TData, TValue>({
                   </Fragment>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className={`h-24 text-center ${error !== null ? "text-destructive" : ""}`}
-                  >
-                    {error ? error.message : "No results."}
-                  </TableCell>
-                </TableRow>
+                <DataTableStateRow colSpan={columns.length} error={error} />
               )}
             </m.tbody>
           </AnimatePresence>

@@ -6,7 +6,6 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
 import { IconCubePlus } from "@tabler/icons-react"
 import { CreatePodFormSection } from "./create-pod-form-section"
 import { useCreatePodForm } from "./create-pod-form"
@@ -16,6 +15,7 @@ import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-s
 import { CreatePodSubmitState } from "./create-pod-creation-state"
 import { CreatePodFormSkeleton } from "./create-pod-skeleton"
 import type { CreatePodFormValues } from "./create-pod-form"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import {
   createPod,
@@ -162,15 +162,16 @@ export function CreatePodPage() {
           <div className="w-full pt-6">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
-                <Button
+                <AppActionButton
                   type="submit"
-                  disabled={isSubmitting}
+                  pending={isSubmitting}
+                  pendingLabel="Creating Pod..."
                   className="w-full"
                   size="lg"
                 >
                   <IconCubePlus data-icon="inline-start" />
-                  {isSubmitting ? "Creating Pod..." : "Create Pod"}
-                </Button>
+                  Create Pod
+                </AppActionButton>
               )}
             </form.Subscribe>
           </div>

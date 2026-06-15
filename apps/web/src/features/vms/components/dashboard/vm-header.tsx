@@ -36,6 +36,11 @@ import {
   formatMemory,
   formatUptime,
 } from "@/features/shared/utils/format"
+import {
+  formatVmPowerStatus,
+  getVmPowerStatusSurfaceClassName,
+  getVmPowerStatusTextClassName,
+} from "@/components/status/vm-icon"
 
 type Stat = {
   icon: ReactNode
@@ -107,25 +112,13 @@ function buildStats(
     {
       icon: <IconPower className="size-5 text-muted-foreground" />,
       label: "Status",
-      value: isTemplate
-        ? "Template"
-        : powerStatus
-          ? powerStatus.charAt(0).toUpperCase() + powerStatus.slice(1)
-          : "—",
+      value: isTemplate ? "Template" : formatVmPowerStatus(powerStatus),
       textStyle: isTemplate
         ? undefined
-        : powerStatus === "running"
-          ? "text-green-600 dark:text-green-400"
-          : powerStatus === "stopped"
-            ? "text-destructive"
-            : undefined,
+        : getVmPowerStatusTextClassName(powerStatus),
       bgStyle: isTemplate
         ? undefined
-        : powerStatus === "running"
-          ? "bg-green-600/5 dark:bg-green-400/5"
-          : powerStatus === "stopped"
-            ? "bg-destructive/5"
-            : undefined,
+        : getVmPowerStatusSurfaceClassName(powerStatus),
       detail: getUptimeDetail(isTemplate, powerStatus, resources),
     },
     {

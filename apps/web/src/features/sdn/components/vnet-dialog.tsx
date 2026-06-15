@@ -18,6 +18,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { formatToastError } from "@/features/shared/utils/format"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { createVNet, updateVNet } from "@/features/sdn/api/sdn-api"
 
 const vnetSchema = z.object({
@@ -115,7 +116,7 @@ export function VNetDialog({
           <form.Field name="vnet">
             {(field) => {
               const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+                isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -140,7 +141,7 @@ export function VNetDialog({
           <form.Field name="zone">
             {(field) => {
               const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+                isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -182,7 +183,7 @@ export function VNetDialog({
           <form.Field name="alias">
             {(field) => {
               const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
+                isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -207,14 +208,11 @@ export function VNetDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting
-                  ? isEdit
-                    ? "Saving..."
-                    : "Creating..."
-                  : isEdit
-                    ? "Save"
-                    : "Create VNet"}
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                pendingLabel={isEdit ? "Saving..." : "Creating..."}
+              >
+                {isEdit ? "Save" : "Create VNet"}
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>

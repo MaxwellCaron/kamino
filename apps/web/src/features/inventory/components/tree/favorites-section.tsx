@@ -10,9 +10,9 @@ import { IconChevronDown, IconFolder, IconStar } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree-context"
-import { VmIcon } from "./vm-icon"
 import type { Variants } from "motion/react"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { VmIcon } from "@/components/status/vm-icon"
 
 const FAVORITES_OPEN_STORAGE_KEY = "kamino-favorite-inventory-open"
 const favoritesOpenListeners = new Set<() => void>()

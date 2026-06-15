@@ -1,9 +1,4 @@
-import { IconSearch } from "@tabler/icons-react"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 
 export function InventoryTreeSearch({
   query,
@@ -15,20 +10,12 @@ export function InventoryTreeSearch({
   setQuery: (query: string) => void
 }) {
   return (
-    <InputGroup className="mb-2">
-      <InputGroupInput
-        placeholder="Search..."
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <InputGroupAddon>
-        <IconSearch />
-      </InputGroupAddon>
-      {resultCount !== null && (
-        <InputGroupAddon align="inline-end">
-          {resultCount} results
-        </InputGroupAddon>
-      )}
-    </InputGroup>
+    <SearchInputGroup
+      className="mb-2"
+      value={query}
+      onValueChange={setQuery}
+      placeholder="Search..."
+      resultCount={resultCount}
+    />
   )
 }
