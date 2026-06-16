@@ -385,6 +385,25 @@ FROM cloned_pods
 WHERE pod_id = $1
   AND user_principal_id = $2;
 
+-- name: GetAccessibleClonedPodByPodID :one
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.folder_id,
+    cp.created_at,
+    cp.updated_at
+FROM cloned_pods cp
+WHERE cp.pod_id = sqlc.arg(pod_id)
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+  )
+ORDER BY
+    CASE WHEN cp.user_principal_id = sqlc.arg(principal_id) THEN 0 ELSE 1 END,
+    cp.created_at DESC
+LIMIT 1;
+
 -- name: ListClonedPodSummariesByPodID :many
 SELECT
     cp.id,
@@ -473,6 +492,21 @@ SELECT
 FROM cloned_pods
 WHERE id = $1
   AND user_principal_id = $2;
+
+-- name: GetAccessibleClonedPodByID :one
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.folder_id,
+    cp.created_at,
+    cp.updated_at
+FROM cloned_pods cp
+WHERE cp.id = sqlc.arg(id)
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+  );
 
 -- name: InsertClonedPod :one
 INSERT INTO cloned_pods (
@@ -563,7 +597,6 @@ JOIN published_pod_tasks t
 JOIN cloned_pods cp
   ON cp.pod_id = t.pod_id
 WHERE cp.id = sqlc.arg(cloned_pod_id)
-  AND cp.user_principal_id = sqlc.arg(user_principal_id)
   AND q.id = sqlc.arg(question_id);
 
 -- name: UpsertClonedPodQuestionAnswer :one
