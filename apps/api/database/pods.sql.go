@@ -214,6 +214,80 @@ func (q *Queries) DeletePublishedPodVMsExcept(ctx context.Context, arg DeletePub
 	return err
 }
 
+const getAccessibleClonedPodByID = `-- name: GetAccessibleClonedPodByID :one
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.folder_id,
+    cp.created_at,
+    cp.updated_at
+FROM cloned_pods cp
+WHERE cp.id = $1
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals($2) AS ep(principal_id)
+  )
+`
+
+type GetAccessibleClonedPodByIDParams struct {
+	ID          uuid.UUID `json:"id"`
+	PrincipalID uuid.UUID `json:"principal_id"`
+}
+
+func (q *Queries) GetAccessibleClonedPodByID(ctx context.Context, arg GetAccessibleClonedPodByIDParams) (ClonedPods, error) {
+	row := q.db.QueryRow(ctx, getAccessibleClonedPodByID, arg.ID, arg.PrincipalID)
+	var i ClonedPods
+	err := row.Scan(
+		&i.ID,
+		&i.PodID,
+		&i.UserPrincipalID,
+		&i.FolderID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAccessibleClonedPodByPodID = `-- name: GetAccessibleClonedPodByPodID :one
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.folder_id,
+    cp.created_at,
+    cp.updated_at
+FROM cloned_pods cp
+WHERE cp.pod_id = $1
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals($2) AS ep(principal_id)
+  )
+ORDER BY
+    CASE WHEN cp.user_principal_id = $2 THEN 0 ELSE 1 END,
+    cp.created_at DESC
+LIMIT 1
+`
+
+type GetAccessibleClonedPodByPodIDParams struct {
+	PodID       uuid.UUID `json:"pod_id"`
+	PrincipalID uuid.UUID `json:"principal_id"`
+}
+
+func (q *Queries) GetAccessibleClonedPodByPodID(ctx context.Context, arg GetAccessibleClonedPodByPodIDParams) (ClonedPods, error) {
+	row := q.db.QueryRow(ctx, getAccessibleClonedPodByPodID, arg.PodID, arg.PrincipalID)
+	var i ClonedPods
+	err := row.Scan(
+		&i.ID,
+		&i.PodID,
+		&i.UserPrincipalID,
+		&i.FolderID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getClonedPodByID = `-- name: GetClonedPodByID :one
 SELECT
     id,
@@ -390,14 +464,12 @@ JOIN published_pod_tasks t
 JOIN cloned_pods cp
   ON cp.pod_id = t.pod_id
 WHERE cp.id = $1
-  AND cp.user_principal_id = $2
-  AND q.id = $3
+  AND q.id = $2
 `
 
 type GetQuestionForClonedPodParams struct {
-	ClonedPodID     uuid.UUID `json:"cloned_pod_id"`
-	UserPrincipalID uuid.UUID `json:"user_principal_id"`
-	QuestionID      uuid.UUID `json:"question_id"`
+	ClonedPodID uuid.UUID `json:"cloned_pod_id"`
+	QuestionID  uuid.UUID `json:"question_id"`
 }
 
 type GetQuestionForClonedPodRow struct {
@@ -407,7 +479,7 @@ type GetQuestionForClonedPodRow struct {
 }
 
 func (q *Queries) GetQuestionForClonedPod(ctx context.Context, arg GetQuestionForClonedPodParams) (GetQuestionForClonedPodRow, error) {
-	row := q.db.QueryRow(ctx, getQuestionForClonedPod, arg.ClonedPodID, arg.UserPrincipalID, arg.QuestionID)
+	row := q.db.QueryRow(ctx, getQuestionForClonedPod, arg.ClonedPodID, arg.QuestionID)
 	var i GetQuestionForClonedPodRow
 	err := row.Scan(&i.ID, &i.TaskID, &i.AnswerOutline)
 	return i, err

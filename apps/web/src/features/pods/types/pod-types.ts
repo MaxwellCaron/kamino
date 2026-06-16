@@ -64,6 +64,7 @@ export type ClonedPodStatus = "running" | "stopped" | "partial"
 export interface ClonedPod {
   id: UUID
   pod_id: UUID
+  owner: PublishedPodCloneOwner
   cloned_at: string
   status: ClonedPodStatus
   vms: Array<PodVM>

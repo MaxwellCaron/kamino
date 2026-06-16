@@ -49,6 +49,7 @@ type clonePublishedVMResult struct {
 type clonedPodResponse struct {
 	ID              uuid.UUID                         `json:"id"`
 	PodID           uuid.UUID                         `json:"pod_id"`
+	Owner           publishedPodCloneOwnerResponse    `json:"owner"`
 	ClonedAt        time.Time                         `json:"cloned_at"`
 	Status          string                            `json:"status"`
 	VMs             []clonedPodVMResponse             `json:"vms"`
@@ -197,9 +198,9 @@ func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, err := q.GetClonedPodForPrincipalByPodID(c.Request.Context(), database.GetClonedPodForPrincipalByPodIDParams{
-		PodID:           pod.ID,
-		UserPrincipalID: principalID,
+	clone, err := q.GetAccessibleClonedPodByPodID(c.Request.Context(), database.GetAccessibleClonedPodByPodIDParams{
+		PodID:       pod.ID,
+		PrincipalID: principalID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusOK, nil)
@@ -249,6 +250,20 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 		return
 	}
 
+	q := database.New(h.DB)
+	if _, err := q.GetAccessibleClonedPodByPodID(c.Request.Context(), database.GetAccessibleClonedPodByPodIDParams{
+		PodID:       pod.ID,
+		PrincipalID: principalID,
+	}); err == nil {
+		progress.fail("pod already cloned")
+		writeRequestError(c, &requestError{Status: http.StatusConflict, UserMessage: "pod already cloned"})
+		return
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		progress.fail("failed to check cloned pod")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to check cloned pod", "check accessible cloned pod before clone", err)
+		return
+	}
+
 	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, folderName, pod, progress)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
@@ -256,7 +271,6 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 		return
 	}
 
-	q := database.New(h.DB)
 	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		progress.fail("failed to load cloned pod details")
@@ -285,22 +299,14 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 	progress.set(cloneProgressStepFetching, "Fetching Pod Template VMs.")
 
 	q := database.New(h.DB)
-	clone, err := q.GetClonedPodForPrincipalByID(c.Request.Context(), database.GetClonedPodForPrincipalByIDParams{
-		ID:              cloneID,
-		UserPrincipalID: principalID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		progress.fail("cloned pod not found")
-		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
-		return
-	}
-	if err != nil {
-		progress.fail("failed to load cloned pod")
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for reclone", err)
+	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	if reqErr != nil {
+		progress.fail(reqErr.UserMessage)
+		writeRequestError(c, reqErr)
 		return
 	}
 
-	clone, reqErr := h.reclonePublishedPod(c.Request.Context(), principalID, clone, progress)
+	clone, reqErr = h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, progress)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
@@ -403,16 +409,9 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, err := q.GetClonedPodForPrincipalByID(c.Request.Context(), database.GetClonedPodForPrincipalByIDParams{
-		ID:              cloneID,
-		UserPrincipalID: principalID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
-		return
-	}
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for delete", err)
+	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
 		return
 	}
 
@@ -470,23 +469,15 @@ func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, err := q.GetClonedPodForPrincipalByID(c.Request.Context(), database.GetClonedPodForPrincipalByIDParams{
-		ID:              cloneID,
-		UserPrincipalID: principalID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
-		return
-	}
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for answer", err)
+	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
 		return
 	}
 
 	question, err := q.GetQuestionForClonedPod(c.Request.Context(), database.GetQuestionForClonedPodParams{
-		ClonedPodID:     cloneID,
-		UserPrincipalID: principalID,
-		QuestionID:      questionID,
+		ClonedPodID: cloneID,
+		QuestionID:  questionID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "question not found"})
@@ -534,6 +525,33 @@ func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func (h *PodsHandler) loadAccessibleClonedPod(
+	ctx context.Context,
+	q *database.Queries,
+	currentPrincipalID uuid.UUID,
+	cloneID uuid.UUID,
+) (database.ClonedPods, *requestError) {
+	clone, err := q.GetAccessibleClonedPodByID(ctx, database.GetAccessibleClonedPodByIDParams{
+		ID:          cloneID,
+		PrincipalID: currentPrincipalID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod",
+			Operation:   "load accessible cloned pod",
+			Err:         err,
+		}
+	}
+	return clone, nil
+}
+
 func (h *PodsHandler) clonedPodActionTargets(
 	ctx context.Context,
 	q *database.Queries,
@@ -541,23 +559,9 @@ func (h *PodsHandler) clonedPodActionTargets(
 	cloneID uuid.UUID,
 	required authorization.Mask,
 ) (database.ClonedPods, []vmactions.Target, *requestError) {
-	clone, err := q.GetClonedPodForPrincipalByID(ctx, database.GetClonedPodForPrincipalByIDParams{
-		ID:              cloneID,
-		UserPrincipalID: principalID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return database.ClonedPods{}, nil, &requestError{
-			Status:      http.StatusNotFound,
-			UserMessage: "cloned pod not found",
-		}
-	}
-	if err != nil {
-		return database.ClonedPods{}, nil, &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to load cloned pod",
-			Operation:   "load cloned pod for action",
-			Err:         err,
-		}
+	clone, reqErr := h.loadAccessibleClonedPod(ctx, q, principalID, cloneID)
+	if reqErr != nil {
+		return database.ClonedPods{}, nil, reqErr
 	}
 
 	rows, err := q.ListClonedPodVMs(ctx, cloneID)
@@ -1435,9 +1439,19 @@ func (h *PodsHandler) hydrateClonedPod(
 		})
 	}
 
+	principals, err := q.ListPrincipalDetailsByIDs(ctx, []uuid.UUID{clone.UserPrincipalID})
+	if err != nil {
+		return clonedPodResponse{}, err
+	}
+	if len(principals) == 0 {
+		return clonedPodResponse{}, fmt.Errorf("clone owner principal not found")
+	}
+	owner := cloneOwnerFromPrincipal(principals[0])
+
 	return clonedPodResponse{
 		ID:       clone.ID,
 		PodID:    clone.PodID,
+		Owner:    owner,
 		ClonedAt: pgTime(clone.CreatedAt),
 		Status:   status,
 		VMs:      vms,
@@ -2251,6 +2265,21 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 	}
 	target := principals[0]
 
+	if target.PrincipalType == database.PrincipalTypeUser {
+		if _, err := q.GetAccessibleClonedPodByPodID(c.Request.Context(), database.GetAccessibleClonedPodByPodIDParams{
+			PodID:       pod.ID,
+			PrincipalID: req.PrincipalID,
+		}); err == nil {
+			progress.fail("pod already cloned")
+			writeRequestError(c, &requestError{Status: http.StatusConflict, UserMessage: "pod already cloned"})
+			return
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			progress.fail("failed to check cloned pod")
+			writeLoggedError(c, http.StatusInternalServerError, "failed to check cloned pod", "check accessible cloned pod for manager clone", err)
+			return
+		}
+	}
+
 	displayLabel := target.ExternalID
 	if target.Name != nil && *target.Name != "" {
 		displayLabel = *target.Name
@@ -2291,7 +2320,40 @@ func currentUsername(c *gin.Context) (string, bool) {
 	return username, ok && username != ""
 }
 
+func cloneOwnerFromPrincipal(row database.ListPrincipalDetailsByIDsRow) publishedPodCloneOwnerResponse {
+	label := row.ExternalID
+	if row.Name != nil && strings.TrimSpace(*row.Name) != "" {
+		label = *row.Name
+	}
+	description := row.ExternalID
+	if row.Description != nil && strings.TrimSpace(*row.Description) != "" {
+		description = *row.Description
+	}
+	return publishedPodCloneOwnerResponse{
+		ID:          row.ID,
+		Type:        string(row.PrincipalType),
+		Label:       label,
+		Description: description,
+	}
+}
+
 func managerCloneFolderName(principalID uuid.UUID, principalType string, displayLabel string) (string, error) {
+	const maxLen = 63
+
+	if principalType == "group" || principalType == string(database.PrincipalTypeGroup) {
+		name := sanitizeFolderNameString("Group-" + displayLabel)
+		if name == "" {
+			return "", fmt.Errorf("principal cannot be used as a pod folder name")
+		}
+		if len(name) > maxLen {
+			return "", fmt.Errorf("principal cannot be used as a pod folder name")
+		}
+		if err := names.ValidateFolder(name); err != nil {
+			return "", fmt.Errorf("principal cannot be used as a pod folder name")
+		}
+		return name, nil
+	}
+
 	suffix := principalID.String()[:8]
 	prefix := strings.ToLower(principalType) + "-" + displayLabel + "-" + suffix
 	name := sanitizeFolderNameString(prefix)
@@ -2301,7 +2363,6 @@ func managerCloneFolderName(principalID uuid.UUID, principalType string, display
 	if name[0] >= '0' && name[0] <= '9' {
 		name = "p-" + name
 	}
-	const maxLen = 63
 	if len(name) > maxLen {
 		suffixWithDash := "-" + suffix
 		if len(suffixWithDash) >= maxLen {
