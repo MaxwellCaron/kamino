@@ -1,6 +1,7 @@
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -49,6 +50,11 @@ export function PodVms({ vms }: { vms: Array<PodVM> }) {
           </Empty>
         )}
       </CardContent>
+      <CardFooter className="text-muted-foreground">
+        List of virtual machines that you currently have access to. Please note
+        that this may not represent all the virtual machines available within
+        the pod environment.
+      </CardFooter>
     </Card>
   )
 }
