@@ -77,7 +77,6 @@ export function DashboardQuestionActivityCard({
                         activity={activity}
                         dayIndex={dayIndex}
                         weekIndex={weekIndex}
-                        className="transition-opacity outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     }
                   />
@@ -90,7 +89,7 @@ export function DashboardQuestionActivityCard({
             <ContributionGraphFooter className="items-center text-xs">
               <ContributionGraphTotalCount>
                 {({ totalCount }) =>
-                  `${totalCount} ${totalCount === 1 ? "question" : "questions"} answered in the last 6 months`
+                  `${totalCount} ${totalCount === 1 ? "question" : "questions"} answered`
                 }
               </ContributionGraphTotalCount>
               <ContributionGraphLegend />
