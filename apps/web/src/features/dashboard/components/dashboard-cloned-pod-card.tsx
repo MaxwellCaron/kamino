@@ -16,7 +16,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { Progress } from "@workspace/ui/components/progress"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { cn } from "@workspace/ui/lib/utils"
 import { Image } from "@unpic/react"
@@ -27,8 +26,9 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
+import { ProgressPills } from "@workspace/ui/components/progress-pills"
 import type { ClonedPodEntry } from "../utils/dashboard-types"
+import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
 
 export function DashboardCurrentClonedPodCard({
   className,
@@ -74,7 +74,10 @@ export function DashboardCurrentClonedPodCard({
               variant="muted"
               render={
                 <Link to="/pods/$podSlug" params={{ podSlug: entry.pod.slug }}>
-                  <ItemMedia variant="image" className="size-40">
+                  <ItemMedia
+                    variant="image"
+                    className="hidden size-40 md:block"
+                  >
                     <Image
                       src={entry.pod.image}
                       alt={entry.pod.title}
@@ -85,11 +88,15 @@ export function DashboardCurrentClonedPodCard({
                   </ItemMedia>
 
                   <ItemContent>
-                    <ItemTitle className="line-clamp-1 text-2xl font-semibold tracking-tight">
-                      {entry.pod.title}
+                    <ItemTitle className="flex justify-between lg:w-full">
+                      <span className="line-clamp-1 text-2xl font-semibold tracking-tight">
+                        {entry.pod.title}
+                      </span>
+                      <ClonedPodStatusBadge status={entry.clonedPod.status} />
                     </ItemTitle>
                     <ItemDescription>{entry.pod.description}</ItemDescription>
-                    <span className="text-muted-foreground">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <IconCopy className="size-4" />
                       Cloned{" "}
                       <RelativeTimeCard
                         date={entry.clonedPod.cloned_at}
@@ -100,21 +107,10 @@ export function DashboardCurrentClonedPodCard({
                         variant="muted"
                       />
                     </span>
-                    <div className="sm:pt-6">
-                      <Field className="w-full">
-                        <FieldLabel htmlFor="task-progress">
-                          <span className="hidden sm:block">Task progress</span>
-                          <span className="ml-auto hidden sm:block">
-                            {entry.clonedPod.task_summary.completed}/
-                            {entry.clonedPod.task_summary.total} Tasks Completed
-                          </span>
-                        </FieldLabel>
-                        <Progress
-                          id="task-progress"
-                          value={entry.clonedPod.task_summary.progress}
-                          aria-label="Task progress"
-                        />
-                      </Field>
+                    <div className="w-full pt-4">
+                      <ProgressPills
+                        progress={entry.clonedPod.task_summary.progress}
+                      />
                     </div>
                   </ItemContent>
                 </Link>
