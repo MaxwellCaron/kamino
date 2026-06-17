@@ -32,6 +32,10 @@ export interface TooltipBoxProps {
   top?: number | ReturnType<typeof useSpring>
   /** Force flip direction (for custom positioning) */
   flipped?: boolean
+  /** Whether to animate tooltip entry/movement. Default: true */
+  animate?: boolean
+  /** Inline styles for the visual tooltip panel */
+  panelStyle?: React.CSSProperties
 }
 
 export function TooltipBox({
@@ -47,6 +51,8 @@ export function TooltipBox({
   left: leftOverride,
   top: topOverride,
   flipped: flippedOverride,
+  animate = true,
+  panelStyle,
 }: TooltipBoxProps) {
   const tooltipRef = useRef<HTMLDivElement>(null)
   const tooltipWidthRef = useRef(180)
@@ -131,6 +137,17 @@ export function TooltipBox({
   const isFlipped = flippedOverride ?? shouldFlipX
   const transformOrigin = isFlipped ? "right top" : "left top"
 
+  const outerInitial = animate ? { opacity: 0 } : false
+  const outerAnimate = animate ? { opacity: 1 } : { opacity: 1 }
+  const outerExit = animate ? { opacity: 0 } : undefined
+  const outerTransition = animate ? { duration: 0.1 } : { duration: 0 }
+  const panelInitial = animate
+    ? { scale: 0.85, opacity: 0, x: isFlipped ? 20 : -20 }
+    : false
+  const panelTransition = animate
+    ? { type: "spring" as const, stiffness: 300, damping: 25 }
+    : { duration: 0 }
+
   const container = containerRef.current
   if (!(mounted && container)) {
     return null
@@ -142,21 +159,21 @@ export function TooltipBox({
 
   return createPortal(
     <m.div
-      animate={{ opacity: 1 }}
+      animate={outerAnimate}
       className={cn("pointer-events-none absolute z-50", className)}
-      exit={{ opacity: 0 }}
-      initial={{ opacity: 0 }}
+      exit={outerExit}
+      initial={outerInitial}
       ref={tooltipRef}
       style={{ left: finalLeft, top: finalTop }}
-      transition={{ duration: 0.1 }}
+      transition={outerTransition}
     >
       <m.div
         animate={{ scale: 1, opacity: 1, x: 0 }}
         className="min-w-35 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-lg backdrop-blur-md"
-        initial={{ scale: 0.85, opacity: 0, x: isFlipped ? 20 : -20 }}
+        initial={panelInitial}
         key={flipKey}
-        style={{ transformOrigin }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        style={{ ...panelStyle, transformOrigin }}
+        transition={panelTransition}
       >
         {children}
       </m.div>

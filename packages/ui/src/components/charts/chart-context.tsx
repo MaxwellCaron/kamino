@@ -52,6 +52,7 @@ export interface LineConfig {
   dataKey: string
   stroke: string
   strokeWidth: number
+  yAxisId?: string | number
 }
 
 export interface ChartContextValue {

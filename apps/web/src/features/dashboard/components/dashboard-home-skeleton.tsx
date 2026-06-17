@@ -74,11 +74,10 @@ function QuestionActivitySkeleton({ className }: { className?: string }) {
       <DashboardSkeletonHeader titleWidth="w-48" descriptionWidth="w-44" />
       <CardContent>
         <div className="flex w-full flex-col gap-3">
-          <Skeleton className="h-36 w-full rounded-3xl" />
-          <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-3 w-36 rounded-md" />
+          <Skeleton className="h-42 w-full rounded-3xl" />
+          <div className="flex items-center justify-center gap-3">
             <div className="flex items-center gap-1.5">
-              {Array.from({ length: 3 }, (_, index) => (
+              {Array.from({ length: 5 }, (_, index) => (
                 <Skeleton key={index} className="size-3 rounded-sm" />
               ))}
             </div>
@@ -98,7 +97,7 @@ function ClonedPodSkeleton({ className }: { className?: string }) {
         descriptionWidth="w-56"
       />
       <CardContent>
-        <div className="flex min-h-52 flex-col gap-5 rounded-3xl bg-muted/50 p-4 sm:flex-row">
+        <div className="flex min-h-49 flex-col gap-5 rounded-3xl bg-muted/50 p-4 sm:flex-row">
           <Skeleton className="size-40 shrink-0 rounded-3xl" />
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
             <Skeleton className="h-8 w-full max-w-sm rounded-md" />

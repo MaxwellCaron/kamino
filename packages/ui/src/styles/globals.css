@@ -62,6 +62,7 @@
   --chart-marker-foreground: oklch(0.3 0.01 260);
   --chart-ring-background: oklch(0.9 0.005 260 / 0.25);
   --chart-label: oklch(0.45 0.01 260);
+  --chart-brush-border: var(--chart-grid);
 }
 
 .dark {
@@ -106,6 +107,7 @@
   --chart-marker-foreground: oklch(0.9 0 0);
   --chart-ring-background: oklch(0.35 0.01 260 / 0.25);
   --chart-label: oklch(0.75 0.01 260);
+  --chart-brush-border: var(--chart-grid);
 }
 
 @theme inline {
@@ -165,6 +167,7 @@
   --color-chart-foreground: var(----chart-foreground);
   --color-chart-background: var(----chart-background);
   --animate-spin-around: spin-around 0.8s linear infinite;
+  --chart-brush-border: var(----chart-brush-border);
   @keyframes spin-around {
   0% {
     transform: rotate(-90deg);

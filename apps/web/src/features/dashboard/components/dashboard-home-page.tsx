@@ -16,7 +16,7 @@ import { DashboardQuestionActivityCard } from "./dashboard-question-activity-car
 import { DashboardRecentPodsCard } from "./dashboard-published-pods-card"
 import { DashboardStatsGrid } from "./dashboard-stat-cards"
 import type { ClonedPodEntry } from "../utils/dashboard-types"
-import type { Activity } from "@workspace/ui/components/kibo-ui/contribution-graph"
+import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
@@ -152,8 +152,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         .slice(0, 3),
     [visiblePods]
   )
-  const questionActivityData = useMemo(
-    () => buildQuestionActivityData(cloneStatus.entries),
+  const questionActivityHeatmapData = useMemo(
+    () => buildQuestionActivityHeatmapData(cloneStatus.entries),
     [cloneStatus.entries]
   )
 
@@ -216,7 +216,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         />
         <DashboardQuestionActivityCard
           className="xl:col-span-4"
-          data={questionActivityData}
+          data={questionActivityHeatmapData}
           error={cloneStatus.error}
         />
         <DashboardCurrentClonedPodCard
@@ -342,7 +342,9 @@ function toTime(value: string | null | undefined) {
   return value ? new Date(value).getTime() : 0
 }
 
-function buildQuestionActivityData(entries: Array<ClonedPodEntry>) {
+function buildQuestionActivityHeatmapData(
+  entries: Array<ClonedPodEntry>
+): Array<HeatmapColumn> {
   const today = new Date()
   const startDate = new Date(
     today.getFullYear(),
@@ -370,30 +372,44 @@ function buildQuestionActivityData(entries: Array<ClonedPodEntry>) {
     }
   }
 
-  const data: Array<Activity> = []
+  const data: Array<HeatmapColumn> = []
+  const firstWeekStart = startOfLocalWeek(startDate)
+  let weekIndex = 0
+
   for (
-    let date = new Date(startDate);
-    toLocalDateKey(date) <= todayKey;
-    date.setDate(date.getDate() + 1)
+    let weekStart = new Date(firstWeekStart);
+    toLocalDateKey(weekStart) <= todayKey;
+    weekStart.setDate(weekStart.getDate() + 7)
   ) {
-    const dateKey = toLocalDateKey(date)
-    const count = countsByDate.get(dateKey) ?? 0
-    data.push({
-      date: dateKey,
-      count,
-      level: getQuestionActivityLevel(count),
-    })
+    const bins: HeatmapColumn["bins"] = []
+
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      const date = new Date(weekStart)
+      date.setDate(weekStart.getDate() + dayIndex)
+      const dateKey = toLocalDateKey(date)
+
+      if (dateKey > todayKey) {
+        break
+      }
+
+      bins.push({
+        bin: dayIndex,
+        count: dateKey >= startDateKey ? (countsByDate.get(dateKey) ?? 0) : 0,
+        date,
+      })
+    }
+
+    data.push({ bin: weekIndex, bins })
+    weekIndex += 1
   }
 
   return data
 }
 
-function getQuestionActivityLevel(count: number) {
-  if (count <= 0) return 0
-  if (count === 1) return 1
-  if (count === 2) return 2
-  if (count <= 4) return 3
-  return 4
+function startOfLocalWeek(date: Date) {
+  const start = new Date(date)
+  start.setDate(start.getDate() - start.getDay())
+  return start
 }
 
 function toLocalDateKey(date: Date) {
