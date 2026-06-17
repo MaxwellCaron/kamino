@@ -29,7 +29,7 @@ const statusMap: Record<ClonedPodStatus, ClonedPodStatusConfig> = {
   partial: {
     status: "partial",
     className:
-      "bg-yellow-600/20 dark:bg-yellow-400/20 text-yellow-600 dark:text-yellow-400",
+      "bg-amber-600/20 dark:bg-amber-400/20 text-amber-600 dark:text-amber-400",
     description:
       "Some virutal machines in the pod are running, while others are not.",
   },

@@ -16,7 +16,7 @@ export function VmIcon({
       ? "bg-green-600 dark:bg-green-400"
       : status === "stopped"
         ? "bg-muted-foreground/40"
-        : "bg-yellow-600 dark:bg-yellow-400"
+        : "bg-amber-600 dark:bg-amber-400"
     : undefined
 
   return (
@@ -51,7 +51,7 @@ export function getVmPowerStatusDotClassName(
 ): string | undefined {
   if (status === "running") return "bg-green-600 dark:bg-green-400"
   if (status === "stopped") return "bg-muted-foreground/40"
-  if (status) return "bg-yellow-600 dark:bg-yellow-400"
+  if (status) return "bg-amber-600 dark:bg-amber-400"
   return undefined
 }
 

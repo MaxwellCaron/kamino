@@ -14,7 +14,7 @@ export function KindBadge({ kind }: { kind: SyncChange["kind"] }) {
     return <Badge className="bg-destructive/10 text-destructive">Remove</Badge>
   }
   return (
-    <Badge className="bg-yellow-600/10 text-yellow-600 dark:bg-yellow-400/10 dark:text-yellow-400">
+    <Badge className="bg-amber-600/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400">
       Update
     </Badge>
   )

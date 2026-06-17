@@ -87,7 +87,7 @@ export function getRequestStatusClassName(status: ApiRequestStatus) {
     case "execution_failed":
       return "bg-orange-600/10 border-orange-600 text-orange-600 dark:bg-orange-400/10 dark:border-orange-400/50 dark:text-orange-400"
     case "pending":
-      return "bg-yellow-600/10 border-yellow-600 text-yellow-600 dark:bg-yellow-400/10 dark:border-yellow-400/50 dark:text-yellow-400"
+      return "bg-amber-600/10 border-amber-600 text-amber-600 dark:bg-amber-400/10 dark:border-amber-400/50 dark:text-amber-400"
     case "approved":
       return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400/50 dark:text-purple-400"
     default:

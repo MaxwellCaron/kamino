@@ -144,7 +144,7 @@ function PodTaskQuestionField({
                   variant="secondary"
                   size="icon"
                   disabled={controlsDisabled}
-                  className="bg-yellow-600/20 text-yellow-600 hover:bg-yellow-600/15 dark:bg-yellow-400/10 dark:text-yellow-400 dark:hover:bg-yellow-400/5"
+                  className="bg-amber-600/20 text-amber-600 hover:bg-amber-600/15 dark:bg-amber-400/10 dark:text-amber-400 dark:hover:bg-amber-400/5"
                 />
               }
             >

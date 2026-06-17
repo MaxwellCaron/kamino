@@ -95,7 +95,7 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
 
   if (item.kind === "folder") {
     return (
-      <IconFolder className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
+      <IconFolder className="size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
     )
   }
 
