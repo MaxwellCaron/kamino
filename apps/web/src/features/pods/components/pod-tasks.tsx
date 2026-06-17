@@ -120,7 +120,7 @@ export function PodTasks({
                   <div className="flex flex-col gap-6">
                     <MarkdownContent>{task.content}</MarkdownContent>
 
-                    {task.questions && (
+                    {task.questions && task.questions.length > 0 && (
                       <PodTaskQuestions
                         questions={task.questions}
                         clonedPodId={clonedPodId}
