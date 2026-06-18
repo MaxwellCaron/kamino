@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowRight, IconCopy } from "@tabler/icons-react"
+import { IconArrowUpRight, IconCopy } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -53,7 +53,7 @@ export function DashboardCurrentClonedPodCard({
               render={
                 <Link to="/pods/$podSlug" params={{ podSlug: entry.pod.slug }}>
                   Continue
-                  <IconArrowRight data-icon="inline-end" />
+                  <IconArrowUpRight data-icon="inline-end" />
                 </Link>
               }
             />

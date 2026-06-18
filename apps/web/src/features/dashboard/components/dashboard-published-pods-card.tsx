@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { IconCube, IconExternalLink } from "@tabler/icons-react"
+import { IconArrowUpRight, IconCube } from "@tabler/icons-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -48,8 +48,8 @@ export function DashboardRecentPodsCard({
                 to="/pods/browse"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                Browse Pods
-                <IconExternalLink data-icon="inline-end" />
+                All Pods
+                <IconArrowUpRight data-icon="inline-end" />
               </Link>
             }
           />

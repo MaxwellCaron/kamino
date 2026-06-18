@@ -36,7 +36,7 @@ export function DashboardActivityTableCard({
           columns={columns}
           data={data}
           error={error}
-          initialPageSize={5}
+          initialPageSize={10}
           getRowId={(request: ApiRequestSummary) => request.id}
         />
       </CardContent>
