@@ -1,12 +1,12 @@
 import { Outlet, getRouteApi } from "@tanstack/react-router"
-import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { SidebarProvider } from "@workspace/ui/components/sidebar"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
+import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
-import { SiteFooter } from "@/components/app-shell/site-footer"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
 
@@ -29,13 +29,9 @@ export function DashboardLayout() {
       <InventoryDialogsProvider>
         <InventoryTreeProvider>
           <AppSidebar user={user} variant="inset" />
-          <SidebarInset>
-            <SiteHeader command={commandManyItemsElement} />
-            <div className="flex flex-1 flex-col">
-              <Outlet />
-            </div>
-            <SiteFooter />
-          </SidebarInset>
+          <SiteLayoutInset header={<SiteHeader command={commandManyItemsElement} />}>
+            <Outlet />
+          </SiteLayoutInset>
         </InventoryTreeProvider>
       </InventoryDialogsProvider>
     </SidebarProvider>
