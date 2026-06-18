@@ -1,10 +1,10 @@
 "use client"
 
-import { m, useReducedMotion } from "motion/react"
-import { useCallback } from "react"
+import {  m, useReducedMotion } from "motion/react"
+import {  useCallback } from "react"
 import { cn } from "@workspace/ui/lib/utils"
-import type { Variants } from "motion/react"
-import type { ComponentProps } from "react"
+import type {Variants} from "motion/react";
+import type {ComponentProps} from "react";
 
 export type ShimmeringTextProps = Omit<
   ComponentProps<typeof m.span>,

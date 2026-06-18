@@ -1,3 +1,5 @@
+"use client"
+
 import { m } from "motion/react"
 import { cn } from "@workspace/ui/lib/utils"
 import { ShimmeringText } from "../shimmering-text"

@@ -1,3 +1,5 @@
+"use client"
+
 import { m } from "motion/react"
 import { clipRevealTransition } from "./animation"
 import type { Transition } from "motion/react"
