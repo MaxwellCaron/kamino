@@ -99,6 +99,16 @@ export function getPublishedPodsColumns({
     },
     {
       id: "pod",
+      accessorFn: (pod) =>
+        [
+          pod.title,
+          pod.slug,
+          pod.description,
+          pod.status,
+          ...(pod.creators ?? []).map((c) => c.label),
+        ]
+          .filter(Boolean)
+          .join(" "),
       header: "Pod",
       cell: ({ row }) => {
         const pod = row.original
@@ -131,7 +141,7 @@ export function getPublishedPodsColumns({
       },
     },
     {
-      accessorKey: "creators",
+      id: "creators",
       header: "Creators",
       cell: ({ row }) => (
         <div className="min-w-48 py-1">
@@ -141,6 +151,10 @@ export function getPublishedPodsColumns({
     },
     {
       id: "access",
+      accessorFn: (pod) =>
+        pod.audience.length > 0
+          ? ["Restricted", ...pod.audience.map((p) => p.label)].join(" ")
+          : "Public",
       header: "Access",
       cell: ({ row }) => {
         const pod = row.original
@@ -167,6 +181,11 @@ export function getPublishedPodsColumns({
     },
     {
       id: "content",
+      accessorFn: (pod) =>
+        [
+          ...pod.virtual_machines.map((vm) => vm.name),
+          ...(pod.tasks ?? []).map((t) => t.title),
+        ].join(" "),
       header: "Content",
       cell: ({ row }) => {
         const pod = row.original
