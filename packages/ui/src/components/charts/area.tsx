@@ -64,17 +64,12 @@ export function Area({
 
   // Unique IDs for this area
   const uniqueId = useId()
-  const gradientId = useMemo(
-    () => `area-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`,
-    [dataKey]
-  )
-  const strokeGradientId = useMemo(
-    () =>
-      `area-stroke-gradient-${dataKey}-${Math.random().toString(36).slice(2, 9)}`,
-    [dataKey]
-  )
-  const edgeMaskId = `area-edge-mask-${dataKey}-${uniqueId}`
+  const areaId = `${dataKey}-${uniqueId}`
+  const gradientId = `area-gradient-${areaId}`
+  const strokeGradientId = `area-stroke-gradient-${areaId}`
+  const edgeMaskId = `area-edge-mask-${areaId}`
   const edgeGradientId = `${edgeMaskId}-gradient`
+  const growClipId = `grow-clip-area-${areaId}`
 
   // Resolved stroke color (defaults to fill)
   const resolvedStroke = stroke || fill
@@ -222,7 +217,14 @@ export function Area({
         </linearGradient>
 
         {/* Stroke gradient - fades at edges */}
-        <linearGradient id={strokeGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+        <linearGradient
+          gradientUnits="userSpaceOnUse"
+          id={strokeGradientId}
+          x1={0}
+          x2={innerWidth}
+          y1={0}
+          y2={0}
+        >
           <stop
             offset="0%"
             style={{ stopColor: resolvedStroke, stopOpacity: 0 }}
@@ -284,7 +286,7 @@ export function Area({
       {/* Clip path for grow animation - unique per area */}
       {animate && (
         <defs>
-          <clipPath id={`grow-clip-area-${dataKey}`}>
+          <clipPath id={growClipId}>
             <rect
               height={innerHeight + 20}
               style={{
@@ -302,7 +304,7 @@ export function Area({
       )}
 
       {/* Main area with clip path */}
-      <g clipPath={animate ? `url(#grow-clip-area-${dataKey})` : undefined}>
+      <g clipPath={animate ? `url(#${growClipId})` : undefined}>
         <m.g
           animate={{ opacity: isHovering && showHighlight ? 0.6 : 1 }}
           initial={{ opacity: 1 }}

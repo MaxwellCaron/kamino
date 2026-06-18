@@ -13,15 +13,16 @@ import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { clusterUsageHistoryQueryOptions } from "../api/admin-metrics-api"
 import {
   formatCores,
+  formatUsageBytes,
   getClusterCapacitySummary,
 } from "../utils/admin-dashboard"
-import { UsageAreaChart } from "./usage-charts"
+import { UsageAreaChart, buildUsageHistorySeries } from "./usage-charts"
 import { AdminNodeTable } from "./admin-node-table"
 import type { Capacity } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
-import type { ClusterUsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
 
-function normalizeTimeframe(value: string): ClusterUsageHistoryTimeframe {
+function normalizeTimeframe(value: string): UsageHistoryTimeframe {
   switch (value) {
     case "hour":
       return "hour"
@@ -43,33 +44,29 @@ export function AdminClusterCard({
   nodes: Array<ApiNode>
   storageByNode: Map<string, Capacity>
 }) {
-  const [timeframe, setTimeframe] =
-    useState<ClusterUsageHistoryTimeframe>("hour")
+  const [timeframe, setTimeframe] = useState<UsageHistoryTimeframe>("hour")
   const {
     data: historyData,
     error: historyError,
     isLoading: isHistoryLoading,
   } = useQuery(clusterUsageHistoryQueryOptions(timeframe))
   const clusterCapacity = getClusterCapacitySummary(nodes, storageByNode)
-  const history = historyData?.points ?? []
-  const cpuHistory = history.map((point) => ({
-    date: new Date(point.time * 1000),
-    value: point.cpu_percent,
-    used: point.cpu_used,
-    total: point.cpu_total,
-  }))
-  const memoryHistory = history.map((point) => ({
-    date: new Date(point.time * 1000),
-    value: point.memory_percent,
-    used: point.memory_used,
-    total: point.memory_total,
-  }))
-  const storageHistory = history.map((point) => ({
-    date: new Date(point.time * 1000),
-    value: point.storage_percent,
-    used: point.storage_used,
-    total: point.storage_total,
-  }))
+  const clusterHistory = buildUsageHistorySeries(historyData?.points ?? [])
+  const nodeHistoryByNode = useMemo(() => {
+    const historyMap = new Map<
+      string,
+      ReturnType<typeof buildUsageHistorySeries>
+    >()
+
+    for (const nodeHistory of historyData?.nodes ?? []) {
+      historyMap.set(
+        nodeHistory.node,
+        buildUsageHistorySeries(nodeHistory.points)
+      )
+    }
+
+    return historyMap
+  }, [historyData?.nodes])
   const historyUnavailableMessage = useMemo(() => {
     if (historyError instanceof Error) {
       return historyError.message
@@ -112,7 +109,7 @@ export function AdminClusterCard({
                 total={clusterCapacity.cpuTotal}
                 color="var(--chart-1)"
                 formatValue={formatCores}
-                history={cpuHistory}
+                history={clusterHistory.cpu}
                 isLoading={isHistoryLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
@@ -126,7 +123,8 @@ export function AdminClusterCard({
                 used={clusterCapacity.memoryUsed}
                 total={clusterCapacity.memoryTotal}
                 color="var(--chart-2)"
-                history={memoryHistory}
+                formatValue={formatUsageBytes}
+                history={clusterHistory.memory}
                 isLoading={isHistoryLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
@@ -140,7 +138,8 @@ export function AdminClusterCard({
                 used={clusterCapacity.storage.used}
                 total={clusterCapacity.storage.total}
                 color="var(--chart-3)"
-                history={storageHistory}
+                formatValue={formatUsageBytes}
+                history={clusterHistory.storage}
                 isLoading={isHistoryLoading}
                 timeframe={timeframe}
                 unavailableMessage={historyUnavailableMessage}
@@ -150,7 +149,14 @@ export function AdminClusterCard({
         </div>
 
         <div className="-mx-6 mt-6 border-t">
-          <AdminNodeTable nodes={nodes} storageByNode={storageByNode} />
+          <AdminNodeTable
+            isHistoryLoading={isHistoryLoading}
+            nodeHistoryByNode={nodeHistoryByNode}
+            nodes={nodes}
+            storageByNode={storageByNode}
+            timeframe={timeframe}
+            unavailableMessage="No history"
+          />
         </div>
       </CardContent>
     </Card>
