@@ -64,7 +64,14 @@ export function AdminNodeTable({
   }
 
   return (
-    <Table>
+    <Table className="table-fixed">
+      <colgroup>
+        <col style={{ width: "4.5rem" }} />
+        <col style={{ width: "6rem" }} />
+        <col />
+        <col />
+        <col />
+      </colgroup>
       <TableHeader>
         <TableRow className="bg-muted hover:bg-muted">
           <TableHead className="pl-6 font-medium">Node</TableHead>

@@ -100,7 +100,7 @@ export function AdminClusterCard({
         </CardAction>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] gap-6 py-3">
+        <div className="grid gap-6 py-3 lg:grid-cols-2 2xl:grid-cols-3">
           <Card className="bg-muted/50 ring-0">
             <CardContent>
               <UsageAreaChart
@@ -131,7 +131,7 @@ export function AdminClusterCard({
               />
             </CardContent>
           </Card>
-          <Card className="bg-muted/50 ring-0">
+          <Card className="bg-muted/50 ring-0 lg:col-span-2 2xl:col-span-1">
             <CardContent>
               <UsageAreaChart
                 label="Storage"
