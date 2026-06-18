@@ -6,11 +6,6 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import {
-  ProgressIndicator,
-  ProgressRoot,
-  ProgressTrack,
-} from "@workspace/ui/components/progress"
-import {
   Table,
   TableBody,
   TableCell,
@@ -20,20 +15,38 @@ import {
 } from "@workspace/ui/components/table"
 
 import {
-  formatPercent,
-  percentage,
+  formatCores,
+  formatUsageBytes,
   statusBadgeVariant,
 } from "../utils/admin-dashboard"
+import { NodeUsageAreaChart } from "./usage-charts"
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { CapacityHistoryPoint } from "./usage-charts"
 import type { Capacity } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
-import { formatBytes } from "@/features/shared/utils/format"
+
+type NodeHistorySeries = {
+  cpu: Array<CapacityHistoryPoint>
+  memory: Array<CapacityHistoryPoint>
+  storage: Array<CapacityHistoryPoint>
+}
+
+const resourceColumnClassName = "px-3"
 
 export function AdminNodeTable({
   nodes,
   storageByNode,
+  timeframe,
+  nodeHistoryByNode,
+  isHistoryLoading,
+  unavailableMessage,
 }: {
   nodes: Array<ApiNode>
   storageByNode: Map<string, Capacity>
+  timeframe: UsageHistoryTimeframe
+  nodeHistoryByNode: Map<string, NodeHistorySeries>
+  isHistoryLoading: boolean
+  unavailableMessage: string
 }) {
   if (nodes.length === 0) {
     return (
@@ -55,77 +68,66 @@ export function AdminNodeTable({
       <TableHeader>
         <TableRow className="bg-muted hover:bg-muted">
           <TableHead className="pl-6 font-medium">Node</TableHead>
-          <TableHead className="font-medium">Status</TableHead>
-          <TableHead className="font-medium">CPU</TableHead>
-          <TableHead className="font-medium">Memory</TableHead>
-          <TableHead className="pr-6 font-medium">Storage</TableHead>
+          <TableHead className="px-4 font-medium">Status</TableHead>
+          <TableHead className={resourceColumnClassName}>CPU</TableHead>
+          <TableHead className={resourceColumnClassName}>Memory</TableHead>
+          <TableHead className={`${resourceColumnClassName} pr-6`}>
+            Storage
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {nodes.map((node) => {
           const cpuUsed = node.cpu * node.maxcpu
-          const memoryValue = percentage(node.mem, node.maxmem)
           const storage = storageByNode.get(node.node) ?? { total: 0, used: 0 }
-          const storageValue = percentage(storage.used, storage.total)
+          const nodeHistory = nodeHistoryByNode.get(node.node)
 
           return (
             <TableRow key={node.node}>
               <TableCell className="pl-6 font-medium">{node.node}</TableCell>
-              <TableCell>
+              <TableCell className="px-4">
                 <Badge variant={statusBadgeVariant(node.status)}>
                   {node.status.charAt(0).toUpperCase() + node.status.slice(1)}
                 </Badge>
               </TableCell>
-              <TableCell>
-                <div className="flex min-w-32 flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-muted-foreground">
-                      {cpuUsed.toFixed(1)} CPUs / {node.maxcpu} CPUs
-                    </span>
-                    <span className="font-mono tabular-nums">
-                      {formatPercent(node.cpu * 100)}
-                    </span>
-                  </div>
-                  <ProgressRoot value={node.cpu * 100}>
-                    <ProgressTrack>
-                      <ProgressIndicator className="bg-chart-1 dark:bg-chart-1" />
-                    </ProgressTrack>
-                  </ProgressRoot>
-                </div>
+              <TableCell className={resourceColumnClassName}>
+                <NodeUsageAreaChart
+                  color="var(--chart-1)"
+                  formatValue={formatCores}
+                  history={nodeHistory?.cpu ?? []}
+                  isLoading={isHistoryLoading}
+                  label="CPU"
+                  timeframe={timeframe}
+                  total={node.maxcpu}
+                  unavailableMessage={unavailableMessage}
+                  used={cpuUsed}
+                />
+              </TableCell>
+              <TableCell className={resourceColumnClassName}>
+                <NodeUsageAreaChart
+                  color="var(--chart-2)"
+                  formatValue={formatUsageBytes}
+                  history={nodeHistory?.memory ?? []}
+                  isLoading={isHistoryLoading}
+                  label="Memory"
+                  timeframe={timeframe}
+                  total={node.maxmem}
+                  unavailableMessage={unavailableMessage}
+                  used={node.mem}
+                />
               </TableCell>
               <TableCell>
-                <div className="flex min-w-36 flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-muted-foreground">
-                      {formatBytes(node.mem)} / {formatBytes(node.maxmem)}
-                    </span>
-                    <span className="font-mono tabular-nums">
-                      {formatPercent(memoryValue)}
-                    </span>
-                  </div>
-                  <ProgressRoot value={memoryValue}>
-                    <ProgressTrack>
-                      <ProgressIndicator className="bg-chart-2 dark:bg-chart-2" />
-                    </ProgressTrack>
-                  </ProgressRoot>
-                </div>
-              </TableCell>
-              <TableCell className="pr-6">
-                <div className="flex min-w-36 flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-muted-foreground">
-                      {formatBytes(storage.used)} / {formatBytes(storage.total)}
-                    </span>
-                    <span className="font-mono tabular-nums">
-                      {formatPercent(storageValue)}
-                    </span>
-                  </div>
-                  <ProgressRoot value={storageValue}>
-                    <ProgressTrack>
-                      <ProgressIndicator className="bg-chart-3 dark:bg-chart-3" />
-                    </ProgressTrack>
-                  </ProgressRoot>
-                </div>
+                <NodeUsageAreaChart
+                  color="var(--chart-3)"
+                  formatValue={formatUsageBytes}
+                  history={nodeHistory?.storage ?? []}
+                  isLoading={isHistoryLoading}
+                  label="Storage"
+                  timeframe={timeframe}
+                  total={storage.total}
+                  unavailableMessage={unavailableMessage}
+                  used={storage.used}
+                />
               </TableCell>
             </TableRow>
           )
