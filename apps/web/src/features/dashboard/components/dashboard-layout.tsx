@@ -6,6 +6,7 @@ import { InventoryDialogsProvider } from "@/features/inventory/components/invent
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
+import { SiteFooter } from "@/components/app-shell/site-footer"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
 
@@ -33,6 +34,7 @@ export function DashboardLayout() {
             <div className="flex flex-1 flex-col">
               <Outlet />
             </div>
+            <SiteFooter />
           </SidebarInset>
         </InventoryTreeProvider>
       </InventoryDialogsProvider>
