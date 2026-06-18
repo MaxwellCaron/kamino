@@ -12,11 +12,12 @@ import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 
 import { clusterUsageHistoryQueryOptions } from "../api/admin-metrics-api"
 import {
+  buildUsageHistorySeries,
   formatCores,
   formatUsageBytes,
   getClusterCapacitySummary,
 } from "../utils/admin-dashboard"
-import { UsageAreaChart, buildUsageHistorySeries } from "./usage-charts"
+import { UsageAreaChart } from "./usage-charts"
 import { AdminNodeTable } from "./admin-node-table"
 import type { Capacity } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"

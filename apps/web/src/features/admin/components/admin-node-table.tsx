@@ -21,8 +21,7 @@ import {
 } from "../utils/admin-dashboard"
 import { NodeUsageAreaChart } from "./usage-charts"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
-import type { CapacityHistoryPoint } from "./usage-charts"
-import type { Capacity } from "../utils/admin-dashboard"
+import type { Capacity, CapacityHistoryPoint } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 
 type NodeHistorySeries = {

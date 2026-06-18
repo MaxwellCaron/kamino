@@ -12,40 +12,8 @@ import {
   formatUsageBytes,
   percentage,
 } from "../utils/admin-dashboard"
-import type {
-  ApiUsageHistoryPoint,
-  UsageHistoryTimeframe,
-} from "../api/admin-metrics-api"
-
-export type CapacityHistoryPoint = {
-  date: Date
-  value: number
-  used: number
-  total: number
-}
-
-export function buildUsageHistorySeries(points: Array<ApiUsageHistoryPoint>) {
-  return {
-    cpu: points.map((point) => ({
-      date: new Date(point.time * 1000),
-      value: point.cpu_percent,
-      used: point.cpu_used,
-      total: point.cpu_total,
-    })),
-    memory: points.map((point) => ({
-      date: new Date(point.time * 1000),
-      value: point.memory_percent,
-      used: point.memory_used,
-      total: point.memory_total,
-    })),
-    storage: points.map((point) => ({
-      date: new Date(point.time * 1000),
-      value: point.storage_percent,
-      used: point.storage_used,
-      total: point.storage_total,
-    })),
-  }
-}
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { CapacityHistoryPoint } from "../utils/admin-dashboard"
 
 function getXAxisConfig(timeframe: UsageHistoryTimeframe) {
   switch (timeframe) {

@@ -1,3 +1,4 @@
+import type { ApiUsageHistoryPoint } from "../api/admin-metrics-api"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
@@ -8,12 +9,38 @@ export type Capacity = {
   used: number
 }
 
+export type CapacityHistoryPoint = {
+  date: Date
+  value: number
+  used: number
+  total: number
+}
+
+export function buildUsageHistorySeries(points: Array<ApiUsageHistoryPoint>) {
+  return {
+    cpu: points.map((point) => ({
+      date: new Date(point.time * 1000),
+      value: point.cpu_percent,
+      used: point.cpu_used,
+      total: point.cpu_total,
+    })),
+    memory: points.map((point) => ({
+      date: new Date(point.time * 1000),
+      value: point.memory_percent,
+      used: point.memory_used,
+      total: point.memory_total,
+    })),
+    storage: points.map((point) => ({
+      date: new Date(point.time * 1000),
+      value: point.storage_percent,
+      used: point.storage_used,
+      total: point.storage_total,
+    })),
+  }
+}
+
 export function percentage(used: number, total: number) {
-  if (
-    total <= 0 ||
-    !Number.isFinite(used) ||
-    !Number.isFinite(total)
-  ) {
+  if (total <= 0 || !Number.isFinite(used) || !Number.isFinite(total)) {
     return 0
   }
   const value = (used / total) * 100
