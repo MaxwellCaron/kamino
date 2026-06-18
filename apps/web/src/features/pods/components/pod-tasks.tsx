@@ -100,14 +100,14 @@ export function PodTasks({
                           isCompleted == null
                             ? "text-muted-foreground"
                             : isCompleted
-                              ? "text-green-600 dark:text-green-400"
+                              ? "text-emerald-600 dark:text-emerald-400"
                               : "text-red-600 dark:text-red-400"
                         )}
                       >
                         Task {index + 1}
                       </span>
                       {isCompleted === true && (
-                        <IconCircleCheckFilled className="size-4 text-green-600 dark:text-green-400" />
+                        <IconCircleCheckFilled className="size-4 text-emerald-600 dark:text-emerald-400" />
                       )}
                       {isCompleted === false && (
                         <IconCircleXFilled className="size-4 text-red-600 dark:text-red-400" />

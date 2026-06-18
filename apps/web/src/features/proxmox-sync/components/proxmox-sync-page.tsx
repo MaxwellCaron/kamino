@@ -172,7 +172,7 @@ export function ProxmoxSyncPage() {
                 Proxmox Sync
               </h1>
               {adds.length > 0 && (
-                <Badge className="bg-green-600/10 text-green-600 dark:bg-green-400/10 dark:text-green-400">
+                <Badge className="bg-emerald-600/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">
                   +{adds.length}
                 </Badge>
               )}

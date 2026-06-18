@@ -81,7 +81,7 @@ export function formatRequestStatus(status: ApiRequestStatus) {
 export function getRequestStatusClassName(status: ApiRequestStatus) {
   switch (status) {
     case "executed":
-      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400/50 dark:text-green-400"
+      return "bg-emerald-600/10 border-emerald-600 text-emerald-600 dark:bg-emerald-400/10 dark:border-emerald-400/50 dark:text-emerald-400"
     case "denied":
       return "bg-red-600/10 border-red-600 text-red-600 dark:bg-red-400/10 dark:border-red-400/50 dark:text-red-400"
     case "execution_failed":

@@ -158,10 +158,10 @@ const navGroupStyles = {
     indicator: "bg-amber-600 dark:bg-amber-400",
   },
   admin: {
-    rail: "bg-green-600/5 text-green-600 dark:bg-green-400/5 dark:text-green-400",
+    rail: "bg-emerald-600/5 text-emerald-600 dark:bg-emerald-400/5 dark:text-emerald-400",
     button:
-      "text-green-600 hover:bg-green-600/10 hover:text-green-700 active:bg-green-600/14 active:text-green-700 data-active:bg-green-600/14 data-active:text-green-700 dark:text-green-400 dark:hover:bg-green-400/10 dark:hover:text-green-300 dark:active:bg-green-400/14 dark:active:text-green-300 dark:data-active:bg-green-400/14 dark:data-active:text-green-300",
-    indicator: "bg-green-600 dark:bg-green-400",
+      "text-emerald-600 hover:bg-emerald-600/10 hover:text-emerald-700 active:bg-emerald-600/14 active:text-emerald-700 data-active:bg-emerald-600/14 data-active:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300 dark:active:bg-emerald-400/14 dark:active:text-emerald-300 dark:data-active:bg-emerald-400/14 dark:data-active:text-emerald-300",
+    indicator: "bg-emerald-600 dark:bg-emerald-400",
   },
 } as const satisfies Record<
   NavGroupKey,

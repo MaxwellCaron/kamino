@@ -13,7 +13,7 @@ export function VmIcon({
 
   const color = status
     ? status === "running"
-      ? "bg-green-600 dark:bg-green-400"
+      ? "bg-emerald-600 dark:bg-emerald-400"
       : status === "stopped"
         ? "bg-muted-foreground/40"
         : "bg-amber-600 dark:bg-amber-400"
@@ -40,7 +40,7 @@ export function formatVmPowerStatus(status?: string): string {
 export function getVmPowerStatusTextClassName(
   status?: string
 ): string | undefined {
-  if (status === "running") return "text-green-600 dark:text-green-400"
+  if (status === "running") return "text-emerald-600 dark:text-emerald-400"
   if (status === "stopped") return "text-destructive"
   if (status) return "text-amber-600 dark:text-amber-400"
   return undefined
@@ -49,7 +49,7 @@ export function getVmPowerStatusTextClassName(
 export function getVmPowerStatusDotClassName(
   status?: string
 ): string | undefined {
-  if (status === "running") return "bg-green-600 dark:bg-green-400"
+  if (status === "running") return "bg-emerald-600 dark:bg-emerald-400"
   if (status === "stopped") return "bg-muted-foreground/40"
   if (status) return "bg-amber-600 dark:bg-amber-400"
   return undefined
@@ -58,7 +58,7 @@ export function getVmPowerStatusDotClassName(
 export function getVmPowerStatusSurfaceClassName(
   status?: string
 ): string | undefined {
-  if (status === "running") return "bg-green-600/5 dark:bg-green-400/5"
+  if (status === "running") return "bg-emerald-600/5 dark:bg-emerald-400/5"
   if (status === "stopped") return "bg-destructive/5"
   return undefined
 }
