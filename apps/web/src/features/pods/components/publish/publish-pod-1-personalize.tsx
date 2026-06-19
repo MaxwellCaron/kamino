@@ -26,10 +26,9 @@ import {
 } from "@workspace/ui/components/field"
 import {
   InputGroup,
-  InputGroupAddon,
   InputGroupInput,
-  InputGroupText,
 } from "@workspace/ui/components/input-group"
+import { Input } from "@workspace/ui/components/input"
 import { IconSettings } from "@tabler/icons-react"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { toPodCreator } from "./publish-pod-form"
@@ -76,25 +75,18 @@ export function PublishPodPersonalizeStep({
                   <Field data-invalid={isInvalid || undefined}>
                     <FieldLabel htmlFor={field.name}>Pod Title</FieldLabel>
                     <FieldContent>
-                      <InputGroup>
-                        <InputGroupInput
-                          id={field.name}
-                          name={field.name}
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(event) =>
-                            field.handleChange(event.target.value)
-                          }
-                          maxLength={32}
-                          aria-invalid={isInvalid || undefined}
-                          placeholder="e.g. Modern Web Development"
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText className="text-xs">
-                            {field.state.value.length}/32
-                          </InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        maxLength={32}
+                        aria-invalid={isInvalid || undefined}
+                        placeholder="e.g. Modern Web Development"
+                      />
                       <FieldError
                         errors={showValidation ? field.state.meta.errors : []}
                       />

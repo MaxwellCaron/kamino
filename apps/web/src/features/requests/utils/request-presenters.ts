@@ -81,13 +81,13 @@ export function formatRequestStatus(status: ApiRequestStatus) {
 export function getRequestStatusClassName(status: ApiRequestStatus) {
   switch (status) {
     case "executed":
-      return "bg-green-600/10 border-green-600 text-green-600 dark:bg-green-400/10 dark:border-green-400/50 dark:text-green-400"
+      return "bg-emerald-600/10 border-emerald-600 text-emerald-600 dark:bg-emerald-400/10 dark:border-emerald-400/50 dark:text-emerald-400"
     case "denied":
       return "bg-red-600/10 border-red-600 text-red-600 dark:bg-red-400/10 dark:border-red-400/50 dark:text-red-400"
     case "execution_failed":
       return "bg-orange-600/10 border-orange-600 text-orange-600 dark:bg-orange-400/10 dark:border-orange-400/50 dark:text-orange-400"
     case "pending":
-      return "bg-yellow-600/10 border-yellow-600 text-yellow-600 dark:bg-yellow-400/10 dark:border-yellow-400/50 dark:text-yellow-400"
+      return "bg-amber-600/10 border-amber-600 text-amber-600 dark:bg-amber-400/10 dark:border-amber-400/50 dark:text-amber-400"
     case "approved":
       return "bg-purple-600/10 border-purple-600 text-purple-600 dark:bg-purple-400/10 dark:border-purple-400/50 dark:text-purple-400"
     default:

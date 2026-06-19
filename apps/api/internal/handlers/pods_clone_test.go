@@ -17,6 +17,7 @@ func TestManagerCloneFolderName(t *testing.T) {
 		principalID   uuid.UUID
 		principalType string
 		displayLabel  string
+		want          string
 		wantErr       bool
 		checkPrefix   string
 		checkSuffix   string
@@ -36,9 +37,23 @@ func TestManagerCloneFolderName(t *testing.T) {
 			principalID:   fixedID,
 			principalType: "group",
 			displayLabel:  "Platform Team",
-			checkPrefix:   "group-",
-			checkSuffix:   suffix,
+			want:          "Group-Platform-Team",
 			maxLen:        63,
+		},
+		{
+			name:          "group principal with punctuation",
+			principalID:   fixedID,
+			principalType: "group",
+			displayLabel:  "Team: Blue/Green",
+			want:          "Group-Team-Blue-Green",
+			maxLen:        63,
+		},
+		{
+			name:          "long group display name returns error",
+			principalID:   fixedID,
+			principalType: "group",
+			displayLabel:  "This-Is-A-Very-Long-Group-Display-Name-That-Exceeds-The-Maximum-Folder-Name-Length-Limit",
+			wantErr:       true,
 		},
 		{
 			name:          "long display name is truncated preserving suffix",
@@ -72,6 +87,9 @@ func TestManagerCloneFolderName(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			if tt.want != "" && got != tt.want {
+				t.Errorf("got %q; want %q", got, tt.want)
+			}
 			if err := names.ValidateFolder(got); err != nil {
 				t.Errorf("ValidateFolder(%q) = %v; want nil", got, err)
 			}
@@ -83,6 +101,9 @@ func TestManagerCloneFolderName(t *testing.T) {
 			}
 			if tt.checkSuffix != "" && !strings.HasSuffix(got, tt.checkSuffix) {
 				t.Errorf("folder %q does not end with %q", got, tt.checkSuffix)
+			}
+			if tt.principalType == "group" && strings.HasSuffix(got, suffix) {
+				t.Errorf("group folder %q should not end with UUID suffix %q", got, suffix)
 			}
 		})
 	}

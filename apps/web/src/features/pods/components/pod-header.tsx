@@ -13,7 +13,10 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import { PodHeaderActions } from "./pod-header-actions"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
-import { FormatPodCreators } from "@/features/pods/components/pod-creators"
+import {
+  FormatPodCreators,
+  PodCreatorIcon,
+} from "@/features/pods/components/pod-creators"
 import { createTaskSummary } from "@/features/pods/utils/pod-runtime-state"
 import { GrainientBackground } from "@/components/grainient-background"
 
@@ -125,14 +128,35 @@ export function PodHeader({
                   orientation="vertical"
                   className="bg-foreground/15"
                 />
-                <div className="text-sm text-muted-foreground">
-                  {clonedPod ? "Cloned" : "Created"}{" "}
-                  <RelativeTimeCard
-                    date={clonedPod ? clonedPod.cloned_at : pod.created_at}
-                    side="bottom"
-                    delay={50}
-                    closeDelay={150}
-                  />
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  {clonedPod ? (
+                    <>
+                      <span>
+                        Cloned{" "}
+                        <RelativeTimeCard
+                          date={clonedPod.cloned_at}
+                          side="bottom"
+                          delay={50}
+                          closeDelay={150}
+                        />{" "}
+                        by
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                        <PodCreatorIcon creator={clonedPod.owner} size={24} />
+                        {clonedPod.owner.label}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Created{" "}
+                      <RelativeTimeCard
+                        date={pod.created_at}
+                        side="bottom"
+                        delay={50}
+                        closeDelay={150}
+                      />
+                    </>
+                  )}
                 </div>
 
                 {clonedPod && (

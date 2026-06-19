@@ -31,7 +31,7 @@ type rrdDataPoint struct {
 	Total   *float64 `json:"total,omitempty"`
 }
 
-type ClusterUsageHistoryPoint struct {
+type UsageHistoryPoint struct {
 	Time           int64   `json:"time"`
 	CPUUsed        float64 `json:"cpu_used"`
 	CPUTotal       float64 `json:"cpu_total"`
@@ -42,6 +42,16 @@ type ClusterUsageHistoryPoint struct {
 	StorageUsed    float64 `json:"storage_used"`
 	StorageTotal   float64 `json:"storage_total"`
 	StoragePercent float64 `json:"storage_percent"`
+}
+
+type NodeUsageHistory struct {
+	Node   string              `json:"node"`
+	Points []UsageHistoryPoint `json:"points"`
+}
+
+type ClusterUsageHistory struct {
+	Points []UsageHistoryPoint `json:"points"`
+	Nodes  []NodeUsageHistory  `json:"nodes"`
 }
 
 type usageBucket struct {
@@ -95,6 +105,80 @@ func normalizeClusterUsageTimeframe(value string) ClusterUsageTimeframe {
 	default:
 		return ClusterUsageTimeframeDay
 	}
+}
+
+func buildUsageHistoryPoints(results []nodeHistoryResult) []UsageHistoryPoint {
+	buckets := make(map[int64]*usageBucket)
+	for _, result := range results {
+		defaultCPUTotal := float64(result.node.MaxCPU)
+		defaultMemoryTotal := float64(result.node.MaxMem)
+
+		for _, point := range result.usagePoints {
+			if point.Time <= 0 {
+				continue
+			}
+
+			bucket := buckets[point.Time]
+			if bucket == nil {
+				bucket = &usageBucket{}
+				buckets[point.Time] = bucket
+			}
+
+			cpuTotal := derefFloat(point.MaxCPU, defaultCPUTotal)
+			cpuUsed := derefFloat(point.CPU, 0) * cpuTotal
+			memoryTotal := derefFloat(point.MaxMem, defaultMemoryTotal)
+			memoryUsed := nodeMemoryUsed(point)
+
+			bucket.cpuTotal += cpuTotal
+			bucket.cpuUsed += cpuUsed
+			bucket.memoryTotal += memoryTotal
+			bucket.memoryUsed += memoryUsed
+		}
+
+		for _, storageHistory := range result.storagePoints {
+			for _, point := range storageHistory {
+				if point.Time <= 0 {
+					continue
+				}
+
+				bucket := buckets[point.Time]
+				if bucket == nil {
+					bucket = &usageBucket{}
+					buckets[point.Time] = bucket
+				}
+
+				bucket.storageTotal += derefFloat(point.Total, 0)
+				bucket.storageUsed += derefFloat(point.Used, 0)
+			}
+		}
+	}
+
+	times := make([]int64, 0, len(buckets))
+	for timestamp := range buckets {
+		times = append(times, timestamp)
+	}
+	sort.Slice(times, func(left, right int) bool {
+		return times[left] < times[right]
+	})
+
+	points := make([]UsageHistoryPoint, 0, len(times))
+	for _, timestamp := range times {
+		bucket := buckets[timestamp]
+		points = append(points, UsageHistoryPoint{
+			Time:           timestamp,
+			CPUUsed:        bucket.cpuUsed,
+			CPUTotal:       bucket.cpuTotal,
+			CPUPercent:     percent(bucket.cpuUsed, bucket.cpuTotal),
+			MemoryUsed:     bucket.memoryUsed,
+			MemoryTotal:    bucket.memoryTotal,
+			MemoryPercent:  percent(bucket.memoryUsed, bucket.memoryTotal),
+			StorageUsed:    bucket.storageUsed,
+			StorageTotal:   bucket.storageTotal,
+			StoragePercent: percent(bucket.storageUsed, bucket.storageTotal),
+		})
+	}
+
+	return points
 }
 
 func (c *Client) GetNodeRRDData(
@@ -153,14 +237,17 @@ func (c *Client) GetStorageRRDData(
 func (c *Client) GetClusterUsageHistory(
 	ctx context.Context,
 	timeframe string,
-) ([]ClusterUsageHistoryPoint, error) {
+) (ClusterUsageHistory, error) {
 	normalizedTimeframe := string(normalizeClusterUsageTimeframe(timeframe))
 	nodes, err := c.GetNodes(ctx)
 	if err != nil {
-		return nil, err
+		return ClusterUsageHistory{}, err
 	}
 	if len(nodes) == 0 {
-		return []ClusterUsageHistoryPoint{}, nil
+		return ClusterUsageHistory{
+			Points: []UsageHistoryPoint{},
+			Nodes:  []NodeUsageHistory{},
+		}, nil
 	}
 
 	results := make([]nodeHistoryResult, len(nodes))
@@ -224,78 +311,19 @@ func (c *Client) GetClusterUsageHistory(
 	}
 
 	if err := group.Wait(); err != nil {
-		return nil, err
+		return ClusterUsageHistory{}, err
 	}
 
-	buckets := make(map[int64]*usageBucket)
-	for _, result := range results {
-		defaultCPUTotal := float64(result.node.MaxCPU)
-		defaultMemoryTotal := float64(result.node.MaxMem)
-
-		for _, point := range result.usagePoints {
-			if point.Time <= 0 {
-				continue
-			}
-
-			bucket := buckets[point.Time]
-			if bucket == nil {
-				bucket = &usageBucket{}
-				buckets[point.Time] = bucket
-			}
-
-			cpuTotal := derefFloat(point.MaxCPU, defaultCPUTotal)
-			cpuUsed := derefFloat(point.CPU, 0) * cpuTotal
-			memoryTotal := derefFloat(point.MaxMem, defaultMemoryTotal)
-			memoryUsed := nodeMemoryUsed(point)
-
-			bucket.cpuTotal += cpuTotal
-			bucket.cpuUsed += cpuUsed
-			bucket.memoryTotal += memoryTotal
-			bucket.memoryUsed += memoryUsed
-		}
-
-		for _, storageHistory := range result.storagePoints {
-			for _, point := range storageHistory {
-				if point.Time <= 0 {
-					continue
-				}
-
-				bucket := buckets[point.Time]
-				if bucket == nil {
-					bucket = &usageBucket{}
-					buckets[point.Time] = bucket
-				}
-
-				bucket.storageTotal += derefFloat(point.Total, 0)
-				bucket.storageUsed += derefFloat(point.Used, 0)
-			}
+	nodeHistories := make([]NodeUsageHistory, len(results))
+	for index, result := range results {
+		nodeHistories[index] = NodeUsageHistory{
+			Node:   result.node.Node,
+			Points: buildUsageHistoryPoints([]nodeHistoryResult{result}),
 		}
 	}
 
-	times := make([]int64, 0, len(buckets))
-	for timestamp := range buckets {
-		times = append(times, timestamp)
-	}
-	sort.Slice(times, func(left, right int) bool {
-		return times[left] < times[right]
-	})
-
-	points := make([]ClusterUsageHistoryPoint, 0, len(times))
-	for _, timestamp := range times {
-		bucket := buckets[timestamp]
-		points = append(points, ClusterUsageHistoryPoint{
-			Time:           timestamp,
-			CPUUsed:        bucket.cpuUsed,
-			CPUTotal:       bucket.cpuTotal,
-			CPUPercent:     percent(bucket.cpuUsed, bucket.cpuTotal),
-			MemoryUsed:     bucket.memoryUsed,
-			MemoryTotal:    bucket.memoryTotal,
-			MemoryPercent:  percent(bucket.memoryUsed, bucket.memoryTotal),
-			StorageUsed:    bucket.storageUsed,
-			StorageTotal:   bucket.storageTotal,
-			StoragePercent: percent(bucket.storageUsed, bucket.storageTotal),
-		})
-	}
-
-	return points, nil
+	return ClusterUsageHistory{
+		Points: buildUsageHistoryPoints(results),
+		Nodes:  nodeHistories,
+	}, nil
 }

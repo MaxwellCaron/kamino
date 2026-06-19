@@ -107,9 +107,9 @@ export function InventoryTreeContent({
               {data.kind === "folder" && <TreeItemToggle />}
               {data.kind === "folder" ? (
                 item.isExpanded() ? (
-                  <IconFolderOpen className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
+                  <IconFolderOpen className="size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
                 ) : (
-                  <IconFolder className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
+                  <IconFolder className="size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
                 )
               ) : (
                 <VmIcon

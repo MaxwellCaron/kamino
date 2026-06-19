@@ -1,5 +1,5 @@
 import { Outlet, getRouteApi } from "@tanstack/react-router"
-import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { SidebarProvider } from "@workspace/ui/components/sidebar"
 import type { CSSProperties } from "react"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
@@ -7,6 +7,7 @@ import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { PodBreadcrumbs } from "@/features/pods/components/pod-breadcrumbs"
+import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
 
 const podsRouteApi = getRouteApi("/_pods")
 
@@ -39,16 +40,17 @@ export function PodsLayout() {
           variant="inset"
           mobileWidth={podIconRailMobileWidth}
         />
-        <SidebarInset>
-          <SiteHeader
-            breadcrumb={podBreadcrumbsElement}
-            command={commandManyItemsElement}
-            sidebarTrigger="mobile"
-          />
-          <div className="flex flex-1 flex-col">
-            <Outlet />
-          </div>
-        </SidebarInset>
+        <SiteLayoutInset
+          header={
+            <SiteHeader
+              breadcrumb={podBreadcrumbsElement}
+              command={commandManyItemsElement}
+              sidebarTrigger="mobile"
+            />
+          }
+        >
+          <Outlet />
+        </SiteLayoutInset>
       </InventoryDialogsProvider>
     </SidebarProvider>
   )

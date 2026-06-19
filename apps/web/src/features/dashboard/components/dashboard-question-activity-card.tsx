@@ -6,26 +6,23 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import {
+  HeatmapCells,
+  HeatmapChart,
+  HeatmapInteractionBoundary,
+  HeatmapInteractionProvider,
+  HeatmapLegend,
+  HeatmapTooltip,
+  HeatmapXAxis,
+  HeatmapYAxis,
+} from "@workspace/ui/components/charts/heatmap"
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import {
-  ContributionGraph,
-  ContributionGraphBlock,
-  ContributionGraphCalendar,
-  ContributionGraphFooter,
-  ContributionGraphLegend,
-  ContributionGraphTotalCount,
-} from "@workspace/ui/components/kibo-ui/contribution-graph"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
-import type { Activity } from "@workspace/ui/components/kibo-ui/contribution-graph"
+import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
 
 export function DashboardQuestionActivityCard({
   className,
@@ -33,7 +30,7 @@ export function DashboardQuestionActivityCard({
   error,
 }: {
   className?: string
-  data: Array<Activity>
+  data: Array<HeatmapColumn>
   error: Error | null
 }) {
   return (
@@ -46,7 +43,7 @@ export function DashboardQuestionActivityCard({
           Task questions answered by day.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex justify-center">
+      <CardContent className="min-w-0">
         {error ? (
           <Empty className="min-h-48 border border-dashed">
             <EmptyHeader>
@@ -55,64 +52,24 @@ export function DashboardQuestionActivityCard({
             </EmptyHeader>
           </Empty>
         ) : (
-          <ContributionGraph
-            data={data}
-            blockMargin={2}
-            blockSize={20}
-            fontSize={16}
-            labels={{
-              totalCount: "{{count}} questions answered in {{year}}",
-              legend: {
-                less: "Fewer",
-                more: "More",
-              },
-            }}
-          >
-            <ContributionGraphCalendar className="pb-2">
-              {({ activity, dayIndex, weekIndex }) => (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <ContributionGraphBlock
-                        activity={activity}
-                        dayIndex={dayIndex}
-                        weekIndex={weekIndex}
-                        className="transition-opacity outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                    }
-                  />
-                  <TooltipContent>
-                    {formatQuestionActivityTooltip(activity)}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </ContributionGraphCalendar>
-            <ContributionGraphFooter className="items-center text-xs">
-              <ContributionGraphTotalCount>
-                {({ totalCount }) =>
-                  `${totalCount} ${totalCount === 1 ? "question" : "questions"} answered in the last 6 months`
-                }
-              </ContributionGraphTotalCount>
-              <ContributionGraphLegend />
-            </ContributionGraphFooter>
-          </ContributionGraph>
+          <HeatmapInteractionProvider>
+            <HeatmapInteractionBoundary>
+              <HeatmapChart data={data} gap={2} layout="fluid" animate={false}>
+                <HeatmapCells cornerRadius={999} />
+                <HeatmapXAxis />
+                <HeatmapYAxis />
+                <HeatmapTooltip />
+              </HeatmapChart>
+              <HeatmapLegend
+                align="center"
+                cornerRadius={999}
+                gap={3}
+                className="pt-3"
+              />
+            </HeatmapInteractionBoundary>
+          </HeatmapInteractionProvider>
         )}
       </CardContent>
     </Card>
   )
-}
-
-function formatQuestionActivityTooltip(activity: Activity) {
-  const date = new Date(`${activity.date}T00:00:00`)
-  const formattedDate = date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-
-  if (activity.count === 0) {
-    return `No questions answered on ${formattedDate}`
-  }
-
-  return `${activity.count} ${activity.count === 1 ? "question" : "questions"} answered on ${formattedDate}`
 }

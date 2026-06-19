@@ -140,6 +140,7 @@ function AnimatedSliceTranslate({
         x: isHovered ? offset.x : 0,
         y: isHovered ? offset.y : 0,
       }}
+      initial={{ opacity: 1, x: 0, y: 0 }}
       d={animatedPath}
       fill={className ? undefined : fill}
       className={className}
@@ -246,6 +247,7 @@ function AnimatedSliceGrow({
       animate={{
         opacity: isFaded ? 0.4 : 1,
       }}
+      initial={{ opacity: 1 }}
       d={animatedPath}
       fill={className ? undefined : fill}
       className={className}
@@ -400,6 +402,7 @@ export function PieSlice({
             opacity: isFaded ? 0.4 : 1,
             d: grownPath,
           }}
+          initial={{ opacity: 1, d: hitboxPath }}
           d={hitboxPath}
           fill={className ? undefined : fill}
           className={className}
@@ -430,6 +433,7 @@ export function PieSlice({
           x: translateX,
           y: translateY,
         }}
+        initial={{ opacity: 1, x: 0, y: 0 }}
         d={hitboxPath}
         fill={className ? undefined : fill}
         className={className}

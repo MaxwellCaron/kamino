@@ -46,11 +46,8 @@ export function CountedTextareaInputGroup({
         className={cn("p-4", className)}
         {...props}
       />
-      <InputGroupAddon
-        align="block-end"
-        className="justify-end px-4 font-mono text-xs"
-      >
-        <InputGroupText className="ml-auto">
+      <InputGroupAddon align="block-end" className="px-4">
+        <InputGroupText className="ml-auto text-xs">
           {value.length}/{maxLength}
         </InputGroupText>
       </InputGroupAddon>
@@ -71,7 +68,10 @@ export function CountedTextareaField({
   ...props
 }: CountedTextareaFieldShellProps) {
   return (
-    <Field data-invalid={props.isInvalid || undefined} className={fieldClassName}>
+    <Field
+      data-invalid={props.isInvalid || undefined}
+      className={fieldClassName}
+    >
       <FieldLabel htmlFor={props.id}>{label}</FieldLabel>
       <FieldContent>
         <CountedTextareaInputGroup {...props} />

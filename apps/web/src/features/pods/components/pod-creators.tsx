@@ -17,11 +17,11 @@ function getCreatorLabel(creator: PodCreator) {
   return creator.label
 }
 
-function PodCreatorIcon({
+export function PodCreatorIcon({
   creator,
   size,
 }: {
-  creator: PodCreator
+  creator: Pick<PodCreator, "type" | "label">
   size: 24 | 32
 }) {
   if (creator.type === "group") {
@@ -32,7 +32,7 @@ function PodCreatorIcon({
     )
   }
 
-  return <FacehashIcon name={getCreatorLabel(creator)} size={size} />
+  return <FacehashIcon name={creator.label} size={size} />
 }
 
 function PodCreatorRow({ creator }: { creator: PodCreator }) {

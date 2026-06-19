@@ -8,9 +8,35 @@ import {
 } from "@workspace/ui/components/card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table"
+import {
   PageSkeleton,
   TableBlockSkeleton,
 } from "@/components/loading-skeletons"
+
+const overviewStatSkeletons = [
+  "users",
+  "groups",
+  "folders",
+  "vms",
+  "templates",
+  "requests",
+]
+
+const clusterChartSkeletons = [
+  { id: "cpu", labelWidth: "w-10", usageWidth: "w-24" },
+  { id: "memory", labelWidth: "w-16", usageWidth: "w-28" },
+  { id: "storage", labelWidth: "w-14", usageWidth: "w-32" },
+]
+
+const actionSkeletons = ["sync", "users", "groups", "requests"]
+const nodeRowSkeletons = ["node-1"]
 
 export function AdminDashboardSkeleton() {
   return (
@@ -42,9 +68,9 @@ function AdminOverviewSkeleton() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {Array.from({ length: 6 }, (_, index) => (
+          {overviewStatSkeletons.map((id) => (
             <div
-              key={index}
+              key={id}
               className="flex min-h-30 flex-col justify-between rounded-2xl bg-muted/50 p-4"
             >
               <div className="flex items-center gap-3">
@@ -80,40 +106,120 @@ function AdminClusterSkeleton() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] gap-6 py-3">
-          {Array.from({ length: 3 }, (_, index) => (
-            <div
-              key={index}
-              className="flex min-h-48 flex-col gap-4 rounded-3xl bg-muted/50 p-6"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="size-2 rounded-full" />
-                  <Skeleton className="h-4 w-20 rounded-md" />
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Skeleton className="h-8 w-16 rounded-md" />
-                  <Skeleton className="h-3.5 w-28 rounded-md" />
-                </div>
-              </div>
-              <Skeleton className="h-24 w-full rounded-lg" />
-            </div>
+          {clusterChartSkeletons.map((chart) => (
+            <Card key={chart.id} className="bg-muted/50 ring-0">
+              <CardContent>
+                <ClusterChartSkeleton
+                  labelWidth={chart.labelWidth}
+                  usageWidth={chart.usageWidth}
+                />
+              </CardContent>
+            </Card>
           ))}
         </div>
 
         <div className="-mx-6 mt-6 border-t">
-          <TableBlockSkeleton rows={3} />
+          <AdminNodeTableSkeleton />
         </div>
       </CardContent>
     </Card>
   )
 }
 
+function ClusterChartSkeleton({
+  labelWidth,
+  usageWidth,
+}: {
+  labelWidth: string
+  usageWidth: string
+}) {
+  return (
+    <section className="grid min-w-0 gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-2 shrink-0 rounded-full" />
+            <Skeleton className={`h-4 ${labelWidth} rounded-md`} />
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Skeleton className="h-8 w-16 rounded-md" />
+          <Skeleton className={`h-3.5 ${usageWidth} rounded-md`} />
+        </div>
+      </div>
+      <Skeleton
+        className="w-full rounded-lg"
+        style={{ aspectRatio: "2.8 / 1" }}
+      />
+    </section>
+  )
+}
+
+function AdminNodeTableSkeleton() {
+  return (
+    <Table className="table-fixed">
+      <colgroup>
+        <col style={{ width: "4.5rem" }} />
+        <col style={{ width: "6rem" }} />
+        <col />
+        <col />
+        <col />
+      </colgroup>
+      <TableHeader>
+        <TableRow className="bg-muted hover:bg-muted">
+          <TableHead className="pl-6 font-medium">Node</TableHead>
+          <TableHead className="px-4 font-medium">Status</TableHead>
+          <TableHead className="px-3">CPU</TableHead>
+          <TableHead className="px-3">Memory</TableHead>
+          <TableHead className="px-3 pr-6">Storage</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {nodeRowSkeletons.map((id) => (
+          <TableRow key={id}>
+            <TableCell className="pl-6">
+              <Skeleton className="h-5 w-14 rounded-md" />
+            </TableCell>
+            <TableCell className="px-4">
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </TableCell>
+            <TableCell className="px-3">
+              <NodeMetricSkeleton />
+            </TableCell>
+            <TableCell className="px-3">
+              <NodeMetricSkeleton />
+            </TableCell>
+            <TableCell className="px-3 pr-6">
+              <NodeMetricSkeleton />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function NodeMetricSkeleton() {
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-2">
+      <div className="grid min-h-4 grid-cols-[minmax(0,1fr)_3.5rem] items-center gap-2">
+        <Skeleton className="h-3.5 w-full rounded-md" />
+        <Skeleton className="h-3.5 w-10 justify-self-end rounded-md" />
+      </div>
+      <Skeleton
+        className="w-full rounded-md"
+        style={{ aspectRatio: "5 / 1" }}
+      />
+    </div>
+  )
+}
+
 function AdminActionsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 xl:col-span-5">
-      {Array.from({ length: 4 }, (_, index) => (
+      {actionSkeletons.map((id) => (
         <div
-          key={index}
+          key={id}
           className="flex min-h-18 items-center gap-4 rounded-3xl bg-card px-5 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
         >
           <Skeleton className="size-9 shrink-0 rounded-xl" />

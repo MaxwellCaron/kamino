@@ -1,8 +1,8 @@
 import { apiFetch } from "@/features/auth/api/auth-api"
 
-export type ClusterUsageHistoryTimeframe = "hour" | "day" | "week" | "month"
+export type UsageHistoryTimeframe = "hour" | "day" | "week" | "month"
 
-export type ApiClusterUsageHistoryPoint = {
+export type ApiUsageHistoryPoint = {
   time: number
   cpu_used: number
   cpu_total: number
@@ -15,12 +15,18 @@ export type ApiClusterUsageHistoryPoint = {
   storage_percent: number
 }
 
+export type ApiNodeUsageHistory = {
+  node: string
+  points: Array<ApiUsageHistoryPoint>
+}
+
 export type ApiClusterUsageHistoryResponse = {
-  points: Array<ApiClusterUsageHistoryPoint>
+  points: Array<ApiUsageHistoryPoint>
+  nodes: Array<ApiNodeUsageHistory>
 }
 
 export function clusterUsageHistoryQueryOptions(
-  timeframe: ClusterUsageHistoryTimeframe
+  timeframe: UsageHistoryTimeframe
 ) {
   return {
     queryKey: ["proxmox", "cluster", "usage-history", timeframe] as const,

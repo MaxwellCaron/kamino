@@ -7,18 +7,15 @@ import {
 } from "@workspace/ui/components/charts/tooltip"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { XAxis } from "@workspace/ui/components/charts/x-axis"
-import { formatPercent, percentage } from "../utils/admin-dashboard"
-import type { ClusterUsageHistoryTimeframe } from "../api/admin-metrics-api"
-import { formatBytes } from "@/features/shared/utils/format"
+import {
+  formatPercent,
+  formatUsageBytes,
+  percentage,
+} from "../utils/admin-dashboard"
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { CapacityHistoryPoint } from "../utils/admin-dashboard"
 
-type CapacityHistoryPoint = {
-  date: Date
-  value: number
-  used: number
-  total: number
-}
-
-function getXAxisConfig(timeframe: ClusterUsageHistoryTimeframe) {
+function getXAxisConfig(timeframe: UsageHistoryTimeframe) {
   switch (timeframe) {
     case "hour":
       return {
@@ -76,6 +73,89 @@ function formatTooltipTitle(dateValue: unknown) {
   })
 }
 
+function getClusterAspectRatio(timeframe: UsageHistoryTimeframe) {
+  return timeframe === "hour" || timeframe === "day" ? "2.8 / 1" : "2.4 / 1"
+}
+
+function getNodeAspectRatio(_timeframe: UsageHistoryTimeframe) {
+  return "5 / 1"
+}
+
+function UsageChartBody({
+  chartData,
+  color,
+  formatValue,
+  label,
+  timeframe,
+  aspectRatio,
+  compact = false,
+  showXAxis = true,
+}: {
+  chartData: Array<CapacityHistoryPoint>
+  color: string
+  formatValue: (value: number) => string
+  label: string
+  timeframe: UsageHistoryTimeframe
+  aspectRatio: string
+  compact?: boolean
+  showXAxis?: boolean
+}) {
+  const xAxisConfig = useMemo(() => getXAxisConfig(timeframe), [timeframe])
+  const margin = compact
+    ? showXAxis
+      ? { top: 4, right: 6, bottom: 18, left: 6 }
+      : { top: 4, right: 6, bottom: 4, left: 6 }
+    : { top: 8, right: 6, bottom: 28, left: 6 }
+
+  return (
+    <AreaChart
+      aspectRatio={aspectRatio}
+      className={compact ? "overflow-hidden" : undefined}
+      data={chartData}
+      margin={margin}
+    >
+      <Grid
+        fadeHorizontal={false}
+        numTicksRows={compact ? 2 : 3}
+        strokeDasharray="3,3"
+        strokeOpacity={0.5}
+      />
+      <Area
+        dataKey="value"
+        fadeEdges
+        fill={color}
+        fillOpacity={0.2}
+        gradientToOpacity={0.02}
+        showHighlight={false}
+        stroke={color}
+        strokeWidth={compact ? 1.5 : 2}
+      />
+      {showXAxis ? (
+        <XAxis
+          formatLabel={xAxisConfig.formatLabel}
+          numTicks={compact ? 2 : xAxisConfig.numTicks}
+          tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
+        />
+      ) : null}
+      <ChartTooltip
+        content={({ point }) => (
+          <TooltipContent
+            rows={[
+              {
+                color,
+                label,
+                value: `${formatPercent(Number(point.value ?? 0))} · ${formatValue(Number(point.used ?? 0))} / ${formatValue(Number(point.total ?? 0))}`,
+              },
+            ]}
+            title={formatTooltipTitle(point.date)}
+          />
+        )}
+        showDatePill={false}
+      />
+    </AreaChart>
+  )
+}
+
 export function UsageAreaChart({
   label,
   used,
@@ -85,17 +165,17 @@ export function UsageAreaChart({
   history,
   isLoading = false,
   unavailableMessage = "History unavailable.",
-  formatValue = formatBytes,
+  formatValue = formatUsageBytes,
 }: {
   label: string
   used: number
   total: number
   color: string
-  timeframe: ClusterUsageHistoryTimeframe
+  timeframe: UsageHistoryTimeframe
   history: Array<CapacityHistoryPoint>
   isLoading?: boolean
   unavailableMessage?: string
-  formatValue?: (v: number) => string
+  formatValue?: (value: number) => string
 }) {
   const percent = percentage(used, total)
   const chartData = useMemo(
@@ -108,7 +188,7 @@ export function UsageAreaChart({
       })),
     [history]
   )
-  const xAxisConfig = useMemo(() => getXAxisConfig(timeframe), [timeframe])
+  const aspectRatio = getClusterAspectRatio(timeframe)
 
   return (
     <section className="grid min-w-0 gap-3">
@@ -135,62 +215,16 @@ export function UsageAreaChart({
 
       <div className="min-w-0">
         {isLoading ? (
-          <Skeleton
-            className="w-full rounded-lg"
-            style={{
-              aspectRatio:
-                timeframe === "hour" || timeframe === "day"
-                  ? "2.8 / 1"
-                  : "2.4 / 1",
-            }}
-          />
+          <Skeleton className="w-full rounded-lg" style={{ aspectRatio }} />
         ) : chartData.length > 0 ? (
-          <AreaChart
-            aspectRatio={
-              timeframe === "hour" || timeframe === "day"
-                ? "2.8 / 1"
-                : "2.4 / 1"
-            }
-            data={chartData}
-            margin={{ top: 8, right: 6, bottom: 28, left: 6 }}
-          >
-            <Grid
-              fadeHorizontal={false}
-              numTicksRows={3}
-              strokeDasharray="3,3"
-              strokeOpacity={0.5}
-            />
-            <Area
-              dataKey="value"
-              fadeEdges
-              fill={color}
-              fillOpacity={0.2}
-              gradientToOpacity={0.02}
-              showHighlight={false}
-              stroke={color}
-              strokeWidth={2}
-            />
-            <XAxis
-              formatLabel={xAxisConfig.formatLabel}
-              numTicks={xAxisConfig.numTicks}
-              tickerHalfWidth={xAxisConfig.tickerHalfWidth}
-            />
-            <ChartTooltip
-              content={({ point }) => (
-                <TooltipContent
-                  rows={[
-                    {
-                      color,
-                      label,
-                      value: `${formatPercent(Number(point.value ?? 0))} · ${formatValue(Number(point.used ?? 0))} / ${formatValue(Number(point.total ?? 0))}`,
-                    },
-                  ]}
-                  title={formatTooltipTitle(point.date)}
-                />
-              )}
-              showDatePill={false}
-            />
-          </AreaChart>
+          <UsageChartBody
+            aspectRatio={aspectRatio}
+            chartData={chartData}
+            color={color}
+            formatValue={formatValue}
+            label={label}
+            timeframe={timeframe}
+          />
         ) : (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-center text-sm text-muted-foreground">
             {unavailableMessage}
@@ -198,5 +232,78 @@ export function UsageAreaChart({
         )}
       </div>
     </section>
+  )
+}
+
+export function NodeUsageAreaChart({
+  label,
+  used,
+  total,
+  color,
+  timeframe,
+  history,
+  isLoading = false,
+  unavailableMessage = "No history",
+  formatValue = formatUsageBytes,
+}: {
+  label: string
+  used: number
+  total: number
+  color: string
+  timeframe: UsageHistoryTimeframe
+  history: Array<CapacityHistoryPoint>
+  isLoading?: boolean
+  unavailableMessage?: string
+  formatValue?: (value: number) => string
+}) {
+  const percent = percentage(used, total)
+  const chartData = useMemo(
+    () =>
+      history.map((point) => ({
+        date: point.date,
+        value: point.value,
+        used: point.used,
+        total: point.total,
+      })),
+    [history]
+  )
+  const aspectRatio = getNodeAspectRatio(timeframe)
+
+  const usageLabel = `${formatValue(used)} / ${formatValue(total)}`
+
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-2">
+      <div className="grid min-h-4 grid-cols-[minmax(0,1fr)_3.5rem] items-center gap-2 text-xs leading-none">
+        <span className="truncate text-muted-foreground" title={usageLabel}>
+          {usageLabel}
+        </span>
+        <span className="text-right tabular-nums">
+          {formatPercent(percent)}
+        </span>
+      </div>
+      <div className="w-full overflow-hidden">
+        {isLoading ? (
+          <Skeleton className="w-full rounded-md" style={{ aspectRatio }} />
+        ) : chartData.length > 0 ? (
+          <UsageChartBody
+            aspectRatio={aspectRatio}
+            chartData={chartData}
+            color={color}
+            compact
+            formatValue={formatValue}
+            label={label}
+            showXAxis={false}
+            timeframe={timeframe}
+          />
+        ) : (
+          <div
+            className="flex w-full items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/20 px-2 text-center text-xs text-muted-foreground"
+            style={{ aspectRatio }}
+          >
+            {unavailableMessage}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

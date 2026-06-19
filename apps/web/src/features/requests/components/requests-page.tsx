@@ -96,10 +96,10 @@ export function RequestsPage() {
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
-      pending: "fill-yellow-600/75 dark:fill-yellow-400/75",
+      pending: "fill-amber-600/75 dark:fill-amber-400/75",
       approved: "fill-purple-600/75 dark:fill-purple-400/75",
       denied: "fill-red-600/75 dark:fill-red-400/75",
-      executed: "fill-green-600/75 dark:fill-green-400/75",
+      executed: "fill-emerald-600/75 dark:fill-emerald-400/75",
       execution_failed: "fill-orange-600/75 dark:fill-orange-400/75",
     }
 

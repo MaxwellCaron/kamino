@@ -1,3 +1,4 @@
+import type { ApiUsageHistoryPoint } from "../api/admin-metrics-api"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
@@ -8,9 +9,50 @@ export type Capacity = {
   used: number
 }
 
+export type CapacityHistoryPoint = {
+  date: Date
+  value: number
+  used: number
+  total: number
+}
+
+export function buildUsageHistorySeries(points: Array<ApiUsageHistoryPoint>) {
+  return {
+    cpu: points.map((point) => ({
+      date: new Date(point.time * 1000),
+      value: point.cpu_percent,
+      used: point.cpu_used,
+      total: point.cpu_total,
+    })),
+    memory: points.map((point) => ({
+      date: new Date(point.time * 1000),
+      value: point.memory_percent,
+      used: point.memory_used,
+      total: point.memory_total,
+    })),
+    storage: points.map((point) => ({
+      date: new Date(point.time * 1000),
+      value: point.storage_percent,
+      used: point.storage_used,
+      total: point.storage_total,
+    })),
+  }
+}
+
 export function percentage(used: number, total: number) {
-  if (total <= 0) return 0
-  return Math.min(100, Math.max(0, (used / total) * 100))
+  if (total <= 0 || !Number.isFinite(used) || !Number.isFinite(total)) {
+    return 0
+  }
+  const value = (used / total) * 100
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, value))
+}
+
+function formatDecimal(value: number) {
+  if (!Number.isFinite(value)) return "0"
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+  }).format(value)
 }
 
 function timestamp(value?: string | null) {
@@ -27,11 +69,30 @@ function requestTimestamp(request: ApiRequestSummary) {
 }
 
 export function formatPercent(value: number) {
-  return `${Math.round(value)}%`
+  if (!Number.isFinite(value)) return "0%"
+  const clamped = Math.min(100, Math.max(0, value))
+  return `${formatDecimal(clamped)}%`
 }
 
 export function formatCores(value: number) {
-  return `${value.toFixed(1)} CPU`
+  return `${formatDecimal(value)} CPU`
+}
+
+export function formatUsageBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return "0 B"
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"] as const
+  let value = bytes
+  let unitIndex = 0
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+
+  return `${formatDecimal(value)} ${units[unitIndex]}`
 }
 
 export function statusBadgeVariant(status: string): "default" | "destructive" {

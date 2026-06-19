@@ -59,13 +59,13 @@ export function SnapshotTableBody({
   toastDeleteSnapshot,
 }: SnapshotTableBodyProps) {
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence initial={false} mode="wait">
       <m.tbody
         key={isLoading ? "loading" : "loaded"}
         data-slot="table-body"
-        initial={hasBeenLoading ? { opacity: 0, height: 0 } : false}
-        animate={{ opacity: 1, height: "auto" }}
-        exit={{ opacity: 0, height: 0 }}
+        initial={hasBeenLoading ? { opacity: 0, y: 4 } : false}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -2 }}
         transition={loadingTransition}
         className="overflow-hidden [&_tr:last-child]:border-0"
       >

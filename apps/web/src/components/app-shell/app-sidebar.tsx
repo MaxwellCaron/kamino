@@ -152,16 +152,16 @@ const navGroupStyles = {
     indicator: "bg-foreground",
   },
   manager: {
-    rail: "bg-yellow-600/5 text-yellow-600 dark:bg-yellow-400/5 dark:text-yellow-400",
+    rail: "bg-amber-600/5 text-amber-600 dark:bg-amber-400/5 dark:text-amber-400",
     button:
-      "text-yellow-600 hover:bg-yellow-600/10 hover:text-yellow-700 active:bg-yellow-600/14 active:text-yellow-700 data-active:bg-yellow-600/14 data-active:text-yellow-700 dark:text-yellow-400 dark:hover:bg-yellow-400/10 dark:hover:text-yellow-300 dark:active:bg-yellow-400/14 dark:active:text-yellow-300 dark:data-active:bg-yellow-400/14 dark:data-active:text-yellow-300",
-    indicator: "bg-yellow-600 dark:bg-yellow-400",
+      "text-amber-600 hover:bg-amber-600/10 hover:text-amber-700 active:bg-amber-600/14 active:text-amber-700 data-active:bg-amber-600/14 data-active:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-400/10 dark:hover:text-amber-300 dark:active:bg-amber-400/14 dark:active:text-amber-300 dark:data-active:bg-amber-400/14 dark:data-active:text-amber-300",
+    indicator: "bg-amber-600 dark:bg-amber-400",
   },
   admin: {
-    rail: "bg-green-600/5 text-green-600 dark:bg-green-400/5 dark:text-green-400",
+    rail: "bg-emerald-600/5 text-emerald-600 dark:bg-emerald-400/5 dark:text-emerald-400",
     button:
-      "text-green-600 hover:bg-green-600/10 hover:text-green-700 active:bg-green-600/14 active:text-green-700 data-active:bg-green-600/14 data-active:text-green-700 dark:text-green-400 dark:hover:bg-green-400/10 dark:hover:text-green-300 dark:active:bg-green-400/14 dark:active:text-green-300 dark:data-active:bg-green-400/14 dark:data-active:text-green-300",
-    indicator: "bg-green-600 dark:bg-green-400",
+      "text-emerald-600 hover:bg-emerald-600/10 hover:text-emerald-700 active:bg-emerald-600/14 active:text-emerald-700 data-active:bg-emerald-600/14 data-active:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300 dark:active:bg-emerald-400/14 dark:active:text-emerald-300 dark:data-active:bg-emerald-400/14 dark:data-active:text-emerald-300",
+    indicator: "bg-emerald-600 dark:bg-emerald-400",
   },
 } as const satisfies Record<
   NavGroupKey,

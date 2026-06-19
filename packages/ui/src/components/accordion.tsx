@@ -55,14 +55,22 @@ function AccordionTrigger({
 }
 
 function AccordionContent({
+  animated = true,
   className,
   children,
   ...props
-}: AccordionPrimitive.Panel.Props) {
+}: AccordionPrimitive.Panel.Props & {
+  animated?: boolean
+}) {
   return (
     <AccordionPrimitive.Panel
       data-slot="accordion-content"
-      className="overflow-hidden px-4 text-sm data-open:animate-accordion-down data-closed:animate-accordion-up"
+      className={cn(
+        "overflow-hidden px-4 text-sm",
+        animated
+          ? "data-open:animate-accordion-down data-closed:animate-accordion-up"
+          : "data-open:animation-none data-closed:animation-none"
+      )}
       {...props}
     >
       <div

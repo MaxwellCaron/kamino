@@ -7,7 +7,7 @@ import {
   transformerNotationHighlight,
   transformerNotationWordHighlight,
 } from "@shikijs/transformers"
-import { IconCheck, IconCopy } from "@tabler/icons-react"
+import { IconCheck, IconCode, IconCopy } from "@tabler/icons-react"
 import { createBundledHighlighter } from "shiki/core"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 import {
@@ -18,76 +18,6 @@ import {
   useMemo,
   useState,
 } from "react"
-import {
-  SiAstro,
-  SiBiome,
-  SiBower,
-  SiBun,
-  SiC,
-  SiCircleci,
-  SiCoffeescript,
-  SiCplusplus,
-  SiCss,
-  SiCssmodules,
-  SiDart,
-  SiDocker,
-  SiDocusaurus,
-  SiDotenv,
-  SiEditorconfig,
-  SiEslint,
-  SiGatsby,
-  SiGitignoredotio,
-  SiGnubash,
-  SiGo,
-  SiGraphql,
-  SiGrunt,
-  SiGulp,
-  SiHandlebarsdotjs,
-  SiHtml5,
-  SiJavascript,
-  SiJest,
-  SiJson,
-  SiLess,
-  SiMarkdown,
-  SiMdx,
-  SiMintlify,
-  SiMocha,
-  SiMysql,
-  SiNextdotjs,
-  SiPerl,
-  SiPhp,
-  SiPostcss,
-  SiPrettier,
-  SiPrisma,
-  SiPug,
-  SiPython,
-  SiR,
-  SiReact,
-  SiReadme,
-  SiRedis,
-  SiRemix,
-  SiRive,
-  SiRollupdotjs,
-  SiRuby,
-  SiSanity,
-  SiSass,
-  SiScala,
-  SiSentry,
-  SiShadcnui,
-  SiStorybook,
-  SiStylelint,
-  SiSublimetext,
-  SiSvelte,
-  SiSvg,
-  SiSwift,
-  SiTailwindcss,
-  SiToml,
-  SiTypescript,
-  SiVercel,
-  SiVite,
-  SiVuedotjs,
-  SiWebassembly,
-} from "react-icons/si"
 import { Button } from "@workspace/ui/components/button"
 import {
   Select,
@@ -98,165 +28,28 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { cn } from "@workspace/ui/lib/utils"
-import type { IconType } from "react-icons"
 import type { BundledLanguage } from "shiki"
 import type { CodeOptionsMultipleThemes } from "shiki/core"
-import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
+import type {
+  ComponentProps,
+  ComponentType,
+  HTMLAttributes,
+  ReactNode,
+} from "react"
 
 export type { BundledLanguage } from "shiki"
 
-const filenameIconMap = {
-  ".env": SiDotenv,
-  "*.astro": SiAstro,
-  "biome.json": SiBiome,
-  ".bowerrc": SiBower,
-  "bun.lockb": SiBun,
-  "*.c": SiC,
-  "*.cpp": SiCplusplus,
-  ".circleci/config.yml": SiCircleci,
-  "*.coffee": SiCoffeescript,
-  "*.module.css": SiCssmodules,
-  "*.css": SiCss,
-  "*.dart": SiDart,
-  Dockerfile: SiDocker,
-  "docusaurus.config.js": SiDocusaurus,
-  ".editorconfig": SiEditorconfig,
-  ".eslintrc": SiEslint,
-  "eslint.config.*": SiEslint,
-  "gatsby-config.*": SiGatsby,
-  ".gitignore": SiGitignoredotio,
-  "*.go": SiGo,
-  "*.graphql": SiGraphql,
-  "*.sh": SiGnubash,
-  "Gruntfile.*": SiGrunt,
-  "gulpfile.*": SiGulp,
-  "*.hbs": SiHandlebarsdotjs,
-  "*.html": SiHtml5,
-  "*.js": SiJavascript,
-  "*.json": SiJson,
-  "*.test.js": SiJest,
-  "*.less": SiLess,
-  "*.md": SiMarkdown,
-  "*.mdx": SiMdx,
-  "mintlify.json": SiMintlify,
-  "mocha.opts": SiMocha,
-  "*.mustache": SiHandlebarsdotjs,
-  "*.sql": SiMysql,
-  "next.config.*": SiNextdotjs,
-  "*.pl": SiPerl,
-  "*.php": SiPhp,
-  "postcss.config.*": SiPostcss,
-  "prettier.config.*": SiPrettier,
-  "*.prisma": SiPrisma,
-  "*.pug": SiPug,
-  "*.py": SiPython,
-  "*.r": SiR,
-  "*.rb": SiRuby,
-  "*.jsx": SiReact,
-  "*.tsx": SiReact,
-  "readme.md": SiReadme,
-  "*.rdb": SiRedis,
-  "remix.config.*": SiRemix,
-  "*.riv": SiRive,
-  "rollup.config.*": SiRollupdotjs,
-  "sanity.config.*": SiSanity,
-  "*.sass": SiSass,
-  "*.scss": SiSass,
-  "*.sc": SiScala,
-  "*.scala": SiScala,
-  "sentry.client.config.*": SiSentry,
-  "components.json": SiShadcnui,
-  "storybook.config.*": SiStorybook,
-  "stylelint.config.*": SiStylelint,
-  ".sublime-settings": SiSublimetext,
-  "*.svelte": SiSvelte,
-  "*.svg": SiSvg,
-  "*.swift": SiSwift,
-  "tailwind.config.*": SiTailwindcss,
-  "*.toml": SiToml,
-  "*.ts": SiTypescript,
-  "vercel.json": SiVercel,
-  "vite.config.*": SiVite,
-  "*.vue": SiVuedotjs,
-  "*.wasm": SiWebassembly,
-}
+type CodeBlockIcon = ComponentType<{ className?: string }>
 
-const languageIconMap: Record<string, IconType> = {
-  astro: SiAstro,
-  bash: SiGnubash,
-  biome: SiBiome,
-  bun: SiBun,
-  c: SiC,
-  coffee: SiCoffeescript,
-  coffeescript: SiCoffeescript,
-  cpp: SiCplusplus,
-  css: SiCss,
-  dart: SiDart,
-  docker: SiDocker,
-  dockerfile: SiDocker,
-  dotenv: SiDotenv,
-  env: SiDotenv,
-  go: SiGo,
-  graphql: SiGraphql,
-  handlebars: SiHandlebarsdotjs,
-  hbs: SiHandlebarsdotjs,
-  html: SiHtml5,
-  javascript: SiJavascript,
-  js: SiJavascript,
-  json: SiJson,
-  jsx: SiReact,
-  less: SiLess,
-  markdown: SiMarkdown,
-  md: SiMarkdown,
-  mdx: SiMdx,
-  mysql: SiMysql,
-  perl: SiPerl,
-  php: SiPhp,
-  postcss: SiPostcss,
-  prisma: SiPrisma,
-  pug: SiPug,
-  py: SiPython,
-  python: SiPython,
-  r: SiR,
-  rb: SiRuby,
-  ruby: SiRuby,
-  sass: SiSass,
-  sc: SiScala,
-  scala: SiScala,
-  scss: SiSass,
-  sh: SiGnubash,
-  shell: SiGnubash,
-  shellscript: SiGnubash,
-  sql: SiMysql,
-  svelte: SiSvelte,
-  svg: SiSvg,
-  swift: SiSwift,
-  tailwind: SiTailwindcss,
-  tailwindcss: SiTailwindcss,
-  toml: SiToml,
-  ts: SiTypescript,
-  tsx: SiReact,
-  typescript: SiTypescript,
-  vue: SiVuedotjs,
-  wasm: SiWebassembly,
-  zsh: SiGnubash,
-}
-
-function getLanguageIcon(language?: string) {
-  return language ? languageIconMap[language.toLowerCase()] : undefined
-}
-
-function getFilenameIcon(filename: ReactNode) {
-  if (typeof filename !== "string") {
-    return undefined
+function getCodeBlockHeaderIcon(
+  value?: string,
+  filename?: ReactNode
+): CodeBlockIcon | undefined {
+  if (value !== undefined) {
+    return IconCode
   }
 
-  return Object.entries(filenameIconMap).find(([pattern]) => {
-    const regex = new RegExp(
-      `^${pattern.replace(/\\/g, "\\\\").replace(/\./g, "\\.").replace(/\*/g, ".*")}$`
-    )
-    return regex.test(filename)
-  })?.[1]
+  return typeof filename === "string" && filename.length > 0 ? IconCode : undefined
 }
 
 const lineNumberClassNames = cn(
@@ -360,10 +153,6 @@ const highlightThemeLoaders = {
 type HighlightLanguage = keyof typeof highlightLanguageLoaders
 type HighlightTheme = keyof typeof highlightThemeLoaders
 
-const highlightLanguageNames = Object.keys(
-  highlightLanguageLoaders
-) as Array<HighlightLanguage>
-
 const languageAliases: Record<string, HighlightLanguage> = {
   dockerfile: "docker",
   js: "javascript",
@@ -385,11 +174,27 @@ const createHighlighter = createBundledHighlighter<
   themes: highlightThemeLoaders,
 })
 
-const highlighterPromise = createHighlighter({
-  langs: highlightLanguageNames,
-  langAlias: languageAliases,
-  themes: ["github-light", "github-dark-default"],
-})
+const highlighterPromises = new Map<
+  HighlightLanguage,
+  ReturnType<typeof createHighlighter>
+>()
+
+function getHighlighter(language: HighlightLanguage) {
+  const existingHighlighter = highlighterPromises.get(language)
+
+  if (existingHighlighter) {
+    return existingHighlighter
+  }
+
+  const nextHighlighter = createHighlighter({
+    langs: [language],
+    langAlias: languageAliases,
+    themes: ["github-light", "github-dark-default"],
+  })
+  highlighterPromises.set(language, nextHighlighter)
+
+  return nextHighlighter
+}
 
 function getHighlightLanguage(language?: string): HighlightLanguage | null {
   const normalized = language?.toLowerCase()
@@ -416,7 +221,7 @@ const highlight = (
     return Promise.resolve(null)
   }
 
-  return highlighterPromise.then((highlighter) =>
+  return getHighlighter(highlightLanguage).then((highlighter) =>
     highlighter.codeToHtml(html, {
       lang: highlightLanguage,
       themes: themes ?? {
@@ -553,7 +358,7 @@ export const CodeBlockFiles = ({
 }
 
 export type CodeBlockFilenameProps = HTMLAttributes<HTMLDivElement> & {
-  icon?: IconType
+  icon?: CodeBlockIcon
   value?: string
 }
 
@@ -565,8 +370,7 @@ export const CodeBlockFilename = ({
   ...props
 }: CodeBlockFilenameProps) => {
   const { value: activeValue } = useContext(CodeBlockContext)
-  const defaultIcon =
-    value === undefined ? getFilenameIcon(children) : getLanguageIcon(value)
+  const defaultIcon = getCodeBlockHeaderIcon(value, children)
   const Icon = icon ?? defaultIcon
 
   if (value !== activeValue) {

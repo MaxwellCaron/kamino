@@ -43,7 +43,7 @@ function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
       <div className="flex flex-col gap-0.5">
         <div className={treePreviewRowClass}>
           <IconChevronDown className="size-4 text-muted-foreground" />
-          <IconFolderOpen className="fill-size-4 size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
+          <IconFolderOpen className="fill-size-4 size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
           <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
         </div>
 

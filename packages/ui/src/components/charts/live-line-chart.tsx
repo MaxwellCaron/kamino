@@ -13,7 +13,9 @@ import {
 } from "react"
 import { cn } from "@workspace/ui/lib/utils"
 import { ChartProvider } from "./chart-context"
+import { DEFAULT_Y_AXIS_ID, wrapSingleYScale } from "./y-axis-scales"
 import type { LineConfig, Margin, TooltipData } from "./chart-context"
+import type { YDomain } from "./y-domain-utils"
 import type { LiveLineProps } from "./live-line"
 import type { CSSProperties, ReactNode, RefObject } from "react"
 
@@ -452,11 +454,24 @@ function LiveLineChartInner({
     return innerWidth / (contextData.length - 1)
   }, [innerWidth, contextData.length])
 
+  const yDomainByAxis = useMemo(() => {
+    const domain = yScale.domain()
+    const yDomain: YDomain =
+      domain.length === 2 &&
+      typeof domain[0] === "number" &&
+      typeof domain[1] === "number"
+        ? [domain[0], domain[1]]
+        : [0, 100]
+    return { [DEFAULT_Y_AXIS_ID]: yDomain }
+  }, [yScale])
+
   const contextValue = useMemo(
     () => ({
       data: contextData,
+      renderData: contextData,
       xScale,
       yScale,
+      yScales: wrapSingleYScale(yScale),
       width,
       height,
       innerWidth,
@@ -467,6 +482,12 @@ function LiveLineChartInner({
       setTooltipData,
       containerRef,
       lines,
+      referenceAreas: [],
+      chartPhase: "ready" as const,
+      chartStatus: "ready" as const,
+      yDomainTweenDuration: 0,
+      yDomainSkeletonByAxis: yDomainByAxis,
+      yDomainTargetByAxis: yDomainByAxis,
       isLoaded: true,
       animationDuration: 0,
       xAccessor,
@@ -485,6 +506,7 @@ function LiveLineChartInner({
       tooltipData,
       containerRef,
       lines,
+      yDomainByAxis,
       xAccessor,
       dateLabels,
     ]

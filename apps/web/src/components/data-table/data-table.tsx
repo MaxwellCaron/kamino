@@ -12,7 +12,11 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { AnimatePresence, m } from "motion/react"
-import { Input } from "@workspace/ui/components/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import {
   Select,
   SelectContent,
@@ -22,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { IconX } from "@tabler/icons-react"
+import { IconSearch, IconX } from "@tabler/icons-react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import {
@@ -117,13 +121,18 @@ export function DataTable<TData, TValue>({
   return (
     <div>
       <div className="flex items-center justify-between gap-6 px-6">
-        <Input
-          placeholder="Search..."
-          value={globalFilter}
-          onChange={(e) => table.setGlobalFilter(String(e.target.value))}
-          className="max-w-sm"
-          disabled={notReady}
-        />
+        <InputGroup className="max-w-sm">
+          <InputGroupAddon>
+            <IconSearch />
+          </InputGroupAddon>
+          <InputGroupInput
+            placeholder="Search..."
+            value={globalFilter}
+            onChange={(e) => table.setGlobalFilter(String(e.target.value))}
+            disabled={notReady}
+          />
+        </InputGroup>
+
         <div className="flex items-center gap-2">
           <p className="hidden text-sm font-medium lg:block">Rows per page</p>
           <Select
@@ -178,15 +187,15 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ))}
           </m.thead>
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false} mode="wait">
             <m.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
               initial={
-                hasBeenLoading.current ? { opacity: 0, height: 0 } : false
+                hasBeenLoading.current ? { opacity: 0, y: 4 } : false
               }
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -2 }}
               transition={loadingTransition}
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
@@ -196,11 +205,14 @@ export function DataTable<TData, TValue>({
                     <TableCell className="pl-6">
                       <Skeleton className="size-5 rounded" />
                     </TableCell>
-                    {table.getAllLeafColumns().slice(1).map((column) => (
-                      <TableCell key={column.id}>
-                        <Skeleton className="h-6 w-3/4 rounded" />
-                      </TableCell>
-                    ))}
+                    {table
+                      .getAllLeafColumns()
+                      .slice(1)
+                      .map((column) => (
+                        <TableCell key={column.id}>
+                          <Skeleton className="h-6 w-3/4 rounded" />
+                        </TableCell>
+                      ))}
                   </TableRow>
                 ))
               ) : table.getRowModel().rows.length ? (

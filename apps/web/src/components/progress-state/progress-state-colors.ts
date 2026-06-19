@@ -27,10 +27,10 @@ export const FAILED_PROGRESS_COLORS: ProgressStepColors = {
 }
 
 export const COMPLETE_PROGRESS_COLORS: ProgressStepColors = {
-  text: "text-green-600 dark:text-green-400",
-  border: "border-green-600 dark:border-green-400",
-  bg: "bg-green-600 dark:bg-green-400",
-  soft: "bg-green-600/10 dark:bg-green-400/10",
+  text: "text-emerald-600 dark:text-emerald-400",
+  border: "border-emerald-600 dark:border-emerald-400",
+  bg: "bg-emerald-600 dark:bg-emerald-400",
+  soft: "bg-emerald-600/10 dark:bg-emerald-400/10",
 }
 
 export function getProgressStepColors(stepId?: number): ProgressStepColors {

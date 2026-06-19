@@ -132,7 +132,7 @@ function FavoriteItemCard({
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-3xl bg-muted/50 ring-1 ring-border transition-all group-hover/favorite:ring-muted-foreground/20">
         {isFolder ? (
-          <IconFolder className="size-4 fill-yellow-600/20 text-yellow-600 dark:fill-yellow-400/20 dark:text-yellow-400" />
+          <IconFolder className="size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
         ) : (
           <VmIcon status={status} isTemplate={isTemplate} />
         )}

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   Accordion,
   AccordionContent,
@@ -100,14 +101,14 @@ export function PodTasks({
                           isCompleted == null
                             ? "text-muted-foreground"
                             : isCompleted
-                              ? "text-green-600 dark:text-green-400"
+                              ? "text-emerald-600 dark:text-emerald-400"
                               : "text-red-600 dark:text-red-400"
                         )}
                       >
                         Task {index + 1}
                       </span>
                       {isCompleted === true && (
-                        <IconCircleCheckFilled className="size-4 text-green-600 dark:text-green-400" />
+                        <IconCircleCheckFilled className="size-4 text-emerald-600 dark:text-emerald-400" />
                       )}
                       {isCompleted === false && (
                         <IconCircleXFilled className="size-4 text-red-600 dark:text-red-400" />
@@ -116,11 +117,14 @@ export function PodTasks({
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
+                <AccordionContent
+                  animated={false}
+                  className="px-2 pt-4 pb-6 md:px-6"
+                >
                   <div className="flex flex-col gap-6">
                     <MarkdownContent>{task.content}</MarkdownContent>
 
-                    {task.questions && (
+                    {task.questions && task.questions.length > 0 && (
                       <PodTaskQuestions
                         questions={task.questions}
                         clonedPodId={clonedPodId}

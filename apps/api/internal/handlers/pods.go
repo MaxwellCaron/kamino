@@ -32,7 +32,8 @@ import (
 const (
 	podsFolderName                 = "Pods"
 	templatesFolderName            = "Templates"
-	publishedPodTemplateFolderName = "Pod-Templates"
+	podVirtualMachinesFolderName   = "a0-Virtual-Machines"
+	publishedPodTemplateFolderName = "a1-Templates"
 
 	// publishCloneConcurrency bounds how many Pod VMs are cloned at once.
 	publishCloneConcurrency = 2
@@ -919,12 +920,21 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	if !requireInventoryPermission(c, h.Authz, principalID, podFolderID, authorization.CreateFolder) {
+		return
+	}
+
+	vmFolderID, err := h.Service.CreateFolder(c.Request.Context(), podFolderID, podVirtualMachinesFolderName)
+	if err != nil {
+		writeInventoryError(c, err)
+		return
+	}
 
 	if len(specs) > 0 {
-		if !requireInventoryPermission(c, h.Authz, principalID, podFolderID, authorization.CreateVM) {
+		if !requireInventoryPermission(c, h.Authz, principalID, vmFolderID, authorization.CreateVM) {
 			return
 		}
-		if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), podFolderID, int32(len(specs))); err != nil {
+		if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs))); err != nil {
 			writeInventoryError(c, err)
 			return
 		}
@@ -932,7 +942,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 
 	createdVMs := make([]createPodVMResponse, 0, len(specs))
 	if len(specs) > 0 {
-		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), podFolderID)
+		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), vmFolderID)
 		if err != nil {
 			writeInventoryError(c, err)
 			return
@@ -990,6 +1000,14 @@ func (h *PodsHandler) publishPodFolders(
 		publishedPodFolderIDs[row.SourceFolderID] = struct{}{}
 	}
 
+	return buildPublishPodFolderOptions(rows, podsFolderID, publishedPodFolderIDs), nil
+}
+
+func buildPublishPodFolderOptions(
+	rows []database.GetVisibleInventoryItemsForPrincipalRow,
+	podsFolderID uuid.UUID,
+	publishedPodFolderIDs map[uuid.UUID]struct{},
+) []publishPodFolderOption {
 	rowsByID := make(map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow, len(rows))
 	for _, row := range rows {
 		rowsByID[row.ID] = row
@@ -1016,6 +1034,23 @@ func (h *PodsHandler) publishPodFolders(
 		}
 	}
 
+	vmFolderToPodRoot := make(map[uuid.UUID]uuid.UUID)
+	for _, row := range rows {
+		if row.Kind != database.InventoryItemKindFolder {
+			continue
+		}
+		if row.Name != podVirtualMachinesFolderName {
+			continue
+		}
+		if row.ParentID == nil {
+			continue
+		}
+		if _, ok := folders[*row.ParentID]; !ok {
+			continue
+		}
+		vmFolderToPodRoot[row.ID] = *row.ParentID
+	}
+
 	for _, row := range rows {
 		if row.Kind != database.InventoryItemKindVm || row.ParentID == nil {
 			continue
@@ -1027,8 +1062,12 @@ func (h *PodsHandler) publishPodFolders(
 			continue
 		}
 
-		folder, ok := folders[*row.ParentID]
+		podRootID, ok := vmFolderToPodRoot[*row.ParentID]
 		if !ok {
+			continue
+		}
+		folder := folders[podRootID]
+		if folder == nil {
 			continue
 		}
 		folder.VirtualMachines = append(folder.VirtualMachines, publishPodVMOption{
@@ -1060,7 +1099,7 @@ func (h *PodsHandler) publishPodFolders(
 		return options[i].Path < options[j].Path
 	})
 
-	return options, nil
+	return options
 }
 
 func (h *PodsHandler) savePublishedPod(
