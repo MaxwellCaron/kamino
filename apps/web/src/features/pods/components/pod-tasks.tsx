@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   Accordion,
   AccordionContent,
@@ -116,7 +117,10 @@ export function PodTasks({
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="px-2 pt-4 pb-6 md:px-6">
+                <AccordionContent
+                  animated={false}
+                  className="px-2 pt-4 pb-6 md:px-6"
+                >
                   <div className="flex flex-col gap-6">
                     <MarkdownContent>{task.content}</MarkdownContent>
 
