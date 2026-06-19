@@ -105,7 +105,7 @@ export function getPublishedPodsColumns({
           pod.slug,
           pod.description,
           pod.status,
-          ...(pod.creators ?? []).map((c) => c.label),
+          ...pod.creators.map((c) => c.label),
         ]
           .filter(Boolean)
           .join(" "),
