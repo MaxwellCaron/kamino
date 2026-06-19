@@ -1,11 +1,12 @@
 import * as React from "react"
 import {
-  IconDeviceDesktopPlus,
+  IconCubePlus,
   IconNetwork,
   IconUserPlus,
   IconUsersPlus,
 } from "@tabler/icons-react"
-import { Button } from "@workspace/ui/components/button"
+import { Link } from "@tanstack/react-router"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
 import { UserDialog } from "@/features/principals/components/users/user-dialog"
@@ -32,10 +33,13 @@ export function AdminDashboardActionButtons() {
             <IconNetwork data-icon="inline-start" />
             Create VNets
           </Button>
-          <Button variant="outline" disabled>
-            <IconDeviceDesktopPlus data-icon="inline-start" />
-            Clone VM
-          </Button>
+          <Link
+            to="/pods/create"
+            className={`${buttonVariants({ variant: "outline" })} h-full min-h-14`}
+          >
+            <IconCubePlus data-icon="inline-start" />
+            Create Pod
+          </Link>
         </CardContent>
       </Card>
 
