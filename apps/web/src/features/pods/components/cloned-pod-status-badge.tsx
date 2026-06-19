@@ -4,9 +4,9 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
-import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
 import { Separator } from "@workspace/ui/components/separator"
 import { IconInfoCircle } from "@tabler/icons-react"
+import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
 
 type ClonedPodStatusConfig = {
   status: ClonedPodStatus
@@ -18,7 +18,7 @@ const clonedPodStatuses = [
   "running",
   "partial",
   "stopped",
-] as const satisfies readonly ClonedPodStatus[]
+] as const satisfies ReadonlyArray<ClonedPodStatus>
 
 const statusMap: Record<ClonedPodStatus, ClonedPodStatusConfig> = {
   running: {
