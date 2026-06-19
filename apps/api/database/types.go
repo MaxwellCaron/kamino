@@ -419,6 +419,7 @@ type ClonedPods struct {
 	PodID           uuid.UUID          `json:"pod_id"`
 	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
 	FolderID        uuid.UUID          `json:"folder_id"`
+	NetworkNumber   int32              `json:"network_number"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }

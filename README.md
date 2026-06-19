@@ -107,6 +107,13 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_ADMIN_GROUP_DN` | no | — | DN of the Kamino admins group |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
+| `POD_CLONE_VNET_PREFIX` | no | `kamino` | Prefix for pre-created clone VNets |
+| `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
+| `POD_CLONE_NETWORK_MAX` | no | `244` | Last published-clone network number |
+| `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for router readiness and guest-agent steps |
+| `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
+| `POD_ROUTER_INTERNAL_IP_BASE` | no | — | Optional internal subnet prefix shown in clone metadata |
+| `POD_ROUTER_VYOS_SCRIPT_PATH` | no | `/config/scripts/vyos-postconfig-bootup.script` | VyOS post-clone script path inside the router VM |
 
 ## Security notes
 

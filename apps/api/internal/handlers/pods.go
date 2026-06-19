@@ -43,6 +43,16 @@ const (
 	cloneVMIDAllocationAttempts = 25
 )
 
+type PodRouterCloneConfig struct {
+	VNetPrefix        string
+	NetworkMin        int32
+	NetworkMax        int32
+	RouterWaitTimeout time.Duration
+	WANIPBase         string
+	InternalIPBase    string
+	VYOSScriptPath    string
+}
+
 type PodsHandler struct {
 	PX                   *proxmox.Client
 	Importer             *proxmox.InventoryImporter
@@ -52,6 +62,7 @@ type PodsHandler struct {
 	Notifier             *vmstatus.Notifier
 	Actions              *vmactions.Executor
 	RouterTemplateItemID uuid.UUID
+	RouterCloneConfig    PodRouterCloneConfig
 }
 
 type publishedPodPrincipalResponse struct {
@@ -189,6 +200,15 @@ type publishedPodCloneTaskSummaryResponse struct {
 	Progress  float64 `json:"progress"`
 }
 
+type clonedPodNetworkResponse struct {
+	Number          int32   `json:"number"`
+	VNet            string  `json:"vnet"`
+	ExternalSubnet  string  `json:"external_subnet"`
+	ExternalGateway string  `json:"external_gateway"`
+	InternalSubnet  *string `json:"internal_subnet,omitempty"`
+	InternalGateway *string `json:"internal_gateway,omitempty"`
+}
+
 type publishedPodCloneResponse struct {
 	ID          uuid.UUID                            `json:"id"`
 	PodID       uuid.UUID                            `json:"pod_id"`
@@ -196,6 +216,7 @@ type publishedPodCloneResponse struct {
 	ClonedAt    time.Time                            `json:"cloned_at"`
 	UpdatedAt   time.Time                            `json:"updated_at"`
 	Status      string                               `json:"status"`
+	Network     clonedPodNetworkResponse             `json:"network"`
 	VMCount     int32                                `json:"vm_count"`
 	TaskSummary publishedPodCloneTaskSummaryResponse `json:"task_summary"`
 }
@@ -689,6 +710,7 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			ClonedAt:  s.CreatedAt.Time,
 			UpdatedAt: s.UpdatedAt.Time,
 			Status:    clonedPodRuntimeStatus(vmStatusList),
+			Network:   h.clonedPodNetworkMetadata(s.NetworkNumber),
 			VMCount:   int32(s.VmCount),
 			TaskSummary: publishedPodCloneTaskSummaryResponse{
 				Total:     s.TaskTotal,

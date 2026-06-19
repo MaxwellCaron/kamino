@@ -220,6 +220,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -243,6 +244,7 @@ func (q *Queries) GetAccessibleClonedPodByID(ctx context.Context, arg GetAccessi
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -255,6 +257,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -282,6 +285,7 @@ func (q *Queries) GetAccessibleClonedPodByPodID(ctx context.Context, arg GetAcce
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -294,6 +298,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -308,6 +313,7 @@ func (q *Queries) GetClonedPodByID(ctx context.Context, id uuid.UUID) (ClonedPod
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -320,6 +326,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -340,6 +347,7 @@ func (q *Queries) GetClonedPodForPrincipalByID(ctx context.Context, arg GetClone
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -352,6 +360,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -372,6 +381,7 @@ func (q *Queries) GetClonedPodForPrincipalByPodID(ctx context.Context, arg GetCl
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -563,26 +573,52 @@ func (q *Queries) GetVisiblePublishedPodBySlug(ctx context.Context, arg GetVisib
 }
 
 const insertClonedPod = `-- name: InsertClonedPod :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020001)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series($5::INTEGER, $6::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
 INSERT INTO cloned_pods (
     id,
     pod_id,
     user_principal_id,
-    folder_id
-) VALUES ($1, $2, $3, $4)
+    folder_id,
+    network_number
+)
+SELECT
+    $1,
+    $2,
+    $3,
+    $4,
+    candidate.network_number
+FROM candidate
 RETURNING
     id,
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 `
 
 type InsertClonedPodParams struct {
-	ID              uuid.UUID `json:"id"`
-	PodID           uuid.UUID `json:"pod_id"`
-	UserPrincipalID uuid.UUID `json:"user_principal_id"`
-	FolderID        uuid.UUID `json:"folder_id"`
+	ID               uuid.UUID `json:"id"`
+	PodID            uuid.UUID `json:"pod_id"`
+	UserPrincipalID  uuid.UUID `json:"user_principal_id"`
+	FolderID         uuid.UUID `json:"folder_id"`
+	MinNetworkNumber int32     `json:"min_network_number"`
+	MaxNetworkNumber int32     `json:"max_network_number"`
 }
 
 func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (ClonedPods, error) {
@@ -591,6 +627,8 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		arg.PodID,
 		arg.UserPrincipalID,
 		arg.FolderID,
+		arg.MinNetworkNumber,
+		arg.MaxNetworkNumber,
 	)
 	var i ClonedPods
 	err := row.Scan(
@@ -598,6 +636,7 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -899,6 +938,7 @@ SELECT
     COALESCE(NULLIF(p.name, ''), p.external_id) AS user_label,
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -924,6 +964,7 @@ GROUP BY
     p.external_id,
     p.description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 ORDER BY cp.created_at DESC
@@ -937,6 +978,7 @@ type ListClonedPodSummariesByPodIDRow struct {
 	UserLabel       string             `json:"user_label"`
 	UserDescription string             `json:"user_description"`
 	FolderID        uuid.UUID          `json:"folder_id"`
+	NetworkNumber   int32              `json:"network_number"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	VmCount         int32              `json:"vm_count"`
@@ -961,6 +1003,7 @@ func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.
 			&i.UserLabel,
 			&i.UserDescription,
 			&i.FolderID,
+			&i.NetworkNumber,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VmCount,
@@ -1074,6 +1117,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -1095,6 +1139,7 @@ func (q *Queries) ListClonedPodsByPodID(ctx context.Context, podID uuid.UUID) ([
 			&i.PodID,
 			&i.UserPrincipalID,
 			&i.FolderID,
+			&i.NetworkNumber,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

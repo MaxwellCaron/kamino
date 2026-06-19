@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/google/uuid"
 )
@@ -106,5 +107,122 @@ func TestManagerCloneFolderName(t *testing.T) {
 				t.Errorf("group folder %q should not end with UUID suffix %q", got, suffix)
 			}
 		})
+	}
+}
+
+func TestClonedPodVNetName(t *testing.T) {
+	handler := &PodsHandler{
+		RouterCloneConfig: PodRouterCloneConfig{
+			VNetPrefix: "kamino",
+		},
+	}
+	if got := handler.clonedPodVNetName(17); got != "kamino17" {
+		t.Fatalf("clonedPodVNetName() = %q, want %q", got, "kamino17")
+	}
+
+	handler.RouterCloneConfig.VNetPrefix = "  lab- "
+	if got := handler.clonedPodVNetName(17); got != "lab-17" {
+		t.Fatalf("clonedPodVNetName() trimmed prefix = %q, want %q", got, "lab-17")
+	}
+}
+
+func TestClonedPodNetworkMetadata(t *testing.T) {
+	handler := &PodsHandler{
+		RouterCloneConfig: PodRouterCloneConfig{
+			VNetPrefix:     "kamino",
+			WANIPBase:      "172.16.",
+			InternalIPBase: "10.128.",
+		},
+	}
+
+	got := handler.clonedPodNetworkMetadata(24)
+	if got.Number != 24 || got.VNet != "kamino24" {
+		t.Fatalf("metadata identity = %#v", got)
+	}
+	if got.ExternalSubnet != "172.16.24.0/24" || got.ExternalGateway != "172.16.24.1" {
+		t.Fatalf("external metadata = %#v", got)
+	}
+	if got.InternalSubnet == nil || *got.InternalSubnet != "10.128.24.0/24" {
+		t.Fatalf("internal subnet = %#v", got.InternalSubnet)
+	}
+	if got.InternalGateway == nil || *got.InternalGateway != "10.128.24.1" {
+		t.Fatalf("internal gateway = %#v", got.InternalGateway)
+	}
+
+	handler.RouterCloneConfig.InternalIPBase = ""
+	got = handler.clonedPodNetworkMetadata(24)
+	if got.InternalSubnet != nil || got.InternalGateway != nil {
+		t.Fatalf("internal metadata should be omitted, got %#v", got)
+	}
+}
+
+func TestRouterConfigCommandsVYOS(t *testing.T) {
+	commands, err := routerConfigCommands(24, PodRouterCloneConfig{
+		WANIPBase:      "172.16",
+		VYOSScriptPath: "/config/scripts/vyos-postconfig-bootup.script",
+	})
+	if err != nil {
+		t.Fatalf("routerConfigCommands() error = %v", err)
+	}
+	if len(commands) != 1 {
+		t.Fatalf("len(commands) = %d, want 1", len(commands))
+	}
+
+	command := commands[0]
+	if len(command) != 5 {
+		t.Fatalf("len(command) = %d, want 5", len(command))
+	}
+	if command[0] != "sed" || command[1] != "-i" || command[2] != "-e" {
+		t.Fatalf("command prefix = %#v", command[:3])
+	}
+	if !strings.Contains(command[3], "s/{{THIRD_OCTET}}/24/g") {
+		t.Fatalf("replacement missing network number: %q", command[3])
+	}
+	if !strings.Contains(command[3], "s/{{NETWORK_PREFIX}}/172.16./g") {
+		t.Fatalf("replacement missing normalized base: %q", command[3])
+	}
+	if command[4] != "/config/scripts/vyos-postconfig-bootup.script" {
+		t.Fatalf("script path = %q", command[4])
+	}
+}
+
+func TestIsPublishedPodRouterVM(t *testing.T) {
+	trueCases := []string{"router", " Router ", "ROUTER"}
+	for _, name := range trueCases {
+		if !isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: name}) {
+			t.Fatalf("expected %q to be recognized as router", name)
+		}
+	}
+
+	falseCases := []string{"vyos", "pfsense", "router-1", "pod-router"}
+	for _, name := range falseCases {
+		if isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: name}) {
+			t.Fatalf("expected %q not to be recognized as router", name)
+		}
+	}
+}
+
+func TestFindClonedRouterRequiresExactlyOneRouter(t *testing.T) {
+	routerResult := clonePublishedVMResult{
+		published: database.ListPublishedPodVMsForCloneRow{Name: "router"},
+		router:    true,
+	}
+	otherResult := clonePublishedVMResult{
+		published: database.ListPublishedPodVMsForCloneRow{Name: "workstation"},
+	}
+
+	found, reqErr := findClonedRouter([]clonePublishedVMResult{otherResult, routerResult})
+	if reqErr != nil {
+		t.Fatalf("findClonedRouter() error = %v", reqErr)
+	}
+	if found == nil || !found.router || found.published.Name != "router" {
+		t.Fatalf("findClonedRouter() = %#v", found)
+	}
+
+	if _, reqErr := findClonedRouter([]clonePublishedVMResult{otherResult}); reqErr == nil {
+		t.Fatalf("expected error when router is missing")
+	}
+	if _, reqErr := findClonedRouter([]clonePublishedVMResult{routerResult, routerResult}); reqErr == nil {
+		t.Fatalf("expected error when multiple routers are present")
 	}
 }

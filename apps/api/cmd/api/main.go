@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/auth"
@@ -29,24 +31,31 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port               string `envconfig:"PORT" default:":8080"`
-	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
-	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
-	LDAPUrl            string `envconfig:"LDAP_URL"`
-	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN   string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	PodRouterTemplate  string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+	Port                    string `envconfig:"PORT" default:":8080"`
+	FrontendURL             string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL             string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL              string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID          string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret      string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure         bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes            string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret               string `envconfig:"JWT_SECRET" required:"true"`
+	LDAPUrl                 string `envconfig:"LDAP_URL"`
+	LDAPBindDN              string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword        string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN        string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU              string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU             string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN        string `envconfig:"LDAP_ADMIN_GROUP_DN"`
+	LDAPInsecure            bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	PodRouterTemplate       string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+	PodCloneVNetPrefix      string `envconfig:"POD_CLONE_VNET_PREFIX" default:"kamino"`
+	PodCloneNetworkMin      int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
+	PodCloneNetworkMax      int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"244"`
+	PodRouterWait           string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
+	PodRouterWANIPBase      string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
+	PodRouterLANIPBase      string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:""`
+	PodRouterVYOSScriptPath string `envconfig:"POD_ROUTER_VYOS_SCRIPT_PATH" default:"/config/scripts/vyos-postconfig-bootup.script"`
 }
 
 // Server holds all application dependencies
@@ -84,6 +93,92 @@ func parseOptionalUUID(value string) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+func normalizeDottedPrefix(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	trimmed = strings.TrimSuffix(trimmed, ".")
+	segments := strings.Split(trimmed, ".")
+	if len(segments) == 0 {
+		return "", fmt.Errorf("must be a dotted numeric prefix")
+	}
+
+	for _, segment := range segments {
+		if strings.TrimSpace(segment) == "" {
+			return "", fmt.Errorf("must be a dotted numeric prefix")
+		}
+		octet, err := strconv.Atoi(segment)
+		if err != nil || octet < 0 || octet > 255 {
+			return "", fmt.Errorf("must be a dotted numeric prefix")
+		}
+	}
+
+	return strings.Join(segments, ".") + ".", nil
+}
+
+func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, error) {
+	vnetPrefix := strings.TrimSpace(config.PodCloneVNetPrefix)
+	if vnetPrefix == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_VNET_PREFIX must not be empty")
+	}
+	if config.PodCloneNetworkMin < 1 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be at least 1")
+	}
+	if config.PodCloneNetworkMax > 254 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MAX must be at most 254")
+	}
+	if config.PodCloneNetworkMin > config.PodCloneNetworkMax {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be less than or equal to POD_CLONE_NETWORK_MAX")
+	}
+
+	waitTimeout, err := time.ParseDuration(strings.TrimSpace(config.PodRouterWait))
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAIT_TIMEOUT: %w", err)
+	}
+	if waitTimeout <= 0 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAIT_TIMEOUT must be positive")
+	}
+
+	wanIPBase, err := normalizeDottedPrefix(config.PodRouterWANIPBase)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAN_IP_BASE: %w", err)
+	}
+	internalIPBase, err := normalizeDottedPrefix(config.PodRouterLANIPBase)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_IP_BASE: %w", err)
+	}
+
+	vyosScriptPath := strings.TrimSpace(config.PodRouterVYOSScriptPath)
+	if vyosScriptPath == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_VYOS_SCRIPT_PATH must not be empty")
+	}
+
+	routerConfig := handlers.PodRouterCloneConfig{
+		VNetPrefix:        vnetPrefix,
+		NetworkMin:        config.PodCloneNetworkMin,
+		NetworkMax:        config.PodCloneNetworkMax,
+		RouterWaitTimeout: waitTimeout,
+		WANIPBase:         wanIPBase,
+		InternalIPBase:    internalIPBase,
+		VYOSScriptPath:    vyosScriptPath,
+	}
+
+	log.Printf(
+		"Published pod clone networking configured: prefix=%q range=%d-%d wait_timeout=%s",
+		routerConfig.VNetPrefix,
+		routerConfig.NetworkMin,
+		routerConfig.NetworkMax,
+		routerConfig.RouterWaitTimeout,
+	)
+	if routerConfig.NetworkMin == 1 && routerConfig.NetworkMax == 244 {
+		log.Printf("Published pod clone networking reserves 245-254 for creator/developer workflows")
+	}
+
+	return routerConfig, nil
 }
 
 func resolveConfiguredAdminGroup(
@@ -216,6 +311,10 @@ func main() {
 	if err := envconfig.Process("", &config); err != nil {
 		log.Fatalf("Failed to process environment configuration: %v", err)
 	}
+	routerCloneConfig, err := buildPodRouterCloneConfig(&config)
+	if err != nil {
+		log.Fatalf("Invalid pod router clone configuration: %v", err)
+	}
 
 	// Initialize server with all dependencies
 	server, err := newServer(&config)
@@ -332,6 +431,7 @@ func main() {
 		Notifier:             vmStatusNotifier,
 		Actions:              vmActionExecutor,
 		RouterTemplateItemID: routerTemplateItemID,
+		RouterCloneConfig:    routerCloneConfig,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,

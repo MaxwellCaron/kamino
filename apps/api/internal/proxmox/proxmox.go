@@ -73,6 +73,11 @@ type ISOContent struct {
 	Size   int64  `json:"size"`
 }
 
+type StorageContent struct {
+	VolID string `json:"volid"`
+	Size  int64  `json:"size"`
+}
+
 // VNet represents a Software Defined Network virtual network.
 type VNet struct {
 	VNet  string `json:"vnet"`
@@ -138,4 +143,11 @@ type VMConfigSummary struct {
 	CPUCount     int32
 	MemoryMB     int32
 	DiskGB       float64
+}
+
+type GuestExecStatus struct {
+	Exited   bool   `json:"exited"`
+	ExitCode int    `json:"exitcode"`
+	OutData  string `json:"out-data"`
+	ErrData  string `json:"err-data"`
 }

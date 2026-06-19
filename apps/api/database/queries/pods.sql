@@ -379,6 +379,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -391,6 +392,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -413,6 +415,7 @@ SELECT
     COALESCE(NULLIF(p.name, ''), p.external_id) AS user_label,
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -438,6 +441,7 @@ GROUP BY
     p.external_id,
     p.description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 ORDER BY cp.created_at DESC;
@@ -448,6 +452,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -460,6 +465,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -487,6 +493,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -499,6 +506,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -509,17 +517,41 @@ WHERE cp.id = sqlc.arg(id)
   );
 
 -- name: InsertClonedPod :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020001)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
 INSERT INTO cloned_pods (
     id,
     pod_id,
     user_principal_id,
-    folder_id
-) VALUES ($1, $2, $3, $4)
+    folder_id,
+    network_number
+)
+SELECT
+    sqlc.arg(id),
+    sqlc.arg(pod_id),
+    sqlc.arg(user_principal_id),
+    sqlc.arg(folder_id),
+    candidate.network_number
+FROM candidate
 RETURNING
     id,
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at;
 

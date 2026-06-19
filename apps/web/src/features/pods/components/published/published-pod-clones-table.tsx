@@ -176,6 +176,7 @@ export function PublishedPodClonesTable({
                     <TableHead className="pl-7">Principal</TableHead>
                     <TableHead>Cloned</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="min-w-72">Network</TableHead>
                     <TableHead>VMs</TableHead>
                     <TableHead>Tasks</TableHead>
                     <TableHead className="w-12" />
@@ -204,6 +205,30 @@ export function PublishedPodClonesTable({
                       </TableCell>
                       <TableCell>
                         <ClonedPodStatusBadge status={clone.status} />
+                      </TableCell>
+                      <TableCell className="min-w-72">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="w-fit tabular-nums"
+                            >
+                              Network {clone.network.number}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              VNet{" "}
+                              <span className="font-mono tabular-nums">
+                                {clone.network.vnet}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="font-mono text-xs text-muted-foreground tabular-nums break-all">
+                            {clone.network.external_subnet}
+                            {clone.network.internal_subnet
+                              ? ` -> ${clone.network.internal_subnet}`
+                              : ""}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm tabular-nums">
                         {clone.vm_count}

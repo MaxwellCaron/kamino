@@ -491,10 +491,12 @@ CREATE TABLE cloned_pods (
     pod_id              UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
     user_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
     folder_id           UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    network_number      INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (pod_id, user_principal_id),
-    UNIQUE (folder_id)
+    UNIQUE (folder_id),
+    UNIQUE (network_number)
 );
 
 CREATE INDEX ix_cloned_pods_user_created_at

@@ -60,6 +60,15 @@ export interface PodVM {
 
 export type ClonedPodStatus = "running" | "stopped" | "partial"
 
+export interface ClonedPodNetwork {
+  number: number
+  vnet: string
+  external_subnet: string
+  external_gateway: string
+  internal_subnet?: string
+  internal_gateway?: string
+}
+
 // User-owned runtime instance of a pod.
 export interface ClonedPod {
   id: UUID
@@ -67,6 +76,7 @@ export interface ClonedPod {
   owner: PublishedPodCloneOwner
   cloned_at: string
   status: ClonedPodStatus
+  network: ClonedPodNetwork
   vms: Array<PodVM>
   task_summary: ClonedPodTaskSummary
   task_states: Array<ClonedPodTaskState>
@@ -121,6 +131,7 @@ export interface PublishedPodCloneSummary {
   cloned_at: string
   updated_at: string
   status: ClonedPodStatus
+  network: ClonedPodNetwork
   vm_count: number
   task_summary: ClonedPodTaskSummary
 }
