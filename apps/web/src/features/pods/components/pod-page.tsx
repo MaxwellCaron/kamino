@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ClonePodDialog } from "./clone/clone-pod-dialog"
-import { PodNetworkSummary } from "./pod-network-summary"
 import { PodTasks } from "./pod-tasks"
 import { PodHeader } from "./pod-header"
 import { PodVms } from "./pod-vms"
@@ -61,9 +60,11 @@ export function PodPage({
 
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
             {localClonedPod && (
-              <PodNetworkSummary network={localClonedPod.network} />
+              <PodVms
+                network={localClonedPod.network}
+                vms={localClonedPod.vms}
+              />
             )}
-            {localClonedPod && <PodVms vms={localClonedPod.vms} />}
             <PodTasks
               tasks={pod.tasks ?? []}
               clonedPodId={localClonedPod?.id}

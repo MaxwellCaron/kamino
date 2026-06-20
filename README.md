@@ -110,11 +110,13 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_CLONE_VNET_PREFIX` | no | `kamino` | Prefix for pre-created clone VNets |
 | `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
 | `POD_CLONE_NETWORK_MAX` | no | `244` | Last published-clone network number |
-| `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for router readiness and VyOS API finalization |
+| `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
 | `POD_ROUTER_INTERNAL_IP_BASE` | no | `10.128.` | Internal subnet prefix used for cloned pod router addressing |
-| `POD_ROUTER_VYOS_API_KEY` | no | — | Shared VyOS HTTPS API key used to finalize cloned routers |
-| `POD_ROUTER_VYOS_INSECURE` | no | `true` | Skip VyOS HTTPS certificate verification for self-signed router certs |
+| `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
+| `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
+| `POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN` | no | `kamino-router-{network}-meta-data.yaml` | Meta-data snippet filename pattern for the allocated network number |
+| `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
 
 ## Security notes
 

@@ -77,6 +77,126 @@ func TestSetVMNetworkBridgePreservesNICShape(t *testing.T) {
 	}
 }
 
+func TestSetVMCloudInitCustomSendsExpectedPayload(t *testing.T) {
+	var (
+		putForm url.Values
+		putPath string
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPut && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse form: %v", err)
+			}
+			putPath = r.URL.Path
+			putForm = r.PostForm
+			writeAPIResponse(t, w, http.StatusOK, nil)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	if err := client.SetVMCloudInitCustom(
+		context.Background(),
+		"node1",
+		101,
+		"local",
+		"kamino-router-24-user-data.yaml",
+		"kamino-router-24-meta-data.yaml",
+		"kamino-router-network-config.yaml",
+	); err != nil {
+		t.Fatalf("SetVMCloudInitCustom() error = %v", err)
+	}
+
+	if putPath == "" {
+		t.Fatalf("expected PUT request")
+	}
+	if got := putForm.Get("citype"); got != "nocloud" {
+		t.Fatalf("citype payload = %q", got)
+	}
+	if got := putForm.Get("cicustom"); got != "user=local:snippets/kamino-router-24-user-data.yaml,meta=local:snippets/kamino-router-24-meta-data.yaml,network=local:snippets/kamino-router-network-config.yaml" {
+		t.Fatalf("cicustom payload = %q", got)
+	}
+}
+
+func TestEnsureVMCloudInitDrive(t *testing.T) {
+	t.Run("configured", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet || r.URL.Path != "/api2/json/nodes/node1/qemu/101/config" {
+				t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+			}
+			writeAPIResponse(t, w, http.StatusOK, map[string]any{
+				"ide2": "local-lvm:cloudinit",
+				"net0": "virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0",
+			})
+		}))
+		defer server.Close()
+
+		client := newTestClient(server)
+		if err := client.EnsureVMCloudInitDrive(context.Background(), "node1", 101); err != nil {
+			t.Fatalf("EnsureVMCloudInitDrive() error = %v", err)
+		}
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet || r.URL.Path != "/api2/json/nodes/node1/qemu/101/config" {
+				t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+			}
+			writeAPIResponse(t, w, http.StatusOK, map[string]any{
+				"scsi0": "local-lvm:vm-101-disk-0,size=10G",
+			})
+		}))
+		defer server.Close()
+
+		client := newTestClient(server)
+		err := client.EnsureVMCloudInitDrive(context.Background(), "node1", 101)
+		if err == nil {
+			t.Fatalf("expected missing cloud-init drive error")
+		}
+		if got := err.Error(); got != "VM 101 has no cloud-init drive configured" {
+			t.Fatalf("EnsureVMCloudInitDrive() error = %q", got)
+		}
+	})
+}
+
+func TestGetVMRuntimeStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api2/json/nodes/node1/qemu/101/status/current" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+		}
+		writeAPIResponse(t, w, http.StatusOK, map[string]any{"status": "stopped"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	status, err := client.GetVMRuntimeStatus(context.Background(), "node1", 101)
+	if err != nil {
+		t.Fatalf("GetVMRuntimeStatus() error = %v", err)
+	}
+	if status != "stopped" {
+		t.Fatalf("GetVMRuntimeStatus() = %q, want %q", status, "stopped")
+	}
+}
+
+func TestWaitForVMRuntimeStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api2/json/nodes/node1/qemu/101/status/current" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+		}
+		writeAPIResponse(t, w, http.StatusOK, map[string]any{"status": "running"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	if err := client.WaitForVMRuntimeStatus(context.Background(), "node1", 101, "running", 3*time.Second); err != nil {
+		t.Fatalf("WaitForVMRuntimeStatus() error = %v", err)
+	}
+}
+
 func TestWaitForVMConfigUnlocked(t *testing.T) {
 	var mu sync.Mutex
 	requests := 0

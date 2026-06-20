@@ -215,6 +215,66 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	return c.filterVMs(resp.Data), nil
 }
 
+// GetVMRuntimeStatus returns the node-local QEMU runtime status for a VM.
+func (c *Client) GetVMRuntimeStatus(ctx context.Context, node string, vmid int) (string, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return "", err
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/current", node, vmid)
+	var resp apiResponse[map[string]any]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return "", fmt.Errorf("fetching VM runtime status: %w", err)
+	}
+
+	status := strings.ToLower(strings.TrimSpace(getStringValue(resp.Data["status"])))
+	if status == "" {
+		return "", fmt.Errorf("VM %d runtime status response did not include status", vmid)
+	}
+	return status, nil
+}
+
+// WaitForVMRuntimeStatus polls the node-local QEMU runtime status until it matches.
+func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, node string, vmid int, expected string, timeout time.Duration) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+	expected = strings.ToLower(strings.TrimSpace(expected))
+	if expected == "" {
+		return fmt.Errorf("expected status is required")
+	}
+	if timeout <= 0 {
+		return fmt.Errorf("timeout must be positive")
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	lastStatus := ""
+	for {
+		status, err := c.GetVMRuntimeStatus(waitCtx, node, vmid)
+		if err != nil {
+			return err
+		}
+		lastStatus = status
+		if status == expected {
+			return nil
+		}
+
+		select {
+		case <-waitCtx.Done():
+			if lastStatus == "" {
+				return fmt.Errorf("waiting for VM %d to reach %s: %w", vmid, expected, waitCtx.Err())
+			}
+			return fmt.Errorf("waiting for VM %d to reach %s: last status %q: %w", vmid, expected, lastStatus, waitCtx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
 // GetVMConfig returns the raw Proxmox config for a VM.
 func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (map[string]any, error) {
 	if err := c.requireAllowedNode(node); err != nil {
@@ -627,6 +687,93 @@ func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid in
 		case <-ticker.C:
 		}
 	}
+}
+
+func validateCloudInitSnippetFileName(filename string) error {
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		return fmt.Errorf("filename is required")
+	}
+	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		return fmt.Errorf("filename must not contain path separators")
+	}
+	if strings.Contains(filename, "..") {
+		return fmt.Errorf("filename must not contain '..'")
+	}
+	for _, r := range filename {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			return fmt.Errorf("filename must not contain whitespace")
+		}
+	}
+	return nil
+}
+
+// EnsureVMCloudInitDrive verifies the VM has a cloud-init disk configured.
+func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range data {
+		if strings.Contains(strings.ToLower(getStringValue(value)), "cloudinit") {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("VM %d has no cloud-init drive configured", vmid)
+}
+
+// SetVMCloudInitCustom points a VM's NoCloud config at pre-created Proxmox snippets.
+func (c *Client) SetVMCloudInitCustom(
+	ctx context.Context,
+	node string,
+	vmid int,
+	storage string,
+	userFile string,
+	metaFile string,
+	networkFile string,
+) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	storage = strings.TrimSpace(storage)
+	if storage == "" {
+		return fmt.Errorf("storage is required")
+	}
+	if err := validateCloudInitSnippetFileName(userFile); err != nil {
+		return fmt.Errorf("invalid user cloud-init snippet filename: %w", err)
+	}
+	if err := validateCloudInitSnippetFileName(metaFile); err != nil {
+		return fmt.Errorf("invalid meta cloud-init snippet filename: %w", err)
+	}
+	if err := validateCloudInitSnippetFileName(networkFile); err != nil {
+		return fmt.Errorf("invalid network cloud-init snippet filename: %w", err)
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	cicustom := fmt.Sprintf(
+		"user=%s:snippets/%s,meta=%s:snippets/%s,network=%s:snippets/%s",
+		storage,
+		userFile,
+		storage,
+		metaFile,
+		storage,
+		networkFile,
+	)
+	if err := c.put(ctx, path, map[string]string{
+		"citype":   "nocloud",
+		"cicustom": cicustom,
+	}, nil); err != nil {
+		return fmt.Errorf("updating VM cloud-init custom config: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, device string, bridge string) error {

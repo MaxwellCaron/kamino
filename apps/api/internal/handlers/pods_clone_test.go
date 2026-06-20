@@ -6,7 +6,6 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
-	"github.com/MaxwellCaron/kamino/internal/vyos"
 	"github.com/google/uuid"
 )
 
@@ -151,66 +150,80 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 	}
 }
 
-func TestBuildClonedRouterRESTConfig(t *testing.T) {
-	config, err := buildClonedRouterRESTConfig(24, PodRouterCloneConfig{
-		WANIPBase:      "172.16",
-		InternalIPBase: "10.128.",
+func TestBuildClonedRouterCloudInitConfig(t *testing.T) {
+	config, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
+		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
 	})
 	if err != nil {
-		t.Fatalf("buildClonedRouterRESTConfig() error = %v", err)
+		t.Fatalf("buildClonedRouterCloudInitConfig() error = %v", err)
 	}
-	if config.APIAddress != "172.16.24.1" {
-		t.Fatalf("APIAddress = %q, want %q", config.APIAddress, "172.16.24.1")
+	if config.Storage != "local" {
+		t.Fatalf("Storage = %q, want %q", config.Storage, "local")
 	}
-	if config.ExternalAddress != "172.16.24.1/24" {
-		t.Fatalf("ExternalAddress = %q, want %q", config.ExternalAddress, "172.16.24.1/24")
+	if config.UserFile != "kamino-router-24-user-data.yaml" {
+		t.Fatalf("UserFile = %q, want %q", config.UserFile, "kamino-router-24-user-data.yaml")
 	}
-	if config.InternalAddress != "10.128.24.1/24" {
-		t.Fatalf("InternalAddress = %q, want %q", config.InternalAddress, "10.128.24.1/24")
+	if config.MetaFile != "kamino-router-24-meta-data.yaml" {
+		t.Fatalf("MetaFile = %q, want %q", config.MetaFile, "kamino-router-24-meta-data.yaml")
 	}
-	if config.ExternalSubnet != "172.16.24.0/24" {
-		t.Fatalf("ExternalSubnet = %q, want %q", config.ExternalSubnet, "172.16.24.0/24")
-	}
-	if config.InternalSubnet != "10.128.24.0/24" {
-		t.Fatalf("InternalSubnet = %q, want %q", config.InternalSubnet, "10.128.24.0/24")
-	}
-
-	requiredOps := []vyos.ConfigureOperation{
-		{Op: "delete", Path: []string{"interfaces", "ethernet", "eth0", "address"}},
-		{Op: "delete", Path: []string{"interfaces", "ethernet", "eth1", "address"}},
-		{Op: "set", Path: []string{"interfaces", "ethernet", "eth0", "address", "172.16.24.1/24"}},
-		{Op: "set", Path: []string{"interfaces", "ethernet", "eth1", "address", "10.128.24.1/24"}},
-		{Op: "set", Path: []string{"nat", "destination", "rule", "2000", "destination", "address", "172.16.24.0/24"}},
-		{Op: "set", Path: []string{"nat", "destination", "rule", "2000", "translation", "address", "10.128.24.0/24"}},
-		{Op: "set", Path: []string{"nat", "source", "rule", "2000", "source", "address", "10.128.24.0/24"}},
-		{Op: "set", Path: []string{"nat", "source", "rule", "2000", "translation", "address", "172.16.24.0/24"}},
-	}
-	for _, operation := range requiredOps {
-		if !hasRouterOperation(config.Operations, operation) {
-			t.Fatalf("missing operation %#v in %#v", operation, config.Operations)
-		}
+	if config.NetworkFile != "kamino-router-network-config.yaml" {
+		t.Fatalf("NetworkFile = %q, want %q", config.NetworkFile, "kamino-router-network-config.yaml")
 	}
 }
 
-func hasRouterOperation(operations []vyos.ConfigureOperation, want vyos.ConfigureOperation) bool {
-	for _, operation := range operations {
-		if operation.Op != want.Op || len(operation.Path) != len(want.Path) {
-			continue
-		}
+func TestBuildClonedRouterCloudInitConfigSupportsCustomPatterns(t *testing.T) {
+	config, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local-zfs",
+		CloudInitUserFilePattern: "lab-router-{network}-userdata.yml",
+		CloudInitMetaFilePattern: "lab-router-{network}-metadata.yml",
+		CloudInitNetworkFile:     "lab-router-network.yml",
+	})
+	if err != nil {
+		t.Fatalf("buildClonedRouterCloudInitConfig() error = %v", err)
+	}
+	if config.Storage != "local-zfs" {
+		t.Fatalf("Storage = %q, want %q", config.Storage, "local-zfs")
+	}
+	if config.UserFile != "lab-router-24-userdata.yml" {
+		t.Fatalf("UserFile = %q, want %q", config.UserFile, "lab-router-24-userdata.yml")
+	}
+	if config.MetaFile != "lab-router-24-metadata.yml" {
+		t.Fatalf("MetaFile = %q, want %q", config.MetaFile, "lab-router-24-metadata.yml")
+	}
+	if config.NetworkFile != "lab-router-network.yml" {
+		t.Fatalf("NetworkFile = %q, want %q", config.NetworkFile, "lab-router-network.yml")
+	}
+}
 
-		match := true
-		for index := range want.Path {
-			if operation.Path[index] != want.Path[index] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
+func TestBuildClonedRouterCloudInitConfigRejectsInvalidPatterns(t *testing.T) {
+	_, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-user-data.yaml",
+		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
+	})
+	if err == nil {
+		t.Fatalf("expected invalid user-data pattern error")
+	}
+	if !strings.Contains(err.Error(), "pattern must contain {network} exactly once") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	return false
+	_, err = buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
+		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-{network}-network-config.yaml",
+	})
+	if err == nil {
+		t.Fatalf("expected invalid network-config filename error")
+	}
+	if !strings.Contains(err.Error(), "must not contain {network}") {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestIsPublishedPodRouterVM(t *testing.T) {

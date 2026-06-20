@@ -17,7 +17,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
-	"github.com/MaxwellCaron/kamino/internal/vyos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -31,6 +30,8 @@ const (
 	cloneProgressStepCloning  = 2
 	cloneProgressStepWaiting  = 3
 	cloneProgressStepRouter   = 4
+
+	routerCloudInitNetworkPlaceholder = "{network}"
 )
 
 var clonedPodProgress = newPublishPodProgressStore()
@@ -48,13 +49,11 @@ type clonePublishedVMResult struct {
 	router    bool
 }
 
-type clonedRouterRESTConfig struct {
-	APIAddress      string
-	ExternalAddress string
-	ExternalSubnet  string
-	InternalAddress string
-	InternalSubnet  string
-	Operations      []vyos.ConfigureOperation
+type clonedRouterCloudInitConfig struct {
+	Storage     string
+	UserFile    string
+	MetaFile    string
+	NetworkFile string
 }
 
 type clonedPodResponse struct {
@@ -222,53 +221,72 @@ func normalizeRouterIPBase(value string) (string, error) {
 	return strings.Join(parts, ".") + ".", nil
 }
 
-func buildClonedRouterRESTConfig(networkNumber int32, config PodRouterCloneConfig) (*clonedRouterRESTConfig, error) {
-	wanBase, err := normalizeRouterIPBase(config.WANIPBase)
+func validateClonedRouterCloudInitFileName(filename string) error {
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		return fmt.Errorf("filename is required")
+	}
+	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		return fmt.Errorf("filename must not contain path separators")
+	}
+	if strings.Contains(filename, "..") {
+		return fmt.Errorf("filename must not contain '..'")
+	}
+	for _, r := range filename {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			return fmt.Errorf("filename must not contain whitespace")
+		}
+	}
+	return nil
+}
+
+func formatClonedRouterCloudInitFile(pattern string, networkNumber int32) (string, error) {
+	pattern = strings.TrimSpace(pattern)
+	if strings.Count(pattern, routerCloudInitNetworkPlaceholder) != 1 {
+		return "", fmt.Errorf("pattern must contain %s exactly once", routerCloudInitNetworkPlaceholder)
+	}
+
+	filename := strings.Replace(
+		pattern,
+		routerCloudInitNetworkPlaceholder,
+		fmt.Sprintf("%d", networkNumber),
+		1,
+	)
+	if err := validateClonedRouterCloudInitFileName(filename); err != nil {
+		return "", err
+	}
+
+	return filename, nil
+}
+
+func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterCloneConfig) (*clonedRouterCloudInitConfig, error) {
+	storage := strings.TrimSpace(config.CloudInitStorage)
+	if storage == "" {
+		return nil, fmt.Errorf("router cloud-init storage is required")
+	}
+
+	userFile, err := formatClonedRouterCloudInitFile(config.CloudInitUserFilePattern, networkNumber)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build router cloud-init user-data filename: %w", err)
 	}
-	if wanBase == "" {
-		return nil, fmt.Errorf("router WAN IP base is required")
-	}
-	internalBase, err := normalizeRouterIPBase(config.InternalIPBase)
+	metaFile, err := formatClonedRouterCloudInitFile(config.CloudInitMetaFilePattern, networkNumber)
 	if err != nil {
-		return nil, err
-	}
-	if internalBase == "" {
-		return nil, fmt.Errorf("router internal IP base is required")
+		return nil, fmt.Errorf("build router cloud-init meta-data filename: %w", err)
 	}
 
-	externalGateway := fmt.Sprintf("%s%d.1", wanBase, networkNumber)
-	externalAddress := externalGateway + "/24"
-	externalSubnet := fmt.Sprintf("%s%d.0/24", wanBase, networkNumber)
-	internalGateway := fmt.Sprintf("%s%d.1", internalBase, networkNumber)
-	internalAddress := internalGateway + "/24"
-	internalSubnet := fmt.Sprintf("%s%d.0/24", internalBase, networkNumber)
+	networkFile := strings.TrimSpace(config.CloudInitNetworkFile)
+	if strings.Contains(networkFile, routerCloudInitNetworkPlaceholder) {
+		return nil, fmt.Errorf("router cloud-init network-config filename must not contain %s", routerCloudInitNetworkPlaceholder)
+	}
+	if err := validateClonedRouterCloudInitFileName(networkFile); err != nil {
+		return nil, fmt.Errorf("build router cloud-init network-config filename: %w", err)
+	}
 
-	const netmapRule = "2000"
-
-	return &clonedRouterRESTConfig{
-		APIAddress:      externalGateway,
-		ExternalAddress: externalAddress,
-		ExternalSubnet:  externalSubnet,
-		InternalAddress: internalAddress,
-		InternalSubnet:  internalSubnet,
-		Operations: []vyos.ConfigureOperation{
-			{Op: "delete", Path: []string{"interfaces", "ethernet", "eth0", "address"}},
-			{Op: "delete", Path: []string{"interfaces", "ethernet", "eth1", "address"}},
-			{Op: "delete", Path: []string{"nat", "destination", "rule", netmapRule}},
-			{Op: "delete", Path: []string{"nat", "source", "rule", netmapRule}},
-			{Op: "set", Path: []string{"interfaces", "ethernet", "eth0", "address", externalAddress}},
-			{Op: "set", Path: []string{"interfaces", "ethernet", "eth1", "address", internalAddress}},
-			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "description", "kamino-pod-netmap"}},
-			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "destination", "address", externalSubnet}},
-			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "inbound-interface", "name", "eth0"}},
-			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "translation", "address", internalSubnet}},
-			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "description", "kamino-pod-netmap"}},
-			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "outbound-interface", "name", "eth0"}},
-			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "source", "address", internalSubnet}},
-			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "translation", "address", externalSubnet}},
-		},
+	return &clonedRouterCloudInitConfig{
+		Storage:     storage,
+		UserFile:    userFile,
+		MetaFile:    metaFile,
+		NetworkFile: networkFile,
 	}, nil
 }
 
@@ -1535,81 +1553,93 @@ func (h *PodsHandler) configureClonedRouter(
 		return reqErr
 	}
 
-	status, err := h.getVMStatus(ctx, router.clone.VMID)
+	status, err := h.PX.GetVMRuntimeStatus(ctx, router.clone.TargetNode, router.clone.VMID)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to detect router status",
-			Operation:   "detect cloned router status",
+			Operation:   "detect cloned router runtime status",
 			Err:         err,
 		}
 	}
-	if status != "running" {
-		if err := h.PX.StartVM(ctx, router.clone.TargetNode, router.clone.VMID); err != nil {
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "failed to start router",
-				Operation:   "start cloned router",
-				Err:         err,
-			}
+	if status == "running" {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "router must be stopped before cloud-init configuration",
+			Operation:   "verify cloned router stopped",
+			Err:         fmt.Errorf("cloned router VM %d is already running", router.clone.VMID),
 		}
 	}
-	if err := h.waitForVMStatus(ctx, router.clone.VMID, "running"); err != nil {
+	if status != "stopped" {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "router must be stopped before cloud-init configuration",
+			Operation:   "verify cloned router stopped",
+			Err:         fmt.Errorf("cloned router VM %d is in %q state", router.clone.VMID, status),
+		}
+	}
+
+	cloudInitConfig, err := buildClonedRouterCloudInitConfig(clone.NetworkNumber, h.RouterCloneConfig)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to build router cloud-init configuration",
+			Operation:   "build cloned router cloud-init configuration",
+			Err:         err,
+		}
+	}
+
+	if err := h.PX.EnsureVMCloudInitDrive(ctx, router.clone.TargetNode, router.clone.VMID); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "router template is missing a cloud-init drive",
+			Operation:   "verify cloned router cloud-init drive",
+			Err:         err,
+		}
+	}
+	if err := h.PX.SetVMCloudInitCustom(
+		ctx,
+		router.clone.TargetNode,
+		router.clone.VMID,
+		cloudInitConfig.Storage,
+		cloudInitConfig.UserFile,
+		cloudInitConfig.MetaFile,
+		cloudInitConfig.NetworkFile,
+	); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to configure router cloud-init snippets",
+			Operation:   "set cloned router cloud-init custom config",
+			Err:         err,
+		}
+	}
+
+	if err := h.PX.StartVM(ctx, router.clone.TargetNode, router.clone.VMID); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to start router",
+			Operation:   "start cloned router",
+			Err:         err,
+		}
+	}
+	if err := h.PX.WaitForVMRuntimeStatus(
+		ctx,
+		router.clone.TargetNode,
+		router.clone.VMID,
+		"running",
+		h.RouterCloneConfig.RouterWaitTimeout,
+	); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "router did not reach running state",
-			Operation:   "wait for cloned router running",
+			Operation:   "wait for cloned router runtime running",
 			Err:         err,
 		}
 	}
 
-	routerConfig, err := buildClonedRouterRESTConfig(clone.NetworkNumber, h.RouterCloneConfig)
-	if err != nil {
-		return &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to build router configuration",
-			Operation:   "build cloned router REST configuration",
-			Err:         err,
-		}
-	}
-
-	routerClient, err := vyos.NewClient(
-		routerConfig.APIAddress,
-		h.RouterCloneConfig.VYOSAPIKey,
-		h.RouterCloneConfig.VYOSInsecure,
-	)
-	if err != nil {
-		return &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to prepare router API client",
-			Operation:   "build cloned router API client",
-			Err:         err,
-		}
-	}
-
-	if err := routerClient.WaitForReady(ctx, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "router VyOS API did not become ready",
-			Operation:   "wait for cloned router VyOS API",
-			Err:         err,
-		}
-	}
-	if err := routerClient.Configure(ctx, routerConfig.Operations...); err != nil {
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "router configuration API request failed",
-			Operation:   "configure cloned router via VyOS API",
-			Err:         err,
-		}
-	}
-
-	if err := routerClient.Save(ctx); err != nil {
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "router configuration could not be saved",
-			Operation:   "save cloned router configuration",
-			Err:         err,
+	if h.Notifier != nil {
+		if err := h.Notifier.RefreshNow(ctx); err != nil {
+			log.Printf("clone router: status refresh after router start failed: %v", err)
 		}
 	}
 
@@ -1832,9 +1862,7 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 		resource := vmstatus.VMResources{}
 		var uptime *int64
 		if vmid > 0 {
-			if value, ok := statuses[int(vmid)]; ok {
-				status = value
-			}
+			status = h.runtimeStatusForClonedVMRow(ctx, row, statuses)
 			if value, ok := resources[int(vmid)]; ok {
 				resource = value
 				uptimeValue := value.Uptime
@@ -1855,6 +1883,41 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 	}
 
 	return response, nil
+}
+
+func (h *PodsHandler) runtimeStatusForClonedVMRow(
+	ctx context.Context,
+	row database.ListClonedPodVMsRow,
+	statuses map[int]string,
+) string {
+	if row.Vmid == nil {
+		return "missing"
+	}
+
+	vmid := int(*row.Vmid)
+	status := "missing"
+	if value, ok := statuses[vmid]; ok {
+		status = strings.ToLower(strings.TrimSpace(value))
+	}
+
+	if status != "" && status != "unknown" && status != "missing" {
+		return status
+	}
+	if row.Node == nil || strings.TrimSpace(*row.Node) == "" || h.PX == nil {
+		if status == "" {
+			return "missing"
+		}
+		return status
+	}
+
+	directStatus, err := h.PX.GetVMRuntimeStatus(ctx, strings.TrimSpace(*row.Node), vmid)
+	if err != nil {
+		if status == "" {
+			return "missing"
+		}
+		return status
+	}
+	return directStatus
 }
 
 func (h *PodsHandler) visibleInventoryItemIDs(
@@ -1910,13 +1973,7 @@ func (h *PodsHandler) hydrateClonedPodRuntimeStatus(
 
 	vmStatuses := make([]string, 0, len(rows))
 	for _, row := range rows {
-		status := "missing"
-		if row.Vmid != nil {
-			if value, ok := statuses[int(*row.Vmid)]; ok {
-				status = value
-			}
-		}
-		vmStatuses = append(vmStatuses, status)
+		vmStatuses = append(vmStatuses, h.runtimeStatusForClonedVMRow(ctx, row, statuses))
 	}
 
 	return clonedPodRuntimeStatus(vmStatuses), nil

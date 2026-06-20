@@ -44,14 +44,16 @@ const (
 )
 
 type PodRouterCloneConfig struct {
-	VNetPrefix        string
-	NetworkMin        int32
-	NetworkMax        int32
-	RouterWaitTimeout time.Duration
-	WANIPBase         string
-	InternalIPBase    string
-	VYOSAPIKey        string
-	VYOSInsecure      bool
+	VNetPrefix               string
+	NetworkMin               int32
+	NetworkMax               int32
+	RouterWaitTimeout        time.Duration
+	WANIPBase                string
+	InternalIPBase           string
+	CloudInitStorage         string
+	CloudInitUserFilePattern string
+	CloudInitMetaFilePattern string
+	CloudInitNetworkFile     string
 }
 
 type PodsHandler struct {
