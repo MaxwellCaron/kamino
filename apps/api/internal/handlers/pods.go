@@ -50,7 +50,8 @@ type PodRouterCloneConfig struct {
 	RouterWaitTimeout time.Duration
 	WANIPBase         string
 	InternalIPBase    string
-	VYOSScriptPath    string
+	VYOSAPIKey        string
+	VYOSInsecure      bool
 }
 
 type PodsHandler struct {

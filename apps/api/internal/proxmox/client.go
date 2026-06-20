@@ -999,14 +999,6 @@ func parseNetworkModelAndMAC(raw string) (string, string) {
 	return model, strings.TrimSpace(macAddress)
 }
 
-func guestExecSnippet(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if len(trimmed) <= 160 {
-		return trimmed
-	}
-	return trimmed[:160] + "..."
-}
-
 func formatVMHardwareNetwork(network VMHardwareNetwork) string {
 	model := strings.TrimSpace(network.Model)
 	if model == "" {
@@ -1309,119 +1301,6 @@ func (c *Client) StartCloneVM(
 // WaitForTask polls a previously started task until it completes.
 func (c *Client) WaitForTask(ctx context.Context, node, upid string) error {
 	return c.waitForTask(ctx, node, upid)
-}
-
-func (c *Client) WaitForGuestAgent(ctx context.Context, node string, vmid int, timeout time.Duration) error {
-	if err := c.requireAllowedNode(node); err != nil {
-		return err
-	}
-	if timeout <= 0 {
-		return fmt.Errorf("timeout must be positive")
-	}
-
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/agent/ping", node, vmid)
-	backoff := 250 * time.Millisecond
-	for {
-		var resp apiResponse[any]
-		if err := c.post(waitCtx, path, nil, &resp); err == nil {
-			return nil
-		}
-
-		select {
-		case <-waitCtx.Done():
-			return fmt.Errorf("waiting for guest agent: %w", waitCtx.Err())
-		case <-time.After(backoff):
-		}
-
-		if backoff < 2*time.Second {
-			backoff *= 2
-			if backoff > 2*time.Second {
-				backoff = 2 * time.Second
-			}
-		}
-	}
-}
-
-func (c *Client) StartGuestCommand(ctx context.Context, node string, vmid int, command []string) (int, error) {
-	if err := c.requireAllowedNode(node); err != nil {
-		return 0, err
-	}
-	if len(command) == 0 {
-		return 0, fmt.Errorf("guest command is required")
-	}
-
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/agent/exec", node, vmid)
-	form := url.Values{}
-	for _, arg := range command {
-		form.Add("command", arg)
-	}
-
-	var resp apiResponse[struct {
-		PID int `json:"pid"`
-	}]
-	if err := c.postValues(ctx, path, form, &resp); err != nil {
-		return 0, fmt.Errorf("starting guest command: %w", err)
-	}
-
-	return resp.Data.PID, nil
-}
-
-func (c *Client) WaitForGuestCommand(ctx context.Context, node string, vmid int, pid int, timeout time.Duration) (*GuestExecStatus, error) {
-	if err := c.requireAllowedNode(node); err != nil {
-		return nil, err
-	}
-	if timeout <= 0 {
-		return nil, fmt.Errorf("timeout must be positive")
-	}
-
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/agent/exec-status?pid=%d", node, vmid, pid)
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		var resp apiResponse[GuestExecStatus]
-		if err := c.get(waitCtx, path, &resp); err != nil {
-			return nil, fmt.Errorf("fetching guest command status: %w", err)
-		}
-
-		status := resp.Data
-		if status.Exited {
-			if status.ExitCode == 0 {
-				return &status, nil
-			}
-
-			message := fmt.Sprintf("guest command exited with code %d", status.ExitCode)
-			if stderr := guestExecSnippet(status.ErrData); stderr != "" {
-				message += ": stderr=" + stderr
-			}
-			if stdout := guestExecSnippet(status.OutData); stdout != "" {
-				message += " stdout=" + stdout
-			}
-			return &status, fmt.Errorf("%s", message)
-		}
-
-		select {
-		case <-waitCtx.Done():
-			return nil, fmt.Errorf("waiting for guest command: %w", waitCtx.Err())
-		case <-ticker.C:
-		}
-	}
-}
-
-func (c *Client) RunGuestCommand(ctx context.Context, node string, vmid int, command []string, timeout time.Duration) error {
-	pid, err := c.StartGuestCommand(ctx, node, vmid, command)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.WaitForGuestCommand(ctx, node, vmid, pid, timeout)
-	return err
 }
 
 // ConvertToTemplate converts a VM to a template and waits for completion.

@@ -17,6 +17,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/MaxwellCaron/kamino/internal/vyos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -45,6 +46,15 @@ type clonePublishedVMResult struct {
 	published database.ListPublishedPodVMsForCloneRow
 	clone     clonedVM
 	router    bool
+}
+
+type clonedRouterRESTConfig struct {
+	APIAddress      string
+	ExternalAddress string
+	ExternalSubnet  string
+	InternalAddress string
+	InternalSubnet  string
+	Operations      []vyos.ConfigureOperation
 }
 
 type clonedPodResponse struct {
@@ -212,7 +222,7 @@ func normalizeRouterIPBase(value string) (string, error) {
 	return strings.Join(parts, ".") + ".", nil
 }
 
-func routerConfigCommands(networkNumber int32, config PodRouterCloneConfig) ([][]string, error) {
+func buildClonedRouterRESTConfig(networkNumber int32, config PodRouterCloneConfig) (*clonedRouterRESTConfig, error) {
 	wanBase, err := normalizeRouterIPBase(config.WANIPBase)
 	if err != nil {
 		return nil, err
@@ -220,23 +230,44 @@ func routerConfigCommands(networkNumber int32, config PodRouterCloneConfig) ([][
 	if wanBase == "" {
 		return nil, fmt.Errorf("router WAN IP base is required")
 	}
-
-	scriptPath := strings.TrimSpace(config.VYOSScriptPath)
-	if scriptPath == "" {
-		return nil, fmt.Errorf("router VyOS script path is required")
+	internalBase, err := normalizeRouterIPBase(config.InternalIPBase)
+	if err != nil {
+		return nil, err
+	}
+	if internalBase == "" {
+		return nil, fmt.Errorf("router internal IP base is required")
 	}
 
-	return [][]string{
-		{
-			"sed",
-			"-i",
-			"-e",
-			fmt.Sprintf(
-				"s/{{THIRD_OCTET}}/%d/g;s/{{NETWORK_PREFIX}}/%s/g",
-				networkNumber,
-				wanBase,
-			),
-			scriptPath,
+	externalGateway := fmt.Sprintf("%s%d.1", wanBase, networkNumber)
+	externalAddress := externalGateway + "/24"
+	externalSubnet := fmt.Sprintf("%s%d.0/24", wanBase, networkNumber)
+	internalGateway := fmt.Sprintf("%s%d.1", internalBase, networkNumber)
+	internalAddress := internalGateway + "/24"
+	internalSubnet := fmt.Sprintf("%s%d.0/24", internalBase, networkNumber)
+
+	const netmapRule = "2000"
+
+	return &clonedRouterRESTConfig{
+		APIAddress:      externalGateway,
+		ExternalAddress: externalAddress,
+		ExternalSubnet:  externalSubnet,
+		InternalAddress: internalAddress,
+		InternalSubnet:  internalSubnet,
+		Operations: []vyos.ConfigureOperation{
+			{Op: "delete", Path: []string{"interfaces", "ethernet", "eth0", "address"}},
+			{Op: "delete", Path: []string{"interfaces", "ethernet", "eth1", "address"}},
+			{Op: "delete", Path: []string{"nat", "destination", "rule", netmapRule}},
+			{Op: "delete", Path: []string{"nat", "source", "rule", netmapRule}},
+			{Op: "set", Path: []string{"interfaces", "ethernet", "eth0", "address", externalAddress}},
+			{Op: "set", Path: []string{"interfaces", "ethernet", "eth1", "address", internalAddress}},
+			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "description", "kamino-pod-netmap"}},
+			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "destination", "address", externalSubnet}},
+			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "inbound-interface", "name", "eth0"}},
+			{Op: "set", Path: []string{"nat", "destination", "rule", netmapRule, "translation", "address", internalSubnet}},
+			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "description", "kamino-pod-netmap"}},
+			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "outbound-interface", "name", "eth0"}},
+			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "source", "address", internalSubnet}},
+			{Op: "set", Path: []string{"nat", "source", "rule", netmapRule, "translation", "address", externalSubnet}},
 		},
 	}, nil
 }
@@ -1531,32 +1562,54 @@ func (h *PodsHandler) configureClonedRouter(
 			Err:         err,
 		}
 	}
-	if err := h.PX.WaitForGuestAgent(ctx, router.clone.TargetNode, router.clone.VMID, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
+
+	routerConfig, err := buildClonedRouterRESTConfig(clone.NetworkNumber, h.RouterCloneConfig)
+	if err != nil {
 		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "router guest agent did not become ready",
-			Operation:   "wait for cloned router guest agent",
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to build router configuration",
+			Operation:   "build cloned router REST configuration",
 			Err:         err,
 		}
 	}
 
-	commands, err := routerConfigCommands(clone.NetworkNumber, h.RouterCloneConfig)
+	routerClient, err := vyos.NewClient(
+		routerConfig.APIAddress,
+		h.RouterCloneConfig.VYOSAPIKey,
+		h.RouterCloneConfig.VYOSInsecure,
+	)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to build router configuration command",
-			Operation:   "build cloned router configuration command",
+			UserMessage: "failed to prepare router API client",
+			Operation:   "build cloned router API client",
 			Err:         err,
 		}
 	}
-	for _, command := range commands {
-		if err := h.PX.RunGuestCommand(ctx, router.clone.TargetNode, router.clone.VMID, command, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "router configuration script failed",
-				Operation:   "run cloned router configuration command",
-				Err:         err,
-			}
+
+	if err := routerClient.WaitForReady(ctx, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "router VyOS API did not become ready",
+			Operation:   "wait for cloned router VyOS API",
+			Err:         err,
+		}
+	}
+	if err := routerClient.Configure(ctx, routerConfig.Operations...); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "router configuration API request failed",
+			Operation:   "configure cloned router via VyOS API",
+			Err:         err,
+		}
+	}
+
+	if err := routerClient.Save(ctx); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "router configuration could not be saved",
+			Operation:   "save cloned router configuration",
+			Err:         err,
 		}
 	}
 

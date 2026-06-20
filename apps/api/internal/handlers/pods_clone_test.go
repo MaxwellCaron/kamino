@@ -6,6 +6,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/vyos"
 	"github.com/google/uuid"
 )
 
@@ -148,42 +149,68 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 	if got.InternalGateway == nil || *got.InternalGateway != "10.128.24.1" {
 		t.Fatalf("internal gateway = %#v", got.InternalGateway)
 	}
+}
 
-	handler.RouterCloneConfig.InternalIPBase = ""
-	got = handler.clonedPodNetworkMetadata(24)
-	if got.InternalSubnet != nil || got.InternalGateway != nil {
-		t.Fatalf("internal metadata should be omitted, got %#v", got)
+func TestBuildClonedRouterRESTConfig(t *testing.T) {
+	config, err := buildClonedRouterRESTConfig(24, PodRouterCloneConfig{
+		WANIPBase:      "172.16",
+		InternalIPBase: "10.128.",
+	})
+	if err != nil {
+		t.Fatalf("buildClonedRouterRESTConfig() error = %v", err)
+	}
+	if config.APIAddress != "172.16.24.1" {
+		t.Fatalf("APIAddress = %q, want %q", config.APIAddress, "172.16.24.1")
+	}
+	if config.ExternalAddress != "172.16.24.1/24" {
+		t.Fatalf("ExternalAddress = %q, want %q", config.ExternalAddress, "172.16.24.1/24")
+	}
+	if config.InternalAddress != "10.128.24.1/24" {
+		t.Fatalf("InternalAddress = %q, want %q", config.InternalAddress, "10.128.24.1/24")
+	}
+	if config.ExternalSubnet != "172.16.24.0/24" {
+		t.Fatalf("ExternalSubnet = %q, want %q", config.ExternalSubnet, "172.16.24.0/24")
+	}
+	if config.InternalSubnet != "10.128.24.0/24" {
+		t.Fatalf("InternalSubnet = %q, want %q", config.InternalSubnet, "10.128.24.0/24")
+	}
+
+	requiredOps := []vyos.ConfigureOperation{
+		{Op: "delete", Path: []string{"interfaces", "ethernet", "eth0", "address"}},
+		{Op: "delete", Path: []string{"interfaces", "ethernet", "eth1", "address"}},
+		{Op: "set", Path: []string{"interfaces", "ethernet", "eth0", "address", "172.16.24.1/24"}},
+		{Op: "set", Path: []string{"interfaces", "ethernet", "eth1", "address", "10.128.24.1/24"}},
+		{Op: "set", Path: []string{"nat", "destination", "rule", "2000", "destination", "address", "172.16.24.0/24"}},
+		{Op: "set", Path: []string{"nat", "destination", "rule", "2000", "translation", "address", "10.128.24.0/24"}},
+		{Op: "set", Path: []string{"nat", "source", "rule", "2000", "source", "address", "10.128.24.0/24"}},
+		{Op: "set", Path: []string{"nat", "source", "rule", "2000", "translation", "address", "172.16.24.0/24"}},
+	}
+	for _, operation := range requiredOps {
+		if !hasRouterOperation(config.Operations, operation) {
+			t.Fatalf("missing operation %#v in %#v", operation, config.Operations)
+		}
 	}
 }
 
-func TestRouterConfigCommandsVYOS(t *testing.T) {
-	commands, err := routerConfigCommands(24, PodRouterCloneConfig{
-		WANIPBase:      "172.16",
-		VYOSScriptPath: "/config/scripts/vyos-postconfig-bootup.script",
-	})
-	if err != nil {
-		t.Fatalf("routerConfigCommands() error = %v", err)
-	}
-	if len(commands) != 1 {
-		t.Fatalf("len(commands) = %d, want 1", len(commands))
+func hasRouterOperation(operations []vyos.ConfigureOperation, want vyos.ConfigureOperation) bool {
+	for _, operation := range operations {
+		if operation.Op != want.Op || len(operation.Path) != len(want.Path) {
+			continue
+		}
+
+		match := true
+		for index := range want.Path {
+			if operation.Path[index] != want.Path[index] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
 	}
 
-	command := commands[0]
-	if len(command) != 5 {
-		t.Fatalf("len(command) = %d, want 5", len(command))
-	}
-	if command[0] != "sed" || command[1] != "-i" || command[2] != "-e" {
-		t.Fatalf("command prefix = %#v", command[:3])
-	}
-	if !strings.Contains(command[3], "s/{{THIRD_OCTET}}/24/g") {
-		t.Fatalf("replacement missing network number: %q", command[3])
-	}
-	if !strings.Contains(command[3], "s/{{NETWORK_PREFIX}}/172.16./g") {
-		t.Fatalf("replacement missing normalized base: %q", command[3])
-	}
-	if command[4] != "/config/scripts/vyos-postconfig-bootup.script" {
-		t.Fatalf("script path = %q", command[4])
-	}
+	return false
 }
 
 func TestIsPublishedPodRouterVM(t *testing.T) {

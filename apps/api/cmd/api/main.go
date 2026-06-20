@@ -31,31 +31,32 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port                    string `envconfig:"PORT" default:":8080"`
-	FrontendURL             string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL             string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL              string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID          string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret      string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure         bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes            string `envconfig:"PROXMOX_NODES" required:"true"`
-	JWTSecret               string `envconfig:"JWT_SECRET" required:"true"`
-	LDAPUrl                 string `envconfig:"LDAP_URL"`
-	LDAPBindDN              string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword        string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN        string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU              string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU             string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN        string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure            bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	PodRouterTemplate       string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
-	PodCloneVNetPrefix      string `envconfig:"POD_CLONE_VNET_PREFIX" default:"kamino"`
-	PodCloneNetworkMin      int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
-	PodCloneNetworkMax      int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"244"`
-	PodRouterWait           string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
-	PodRouterWANIPBase      string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
-	PodRouterLANIPBase      string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:""`
-	PodRouterVYOSScriptPath string `envconfig:"POD_ROUTER_VYOS_SCRIPT_PATH" default:"/config/scripts/vyos-postconfig-bootup.script"`
+	Port                  string `envconfig:"PORT" default:":8080"`
+	FrontendURL           string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL           string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL            string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID        string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret    string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure       bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes          string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret             string `envconfig:"JWT_SECRET" required:"true"`
+	LDAPUrl               string `envconfig:"LDAP_URL"`
+	LDAPBindDN            string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword      string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN      string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU            string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU           string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN      string `envconfig:"LDAP_ADMIN_GROUP_DN"`
+	LDAPInsecure          bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	PodRouterTemplate     string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+	PodCloneVNetPrefix    string `envconfig:"POD_CLONE_VNET_PREFIX" default:"kamino"`
+	PodCloneNetworkMin    int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
+	PodCloneNetworkMax    int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"244"`
+	PodRouterWait         string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
+	PodRouterWANIPBase    string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
+	PodRouterLANIPBase    string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:"10.128."`
+	PodRouterVYOSAPIKey   string `envconfig:"POD_ROUTER_VYOS_API_KEY"`
+	PodRouterVYOSInsecure bool   `envconfig:"POD_ROUTER_VYOS_INSECURE" default:"true"`
 }
 
 // Server holds all application dependencies
@@ -147,14 +148,19 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAN_IP_BASE: %w", err)
 	}
+	if wanIPBase == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAN_IP_BASE must not be empty")
+	}
 	internalIPBase, err := normalizeDottedPrefix(config.PodRouterLANIPBase)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_IP_BASE: %w", err)
 	}
-
-	vyosScriptPath := strings.TrimSpace(config.PodRouterVYOSScriptPath)
-	if vyosScriptPath == "" {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_VYOS_SCRIPT_PATH must not be empty")
+	if internalIPBase == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_INTERNAL_IP_BASE must not be empty")
+	}
+	vyosAPIKey := strings.TrimSpace(config.PodRouterVYOSAPIKey)
+	if vyosAPIKey == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_VYOS_API_KEY must not be empty")
 	}
 
 	routerConfig := handlers.PodRouterCloneConfig{
@@ -164,7 +170,8 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		RouterWaitTimeout: waitTimeout,
 		WANIPBase:         wanIPBase,
 		InternalIPBase:    internalIPBase,
-		VYOSScriptPath:    vyosScriptPath,
+		VYOSAPIKey:        vyosAPIKey,
+		VYOSInsecure:      config.PodRouterVYOSInsecure,
 	}
 
 	log.Printf(
