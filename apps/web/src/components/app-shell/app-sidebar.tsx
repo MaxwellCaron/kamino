@@ -376,7 +376,7 @@ export function AppSidebar({
         {/* Inventory panel */}
         <Sidebar
           collapsible="none"
-          className="ml-3 flex flex-1 border-l group-data-[state=collapsed]:border-l-0"
+          className="ml-3 flex min-w-0 flex-1 border-l group-data-[state=collapsed]:border-l-0"
         >
           <SidebarHeader className="py-0">
             <SidebarGroup>
