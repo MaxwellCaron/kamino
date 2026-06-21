@@ -1,9 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  IconCubeOff,
-} from "@tabler/icons-react"
+import { IconCubeOff } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Empty,
@@ -25,17 +23,14 @@ import {
 import { ClonesTableSkeleton } from "./clones-table-skeleton"
 import { PendingCloneStatusItem } from "./pending-clone-status-item"
 import { PublishedPodCloneActionsMenu } from "./published-pod-clone-actions-menu"
-import {
-  PublishedPodCloneActionDialogs
-  
-} from "./published-pod-clone-action-dialogs"
+import { PublishedPodCloneActionDialogs } from "./published-pod-clone-action-dialogs"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
 import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
 import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
-import type {PublishedPodClonePendingAction} from "./published-pod-clone-action-dialogs";
+import type { PublishedPodClonePendingAction } from "./published-pod-clone-action-dialogs"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -176,7 +171,7 @@ export function PublishedPodClonesTable({
                     <TableHead className="pl-7">Principal</TableHead>
                     <TableHead>Cloned</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="min-w-72">Network</TableHead>
+                    <TableHead>Network</TableHead>
                     <TableHead>VMs</TableHead>
                     <TableHead>Tasks</TableHead>
                     <TableHead className="w-12" />
@@ -206,30 +201,7 @@ export function PublishedPodClonesTable({
                       <TableCell>
                         <ClonedPodStatusBadge status={clone.status} />
                       </TableCell>
-                      <TableCell className="min-w-72">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="w-fit tabular-nums"
-                            >
-                              Network {clone.network.number}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">
-                              VNet{" "}
-                              <span className="font-mono tabular-nums">
-                                {clone.network.vnet}
-                              </span>
-                            </span>
-                          </div>
-                          <div className="font-mono text-xs text-muted-foreground tabular-nums break-all">
-                            {clone.network.external_subnet}
-                            {clone.network.internal_subnet
-                              ? ` -> ${clone.network.internal_subnet}`
-                              : ""}
-                          </div>
-                        </div>
-                      </TableCell>
+                      <TableCell>{clone.network.vnet}</TableCell>
                       <TableCell className="text-sm tabular-nums">
                         {clone.vm_count}
                       </TableCell>

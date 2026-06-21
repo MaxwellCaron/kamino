@@ -937,7 +937,7 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepWaiting, "Waiting for virtual machines to be ready.")
+	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
 	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
 		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
@@ -947,7 +947,7 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepRouter, "Configuring router.")
+	progress.set(cloneProgressStepRouter, "Starting router.")
 	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
 		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
@@ -1021,7 +1021,7 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepWaiting, "Waiting for virtual machines to be ready.")
+	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
 	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
 		h.cleanupFailedUserClone(uuid.Nil, created)
 		return database.ClonedPods{}, reqErr
@@ -1031,7 +1031,7 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepRouter, "Configuring router.")
+	progress.set(cloneProgressStepRouter, "Starting router.")
 	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
 		h.cleanupFailedUserClone(uuid.Nil, created)
 		return database.ClonedPods{}, reqErr

@@ -56,7 +56,7 @@ export const POD_CLONE_ACTION_CONFIG = {
     icon: IconTrash,
     label: "Delete",
     pendingLabel: "Deleting",
-    menuDescription: "Delete cloned virtual machines.",
+    menuDescription: "Delete virtual machines and task progress.",
     variant: "destructive",
   },
 } satisfies Record<
