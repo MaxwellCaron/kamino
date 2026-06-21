@@ -208,7 +208,7 @@ function NodeMetricSkeleton() {
       </div>
       <Skeleton
         className="w-full rounded-md"
-        style={{ aspectRatio: "5 / 1" }}
+        style={{ aspectRatio: "10 / 1" }}
       />
     </div>
   )
