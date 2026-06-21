@@ -622,10 +622,17 @@ ORDER BY answered_at ASC;
 SELECT
     q.id,
     q.task_id,
-    q.answer_outline
+    q.title,
+    q.answer_outline,
+    t.pod_id,
+    t.title AS task_title,
+    p.slug AS pod_slug,
+    p.title AS pod_title
 FROM published_pod_task_questions q
 JOIN published_pod_tasks t
   ON t.id = q.task_id
+JOIN published_pods p
+  ON p.id = t.pod_id
 JOIN cloned_pods cp
   ON cp.pod_id = t.pod_id
 WHERE cp.id = sqlc.arg(cloned_pod_id)
@@ -653,6 +660,66 @@ RETURNING
     answer,
     is_correct,
     answered_at;
+
+-- name: UpsertPrincipalPodQuestionAnswer :one
+INSERT INTO principal_pod_question_answers (
+    principal_id,
+    source_pod_id,
+    source_task_id,
+    source_question_id,
+    last_cloned_pod_id,
+    pod_slug,
+    pod_title,
+    task_title,
+    question_title,
+    answer,
+    is_correct,
+    answered_at
+) VALUES (
+    sqlc.arg(principal_id),
+    sqlc.arg(source_pod_id),
+    sqlc.arg(source_task_id),
+    sqlc.arg(source_question_id),
+    sqlc.arg(last_cloned_pod_id),
+    sqlc.arg(pod_slug),
+    sqlc.arg(pod_title),
+    sqlc.arg(task_title),
+    sqlc.arg(question_title),
+    sqlc.arg(answer),
+    sqlc.arg(is_correct),
+    sqlc.arg(answered_at)
+)
+ON CONFLICT (principal_id, source_pod_id, source_question_id) DO UPDATE
+SET
+    last_cloned_pod_id = EXCLUDED.last_cloned_pod_id,
+    pod_slug = EXCLUDED.pod_slug,
+    pod_title = EXCLUDED.pod_title,
+    task_title = EXCLUDED.task_title,
+    question_title = EXCLUDED.question_title,
+    answer = CASE
+        WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answer
+        ELSE EXCLUDED.answer
+    END,
+    is_correct = principal_pod_question_answers.is_correct OR EXCLUDED.is_correct,
+    answered_at = CASE
+        WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answered_at
+        ELSE EXCLUDED.answered_at
+    END
+RETURNING
+    source_pod_id,
+    source_question_id,
+    is_correct,
+    answered_at;
+
+-- name: ListPrincipalCorrectPodQuestionAnswers :many
+SELECT
+    source_pod_id,
+    source_question_id,
+    answered_at
+FROM principal_pod_question_answers
+WHERE principal_id = $1
+  AND is_correct = true
+ORDER BY answered_at ASC, source_pod_id ASC, source_question_id ASC;
 
 -- name: CountIncorrectOrUnansweredTaskQuestions :one
 SELECT COUNT(*)::BIGINT

@@ -18,12 +18,16 @@ import { DashboardStatsGrid } from "./dashboard-stat-cards"
 import type { ClonedPodEntry } from "../utils/dashboard-types"
 import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
-import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
+import {
+  clonedPodQueryOptions,
+  podQuestionActivityQueryOptions,
+} from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import {
   requestDetailQueryOptions,
@@ -68,6 +72,11 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     error: catalogError,
     isLoading: isCatalogLoading,
   } = useQuery(podCatalogQueryOptions)
+  const {
+    data: questionActivity,
+    error: questionActivityError,
+    isLoading: isQuestionActivityLoading,
+  } = useQuery(podQuestionActivityQueryOptions())
   const {
     data: requestDetail,
     error: requestDetailError,
@@ -153,8 +162,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     [visiblePods]
   )
   const questionActivityHeatmapData = useMemo(
-    () => buildQuestionActivityHeatmapData(cloneStatus.entries),
-    [cloneStatus.entries]
+    () => buildQuestionActivityHeatmapData(questionActivity ?? []),
+    [questionActivity]
   )
 
   const activityColumns = useMemo(
@@ -167,12 +176,15 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   )
 
   const activityError = pendingRequestsError ?? historyRequestsError
+  const questionActivityLoadError =
+    questionActivityError instanceof Error ? questionActivityError : null
 
   const activityLoading = isPendingRequestsLoading || isHistoryRequestsLoading
   const isDashboardLoading =
     isTreeLoading ||
     activityLoading ||
     isCatalogLoading ||
+    isQuestionActivityLoading ||
     cloneStatus.isLoading ||
     isVmStatusLoading
 
@@ -217,7 +229,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         <DashboardQuestionActivityCard
           className="xl:col-span-4"
           data={questionActivityHeatmapData}
-          error={cloneStatus.error}
+          error={questionActivityLoadError}
         />
         <DashboardCurrentClonedPodCard
           className="xl:col-span-8"
@@ -343,7 +355,7 @@ function toTime(value: string | null | undefined) {
 }
 
 function buildQuestionActivityHeatmapData(
-  entries: Array<ClonedPodEntry>
+  answers: Array<PodQuestionActivityAnswer>
 ): Array<HeatmapColumn> {
   const today = new Date()
   const startDate = new Date(
@@ -355,21 +367,19 @@ function buildQuestionActivityHeatmapData(
   const startDateKey = toLocalDateKey(startDate)
   const countsByDate = new Map<string, number>()
 
-  for (const entry of entries) {
-    for (const answer of entry.clonedPod.question_answers) {
-      const answeredAt = new Date(answer.answered_at)
-      const dateKey = toLocalDateKey(answeredAt)
+  for (const answer of answers) {
+    const answeredAt = new Date(answer.answered_at)
+    const dateKey = toLocalDateKey(answeredAt)
 
-      if (
-        Number.isNaN(answeredAt.getTime()) ||
-        dateKey < startDateKey ||
-        dateKey > todayKey
-      ) {
-        continue
-      }
-
-      countsByDate.set(dateKey, (countsByDate.get(dateKey) ?? 0) + 1)
+    if (
+      Number.isNaN(answeredAt.getTime()) ||
+      dateKey < startDateKey ||
+      dateKey > todayKey
+    ) {
+      continue
     }
+
+    countsByDate.set(dateKey, (countsByDate.get(dateKey) ?? 0) + 1)
   }
 
   const data: Array<HeatmapColumn> = []

@@ -117,6 +117,12 @@ export interface PodTaskQuestionAnswer {
   answered_at: string
 }
 
+export interface PodQuestionActivityAnswer {
+  pod_id: UUID
+  question_id: UUID
+  answered_at: string
+}
+
 export interface PublishedPodCloneOwner {
   id: UUID
   type: "group" | "user"
