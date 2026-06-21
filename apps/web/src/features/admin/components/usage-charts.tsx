@@ -78,7 +78,7 @@ function getClusterAspectRatio(timeframe: UsageHistoryTimeframe) {
 }
 
 function getNodeAspectRatio(_timeframe: UsageHistoryTimeframe) {
-  return "10 / 1"
+  return "9 / 1"
 }
 
 function UsageChartBody({
