@@ -35,12 +35,12 @@ import {
   hasFolderActions,
   hasNodeActions,
 } from "../utils/inventory-capabilities"
-import {
-  findInventoryTreeNode,
-  summarizeFolderDeletion,
-} from "../utils/inventory-tree"
+import { findInventoryTreeNode } from "../utils/inventory-tree"
 import { useDeleteFolder } from "../hooks/use-inventory-actions"
-import { InventoryDeletionDescription } from "./inventory-deletion-description"
+import {
+  createInventoryDeleteStatusItems,
+  markStatusItems,
+} from "../utils/inventory-status-items"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import type {
   ApiTreeNode,
@@ -50,7 +50,6 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import {
-  formatMutationError,
   formatToastError,
   formatVmReference,
 } from "@/features/shared/utils/format"
@@ -580,29 +579,38 @@ export function InventoryNodeMenu({
       return
     }
 
-    const summary = summarizeFolderDeletion(folder)
+    const statusItems = createInventoryDeleteStatusItems({
+      folderTargets: [folder as ApiTreeNode & { kind: "folder" }],
+      vmTargets: [],
+      getVmStatus: (node) => vmStatuses?.[node.vm.vmid],
+    })
+    const statusItemIds = statusItems.map((item) => item.id)
 
     openConfirm({
       title: `Delete folder "${data.name}"?`,
       icon: IconTrash,
-      description: (
-        <InventoryDeletionDescription
-          folderCount={summary.folderCount}
-          vmCount={summary.vmCount}
-          templateCount={summary.templateCount}
-          folderNames={summary.folderNames}
-          vmNames={summary.vmNames}
-          templateNames={summary.templateNames}
-        />
-      ),
+      description: null,
       actionLabel: "Delete",
+      pendingLabel: "Deleting...",
+      closeOnSuccess: false,
+      statusItems,
       variant: "destructive",
-      onConfirm: async () => {
+      onConfirm: async (controls) => {
+        controls.setStatusItems((items) =>
+          markStatusItems(items, statusItemIds, "pending")
+        )
+
         try {
           await deleteFolderMutation.mutateAsync({ id: itemId })
-          toast.success(`Folder "${data.name}" deleted`)
+          controls.setStatusItems((items) =>
+            markStatusItems(items, statusItemIds, "success")
+          )
         } catch (error) {
-          toast.error(formatMutationError(error, "Failed to delete folder"))
+          const message =
+            error instanceof Error ? error.message : "Failed to delete folder"
+          controls.setStatusItems((items) =>
+            markStatusItems(items, statusItemIds, "error", message)
+          )
           throw error
         }
       },

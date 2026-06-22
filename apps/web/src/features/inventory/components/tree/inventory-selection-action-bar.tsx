@@ -18,7 +18,7 @@ export function InventorySelectionActionBar() {
     clearSelection,
     createPowerConfirmStatusItems,
     createTemplateConfirmStatusItems,
-    deleteSummary,
+    deleteStatusItems,
     getStatus,
     open,
     openConfirm,
@@ -67,7 +67,7 @@ export function InventorySelectionActionBar() {
           canDelete={canDelete}
           templateSelectionLabel={templateSelectionLabel}
           selectedVmItems={selectedVmItems}
-          deleteSummary={deleteSummary}
+          deleteStatusItems={deleteStatusItems}
           getStatus={getStatus}
           openConfirm={openConfirm}
           createTemplateConfirmStatusItems={createTemplateConfirmStatusItems}

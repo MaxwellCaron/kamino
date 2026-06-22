@@ -3,13 +3,13 @@ import { useQuery } from "@tanstack/react-query"
 import { isValidElement, useMemo, useRef, useState } from "react"
 import {
   IconAlertTriangle,
-  IconDeviceDesktopX,
   IconFolder,
   IconInfoCircle,
+  IconTrash,
+  IconTrashOff,
 } from "@tabler/icons-react"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
@@ -22,6 +22,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import type { ComponentType, ReactNode, RefObject } from "react"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   AppAlertDialogContent,
   AppDialogScrollBody,
@@ -93,26 +94,21 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
     return <Loader loader="braille" renderer="svg-grid" />
   }
 
+  if (item.successDisplay === "deleted") {
+    if (item.status === "success") {
+      return (
+        <IconTrash className="size-4 text-emerald-600 dark:text-emerald-400" />
+      )
+    }
+
+    if (item.status === "error") {
+      return <IconTrashOff className="size-4 text-destructive" />
+    }
+  }
+
   if (item.kind === "folder") {
     return (
       <IconFolder className="size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
-    )
-  }
-
-  if (item.status === "error") {
-    return <IconDeviceDesktopX className="size-4 text-destructive" />
-  }
-
-  if (item.status === "success") {
-    if (item.successDisplay === "deleted") {
-      return <IconDeviceDesktopX className="size-4 text-muted-foreground" />
-    }
-
-    return (
-      <VmIcon
-        status={item.successVmStatus}
-        isTemplate={item.successIsTemplate}
-      />
     )
   }
 
@@ -132,6 +128,7 @@ export type ConfirmConfig = {
   title: string
   description: ReactNode
   actionLabel: string
+  pendingLabel?: ReactNode
   actionDisabled?: boolean
   closeOnSuccess?: boolean
   icon?: ComponentType<{
@@ -256,11 +253,11 @@ function ConfirmDialogSession({
         <AlertDialogCancel disabled={isPending}>
           {resolvedStatusItems.length > 0 && hasSubmitted ? "Close" : "Cancel"}
         </AlertDialogCancel>
-        <AlertDialogAction
+        <AppActionButton
           variant={config.variant ?? "default"}
-          disabled={
-            isPending || allActionsSucceeded || config.actionDisabled === true
-          }
+          pending={isPending}
+          pendingLabel={config.pendingLabel}
+          disabled={allActionsSucceeded || config.actionDisabled === true}
           onClick={async () => {
             setHasSubmitted(true)
             const closeOnSuccess = config.closeOnSuccess ?? true
@@ -290,7 +287,7 @@ function ConfirmDialogSession({
           }}
         >
           {config.actionLabel}
-        </AlertDialogAction>
+        </AppActionButton>
       </AlertDialogFooter>
     </AppAlertDialogContent>
   )

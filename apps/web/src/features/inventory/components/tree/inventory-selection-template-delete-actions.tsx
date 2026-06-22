@@ -3,17 +3,15 @@ import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import { InventoryDeletionDescription } from "../inventory-deletion-description"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { FolderDeletionSummary } from "../../utils/inventory-tree"
-import type { SelectedVmItem } from "./inventory-selection-action-bar-utils"
+import type { SelectedVmItem } from "../../types/inventory-types"
 
 type InventorySelectionTemplateDeleteActionsProps = {
   canTemplate: boolean
   canDelete: boolean
   templateSelectionLabel: string
   selectedVmItems: Array<SelectedVmItem>
-  deleteSummary: FolderDeletionSummary
+  deleteStatusItems: ConfirmConfig["statusItems"]
   getStatus: (itemId: string) => string | undefined
   openConfirm: (config: ConfirmConfig) => void
   createTemplateConfirmStatusItems: (
@@ -21,7 +19,7 @@ type InventorySelectionTemplateDeleteActionsProps = {
     getStatus: (itemId: string) => string | undefined
   ) => ConfirmConfig["statusItems"]
   runTemplateAction: ConfirmConfig["onConfirm"]
-  runDeleteAction: () => Promise<void>
+  runDeleteAction: ConfirmConfig["onConfirm"]
 }
 
 export function InventorySelectionTemplateDeleteActions({
@@ -29,7 +27,7 @@ export function InventorySelectionTemplateDeleteActions({
   canDelete,
   templateSelectionLabel,
   selectedVmItems,
-  deleteSummary,
+  deleteStatusItems,
   getStatus,
   openConfirm,
   createTemplateConfirmStatusItems,
@@ -77,17 +75,11 @@ export function InventorySelectionTemplateDeleteActions({
             openConfirm({
               title: "Delete",
               icon: IconTrash,
-              description: (
-                <InventoryDeletionDescription
-                  folderCount={deleteSummary.folderCount}
-                  vmCount={deleteSummary.vmCount}
-                  templateCount={deleteSummary.templateCount}
-                  folderNames={deleteSummary.folderNames}
-                  vmNames={deleteSummary.vmNames}
-                  templateNames={deleteSummary.templateNames}
-                />
-              ),
+              description: null,
               actionLabel: "Delete",
+              pendingLabel: "Deleting...",
+              closeOnSuccess: false,
+              statusItems: deleteStatusItems,
               variant: "destructive",
               onConfirm: runDeleteAction,
             })

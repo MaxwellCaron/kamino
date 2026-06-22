@@ -12,7 +12,7 @@ import type {
   ConfirmConfig,
   ConfirmDialogControls,
 } from "@/components/dialogs/confirm-dialog"
-import type { SelectedVmItem } from "./inventory-selection-action-bar-utils"
+import type { SelectedVmItem } from "../../types/inventory-types"
 
 type InventorySelectionPowerActionsProps = {
   canTemplate: boolean
