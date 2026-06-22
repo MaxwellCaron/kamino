@@ -62,6 +62,12 @@ export function publishPodOptionsQueryOptions(publishedPodId?: string) {
   }
 }
 
+function getPublishProgressRefetchInterval(query: {
+  state: { data?: PublishPodProgress }
+}) {
+  return query.state.data?.state === "running" ? 750 : false
+}
+
 export function publishedPodProgressQueryOptions(
   progressId: string | null | undefined,
   enabled: boolean
@@ -84,7 +90,7 @@ export function publishedPodProgressQueryOptions(
     retry: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
-    refetchInterval: 750,
+    refetchInterval: getPublishProgressRefetchInterval,
   }
 }
 
