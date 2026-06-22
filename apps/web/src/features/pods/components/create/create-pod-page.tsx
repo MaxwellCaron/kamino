@@ -16,6 +16,7 @@ import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-s
 import { CreatePodSubmitState } from "./create-pod-creation-state"
 import { CreatePodFormSkeleton } from "./create-pod-skeleton"
 import type { CreatePodFormValues } from "./create-pod-form"
+import type { CreatePodResult } from "@/features/pods/api/create-pod-api"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import {
@@ -36,6 +37,9 @@ export function CreatePodPage() {
   const [progressId, setProgressId] = React.useState<string | null>(null)
   const [submitErrorMessage, setSubmitErrorMessage] =
     React.useState<string | null>(null)
+  const [createdPod, setCreatedPod] = React.useState<CreatePodResult | null>(
+    null
+  )
   const submittedValuesRef = React.useRef<CreatePodFormValues | null>(null)
   const { data: createOptions, isLoading: isCreateOptionsLoading } = useQuery(
     createPodOptionsQueryOptions
@@ -45,10 +49,11 @@ export function CreatePodPage() {
   )
   const createPodMutation = useMutation({
     mutationFn: createPod,
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
+      setCreatedPod(result)
       setSubmitErrorMessage(null)
       setSubmitState("success")
     },
@@ -64,6 +69,7 @@ export function CreatePodPage() {
       const nextProgressId = uuid()
       submittedValuesRef.current = values
       setProgressId(nextProgressId)
+      setCreatedPod(null)
       setSubmitErrorMessage(null)
       setSubmitState("creating")
       createPodMutation.mutate({
@@ -98,6 +104,7 @@ export function CreatePodPage() {
 
   const handleReset = React.useCallback(() => {
     submittedValuesRef.current = null
+    setCreatedPod(null)
     setSubmissionAttempts(0)
     setProgressId(null)
     setSubmitErrorMessage(null)
@@ -134,6 +141,7 @@ export function CreatePodPage() {
       <div className="@container/main flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 lg:px-8">
           <CreatePodSubmitState
+            createdPod={createdPod}
             errorMessage={resolvedSubmitErrorMessage}
             hasVirtualMachines={hasSubmittedVirtualMachines}
             includeRouter={includeRouter}

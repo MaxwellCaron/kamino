@@ -559,6 +559,20 @@ func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
+// DeleteVMStopped checks if a VM is running, stops it if so, and then deletes it.
+func (c *Client) DeleteVMStopped(ctx context.Context, node string, vmid int) error {
+	status, err := c.GetVMRuntimeStatus(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+	if status == "running" {
+		if err := c.StopVM(ctx, node, vmid); err != nil {
+			return err
+		}
+	}
+	return c.DeleteVM(ctx, node, vmid)
+}
+
 // RenameVM changes the name of a VM.
 func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name string) error {
 	if err := c.requireAllowedNode(node); err != nil {

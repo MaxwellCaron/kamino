@@ -3,7 +3,10 @@ import type {
   ProgressStateStep,
   ProgressStateSteps,
 } from "@/components/progress-state/progress-state"
-import type { CreatePodProgress } from "@/features/pods/api/create-pod-api"
+import type {
+  CreatePodProgress,
+  CreatePodResult,
+} from "@/features/pods/api/create-pod-api"
 import {
   ProgressErrorState,
   ProgressState,
@@ -102,7 +105,21 @@ function getCreateProgressStepId(
     : undefined
 }
 
+function getCreatedPodItemId(result?: CreatePodResult | null): string | null {
+  if (!result) return null
+
+  const routerVm = result.vms.find(
+    (vm) => vm.item.name.trim().toLowerCase() === "router"
+  )
+
+  if (routerVm) return routerVm.item_id
+  if (result.vms.length > 0) return result.vms[0].item_id
+
+  return null
+}
+
 export function CreatePodSubmitState({
+  createdPod,
   errorMessage,
   hasVirtualMachines,
   includeRouter,
@@ -111,6 +128,7 @@ export function CreatePodSubmitState({
   progress,
   state,
 }: {
+  createdPod?: CreatePodResult | null
   errorMessage?: string | null
   hasVirtualMachines: boolean
   includeRouter: boolean
@@ -120,6 +138,7 @@ export function CreatePodSubmitState({
   state: CreatePodSubmitStatus
 }) {
   const steps = getCreatePodSteps({ hasVirtualMachines, includeRouter })
+  const createdPodItemId = getCreatedPodItemId(createdPod)
 
   switch (state) {
     case "creating":
@@ -148,7 +167,14 @@ export function CreatePodSubmitState({
             {
               icon: IconBox,
               label: "View Pod",
-              to: "/",
+              ...(createdPodItemId
+                ? {
+                    to: "/inventory/items/$itemId" as const,
+                    params: { itemId: createdPodItemId },
+                  }
+                : {
+                    to: "/" as const,
+                  }),
             },
           ]}
         />
