@@ -107,9 +107,11 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_ADMIN_GROUP_DN` | no | — | DN of the Kamino admins group |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
-| `POD_CLONE_VNET_PREFIX` | no | `kamino` | Prefix for pre-created clone VNets |
+| `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
 | `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
 | `POD_CLONE_NETWORK_MAX` | no | `244` | Last published-clone network number |
+| `POD_DEV_NETWORK_MIN` | no | `245` | First create-pod developer network number |
+| `POD_DEV_NETWORK_MAX` | no | `254` | Last create-pod developer network number |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
 | `POD_ROUTER_INTERNAL_IP_BASE` | no | `10.128.` | Internal subnet prefix used for cloned pod router addressing |
@@ -117,6 +119,11 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN` | no | `kamino-router-{network}-meta-data.yaml` | Meta-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
+
+By default, published pod clones reserve network numbers `1-244` and create-pod
+developer environments reserve `245-254`. These ranges must not overlap.
+Generated VNet IDs must also fit Proxmox's 8-character VNet limit; with the
+default prefix and ranges, the longest generated ID is `pod254`.
 
 ## Security notes
 

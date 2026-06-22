@@ -100,6 +100,7 @@ func RegisterRoutes(
 	if pods != nil {
 		protected.GET("/pods/create/options", pods.GetCreateOptions)
 		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
+		protected.GET("/pods/create/progress/:id", pods.GetCreateProgress)
 		protected.GET("/pods/publish/options", pods.GetPublishOptions)
 		protected.GET("/pods/published", pods.ListPublished)
 		protected.POST("/pods/published", pods.SavePublished)

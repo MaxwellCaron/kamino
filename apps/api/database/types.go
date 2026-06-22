@@ -432,6 +432,13 @@ type InventoryRequests struct {
 	CreatedAt       pgtype.Timestamptz              `json:"created_at"`
 }
 
+type PodDevNetworkAllocations struct {
+	PodFolderID   uuid.UUID          `json:"pod_folder_id"`
+	NetworkNumber int32              `json:"network_number"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PublishedPods struct {
 	ID                   uuid.UUID          `json:"id"`
 	Title                string             `json:"title"`

@@ -7,6 +7,7 @@ import {
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
 import { IconCubePlus } from "@tabler/icons-react"
+import { uuid } from "@workspace/ui/lib/utils"
 import { CreatePodFormSection } from "./create-pod-form-section"
 import { useCreatePodForm } from "./create-pod-form"
 import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
@@ -20,6 +21,7 @@ import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import {
   createPod,
   createPodOptionsQueryOptions,
+  createPodProgressQueryOptions,
 } from "@/features/pods/api/create-pod-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 
@@ -31,9 +33,15 @@ export function CreatePodPage() {
   const [submitState, setSubmitState] =
     React.useState<CreatePodFormState>("form")
   const [createConfirmOpen, setCreateConfirmOpen] = React.useState(false)
+  const [progressId, setProgressId] = React.useState<string | null>(null)
+  const [submitErrorMessage, setSubmitErrorMessage] =
+    React.useState<string | null>(null)
   const submittedValuesRef = React.useRef<CreatePodFormValues | null>(null)
   const { data: createOptions, isLoading: isCreateOptionsLoading } = useQuery(
     createPodOptionsQueryOptions
+  )
+  const { data: createProgress } = useQuery(
+    createPodProgressQueryOptions(progressId, submitState === "creating")
   )
   const createPodMutation = useMutation({
     mutationFn: createPod,
@@ -41,17 +49,27 @@ export function CreatePodPage() {
       await queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
+      setSubmitErrorMessage(null)
       setSubmitState("success")
     },
-    onError: () => {
+    onError: (error) => {
+      setSubmitErrorMessage(
+        error instanceof Error ? error.message : "Failed to create pod."
+      )
       setSubmitState("error")
     },
   })
   const handleValidatedSubmit = React.useCallback(
     (values: CreatePodFormValues) => {
+      const nextProgressId = uuid()
       submittedValuesRef.current = values
+      setProgressId(nextProgressId)
+      setSubmitErrorMessage(null)
       setSubmitState("creating")
-      createPodMutation.mutate(values)
+      createPodMutation.mutate({
+        values,
+        progressId: nextProgressId,
+      })
     },
     [createPodMutation]
   )
@@ -65,16 +83,24 @@ export function CreatePodPage() {
     }
   }, [createOptions, form])
   const latestSubmittedValues = submittedValuesRef.current
+  const includeRouter = latestSubmittedValues?.includeRouter ?? false
   const hasSubmittedVirtualMachines =
-    latestSubmittedValues?.includeRouter ||
-    latestSubmittedValues?.templates.some(
-      (template) => template.vms.length > 0
-    ) ||
+    latestSubmittedValues?.templates.some((template) => template.vms.length > 0) ??
     false
+  const resolvedSubmitState =
+    submitState === "creating" && createProgress?.state === "error"
+      ? "error"
+      : submitState
+  const resolvedSubmitErrorMessage =
+    createProgress?.state === "error"
+      ? createProgress.message
+      : submitErrorMessage
 
   const handleReset = React.useCallback(() => {
     submittedValuesRef.current = null
     setSubmissionAttempts(0)
+    setProgressId(null)
+    setSubmitErrorMessage(null)
     createPodMutation.reset()
     form.reset()
     setSubmitState("form")
@@ -103,14 +129,19 @@ export function CreatePodPage() {
     void form.handleSubmit()
   }, [form])
 
-  if (submitState !== "form") {
+  if (resolvedSubmitState !== "form") {
     return (
       <div className="@container/main flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 lg:px-8">
           <CreatePodSubmitState
+            errorMessage={resolvedSubmitErrorMessage}
             hasVirtualMachines={hasSubmittedVirtualMachines}
+            includeRouter={includeRouter}
             onReset={handleReset}
-            state={submitState}
+            progress={
+              submitState === "creating" ? createProgress : undefined
+            }
+            state={resolvedSubmitState}
           />
         </div>
       </div>

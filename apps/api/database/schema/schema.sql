@@ -505,6 +505,14 @@ CREATE INDEX ix_cloned_pods_user_created_at
 CREATE INDEX ix_cloned_pods_pod_created_at
     ON cloned_pods (pod_id, created_at DESC);
 
+CREATE TABLE pod_dev_network_allocations (
+    pod_folder_id  UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
+    network_number INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (network_number)
+);
+
 CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
 RETURNS TRIGGER AS $$
 BEGIN

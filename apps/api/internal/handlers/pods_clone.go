@@ -49,6 +49,12 @@ type clonePublishedVMResult struct {
 	router    bool
 }
 
+type podNetworkVMTarget struct {
+	name   string
+	clone  clonedVM
+	router bool
+}
+
 type clonedRouterCloudInitConfig struct {
 	Storage     string
 	UserFile    string
@@ -184,24 +190,36 @@ func isPublishedPodRouterVM(publishedVM database.ListPublishedPodVMsForCloneRow)
 	return strings.EqualFold(strings.TrimSpace(publishedVM.Name), "router")
 }
 
-func findClonedRouter(results []clonePublishedVMResult) (*clonePublishedVMResult, *requestError) {
-	var router *clonePublishedVMResult
-	for index := range results {
-		if !results[index].router {
+func podNetworkTargetsFromCloneResults(results []clonePublishedVMResult) []podNetworkVMTarget {
+	targets := make([]podNetworkVMTarget, 0, len(results))
+	for _, result := range results {
+		targets = append(targets, podNetworkVMTarget{
+			name:   result.published.Name,
+			clone:  result.clone,
+			router: result.router,
+		})
+	}
+	return targets
+}
+
+func findPodNetworkRouterTarget(targets []podNetworkVMTarget) (*podNetworkVMTarget, *requestError) {
+	var router *podNetworkVMTarget
+	for index := range targets {
+		if !targets[index].router {
 			continue
 		}
 		if router != nil {
 			return nil, &requestError{
 				Status:      http.StatusUnprocessableEntity,
-				UserMessage: "published pod must contain exactly one router virtual machine named router",
+				UserMessage: "pod must contain exactly one router virtual machine named router",
 			}
 		}
-		router = &results[index]
+		router = &targets[index]
 	}
 	if router == nil {
 		return nil, &requestError{
 			Status:      http.StatusUnprocessableEntity,
-			UserMessage: "published pod must contain exactly one router virtual machine named router",
+			UserMessage: "pod must contain exactly one router virtual machine named router",
 		}
 	}
 	return router, nil
@@ -1333,65 +1351,6 @@ func (h *PodsHandler) applyPublishedPodVMPermissions(
 	return nil
 }
 
-func (h *PodsHandler) waitForClonedVMsVisible(
-	ctx context.Context,
-	results []clonePublishedVMResult,
-) *requestError {
-	wanted := make(map[int]struct{}, len(results))
-	for _, result := range results {
-		wanted[result.clone.VMID] = struct{}{}
-	}
-
-	check := func() (bool, error) {
-		vms, err := h.PX.GetVMs(ctx)
-		if err != nil {
-			return false, err
-		}
-		found := make(map[int]struct{}, len(wanted))
-		for _, vm := range vms {
-			if _, ok := wanted[vm.VMID]; ok {
-				found[vm.VMID] = struct{}{}
-			}
-		}
-		return len(found) == len(wanted), nil
-	}
-
-	deadline := time.After(30 * time.Second)
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		ready, err := check()
-		if err != nil {
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "failed to detect cloned VMs",
-				Operation:   "detect cloned VMs in Proxmox",
-				Err:         err,
-			}
-		}
-		if ready {
-			return nil
-		}
-
-		select {
-		case <-ctx.Done():
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "clone canceled while waiting for VMs",
-				Operation:   "wait for cloned VMs",
-				Err:         ctx.Err(),
-			}
-		case <-deadline:
-			return &requestError{
-				Status:      http.StatusConflict,
-				UserMessage: "cloned VMs were not detected in Proxmox",
-			}
-		case <-ticker.C:
-		}
-	}
-}
-
 func (h *PodsHandler) createClonedPodRecord(
 	ctx context.Context,
 	principalID uuid.UUID,
@@ -1489,17 +1448,21 @@ func (h *PodsHandler) recordClonedPodDetails(
 	return nil
 }
 
-func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
+func (h *PodsHandler) podVNetName(networkNumber int32) string {
 	return fmt.Sprintf("%s%d", strings.TrimSpace(h.RouterCloneConfig.VNetPrefix), networkNumber)
 }
 
-func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
+func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
+	return h.podVNetName(networkNumber)
+}
+
+func (h *PodsHandler) podNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
 	wanBase, _ := normalizeRouterIPBase(h.RouterCloneConfig.WANIPBase)
 	internalBase, _ := normalizeRouterIPBase(h.RouterCloneConfig.InternalIPBase)
 
 	response := clonedPodNetworkResponse{
 		Number:          networkNumber,
-		VNet:            h.clonedPodVNetName(networkNumber),
+		VNet:            h.podVNetName(networkNumber),
 		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
 		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
 	}
@@ -1514,7 +1477,11 @@ func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) clonedPodNet
 	return response
 }
 
-func (h *PodsHandler) ensureClonedPodVNetExists(ctx context.Context, vnetName string) *requestError {
+func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
+	return h.podNetworkMetadata(networkNumber)
+}
+
+func (h *PodsHandler) ensurePodVNetExists(ctx context.Context, vnetName string) *requestError {
 	vnets, err := h.PX.GetVNets(ctx)
 	if err != nil {
 		return &requestError{
@@ -1537,24 +1504,93 @@ func (h *PodsHandler) ensureClonedPodVNetExists(ctx context.Context, vnetName st
 	}
 }
 
-func (h *PodsHandler) waitForClonedVMsReady(
+func (h *PodsHandler) ensureClonedPodVNetExists(ctx context.Context, vnetName string) *requestError {
+	return h.ensurePodVNetExists(ctx, vnetName)
+}
+
+func (h *PodsHandler) waitForPodVMTargetsVisible(
+	ctx context.Context,
+	targets []podNetworkVMTarget,
+) *requestError {
+	wanted := make(map[int]struct{}, len(targets))
+	for _, target := range targets {
+		wanted[target.clone.VMID] = struct{}{}
+	}
+
+	check := func() (bool, error) {
+		vms, err := h.PX.GetVMs(ctx)
+		if err != nil {
+			return false, err
+		}
+		found := make(map[int]struct{}, len(wanted))
+		for _, vm := range vms {
+			if _, ok := wanted[vm.VMID]; ok {
+				found[vm.VMID] = struct{}{}
+			}
+		}
+		return len(found) == len(wanted), nil
+	}
+
+	deadline := time.After(30 * time.Second)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		ready, err := check()
+		if err != nil {
+			return &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to detect cloned VMs",
+				Operation:   "detect cloned VMs in Proxmox",
+				Err:         err,
+			}
+		}
+		if ready {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "clone canceled while waiting for VMs",
+				Operation:   "wait for cloned VMs",
+				Err:         ctx.Err(),
+			}
+		case <-deadline:
+			return &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "cloned VMs were not detected in Proxmox",
+			}
+		case <-ticker.C:
+		}
+	}
+}
+
+func (h *PodsHandler) waitForClonedVMsVisible(
 	ctx context.Context,
 	results []clonePublishedVMResult,
 ) *requestError {
-	if reqErr := h.waitForClonedVMsVisible(ctx, results); reqErr != nil {
+	return h.waitForPodVMTargetsVisible(ctx, podNetworkTargetsFromCloneResults(results))
+}
+
+func (h *PodsHandler) waitForPodVMTargetsReady(
+	ctx context.Context,
+	targets []podNetworkVMTarget,
+) *requestError {
+	if reqErr := h.waitForPodVMTargetsVisible(ctx, targets); reqErr != nil {
 		return reqErr
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
 	group.SetLimit(publishCloneConcurrency)
-	for _, result := range results {
-		result := result
+	for _, target := range targets {
 		group.Go(func() error {
-			if err := h.PX.WaitForVMConfigUnlocked(gctx, result.clone.TargetNode, result.clone.VMID, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
-				return fmt.Errorf("wait for VM %d config unlock: %w", result.clone.VMID, err)
+			if err := h.PX.WaitForVMConfigUnlocked(gctx, target.clone.TargetNode, target.clone.VMID, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
+				return fmt.Errorf("wait for VM %d config unlock: %w", target.clone.VMID, err)
 			}
-			if err := h.PX.WaitForVMStorageReady(gctx, result.clone.TargetNode, result.clone.VMID, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
-				return fmt.Errorf("wait for VM %d storage readiness: %w", result.clone.VMID, err)
+			if err := h.PX.WaitForVMStorageReady(gctx, target.clone.TargetNode, target.clone.VMID, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
+				return fmt.Errorf("wait for VM %d storage readiness: %w", target.clone.VMID, err)
 			}
 			return nil
 		})
@@ -1572,18 +1608,25 @@ func (h *PodsHandler) waitForClonedVMsReady(
 	return nil
 }
 
-func (h *PodsHandler) configureClonedPodNetwork(
+func (h *PodsHandler) waitForClonedVMsReady(
 	ctx context.Context,
-	networkNumber int32,
 	results []clonePublishedVMResult,
 ) *requestError {
-	router, reqErr := findClonedRouter(results)
+	return h.waitForPodVMTargetsReady(ctx, podNetworkTargetsFromCloneResults(results))
+}
+
+func (h *PodsHandler) configurePodVNetBridges(
+	ctx context.Context,
+	networkNumber int32,
+	targets []podNetworkVMTarget,
+) *requestError {
+	router, reqErr := findPodNetworkRouterTarget(targets)
 	if reqErr != nil {
 		return reqErr
 	}
 
-	vnetName := h.clonedPodVNetName(networkNumber)
-	if reqErr := h.ensureClonedPodVNetExists(ctx, vnetName); reqErr != nil {
+	vnetName := h.podVNetName(networkNumber)
+	if reqErr := h.ensurePodVNetExists(ctx, vnetName); reqErr != nil {
 		return reqErr
 	}
 
@@ -1598,13 +1641,13 @@ func (h *PodsHandler) configureClonedPodNetwork(
 
 	group, gctx := errgroup.WithContext(ctx)
 	group.SetLimit(publishCloneConcurrency)
-	for _, result := range results {
-		if result.router {
+	for _, target := range targets {
+		if target.router {
 			continue
 		}
-		result := result
+		target := target
 		group.Go(func() error {
-			return h.PX.SetVMNetworkBridge(gctx, result.clone.TargetNode, result.clone.VMID, "net0", vnetName)
+			return h.PX.SetVMNetworkBridge(gctx, target.clone.TargetNode, target.clone.VMID, "net0", vnetName)
 		})
 	}
 
@@ -1620,12 +1663,20 @@ func (h *PodsHandler) configureClonedPodNetwork(
 	return nil
 }
 
-func (h *PodsHandler) configureClonedRouter(
+func (h *PodsHandler) configureClonedPodNetwork(
 	ctx context.Context,
-	clone database.ClonedPods,
+	networkNumber int32,
 	results []clonePublishedVMResult,
 ) *requestError {
-	router, reqErr := findClonedRouter(results)
+	return h.configurePodVNetBridges(ctx, networkNumber, podNetworkTargetsFromCloneResults(results))
+}
+
+func (h *PodsHandler) configurePodRouterCloudInit(
+	ctx context.Context,
+	networkNumber int32,
+	targets []podNetworkVMTarget,
+) *requestError {
+	router, reqErr := findPodNetworkRouterTarget(targets)
 	if reqErr != nil {
 		return reqErr
 	}
@@ -1656,7 +1707,7 @@ func (h *PodsHandler) configureClonedRouter(
 		}
 	}
 
-	cloudInitConfig, err := buildClonedRouterCloudInitConfig(clone.NetworkNumber, h.RouterCloneConfig)
+	cloudInitConfig, err := buildClonedRouterCloudInitConfig(networkNumber, h.RouterCloneConfig)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusInternalServerError,
@@ -1721,6 +1772,14 @@ func (h *PodsHandler) configureClonedRouter(
 	}
 
 	return nil
+}
+
+func (h *PodsHandler) configureClonedRouter(
+	ctx context.Context,
+	clone database.ClonedPods,
+	results []clonePublishedVMResult,
+) *requestError {
+	return h.configurePodRouterCloudInit(ctx, clone.NetworkNumber, podNetworkTargetsFromCloneResults(results))
 }
 
 func (h *PodsHandler) recordReclonedPodVMs(
@@ -2173,7 +2232,7 @@ func clonedPodRuntimeStatus(statuses []string) string {
 	return "partial"
 }
 
-func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int]clonedVM) {
+func (h *PodsHandler) cleanupFailedPodProvision(folderID uuid.UUID, created map[int]clonedVM) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -2193,6 +2252,10 @@ func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int
 			log.Printf("clone cleanup: failed to delete target folder %s: %v", folderID, err)
 		}
 	}
+}
+
+func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int]clonedVM) {
+	h.cleanupFailedPodProvision(folderID, created)
 }
 
 func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {

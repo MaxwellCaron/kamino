@@ -555,6 +555,41 @@ RETURNING
     created_at,
     updated_at;
 
+-- name: InsertPodDevNetworkAllocation :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020002)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pod_dev_network_allocations pdna
+        WHERE pdna.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
+INSERT INTO pod_dev_network_allocations (
+    pod_folder_id,
+    network_number
+)
+SELECT
+    sqlc.arg(pod_folder_id),
+    candidate.network_number
+FROM candidate
+RETURNING
+    pod_folder_id,
+    network_number,
+    created_at,
+    updated_at;
+
 -- name: InsertClonedPodVM :exec
 INSERT INTO cloned_pod_vms (
     cloned_pod_id,

@@ -115,11 +115,11 @@ func TestManagerCloneFolderName(t *testing.T) {
 func TestClonedPodVNetName(t *testing.T) {
 	handler := &PodsHandler{
 		RouterCloneConfig: PodRouterCloneConfig{
-			VNetPrefix: "kamino",
+			VNetPrefix: "pod",
 		},
 	}
-	if got := handler.clonedPodVNetName(17); got != "kamino17" {
-		t.Fatalf("clonedPodVNetName() = %q, want %q", got, "kamino17")
+	if got := handler.clonedPodVNetName(17); got != "pod17" {
+		t.Fatalf("clonedPodVNetName() = %q, want %q", got, "pod17")
 	}
 
 	handler.RouterCloneConfig.VNetPrefix = "  lab- "
@@ -131,14 +131,14 @@ func TestClonedPodVNetName(t *testing.T) {
 func TestClonedPodNetworkMetadata(t *testing.T) {
 	handler := &PodsHandler{
 		RouterCloneConfig: PodRouterCloneConfig{
-			VNetPrefix:     "kamino",
+			VNetPrefix:     "pod",
 			WANIPBase:      "172.16.",
 			InternalIPBase: "10.128.",
 		},
 	}
 
 	got := handler.clonedPodNetworkMetadata(24)
-	if got.Number != 24 || got.VNet != "kamino24" {
+	if got.Number != 24 || got.VNet != "pod24" {
 		t.Fatalf("metadata identity = %#v", got)
 	}
 	if got.ExternalSubnet != "172.16.24.0/24" || got.ExternalGateway != "172.16.24.1" {
@@ -244,27 +244,27 @@ func TestIsPublishedPodRouterVM(t *testing.T) {
 	}
 }
 
-func TestFindClonedRouterRequiresExactlyOneRouter(t *testing.T) {
-	routerResult := clonePublishedVMResult{
-		published: database.ListPublishedPodVMsForCloneRow{Name: "router"},
-		router:    true,
+func TestFindPodNetworkRouterTargetRequiresExactlyOneRouter(t *testing.T) {
+	routerTarget := podNetworkVMTarget{
+		name:   "router",
+		router: true,
 	}
-	otherResult := clonePublishedVMResult{
-		published: database.ListPublishedPodVMsForCloneRow{Name: "workstation"},
+	otherTarget := podNetworkVMTarget{
+		name: "workstation",
 	}
 
-	found, reqErr := findClonedRouter([]clonePublishedVMResult{otherResult, routerResult})
+	found, reqErr := findPodNetworkRouterTarget([]podNetworkVMTarget{otherTarget, routerTarget})
 	if reqErr != nil {
-		t.Fatalf("findClonedRouter() error = %v", reqErr)
+		t.Fatalf("findPodNetworkRouterTarget() error = %v", reqErr)
 	}
-	if found == nil || !found.router || found.published.Name != "router" {
-		t.Fatalf("findClonedRouter() = %#v", found)
+	if found == nil || !found.router || found.name != "router" {
+		t.Fatalf("findPodNetworkRouterTarget() = %#v", found)
 	}
 
-	if _, reqErr := findClonedRouter([]clonePublishedVMResult{otherResult}); reqErr == nil {
+	if _, reqErr := findPodNetworkRouterTarget([]podNetworkVMTarget{otherTarget}); reqErr == nil {
 		t.Fatalf("expected error when router is missing")
 	}
-	if _, reqErr := findClonedRouter([]clonePublishedVMResult{routerResult, routerResult}); reqErr == nil {
+	if _, reqErr := findPodNetworkRouterTarget([]podNetworkVMTarget{routerTarget, routerTarget}); reqErr == nil {
 		t.Fatalf("expected error when multiple routers are present")
 	}
 }

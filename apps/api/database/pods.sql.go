@@ -716,6 +716,60 @@ func (q *Queries) InsertClonedPodVM(ctx context.Context, arg InsertClonedPodVMPa
 	return err
 }
 
+const insertPodDevNetworkAllocation = `-- name: InsertPodDevNetworkAllocation :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020002)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series($2::INTEGER, $3::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pod_dev_network_allocations pdna
+        WHERE pdna.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
+INSERT INTO pod_dev_network_allocations (
+    pod_folder_id,
+    network_number
+)
+SELECT
+    $1,
+    candidate.network_number
+FROM candidate
+RETURNING
+    pod_folder_id,
+    network_number,
+    created_at,
+    updated_at
+`
+
+type InsertPodDevNetworkAllocationParams struct {
+	PodFolderID      uuid.UUID `json:"pod_folder_id"`
+	MinNetworkNumber int32     `json:"min_network_number"`
+	MaxNetworkNumber int32     `json:"max_network_number"`
+}
+
+func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertPodDevNetworkAllocationParams) (PodDevNetworkAllocations, error) {
+	row := q.db.QueryRow(ctx, insertPodDevNetworkAllocation, arg.PodFolderID, arg.MinNetworkNumber, arg.MaxNetworkNumber)
+	var i PodDevNetworkAllocations
+	err := row.Scan(
+		&i.PodFolderID,
+		&i.NetworkNumber,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const insertPublishedPodAudience = `-- name: InsertPublishedPodAudience :exec
 INSERT INTO published_pod_audience (pod_id, principal_id, sort_order)
 VALUES ($1, $2, $3)

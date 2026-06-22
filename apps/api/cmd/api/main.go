@@ -50,9 +50,11 @@ type Config struct {
 	LDAPAdminGroupDN                  string `envconfig:"LDAP_ADMIN_GROUP_DN"`
 	LDAPInsecure                      bool   `envconfig:"LDAP_INSECURE" default:"false"`
 	PodRouterTemplate                 string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
-	PodCloneVNetPrefix                string `envconfig:"POD_CLONE_VNET_PREFIX" default:"kamino"`
+	PodCloneVNetPrefix                string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
 	PodCloneNetworkMin                int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
 	PodCloneNetworkMax                int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"244"`
+	PodDevNetworkMin                  int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"245"`
+	PodDevNetworkMax                  int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"254"`
 	PodRouterWait                     string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
 	PodRouterWANIPBase                string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
 	PodRouterLANIPBase                string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:"10.128."`
@@ -71,6 +73,8 @@ type Server struct {
 	ADClient      *activedirectory.Client
 	ADSync        *activedirectory.Sync
 }
+
+const proxmoxVNetIDMaxLength = 8
 
 func splitCSV(value string) []string {
 	parts := strings.Split(value, ",")
@@ -173,11 +177,22 @@ func normalizeCloudInitFileName(envName, value string) (string, error) {
 	return trimmed, nil
 }
 
+func validatePodVNetPrefix(prefix string, maxNetworkNumber int32) error {
+	trimmed := strings.TrimSpace(prefix)
+	if trimmed == "" {
+		return fmt.Errorf("POD_CLONE_VNET_PREFIX must not be empty")
+	}
+
+	vnetName := trimmed + strconv.Itoa(int(maxNetworkNumber))
+	if len(vnetName) > proxmoxVNetIDMaxLength {
+		return fmt.Errorf("POD_CLONE_VNET_PREFIX plus configured network number must fit Proxmox VNet 8-character limit")
+	}
+
+	return nil
+}
+
 func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, error) {
 	vnetPrefix := strings.TrimSpace(config.PodCloneVNetPrefix)
-	if vnetPrefix == "" {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_VNET_PREFIX must not be empty")
-	}
 	if config.PodCloneNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be at least 1")
 	}
@@ -186,6 +201,26 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	}
 	if config.PodCloneNetworkMin > config.PodCloneNetworkMax {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be less than or equal to POD_CLONE_NETWORK_MAX")
+	}
+	if config.PodDevNetworkMin < 1 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MIN must be at least 1")
+	}
+	if config.PodDevNetworkMax > 254 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MAX must be at most 254")
+	}
+	if config.PodDevNetworkMin > config.PodDevNetworkMax {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MIN must be less than or equal to POD_DEV_NETWORK_MAX")
+	}
+	if config.PodCloneNetworkMin <= config.PodDevNetworkMax &&
+		config.PodDevNetworkMin <= config.PodCloneNetworkMax {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN..POD_CLONE_NETWORK_MAX must not overlap POD_DEV_NETWORK_MIN..POD_DEV_NETWORK_MAX")
+	}
+	maxNetworkNumber := config.PodCloneNetworkMax
+	if config.PodDevNetworkMax > maxNetworkNumber {
+		maxNetworkNumber = config.PodDevNetworkMax
+	}
+	if err := validatePodVNetPrefix(vnetPrefix, maxNetworkNumber); err != nil {
+		return handlers.PodRouterCloneConfig{}, err
 	}
 
 	waitTimeout, err := time.ParseDuration(strings.TrimSpace(config.PodRouterWait))
@@ -240,6 +275,8 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		VNetPrefix:               vnetPrefix,
 		NetworkMin:               config.PodCloneNetworkMin,
 		NetworkMax:               config.PodCloneNetworkMax,
+		DevNetworkMin:            config.PodDevNetworkMin,
+		DevNetworkMax:            config.PodDevNetworkMax,
 		RouterWaitTimeout:        waitTimeout,
 		WANIPBase:                wanIPBase,
 		InternalIPBase:           internalIPBase,
@@ -250,16 +287,15 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	}
 
 	log.Printf(
-		"Published pod clone networking configured: prefix=%q range=%d-%d wait_timeout=%s cloud_init_storage=%q",
+		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d wait_timeout=%s cloud_init_storage=%q",
 		routerConfig.VNetPrefix,
 		routerConfig.NetworkMin,
 		routerConfig.NetworkMax,
+		routerConfig.DevNetworkMin,
+		routerConfig.DevNetworkMax,
 		routerConfig.RouterWaitTimeout,
 		routerConfig.CloudInitStorage,
 	)
-	if routerConfig.NetworkMin == 1 && routerConfig.NetworkMax == 244 {
-		log.Printf("Published pod clone networking reserves 245-254 for creator/developer workflows")
-	}
 
 	return routerConfig, nil
 }
