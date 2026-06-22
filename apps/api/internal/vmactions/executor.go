@@ -79,7 +79,7 @@ func (e *Executor) DeleteVM(ctx context.Context, target Target) error {
 	if err := e.inventory.EnsureInventorySubtreeDeletable(ctx, target.ItemID); err != nil {
 		return err
 	}
-	if err := e.px.DeleteVM(ctx, target.Node, target.VMID); err != nil {
+	if err := e.px.DeleteVMStopped(ctx, target.Node, target.VMID); err != nil {
 		return err
 	}
 	if err := e.inventory.DeleteInventoryVM(ctx, target.ItemID); err != nil {

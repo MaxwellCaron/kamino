@@ -230,3 +230,114 @@ func TestWaitForVMConfigUnlocked(t *testing.T) {
 		t.Fatalf("expected at least 2 config requests, got %d", requests)
 	}
 }
+
+func TestDeleteVMStopped(t *testing.T) {
+	t.Run("stopped VM", func(t *testing.T) {
+		var (
+			stopCalled   bool
+			deleteCalled bool
+			requests     []string
+			mu           sync.Mutex
+		)
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			requests = append(requests, r.Method+" "+r.URL.Path)
+			mu.Unlock()
+
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/current":
+				writeAPIResponse(t, w, http.StatusOK, map[string]any{"status": "stopped"})
+			case r.Method == http.MethodPost && r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/stop":
+				stopCalled = true
+				writeAPIResponse(t, w, http.StatusOK, "UPID:node1:00000000:00000000:00000000:qmstop:101:user@pve:")
+			case r.Method == http.MethodDelete && r.URL.Path == "/api2/json/nodes/node1/qemu/101":
+				deleteCalled = true
+				writeAPIResponse(t, w, http.StatusOK, "UPID:node1:00000000:00000000:00000000:qmdestroy:101:user@pve:")
+			case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/tasks/UPID:node1:00000000:00000000:00000000:qmdestroy:101:user@pve:/status":
+				writeAPIResponse(t, w, http.StatusOK, TaskStatus{Status: "stopped", ExitStatus: "OK"})
+			default:
+				t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+			}
+		}))
+		defer server.Close()
+
+		client := newTestClient(server)
+		err := client.DeleteVMStopped(context.Background(), "node1", 101)
+		if err != nil {
+			t.Fatalf("DeleteVMStopped() error = %v", err)
+		}
+
+		if stopCalled {
+			t.Errorf("expected StopVM not to be called for stopped VM")
+		}
+		if !deleteCalled {
+			t.Errorf("expected DeleteVM to be called")
+		}
+
+		expectedRequests := []string{
+			"GET /api2/json/nodes/node1/qemu/101/status/current",
+			"DELETE /api2/json/nodes/node1/qemu/101",
+			"GET /api2/json/nodes/node1/tasks/UPID:node1:00000000:00000000:00000000:qmdestroy:101:user@pve:/status",
+		}
+		if len(requests) != len(expectedRequests) {
+			t.Fatalf("got %d requests, want %d: %v", len(requests), len(expectedRequests), requests)
+		}
+		for i, req := range expectedRequests {
+			if requests[i] != req {
+				t.Errorf("request %d = %q, want %q", i, requests[i], req)
+			}
+		}
+	})
+
+	t.Run("running VM", func(t *testing.T) {
+		var (
+			requests []string
+			mu       sync.Mutex
+		)
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			requests = append(requests, r.Method+" "+r.URL.Path)
+			mu.Unlock()
+
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/current":
+				writeAPIResponse(t, w, http.StatusOK, map[string]any{"status": "running"})
+			case r.Method == http.MethodPost && r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/stop":
+				writeAPIResponse(t, w, http.StatusOK, "UPID:node1:00000000:00000000:00000000:qmstop:101:user@pve:")
+			case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/tasks/UPID:node1:00000000:00000000:00000000:qmstop:101:user@pve:/status":
+				writeAPIResponse(t, w, http.StatusOK, TaskStatus{Status: "stopped", ExitStatus: "OK"})
+			case r.Method == http.MethodDelete && r.URL.Path == "/api2/json/nodes/node1/qemu/101":
+				writeAPIResponse(t, w, http.StatusOK, "UPID:node1:00000000:00000000:00000000:qmdestroy:101:user@pve:")
+			case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/tasks/UPID:node1:00000000:00000000:00000000:qmdestroy:101:user@pve:/status":
+				writeAPIResponse(t, w, http.StatusOK, TaskStatus{Status: "stopped", ExitStatus: "OK"})
+			default:
+				t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+			}
+		}))
+		defer server.Close()
+
+		client := newTestClient(server)
+		err := client.DeleteVMStopped(context.Background(), "node1", 101)
+		if err != nil {
+			t.Fatalf("DeleteVMStopped() error = %v", err)
+		}
+
+		expectedRequests := []string{
+			"GET /api2/json/nodes/node1/qemu/101/status/current",
+			"POST /api2/json/nodes/node1/qemu/101/status/stop",
+			"GET /api2/json/nodes/node1/tasks/UPID:node1:00000000:00000000:00000000:qmstop:101:user@pve:/status",
+			"DELETE /api2/json/nodes/node1/qemu/101",
+			"GET /api2/json/nodes/node1/tasks/UPID:node1:00000000:00000000:00000000:qmdestroy:101:user@pve:/status",
+		}
+		if len(requests) != len(expectedRequests) {
+			t.Fatalf("got %d requests, want %d: %v", len(requests), len(expectedRequests), requests)
+		}
+		for i, req := range expectedRequests {
+			if requests[i] != req {
+				t.Errorf("request %d = %q, want %q", i, requests[i], req)
+			}
+		}
+	})
+}
