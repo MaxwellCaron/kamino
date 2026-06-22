@@ -493,6 +493,51 @@ func (h *VMHandler) GetHardware(c *gin.Context) {
 	c.JSON(http.StatusOK, config)
 }
 
+type vmNetworkSummaryResponse struct {
+	Device string `json:"device,omitempty"`
+	Bridge string `json:"bridge"`
+}
+
+// GetNetworking returns the current network interface summary for a VM.
+// GET /api/v1/inventory/items/:id/vm/networking
+func (h *VMHandler) GetNetworking(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	itemID, ok := parseItemIDParam(c)
+	if !ok {
+		return
+	}
+
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.View, false)
+	if !ok {
+		return
+	}
+
+	config, err := h.PX.GetVMHardwareConfig(c.Request.Context(), target.Node, target.VMID)
+	if err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM networks", "fetch vm network config", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"networks": summarizeVMHardwareNetworks(config.Networks)})
+}
+
+func summarizeVMHardwareNetworks(networks []proxmox.VMHardwareNetwork) []vmNetworkSummaryResponse {
+	summaries := make([]vmNetworkSummaryResponse, 0, len(networks))
+	for _, network := range networks {
+		summaries = append(summaries, vmNetworkSummaryResponse{
+			Device: network.Device,
+			Bridge: network.Bridge,
+		})
+	}
+
+	return summaries
+}
+
 // UpdateHardware updates editable hardware settings for a VM and refreshes summary metadata.
 // PUT /api/v1/inventory/items/:id/vm/hardware
 func (h *VMHandler) UpdateHardware(c *gin.Context) {

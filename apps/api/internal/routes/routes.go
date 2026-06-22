@@ -75,6 +75,7 @@ func RegisterRoutes(
 	protected.DELETE("/inventory/vms", vm.DeleteVM)
 	protected.GET("/inventory/items/:id/vm/resources", vm.GetResources)
 	protected.GET("/inventory/items/:id/vm/hardware", vm.GetHardware)
+	protected.GET("/inventory/items/:id/vm/networking", vm.GetNetworking)
 	protected.POST("/inventory/items/:id/vm/rename", vm.RenameVM)
 	protected.POST("/inventory/items/:id/vm/clone", vm.CloneVM)
 	protected.PUT("/inventory/items/:id/vm/hardware", vm.UpdateHardware)
