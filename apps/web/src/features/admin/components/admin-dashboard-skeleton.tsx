@@ -45,9 +45,9 @@ export function AdminDashboardSkeleton() {
       contentClassName="xl:grid xl:grid-cols-12"
     >
       <AdminOverviewSkeleton />
-      <AdminClusterSkeleton />
       <AdminTableSkeleton className="xl:col-span-7" actionWidth="w-16" />
       <AdminActionsSkeleton />
+      <AdminClusterSkeleton />
       <AdminTableSkeleton className="xl:col-span-5" actionWidth="w-24" />
       <AdminTableSkeleton className="xl:col-span-7" actionWidth="w-20" />
     </PageSkeleton>

@@ -226,8 +226,6 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           <AdminDashboardHeader stats={adminStats} />
         </div>
 
-        <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
-
         <AdminDashboardPendingRequestsCard
           columns={requestColumns}
           data={pendingRequests}
@@ -238,6 +236,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         <div className="xl:col-span-5">
           <AdminDashboardActionButtons />
         </div>
+
+        <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
 
         <AdminDashboardPrincipalsCards
           groupColumns={groupColumns}
