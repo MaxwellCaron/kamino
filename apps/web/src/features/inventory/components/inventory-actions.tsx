@@ -426,6 +426,7 @@ function TemplateMenuItems({
   onAction,
   onManagePermissions,
   onClone,
+  onRename,
   isLoading,
 }: {
   permissions: ApiTreeNodePermissions
@@ -437,6 +438,7 @@ function TemplateMenuItems({
   onAction: (config: ConfirmConfig) => void
   onManagePermissions: () => void
   onClone: () => void
+  onRename: () => void
   isLoading?: boolean
 }) {
   const deleteVm = useDeleteVM()
@@ -475,6 +477,12 @@ function TemplateMenuItems({
         <>
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
+            {capabilities.rename.visible && (
+              <DropdownMenuItem onClick={onRename} disabled={isLoading}>
+                <IconEdit className="text-muted-foreground" />
+                Rename
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={onManagePermissions}
               disabled={isLoading}
@@ -679,6 +687,15 @@ export function InventoryNodeMenu({
                 isTemplate: data.vm.is_template,
               })
             }}
+            onRename={() => {
+              if (data.vm?.node) {
+                openRenameVm({
+                  itemId,
+                  currentName: data.name,
+                  currentVmid: data.vm.vmid,
+                })
+              }
+            }}
             isLoading={false}
           />
         ) : (
@@ -848,6 +865,15 @@ export function VmOptionsMenu({
                   currentVmid: vmid,
                   isTemplate,
                 })
+              }}
+              onRename={() => {
+                if (pveNode && vmid !== undefined) {
+                  openRenameVm({
+                    itemId,
+                    currentName: name ?? "",
+                    currentVmid: vmid,
+                  })
+                }
               }}
               isLoading={isLoading}
             />

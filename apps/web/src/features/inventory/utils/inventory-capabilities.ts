@@ -141,9 +141,7 @@ export function getVmCapabilities(
   const power = options.isTemplate
     ? modeCapability(null)
     : getRequestableInventoryCapability(permissions, "powerVm")
-  const rename = options.isTemplate
-    ? directCapability(false)
-    : getDirectInventoryCapability(permissions, "renameVm")
+  const rename = getDirectInventoryCapability(permissions, "renameVm")
   const snapshot = options.isTemplate
     ? modeCapability(null)
     : getRequestableInventoryCapability(permissions, "snapshotVm")
