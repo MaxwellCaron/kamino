@@ -49,6 +49,12 @@ type ProgressStatePodAction = ProgressStateActionBase & {
   to: "/pods/$podSlug"
 }
 
+type ProgressStateInventoryItemAction = ProgressStateActionBase & {
+  onClick?: MouseEventHandler<HTMLAnchorElement>
+  params: { itemId: string }
+  to: "/inventory/items/$itemId"
+}
+
 type ProgressStateButtonAction = ProgressStateActionBase & {
   onClick: MouseEventHandler<HTMLButtonElement>
 }
@@ -56,6 +62,7 @@ type ProgressStateButtonAction = ProgressStateActionBase & {
 export type ProgressStateAction =
   | ProgressStateStaticAction
   | ProgressStatePodAction
+  | ProgressStateInventoryItemAction
   | ProgressStateButtonAction
 
 type ProgressStateProps<TStepId extends number> = {
@@ -243,6 +250,21 @@ function ProgressStateActions({
             <Link
               key={`${action.to}-${action.label}`}
               to="/pods/$podSlug"
+              params={action.params}
+              onClick={action.onClick}
+              className={className}
+            >
+              <Icon data-icon="inline-start" />
+              {action.label}
+            </Link>
+          )
+        }
+
+        if (action.to === "/inventory/items/$itemId") {
+          return (
+            <Link
+              key={`${action.to}-${action.label}`}
+              to="/inventory/items/$itemId"
               params={action.params}
               onClick={action.onClick}
               className={className}
