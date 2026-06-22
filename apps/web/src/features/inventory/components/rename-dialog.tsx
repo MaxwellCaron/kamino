@@ -23,6 +23,7 @@ import {
   formatToastError,
   formatVmReference,
 } from "@/features/shared/utils/format"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
 
@@ -174,7 +175,11 @@ export function RenameDialog(props: RenameDialogProps) {
                     id="name"
                     placeholder={ui.placeholder}
                     value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
+                    onChange={(event) =>
+                      field.handleChange(
+                        replaceWhitespaceWithHyphen(event.target.value)
+                      )
+                    }
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid}
                   />

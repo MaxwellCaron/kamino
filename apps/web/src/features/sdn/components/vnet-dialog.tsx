@@ -18,6 +18,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { formatToastError } from "@/features/shared/utils/format"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { createVNet, updateVNet } from "@/features/sdn/api/sdn-api"
 
@@ -115,8 +116,7 @@ export function VNetDialog({
         <FieldGroup>
           <form.Field name="vnet">
             {(field) => {
-              const isInvalid =
-                isTouchedInvalid(field.state.meta)
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -125,7 +125,11 @@ export function VNetDialog({
                     <Input
                       id="vnet"
                       value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
+                      onChange={(e) =>
+                        field.handleChange(
+                          replaceWhitespaceWithHyphen(e.target.value)
+                        )
+                      }
                       onBlur={field.handleBlur}
                       disabled={isEdit}
                       placeholder="myvnet"
@@ -140,8 +144,7 @@ export function VNetDialog({
 
           <form.Field name="zone">
             {(field) => {
-              const isInvalid =
-                isTouchedInvalid(field.state.meta)
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -182,8 +185,7 @@ export function VNetDialog({
 
           <form.Field name="alias">
             {(field) => {
-              const isInvalid =
-                isTouchedInvalid(field.state.meta)
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>

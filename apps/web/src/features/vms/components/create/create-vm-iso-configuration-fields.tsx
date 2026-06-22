@@ -48,6 +48,7 @@ import {
   VmHardwareStorageSection,
 } from "@/features/vms/components/hardware/hardware-sections"
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
 
 export const IsoConfigurationFields = withCreateVmForm({
@@ -97,7 +98,11 @@ export const IsoConfigurationFields = withCreateVmForm({
                     id="iso-name"
                     value={field.state.value}
                     onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
+                    onChange={(event) =>
+                      field.handleChange(
+                        replaceWhitespaceWithHyphen(event.target.value)
+                      )
+                    }
                     placeholder="ubuntu-01"
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined

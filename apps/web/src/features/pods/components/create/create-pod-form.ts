@@ -3,6 +3,7 @@ import { uuid } from "@workspace/ui/lib/utils"
 import { useMemo } from "react"
 import { z } from "zod"
 import type { PodTemplateOption } from "@/features/pods/api/create-pod-api"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 const vmNameSchema = z
   .string()
@@ -109,7 +110,7 @@ export function createTemplateVm(
 
   return {
     id: uuid(),
-    name: template.name,
+    name: replaceWhitespaceWithHyphen(template.name),
     cpuCount,
     memoryGb,
     storageGb,

@@ -35,6 +35,7 @@ import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { validateVMID } from "@/features/vms/api/vm-api"
 
 type AppFieldComponent = ComponentType<any>
@@ -69,7 +70,11 @@ export function CloneNameField({
             id={inputId}
             value={field.state.value}
             onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
+            onChange={(event) =>
+              field.handleChange(
+                replaceWhitespaceWithHyphen(event.target.value)
+              )
+            }
             placeholder={placeholder}
             aria-invalid={field.state.meta.errors.length > 0 || undefined}
           />

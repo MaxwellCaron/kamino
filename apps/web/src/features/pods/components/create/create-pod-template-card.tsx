@@ -32,6 +32,7 @@ import {
 import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
 import type { ReactNode } from "react"
 import type { CreatePodFormApi, CreatePodFormValues } from "./create-pod-form"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 type CreatePodTemplateCardProps = {
   form: CreatePodFormApi
@@ -218,7 +219,9 @@ export function CreatePodTemplateCard({
                                     onBlur={vmNameField.handleBlur}
                                     onChange={(event) =>
                                       vmNameField.handleChange(
-                                        event.target.value
+                                        replaceWhitespaceWithHyphen(
+                                          event.target.value
+                                        )
                                       )
                                     }
                                     aria-invalid={isInvalid || undefined}
