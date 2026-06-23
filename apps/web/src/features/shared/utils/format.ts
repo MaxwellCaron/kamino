@@ -53,6 +53,3 @@ export function formatToastError(
   )
 }
 
-export function formatMutationError(error: unknown, fallback: string): string {
-  return formatToastError(error, fallback)
-}

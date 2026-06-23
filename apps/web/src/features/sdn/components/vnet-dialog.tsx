@@ -31,7 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import type { ComponentType } from "react"
+import type { ApiSDNZone, ApiVNet } from "@/features/sdn/types/sdn-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -48,6 +49,9 @@ import {
   sdnZonesQueryOptions,
   updateVNet,
 } from "@/features/sdn/api/sdn-api"
+
+type AppFieldComponent = ComponentType<any>
+type AppSubscribeComponent = ComponentType<any>
 
 const REQUIRED_TAG_ZONE_TYPES = new Set(["vlan", "vxlan", "evpn"])
 const OPTIONAL_TAG_ZONE_TYPES = new Set(["qinq", "faucet"])
@@ -104,6 +108,380 @@ function validateTag(value: string, zoneType: string | undefined) {
   return undefined
 }
 
+function VNetIdentityFields({
+  FieldComponent,
+  isEdit,
+}: {
+  FieldComponent: AppFieldComponent
+  isEdit: boolean
+}) {
+  return (
+    <>
+      <FieldComponent
+        name="vnet"
+        validators={{
+          onBlur: ({ value }: { value: string }) =>
+            getFirstIssueMessage(vnetIdSchema.safeParse(value)),
+          onSubmit: ({ value }: { value: string }) =>
+            getFirstIssueMessage(vnetIdSchema.safeParse(value)),
+        }}
+      >
+        {(field: any) => {
+          const isInvalid = isTouchedInvalid(field.state.meta)
+
+          return (
+            <Field data-invalid={isInvalid}>
+              <FieldLabel htmlFor="vnet">VNet ID</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="vnet"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  disabled={isEdit}
+                  placeholder="pod245"
+                  maxLength={8}
+                  aria-invalid={isInvalid}
+                />
+              </FieldContent>
+              {isInvalid && (
+                <FieldError>
+                  {formatFieldError(field.state.meta.errors[0])}
+                </FieldError>
+              )}
+            </Field>
+          )
+        }}
+      </FieldComponent>
+
+      <FieldComponent
+        name="alias"
+        validators={{
+          onBlur: ({ value }: { value: string }) =>
+            getFirstIssueMessage(aliasSchema.safeParse(value)),
+          onSubmit: ({ value }: { value: string }) =>
+            getFirstIssueMessage(aliasSchema.safeParse(value)),
+        }}
+      >
+        {(field: any) => {
+          const isInvalid = isTouchedInvalid(field.state.meta)
+
+          return (
+            <Field data-invalid={isInvalid}>
+              <FieldLabel htmlFor="alias">Alias</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="alias"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Optional description"
+                  aria-invalid={isInvalid}
+                />
+              </FieldContent>
+              {isInvalid && (
+                <FieldError>
+                  {formatFieldError(field.state.meta.errors[0])}
+                </FieldError>
+              )}
+            </Field>
+          )
+        }}
+      </FieldComponent>
+    </>
+  )
+}
+
+function VNetZonesUnavailableState() {
+  return (
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <IconNetwork />
+        </EmptyMedia>
+        <EmptyTitle>No SDN zones available</EmptyTitle>
+        <EmptyDescription>
+          Configure an SDN zone in Proxmox before creating a VNet.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  )
+}
+
+function VNetZoneField({
+  FieldComponent,
+  zones,
+  zonesUnavailable,
+  onZoneChange,
+}: {
+  FieldComponent: AppFieldComponent
+  zones: Array<ApiSDNZone>
+  zonesUnavailable: boolean
+  onZoneChange: (nextZone: string) => void
+}) {
+  return (
+    <FieldComponent
+      name="zone"
+      validators={{
+        onBlur: ({ value }: { value: string }) =>
+          getFirstIssueMessage(zoneSchema.safeParse(value)),
+        onSubmit: ({ value }: { value: string }) =>
+          getFirstIssueMessage(zoneSchema.safeParse(value)),
+      }}
+    >
+      {(field: any) => {
+        const isInvalid = isTouchedInvalid(field.state.meta)
+
+        return (
+          <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor="zone">Zone</FieldLabel>
+            <FieldContent>
+              <Select
+                value={field.state.value}
+                onValueChange={(value) => {
+                  const next = value ?? ""
+                  field.handleChange(next)
+                  onZoneChange(next)
+                }}
+                disabled={zonesUnavailable}
+              >
+                <SelectTrigger
+                  id="zone"
+                  aria-invalid={isInvalid}
+                  className="w-full"
+                >
+                  <SelectValue placeholder="Select a zone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {zones.map((zone) => (
+                      <SelectItem key={zone.zone} value={zone.zone}>
+                        {zone.zone}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FieldContent>
+            {isInvalid && (
+              <FieldError>
+                {formatFieldError(field.state.meta.errors[0])}
+              </FieldError>
+            )}
+          </Field>
+        )
+      }}
+    </FieldComponent>
+  )
+}
+
+function VNetTagField({
+  FieldComponent,
+  zoneType,
+}: {
+  FieldComponent: AppFieldComponent
+  zoneType: string | undefined
+}) {
+  const tagRule = getTagRule(zoneType)
+  const tagDisabled = tagRule === "disabled"
+
+  return (
+    <FieldComponent
+      name="tag"
+      validators={{
+        onBlur: ({ value }: { value: string }) => validateTag(value, zoneType),
+        onSubmit: ({ value }: { value: string }) =>
+          validateTag(value, zoneType),
+      }}
+    >
+      {(field: any) => {
+        const isInvalid = isTouchedInvalid(field.state.meta)
+
+        return (
+          <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor="tag">Tag</FieldLabel>
+            <FieldContent>
+              <Input
+                id="tag"
+                type="number"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                disabled={tagDisabled}
+                placeholder={tagRule === "required" ? "1245" : "Optional"}
+                aria-invalid={isInvalid}
+              />
+            </FieldContent>
+            {isInvalid && (
+              <FieldError>
+                {formatFieldError(field.state.meta.errors[0])}
+              </FieldError>
+            )}
+          </Field>
+        )
+      }}
+    </FieldComponent>
+  )
+}
+
+function VNetBooleanFields({
+  FieldComponent,
+  vlanAwareDisabled,
+}: {
+  FieldComponent: AppFieldComponent
+  vlanAwareDisabled: boolean
+}) {
+  return (
+    <>
+      <FieldComponent name="isolatePorts">
+        {(field: any) => (
+          <FieldLabel htmlFor={field.name} className="cursor-pointer">
+            <Field orientation="horizontal">
+              <Checkbox
+                id={field.name}
+                checked={field.state.value}
+                onCheckedChange={(checked) =>
+                  field.handleChange(!!checked)
+                }
+              />
+              <FieldContent>
+                <FieldTitle>Isolate Ports</FieldTitle>
+                <FieldDescription>
+                  Prevent guests on this VNet from communicating with each
+                  other directly through the bridge.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+        )}
+      </FieldComponent>
+
+      <FieldComponent name="vlanAware">
+        {(field: any) => (
+          <FieldLabel
+            htmlFor={field.name}
+            data-disabled={vlanAwareDisabled || undefined}
+            className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
+          >
+            <Field orientation="horizontal">
+              <Checkbox
+                id={field.name}
+                checked={field.state.value}
+                disabled={vlanAwareDisabled}
+                onCheckedChange={(checked) =>
+                  field.handleChange(!!checked)
+                }
+              />
+              <FieldContent>
+                <FieldTitle>VLAN Aware</FieldTitle>
+                <FieldDescription>
+                  {vlanAwareDisabled
+                    ? "Unavailable when no zone is selected or the zone type is EVPN."
+                    : "Allow VLAN-tagged traffic to pass through this VNet to guests."}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+        )}
+      </FieldComponent>
+    </>
+  )
+}
+
+function VNetZoneDependentFields({
+  FieldComponent,
+  SubscribeComponent,
+  zonesByName,
+}: {
+  FieldComponent: AppFieldComponent
+  SubscribeComponent: AppSubscribeComponent
+  zonesByName: Map<string, ApiSDNZone>
+}) {
+  return (
+    <SubscribeComponent selector={(state: any) => state.values.zone}>
+      {(zoneValue: string) => {
+        const zoneType = zonesByName.get(zoneValue)?.type
+        const vlanAwareDisabled = isVlanAwareDisabled(zoneType)
+
+        return (
+          <>
+            <VNetTagField FieldComponent={FieldComponent} zoneType={zoneType} />
+            <VNetBooleanFields
+              FieldComponent={FieldComponent}
+              vlanAwareDisabled={vlanAwareDisabled}
+            />
+          </>
+        )
+      }}
+    </SubscribeComponent>
+  )
+}
+
+function VNetDialogFields({
+  FieldComponent,
+  SubscribeComponent,
+  isEdit,
+  zones,
+  zonesByName,
+  zonesUnavailable,
+  onZoneChange,
+}: {
+  FieldComponent: AppFieldComponent
+  SubscribeComponent: AppSubscribeComponent
+  isEdit: boolean
+  zones: Array<ApiSDNZone>
+  zonesByName: Map<string, ApiSDNZone>
+  zonesUnavailable: boolean
+  onZoneChange: (nextZone: string) => void
+}) {
+  return (
+    <FieldGroup>
+      <VNetIdentityFields FieldComponent={FieldComponent} isEdit={isEdit} />
+
+      <VNetZoneField
+        FieldComponent={FieldComponent}
+        zones={zones}
+        zonesUnavailable={zonesUnavailable}
+        onZoneChange={onZoneChange}
+      />
+
+      {zonesUnavailable && <VNetZonesUnavailableState />}
+
+      <VNetZoneDependentFields
+        FieldComponent={FieldComponent}
+        SubscribeComponent={SubscribeComponent}
+        zonesByName={zonesByName}
+      />
+    </FieldGroup>
+  )
+}
+
+function VNetDialogFooter({
+  SubscribeComponent,
+  isEdit,
+  zonesUnavailable,
+}: {
+  SubscribeComponent: AppSubscribeComponent
+  isEdit: boolean
+  zonesUnavailable: boolean
+}) {
+  return (
+    <DialogFooter className="mt-6">
+      <SubscribeComponent selector={(state: any) => state.isSubmitting}>
+        {(isSubmitting: boolean) => (
+          <AppDialogPrimaryButton
+            pending={isSubmitting}
+            pendingLabel={isEdit ? "Saving..." : "Creating..."}
+            disabled={zonesUnavailable}
+          >
+            {isEdit ? "Save" : "Create"}
+          </AppDialogPrimaryButton>
+        )}
+      </SubscribeComponent>
+    </DialogFooter>
+  )
+}
+
 export function VNetDialog({
   vnet,
   open,
@@ -123,7 +501,7 @@ export function VNetDialog({
   } = useQuery({ ...sdnZonesQueryOptions, enabled: open })
 
   const zones = useMemo(
-    () => [...(zonesData ?? [])].sort((a, b) => a.zone.localeCompare(b.zone)),
+    () => (zonesData ?? []).toSorted((a, b) => a.zone.localeCompare(b.zone)),
     [zonesData]
   )
   const zonesByName = useMemo(
@@ -186,6 +564,16 @@ export function VNetDialog({
     },
   })
 
+  const handleZoneChange = (nextZone: string) => {
+    const zoneType = zonesByName.get(nextZone)?.type
+    if (getTagRule(zoneType) === "disabled") {
+      form.setFieldValue("tag", "")
+    }
+    if (isVlanAwareDisabled(zoneType)) {
+      form.setFieldValue("vlanAware", false)
+    }
+  }
+
   return (
     <AppDialog
       open={open}
@@ -213,274 +601,21 @@ export function VNetDialog({
             void form.handleSubmit()
           }}
         >
-          <FieldGroup>
-            <form.Field
-              name="vnet"
-              validators={{
-                onBlur: ({ value }) =>
-                  getFirstIssueMessage(vnetIdSchema.safeParse(value)),
-                onSubmit: ({ value }) =>
-                  getFirstIssueMessage(vnetIdSchema.safeParse(value)),
-              }}
-            >
-              {(field) => {
-                const isInvalid = isTouchedInvalid(field.state.meta)
+          <VNetDialogFields
+            FieldComponent={form.Field}
+            SubscribeComponent={form.Subscribe}
+            isEdit={isEdit}
+            zones={zones}
+            zonesByName={zonesByName}
+            zonesUnavailable={zonesUnavailable}
+            onZoneChange={handleZoneChange}
+          />
 
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor="vnet">VNet ID</FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="vnet"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                        disabled={isEdit}
-                        placeholder="pod245"
-                        maxLength={8}
-                        aria-invalid={isInvalid}
-                      />
-                    </FieldContent>
-                    {isInvalid && (
-                      <FieldError>
-                        {formatFieldError(field.state.meta.errors[0])}
-                      </FieldError>
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field
-              name="alias"
-              validators={{
-                onBlur: ({ value }) =>
-                  getFirstIssueMessage(aliasSchema.safeParse(value)),
-                onSubmit: ({ value }) =>
-                  getFirstIssueMessage(aliasSchema.safeParse(value)),
-              }}
-            >
-              {(field) => {
-                const isInvalid = isTouchedInvalid(field.state.meta)
-
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor="alias">Alias</FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="alias"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                        placeholder="Optional description"
-                        aria-invalid={isInvalid}
-                      />
-                    </FieldContent>
-                    {isInvalid && (
-                      <FieldError>
-                        {formatFieldError(field.state.meta.errors[0])}
-                      </FieldError>
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field
-              name="zone"
-              validators={{
-                onBlur: ({ value }) =>
-                  getFirstIssueMessage(zoneSchema.safeParse(value)),
-                onSubmit: ({ value }) =>
-                  getFirstIssueMessage(zoneSchema.safeParse(value)),
-              }}
-            >
-              {(field) => {
-                const isInvalid = isTouchedInvalid(field.state.meta)
-
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor="zone">Zone</FieldLabel>
-                    <FieldContent>
-                      <Select
-                        value={field.state.value}
-                        onValueChange={(value) => {
-                          const next = value ?? ""
-                          field.handleChange(next)
-
-                          const zoneType = zonesByName.get(next)?.type
-                          if (getTagRule(zoneType) === "disabled") {
-                            form.setFieldValue("tag", "")
-                          }
-                          if (isVlanAwareDisabled(zoneType)) {
-                            form.setFieldValue("vlanAware", false)
-                          }
-                        }}
-                        disabled={zonesUnavailable}
-                      >
-                        <SelectTrigger
-                          id="zone"
-                          aria-invalid={isInvalid}
-                          className="w-full"
-                        >
-                          <SelectValue placeholder="Select a zone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {zones.map((zone) => (
-                              <SelectItem key={zone.zone} value={zone.zone}>
-                                {zone.zone}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </FieldContent>
-                    {isInvalid && (
-                      <FieldError>
-                        {formatFieldError(field.state.meta.errors[0])}
-                      </FieldError>
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            {zonesUnavailable && (
-              <Empty className="border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconNetwork />
-                  </EmptyMedia>
-                  <EmptyTitle>No SDN zones available</EmptyTitle>
-                  <EmptyDescription>
-                    Configure an SDN zone in Proxmox before creating a VNet.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            )}
-
-            <form.Subscribe selector={(state) => state.values.zone}>
-              {(zoneValue) => {
-                const zoneType = zonesByName.get(zoneValue)?.type
-                const tagRule = getTagRule(zoneType)
-                const tagDisabled = tagRule === "disabled"
-                const vlanAwareDisabled = isVlanAwareDisabled(zoneType)
-
-                return (
-                  <>
-                    <form.Field
-                      name="tag"
-                      validators={{
-                        onBlur: ({ value }) => validateTag(value, zoneType),
-                        onSubmit: ({ value }) => validateTag(value, zoneType),
-                      }}
-                    >
-                      {(field) => {
-                        const isInvalid = isTouchedInvalid(field.state.meta)
-
-                        return (
-                          <Field data-invalid={isInvalid}>
-                            <FieldLabel htmlFor="tag">Tag</FieldLabel>
-                            <FieldContent>
-                              <Input
-                                id="tag"
-                                type="number"
-                                value={field.state.value}
-                                onChange={(e) =>
-                                  field.handleChange(e.target.value)
-                                }
-                                onBlur={field.handleBlur}
-                                disabled={tagDisabled}
-                                placeholder={
-                                  tagRule === "required" ? "1245" : "Optional"
-                                }
-                                aria-invalid={isInvalid}
-                              />
-                            </FieldContent>
-                            {isInvalid && (
-                              <FieldError>
-                                {formatFieldError(field.state.meta.errors[0])}
-                              </FieldError>
-                            )}
-                          </Field>
-                        )
-                      }}
-                    </form.Field>
-
-                    <form.Field name="isolatePorts">
-                      {(field) => (
-                        <FieldLabel
-                          htmlFor={field.name}
-                          className="cursor-pointer"
-                        >
-                          <Field orientation="horizontal">
-                            <Checkbox
-                              id={field.name}
-                              checked={field.state.value}
-                              onCheckedChange={(checked) =>
-                                field.handleChange(!!checked)
-                              }
-                            />
-                            <FieldContent>
-                              <FieldTitle>Isolate Ports</FieldTitle>
-                              <FieldDescription>
-                                Prevent guests on this VNet from communicating
-                                with each other directly through the bridge.
-                              </FieldDescription>
-                            </FieldContent>
-                          </Field>
-                        </FieldLabel>
-                      )}
-                    </form.Field>
-
-                    <form.Field name="vlanAware">
-                      {(field) => (
-                        <FieldLabel
-                          htmlFor={field.name}
-                          data-disabled={vlanAwareDisabled || undefined}
-                          className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
-                        >
-                          <Field orientation="horizontal">
-                            <Checkbox
-                              id={field.name}
-                              checked={field.state.value}
-                              disabled={vlanAwareDisabled}
-                              onCheckedChange={(checked) =>
-                                field.handleChange(!!checked)
-                              }
-                            />
-                            <FieldContent>
-                              <FieldTitle>VLAN Aware</FieldTitle>
-                              <FieldDescription>
-                                {vlanAwareDisabled
-                                  ? "Unavailable when no zone is selected or the zone type is EVPN."
-                                  : "Allow VLAN-tagged traffic to pass through this VNet to guests."}
-                              </FieldDescription>
-                            </FieldContent>
-                          </Field>
-                        </FieldLabel>
-                      )}
-                    </form.Field>
-                  </>
-                )
-              }}
-            </form.Subscribe>
-          </FieldGroup>
-
-          <DialogFooter className="mt-6">
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <AppDialogPrimaryButton
-                  pending={isSubmitting}
-                  pendingLabel={isEdit ? "Saving..." : "Creating..."}
-                  disabled={zonesUnavailable}
-                >
-                  {isEdit ? "Save" : "Create"}
-                </AppDialogPrimaryButton>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
+          <VNetDialogFooter
+            SubscribeComponent={form.Subscribe}
+            isEdit={isEdit}
+            zonesUnavailable={zonesUnavailable}
+          />
         </form>
       )}
     </AppDialog>

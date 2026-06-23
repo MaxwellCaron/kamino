@@ -48,11 +48,13 @@ export function percentage(used: number, total: number) {
   return Math.min(100, Math.max(0, value))
 }
 
+const decimalFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+})
+
 function formatDecimal(value: number) {
   if (!Number.isFinite(value)) return "0"
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 1,
-  }).format(value)
+  return decimalFormatter.format(value)
 }
 
 function timestamp(value?: string | null) {
