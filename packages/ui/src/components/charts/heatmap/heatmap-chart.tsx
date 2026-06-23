@@ -1,6 +1,5 @@
 "use client";
 
-import { ParentSize } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { useReducedMotion } from "motion/react";
 import {
@@ -109,6 +108,60 @@ export interface HeatmapChartProps {
 }
 
 const DEFAULT_MARGIN: Margin = { top: 28, right: 16, bottom: 0, left: 40 };
+const ZERO_SIZE = { width: 0, height: 0 };
+
+function readElementSize(element: HTMLElement | null) {
+  if (!element) {
+    return ZERO_SIZE;
+  }
+
+  const rect = element.getBoundingClientRect();
+  return {
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function sameElementSize(left: typeof ZERO_SIZE, right: typeof ZERO_SIZE) {
+  return left.width === right.width && left.height === right.height;
+}
+
+function useElementSize<TElement extends HTMLElement>() {
+  const elementRef = useRef<TElement>(null);
+  const [size, setSize] = useState(ZERO_SIZE);
+
+  const updateSize = useCallback(() => {
+    const nextSize = readElementSize(elementRef.current);
+    setSize((currentSize) =>
+      sameElementSize(currentSize, nextSize) ? currentSize : nextSize
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    updateSize();
+
+    const element = elementRef.current;
+    if (!element) {
+      return;
+    }
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateSize);
+      return () => window.removeEventListener("resize", updateSize);
+    }
+
+    const observer = new ResizeObserver(() => updateSize());
+    observer.observe(element);
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, [updateSize]);
+
+  return { elementRef, size };
+}
 
 function computeHeatmapDimensions({
   width,
@@ -575,6 +628,7 @@ export function HeatmapChart({
   loadingCellRandomness = HEATMAP_DEFAULT_LOADING_CELL_RANDOMNESS,
   children,
 }: HeatmapChartProps) {
+  const { elementRef, size } = useElementSize<HTMLDivElement>();
   const margin = { ...DEFAULT_MARGIN, ...marginProp };
   const levelStyles = useMemo(
     () => resolveHeatmapLevelStyles(levelColors, levelStylesProp),
@@ -610,43 +664,40 @@ export function HeatmapChart({
         layout === "fill" && "h-full min-h-0",
         className
       )}
+      ref={elementRef}
       style={aspectRatio ? { aspectRatio } : undefined}
     >
-      <ParentSize>
-        {({ width, height: parentHeight }) => (
-          <HeatmapChartInner
-            animateCells={animateCells}
-            animationDuration={animationDuration}
-            binSize={binSize}
-            chartPhase={chartPhase}
-            chartStatus={status}
-            colorScale={colorScale}
-            data={data}
-            enterStaggerScale={enterStaggerScale}
-            enterTransition={enterTransition}
-            fillScale={fillScale}
-            gap={gap}
-            height={parentHeight}
-            isLoaded={isLoaded}
-            layout={layout}
-            levelStyles={levelStyles}
-            loadingCellMaxOpacity={loadingCellMaxOpacity}
-            loadingCellRandomness={loadingCellRandomness}
-            loadingLabel={loadingLabel}
-            loadingOpacity={loadingOpacity}
-            margin={margin}
-            revealEpoch={revealEpoch}
-            revealMode={revealMode}
-            showLoadingCells={showLoadingCells}
-            showLoadingLabel={showLoadingLabel}
-            sizingColumnCount={sizingColumnCount}
-            width={width}
-            xDomain={xDomain}
-          >
-            {children}
-          </HeatmapChartInner>
-        )}
-      </ParentSize>
+      <HeatmapChartInner
+        animateCells={animateCells}
+        animationDuration={animationDuration}
+        binSize={binSize}
+        chartPhase={chartPhase}
+        chartStatus={status}
+        colorScale={colorScale}
+        data={data}
+        enterStaggerScale={enterStaggerScale}
+        enterTransition={enterTransition}
+        fillScale={fillScale}
+        gap={gap}
+        height={size.height}
+        isLoaded={isLoaded}
+        layout={layout}
+        levelStyles={levelStyles}
+        loadingCellMaxOpacity={loadingCellMaxOpacity}
+        loadingCellRandomness={loadingCellRandomness}
+        loadingLabel={loadingLabel}
+        loadingOpacity={loadingOpacity}
+        margin={margin}
+        revealEpoch={revealEpoch}
+        revealMode={revealMode}
+        showLoadingCells={showLoadingCells}
+        showLoadingLabel={showLoadingLabel}
+        sizingColumnCount={sizingColumnCount}
+        width={size.width}
+        xDomain={xDomain}
+      >
+        {children}
+      </HeatmapChartInner>
     </div>
   );
 }

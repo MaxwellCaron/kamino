@@ -151,29 +151,29 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: "DM Sans Variable", sans-serif;
   --font-heading: "Inter Variable", sans-serif;
-  --color-chart-label: var(----chart-label);
-  --color-chart-ring-background: var(----chart-ring-background);
-  --color-chart-marker-foreground: var(----chart-marker-foreground);
-  --color-chart-marker-border: var(----chart-marker-border);
-  --color-chart-marker-background: var(----chart-marker-background);
-  --color-chart-tooltip-muted: var(----chart-tooltip-muted);
-  --color-chart-tooltip-foreground: var(----chart-tooltip-foreground);
-  --color-chart-tooltip-background: var(----chart-tooltip-background);
-  --color-chart-grid: var(----chart-grid);
-  --color-chart-crosshair: var(----chart-crosshair);
-  --chart-line-secondary: var(----chart-line-secondary);
-  --chart-line-primary: var(----chart-line-primary);
-  --color-chart-foreground-muted: var(----chart-foreground-muted);
-  --color-chart-foreground: var(----chart-foreground);
-  --color-chart-background: var(----chart-background);
+  --color-chart-label: var(--chart-label);
+  --color-chart-ring-background: var(--chart-ring-background);
+  --color-chart-marker-foreground: var(--chart-marker-foreground);
+  --color-chart-marker-border: var(--chart-marker-border);
+  --color-chart-marker-background: var(--chart-marker-background);
+  --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+  --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --color-chart-tooltip-background: var(--chart-tooltip-background);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-crosshair: var(--chart-crosshair);
+  --chart-line-secondary: var(--chart-line-secondary);
+  --chart-line-primary: var(--chart-line-primary);
+  --color-chart-foreground-muted: var(--chart-foreground-muted);
+  --color-chart-foreground: var(--chart-foreground);
+  --color-chart-background: var(--chart-background);
   --animate-spin-around: spin-around 0.8s linear infinite;
-  --chart-brush-border: var(----chart-brush-border);
+  --chart-brush-border: var(--chart-brush-border);
   @keyframes spin-around {
-  0% {
-    transform: rotate(-90deg);
+    0% {
+      transform: rotate(-90deg);
     }
-  100% {
-    transform: rotate(270deg);
+    100% {
+      transform: rotate(270deg);
     }
   }
 }
