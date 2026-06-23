@@ -7,7 +7,6 @@ import {
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
 import { IconCubePlus } from "@tabler/icons-react"
-import { uuid } from "@workspace/ui/lib/utils"
 import { CreatePodFormSection } from "./create-pod-form-section"
 import { useCreatePodForm } from "./create-pod-form"
 import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
@@ -17,6 +16,7 @@ import { CreatePodSubmitState } from "./create-pod-creation-state"
 import { CreatePodFormSkeleton } from "./create-pod-skeleton"
 import type { CreatePodFormValues } from "./create-pod-form"
 import type { CreatePodResult } from "@/features/pods/api/create-pod-api"
+import { uuid } from "@/features/shared/utils/uuid"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import {

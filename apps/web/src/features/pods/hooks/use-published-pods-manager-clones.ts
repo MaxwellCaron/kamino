@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
-import { uuid } from "@workspace/ui/lib/utils"
 import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
 import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import { uuid } from "@/features/shared/utils/uuid"
 import {
   createPublishedPodClone,
   podCatalogQueryOptions,

@@ -1,9 +1,9 @@
 import { useForm } from "@tanstack/react-form"
-import { uuid } from "@workspace/ui/lib/utils"
 import { useMemo } from "react"
 import { z } from "zod"
 import type { PodTemplateOption } from "@/features/pods/api/create-pod-api"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
+import { uuid } from "@/features/shared/utils/uuid"
 
 const vmNameSchema = z
   .string()

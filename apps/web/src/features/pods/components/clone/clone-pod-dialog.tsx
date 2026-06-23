@@ -17,13 +17,14 @@ import {
 import { Progress } from "@workspace/ui/components/progress"
 import { IconAlertTriangle, IconLoader2 } from "@tabler/icons-react"
 import { ItemGroup } from "@workspace/ui/components/item"
-import { cn, uuid } from "@workspace/ui/lib/utils"
+import { cn } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { CloneStatusItem } from "./clone-status-item"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
+import { uuid } from "@/features/shared/utils/uuid"
 import {
   COMPLETE_PROGRESS_COLORS,
   FAILED_PROGRESS_COLORS,
