@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -161,6 +161,35 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     },
     [handlePrimaryAction, revealItem]
   )
+
+  const lastAutoRevealedItemIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!activeItemId) {
+      lastAutoRevealedItemIdRef.current = null
+      return
+    }
+
+    const activeItem = fullTree.items.get(activeItemId)
+    if (activeItem?.kind !== "vm") {
+      return
+    }
+
+    if (!items.has(activeItemId)) {
+      if (isSearchActive) {
+        lastAutoRevealedItemIdRef.current = null
+        setQuery("")
+      }
+      return
+    }
+
+    if (lastAutoRevealedItemIdRef.current === activeItemId) {
+      return
+    }
+
+    lastAutoRevealedItemIdRef.current = activeItemId
+    void revealItem(activeItemId)
+  }, [activeItemId, fullTree.items, isSearchActive, items, revealItem])
 
   const value: InventoryTreeContextValue = {
     query,
