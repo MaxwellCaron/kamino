@@ -3,4 +3,12 @@ export type ApiVNet = {
   zone: string
   tag?: number
   alias?: string
+  type?: string
+  vlanaware?: boolean
+  isolate_ports?: boolean
+}
+
+export type ApiSDNZone = {
+  zone: string
+  type?: string
 }

@@ -1792,6 +1792,15 @@ func (c *Client) GetVNets(ctx context.Context) ([]VNet, error) {
 	return resp.Data, nil
 }
 
+// GetSDNZones returns all configured SDN zones.
+func (c *Client) GetSDNZones(ctx context.Context) ([]SDNZone, error) {
+	var resp apiResponse[[]SDNZone]
+	if err := c.get(ctx, "/api2/json/cluster/sdn/zones", &resp); err != nil {
+		return nil, fmt.Errorf("fetching SDN zones: %w", err)
+	}
+	return resp.Data, nil
+}
+
 // CreateVNet creates a new SDN virtual network.
 func (c *Client) CreateVNet(ctx context.Context, params map[string]string) error {
 	var resp apiResponse[any]

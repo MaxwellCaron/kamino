@@ -80,10 +80,19 @@ type StorageContent struct {
 
 // VNet represents a Software Defined Network virtual network.
 type VNet struct {
-	VNet  string `json:"vnet"`
-	Zone  string `json:"zone"`
-	Tag   int    `json:"tag,omitempty"`
-	Alias string `json:"alias,omitempty"`
+	Type         string  `json:"type,omitempty"`
+	VNet         string  `json:"vnet"`
+	Zone         string  `json:"zone"`
+	Tag          int     `json:"tag,omitempty"`
+	Alias        string  `json:"alias,omitempty"`
+	VLANAware    intBool `json:"vlanaware,omitempty"`
+	IsolatePorts intBool `json:"isolate-ports,omitempty"`
+}
+
+// SDNZone represents a Software Defined Network zone.
+type SDNZone struct {
+	Zone string `json:"zone"`
+	Type string `json:"type,omitempty"`
 }
 
 // NetworkBridge represents a network bridge on a Proxmox node.

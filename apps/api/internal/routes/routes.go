@@ -134,6 +134,7 @@ func RegisterRoutes(
 	protected.POST("/sdn/vnets", sdn.CreateVNet)
 	protected.DELETE("/sdn/vnets", sdn.DeleteVNets)
 	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
+	protected.GET("/sdn/zones", sdn.GetSDNZones)
 
 	// Management authorization endpoints
 	if authz != nil {

@@ -22,7 +22,11 @@ import {
   canAccessAdmin,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
-import { deleteVNet, vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
+import {
+  deleteVNet,
+  sdnZonesQueryOptions,
+  vnetsQueryOptions,
+} from "@/features/sdn/api/sdn-api"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
@@ -62,6 +66,7 @@ export function SdnPage() {
     ...vnetsQueryOptions,
     enabled: canAdminister,
   })
+  useQuery({ ...sdnZonesQueryOptions, enabled: canAdminister })
   const vnetCountLabel = error ? "!" : String(vnets?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiVNet>()
