@@ -95,10 +95,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
-      const item = fullTree.items.get(itemId)
-      toggleSharedFavorite(itemId, { disabled: item?.kind === "folder" })
+      toggleSharedFavorite(itemId)
     },
-    [fullTree.items, toggleSharedFavorite]
+    [toggleSharedFavorite]
   )
 
   const vmIdMap = useMemo(() => buildVmIdMap(fullTree.items), [fullTree.items])
@@ -133,8 +132,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   )
 
   const handlePrimaryAction = useCallback(
-    (itemId: string, data: ApiTreeNode) => {
-      if (data.kind !== "vm") return
+    (itemId: string) => {
       navigate({ to: "/inventory/items/$itemId", params: { itemId } })
     },
     [navigate]
@@ -154,10 +152,10 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   )
 
   const handleFavoritePrimaryAction = useCallback(
-    (itemId: string, data: ApiTreeNode) => {
+    (itemId: string) => {
       setQuery("")
       void revealItem(itemId)
-      handlePrimaryAction(itemId, data)
+      handlePrimaryAction(itemId)
     },
     [handlePrimaryAction, revealItem]
   )

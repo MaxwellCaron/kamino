@@ -65,20 +65,15 @@ export function useInventoryFavorites() {
     [snapshot]
   )
 
-  const toggleFavorite = useCallback(
-    (itemId: string, options?: { disabled?: boolean }) => {
-      if (options?.disabled) return
-
-      const next = new Set(parseFavoriteIds(readFavoritesSnapshot()))
-      if (next.has(itemId)) {
-        next.delete(itemId)
-      } else {
-        next.add(itemId)
-      }
-      writeFavoriteIds(next)
-    },
-    []
-  )
+  const toggleFavorite = useCallback((itemId: string) => {
+    const next = new Set(parseFavoriteIds(readFavoritesSnapshot()))
+    if (next.has(itemId)) {
+      next.delete(itemId)
+    } else {
+      next.add(itemId)
+    }
+    writeFavoriteIds(next)
+  }, [])
 
   return { favoriteIds, toggleFavorite }
 }

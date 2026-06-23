@@ -53,7 +53,8 @@ export function InventoryTreeContent({
   getStatus: (itemId: string) => string | undefined
   tree: TreeInstance<ApiTreeNode>
 }) {
-  const { favoriteIds, toggleFavorite } = useInventoryTreeContext()
+  const { favoriteIds, toggleFavorite, handlePrimaryAction } =
+    useInventoryTreeContext()
 
   return (
     <Tree tree={tree} indent={TREE_INDENT}>
@@ -72,7 +73,13 @@ export function InventoryTreeContent({
               const isModifierSelection =
                 event.shiftKey || event.ctrlKey || event.metaKey
 
-              if (data.kind !== "folder" && !isModifierSelection) {
+              if (!isModifierSelection) {
+                if (data.kind === "folder") {
+                  item.setFocused()
+                  tree.updateDomFocus()
+                  handlePrimaryAction(id, data)
+                  ;(event as TreeRowMouseEvent).preventBaseUIHandler?.()
+                }
                 return
               }
 
@@ -128,29 +135,27 @@ export function InventoryTreeContent({
                     {data.vm_count ?? 0} / {data.effective_vm_limit}
                   </Badge>
                 )}
-                {data.kind !== "folder" && (
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className={
+                    isFavorite
+                      ? "bg-transparent! opacity-100!"
+                      : "opacity-0 group-hover/row:opacity-100"
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleFavorite(id)
+                  }}
+                >
+                  <IconStar
                     className={
                       isFavorite
-                        ? "bg-transparent! opacity-100!"
-                        : "opacity-0 group-hover/row:opacity-100"
+                        ? "fill-muted-foreground dark:fill-muted-foreground"
+                        : ""
                     }
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleFavorite(id)
-                    }}
-                  >
-                    <IconStar
-                      className={
-                        isFavorite
-                          ? "fill-muted-foreground dark:fill-muted-foreground"
-                          : ""
-                      }
-                    />
-                  </Button>
-                )}
+                  />
+                </Button>
                 <InventoryNodeMenu
                   itemId={id}
                   data={data}

@@ -671,7 +671,7 @@ export function InventoryNodeMenu({
             permissions={data.permissions}
             isFavorite={isFavorite}
             onToggleFavorite={() =>
-              toggleFavorite(itemId, { disabled: isFolder })
+              toggleFavorite(itemId)
             }
             itemId={itemId}
             vmid={data.vm?.vmid ?? 0}
@@ -711,7 +711,7 @@ export function InventoryNodeMenu({
             permissions={data.permissions}
             isFavorite={isFavorite}
             onToggleFavorite={() =>
-              toggleFavorite(itemId, { disabled: isFolder })
+              toggleFavorite(itemId)
             }
             itemId={itemId}
             vmid={data.vm?.vmid ?? 0}
@@ -850,7 +850,7 @@ export function VmOptionsMenu({
               permissions={permissions}
               isFavorite={favoriteIds.has(nodeId)}
               onToggleFavorite={() =>
-                toggleFavorite(nodeId, { disabled: false })
+                toggleFavorite(nodeId)
               }
               itemId={itemId}
               vmid={vmid ?? 0}
@@ -890,7 +890,7 @@ export function VmOptionsMenu({
               permissions={permissions}
               isFavorite={favoriteIds.has(nodeId)}
               onToggleFavorite={() =>
-                toggleFavorite(nodeId, { disabled: false })
+                toggleFavorite(nodeId)
               }
               itemId={itemId}
               vmid={vmid ?? 0}
