@@ -1,4 +1,7 @@
-import type { ClonedPod } from "@/features/pods/types/pod-types"
+import type {
+  ClonedPod,
+  PodQuestionActivityAnswer,
+} from "@/features/pods/types/pod-types"
 import {
   ApiError,
   apiFetch,
@@ -56,6 +59,24 @@ export function clonePodProgressQueryOptions(
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     refetchInterval: 750,
+  }
+}
+
+export function podQuestionActivityQueryOptions() {
+  return {
+    queryKey: ["pods", "question-activity"] as const,
+    queryFn: async (): Promise<Array<PodQuestionActivityAnswer>> => {
+      const res = await apiFetch("/api/v1/pods/question-activity")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new ApiError(
+          body.error ?? `Failed to fetch pod question activity: ${res.status}`,
+          res.status
+        )
+      }
+      return res.json()
+    },
+    retry: shouldRetryApiQuery,
   }
 }
 

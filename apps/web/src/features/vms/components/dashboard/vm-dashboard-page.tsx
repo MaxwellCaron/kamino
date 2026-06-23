@@ -8,6 +8,7 @@ import {
 } from "@/features/inventory/api/inventory-api"
 import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
 import {
+  vmNetworksQueryOptions,
   vmResourcesQueryOptions,
   vmStatusQueryOptions,
 } from "@/features/vms/api/vm-api"
@@ -57,6 +58,15 @@ export function VmDashboardPage() {
     ...vmResourcesQueryOptions(itemId),
     enabled: shouldFetchResources,
   })
+  const shouldFetchNetworks = !!vm
+  const {
+    data: networks,
+    isError: isNetworksError,
+    isLoading: isNetworksLoading,
+  } = useQuery({
+    ...vmNetworksQueryOptions(itemId),
+    enabled: shouldFetchNetworks,
+  })
   const capabilities = getVmCapabilities(node?.permissions, { isTemplate })
   const canManageSnapshots = capabilities.snapshot.mode === "direct"
   const canViewSnapshots = capabilities.viewSnapshots.enabled
@@ -88,6 +98,9 @@ export function VmDashboardPage() {
           vm={vm}
           powerStatus={powerStatus}
           resources={shouldFetchResources ? resources : undefined}
+          networks={networks?.networks}
+          isNetworksLoading={isNetworksLoading}
+          isNetworksError={isNetworksError}
           isTemplate={isTemplate}
         />
         <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">

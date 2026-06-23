@@ -2,6 +2,7 @@ import type {
   ApiBulkVmMutationResponse,
   ApiSnapshot,
   ApiVmHardwareConfig,
+  ApiVmNetworksResponse,
   CreateVMParams,
   VmResources,
 } from "../types/vm-types"
@@ -153,6 +154,25 @@ export function vmHardwareQueryOptions(itemId: string) {
         const body = await res.json().catch(() => ({}))
         throw new Error(
           body.error ?? `Failed to fetch VM hardware: ${res.status}`
+        )
+      }
+      return res.json()
+    },
+    enabled: !!itemId,
+  }
+}
+
+export function vmNetworksQueryOptions(itemId: string) {
+  return {
+    queryKey: ["inventory", "item", itemId, "vm", "networks"] as const,
+    queryFn: async (): Promise<ApiVmNetworksResponse> => {
+      const res = await apiFetch(
+        `/api/v1/inventory/items/${itemId}/vm/networking`
+      )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(
+          body.error ?? `Failed to fetch VM networks: ${res.status}`
         )
       }
       return res.json()

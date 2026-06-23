@@ -75,6 +75,7 @@ func RegisterRoutes(
 	protected.DELETE("/inventory/vms", vm.DeleteVM)
 	protected.GET("/inventory/items/:id/vm/resources", vm.GetResources)
 	protected.GET("/inventory/items/:id/vm/hardware", vm.GetHardware)
+	protected.GET("/inventory/items/:id/vm/networking", vm.GetNetworking)
 	protected.POST("/inventory/items/:id/vm/rename", vm.RenameVM)
 	protected.POST("/inventory/items/:id/vm/clone", vm.CloneVM)
 	protected.PUT("/inventory/items/:id/vm/hardware", vm.UpdateHardware)
@@ -100,6 +101,7 @@ func RegisterRoutes(
 	if pods != nil {
 		protected.GET("/pods/create/options", pods.GetCreateOptions)
 		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
+		protected.GET("/pods/create/progress/:id", pods.GetCreateProgress)
 		protected.GET("/pods/publish/options", pods.GetPublishOptions)
 		protected.GET("/pods/published", pods.ListPublished)
 		protected.POST("/pods/published", pods.SavePublished)
@@ -119,6 +121,7 @@ func RegisterRoutes(
 		protected.POST("/pods/clones/:id/power", pods.PowerClonedPod)
 		protected.DELETE("/pods/clones/:id", pods.DeleteClonedPod)
 		protected.PUT("/pods/clones/:id/questions/:questionID", pods.AnswerClonedPodQuestion)
+		protected.GET("/pods/question-activity", pods.ListPodQuestionActivity)
 		protected.GET("/pods/catalog", pods.ListCatalog)
 		protected.GET("/pods/catalog/:slug", pods.GetCatalogPod)
 		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
@@ -131,6 +134,7 @@ func RegisterRoutes(
 	protected.POST("/sdn/vnets", sdn.CreateVNet)
 	protected.DELETE("/sdn/vnets", sdn.DeleteVNets)
 	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
+	protected.GET("/sdn/zones", sdn.GetSDNZones)
 
 	// Management authorization endpoints
 	if authz != nil {

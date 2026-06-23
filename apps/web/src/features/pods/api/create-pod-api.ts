@@ -29,6 +29,15 @@ export type CreatePodResult = {
   }>
 }
 
+export type CreatePodProgress = {
+  type: "pod.create.progress"
+  id: string
+  state: "running" | "success" | "error"
+  step_id: number
+  message: string
+  updated_at: string
+}
+
 export type PodNameAvailability = {
   available: boolean
 }
@@ -65,15 +74,19 @@ export async function validatePodNameAvailability(
 }
 
 export async function createPod(
-  values: CreatePodFormValues
+  params: {
+    values: CreatePodFormValues
+    progressId: string
+  }
 ): Promise<CreatePodResult> {
-  const res = await apiFetch("/api/v1/pods", {
+  const query = new URLSearchParams({ progress_id: params.progressId })
+  const res = await apiFetch(`/api/v1/pods?${query.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: values.name,
-      include_router: values.includeRouter,
-      templates: values.templates.map((template) => ({
+      name: params.values.name,
+      include_router: params.values.includeRouter,
+      templates: params.values.templates.map((template) => ({
         template_item_id: template.templateItemId,
         vms: template.vms.map((vm) => ({
           name: vm.name,
@@ -90,4 +103,30 @@ export async function createPod(
   }
 
   return res.json()
+}
+
+export function createPodProgressQueryOptions(
+  progressId: string | null | undefined,
+  enabled: boolean
+) {
+  return {
+    queryKey: ["pods", "create", "progress", progressId] as const,
+    queryFn: async (): Promise<CreatePodProgress> => {
+      const res = await apiFetch(
+        `/api/v1/pods/create/progress/${encodeURIComponent(progressId ?? "")}`
+      )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(
+          body.error ?? `Failed to fetch create progress: ${res.status}`
+        )
+      }
+      return res.json()
+    },
+    enabled: enabled && !!progressId,
+    retry: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: 750,
+  }
 }

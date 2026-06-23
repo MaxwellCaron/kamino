@@ -2,7 +2,7 @@ import {
   IconCpu,
   IconDatabase,
   IconDeviceDesktop,
-  IconId,
+  IconNetwork,
   IconPackages,
   IconPower,
   IconTemplate,
@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Progress } from "@workspace/ui/components/progress"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Item,
   ItemContent,
@@ -28,7 +29,10 @@ import type {
   ApiTreeNode,
   ApiTreeNodeVM,
 } from "@/features/inventory/types/inventory-types"
-import type { VmResources } from "@/features/vms/types/vm-types"
+import type {
+  ApiVmNetworkSummary,
+  VmResources,
+} from "@/features/vms/types/vm-types"
 import type { ReactNode } from "@tabler/icons-react"
 import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
 import {
@@ -50,6 +54,7 @@ type Stat = {
   detail?: string | null
   textStyle?: string
   bgStyle?: string
+  content?: ReactNode
 }
 
 type ResourceUsage = {
@@ -99,11 +104,67 @@ function getUptimeDetail(
   return formatUptime(resources.uptime)
 }
 
+function NetworkingStatContent({
+  networks,
+  isLoading,
+  isError,
+}: {
+  networks: Array<ApiVmNetworkSummary> | undefined
+  isLoading: boolean
+  isError: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex min-h-15 w-full flex-col justify-between gap-1.5">
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-5 w-full" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-15 w-full flex-col justify-center">
+        <p className="text-sm text-muted-foreground">Unavailable</p>
+      </div>
+    )
+  }
+
+  if (!networks || networks.length === 0) {
+    return (
+      <div className="flex min-h-15 w-full flex-col justify-center">
+        <p className="text-sm text-muted-foreground">No interfaces</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-15 w-full flex-col justify-between">
+      {networks.map((network, index) => (
+        <div
+          key={`${network.device ?? index}-${network.bridge}`}
+          className="flex items-center justify-between gap-3 text-sm"
+        >
+          <span className="text-xl font-semibold tracking-tight">
+            {network.device ?? `net${index}`}
+          </span>
+          <span className="min-w-0 truncate text-xl font-semibold tracking-tight text-muted-foreground">
+            {network.bridge}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function buildStats(
   vm: ApiTreeNodeVM,
   isTemplate: boolean,
   powerStatus: string | undefined,
-  resources: VmResources | undefined
+  resources: VmResources | undefined,
+  networks: Array<ApiVmNetworkSummary> | undefined,
+  isNetworksLoading: boolean,
+  isNetworksError: boolean
 ): Array<Stat> {
   const cpuUsage = getCpuUsage(resources)
   const memoryUsage = getMemoryUsage(resources)
@@ -123,13 +184,8 @@ function buildStats(
     },
     {
       icon: <IconPackages className="size-5 text-muted-foreground" />,
-      label: "Node",
-      value: vm.node,
-    },
-    {
-      icon: <IconId className="size-5 text-muted-foreground" />,
-      label: "VMID",
-      value: String(vm.vmid),
+      label: "Node / VMID",
+      value: `${vm.node} / ${vm.vmid}`,
     },
     {
       icon: <IconDatabase className="size-5 text-muted-foreground" />,
@@ -162,6 +218,18 @@ function buildStats(
       usage: memoryUsage,
       detail: memoryUsage ? memoryUsage.label : null,
     },
+    {
+      icon: <IconNetwork className="size-5 text-muted-foreground" />,
+      label: "Networking",
+      value: "",
+      content: (
+        <NetworkingStatContent
+          networks={networks}
+          isLoading={isNetworksLoading}
+          isError={isNetworksError}
+        />
+      ),
+    },
   ]
 }
 
@@ -171,6 +239,9 @@ export function VmHeader({
   vm,
   powerStatus,
   resources,
+  networks,
+  isNetworksLoading,
+  isNetworksError,
   isTemplate,
 }: {
   node: ApiTreeNode
@@ -178,9 +249,20 @@ export function VmHeader({
   vm: ApiTreeNodeVM
   powerStatus: string | undefined
   resources: VmResources | undefined
+  networks: Array<ApiVmNetworkSummary> | undefined
+  isNetworksLoading: boolean
+  isNetworksError: boolean
   isTemplate: boolean
 }) {
-  const stats = buildStats(vm, isTemplate, powerStatus, resources)
+  const stats = buildStats(
+    vm,
+    isTemplate,
+    powerStatus,
+    resources,
+    networks,
+    isNetworksLoading,
+    isNetworksError
+  )
 
   return (
     <Card>
@@ -228,20 +310,22 @@ export function VmHeader({
                   </ItemTitle>
                 </ItemContent>
                 <ItemFooter>
-                  <div className="flex min-h-15 flex-col items-start gap-1">
-                    <h3
-                      className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
-                    >
-                      {stat.value}
-                    </h3>
-                    <div className="min-h-5">
-                      {stat.detail && (
-                        <p className="text-sm text-muted-foreground">
-                          {stat.detail}
-                        </p>
-                      )}
+                  {stat.content ?? (
+                    <div className="flex min-h-15 flex-col items-start gap-1">
+                      <h3
+                        className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
+                      >
+                        {stat.value}
+                      </h3>
+                      <div className="min-h-5">
+                        {stat.detail && (
+                          <p className="text-sm text-muted-foreground">
+                            {stat.detail}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </ItemFooter>
                 {stat.usage && (
                   <div className="absolute right-4 flex w-2 items-center justify-center">

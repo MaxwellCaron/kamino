@@ -491,10 +491,12 @@ CREATE TABLE cloned_pods (
     pod_id              UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
     user_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
     folder_id           UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    network_number      INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (pod_id, user_principal_id),
-    UNIQUE (folder_id)
+    UNIQUE (folder_id),
+    UNIQUE (network_number)
 );
 
 CREATE INDEX ix_cloned_pods_user_created_at
@@ -502,6 +504,14 @@ CREATE INDEX ix_cloned_pods_user_created_at
 
 CREATE INDEX ix_cloned_pods_pod_created_at
     ON cloned_pods (pod_id, created_at DESC);
+
+CREATE TABLE pod_dev_network_allocations (
+    pod_folder_id  UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
+    network_number INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (network_number)
+);
 
 CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
 RETURNS TRIGGER AS $$
@@ -564,6 +574,37 @@ CREATE TABLE cloned_pod_question_answers (
         CHECK (length(trim(answer)) > 0 AND length(answer) <= 256)
 );
 
+CREATE TABLE principal_pod_question_answers (
+    principal_id        UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    source_pod_id       UUID NOT NULL,
+    source_task_id      UUID NOT NULL,
+    source_question_id  UUID NOT NULL,
+    last_cloned_pod_id  UUID NULL,
+    pod_slug            TEXT NOT NULL,
+    pod_title           TEXT NOT NULL,
+    task_title          TEXT NOT NULL,
+    question_title      TEXT NOT NULL,
+    answer              TEXT NOT NULL,
+    is_correct          BOOLEAN NOT NULL DEFAULT false,
+    answered_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (principal_id, source_pod_id, source_question_id),
+    CONSTRAINT principal_pod_question_answers_answer_not_empty
+        CHECK (length(trim(answer)) > 0 AND length(answer) <= 256),
+    CONSTRAINT principal_pod_question_answers_labels_not_empty
+        CHECK (
+            length(trim(pod_slug)) > 0
+            AND length(trim(pod_title)) > 0
+            AND length(trim(task_title)) > 0
+            AND length(trim(question_title)) > 0
+        )
+);
+
+CREATE INDEX ix_principal_pod_question_answers_activity
+    ON principal_pod_question_answers (principal_id, answered_at DESC)
+    WHERE is_correct;
+
 -- ----------------------------------------------------------------------------
 -- Generic updated_at trigger
 -- ----------------------------------------------------------------------------
@@ -614,6 +655,11 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_cloned_pod_task_states_set_updated_at
 BEFORE UPDATE ON cloned_pod_task_states
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_principal_pod_question_answers_set_updated_at
+BEFORE UPDATE ON principal_pod_question_answers
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

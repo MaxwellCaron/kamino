@@ -10,6 +10,7 @@ import { Input } from "@workspace/ui/components/input"
 import { podNameSchema } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
 import { validatePodNameAvailability } from "@/features/pods/api/create-pod-api"
+import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 const podNameConflictError = {
   message: "A Pod with this name already exists.",
@@ -68,7 +69,11 @@ export function CreatePodPersonalizeSection({
                   type="text"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
+                  onChange={(event) =>
+                    field.handleChange(
+                      replaceWhitespaceWithHyphen(event.target.value)
+                    )
+                  }
                   aria-invalid={isInvalid || undefined}
                   placeholder="cis3670-01-lab"
                   autoComplete="off"

@@ -9,7 +9,7 @@ export type CloneStatusTask = {
 export const DEFAULT_CLONE_TASKS = [
   {
     id: 1,
-    name: "Fetch virtual machines in pod",
+    name: "Fetch pod virtual machines",
   },
   {
     id: 2,
@@ -17,7 +17,7 @@ export const DEFAULT_CLONE_TASKS = [
   },
   {
     id: 3,
-    name: "Wait for virtual machines to be ready",
+    name: "Prepare virtual machines",
   },
-  { id: 4, name: "Configure router" },
+  { id: 4, name: "Start router" },
 ] as const

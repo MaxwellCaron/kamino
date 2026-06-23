@@ -43,6 +43,21 @@ const (
 	cloneVMIDAllocationAttempts = 25
 )
 
+type PodRouterCloneConfig struct {
+	VNetPrefix               string
+	NetworkMin               int32
+	NetworkMax               int32
+	DevNetworkMin            int32
+	DevNetworkMax            int32
+	RouterWaitTimeout        time.Duration
+	WANIPBase                string
+	InternalIPBase           string
+	CloudInitStorage         string
+	CloudInitUserFilePattern string
+	CloudInitMetaFilePattern string
+	CloudInitNetworkFile     string
+}
+
 type PodsHandler struct {
 	PX                   *proxmox.Client
 	Importer             *proxmox.InventoryImporter
@@ -52,6 +67,7 @@ type PodsHandler struct {
 	Notifier             *vmstatus.Notifier
 	Actions              *vmactions.Executor
 	RouterTemplateItemID uuid.UUID
+	RouterCloneConfig    PodRouterCloneConfig
 }
 
 type publishedPodPrincipalResponse struct {
@@ -189,6 +205,15 @@ type publishedPodCloneTaskSummaryResponse struct {
 	Progress  float64 `json:"progress"`
 }
 
+type clonedPodNetworkResponse struct {
+	Number          int32   `json:"number"`
+	VNet            string  `json:"vnet"`
+	ExternalSubnet  string  `json:"external_subnet"`
+	ExternalGateway string  `json:"external_gateway"`
+	InternalSubnet  *string `json:"internal_subnet,omitempty"`
+	InternalGateway *string `json:"internal_gateway,omitempty"`
+}
+
 type publishedPodCloneResponse struct {
 	ID          uuid.UUID                            `json:"id"`
 	PodID       uuid.UUID                            `json:"pod_id"`
@@ -196,6 +221,7 @@ type publishedPodCloneResponse struct {
 	ClonedAt    time.Time                            `json:"cloned_at"`
 	UpdatedAt   time.Time                            `json:"updated_at"`
 	Status      string                               `json:"status"`
+	Network     clonedPodNetworkResponse             `json:"network"`
 	VMCount     int32                                `json:"vm_count"`
 	TaskSummary publishedPodCloneTaskSummaryResponse `json:"task_summary"`
 }
@@ -451,6 +477,31 @@ func (h *PodsHandler) GetPublishedProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, snapshot)
 }
 
+func (h *PodsHandler) GetCreateProgress(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
+	progressID := strings.TrimSpace(c.Param("id"))
+	if progressID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid progress id"})
+		return
+	}
+
+	snapshot, ok := createPodProgress.get(progressID)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "progress not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, snapshot)
+}
+
 func (h *PodsHandler) SavePublished(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -689,6 +740,7 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			ClonedAt:  s.CreatedAt.Time,
 			UpdatedAt: s.UpdatedAt.Time,
 			Status:    clonedPodRuntimeStatus(vmStatusList),
+			Network:   h.clonedPodNetworkMetadata(s.NetworkNumber),
 			VMCount:   int32(s.VmCount),
 			TaskSummary: publishedPodCloneTaskSummaryResponse{
 				Total:     s.TaskTotal,
@@ -746,6 +798,11 @@ type createPodVMResponse struct {
 	Item           InventoryItem `json:"item"`
 }
 
+type createPodVMResult struct {
+	response createPodVMResponse
+	target   podNetworkVMTarget
+}
+
 type createPodResponse struct {
 	OK       bool                  `json:"ok"`
 	FolderID uuid.UUID             `json:"folder_id"`
@@ -755,6 +812,7 @@ type createPodResponse struct {
 type podCloneSpec struct {
 	TemplateItemID uuid.UUID
 	Name           string
+	Router         bool
 	Hardware       *podCloneHardware
 }
 
@@ -885,84 +943,196 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	progress := newCreatePodProgressReporter(c.Query("progress_id"))
+	progress.set(createProgressStepValidating, "Checking Pod name and selected templates.")
+
 	var req createPodRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		progress.fail("invalid request body")
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
 
 	req.Name = names.Normalize(req.Name)
 	if err := names.ValidateFolder(req.Name); err != nil {
+		progress.fail(err.Error())
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
 	specs, err := h.buildCloneSpecs(req)
 	if err != nil {
+		progress.fail(err.Error())
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
+	progress.set(createProgressStepFolders, "Creating Pod inventory folders.")
 	podsFolderID, err := h.Service.EnsureFolderPath(c.Request.Context(), []string{podsFolderName})
 	if err != nil {
+		progress.fail(inventoryRequestError(err).UserMessage)
 		writeInventoryError(c, err)
 		return
 	}
 	if !requireInventoryPermission(c, h.Authz, principalID, podsFolderID, authorization.CreateFolder) {
+		progress.fail("forbidden")
 		return
 	}
 	if len(specs) > 0 && !requireInventoryPermission(c, h.Authz, principalID, podsFolderID, authorization.CreateVM) {
+		progress.fail("forbidden")
 		return
 	}
 
 	podFolderID, err := h.Service.CreateFolder(c.Request.Context(), podsFolderID, req.Name)
 	if err != nil {
+		progress.fail(inventoryRequestError(err).UserMessage)
 		writeInventoryError(c, err)
 		return
 	}
 	if !requireInventoryPermission(c, h.Authz, principalID, podFolderID, authorization.CreateFolder) {
+		progress.fail("forbidden")
+		h.cleanupFailedPodProvision(podFolderID, nil)
 		return
 	}
 
 	vmFolderID, err := h.Service.CreateFolder(c.Request.Context(), podFolderID, podVirtualMachinesFolderName)
 	if err != nil {
+		progress.fail(inventoryRequestError(err).UserMessage)
+		h.cleanupFailedPodProvision(podFolderID, nil)
 		writeInventoryError(c, err)
 		return
 	}
 
 	if len(specs) > 0 {
 		if !requireInventoryPermission(c, h.Authz, principalID, vmFolderID, authorization.CreateVM) {
+			progress.fail("forbidden")
+			h.cleanupFailedPodProvision(podFolderID, nil)
 			return
 		}
 		if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs))); err != nil {
+			progress.fail(inventoryRequestError(err).UserMessage)
+			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeInventoryError(c, err)
+			return
+		}
+	}
+
+	var devNetworkNumber int32
+	if req.IncludeRouter {
+		progress.set(createProgressStepNetwork, "Reserving a dev network.")
+		allocation, err := database.New(h.DB).InsertPodDevNetworkAllocation(
+			c.Request.Context(),
+			database.InsertPodDevNetworkAllocationParams{
+				PodFolderID:      podFolderID,
+				MinNetworkNumber: h.RouterCloneConfig.DevNetworkMin,
+				MaxNetworkNumber: h.RouterCloneConfig.DevNetworkMax,
+			},
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			progress.fail("no pod dev network numbers available")
+			h.cleanupFailedPodProvision(podFolderID, nil)
+			c.JSON(http.StatusConflict, gin.H{"error": "no pod dev network numbers available"})
+			return
+		}
+		if err != nil {
+			progress.fail("failed to reserve pod dev network")
+			h.cleanupFailedPodProvision(podFolderID, nil)
+			writeLoggedError(c, http.StatusInternalServerError, "failed to reserve pod dev network", "insert pod dev network allocation", err)
+			return
+		}
+
+		devNetworkNumber = allocation.NetworkNumber
+		vnetName := h.podVNetName(devNetworkNumber)
+		progress.set(createProgressStepNetwork, fmt.Sprintf("Checking dev VNet %s.", vnetName))
+		if reqErr := h.ensurePodVNetExists(c.Request.Context(), vnetName); reqErr != nil {
+			progress.fail(reqErr.UserMessage)
+			h.cleanupFailedPodProvision(podFolderID, nil)
+			writeRequestError(c, reqErr)
 			return
 		}
 	}
 
 	createdVMs := make([]createPodVMResponse, 0, len(specs))
+	createdTargets := make([]podNetworkVMTarget, 0, len(specs))
+	created := make(map[int]clonedVM, len(specs))
 	if len(specs) > 0 {
 		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), vmFolderID)
 		if err != nil {
+			progress.fail(inventoryRequestError(err).UserMessage)
+			h.cleanupFailedPodProvision(podFolderID, created)
 			writeInventoryError(c, err)
 			return
 		}
 		targetNode, err := h.resolveCloneTargetNode(c.Request.Context())
 		if err != nil {
+			progress.fail("failed to resolve target node")
+			h.cleanupFailedPodProvision(podFolderID, created)
 			writeLoggedError(c, http.StatusBadGateway, "failed to resolve target node", "resolve pod clone target node", err)
 			return
 		}
 
 		for _, spec := range specs {
-			created, reqErr := h.cloneTemplateIntoPod(c.Request.Context(), principalID, placement, targetNode, spec)
+			message := fmt.Sprintf("Cloning %s into the Pod.", spec.Name)
+			if spec.Router {
+				message = "Cloning router into the Pod."
+			}
+			progress.set(createProgressStepCloning, message)
+
+			createdVM, reqErr := h.cloneTemplateIntoPod(
+				c.Request.Context(),
+				principalID,
+				placement,
+				targetNode,
+				spec,
+				cloneVMOptions{
+					onStarted: func(node string, vmid int) {
+						created[vmid] = clonedVM{
+							TargetNode: node,
+							VMID:       vmid,
+						}
+					},
+					onSynced: func(clone clonedVM) {
+						created[clone.VMID] = clone
+					},
+				},
+			)
 			if reqErr != nil {
+				progress.fail(reqErr.UserMessage)
+				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
-			createdVMs = append(createdVMs, created)
+			createdVMs = append(createdVMs, createdVM.response)
+			createdTargets = append(createdTargets, createdVM.target)
+		}
+
+		progress.set(createProgressStepWaiting, "Preparing cloned virtual machines.")
+		if reqErr := h.waitForPodVMTargetsReady(c.Request.Context(), createdTargets); reqErr != nil {
+			progress.fail(reqErr.UserMessage)
+			h.cleanupFailedPodProvision(podFolderID, created)
+			writeRequestError(c, reqErr)
+			return
+		}
+		if req.IncludeRouter {
+			progress.set(createProgressStepConfiguring, "Configuring dev VNet bridges.")
+			if reqErr := h.configurePodVNetBridges(c.Request.Context(), devNetworkNumber, createdTargets); reqErr != nil {
+				progress.fail(reqErr.UserMessage)
+				h.cleanupFailedPodProvision(podFolderID, created)
+				writeRequestError(c, reqErr)
+				return
+			}
+
+			progress.set(createProgressStepRouter, "Starting router.")
+			if reqErr := h.configurePodRouterCloudInit(c.Request.Context(), devNetworkNumber, createdTargets); reqErr != nil {
+				progress.fail(reqErr.UserMessage)
+				h.cleanupFailedPodProvision(podFolderID, created)
+				writeRequestError(c, reqErr)
+				return
+			}
 		}
 	}
 
+	progress.succeed("Pod created successfully.")
 	c.JSON(http.StatusOK, createPodResponse{
 		OK:       true,
 		FolderID: podFolderID,
@@ -2267,6 +2437,7 @@ type clonedVM struct {
 type cloneVMOptions struct {
 	allocate  *sync.Mutex
 	onStarted func(node string, vmid int)
+	onSynced  func(clonedVM)
 }
 
 // cloneVMIntoFolder authorizes the source, clones it into the folder, stamps a
@@ -2350,12 +2521,17 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 		}
 	}
 
-	return clonedVM{
+	clone := clonedVM{
 		SourceItemID:    sourceItemID,
 		InventoryItemID: clonedItemID,
 		TargetNode:      targetNode,
 		VMID:            newID,
-	}, nil
+	}
+	if opts.onSynced != nil {
+		opts.onSynced(clone)
+	}
+
+	return clone, nil
 }
 
 // startVMClone allocates a VMID and starts the clone; holding allocate (when set)
@@ -2964,6 +3140,7 @@ func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, err
 		specs = append(specs, podCloneSpec{
 			TemplateItemID: h.RouterTemplateItemID,
 			Name:           "router",
+			Router:         true,
 		})
 	}
 
@@ -3009,19 +3186,20 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 	placement inventory.FolderPlacement,
 	targetNode string,
 	spec podCloneSpec,
-) (createPodVMResponse, *requestError) {
+	opts cloneVMOptions,
+) (createPodVMResult, *requestError) {
 	item, err := h.Service.GetInventoryItemByID(ctx, spec.TemplateItemID)
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
-		return createPodVMResponse{}, &requestError{
+		return createPodVMResult{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "configured pod template was not found",
 			Operation:   "load pod template inventory item",
 			Err:         err,
 		}
 	default:
-		return createPodVMResponse{}, &requestError{
+		return createPodVMResult{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to load template",
 			Operation:   "load pod template inventory item",
@@ -3029,20 +3207,20 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 		}
 	}
 	if item.IsTemplate == nil || !*item.IsTemplate {
-		return createPodVMResponse{}, &requestError{
+		return createPodVMResult{}, &requestError{
 			Status:      http.StatusUnprocessableEntity,
 			UserMessage: "selected VM is not a template",
 		}
 	}
 
-	clone, reqErr := h.cloneVMIntoFolder(ctx, principalID, spec.TemplateItemID, placement, targetNode, spec.Name, false, cloneVMOptions{})
+	clone, reqErr := h.cloneVMIntoFolder(ctx, principalID, spec.TemplateItemID, placement, targetNode, spec.Name, false, opts)
 	if reqErr != nil {
-		return createPodVMResponse{}, reqErr
+		return createPodVMResult{}, reqErr
 	}
 
 	if spec.Hardware != nil {
 		if err := h.applyCloneHardware(ctx, targetNode, clone.VMID, clone.InventoryItemID, *spec.Hardware); err != nil {
-			return createPodVMResponse{}, &requestError{
+			return createPodVMResult{}, &requestError{
 				Status:      http.StatusUnprocessableEntity,
 				UserMessage: err.Error(),
 				Operation:   "apply pod clone hardware",
@@ -3055,7 +3233,7 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 
 	clonedItem, err := h.Service.GetInventoryItemWithPermissions(ctx, principalID, clone.InventoryItemID)
 	if err != nil {
-		return createPodVMResponse{}, &requestError{
+		return createPodVMResult{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "vm cloned in Proxmox but failed to load inventory item",
 			Operation:   "load pod clone inventory item",
@@ -3063,11 +3241,18 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 		}
 	}
 
-	return createPodVMResponse{
-		TemplateItemID: spec.TemplateItemID,
-		VMID:           clone.VMID,
-		ItemID:         clone.InventoryItemID,
-		Item:           buildInventoryItem(clonedItem),
+	return createPodVMResult{
+		response: createPodVMResponse{
+			TemplateItemID: spec.TemplateItemID,
+			VMID:           clone.VMID,
+			ItemID:         clone.InventoryItemID,
+			Item:           buildInventoryItem(clonedItem),
+		},
+		target: podNetworkVMTarget{
+			name:   spec.Name,
+			clone:  clone,
+			router: spec.Router,
+		},
 	}, nil
 }
 

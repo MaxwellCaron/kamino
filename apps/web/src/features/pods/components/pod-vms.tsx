@@ -1,7 +1,7 @@
 import {
   Card,
   CardContent,
-  CardFooter,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -12,10 +12,37 @@ import {
   EmptyHeader,
 } from "@workspace/ui/components/empty"
 import { IconDeviceDesktop } from "@tabler/icons-react"
-import type { PodVM } from "../types/pod-types"
+import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
 import { VmListItem } from "@/features/vms/components/vm-list-item"
 
-export function PodVms({ vms }: { vms: Array<PodVM> }) {
+function NetworkValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 text-center">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="font-mono text-sm break-all tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
+  return (
+    <div className="grid gap-3 rounded-4xl bg-muted px-6 py-4 sm:grid-cols-3">
+      <NetworkValue label="VNet" value={network.vnet} />
+      <NetworkValue label="External" value={network.external_subnet} />
+      {network.internal_subnet ? (
+        <NetworkValue label="Internal" value={network.internal_subnet} />
+      ) : null}
+    </div>
+  )
+}
+
+export function PodVms({
+  network,
+  vms,
+}: {
+  network?: ClonedPodNetwork
+  vms: Array<PodVM>
+}) {
   return (
     <Card>
       <CardHeader>
@@ -25,8 +52,14 @@ export function PodVms({ vms }: { vms: Array<PodVM> }) {
             Virtual Machines
           </span>
         </CardTitle>
+        <CardDescription>
+          List of virtual machines that you currently have access to. Please
+          note that this may not represent all the virtual machines available
+          within the pod environment.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
+        {network ? <PodNetworkDetails network={network} /> : null}
         {vms.length > 0 ? (
           <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {vms.map((vm) => (
@@ -50,11 +83,6 @@ export function PodVms({ vms }: { vms: Array<PodVM> }) {
           </Empty>
         )}
       </CardContent>
-      <CardFooter className="text-muted-foreground">
-        List of virtual machines that you currently have access to. Please note
-        that this may not represent all the virtual machines available within
-        the pod environment.
-      </CardFooter>
     </Card>
   )
 }

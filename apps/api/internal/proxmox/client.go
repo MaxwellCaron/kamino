@@ -166,6 +166,14 @@ func (c *Client) post(ctx context.Context, path string, formData map[string]stri
 		form.Set(k, v)
 	}
 
+	return c.postValues(ctx, path, form, result)
+}
+
+func (c *Client) postValues(ctx context.Context, path string, form url.Values, result any) error {
+	if form == nil {
+		form = url.Values{}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
@@ -205,6 +213,66 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 		return nil, fmt.Errorf("fetching VMs: %w", err)
 	}
 	return c.filterVMs(resp.Data), nil
+}
+
+// GetVMRuntimeStatus returns the node-local QEMU runtime status for a VM.
+func (c *Client) GetVMRuntimeStatus(ctx context.Context, node string, vmid int) (string, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return "", err
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/current", node, vmid)
+	var resp apiResponse[map[string]any]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return "", fmt.Errorf("fetching VM runtime status: %w", err)
+	}
+
+	status := strings.ToLower(strings.TrimSpace(getStringValue(resp.Data["status"])))
+	if status == "" {
+		return "", fmt.Errorf("VM %d runtime status response did not include status", vmid)
+	}
+	return status, nil
+}
+
+// WaitForVMRuntimeStatus polls the node-local QEMU runtime status until it matches.
+func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, node string, vmid int, expected string, timeout time.Duration) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+	expected = strings.ToLower(strings.TrimSpace(expected))
+	if expected == "" {
+		return fmt.Errorf("expected status is required")
+	}
+	if timeout <= 0 {
+		return fmt.Errorf("timeout must be positive")
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	lastStatus := ""
+	for {
+		status, err := c.GetVMRuntimeStatus(waitCtx, node, vmid)
+		if err != nil {
+			return err
+		}
+		lastStatus = status
+		if status == expected {
+			return nil
+		}
+
+		select {
+		case <-waitCtx.Done():
+			if lastStatus == "" {
+				return fmt.Errorf("waiting for VM %d to reach %s: %w", vmid, expected, waitCtx.Err())
+			}
+			return fmt.Errorf("waiting for VM %d to reach %s: last status %q: %w", vmid, expected, lastStatus, waitCtx.Err())
+		case <-ticker.C:
+		}
+	}
 }
 
 // GetVMConfig returns the raw Proxmox config for a VM.
@@ -491,6 +559,20 @@ func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
+// DeleteVMStopped checks if a VM is running, stops it if so, and then deletes it.
+func (c *Client) DeleteVMStopped(ctx context.Context, node string, vmid int) error {
+	status, err := c.GetVMRuntimeStatus(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+	if status == "running" {
+		if err := c.StopVM(ctx, node, vmid); err != nil {
+			return err
+		}
+	}
+	return c.DeleteVM(ctx, node, vmid)
+}
+
 // RenameVM changes the name of a VM.
 func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name string) error {
 	if err := c.requireAllowedNode(node); err != nil {
@@ -522,6 +604,234 @@ func (c *Client) GetVMHardwareConfig(ctx context.Context, node string, vmid int)
 		return nil, err
 	}
 	return parseVMHardwareConfig(data)
+}
+
+func (c *Client) WaitForVMConfigUnlocked(ctx context.Context, node string, vmid int, timeout time.Duration) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+	if timeout <= 0 {
+		return fmt.Errorf("timeout must be positive")
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		data, err := c.GetVMConfig(waitCtx, node, vmid)
+		if err != nil {
+			return fmt.Errorf("fetching VM config: %w", err)
+		}
+		if strings.TrimSpace(getStringValue(data["lock"])) == "" {
+			return nil
+		}
+
+		select {
+		case <-waitCtx.Done():
+			return fmt.Errorf("waiting for VM config unlock: %w", waitCtx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (c *Client) GetStorageContentByVMID(ctx context.Context, node, storage string, vmid int) ([]StorageContent, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return nil, err
+	}
+	storage = strings.TrimSpace(storage)
+	if storage == "" {
+		return nil, fmt.Errorf("storage is required")
+	}
+
+	path := fmt.Sprintf(
+		"/api2/json/nodes/%s/storage/%s/content?vmid=%d",
+		node,
+		url.PathEscape(storage),
+		vmid,
+	)
+	var resp apiResponse[[]StorageContent]
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, fmt.Errorf("fetching storage content: %w", err)
+	}
+	return resp.Data, nil
+}
+
+func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid int, timeout time.Duration) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+	if timeout <= 0 {
+		return fmt.Errorf("timeout must be positive")
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		data, err := c.GetVMConfig(waitCtx, node, vmid)
+		if err != nil {
+			return fmt.Errorf("fetching VM config: %w", err)
+		}
+
+		_, storage, _, err := parseVMHardwareDiskConfig(data)
+		if err != nil {
+			return fmt.Errorf("parsing VM disk config: %w", err)
+		}
+
+		content, err := c.GetStorageContentByVMID(waitCtx, node, storage, vmid)
+		if err != nil {
+			return fmt.Errorf("fetching VM storage content: %w", err)
+		}
+
+		for _, item := range content {
+			if item.Size > 0 {
+				return nil
+			}
+		}
+
+		select {
+		case <-waitCtx.Done():
+			return fmt.Errorf("waiting for VM storage readiness: %w", waitCtx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func validateCloudInitSnippetFileName(filename string) error {
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		return fmt.Errorf("filename is required")
+	}
+	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		return fmt.Errorf("filename must not contain path separators")
+	}
+	if strings.Contains(filename, "..") {
+		return fmt.Errorf("filename must not contain '..'")
+	}
+	for _, r := range filename {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			return fmt.Errorf("filename must not contain whitespace")
+		}
+	}
+	return nil
+}
+
+// EnsureVMCloudInitDrive verifies the VM has a cloud-init disk configured.
+func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid int) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	data, err := c.GetVMConfig(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range data {
+		if strings.Contains(strings.ToLower(getStringValue(value)), "cloudinit") {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("VM %d has no cloud-init drive configured", vmid)
+}
+
+// SetVMCloudInitCustom points a VM's NoCloud config at pre-created Proxmox snippets.
+func (c *Client) SetVMCloudInitCustom(
+	ctx context.Context,
+	node string,
+	vmid int,
+	storage string,
+	userFile string,
+	metaFile string,
+	networkFile string,
+) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	storage = strings.TrimSpace(storage)
+	if storage == "" {
+		return fmt.Errorf("storage is required")
+	}
+	if err := validateCloudInitSnippetFileName(userFile); err != nil {
+		return fmt.Errorf("invalid user cloud-init snippet filename: %w", err)
+	}
+	if err := validateCloudInitSnippetFileName(metaFile); err != nil {
+		return fmt.Errorf("invalid meta cloud-init snippet filename: %w", err)
+	}
+	if err := validateCloudInitSnippetFileName(networkFile); err != nil {
+		return fmt.Errorf("invalid network cloud-init snippet filename: %w", err)
+	}
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	cicustom := fmt.Sprintf(
+		"user=%s:snippets/%s,meta=%s:snippets/%s,network=%s:snippets/%s",
+		storage,
+		userFile,
+		storage,
+		metaFile,
+		storage,
+		networkFile,
+	)
+	if err := c.put(ctx, path, map[string]string{
+		"citype":   "nocloud",
+		"cicustom": cicustom,
+	}, nil); err != nil {
+		return fmt.Errorf("updating VM cloud-init custom config: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, device string, bridge string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	device = strings.TrimSpace(device)
+	if device == "" {
+		return fmt.Errorf("network device is required")
+	}
+	bridge = strings.TrimSpace(bridge)
+	if bridge == "" {
+		return fmt.Errorf("bridge is required")
+	}
+
+	current, err := c.GetVMHardwareConfig(ctx, node, vmid)
+	if err != nil {
+		return err
+	}
+
+	var target *VMHardwareNetwork
+	for i := range current.Networks {
+		if current.Networks[i].Device == device {
+			target = &current.Networks[i]
+			break
+		}
+	}
+	if target == nil {
+		return fmt.Errorf("network device %s is not configured on VM %d", device, vmid)
+	}
+
+	updated := *target
+	updated.Bridge = bridge
+	updated.Firewall = true
+
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	if err := c.put(ctx, path, map[string]string{
+		device: formatVMHardwareNetwork(updated),
+	}, nil); err != nil {
+		return fmt.Errorf("updating VM network bridge: %w", err)
+	}
+
+	return nil
 }
 
 // UpdateVMHardware applies editable VM hardware settings through Proxmox.
@@ -1478,6 +1788,15 @@ func (c *Client) GetVNets(ctx context.Context) ([]VNet, error) {
 	var resp apiResponse[[]VNet]
 	if err := c.get(ctx, "/api2/json/cluster/sdn/vnets", &resp); err != nil {
 		return nil, fmt.Errorf("fetching VNets: %w", err)
+	}
+	return resp.Data, nil
+}
+
+// GetSDNZones returns all configured SDN zones.
+func (c *Client) GetSDNZones(ctx context.Context) ([]SDNZone, error) {
+	var resp apiResponse[[]SDNZone]
+	if err := c.get(ctx, "/api2/json/cluster/sdn/zones", &resp); err != nil {
+		return nil, fmt.Errorf("fetching SDN zones: %w", err)
 	}
 	return resp.Data, nil
 }

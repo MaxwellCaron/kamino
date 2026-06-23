@@ -379,6 +379,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -391,6 +392,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -413,6 +415,7 @@ SELECT
     COALESCE(NULLIF(p.name, ''), p.external_id) AS user_label,
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -438,6 +441,7 @@ GROUP BY
     p.external_id,
     p.description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 ORDER BY cp.created_at DESC;
@@ -448,6 +452,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -460,6 +465,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -487,6 +493,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -499,6 +506,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -509,17 +517,76 @@ WHERE cp.id = sqlc.arg(id)
   );
 
 -- name: InsertClonedPod :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020001)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
 INSERT INTO cloned_pods (
     id,
     pod_id,
     user_principal_id,
-    folder_id
-) VALUES ($1, $2, $3, $4)
+    folder_id,
+    network_number
+)
+SELECT
+    sqlc.arg(id),
+    sqlc.arg(pod_id),
+    sqlc.arg(user_principal_id),
+    sqlc.arg(folder_id),
+    candidate.network_number
+FROM candidate
 RETURNING
     id,
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
+    created_at,
+    updated_at;
+
+-- name: InsertPodDevNetworkAllocation :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020002)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pod_dev_network_allocations pdna
+        WHERE pdna.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
+INSERT INTO pod_dev_network_allocations (
+    pod_folder_id,
+    network_number
+)
+SELECT
+    sqlc.arg(pod_folder_id),
+    candidate.network_number
+FROM candidate
+RETURNING
+    pod_folder_id,
+    network_number,
     created_at,
     updated_at;
 
@@ -590,10 +657,17 @@ ORDER BY answered_at ASC;
 SELECT
     q.id,
     q.task_id,
-    q.answer_outline
+    q.title,
+    q.answer_outline,
+    t.pod_id,
+    t.title AS task_title,
+    p.slug AS pod_slug,
+    p.title AS pod_title
 FROM published_pod_task_questions q
 JOIN published_pod_tasks t
   ON t.id = q.task_id
+JOIN published_pods p
+  ON p.id = t.pod_id
 JOIN cloned_pods cp
   ON cp.pod_id = t.pod_id
 WHERE cp.id = sqlc.arg(cloned_pod_id)
@@ -621,6 +695,66 @@ RETURNING
     answer,
     is_correct,
     answered_at;
+
+-- name: UpsertPrincipalPodQuestionAnswer :one
+INSERT INTO principal_pod_question_answers (
+    principal_id,
+    source_pod_id,
+    source_task_id,
+    source_question_id,
+    last_cloned_pod_id,
+    pod_slug,
+    pod_title,
+    task_title,
+    question_title,
+    answer,
+    is_correct,
+    answered_at
+) VALUES (
+    sqlc.arg(principal_id),
+    sqlc.arg(source_pod_id),
+    sqlc.arg(source_task_id),
+    sqlc.arg(source_question_id),
+    sqlc.arg(last_cloned_pod_id),
+    sqlc.arg(pod_slug),
+    sqlc.arg(pod_title),
+    sqlc.arg(task_title),
+    sqlc.arg(question_title),
+    sqlc.arg(answer),
+    sqlc.arg(is_correct),
+    sqlc.arg(answered_at)
+)
+ON CONFLICT (principal_id, source_pod_id, source_question_id) DO UPDATE
+SET
+    last_cloned_pod_id = EXCLUDED.last_cloned_pod_id,
+    pod_slug = EXCLUDED.pod_slug,
+    pod_title = EXCLUDED.pod_title,
+    task_title = EXCLUDED.task_title,
+    question_title = EXCLUDED.question_title,
+    answer = CASE
+        WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answer
+        ELSE EXCLUDED.answer
+    END,
+    is_correct = principal_pod_question_answers.is_correct OR EXCLUDED.is_correct,
+    answered_at = CASE
+        WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answered_at
+        ELSE EXCLUDED.answered_at
+    END
+RETURNING
+    source_pod_id,
+    source_question_id,
+    is_correct,
+    answered_at;
+
+-- name: ListPrincipalCorrectPodQuestionAnswers :many
+SELECT
+    source_pod_id,
+    source_question_id,
+    answered_at
+FROM principal_pod_question_answers
+WHERE principal_id = $1
+  AND is_correct = true
+ORDER BY answered_at ASC, source_pod_id ASC, source_question_id ASC;
 
 -- name: CountIncorrectOrUnansweredTaskQuestions :one
 SELECT COUNT(*)::BIGINT

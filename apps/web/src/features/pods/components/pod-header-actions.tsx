@@ -199,13 +199,13 @@ export function PodHeaderActions({
                       }
                       onClick={() => openAction(action)}
                     >
-                      <Item className="w-full p-2">
+                      <Item className="w-full p-1">
                         <ItemMedia variant="icon">
-                          <Icon className="size-4" />
+                          <Icon />
                         </ItemMedia>
                         <ItemContent className="gap-0">
                           <ItemTitle>{config.label}</ItemTitle>
-                          <ItemDescription className="leading-none">
+                          <ItemDescription>
                             {config.menuDescription}
                           </ItemDescription>
                         </ItemContent>

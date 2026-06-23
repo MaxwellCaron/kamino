@@ -1,25 +1,27 @@
-import { toast } from "sonner"
 import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
-import { useInventoryDialogs } from "../inventory-dialogs-provider"
-import { useInventoryTreeContext } from "./inventory-tree-context"
 import {
   applyPowerMutationStatuses,
   applyVmMutationStatuses,
-  collectDescendantIds,
-  collectPowerVmTargets,
+  collectInventoryDeleteStatusIds,
+  createInventoryDeleteStatusItems,
   createPowerConfirmStatusItems,
   createTemplateConfirmStatusItems,
   getPendingStatusItems,
-  getVmSelectionLabel,
   markStatusItems,
-  summarizeSelectionDeletion,
+} from "../../utils/inventory-status-items"
+import { useInventoryDialogs } from "../inventory-dialogs-provider"
+import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  collectDescendantIds,
+  collectPowerVmTargets,
+  getVmSelectionLabel,
 } from "./inventory-selection-action-bar-utils"
 import type {
+  ApiTreeNode,
   SelectedFolderItem,
   SelectedVmItem,
-} from "./inventory-selection-action-bar-utils"
-import type { ApiTreeNode } from "../../types/inventory-types"
+} from "../../types/inventory-types"
 import type { ConfirmDialogControls } from "@/components/dialogs/confirm-dialog"
 import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
 import {
@@ -27,7 +29,6 @@ import {
   useDeleteVM,
   useVmPowerAction,
 } from "@/features/vms/hooks/use-vm-actions"
-import { formatMutationError } from "@/features/shared/utils/format"
 
 export function useInventorySelectionActions() {
   const {
@@ -84,10 +85,11 @@ export function useInventorySelectionActions() {
   const deleteVmTargets = selectedVmItems.filter(
     (item) => !coveredBySelectedFolders.has(item.id)
   )
-  const deleteSummary = summarizeSelectionDeletion(
-    deleteFolderTargets,
-    deleteVmTargets
-  )
+  const deleteStatusItems = createInventoryDeleteStatusItems({
+    folderTargets: deleteFolderTargets,
+    vmTargets: deleteVmTargets,
+    getVmStatus: (node) => getStatus(node.id),
+  })
   const deleteTargetCount = deleteFolderTargets.length + deleteVmTargets.length
 
   const canDelete =
@@ -205,40 +207,75 @@ export function useInventorySelectionActions() {
     }
   }
 
-  async function runDeleteAction() {
+  async function runDeleteAction(controls: ConfirmDialogControls) {
+    const currentStatusItems = controls.getStatusItems()
+    const statusById = new Map(
+      currentStatusItems.map((item) => [item.id, item])
+    )
+    const isRowPending = (id: string) => statusById.get(id)?.status !== "success"
+
+    const activeFolderTargets = deleteFolderTargets.filter((folder) =>
+      isRowPending(folder.id)
+    )
+    const activeVmTargets = deleteVmTargets.filter((item) =>
+      isRowPending(item.id)
+    )
+
+    const activeFolderRowIds = activeFolderTargets.flatMap((folder) =>
+      collectInventoryDeleteStatusIds(folder)
+    )
+    const activeVmRowIds = activeVmTargets.map((item) => item.id)
+
+    controls.setStatusItems((items) =>
+      markStatusItems(
+        items,
+        [...activeFolderRowIds, ...activeVmRowIds],
+        "pending"
+      )
+    )
+
     const failures: Array<string> = []
 
     await Promise.all(
-      deleteFolderTargets.map(async (folder) => {
+      activeFolderTargets.map(async (folder) => {
+        const folderRowIds = collectInventoryDeleteStatusIds(folder)
+
         try {
           await deleteFolder.mutateAsync({ id: folder.id })
-          toast.success(`Folder "${folder.name}" deleted`)
+          controls.setStatusItems((items) =>
+            markStatusItems(items, folderRowIds, "success")
+          )
         } catch (error) {
-          toast.error(formatMutationError(error, "Failed to delete folder"))
+          const message =
+            error instanceof Error ? error.message : "Failed to delete folder"
+          controls.setStatusItems((items) =>
+            markStatusItems(items, folderRowIds, "error", message)
+          )
           failures.push(folder.id)
         }
       })
     )
 
-    if (deleteVmTargets.length > 0) {
-      const targetVmItemIds = deleteVmTargets.map((item) => item.id)
+    if (activeVmTargets.length > 0) {
       try {
         const result = await deleteVm.mutateAsync({
-          itemIds: targetVmItemIds,
+          itemIds: activeVmRowIds,
         })
 
         for (const failure of result.failed) {
           failures.push(failure.id)
         }
 
-        if (result.failed.length > 0) {
-          toast.error("Failed to delete some VMs")
-        } else {
-          toast.success(`Deleted ${result.succeeded.length} VMs`)
-        }
+        controls.setStatusItems((items) =>
+          applyVmMutationStatuses(items, activeVmRowIds, result)
+        )
       } catch (error) {
-        toast.error(formatMutationError(error, "Failed to delete VMs"))
-        failures.push(...targetVmItemIds)
+        const message =
+          error instanceof Error ? error.message : "Failed to delete VMs"
+        controls.setStatusItems((items) =>
+          markStatusItems(items, activeVmRowIds, "error", message)
+        )
+        failures.push(...activeVmRowIds)
       }
     }
 
@@ -256,7 +293,7 @@ export function useInventorySelectionActions() {
     clearSelection,
     createPowerConfirmStatusItems,
     createTemplateConfirmStatusItems,
-    deleteSummary,
+    deleteStatusItems,
     getStatus,
     open,
     openConfirm,

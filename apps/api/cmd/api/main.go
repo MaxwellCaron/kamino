@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
+	"time"
+	"unicode"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/auth"
@@ -29,24 +32,36 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port               string `envconfig:"PORT" default:":8080"`
-	FrontendURL        string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
-	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
-	LDAPUrl            string `envconfig:"LDAP_URL"`
-	LDAPBindDN         string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword   string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN   string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU         string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU        string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN   string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure       bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	PodRouterTemplate  string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+	Port                              string `envconfig:"PORT" default:":8080"`
+	FrontendURL                       string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL                       string `envconfig:"DATABASE_URL" required:"true"`
+	ProxmoxURL                        string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID                    string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret                string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure                   bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes                      string `envconfig:"PROXMOX_NODES" required:"true"`
+	JWTSecret                         string `envconfig:"JWT_SECRET" required:"true"`
+	LDAPUrl                           string `envconfig:"LDAP_URL"`
+	LDAPBindDN                        string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword                  string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN                  string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU                        string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU                       string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN                  string `envconfig:"LDAP_ADMIN_GROUP_DN"`
+	LDAPInsecure                      bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	PodRouterTemplate                 string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+	PodCloneVNetPrefix                string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
+	PodCloneNetworkMin                int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
+	PodCloneNetworkMax                int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"244"`
+	PodDevNetworkMin                  int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"245"`
+	PodDevNetworkMax                  int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"254"`
+	PodRouterWait                     string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
+	PodRouterWANIPBase                string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
+	PodRouterLANIPBase                string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:"10.128."`
+	PodRouterCloudInitStorage         string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
+	PodRouterCloudInitUserFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
+	PodRouterCloudInitMetaFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN" default:"kamino-router-{network}-meta-data.yaml"`
+	PodRouterCloudInitNetworkFile     string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
 }
 
 // Server holds all application dependencies
@@ -58,6 +73,8 @@ type Server struct {
 	ADClient      *activedirectory.Client
 	ADSync        *activedirectory.Sync
 }
+
+const proxmoxVNetIDMaxLength = 8
 
 func splitCSV(value string) []string {
 	parts := strings.Split(value, ",")
@@ -84,6 +101,203 @@ func parseOptionalUUID(value string) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+func normalizeDottedPrefix(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	trimmed = strings.TrimSuffix(trimmed, ".")
+	segments := strings.Split(trimmed, ".")
+	if len(segments) == 0 {
+		return "", fmt.Errorf("must be a dotted numeric prefix")
+	}
+
+	for _, segment := range segments {
+		if strings.TrimSpace(segment) == "" {
+			return "", fmt.Errorf("must be a dotted numeric prefix")
+		}
+		octet, err := strconv.Atoi(segment)
+		if err != nil || octet < 0 || octet > 255 {
+			return "", fmt.Errorf("must be a dotted numeric prefix")
+		}
+	}
+
+	return strings.Join(segments, ".") + ".", nil
+}
+
+func validateCloudInitSnippetFilename(value string) error {
+	if value == "" {
+		return fmt.Errorf("must not be empty")
+	}
+	if strings.Contains(value, "/") || strings.Contains(value, "\\") {
+		return fmt.Errorf("must not contain path separators")
+	}
+	if strings.Contains(value, "..") {
+		return fmt.Errorf("must not contain '..'")
+	}
+	if strings.IndexFunc(value, unicode.IsSpace) >= 0 {
+		return fmt.Errorf("must not contain whitespace")
+	}
+	return nil
+}
+
+func normalizeCloudInitStorage(value string) string {
+	return strings.TrimSpace(value)
+}
+
+func normalizeCloudInitFilePattern(envName, value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", envName)
+	}
+	if strings.Count(trimmed, "{network}") != 1 {
+		return "", fmt.Errorf("%s must contain {network} exactly once", envName)
+	}
+	filename := strings.Replace(trimmed, "{network}", "24", 1)
+	if err := validateCloudInitSnippetFilename(filename); err != nil {
+		return "", fmt.Errorf("%s %w", envName, err)
+	}
+	return trimmed, nil
+}
+
+func normalizeCloudInitFileName(envName, value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", envName)
+	}
+	if strings.Contains(trimmed, "{network}") {
+		return "", fmt.Errorf("%s must not contain {network}", envName)
+	}
+	if err := validateCloudInitSnippetFilename(trimmed); err != nil {
+		return "", fmt.Errorf("%s %w", envName, err)
+	}
+	return trimmed, nil
+}
+
+func validatePodVNetPrefix(prefix string, maxNetworkNumber int32) error {
+	trimmed := strings.TrimSpace(prefix)
+	if trimmed == "" {
+		return fmt.Errorf("POD_CLONE_VNET_PREFIX must not be empty")
+	}
+
+	vnetName := trimmed + strconv.Itoa(int(maxNetworkNumber))
+	if len(vnetName) > proxmoxVNetIDMaxLength {
+		return fmt.Errorf("POD_CLONE_VNET_PREFIX plus configured network number must fit Proxmox VNet 8-character limit")
+	}
+
+	return nil
+}
+
+func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, error) {
+	vnetPrefix := strings.TrimSpace(config.PodCloneVNetPrefix)
+	if config.PodCloneNetworkMin < 1 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be at least 1")
+	}
+	if config.PodCloneNetworkMax > 254 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MAX must be at most 254")
+	}
+	if config.PodCloneNetworkMin > config.PodCloneNetworkMax {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be less than or equal to POD_CLONE_NETWORK_MAX")
+	}
+	if config.PodDevNetworkMin < 1 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MIN must be at least 1")
+	}
+	if config.PodDevNetworkMax > 254 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MAX must be at most 254")
+	}
+	if config.PodDevNetworkMin > config.PodDevNetworkMax {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MIN must be less than or equal to POD_DEV_NETWORK_MAX")
+	}
+	if config.PodCloneNetworkMin <= config.PodDevNetworkMax &&
+		config.PodDevNetworkMin <= config.PodCloneNetworkMax {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN..POD_CLONE_NETWORK_MAX must not overlap POD_DEV_NETWORK_MIN..POD_DEV_NETWORK_MAX")
+	}
+	maxNetworkNumber := config.PodCloneNetworkMax
+	if config.PodDevNetworkMax > maxNetworkNumber {
+		maxNetworkNumber = config.PodDevNetworkMax
+	}
+	if err := validatePodVNetPrefix(vnetPrefix, maxNetworkNumber); err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+
+	waitTimeout, err := time.ParseDuration(strings.TrimSpace(config.PodRouterWait))
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAIT_TIMEOUT: %w", err)
+	}
+	if waitTimeout <= 0 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAIT_TIMEOUT must be positive")
+	}
+
+	wanIPBase, err := normalizeDottedPrefix(config.PodRouterWANIPBase)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAN_IP_BASE: %w", err)
+	}
+	if wanIPBase == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAN_IP_BASE must not be empty")
+	}
+	internalIPBase, err := normalizeDottedPrefix(config.PodRouterLANIPBase)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_IP_BASE: %w", err)
+	}
+	if internalIPBase == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_INTERNAL_IP_BASE must not be empty")
+	}
+	cloudInitStorage := normalizeCloudInitStorage(config.PodRouterCloudInitStorage)
+	if cloudInitStorage == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_CLOUD_INIT_STORAGE must not be empty")
+	}
+	cloudInitUserFilePattern, err := normalizeCloudInitFilePattern(
+		"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN",
+		config.PodRouterCloudInitUserFilePattern,
+	)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+	cloudInitMetaFilePattern, err := normalizeCloudInitFilePattern(
+		"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN",
+		config.PodRouterCloudInitMetaFilePattern,
+	)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+	cloudInitNetworkFile, err := normalizeCloudInitFileName(
+		"POD_ROUTER_CLOUD_INIT_NETWORK_FILE",
+		config.PodRouterCloudInitNetworkFile,
+	)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+
+	routerConfig := handlers.PodRouterCloneConfig{
+		VNetPrefix:               vnetPrefix,
+		NetworkMin:               config.PodCloneNetworkMin,
+		NetworkMax:               config.PodCloneNetworkMax,
+		DevNetworkMin:            config.PodDevNetworkMin,
+		DevNetworkMax:            config.PodDevNetworkMax,
+		RouterWaitTimeout:        waitTimeout,
+		WANIPBase:                wanIPBase,
+		InternalIPBase:           internalIPBase,
+		CloudInitStorage:         cloudInitStorage,
+		CloudInitUserFilePattern: cloudInitUserFilePattern,
+		CloudInitMetaFilePattern: cloudInitMetaFilePattern,
+		CloudInitNetworkFile:     cloudInitNetworkFile,
+	}
+
+	log.Printf(
+		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d wait_timeout=%s cloud_init_storage=%q",
+		routerConfig.VNetPrefix,
+		routerConfig.NetworkMin,
+		routerConfig.NetworkMax,
+		routerConfig.DevNetworkMin,
+		routerConfig.DevNetworkMax,
+		routerConfig.RouterWaitTimeout,
+		routerConfig.CloudInitStorage,
+	)
+
+	return routerConfig, nil
 }
 
 func resolveConfiguredAdminGroup(
@@ -216,6 +430,10 @@ func main() {
 	if err := envconfig.Process("", &config); err != nil {
 		log.Fatalf("Failed to process environment configuration: %v", err)
 	}
+	routerCloneConfig, err := buildPodRouterCloneConfig(&config)
+	if err != nil {
+		log.Fatalf("Invalid pod router clone configuration: %v", err)
+	}
 
 	// Initialize server with all dependencies
 	server, err := newServer(&config)
@@ -332,6 +550,7 @@ func main() {
 		Notifier:             vmStatusNotifier,
 		Actions:              vmActionExecutor,
 		RouterTemplateItemID: routerTemplateItemID,
+		RouterCloneConfig:    routerCloneConfig,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,

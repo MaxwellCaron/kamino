@@ -17,6 +17,7 @@ export function ClonesTableSkeleton() {
             <TableHead className="pl-7">Principal</TableHead>
             <TableHead>Cloned</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead className="min-w-72">Network</TableHead>
             <TableHead>VMs</TableHead>
             <TableHead>Tasks</TableHead>
             <TableHead className="w-12" />
@@ -36,6 +37,12 @@ export function ClonesTableSkeleton() {
               </TableCell>
               <TableCell>
                 <Skeleton className="h-5 w-16 rounded-full" />
+              </TableCell>
+              <TableCell className="min-w-72">
+                <div className="flex flex-col gap-1.5">
+                  <Skeleton className="h-5 w-28 rounded-full" />
+                  <Skeleton className="h-4 w-48 rounded" />
+                </div>
               </TableCell>
               <TableCell>
                 <Skeleton className="h-4 w-4 rounded" />

@@ -5,10 +5,6 @@ export function isTouchedInvalid(meta: {
   return meta.isTouched && !meta.isValid
 }
 
-export function hasFieldErrors(meta: { errors: Array<unknown> }): boolean {
-  return meta.errors.length > 0
-}
-
 export function formatFieldError(error: unknown): string | undefined {
   return typeof error === "string" ? error : undefined
 }

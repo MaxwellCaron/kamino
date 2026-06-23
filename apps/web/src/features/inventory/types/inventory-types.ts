@@ -26,6 +26,15 @@ export type ApiTreeNode = {
   vm?: ApiTreeNodeVM
 }
 
+export type SelectedVmItem = ApiTreeNode & {
+  kind: "vm"
+  vm: NonNullable<ApiTreeNode["vm"]>
+}
+
+export type SelectedFolderItem = ApiTreeNode & {
+  kind: "folder"
+}
+
 export type ApiInventoryItem = {
   id: string
   parent_id: string | null

@@ -588,7 +588,7 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 	}
 
 	for _, vm := range plan.ProxmoxVMs {
-		if err := h.PX.DeleteVM(c.Request.Context(), vm.Node, int(vm.VMID)); err != nil {
+		if err := h.PX.DeleteVMStopped(c.Request.Context(), vm.Node, int(vm.VMID)); err != nil {
 			logRequestError(c, fmt.Sprintf("delete inventory folder proxmox vmid=%d node=%s", vm.VMID, vm.Node), err)
 			kind := "VM"
 			if vm.IsTemplate {

@@ -3,9 +3,12 @@ package handlers
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func TestManagerCloneFolderName(t *testing.T) {
@@ -106,5 +109,282 @@ func TestManagerCloneFolderName(t *testing.T) {
 				t.Errorf("group folder %q should not end with UUID suffix %q", got, suffix)
 			}
 		})
+	}
+}
+
+func TestClonedPodVNetName(t *testing.T) {
+	handler := &PodsHandler{
+		RouterCloneConfig: PodRouterCloneConfig{
+			VNetPrefix: "pod",
+		},
+	}
+	if got := handler.clonedPodVNetName(17); got != "pod17" {
+		t.Fatalf("clonedPodVNetName() = %q, want %q", got, "pod17")
+	}
+
+	handler.RouterCloneConfig.VNetPrefix = "  lab- "
+	if got := handler.clonedPodVNetName(17); got != "lab-17" {
+		t.Fatalf("clonedPodVNetName() trimmed prefix = %q, want %q", got, "lab-17")
+	}
+}
+
+func TestClonedPodNetworkMetadata(t *testing.T) {
+	handler := &PodsHandler{
+		RouterCloneConfig: PodRouterCloneConfig{
+			VNetPrefix:     "pod",
+			WANIPBase:      "172.16.",
+			InternalIPBase: "10.128.",
+		},
+	}
+
+	got := handler.clonedPodNetworkMetadata(24)
+	if got.Number != 24 || got.VNet != "pod24" {
+		t.Fatalf("metadata identity = %#v", got)
+	}
+	if got.ExternalSubnet != "172.16.24.0/24" || got.ExternalGateway != "172.16.24.1" {
+		t.Fatalf("external metadata = %#v", got)
+	}
+	if got.InternalSubnet == nil || *got.InternalSubnet != "10.128.24.0/24" {
+		t.Fatalf("internal subnet = %#v", got.InternalSubnet)
+	}
+	if got.InternalGateway == nil || *got.InternalGateway != "10.128.24.1" {
+		t.Fatalf("internal gateway = %#v", got.InternalGateway)
+	}
+}
+
+func TestBuildClonedRouterCloudInitConfig(t *testing.T) {
+	config, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
+		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
+	})
+	if err != nil {
+		t.Fatalf("buildClonedRouterCloudInitConfig() error = %v", err)
+	}
+	if config.Storage != "local" {
+		t.Fatalf("Storage = %q, want %q", config.Storage, "local")
+	}
+	if config.UserFile != "kamino-router-24-user-data.yaml" {
+		t.Fatalf("UserFile = %q, want %q", config.UserFile, "kamino-router-24-user-data.yaml")
+	}
+	if config.MetaFile != "kamino-router-24-meta-data.yaml" {
+		t.Fatalf("MetaFile = %q, want %q", config.MetaFile, "kamino-router-24-meta-data.yaml")
+	}
+	if config.NetworkFile != "kamino-router-network-config.yaml" {
+		t.Fatalf("NetworkFile = %q, want %q", config.NetworkFile, "kamino-router-network-config.yaml")
+	}
+}
+
+func TestBuildClonedRouterCloudInitConfigSupportsCustomPatterns(t *testing.T) {
+	config, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local-zfs",
+		CloudInitUserFilePattern: "lab-router-{network}-userdata.yml",
+		CloudInitMetaFilePattern: "lab-router-{network}-metadata.yml",
+		CloudInitNetworkFile:     "lab-router-network.yml",
+	})
+	if err != nil {
+		t.Fatalf("buildClonedRouterCloudInitConfig() error = %v", err)
+	}
+	if config.Storage != "local-zfs" {
+		t.Fatalf("Storage = %q, want %q", config.Storage, "local-zfs")
+	}
+	if config.UserFile != "lab-router-24-userdata.yml" {
+		t.Fatalf("UserFile = %q, want %q", config.UserFile, "lab-router-24-userdata.yml")
+	}
+	if config.MetaFile != "lab-router-24-metadata.yml" {
+		t.Fatalf("MetaFile = %q, want %q", config.MetaFile, "lab-router-24-metadata.yml")
+	}
+	if config.NetworkFile != "lab-router-network.yml" {
+		t.Fatalf("NetworkFile = %q, want %q", config.NetworkFile, "lab-router-network.yml")
+	}
+}
+
+func TestBuildClonedRouterCloudInitConfigRejectsInvalidPatterns(t *testing.T) {
+	_, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-user-data.yaml",
+		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
+	})
+	if err == nil {
+		t.Fatalf("expected invalid user-data pattern error")
+	}
+	if !strings.Contains(err.Error(), "pattern must contain {network} exactly once") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, err = buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
+		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-{network}-network-config.yaml",
+	})
+	if err == nil {
+		t.Fatalf("expected invalid network-config filename error")
+	}
+	if !strings.Contains(err.Error(), "must not contain {network}") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestIsPublishedPodRouterVM(t *testing.T) {
+	trueCases := []string{"router", " Router ", "ROUTER"}
+	for _, name := range trueCases {
+		if !isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: name}) {
+			t.Fatalf("expected %q to be recognized as router", name)
+		}
+	}
+
+	falseCases := []string{"vyos", "pfsense", "router-1", "pod-router"}
+	for _, name := range falseCases {
+		if isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: name}) {
+			t.Fatalf("expected %q not to be recognized as router", name)
+		}
+	}
+}
+
+func TestFindPodNetworkRouterTargetRequiresExactlyOneRouter(t *testing.T) {
+	routerTarget := podNetworkVMTarget{
+		name:   "router",
+		router: true,
+	}
+	otherTarget := podNetworkVMTarget{
+		name: "workstation",
+	}
+
+	found, reqErr := findPodNetworkRouterTarget([]podNetworkVMTarget{otherTarget, routerTarget})
+	if reqErr != nil {
+		t.Fatalf("findPodNetworkRouterTarget() error = %v", reqErr)
+	}
+	if found == nil || !found.router || found.name != "router" {
+		t.Fatalf("findPodNetworkRouterTarget() = %#v", found)
+	}
+
+	if _, reqErr := findPodNetworkRouterTarget([]podNetworkVMTarget{otherTarget}); reqErr == nil {
+		t.Fatalf("expected error when router is missing")
+	}
+	if _, reqErr := findPodNetworkRouterTarget([]podNetworkVMTarget{routerTarget, routerTarget}); reqErr == nil {
+		t.Fatalf("expected error when multiple routers are present")
+	}
+}
+
+func TestBuildPrincipalPodQuestionAnswerParamsUsesSubmittingPrincipal(t *testing.T) {
+	submittingPrincipalID := uuid.New()
+	clone := database.ClonedPods{
+		ID:              uuid.New(),
+		UserPrincipalID: uuid.New(),
+	}
+	question := database.GetQuestionForClonedPodRow{
+		ID:        uuid.New(),
+		TaskID:    uuid.New(),
+		PodID:     uuid.New(),
+		Title:     "Question",
+		TaskTitle: "Task",
+		PodSlug:   "pod-slug",
+		PodTitle:  "Pod",
+	}
+	answer := database.UpsertClonedPodQuestionAnswerRow{
+		QuestionID: question.ID,
+		Answer:     "answer",
+		IsCorrect:  true,
+		AnsweredAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	}
+
+	params := buildPrincipalPodQuestionAnswerParams(submittingPrincipalID, clone, question, answer)
+
+	if params.PrincipalID != submittingPrincipalID {
+		t.Fatalf("PrincipalID = %v, want %v", params.PrincipalID, submittingPrincipalID)
+	}
+	if params.PrincipalID == clone.UserPrincipalID {
+		t.Fatalf("PrincipalID = %v, want submitting principal instead of clone owner", params.PrincipalID)
+	}
+}
+
+func TestBuildPrincipalPodQuestionAnswerParamsCopiesSourceMetadata(t *testing.T) {
+	principalID := uuid.New()
+	cloneID := uuid.New()
+	podID := uuid.New()
+	taskID := uuid.New()
+	questionID := uuid.New()
+	clone := database.ClonedPods{ID: cloneID}
+	question := database.GetQuestionForClonedPodRow{
+		ID:        questionID,
+		TaskID:    taskID,
+		PodID:     podID,
+		Title:     "What is the flag?",
+		TaskTitle: "Capture the flag",
+		PodSlug:   "ctf-pod",
+		PodTitle:  "CTF Pod",
+	}
+	answer := database.UpsertClonedPodQuestionAnswerRow{
+		QuestionID: questionID,
+		Answer:     "flag{kamino}",
+		IsCorrect:  false,
+		AnsweredAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	}
+
+	params := buildPrincipalPodQuestionAnswerParams(principalID, clone, question, answer)
+
+	if params.SourcePodID != podID {
+		t.Fatalf("SourcePodID = %v, want %v", params.SourcePodID, podID)
+	}
+	if params.SourceTaskID != taskID {
+		t.Fatalf("SourceTaskID = %v, want %v", params.SourceTaskID, taskID)
+	}
+	if params.SourceQuestionID != questionID {
+		t.Fatalf("SourceQuestionID = %v, want %v", params.SourceQuestionID, questionID)
+	}
+	if params.LastClonedPodID == nil || *params.LastClonedPodID != cloneID {
+		t.Fatalf("LastClonedPodID = %v, want %v", params.LastClonedPodID, cloneID)
+	}
+	if params.PodSlug != question.PodSlug {
+		t.Fatalf("PodSlug = %q, want %q", params.PodSlug, question.PodSlug)
+	}
+	if params.PodTitle != question.PodTitle {
+		t.Fatalf("PodTitle = %q, want %q", params.PodTitle, question.PodTitle)
+	}
+	if params.TaskTitle != question.TaskTitle {
+		t.Fatalf("TaskTitle = %q, want %q", params.TaskTitle, question.TaskTitle)
+	}
+	if params.QuestionTitle != question.Title {
+		t.Fatalf("QuestionTitle = %q, want %q", params.QuestionTitle, question.Title)
+	}
+	if params.Answer != answer.Answer {
+		t.Fatalf("Answer = %q, want %q", params.Answer, answer.Answer)
+	}
+	if params.IsCorrect != answer.IsCorrect {
+		t.Fatalf("IsCorrect = %t, want %t", params.IsCorrect, answer.IsCorrect)
+	}
+}
+
+func TestBuildPrincipalPodQuestionAnswerParamsCopiesLiveAnsweredAt(t *testing.T) {
+	answeredAt := pgtype.Timestamptz{
+		Time:  time.Date(2026, time.June, 21, 14, 5, 0, 0, time.UTC),
+		Valid: true,
+	}
+
+	params := buildPrincipalPodQuestionAnswerParams(
+		uuid.New(),
+		database.ClonedPods{ID: uuid.New()},
+		database.GetQuestionForClonedPodRow{
+			ID:        uuid.New(),
+			TaskID:    uuid.New(),
+			PodID:     uuid.New(),
+			Title:     "Question",
+			TaskTitle: "Task",
+			PodSlug:   "pod-slug",
+			PodTitle:  "Pod",
+		},
+		database.UpsertClonedPodQuestionAnswerRow{
+			QuestionID: uuid.New(),
+			Answer:     "correct",
+			IsCorrect:  true,
+			AnsweredAt: answeredAt,
+		},
+	)
+
+	if params.AnsweredAt != answeredAt {
+		t.Fatalf("AnsweredAt = %#v, want %#v", params.AnsweredAt, answeredAt)
 	}
 }

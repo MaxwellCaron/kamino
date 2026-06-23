@@ -59,7 +59,12 @@ export function PodPage({
           />
 
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-            {localClonedPod && <PodVms vms={localClonedPod.vms} />}
+            {localClonedPod && (
+              <PodVms
+                network={localClonedPod.network}
+                vms={localClonedPod.vms}
+              />
+            )}
             <PodTasks
               tasks={pod.tasks ?? []}
               clonedPodId={localClonedPod?.id}

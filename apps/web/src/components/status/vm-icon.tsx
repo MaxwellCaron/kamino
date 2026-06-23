@@ -11,13 +11,7 @@ export function VmIcon({
     return <IconTemplate className="size-4 text-muted-foreground" />
   }
 
-  const color = status
-    ? status === "running"
-      ? "bg-emerald-600 dark:bg-emerald-400"
-      : status === "stopped"
-        ? "bg-muted-foreground/40"
-        : "bg-amber-600 dark:bg-amber-400"
-    : undefined
+  const color = getVmPowerStatusDotClassName(status)
 
   return (
     <span className="relative">
@@ -46,7 +40,7 @@ export function getVmPowerStatusTextClassName(
   return undefined
 }
 
-export function getVmPowerStatusDotClassName(
+function getVmPowerStatusDotClassName(
   status?: string
 ): string | undefined {
   if (status === "running") return "bg-emerald-600 dark:bg-emerald-400"

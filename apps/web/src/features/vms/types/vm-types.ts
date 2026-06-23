@@ -46,6 +46,15 @@ export type ApiVmHardwareConfig = {
   networks: Array<ApiVmHardwareNetwork>
 }
 
+export type ApiVmNetworkSummary = {
+  device?: string
+  bridge: string
+}
+
+export type ApiVmNetworksResponse = {
+  networks: Array<ApiVmNetworkSummary>
+}
+
 export type ApiSnapshot = {
   name: string
   description: string

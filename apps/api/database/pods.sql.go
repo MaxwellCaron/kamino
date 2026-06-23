@@ -220,6 +220,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -243,6 +244,7 @@ func (q *Queries) GetAccessibleClonedPodByID(ctx context.Context, arg GetAccessi
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -255,6 +257,7 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -282,6 +285,7 @@ func (q *Queries) GetAccessibleClonedPodByPodID(ctx context.Context, arg GetAcce
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -294,6 +298,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -308,6 +313,7 @@ func (q *Queries) GetClonedPodByID(ctx context.Context, id uuid.UUID) (ClonedPod
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -320,6 +326,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -340,6 +347,7 @@ func (q *Queries) GetClonedPodForPrincipalByID(ctx context.Context, arg GetClone
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -352,6 +360,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -372,6 +381,7 @@ func (q *Queries) GetClonedPodForPrincipalByPodID(ctx context.Context, arg GetCl
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -457,10 +467,17 @@ const getQuestionForClonedPod = `-- name: GetQuestionForClonedPod :one
 SELECT
     q.id,
     q.task_id,
-    q.answer_outline
+    q.title,
+    q.answer_outline,
+    t.pod_id,
+    t.title AS task_title,
+    p.slug AS pod_slug,
+    p.title AS pod_title
 FROM published_pod_task_questions q
 JOIN published_pod_tasks t
   ON t.id = q.task_id
+JOIN published_pods p
+  ON p.id = t.pod_id
 JOIN cloned_pods cp
   ON cp.pod_id = t.pod_id
 WHERE cp.id = $1
@@ -475,13 +492,27 @@ type GetQuestionForClonedPodParams struct {
 type GetQuestionForClonedPodRow struct {
 	ID            uuid.UUID `json:"id"`
 	TaskID        uuid.UUID `json:"task_id"`
+	Title         string    `json:"title"`
 	AnswerOutline string    `json:"answer_outline"`
+	PodID         uuid.UUID `json:"pod_id"`
+	TaskTitle     string    `json:"task_title"`
+	PodSlug       string    `json:"pod_slug"`
+	PodTitle      string    `json:"pod_title"`
 }
 
 func (q *Queries) GetQuestionForClonedPod(ctx context.Context, arg GetQuestionForClonedPodParams) (GetQuestionForClonedPodRow, error) {
 	row := q.db.QueryRow(ctx, getQuestionForClonedPod, arg.ClonedPodID, arg.QuestionID)
 	var i GetQuestionForClonedPodRow
-	err := row.Scan(&i.ID, &i.TaskID, &i.AnswerOutline)
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Title,
+		&i.AnswerOutline,
+		&i.PodID,
+		&i.TaskTitle,
+		&i.PodSlug,
+		&i.PodTitle,
+	)
 	return i, err
 }
 
@@ -563,26 +594,52 @@ func (q *Queries) GetVisiblePublishedPodBySlug(ctx context.Context, arg GetVisib
 }
 
 const insertClonedPod = `-- name: InsertClonedPod :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020001)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series($5::INTEGER, $6::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
 INSERT INTO cloned_pods (
     id,
     pod_id,
     user_principal_id,
-    folder_id
-) VALUES ($1, $2, $3, $4)
+    folder_id,
+    network_number
+)
+SELECT
+    $1,
+    $2,
+    $3,
+    $4,
+    candidate.network_number
+FROM candidate
 RETURNING
     id,
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 `
 
 type InsertClonedPodParams struct {
-	ID              uuid.UUID `json:"id"`
-	PodID           uuid.UUID `json:"pod_id"`
-	UserPrincipalID uuid.UUID `json:"user_principal_id"`
-	FolderID        uuid.UUID `json:"folder_id"`
+	ID               uuid.UUID `json:"id"`
+	PodID            uuid.UUID `json:"pod_id"`
+	UserPrincipalID  uuid.UUID `json:"user_principal_id"`
+	FolderID         uuid.UUID `json:"folder_id"`
+	MinNetworkNumber int32     `json:"min_network_number"`
+	MaxNetworkNumber int32     `json:"max_network_number"`
 }
 
 func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (ClonedPods, error) {
@@ -591,6 +648,8 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		arg.PodID,
 		arg.UserPrincipalID,
 		arg.FolderID,
+		arg.MinNetworkNumber,
+		arg.MaxNetworkNumber,
 	)
 	var i ClonedPods
 	err := row.Scan(
@@ -598,6 +657,7 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		&i.PodID,
 		&i.UserPrincipalID,
 		&i.FolderID,
+		&i.NetworkNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -654,6 +714,60 @@ func (q *Queries) InsertClonedPodVM(ctx context.Context, arg InsertClonedPodVMPa
 		arg.SortOrder,
 	)
 	return err
+}
+
+const insertPodDevNetworkAllocation = `-- name: InsertPodDevNetworkAllocation :one
+WITH allocation_lock AS (
+    SELECT pg_advisory_xact_lock(740020002)
+),
+candidate AS (
+    SELECT n::INTEGER AS network_number
+    FROM allocation_lock,
+         generate_series($2::INTEGER, $3::INTEGER) AS n
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cloned_pods cp
+        WHERE cp.network_number = n
+    )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pod_dev_network_allocations pdna
+        WHERE pdna.network_number = n
+    )
+    ORDER BY n
+    LIMIT 1
+)
+INSERT INTO pod_dev_network_allocations (
+    pod_folder_id,
+    network_number
+)
+SELECT
+    $1,
+    candidate.network_number
+FROM candidate
+RETURNING
+    pod_folder_id,
+    network_number,
+    created_at,
+    updated_at
+`
+
+type InsertPodDevNetworkAllocationParams struct {
+	PodFolderID      uuid.UUID `json:"pod_folder_id"`
+	MinNetworkNumber int32     `json:"min_network_number"`
+	MaxNetworkNumber int32     `json:"max_network_number"`
+}
+
+func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertPodDevNetworkAllocationParams) (PodDevNetworkAllocations, error) {
+	row := q.db.QueryRow(ctx, insertPodDevNetworkAllocation, arg.PodFolderID, arg.MinNetworkNumber, arg.MaxNetworkNumber)
+	var i PodDevNetworkAllocations
+	err := row.Scan(
+		&i.PodFolderID,
+		&i.NetworkNumber,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const insertPublishedPodAudience = `-- name: InsertPublishedPodAudience :exec
@@ -899,6 +1013,7 @@ SELECT
     COALESCE(NULLIF(p.name, ''), p.external_id) AS user_label,
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -924,6 +1039,7 @@ GROUP BY
     p.external_id,
     p.description,
     cp.folder_id,
+    cp.network_number,
     cp.created_at,
     cp.updated_at
 ORDER BY cp.created_at DESC
@@ -937,6 +1053,7 @@ type ListClonedPodSummariesByPodIDRow struct {
 	UserLabel       string             `json:"user_label"`
 	UserDescription string             `json:"user_description"`
 	FolderID        uuid.UUID          `json:"folder_id"`
+	NetworkNumber   int32              `json:"network_number"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	VmCount         int32              `json:"vm_count"`
@@ -961,6 +1078,7 @@ func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.
 			&i.UserLabel,
 			&i.UserDescription,
 			&i.FolderID,
+			&i.NetworkNumber,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VmCount,
@@ -1074,6 +1192,7 @@ SELECT
     pod_id,
     user_principal_id,
     folder_id,
+    network_number,
     created_at,
     updated_at
 FROM cloned_pods
@@ -1095,9 +1214,47 @@ func (q *Queries) ListClonedPodsByPodID(ctx context.Context, podID uuid.UUID) ([
 			&i.PodID,
 			&i.UserPrincipalID,
 			&i.FolderID,
+			&i.NetworkNumber,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPrincipalCorrectPodQuestionAnswers = `-- name: ListPrincipalCorrectPodQuestionAnswers :many
+SELECT
+    source_pod_id,
+    source_question_id,
+    answered_at
+FROM principal_pod_question_answers
+WHERE principal_id = $1
+  AND is_correct = true
+ORDER BY answered_at ASC, source_pod_id ASC, source_question_id ASC
+`
+
+type ListPrincipalCorrectPodQuestionAnswersRow struct {
+	SourcePodID      uuid.UUID          `json:"source_pod_id"`
+	SourceQuestionID uuid.UUID          `json:"source_question_id"`
+	AnsweredAt       pgtype.Timestamptz `json:"answered_at"`
+}
+
+func (q *Queries) ListPrincipalCorrectPodQuestionAnswers(ctx context.Context, principalID uuid.UUID) ([]ListPrincipalCorrectPodQuestionAnswersRow, error) {
+	rows, err := q.db.Query(ctx, listPrincipalCorrectPodQuestionAnswers, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPrincipalCorrectPodQuestionAnswersRow
+	for rows.Next() {
+		var i ListPrincipalCorrectPodQuestionAnswersRow
+		if err := rows.Scan(&i.SourcePodID, &i.SourceQuestionID, &i.AnsweredAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1935,6 +2092,104 @@ func (q *Queries) UpsertClonedPodQuestionAnswer(ctx context.Context, arg UpsertC
 	err := row.Scan(
 		&i.QuestionID,
 		&i.Answer,
+		&i.IsCorrect,
+		&i.AnsweredAt,
+	)
+	return i, err
+}
+
+const upsertPrincipalPodQuestionAnswer = `-- name: UpsertPrincipalPodQuestionAnswer :one
+INSERT INTO principal_pod_question_answers (
+    principal_id,
+    source_pod_id,
+    source_task_id,
+    source_question_id,
+    last_cloned_pod_id,
+    pod_slug,
+    pod_title,
+    task_title,
+    question_title,
+    answer,
+    is_correct,
+    answered_at
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10,
+    $11,
+    $12
+)
+ON CONFLICT (principal_id, source_pod_id, source_question_id) DO UPDATE
+SET
+    last_cloned_pod_id = EXCLUDED.last_cloned_pod_id,
+    pod_slug = EXCLUDED.pod_slug,
+    pod_title = EXCLUDED.pod_title,
+    task_title = EXCLUDED.task_title,
+    question_title = EXCLUDED.question_title,
+    answer = CASE
+        WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answer
+        ELSE EXCLUDED.answer
+    END,
+    is_correct = principal_pod_question_answers.is_correct OR EXCLUDED.is_correct,
+    answered_at = CASE
+        WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answered_at
+        ELSE EXCLUDED.answered_at
+    END
+RETURNING
+    source_pod_id,
+    source_question_id,
+    is_correct,
+    answered_at
+`
+
+type UpsertPrincipalPodQuestionAnswerParams struct {
+	PrincipalID      uuid.UUID          `json:"principal_id"`
+	SourcePodID      uuid.UUID          `json:"source_pod_id"`
+	SourceTaskID     uuid.UUID          `json:"source_task_id"`
+	SourceQuestionID uuid.UUID          `json:"source_question_id"`
+	LastClonedPodID  *uuid.UUID         `json:"last_cloned_pod_id"`
+	PodSlug          string             `json:"pod_slug"`
+	PodTitle         string             `json:"pod_title"`
+	TaskTitle        string             `json:"task_title"`
+	QuestionTitle    string             `json:"question_title"`
+	Answer           string             `json:"answer"`
+	IsCorrect        bool               `json:"is_correct"`
+	AnsweredAt       pgtype.Timestamptz `json:"answered_at"`
+}
+
+type UpsertPrincipalPodQuestionAnswerRow struct {
+	SourcePodID      uuid.UUID          `json:"source_pod_id"`
+	SourceQuestionID uuid.UUID          `json:"source_question_id"`
+	IsCorrect        bool               `json:"is_correct"`
+	AnsweredAt       pgtype.Timestamptz `json:"answered_at"`
+}
+
+func (q *Queries) UpsertPrincipalPodQuestionAnswer(ctx context.Context, arg UpsertPrincipalPodQuestionAnswerParams) (UpsertPrincipalPodQuestionAnswerRow, error) {
+	row := q.db.QueryRow(ctx, upsertPrincipalPodQuestionAnswer,
+		arg.PrincipalID,
+		arg.SourcePodID,
+		arg.SourceTaskID,
+		arg.SourceQuestionID,
+		arg.LastClonedPodID,
+		arg.PodSlug,
+		arg.PodTitle,
+		arg.TaskTitle,
+		arg.QuestionTitle,
+		arg.Answer,
+		arg.IsCorrect,
+		arg.AnsweredAt,
+	)
+	var i UpsertPrincipalPodQuestionAnswerRow
+	err := row.Scan(
+		&i.SourcePodID,
+		&i.SourceQuestionID,
 		&i.IsCorrect,
 		&i.AnsweredAt,
 	)

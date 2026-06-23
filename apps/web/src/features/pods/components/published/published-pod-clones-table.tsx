@@ -1,9 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  IconCubeOff,
-} from "@tabler/icons-react"
+import { IconCubeOff } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Empty,
@@ -25,17 +23,14 @@ import {
 import { ClonesTableSkeleton } from "./clones-table-skeleton"
 import { PendingCloneStatusItem } from "./pending-clone-status-item"
 import { PublishedPodCloneActionsMenu } from "./published-pod-clone-actions-menu"
-import {
-  PublishedPodCloneActionDialogs
-  
-} from "./published-pod-clone-action-dialogs"
+import { PublishedPodCloneActionDialogs } from "./published-pod-clone-action-dialogs"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
 import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
 import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
-import type {PublishedPodClonePendingAction} from "./published-pod-clone-action-dialogs";
+import type { PublishedPodClonePendingAction } from "./published-pod-clone-action-dialogs"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -176,6 +171,7 @@ export function PublishedPodClonesTable({
                     <TableHead className="pl-7">Principal</TableHead>
                     <TableHead>Cloned</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Network</TableHead>
                     <TableHead>VMs</TableHead>
                     <TableHead>Tasks</TableHead>
                     <TableHead className="w-12" />
@@ -205,6 +201,7 @@ export function PublishedPodClonesTable({
                       <TableCell>
                         <ClonedPodStatusBadge status={clone.status} />
                       </TableCell>
+                      <TableCell>{clone.network.vnet}</TableCell>
                       <TableCell className="text-sm tabular-nums">
                         {clone.vm_count}
                       </TableCell>
