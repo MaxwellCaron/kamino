@@ -54,7 +54,7 @@ const navItems = [
   {
     title: "Pods",
     description: "Browse and launch published pods.",
-    url: "/pods/browse",
+    url: "/pods",
     icon: IconPackages,
     group: "home",
     visibility: "all",

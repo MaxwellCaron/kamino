@@ -6,7 +6,6 @@ import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
-import { PodBreadcrumbs } from "@/features/pods/components/pod-breadcrumbs"
 import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
 
 const podsRouteApi = getRouteApi("/_pods")
@@ -14,7 +13,6 @@ const podsRouteApi = getRouteApi("/_pods")
 const keepSidebarCollapsed = () => {}
 
 const podIconRailMobileWidth = "calc(var(--spacing) * 16 + 2px)"
-const podBreadcrumbsElement = <PodBreadcrumbs />
 const commandManyItemsElement = <CommandManyItems />
 
 export function PodsLayout() {
@@ -43,7 +41,6 @@ export function PodsLayout() {
         <SiteLayoutInset
           header={
             <SiteHeader
-              breadcrumb={podBreadcrumbsElement}
               command={commandManyItemsElement}
               sidebarTrigger="mobile"
             />

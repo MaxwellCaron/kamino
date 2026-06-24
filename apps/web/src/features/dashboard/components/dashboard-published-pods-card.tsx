@@ -45,7 +45,7 @@ export function DashboardRecentPodsCard({
             nativeButton={false}
             render={
               <Link
-                to="/pods/browse"
+                to="/pods"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 All Pods
