@@ -1,4 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import { IconCubeOff } from "@tabler/icons-react"
 import { BrowsePodsCard } from "./browse-pods-card"
 import {
   BrowsePodsGridSkeleton,
@@ -35,6 +43,19 @@ export function BrowsePodsPage() {
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
         {isCatalogLoading ? (
           <BrowsePodsGridSkeleton />
+        ) : visiblePods.length === 0 ? (
+          <Empty className="min-h-[45vh] border border-dashed">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconCubeOff />
+              </EmptyMedia>
+              <EmptyTitle>No Pods</EmptyTitle>
+              <EmptyDescription>
+                There has not been any pods published yet or you do not have the
+                necessary permissions to view them.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className={browsePodsGridClassName}>
             {visiblePods.map((pod) => (
