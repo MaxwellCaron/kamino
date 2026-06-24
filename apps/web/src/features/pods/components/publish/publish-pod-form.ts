@@ -160,7 +160,7 @@ You can also use ~~strikethrough~~ and inline code like \`npm run dev\`.
 
 ## Images
 
-![Example landscape from Wikimedia Commons](https://www.cheese.com/media/img/cheese/Reggianito.webp)
+![Example](https://i.imgur.com/ieoz8Lo.png)
 
 ## Code blocks
 
