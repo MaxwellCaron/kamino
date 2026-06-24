@@ -670,9 +670,7 @@ export function InventoryNodeMenu({
           <TemplateMenuItems
             permissions={data.permissions}
             isFavorite={isFavorite}
-            onToggleFavorite={() =>
-              toggleFavorite(itemId)
-            }
+            onToggleFavorite={() => toggleFavorite(itemId)}
             itemId={itemId}
             vmid={data.vm?.vmid ?? 0}
             name={data.name}
@@ -710,9 +708,7 @@ export function InventoryNodeMenu({
           <VmMenuItems
             permissions={data.permissions}
             isFavorite={isFavorite}
-            onToggleFavorite={() =>
-              toggleFavorite(itemId)
-            }
+            onToggleFavorite={() => toggleFavorite(itemId)}
             itemId={itemId}
             vmid={data.vm?.vmid ?? 0}
             name={data.name}
@@ -849,9 +845,7 @@ export function VmOptionsMenu({
             <TemplateMenuItems
               permissions={permissions}
               isFavorite={favoriteIds.has(nodeId)}
-              onToggleFavorite={() =>
-                toggleFavorite(nodeId)
-              }
+              onToggleFavorite={() => toggleFavorite(nodeId)}
               itemId={itemId}
               vmid={vmid ?? 0}
               name={name}
@@ -889,9 +883,7 @@ export function VmOptionsMenu({
             <VmMenuItems
               permissions={permissions}
               isFavorite={favoriteIds.has(nodeId)}
-              onToggleFavorite={() =>
-                toggleFavorite(nodeId)
-              }
+              onToggleFavorite={() => toggleFavorite(nodeId)}
               itemId={itemId}
               vmid={vmid ?? 0}
               name={name}

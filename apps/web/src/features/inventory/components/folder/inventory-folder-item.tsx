@@ -81,59 +81,66 @@ export function InventoryFolderItem({
   const isTemplate = !isFolder && (node.vm?.is_template ?? false)
 
   return (
-    <Item className="group/folder-row flex-nowrap transition-colors hover:bg-muted">
-      <Link
-        to="/inventory/items/$itemId"
-        params={{ itemId: node.id }}
-        className="flex min-w-0 flex-1 items-center gap-3.5"
-      >
-        <ItemMedia variant="icon">
-          {isFolder ? (
-            <IconFolder className="fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
-          ) : (
-            <VmIcon status={status} isTemplate={isTemplate} />
-          )}
-        </ItemMedia>
-        <ItemContent>
-          <ItemTitle>{node.name}</ItemTitle>
-          <ItemDescription className="flex items-center gap-2 **:text-xs">
-            {isFolder ? (
-              <FolderDescription node={node} />
-            ) : (
-              <VmDescription vm={node.vm} />
-            )}
-          </ItemDescription>
-        </ItemContent>
-      </Link>
-      <ItemActions className="gap-0.5">
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className={cn(
-            "bg-transparent!",
-            isFavorite
-              ? "opacity-100!"
-              : "opacity-0 transition-opacity group-hover/folder-row:opacity-100"
-          )}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggleFavorite()
-          }}
+    <Item
+      className="group/folder-row flex-nowrap"
+      render={
+        <Link
+          to="/inventory/items/$itemId"
+          params={{ itemId: node.id }}
+          className="flex min-w-0 flex-1 items-center gap-3.5"
         >
-          <IconStar
-            className={
-              isFavorite
-                ? "fill-muted-foreground dark:fill-muted-foreground"
-                : ""
-            }
-          />
-        </Button>
-        <InventoryNodeMenu
-          itemId={node.id}
-          data={node}
-          className="bg-transparent! opacity-0 transition-opacity group-hover/folder-row:opacity-100 data-popup-open:opacity-100"
-        />
-      </ItemActions>
-    </Item>
+          <ItemMedia variant="icon">
+            {isFolder ? (
+              <IconFolder className="fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
+            ) : (
+              <VmIcon status={status} isTemplate={isTemplate} />
+            )}
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>{node.name}</ItemTitle>
+            <ItemDescription className="flex items-center gap-2 **:text-xs">
+              {isFolder ? (
+                <FolderDescription node={node} />
+              ) : (
+                <VmDescription vm={node.vm} />
+              )}
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions
+            className="gap-0.5"
+            onClickCapture={(event) => {
+              if (event.currentTarget.contains(event.target as Node)) {
+                event.preventDefault()
+              }
+            }}
+          >
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className={cn(
+                "bg-transparent!",
+                isFavorite
+                  ? "opacity-100!"
+                  : "opacity-0 transition-opacity group-hover/folder-row:opacity-100"
+              )}
+              onClick={onToggleFavorite}
+            >
+              <IconStar
+                className={
+                  isFavorite
+                    ? "fill-muted-foreground dark:fill-muted-foreground"
+                    : ""
+                }
+              />
+            </Button>
+            <InventoryNodeMenu
+              itemId={node.id}
+              data={node}
+              className="bg-transparent! opacity-0 transition-opacity group-hover/folder-row:opacity-100 data-popup-open:opacity-100"
+            />
+          </ItemActions>
+        </Link>
+      }
+    />
   )
 }
