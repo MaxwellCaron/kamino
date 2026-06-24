@@ -17,7 +17,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import type { AppBreadcrumb, AppBreadcrumbLoaderData } from "./site-breadcrumb-data"
+import type {
+  AppBreadcrumb,
+  AppBreadcrumbLoaderData,
+} from "./site-breadcrumb-data"
 
 const COLLAPSE_THRESHOLD = 4
 
@@ -30,9 +33,7 @@ function BreadcrumbLinkContent({
 }) {
   if (!breadcrumb.link) {
     return (
-      <BreadcrumbPage className={className}>
-        {breadcrumb.label}
-      </BreadcrumbPage>
+      <BreadcrumbPage className={className}>{breadcrumb.label}</BreadcrumbPage>
     )
   }
 
@@ -41,10 +42,7 @@ function BreadcrumbLinkContent({
       <BreadcrumbLink
         className={className}
         render={
-          <Link
-            to="/inventory/items/$itemId"
-            params={breadcrumb.link.params}
-          />
+          <Link to="/inventory/items/$itemId" params={breadcrumb.link.params} />
         }
       >
         {breadcrumb.label}
@@ -53,7 +51,10 @@ function BreadcrumbLinkContent({
   }
 
   return (
-    <BreadcrumbLink className={className} render={<Link to={breadcrumb.link.to} />}>
+    <BreadcrumbLink
+      className={className}
+      render={<Link to={breadcrumb.link.to} />}
+    >
       {breadcrumb.label}
     </BreadcrumbLink>
   )
@@ -127,36 +128,34 @@ export function SiteBreadcrumb() {
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         aria-label="Show hidden breadcrumb items"
-                        render={
-                          <Button
-                            variant="ghost"
-                            className="flex size-11 items-center justify-center p-0"
-                          />
-                        }
+                        render={<Button variant="ghost" size="icon-sm" />}
                       >
                         <BreadcrumbEllipsis />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         <DropdownMenuGroup>
-                          {hiddenEntries.map(({ entry: hiddenEntry, index: hiddenIndex }) => (
-                            <DropdownMenuItem
-                              key={`${hiddenIndex}-${hiddenEntry.label}`}
-                              render={
-                                hiddenEntry.link?.to === "/inventory/items/$itemId" ? (
-                                  <Link
-                                    to="/inventory/items/$itemId"
-                                    params={hiddenEntry.link.params}
-                                  />
-                                ) : hiddenEntry.link ? (
-                                  <Link to={hiddenEntry.link.to} />
-                                ) : (
-                                  <span />
-                                )
-                              }
-                            >
-                              {hiddenEntry.label}
-                            </DropdownMenuItem>
-                          ))}
+                          {hiddenEntries.map(
+                            ({ entry: hiddenEntry, index: hiddenIndex }) => (
+                              <DropdownMenuItem
+                                key={`${hiddenIndex}-${hiddenEntry.label}`}
+                                render={
+                                  hiddenEntry.link?.to ===
+                                  "/inventory/items/$itemId" ? (
+                                    <Link
+                                      to="/inventory/items/$itemId"
+                                      params={hiddenEntry.link.params}
+                                    />
+                                  ) : hiddenEntry.link ? (
+                                    <Link to={hiddenEntry.link.to} />
+                                  ) : (
+                                    <span />
+                                  )
+                                }
+                              >
+                                {hiddenEntry.label}
+                              </DropdownMenuItem>
+                            )
+                          )}
                         </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
