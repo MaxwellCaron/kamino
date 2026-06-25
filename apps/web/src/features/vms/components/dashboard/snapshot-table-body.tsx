@@ -15,6 +15,7 @@ type SnapshotTableBodyProps = {
   isLoading: boolean
   hasBeenLoading: boolean
   filtered: Array<ApiSnapshot>
+  error: Error | null
   itemId: string
   permissions: SnapshotTablePermissions
   onOpenConfirm: (config: ConfirmConfig) => void
@@ -48,6 +49,7 @@ export function SnapshotTableBody({
   isLoading,
   hasBeenLoading,
   filtered,
+  error,
   itemId,
   permissions,
   onOpenConfirm,
@@ -97,6 +99,12 @@ export function SnapshotTableBody({
               </TableCell>
             </TableRow>
           ))
+        ) : error ? (
+          <TableRow>
+            <TableCell colSpan={4} className="h-24 text-center text-destructive">
+              {error.message || "Failed to load snapshots."}
+            </TableCell>
+          </TableRow>
         ) : filtered.length === 0 ? (
           <TableRow>
             <TableCell colSpan={4} className="h-24 text-center">

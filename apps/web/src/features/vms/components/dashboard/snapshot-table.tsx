@@ -55,10 +55,10 @@ export function SnapshotsTable({
   isTemplate: boolean
   permissions: SnapshotTablePermissions
 }) {
-  const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
+  const { data: snapshots, isLoading: isSnapshotsLoading, error: snapshotsError } = useQuery({
     ...snapshotsQueryOptions(itemId),
     enabled: !!itemId && vmid != null && permissions.canView,
-  }) as { data: Array<ApiSnapshot> | undefined; isLoading: boolean }
+  }) as { data: Array<ApiSnapshot> | undefined; isLoading: boolean; error: Error | null }
   const isLoading = isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
@@ -129,6 +129,7 @@ export function SnapshotsTable({
             isLoading={isLoading}
             hasBeenLoading={hasBeenLoading.current}
             filtered={filtered}
+            error={snapshotsError}
             itemId={itemId}
             permissions={permissions}
             onOpenConfirm={setConfirm}

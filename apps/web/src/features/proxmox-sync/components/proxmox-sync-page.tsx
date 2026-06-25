@@ -47,6 +47,7 @@ import {
 } from "@/features/proxmox-sync/api/proxmox-sync-api"
 import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff-columns"
 import { DataTable } from "@/components/data-table/data-table"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
@@ -215,7 +216,15 @@ export function ProxmoxSyncPage() {
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
-            {isEmpty ? (
+            {error ? (
+              <div className="mx-6 py-6">
+                <InlineErrorAlert
+                  error={error}
+                  fallback="Failed to load sync preview."
+                  title="Sync Error"
+                />
+              </div>
+            ) : isEmpty ? (
               <div className="mx-6">
                 <Empty className="min-h-[80vh] border border-dashed">
                   <EmptyHeader>

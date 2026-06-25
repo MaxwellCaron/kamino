@@ -1,4 +1,5 @@
 import { IconCheck, IconX } from "@tabler/icons-react"
+import { toast } from "sonner"
 import {
   ActionBarItem,
   ActionBarSeparator,
@@ -62,7 +63,7 @@ export function RequestsSelectionActions({
       icon,
       actionLabel,
       variant,
-      closeOnSuccess: !isApprove,
+      closeOnSuccess: false,
       description: `Are you sure you want to ${action} ${selectedRows.length} requests?`,
       statusItems: isApprove
         ? selectedRows.map((r) => {
@@ -113,8 +114,17 @@ export function RequestsSelectionActions({
       onConfirm: async (controls: ConfirmDialogControls) => {
         if (!isApprove) {
           const ids = selectedRows.map((r) => r.id)
-          mutation.mutate(ids)
-          clearSelection()
+          try {
+            const result = await mutation.mutateAsync(ids)
+            if (result.failed.length > 0) {
+              toast.error(result.failed[0].error)
+            } else {
+              toast.success(`Denied ${ids.length} request${ids.length === 1 ? "" : "s"}`)
+            }
+            clearSelection()
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to deny requests")
+          }
           return
         }
 
