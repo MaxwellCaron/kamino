@@ -10,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
+	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -257,6 +258,13 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 	if len(reqs) == 0 {
 		writeInvalidRequest(c, "at least one user is required")
 		return
+	}
+
+	for _, req := range reqs {
+		if err := activedirectory.ValidateADCreateName(req.Username); err != nil {
+			writeInvalidRequest(c, err.Error())
+			return
+		}
 	}
 
 	type userCreateOutcome struct {
@@ -558,6 +566,13 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 	if len(reqs) == 0 {
 		writeInvalidRequest(c, "at least one group is required")
 		return
+	}
+
+	for _, req := range reqs {
+		if err := activedirectory.ValidateADCreateName(req.Name); err != nil {
+			writeInvalidRequest(c, err.Error())
+			return
+		}
 	}
 
 	response := bulkCreateResponse{

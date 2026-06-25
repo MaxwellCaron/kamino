@@ -419,7 +419,7 @@ func (c *Client) CreateUser(username, password string) (User, error) {
 	}
 	defer conn.Close()
 
-	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(username), c.userOU)
+	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeDN(username), c.userOU)
 
 	addReq := ldap.NewAddRequest(dn, nil)
 	addReq.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
@@ -536,7 +536,7 @@ func (c *Client) CreateGroup(name string) (Group, error) {
 	}
 	defer conn.Close()
 
-	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeFilter(name), c.groupOU)
+	dn := fmt.Sprintf("CN=%s,%s", ldap.EscapeDN(name), c.groupOU)
 
 	addReq := ldap.NewAddRequest(dn, nil)
 	addReq.Attribute("objectClass", []string{"top", "group"})

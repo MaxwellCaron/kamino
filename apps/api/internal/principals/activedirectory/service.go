@@ -111,6 +111,10 @@ func (s *Service) ListUsers(ctx context.Context) ([]database.GetAllUsersRow, err
 }
 
 func (s *Service) CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error) {
+	if err := ValidateADCreateName(username); err != nil {
+		return uuid.Nil, err
+	}
+
 	createdUser, err := s.client.CreateUser(username, password)
 	if err != nil {
 		return uuid.Nil, err
@@ -273,6 +277,10 @@ func (s *Service) ListGroups(ctx context.Context) ([]database.GetAllGroupsRow, e
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name, description string) (uuid.UUID, error) {
+	if err := ValidateADCreateName(name); err != nil {
+		return uuid.Nil, err
+	}
+
 	createdGroup, err := s.client.CreateGroup(name)
 	if err != nil {
 		return uuid.Nil, err
