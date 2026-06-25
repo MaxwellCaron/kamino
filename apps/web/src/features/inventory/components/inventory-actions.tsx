@@ -535,10 +535,12 @@ export function InventoryNodeMenu({
   itemId,
   data,
   className,
+  iconSize = "icon-xs",
 }: {
   itemId: string
   data: ApiTreeNode
   className?: string
+  iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
 }) {
   const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
@@ -623,7 +625,7 @@ export function InventoryNodeMenu({
         render={
           <Button
             variant="ghost"
-            size="icon-xs"
+            size={iconSize}
             className={className}
             onClick={stopTreeItemEvent}
             onPointerDown={stopTreeItemEvent}

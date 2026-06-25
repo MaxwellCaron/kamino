@@ -115,7 +115,7 @@ export function InventoryFolderItem({
             }}
           >
             <Button
-              size="icon-xs"
+              size="icon"
               variant="ghost"
               className={cn(
                 "bg-transparent!",
@@ -133,11 +133,7 @@ export function InventoryFolderItem({
                 }
               />
             </Button>
-            <InventoryNodeMenu
-              itemId={node.id}
-              data={node}
-              className="bg-transparent! opacity-0 transition-opacity group-hover/folder-row:opacity-100 data-popup-open:opacity-100"
-            />
+            <InventoryNodeMenu itemId={node.id} data={node} iconSize="icon" />
           </ItemActions>
         </Link>
       }
