@@ -376,13 +376,10 @@ export function AppSidebar({
         {/* Inventory panel */}
         <Sidebar
           collapsible="none"
-          className="ml-3 flex min-w-0 flex-1 border-l group-data-[state=collapsed]:border-l-0"
+          className="ml-2 flex min-w-0 flex-1 border-l group-data-[state=collapsed]:border-l-0"
         >
           <SidebarHeader className="py-0">
-            <SidebarGroup>
-              <InventoryTreeHeader />
-            </SidebarGroup>
-            <Separator className="-mt-2" />
+            <InventoryTreeHeader />
           </SidebarHeader>
           <SidebarContent className="px-2">
             <InventoryTreeBody />

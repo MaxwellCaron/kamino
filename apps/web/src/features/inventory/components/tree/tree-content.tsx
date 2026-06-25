@@ -109,7 +109,7 @@ export function InventoryTreeContent({
           >
             <TreeItemLabel
               hideToggle
-              className="w-full bg-sidebar group-has-[button[data-popup-open]]/row:bg-muted"
+              className="w-full group-has-[button[data-popup-open]]/row:bg-muted"
             >
               {data.kind === "folder" && <TreeItemToggle />}
               {data.kind === "folder" ? (

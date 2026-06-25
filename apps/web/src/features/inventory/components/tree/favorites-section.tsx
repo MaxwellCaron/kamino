@@ -94,6 +94,7 @@ function FavoriteItemCard({
 
   return (
     <Item
+      variant="muted"
       className="py-2"
       render={
         <Link to="/inventory/items/$itemId" params={{ itemId: item.id }}>
@@ -140,12 +141,12 @@ export function InventoryFavoritesSection() {
   return (
     <Collapsible open={favoritesOpen} onOpenChange={setFavoritesOpen}>
       <div className="flex flex-col">
-        <CollapsibleTrigger className="group/collapsible-trigger flex w-full items-center gap-1 rounded-2xl p-3 text-xs font-medium text-sidebar-foreground/70 transition-colors hover:bg-muted/50 data-panel-open:rounded-b-none data-panel-open:bg-muted/50">
+        <CollapsibleTrigger className="group/collapsible-trigger flex w-full items-center gap-1 rounded-2xl px-3 py-1 text-xs text-sidebar-foreground/70 transition-colors hover:bg-muted/50">
           <span>Favorites ({favoriteItems.length})</span>
           <IconChevronDown className="ml-auto size-3.5 transition-transform group-data-panel-open/collapsible-trigger:rotate-180" />
         </CollapsibleTrigger>
         {favoritesOpen && (
-          <CollapsibleContent className="rounded-b-3xl bg-muted/50">
+          <CollapsibleContent>
             <ItemGroup className="flex flex-col gap-1.5 px-1 py-2">
               {favoriteItems.map((item) => (
                 <FavoriteItemCard

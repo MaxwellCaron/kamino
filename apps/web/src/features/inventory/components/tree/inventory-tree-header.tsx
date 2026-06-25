@@ -1,5 +1,4 @@
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
-import { AnimatePresence } from "motion/react"
 import { Button } from "@workspace/ui/components/button"
 import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 import {
@@ -7,70 +6,59 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import { InventoryFavoritesSection } from "./favorites-section"
-import { InventoryTreeSearch } from "./tree-search"
+import { Separator } from "@workspace/ui/components/separator"
 import { useInventoryTreeContext } from "./inventory-tree-context"
+import { InventoryFavoritesSection } from "./favorites-section"
 
 export function InventoryTreeHeader() {
-  const {
-    query,
-    setQuery,
-    resultCount,
-    expandAll,
-    collapseAll,
-    isLoading,
-    favoriteIds,
-  } = useInventoryTreeContext()
+  const { expandAll, collapseAll, isLoading } = useInventoryTreeContext()
 
   return (
-    <>
-      <SidebarGroupLabel className="font-semibold text-foreground">
-        Inventory
-      </SidebarGroupLabel>
-      <div className="absolute top-3 right-3 flex">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={expandAll}
-                disabled={isLoading}
-              >
-                <IconChevronDown />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            <p>Expand all</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={collapseAll}
-                disabled={isLoading}
-              >
-                <IconChevronUp />
-              </Button>
-            }
-          />
-          <TooltipContent>
-            <p>Collapse all</p>
-          </TooltipContent>
-        </Tooltip>
+    <div>
+      <div className="flex items-center justify-between pt-2">
+        <SidebarGroupLabel className="text-xl font-semibold tracking-tight text-foreground">
+          Inventory
+        </SidebarGroupLabel>
+        <div className="flex">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={expandAll}
+                  disabled={isLoading}
+                >
+                  <IconChevronDown className="size-3.5" />
+                </Button>
+              }
+            />
+            <TooltipContent>
+              <p>Expand all</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={collapseAll}
+                  disabled={isLoading}
+                >
+                  <IconChevronUp className="size-3.5" />
+                </Button>
+              }
+            />
+            <TooltipContent>
+              <p>Collapse all</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
-      <InventoryTreeSearch
-        query={query}
-        resultCount={resultCount}
-        setQuery={setQuery}
-      />
-      <AnimatePresence initial={false}>
-        {favoriteIds.size > 0 && <InventoryFavoritesSection />}
-      </AnimatePresence>
-    </>
+      <Separator className="my-3" />
+      <InventoryFavoritesSection />
+      <Separator className="mt-3" />
+    </div>
   )
 }

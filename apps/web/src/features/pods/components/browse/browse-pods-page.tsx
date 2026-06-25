@@ -29,10 +29,10 @@ export function BrowsePodsPage() {
         </div>
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-16 text-center md:py-24 lg:px-6">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
-            <h1 className="text-5xl font-extrabold tracking-tighter text-balance sm:text-6xl md:text-7xl lg:text-8xl">
+            <h1 className="font-heading text-5xl font-extrabold tracking-tighter text-balance sm:text-6xl md:text-7xl lg:text-8xl">
               Pods
             </h1>
-            <p className="text-lg text-balance text-muted-foreground sm:text-xl">
+            <p className="text-base text-balance text-muted-foreground sm:text-lg">
               Curated virtual machine environments meant for hands-on learning.
               Browse through a selection of ready-to-use pods to get started.
             </p>
