@@ -126,6 +126,7 @@ func RegisterRoutes(
 		protected.GET("/pods/catalog/:slug", pods.GetCatalogPod)
 		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
 		protected.POST("/pods/catalog/:slug/clone", pods.CloneCatalogPod)
+		protected.GET("/pods/catalog/clones/summary", pods.ListCatalogCloneSummaries)
 		protected.POST("/pods", pods.Create)
 	}
 

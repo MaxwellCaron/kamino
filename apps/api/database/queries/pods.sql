@@ -406,6 +406,35 @@ ORDER BY
     cp.created_at DESC
 LIMIT 1;
 
+-- name: ListAccessibleClonedPodSummariesByPodIDs :many
+SELECT DISTINCT ON (cp.pod_id)
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.created_at,
+    COUNT(DISTINCT task.id)::int AS task_total,
+    COUNT(DISTINCT state.task_id) FILTER (WHERE state.completed)::int AS task_completed
+FROM cloned_pods cp
+LEFT JOIN published_pod_tasks task
+  ON task.pod_id = cp.pod_id
+LEFT JOIN cloned_pod_task_states state
+  ON state.cloned_pod_id = cp.id
+ AND state.task_id = task.id
+WHERE cp.pod_id = ANY(sqlc.arg(column_1)::UUID[])
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+  )
+GROUP BY
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.created_at
+ORDER BY
+    cp.pod_id,
+    CASE WHEN cp.user_principal_id = sqlc.arg(principal_id) THEN 0 ELSE 1 END,
+    cp.created_at DESC;
+
 -- name: ListClonedPodSummariesByPodID :many
 SELECT
     cp.id,

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -703,3 +706,23 @@ func TestNewClonePodProgressReporter(t *testing.T) {
 // Suppress unused import warnings
 var _ = fmt.Sprintf
 var _ = vmactions.PowerActionStart
+
+func setupCloneTestRouter(handler *PodsHandler) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/api/v1/pods/catalog/clones/summary", handler.ListCatalogCloneSummaries)
+	return r
+}
+
+func TestListCatalogCloneSummariesUnauthorized(t *testing.T) {
+	handler := &PodsHandler{}
+	router := setupCloneTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/pods/catalog/clones/summary", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}

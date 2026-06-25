@@ -113,6 +113,32 @@ type podQuestionActivityResponse struct {
 	AnsweredAt time.Time `json:"answered_at"`
 }
 
+type catalogCloneSummaryResponse struct {
+	ID          uuid.UUID                       `json:"id"`
+	PodID       uuid.UUID                       `json:"pod_id"`
+	ClonedAt    time.Time                       `json:"cloned_at"`
+	TaskSummary catalogCloneTaskSummaryResponse `json:"task_summary"`
+}
+
+type catalogCloneTaskSummaryResponse struct {
+	Total     int     `json:"total"`
+	Completed int     `json:"completed"`
+	Progress  float64 `json:"progress"`
+}
+
+type catalogClonePodResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Slug        string    `json:"slug"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	ImageURL    string    `json:"image_url"`
+}
+
+type catalogCloneSummaryResponseWithPod struct {
+	Summary catalogCloneSummaryResponse `json:"summary"`
+	Pod     catalogClonePodResponse     `json:"pod"`
+}
+
 type answerPodQuestionRequest struct {
 	Answer string `json:"answer" binding:"required"`
 }
@@ -369,6 +395,102 @@ func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	q := database.New(h.DB)
+	isProtected, err := h.Authz.HasProtectedAccess(c.Request.Context(), principalID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize catalog clone summaries", err)
+		return
+	}
+
+	var bases []publishedPodBase
+	if isProtected {
+		rows, err := q.ListPublishedPods(c.Request.Context())
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to load pod catalog", "list protected published pod catalog for clone summaries", err)
+			return
+		}
+		for _, row := range listPublishedRowsToBase(rows) {
+			if row.Status == database.PublishedPodStatusListed {
+				bases = append(bases, row)
+			}
+		}
+	} else {
+		rows, err := q.ListVisiblePublishedPodsForPrincipal(c.Request.Context(), principalID)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to load pod catalog", "list visible published pod catalog for clone summaries", err)
+			return
+		}
+		bases = visiblePublishedRowsToBase(rows)
+	}
+
+	podIDs := make([]uuid.UUID, 0, len(bases))
+	for _, base := range bases {
+		podIDs = append(podIDs, base.ID)
+	}
+
+	if len(podIDs) == 0 {
+		c.JSON(http.StatusOK, []catalogCloneSummaryResponse{})
+		return
+	}
+
+	cloneRows, err := q.ListAccessibleClonedPodSummariesByPodIDs(c.Request.Context(), database.ListAccessibleClonedPodSummariesByPodIDsParams{
+		Column1:     podIDs,
+		PrincipalID: principalID,
+	})
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load clone summaries", "list accessible cloned pod summaries", err)
+		return
+	}
+
+	cloneByPodID := make(map[uuid.UUID]catalogCloneSummaryResponse, len(cloneRows))
+	for _, row := range cloneRows {
+		totalTasks := int(row.TaskTotal)
+		completedTasks := int(row.TaskCompleted)
+		progress := 0.0
+		if totalTasks > 0 {
+			progress = (float64(completedTasks) / float64(totalTasks)) * 100
+		}
+
+		cloneByPodID[row.PodID] = catalogCloneSummaryResponse{
+			ID:       row.ID,
+			PodID:    row.PodID,
+			ClonedAt: pgTime(row.CreatedAt),
+			TaskSummary: catalogCloneTaskSummaryResponse{
+				Total:     totalTasks,
+				Completed: completedTasks,
+				Progress:  progress,
+			},
+		}
+	}
+
+	result := make([]catalogCloneSummaryResponseWithPod, 0, len(bases))
+	for _, base := range bases {
+		summary, exists := cloneByPodID[base.ID]
+		if !exists {
+			continue
+		}
+		result = append(result, catalogCloneSummaryResponseWithPod{
+			Summary: summary,
+			Pod: catalogClonePodResponse{
+				ID:          base.ID,
+				Slug:        base.Slug,
+				Title:       base.Title,
+				Description: base.Description,
+				ImageURL:    base.ImageURL,
+			},
+		})
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
