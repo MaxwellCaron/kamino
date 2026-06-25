@@ -33,6 +33,7 @@ packages/ui/       Shared UI primitives exported as @workspace/ui
 
 - **Bun** 1.3.11 (`curl -fsSL https://bun.sh/install | bash`)
 - **Go** 1.26
+- **Air** (Go live-reload; `go install github.com/air-verse/air@latest`) — required for `bun run dev` API watch mode
 - **Postgres** instance reachable from the API
 - **Proxmox** cluster with an API token (`kamino@pve!<token-name>`)
 - **AD/LDAP** — optional; required only if AD auth/sync is enabled
@@ -55,7 +56,7 @@ bun run docker:up    # builds and starts api + web containers
 bun run docker:down  # stops and removes containers
 ```
 
-The compose file has no Postgres service — `DATABASE_URL` must point at an existing instance. Container configuration is read from `apps/api/.env.docker` (optional; same keys as `.env.example`).
+The compose file has no Postgres service — `DATABASE_URL` must point at an existing instance. Container configuration is read from `.env.docker` at the repo root (optional; same keys as `.env.example`).
 
 The API healthcheck endpoint is `GET /api/v1/health`.
 
