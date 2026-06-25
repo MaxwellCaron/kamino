@@ -5,12 +5,15 @@ import { canAccessRequestQueue } from "@/features/auth/utils/management-permissi
 import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_pods/pods/publish")({
+  staticData: {
+    breadcrumb: { label: "Publish" },
+  },
   validateSearch: z.object({
     podId: z.string().optional(),
   }),
   beforeLoad: ({ context }) => {
     if (!canAccessRequestQueue(context.user.management_permissions)) {
-      throw redirect({ to: "/pods/browse" })
+      throw redirect({ to: "/pods" })
     }
   },
   head: () => pageTitle("Publish Pod"),

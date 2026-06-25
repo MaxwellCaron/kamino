@@ -11,6 +11,7 @@ export const Route = createFileRoute("/_pods/pods/$podSlug")({
 
     return {
       title: pod?.title ?? null,
+      breadcrumbs: [{ label: pod?.title ?? params.podSlug }],
     }
   },
   head: ({ loaderData }) => pageTitle(loaderData?.title ?? "Pod"),

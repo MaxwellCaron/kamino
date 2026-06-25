@@ -1,7 +1,6 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
-import { uuid } from "@workspace/ui/lib/utils"
 import {
   createInitialPublishPodValues,
   usePublishPodForm,
@@ -15,6 +14,7 @@ import type { PublishPodFormValues } from "./publish-pod-form"
 import type { PublishPodSubmitStatus } from "./publish-pod-submit-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
+import { uuid } from "@/features/shared/utils/uuid"
 import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"
 import {
   publishPodOptionsQueryOptions,

@@ -10,6 +10,9 @@ type RouterContext = {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  staticData: {
+    breadcrumb: { label: "Home", link: { to: "/" } },
+  },
   head: () => ({
     meta: [
       {

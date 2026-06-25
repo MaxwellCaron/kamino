@@ -105,19 +105,6 @@ function getCreateProgressStepId(
     : undefined
 }
 
-function getCreatedPodItemId(result?: CreatePodResult | null): string | null {
-  if (!result) return null
-
-  const routerVm = result.vms.find(
-    (vm) => vm.item.name.trim().toLowerCase() === "router"
-  )
-
-  if (routerVm) return routerVm.item_id
-  if (result.vms.length > 0) return result.vms[0].item_id
-
-  return null
-}
-
 export function CreatePodSubmitState({
   createdPod,
   errorMessage,
@@ -138,7 +125,7 @@ export function CreatePodSubmitState({
   state: CreatePodSubmitStatus
 }) {
   const steps = getCreatePodSteps({ hasVirtualMachines, includeRouter })
-  const createdPodItemId = getCreatedPodItemId(createdPod)
+  const createdPodFolderId = createdPod?.folder_id ?? null
 
   switch (state) {
     case "creating":
@@ -167,10 +154,10 @@ export function CreatePodSubmitState({
             {
               icon: IconBox,
               label: "View Pod",
-              ...(createdPodItemId
+              ...(createdPodFolderId
                 ? {
                     to: "/inventory/items/$itemId" as const,
-                    params: { itemId: createdPodItemId },
+                    params: { itemId: createdPodFolderId },
                   }
                 : {
                     to: "/" as const,

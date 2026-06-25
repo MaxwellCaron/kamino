@@ -16,7 +16,8 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import { VmListItem } from "@/features/vms/components/vm-list-item"
+import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
+import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
 
 export function DashboardFavoritesCard({
   className,
@@ -27,6 +28,7 @@ export function DashboardFavoritesCard({
   favorites: Array<ApiTreeNode>
   vmStatuses?: Record<number, string>
 }) {
+  const { toggleFavorite } = useInventoryFavorites()
   const visibleFavorites = favorites.slice(0, 5)
 
   return (
@@ -36,23 +38,23 @@ export function DashboardFavoritesCard({
           Favorites
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          VMs pinned from the inventory tree.
+          Favorited items in the inventory tree.
         </CardDescription>
       </CardHeader>
       <CardContent className="h-full">
         {visibleFavorites.length > 0 ? (
-          <ItemGroup className="grid grid-cols-1 gap-3">
+          <ItemGroup>
             {visibleFavorites.map((favorite) => {
               const vmid = favorite.vm?.vmid
               const status = vmid !== undefined ? vmStatuses?.[vmid] : undefined
 
               return (
-                <VmListItem
+                <InventoryFolderItem
                   key={favorite.id}
-                  isTemplate={favorite.vm?.is_template}
-                  itemId={favorite.id}
-                  name={favorite.name}
+                  node={favorite}
                   status={status}
+                  isFavorite
+                  onToggleFavorite={() => toggleFavorite(favorite.id)}
                 />
               )
             })}
@@ -65,7 +67,7 @@ export function DashboardFavoritesCard({
               </EmptyMedia>
               <EmptyTitle>No favorites yet</EmptyTitle>
               <EmptyDescription>
-                Add VMs to favorites from the inventory tree to pin them here.
+                Add items to favorites from the inventory tree to pin them here.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

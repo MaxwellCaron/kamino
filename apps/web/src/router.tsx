@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
+import type { AppBreadcrumb } from "@/components/app-shell/site-breadcrumb-data"
 
 function createQueryClient() {
   return new QueryClient({
@@ -32,5 +33,9 @@ export function getRouter() {
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof getRouter>
+  }
+
+  interface StaticDataRouteOption {
+    breadcrumb?: AppBreadcrumb
   }
 }

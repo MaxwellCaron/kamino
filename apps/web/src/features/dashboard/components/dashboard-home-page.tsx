@@ -24,6 +24,7 @@ import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
+import { indexInventoryTree } from "@/features/inventory/utils/inventory-tree"
 import {
   clonedPodQueryOptions,
   podQuestionActivityQueryOptions,
@@ -136,10 +137,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     () =>
       Array.from(favoriteIds)
         .map((itemId) => inventoryItemsById.get(itemId))
-        .filter(
-          (item): item is NonNullable<typeof item> =>
-            !!item && item.kind === "vm"
-        ),
+        .filter((item): item is NonNullable<typeof item> => !!item),
     [favoriteIds, inventoryItemsById]
   )
 
@@ -313,23 +311,6 @@ function countAccessibleInventory(nodes: Array<ApiTreeNode>): {
     },
     { folders: 0, vms: 0 }
   )
-}
-
-function indexInventoryTree(nodes: Array<ApiTreeNode>) {
-  const items = new Map<string, ApiTreeNode>()
-
-  const visit = (entries: Array<ApiTreeNode>) => {
-    for (const entry of entries) {
-      items.set(entry.id, entry)
-      if (entry.children) {
-        visit(entry.children)
-      }
-    }
-  }
-
-  visit(nodes)
-
-  return items
 }
 
 function countRunningVms(

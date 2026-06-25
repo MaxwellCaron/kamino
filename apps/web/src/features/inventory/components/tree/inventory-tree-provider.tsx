@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -95,10 +95,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
-      const item = fullTree.items.get(itemId)
-      toggleSharedFavorite(itemId, { disabled: item?.kind === "folder" })
+      toggleSharedFavorite(itemId)
     },
-    [fullTree.items, toggleSharedFavorite]
+    [toggleSharedFavorite]
   )
 
   const vmIdMap = useMemo(() => buildVmIdMap(fullTree.items), [fullTree.items])
@@ -133,8 +132,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   )
 
   const handlePrimaryAction = useCallback(
-    (itemId: string, data: ApiTreeNode) => {
-      if (data.kind !== "vm") return
+    (itemId: string) => {
       navigate({ to: "/inventory/items/$itemId", params: { itemId } })
     },
     [navigate]
@@ -154,13 +152,42 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   )
 
   const handleFavoritePrimaryAction = useCallback(
-    (itemId: string, data: ApiTreeNode) => {
+    (itemId: string) => {
       setQuery("")
       void revealItem(itemId)
-      handlePrimaryAction(itemId, data)
+      handlePrimaryAction(itemId)
     },
     [handlePrimaryAction, revealItem]
   )
+
+  const lastAutoRevealedItemIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!activeItemId) {
+      lastAutoRevealedItemIdRef.current = null
+      return
+    }
+
+    const activeItem = fullTree.items.get(activeItemId)
+    if (activeItem?.kind !== "vm") {
+      return
+    }
+
+    if (!items.has(activeItemId)) {
+      if (isSearchActive) {
+        lastAutoRevealedItemIdRef.current = null
+        setQuery("")
+      }
+      return
+    }
+
+    if (lastAutoRevealedItemIdRef.current === activeItemId) {
+      return
+    }
+
+    lastAutoRevealedItemIdRef.current = activeItemId
+    void revealItem(activeItemId)
+  }, [activeItemId, fullTree.items, isSearchActive, items, revealItem])
 
   const value: InventoryTreeContextValue = {
     query,

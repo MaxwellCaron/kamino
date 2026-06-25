@@ -4,9 +4,12 @@ import { canAccessRequestQueue } from "@/features/auth/utils/management-permissi
 import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_pods/pods/published")({
+  staticData: {
+    breadcrumb: { label: "Published" },
+  },
   beforeLoad: ({ context }) => {
     if (!canAccessRequestQueue(context.user.management_permissions)) {
-      throw redirect({ to: "/pods/browse" })
+      throw redirect({ to: "/pods" })
     }
   },
   head: () => pageTitle("Published Pods"),

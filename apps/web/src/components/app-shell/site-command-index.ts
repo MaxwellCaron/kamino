@@ -74,7 +74,7 @@ type StaticCommandConfig = {
     | "/admin/principals/users"
     | "/admin/sdn"
     | "/manager/requests"
-    | "/pods/browse"
+    | "/pods"
     | "/pods/create"
     | "/pods/publish"
     | "/pods/published"
@@ -164,7 +164,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     label: "Pods",
     subtitle: "Browse published pods",
     icon: IconPackages,
-    to: "/pods/browse",
+    to: "/pods",
     visibility: "all",
     keywords: ["catalog", "launch", "clone"],
   },

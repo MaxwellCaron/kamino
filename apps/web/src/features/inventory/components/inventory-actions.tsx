@@ -535,10 +535,12 @@ export function InventoryNodeMenu({
   itemId,
   data,
   className,
+  iconSize = "icon-xs",
 }: {
   itemId: string
   data: ApiTreeNode
   className?: string
+  iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
 }) {
   const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
@@ -623,7 +625,7 @@ export function InventoryNodeMenu({
         render={
           <Button
             variant="ghost"
-            size="icon-xs"
+            size={iconSize}
             className={className}
             onClick={stopTreeItemEvent}
             onPointerDown={stopTreeItemEvent}
@@ -670,9 +672,7 @@ export function InventoryNodeMenu({
           <TemplateMenuItems
             permissions={data.permissions}
             isFavorite={isFavorite}
-            onToggleFavorite={() =>
-              toggleFavorite(itemId, { disabled: isFolder })
-            }
+            onToggleFavorite={() => toggleFavorite(itemId)}
             itemId={itemId}
             vmid={data.vm?.vmid ?? 0}
             name={data.name}
@@ -710,9 +710,7 @@ export function InventoryNodeMenu({
           <VmMenuItems
             permissions={data.permissions}
             isFavorite={isFavorite}
-            onToggleFavorite={() =>
-              toggleFavorite(itemId, { disabled: isFolder })
-            }
+            onToggleFavorite={() => toggleFavorite(itemId)}
             itemId={itemId}
             vmid={data.vm?.vmid ?? 0}
             name={data.name}
@@ -849,9 +847,7 @@ export function VmOptionsMenu({
             <TemplateMenuItems
               permissions={permissions}
               isFavorite={favoriteIds.has(nodeId)}
-              onToggleFavorite={() =>
-                toggleFavorite(nodeId, { disabled: false })
-              }
+              onToggleFavorite={() => toggleFavorite(nodeId)}
               itemId={itemId}
               vmid={vmid ?? 0}
               name={name}
@@ -889,9 +885,7 @@ export function VmOptionsMenu({
             <VmMenuItems
               permissions={permissions}
               isFavorite={favoriteIds.has(nodeId)}
-              onToggleFavorite={() =>
-                toggleFavorite(nodeId, { disabled: false })
-              }
+              onToggleFavorite={() => toggleFavorite(nodeId)}
               itemId={itemId}
               vmid={vmid ?? 0}
               name={name}
