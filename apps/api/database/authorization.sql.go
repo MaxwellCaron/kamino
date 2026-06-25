@@ -461,6 +461,32 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 	return items, nil
 }
 
+const hasAnyInventoryPermission = `-- name: HasAnyInventoryPermission :one
+SELECT EXISTS (
+    SELECT 1
+    FROM inventory_items ii
+    CROSS JOIN LATERAL (
+        SELECT
+            gep.allowed_mask::BIGINT AS allowed_mask
+        FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    ) AS perms
+    WHERE ii.kind = 'folder'
+      AND (perms.allowed_mask & $2::BIGINT) = $2::BIGINT
+)
+`
+
+type HasAnyInventoryPermissionParams struct {
+	PrincipalID  uuid.UUID `json:"principal_id"`
+	RequiredMask int64     `json:"required_mask"`
+}
+
+func (q *Queries) HasAnyInventoryPermission(ctx context.Context, arg HasAnyInventoryPermissionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasAnyInventoryPermission, arg.PrincipalID, arg.RequiredMask)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const hasInventoryPermission = `-- name: HasInventoryPermission :one
 SELECT has_permission(
     $1,

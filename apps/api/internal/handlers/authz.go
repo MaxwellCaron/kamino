@@ -267,6 +267,34 @@ func requireVerifiedVMItemPermission(
 	return target, true
 }
 
+// requireVMCreateMetadataAccess gates Proxmox VM-create metadata endpoints
+func requireVMCreateMetadataAccess(
+	c *gin.Context,
+	authzService *authorization.Service,
+	principalID uuid.UUID,
+) bool {
+	hasCreateVM, err := authzService.HasAny(c.Request.Context(), principalID, authorization.CreateVM)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize vm create metadata", err)
+		return false
+	}
+	if hasCreateVM {
+		return true
+	}
+
+	isManager, err := authzService.HasManagement(c.Request.Context(), principalID, authorization.ManagementPermissionManager)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize vm create metadata", err)
+		return false
+	}
+	if !isManager {
+		writeForbidden(c)
+		return false
+	}
+
+	return true
+}
+
 func requireManagementPermission(
 	c *gin.Context,
 	authzService *authorization.Service,

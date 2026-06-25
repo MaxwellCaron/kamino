@@ -51,11 +51,11 @@ export function VmHardwareDialog({
     ...vmHardwareQueryOptions(itemId),
     enabled: isDialogOpen,
   })
-  const { data: storages } = useQuery({
+  const { data: storages, error: storagesError } = useQuery({
     ...storagesQueryOptions(node),
     enabled: isDialogOpen,
   })
-  const { data: networks } = useQuery({
+  const { data: networks, error: networksError } = useQuery({
     ...bridgesQueryOptions(node),
     enabled: isDialogOpen,
   })
@@ -63,6 +63,8 @@ export function VmHardwareDialog({
   const { bridgeOptions, vnetOptions, networkOptions } =
     buildVmHardwareNetworkOptions(networks ?? {})
   const storageOptions = (storages ?? []) as Array<StorageOption>
+  const loadError = hardwareError ?? storagesError ?? networksError
+  const isLoadError = isHardwareError || !!storagesError || !!networksError
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,8 +78,8 @@ export function VmHardwareDialog({
           vmName
         )}.`}
       >
-        {isHardwareError ? (
-          <InlineErrorAlert error={hardwareError} fallback="Failed to load VM hardware." />
+        {isLoadError ? (
+          <InlineErrorAlert error={loadError} fallback="Failed to load VM hardware." />
         ) : hardware ? (
           <VmHardwareDialogForm
             key={itemId}

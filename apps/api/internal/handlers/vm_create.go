@@ -24,6 +24,15 @@ type VMCreateHandler struct {
 // GetNodes returns all cluster nodes.
 // GET /api/v1/proxmox/nodes
 func (h *VMCreateHandler) GetNodes(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	nodes, err := h.PX.GetNodes(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch proxmox nodes", err)
@@ -44,6 +53,15 @@ type createOptionsResponse struct {
 // metadata node plus cluster-level VNets.
 // GET /api/v1/proxmox/create/options
 func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	nodes, err := h.PX.GetNodes(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch create options nodes", err)
@@ -86,6 +104,15 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 // GetStorages returns storages for a node.
 // GET /api/v1/proxmox/nodes/:node/storages
 func (h *VMCreateHandler) GetStorages(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	node := c.Param("node")
 	storages, err := h.PX.GetStorages(c.Request.Context(), node)
 	if err != nil {
@@ -98,6 +125,15 @@ func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 // GetISOs returns ISO files available on a storage.
 // GET /api/v1/proxmox/nodes/:node/storages/:storage/isos
 func (h *VMCreateHandler) GetISOs(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	node := c.Param("node")
 	storage := c.Param("storage")
 	isos, err := h.PX.GetISOs(c.Request.Context(), node, storage)
@@ -111,6 +147,15 @@ func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 // GetCreateISOs returns ISO files for a storage from the configured metadata node.
 // GET /api/v1/proxmox/create/isos/:storage
 func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	storage := c.Param("storage")
 
 	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
@@ -134,6 +179,15 @@ func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 // GetNextVMID returns the next available VMID.
 // GET /api/v1/proxmox/nextid
 func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	id, err := h.PX.GetNextVMID(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
@@ -145,6 +199,15 @@ func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
 // ValidateVMID reports whether a VMID is available.
 // GET /api/v1/proxmox/vmid/:vmid/validate
 func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	vmid, err := parseIntParam(c, "vmid")
 	if err != nil {
 		return
@@ -162,6 +225,15 @@ func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
 // GetBridges returns network bridges for a node.
 // GET /api/v1/proxmox/nodes/:node/bridges
 func (h *VMCreateHandler) GetBridges(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	node := c.Param("node")
 	bridges, err := h.PX.GetBridges(c.Request.Context(), node)
 	if err != nil {

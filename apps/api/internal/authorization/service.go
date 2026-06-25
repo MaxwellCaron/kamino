@@ -127,6 +127,52 @@ func (s *Service) Require(
 	return nil
 }
 
+// HasAny reports whether the principal holds the required mask on at least
+// one inventory folder anywhere in the tree. This backs metadata endpoints
+// that aren't scoped to a single inventory item but still shouldn't be
+// exposed to principals with no relevant access anywhere.
+func (s *Service) HasAny(
+	ctx context.Context,
+	principalID uuid.UUID,
+	required Mask,
+) (bool, error) {
+	isAdmin, err := s.HasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return false, err
+	}
+	if isAdmin {
+		return true, nil
+	}
+
+	allowed, err := database.New(s.db).HasAnyInventoryPermission(ctx, database.HasAnyInventoryPermissionParams{
+		PrincipalID:  principalID,
+		RequiredMask: int64(required),
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return allowed, nil
+}
+
+// RequireAny enforces HasAny and returns ErrForbidden when the principal
+// holds the required mask on no inventory folder.
+func (s *Service) RequireAny(
+	ctx context.Context,
+	principalID uuid.UUID,
+	required Mask,
+) error {
+	allowed, err := s.HasAny(ctx, principalID, required)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+
+	return nil
+}
+
 func (s *Service) EffectiveManagementPermissions(
 	ctx context.Context,
 	principalID uuid.UUID,
