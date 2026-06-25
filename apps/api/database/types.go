@@ -270,12 +270,13 @@ func (ns NullPublishedPodStatus) Value() (driver.Value, error) {
 type RequestEventKind string
 
 const (
-	RequestEventKindSubmitted       RequestEventKind = "submitted"
-	RequestEventKindApproved        RequestEventKind = "approved"
-	RequestEventKindDenied          RequestEventKind = "denied"
-	RequestEventKindExecuted        RequestEventKind = "executed"
-	RequestEventKindExecutionFailed RequestEventKind = "execution_failed"
-	RequestEventKindCanceled        RequestEventKind = "canceled"
+	RequestEventKindSubmitted        RequestEventKind = "submitted"
+	RequestEventKindApproved         RequestEventKind = "approved"
+	RequestEventKindExecutionStarted RequestEventKind = "execution_started"
+	RequestEventKindDenied           RequestEventKind = "denied"
+	RequestEventKindExecuted         RequestEventKind = "executed"
+	RequestEventKindExecutionFailed  RequestEventKind = "execution_failed"
+	RequestEventKindCanceled         RequestEventKind = "canceled"
 )
 
 func (e *RequestEventKind) Scan(src interface{}) error {
@@ -359,6 +360,7 @@ type RequestStatus string
 const (
 	RequestStatusPending         RequestStatus = "pending"
 	RequestStatusApproved        RequestStatus = "approved"
+	RequestStatusExecuting       RequestStatus = "executing"
 	RequestStatusDenied          RequestStatus = "denied"
 	RequestStatusExecuted        RequestStatus = "executed"
 	RequestStatusExecutionFailed RequestStatus = "execution_failed"
@@ -472,6 +474,7 @@ type Requests struct {
 	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
 	Status               RequestStatus      `json:"status"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutionStartedAt   pgtype.Timestamptz `json:"execution_started_at"`
 	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
 	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
 	ExecutionError       *string            `json:"execution_error"`

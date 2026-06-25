@@ -16,9 +16,10 @@ const approveRequest = `-- name: ApproveRequest :one
 
 UPDATE requests
 SET
-    status = 'approved',
+    status = 'executing',
     reviewer_principal_id = $2,
     reviewed_at = now(),
+    execution_started_at = now(),
     canceled_at = NULL,
     execution_error = NULL
 WHERE id = $1
@@ -31,6 +32,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -57,6 +59,7 @@ func (q *Queries) ApproveRequest(ctx context.Context, arg ApproveRequestParams) 
 		&i.ReviewerPrincipalID,
 		&i.Status,
 		&i.ReviewedAt,
+		&i.ExecutionStartedAt,
 		&i.ExecutedAt,
 		&i.CanceledAt,
 		&i.ExecutionError,
@@ -88,9 +91,24 @@ RETURNING
     updated_at
 `
 
-func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (Requests, error) {
+type CancelRequestRow struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (CancelRequestRow, error) {
 	row := q.db.QueryRow(ctx, cancelRequest, id)
-	var i Requests
+	var i CancelRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.Family,
@@ -198,9 +216,24 @@ type CreateRequestParams struct {
 	RequesterPrincipalID uuid.UUID     `json:"requester_principal_id"`
 }
 
-func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (Requests, error) {
+type CreateRequestRow struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (CreateRequestRow, error) {
 	row := q.db.QueryRow(ctx, createRequest, arg.Family, arg.Kind, arg.RequesterPrincipalID)
-	var i Requests
+	var i CreateRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.Family,
@@ -306,9 +339,24 @@ type DenyRequestParams struct {
 	ReviewerPrincipalID *uuid.UUID `json:"reviewer_principal_id"`
 }
 
-func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (Requests, error) {
+type DenyRequestRow struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (DenyRequestRow, error) {
 	row := q.db.QueryRow(ctx, denyRequest, arg.ID, arg.ReviewerPrincipalID)
-	var i Requests
+	var i DenyRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.Family,
@@ -609,7 +657,7 @@ LEFT JOIN inventory_items ii
   ON ii.id = ir.inventory_item_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
-WHERE r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
 `
 
@@ -1005,7 +1053,7 @@ LEFT JOIN inventory_items ii
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
 WHERE r.requester_principal_id = $1
-  AND r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+  AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
 `
 
@@ -1079,6 +1127,62 @@ func (q *Queries) ListRequestHistoryByRequester(ctx context.Context, requesterPr
 	return items, nil
 }
 
+const listStaleExecutingRequests = `-- name: ListStaleExecutingRequests :many
+SELECT
+    id,
+    family,
+    kind,
+    requester_principal_id,
+    reviewer_principal_id,
+    status,
+    reviewed_at,
+    execution_started_at,
+    executed_at,
+    canceled_at,
+    execution_error,
+    created_at,
+    updated_at
+FROM requests
+WHERE status = 'executing'
+  AND execution_started_at IS NOT NULL
+  AND execution_started_at < $1
+ORDER BY execution_started_at ASC, id ASC
+`
+
+func (q *Queries) ListStaleExecutingRequests(ctx context.Context, executionStartedAt pgtype.Timestamptz) ([]Requests, error) {
+	rows, err := q.db.Query(ctx, listStaleExecutingRequests, executionStartedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Requests
+	for rows.Next() {
+		var i Requests
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutionStartedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockRequestRequester = `-- name: LockRequestRequester :one
 
 SELECT id
@@ -1103,7 +1207,7 @@ SET
     executed_at = now(),
     execution_error = NULL
 WHERE id = $1
-  AND status = 'approved'
+  AND status = 'executing'
 RETURNING
     id,
     family,
@@ -1112,6 +1216,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -1130,6 +1235,7 @@ func (q *Queries) MarkRequestExecuted(ctx context.Context, id uuid.UUID) (Reques
 		&i.ReviewerPrincipalID,
 		&i.Status,
 		&i.ReviewedAt,
+		&i.ExecutionStartedAt,
 		&i.ExecutedAt,
 		&i.CanceledAt,
 		&i.ExecutionError,
@@ -1146,7 +1252,7 @@ SET
     executed_at = now(),
     execution_error = $2
 WHERE id = $1
-  AND status = 'approved'
+  AND status = 'executing'
 RETURNING
     id,
     family,
@@ -1155,6 +1261,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -1178,6 +1285,7 @@ func (q *Queries) MarkRequestExecutionFailed(ctx context.Context, arg MarkReques
 		&i.ReviewerPrincipalID,
 		&i.Status,
 		&i.ReviewedAt,
+		&i.ExecutionStartedAt,
 		&i.ExecutedAt,
 		&i.CanceledAt,
 		&i.ExecutionError,

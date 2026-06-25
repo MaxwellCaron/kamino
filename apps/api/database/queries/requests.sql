@@ -162,7 +162,7 @@ LEFT JOIN inventory_items ii
   ON ii.id = ir.inventory_item_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
-WHERE r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC;
 
 -- name: ListPendingRequestsByRequester :many
@@ -242,7 +242,7 @@ LEFT JOIN inventory_items ii
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
 WHERE r.requester_principal_id = $1
-  AND r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+  AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC;
 
 -- name: GetRequestByID :one
@@ -366,9 +366,10 @@ ORDER BY re.created_at ASC, re.id ASC;
 -- name: ApproveRequest :one
 UPDATE requests
 SET
-    status = 'approved',
+    status = 'executing',
     reviewer_principal_id = $2,
     reviewed_at = now(),
+    execution_started_at = now(),
     canceled_at = NULL,
     execution_error = NULL
 WHERE id = $1
@@ -381,6 +382,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -438,7 +440,7 @@ SET
     executed_at = now(),
     execution_error = NULL
 WHERE id = $1
-  AND status = 'approved'
+  AND status = 'executing'
 RETURNING
     id,
     family,
@@ -447,6 +449,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -460,7 +463,7 @@ SET
     executed_at = now(),
     execution_error = $2
 WHERE id = $1
-  AND status = 'approved'
+  AND status = 'executing'
 RETURNING
     id,
     family,
@@ -469,8 +472,30 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
     created_at,
     updated_at;
+
+-- name: ListStaleExecutingRequests :many
+SELECT
+    id,
+    family,
+    kind,
+    requester_principal_id,
+    reviewer_principal_id,
+    status,
+    reviewed_at,
+    execution_started_at,
+    executed_at,
+    canceled_at,
+    execution_error,
+    created_at,
+    updated_at
+FROM requests
+WHERE status = 'executing'
+  AND execution_started_at IS NOT NULL
+  AND execution_started_at < $1
+ORDER BY execution_started_at ASC, id ASC;

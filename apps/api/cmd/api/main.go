@@ -573,6 +573,26 @@ func main() {
 		requestsNotifier,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
+
+	// Surface requests that have been stuck in "executing"
+	if staleExecuting, err := requestService.ListStaleExecutingRequests(
+		context.Background(),
+		requestqueue.StaleExecutingThreshold,
+	); err != nil {
+		log.Printf("Stale executing request check failed: %v", err)
+	} else if len(staleExecuting) > 0 {
+		staleIDs := make([]string, 0, len(staleExecuting))
+		for _, r := range staleExecuting {
+			staleIDs = append(staleIDs, r.ID.String())
+		}
+		log.Printf(
+			"WARNING: found %d request(s) stuck in 'executing' for longer than %s (likely a prior process died mid-execution); request_ids=%v",
+			len(staleExecuting),
+			requestqueue.StaleExecutingThreshold,
+			staleIDs,
+		)
+	}
+
 	eventsHandler := &handlers.EventsHandler{
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,

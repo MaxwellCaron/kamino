@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -13,6 +14,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,6 +24,7 @@ const (
 	RequestKindInventoryVMSnapshotRollback = "inventory.vm.snapshot.rollback"
 
 	maxPendingRequestsPerUser = 3
+	StaleExecutingThreshold   = 15 * time.Minute
 )
 
 var (
@@ -151,6 +154,18 @@ func (s *Service) ListCompletedRequests(
 	}
 
 	return filtered, nil
+}
+
+func (s *Service) ListStaleExecutingRequests(
+	ctx context.Context,
+	threshold time.Duration,
+) ([]database.Requests, error) {
+	cutoff := pgtype.Timestamptz{
+		Time:  time.Now().Add(-threshold),
+		Valid: true,
+	}
+
+	return database.New(s.db).ListStaleExecutingRequests(ctx, cutoff)
 }
 
 func (s *Service) ListPendingRequestsByRequester(
@@ -319,6 +334,17 @@ func (s *Service) ApproveRequest(
 		ActorPrincipalID: &reviewerPrincipalID,
 		FromStatus:       validRequestStatus(database.RequestStatusPending),
 		ToStatus:         database.RequestStatusApproved,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindExecutionStarted,
+		ActorPrincipalID: &reviewerPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		ToStatus:         database.RequestStatusExecuting,
 		ErrorMessage:     nil,
 	}); err != nil {
 		return database.GetRequestByIDRow{}, nil, err
@@ -788,7 +814,7 @@ func (s *Service) markExecuted(
 		RequestID:        requestRow.ID,
 		EventKind:        database.RequestEventKindExecuted,
 		ActorPrincipalID: &actorPrincipalID,
-		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		FromStatus:       validRequestStatus(database.RequestStatusExecuting),
 		ToStatus:         database.RequestStatusExecuted,
 		ErrorMessage:     nil,
 	}); err != nil {
@@ -831,7 +857,7 @@ func (s *Service) markExecutionFailed(
 		RequestID:        requestRow.ID,
 		EventKind:        database.RequestEventKindExecutionFailed,
 		ActorPrincipalID: &actorPrincipalID,
-		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		FromStatus:       validRequestStatus(database.RequestStatusExecuting),
 		ToStatus:         database.RequestStatusExecutionFailed,
 		ErrorMessage:     &errorMessage,
 	}); err != nil {

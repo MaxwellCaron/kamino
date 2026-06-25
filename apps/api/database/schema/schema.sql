@@ -22,6 +22,7 @@ CREATE TYPE request_family AS ENUM ('inventory');
 CREATE TYPE request_status AS ENUM (
     'pending',
     'approved',
+    'executing',
     'denied',
     'executed',
     'execution_failed',
@@ -30,6 +31,7 @@ CREATE TYPE request_status AS ENUM (
 CREATE TYPE request_event_kind AS ENUM (
     'submitted',
     'approved',
+    'execution_started',
     'denied',
     'executed',
     'execution_failed',
@@ -321,6 +323,7 @@ CREATE TABLE requests (
     reviewer_principal_id   UUID NULL REFERENCES principals(id) ON DELETE RESTRICT,
     status                  request_status NOT NULL DEFAULT 'pending',
     reviewed_at             TIMESTAMPTZ NULL,
+    execution_started_at    TIMESTAMPTZ NULL,
     executed_at             TIMESTAMPTZ NULL,
     canceled_at             TIMESTAMPTZ NULL,
     execution_error         TEXT NULL,
@@ -352,6 +355,10 @@ CREATE INDEX ix_requests_requester_created_at
 CREATE INDEX ix_requests_pending_requester
     ON requests (requester_principal_id)
     WHERE status = 'pending';
+
+CREATE INDEX ix_requests_executing_started_at
+    ON requests (execution_started_at)
+    WHERE status = 'executing';
 
 CREATE INDEX ix_requests_reviewer_created_at
     ON requests (reviewer_principal_id, created_at DESC);
