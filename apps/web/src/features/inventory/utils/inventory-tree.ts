@@ -34,6 +34,25 @@ export function sortInventoryTree(
     )
 }
 
+export function indexInventoryTree(
+  nodes: Array<ApiTreeNode>
+): Map<string, ApiTreeNode> {
+  const items = new Map<string, ApiTreeNode>()
+
+  function walk(entries: Array<ApiTreeNode>) {
+    for (const entry of entries) {
+      items.set(entry.id, entry)
+      if (entry.children) {
+        walk(entry.children)
+      }
+    }
+  }
+
+  walk(nodes)
+
+  return items
+}
+
 export function findInventoryTreeNode(
   nodes: Array<ApiTreeNode>,
   id: string
@@ -226,4 +245,3 @@ export function getSelectedFolder(
 ) {
   return folderOptions.find((folder) => folder.id === folderId)
 }
-
