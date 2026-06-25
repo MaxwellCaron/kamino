@@ -79,7 +79,7 @@ export function PodHeader({
 
             <div className="flex flex-1 flex-col justify-center">
               <div className="flex flex-col gap-2">
-                <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+                <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
                   {pod.title}
                 </h1>
                 <p className="text-lg leading-relaxed text-muted-foreground">
