@@ -523,6 +523,7 @@ func main() {
 		inventoryService,
 		vmStatusNotifier,
 	)
+	vmActionClaims := vmactions.NewClaims(server.DBPool)
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Importer: server.ProxmoxImport,
@@ -530,6 +531,7 @@ func main() {
 		Notifier: vmStatusNotifier,
 		Authz:    authzService,
 		Actions:  vmActionExecutor,
+		Claims:   vmActionClaims,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:       server.ProxmoxClient,

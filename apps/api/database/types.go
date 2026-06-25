@@ -478,3 +478,11 @@ type Requests struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
+
+type VmActionClaims struct {
+	InventoryItemID  uuid.UUID          `json:"inventory_item_id"`
+	Action           string             `json:"action"`
+	ActorPrincipalID uuid.UUID          `json:"actor_principal_id"`
+	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
+	Detail           *string            `json:"detail"`
+}

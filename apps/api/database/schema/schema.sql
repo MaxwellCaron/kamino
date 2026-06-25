@@ -244,6 +244,25 @@ CREATE INDEX ix_proxmox_vms_vmid
 
 
 -- ----------------------------------------------------------------------------
+-- VM action claims
+-- Durable serialization boundary: only one direct mutation may hold a claim
+-- on a given inventory item at a time. The unique constraint on
+-- inventory_item_id (enforced via the primary key) is what actually blocks
+-- concurrent claims; the row lock taken by SELECT ... FOR UPDATE only lasts
+-- for the surrounding transaction/statement, so this table is the source of
+-- truth for cross-request serialization.
+-- ----------------------------------------------------------------------------
+CREATE TABLE vm_action_claims (
+    inventory_item_id    UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
+    action               TEXT NOT NULL,
+    actor_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
+    claimed_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    detail               TEXT NULL,
+    CONSTRAINT vm_action_claims_action_not_empty
+        CHECK (length(trim(action)) > 0)
+);
+
+-- ----------------------------------------------------------------------------
 -- ACL entries
 -- Applies to folders and VM items
 -- ----------------------------------------------------------------------------
