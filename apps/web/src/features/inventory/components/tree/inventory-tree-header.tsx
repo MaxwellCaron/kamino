@@ -24,7 +24,9 @@ export function InventoryTreeHeader() {
 
   return (
     <>
-      <SidebarGroupLabel className="-ml-1">Inventory</SidebarGroupLabel>
+      <SidebarGroupLabel className="font-semibold text-foreground">
+        Inventory
+      </SidebarGroupLabel>
       <div className="absolute top-3 right-3 flex">
         <Tooltip>
           <TooltipTrigger
