@@ -111,7 +111,7 @@ export function SiteBreadcrumb() {
             <Fragment key={`${index}-${entry.label}`}>
               <BreadcrumbItem className="min-w-0">
                 {isCurrent ? (
-                  <BreadcrumbPage className="block max-w-48 truncate sm:max-w-64 lg:max-w-80">
+                  <BreadcrumbPage className="block max-w-48 truncate font-semibold sm:max-w-64 lg:max-w-80">
                     {entry.label}
                   </BreadcrumbPage>
                 ) : (
