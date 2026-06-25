@@ -992,9 +992,13 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 
-	if err := h.Service.EnsureFolderHasVMCapacity(ctx, targetFolderID, int32(len(publishedVMs))); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, targetFolderID, int32(len(publishedVMs)), "pod_clone")
+	if err != nil {
 		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, inventoryRequestError(err)
+	}
+	if reservation != nil {
+		defer reservation.Release(ctx)
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, targetFolderID)
@@ -1090,8 +1094,12 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	if err := h.Service.EnsureFolderHasVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs))); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs)), "pod_reclone")
+	if err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
+	}
+	if reservation != nil {
+		defer reservation.Release(ctx)
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, clone.FolderID)

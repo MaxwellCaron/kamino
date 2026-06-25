@@ -265,6 +265,20 @@ CREATE TABLE vm_action_claims (
 );
 
 -- ----------------------------------------------------------------------------
+-- Folder VM capacity reservations
+-- Serialization boundary for folder VM capacity checks.
+-- ----------------------------------------------------------------------------
+CREATE TABLE folder_vm_capacity_reservations (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    folder_id   UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    vm_count    INTEGER NOT NULL CHECK (vm_count > 0),
+    operation   TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT folder_vm_capacity_reservations_operation_not_empty
+        CHECK (length(trim(operation)) > 0)
+);
+
+-- ----------------------------------------------------------------------------
 -- ACL entries
 -- Applies to folders and VM items
 -- ----------------------------------------------------------------------------

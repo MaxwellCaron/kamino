@@ -426,6 +426,14 @@ type ClonedPods struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
+type FolderVmCapacityReservations struct {
+	ID        uuid.UUID          `json:"id"`
+	FolderID  uuid.UUID          `json:"folder_id"`
+	VmCount   int32              `json:"vm_count"`
+	Operation string             `json:"operation"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type InventoryRequests struct {
 	RequestID       uuid.UUID                       `json:"request_id"`
 	InventoryItemID uuid.UUID                       `json:"inventory_item_id"`

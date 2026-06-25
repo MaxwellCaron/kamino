@@ -1009,11 +1009,15 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			h.cleanupFailedPodProvision(podFolderID, nil)
 			return
 		}
-		if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs))); err != nil {
+		reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs)), "pod_create_vms")
+		if err != nil {
 			progress.fail(inventoryRequestError(err).UserMessage)
 			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeInventoryError(c, err)
 			return
+		}
+		if reservation != nil {
+			defer reservation.Release(c.Request.Context())
 		}
 	}
 
@@ -2330,8 +2334,12 @@ func (h *PodsHandler) preparePublishedPodTemplates(
 	); reqErr != nil {
 		return nil, reqErr
 	}
-	if err := h.Service.EnsureFolderHasVMCapacity(ctx, templateFolderID, int32(len(req.VirtualMachines))); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, templateFolderID, int32(len(req.VirtualMachines)), "pod_template_vms")
+	if err != nil {
 		return nil, inventoryRequestError(err)
+	}
+	if reservation != nil {
+		defer reservation.Release(ctx)
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, templateFolderID)

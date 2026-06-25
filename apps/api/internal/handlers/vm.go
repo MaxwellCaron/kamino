@@ -815,9 +815,13 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
-	if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), targetFolderID, 1); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), targetFolderID, 1, "vm_clone")
+	if err != nil {
 		writeInventoryError(c, err)
 		return
+	}
+	if reservation != nil {
+		defer reservation.Release(c.Request.Context())
 	}
 
 	targetNode := strings.TrimSpace(req.Target)
