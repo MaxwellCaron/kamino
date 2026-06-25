@@ -731,6 +731,267 @@ func (q *Queries) ListCompletedRequests(ctx context.Context) ([]ListCompletedReq
 	return items, nil
 }
 
+const listCompletedRequestsForKindsPaginated = `-- name: ListCompletedRequestsForKindsPaginated :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND r.kind = ANY($1::TEXT[])
+  AND (
+      $2::TIMESTAMPTZ IS NULL
+      OR r.updated_at < $2
+      OR (r.updated_at = $2 AND r.created_at < $3)
+      OR (r.updated_at = $2 AND r.created_at = $3 AND r.id < $4::UUID)
+  )
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT $5
+`
+
+type ListCompletedRequestsForKindsPaginatedParams struct {
+	Kinds           []string           `json:"kinds"`
+	CursorUpdatedAt pgtype.Timestamptz `json:"cursor_updated_at"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        uuid.UUID          `json:"cursor_id"`
+	PageSize        int32              `json:"page_size"`
+}
+
+type ListCompletedRequestsForKindsPaginatedRow struct {
+	ID                    uuid.UUID                       `json:"id"`
+	Family                RequestFamily                   `json:"family"`
+	Kind                  string                          `json:"kind"`
+	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                RequestStatus                   `json:"status"`
+	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError        *string                         `json:"execution_error"`
+	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername     string                          `json:"requester_username"`
+	ReviewerUsername      string                          `json:"reviewer_username"`
+	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName          *string                         `json:"snapshot_name"`
+	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName     *string                         `json:"inventory_item_name"`
+	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryVmNode       *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListCompletedRequestsForKindsPaginated(ctx context.Context, arg ListCompletedRequestsForKindsPaginatedParams) ([]ListCompletedRequestsForKindsPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listCompletedRequestsForKindsPaginated,
+		arg.Kinds,
+		arg.CursorUpdatedAt,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCompletedRequestsForKindsPaginatedRow
+	for rows.Next() {
+		var i ListCompletedRequestsForKindsPaginatedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RequesterUsername,
+			&i.ReviewerUsername,
+			&i.InventoryItemID,
+			&i.PowerAction,
+			&i.SnapshotName,
+			&i.InventoryItemKind,
+			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
+			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCompletedRequestsPaginated = `-- name: ListCompletedRequestsPaginated :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND (
+      $1::TIMESTAMPTZ IS NULL
+      OR r.updated_at < $1
+      OR (r.updated_at = $1 AND r.created_at < $2)
+      OR (r.updated_at = $1 AND r.created_at = $2 AND r.id < $3::UUID)
+  )
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT $4
+`
+
+type ListCompletedRequestsPaginatedParams struct {
+	CursorUpdatedAt pgtype.Timestamptz `json:"cursor_updated_at"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        uuid.UUID          `json:"cursor_id"`
+	PageSize        int32              `json:"page_size"`
+}
+
+type ListCompletedRequestsPaginatedRow struct {
+	ID                    uuid.UUID                       `json:"id"`
+	Family                RequestFamily                   `json:"family"`
+	Kind                  string                          `json:"kind"`
+	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                RequestStatus                   `json:"status"`
+	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError        *string                         `json:"execution_error"`
+	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername     string                          `json:"requester_username"`
+	ReviewerUsername      string                          `json:"reviewer_username"`
+	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName          *string                         `json:"snapshot_name"`
+	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName     *string                         `json:"inventory_item_name"`
+	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryVmNode       *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListCompletedRequestsPaginated(ctx context.Context, arg ListCompletedRequestsPaginatedParams) ([]ListCompletedRequestsPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listCompletedRequestsPaginated,
+		arg.CursorUpdatedAt,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCompletedRequestsPaginatedRow
+	for rows.Next() {
+		var i ListCompletedRequestsPaginatedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RequesterUsername,
+			&i.ReviewerUsername,
+			&i.InventoryItemID,
+			&i.PowerAction,
+			&i.SnapshotName,
+			&i.InventoryItemKind,
+			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
+			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingRequests = `-- name: ListPendingRequests :many
 
 SELECT
@@ -1092,6 +1353,138 @@ func (q *Queries) ListRequestHistoryByRequester(ctx context.Context, requesterPr
 	var items []ListRequestHistoryByRequesterRow
 	for rows.Next() {
 		var i ListRequestHistoryByRequesterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RequesterUsername,
+			&i.ReviewerUsername,
+			&i.InventoryItemID,
+			&i.PowerAction,
+			&i.SnapshotName,
+			&i.InventoryItemKind,
+			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
+			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestHistoryByRequesterPaginated = `-- name: ListRequestHistoryByRequesterPaginated :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND (
+      $2::TIMESTAMPTZ IS NULL
+      OR r.updated_at < $2
+      OR (r.updated_at = $2 AND r.created_at < $3)
+      OR (r.updated_at = $2 AND r.created_at = $3 AND r.id < $4::UUID)
+  )
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT $5
+`
+
+type ListRequestHistoryByRequesterPaginatedParams struct {
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	CursorUpdatedAt      pgtype.Timestamptz `json:"cursor_updated_at"`
+	CursorCreatedAt      pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID             uuid.UUID          `json:"cursor_id"`
+	PageSize             int32              `json:"page_size"`
+}
+
+type ListRequestHistoryByRequesterPaginatedRow struct {
+	ID                    uuid.UUID                       `json:"id"`
+	Family                RequestFamily                   `json:"family"`
+	Kind                  string                          `json:"kind"`
+	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                RequestStatus                   `json:"status"`
+	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError        *string                         `json:"execution_error"`
+	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername     string                          `json:"requester_username"`
+	ReviewerUsername      string                          `json:"reviewer_username"`
+	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName          *string                         `json:"snapshot_name"`
+	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName     *string                         `json:"inventory_item_name"`
+	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryVmNode       *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListRequestHistoryByRequesterPaginated(ctx context.Context, arg ListRequestHistoryByRequesterPaginatedParams) ([]ListRequestHistoryByRequesterPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listRequestHistoryByRequesterPaginated,
+		arg.RequesterPrincipalID,
+		arg.CursorUpdatedAt,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRequestHistoryByRequesterPaginatedRow
+	for rows.Next() {
+		var i ListRequestHistoryByRequesterPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Family,

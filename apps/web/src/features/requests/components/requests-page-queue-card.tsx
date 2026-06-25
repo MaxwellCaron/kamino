@@ -1,5 +1,6 @@
 import { IconCheckbox, IconClock } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ type RequestsPageQueueCardProps = {
   activeRequests: Array<ApiRequestSummary>
   isActiveLoading: boolean
   activeError: Error | null
+  tableMode?: "paginated" | "loaded-list"
   canReview: boolean
   tree: Array<ApiTreeNode> | undefined
   approveMutation: UseMutationResult<
@@ -45,6 +47,10 @@ type RequestsPageQueueCardProps = {
     unknown
   >
   onOpenConfirm: (config: ConfirmConfig) => void
+  loadMore?: {
+    isLoading: boolean
+    onClick: () => void
+  }
 }
 
 export function RequestsPageQueueCard({
@@ -56,11 +62,13 @@ export function RequestsPageQueueCard({
   activeRequests,
   isActiveLoading,
   activeError,
+  tableMode = "paginated",
   canReview,
   tree,
   approveMutation,
   denyMutation,
   onOpenConfirm,
+  loadMore,
 }: RequestsPageQueueCardProps) {
   return (
     <Card>
@@ -106,6 +114,7 @@ export function RequestsPageQueueCard({
           isLoading={isActiveLoading}
           error={activeError}
           getRowId={(request: ApiRequestSummary) => request.id}
+          enablePagination={tableMode === "paginated"}
           selectionActions={
             canReview && scope === "pending"
               ? ({
@@ -127,6 +136,19 @@ export function RequestsPageQueueCard({
               : undefined
           }
         />
+        {loadMore && (
+          <div className="flex justify-center px-6 pb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadMore.onClick}
+              disabled={isActiveLoading || loadMore.isLoading}
+              aria-busy={loadMore.isLoading}
+            >
+              {loadMore.isLoading ? "Loading..." : "Load more"}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

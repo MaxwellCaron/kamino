@@ -245,6 +245,146 @@ WHERE r.requester_principal_id = $1
   AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC;
 
+-- name: ListCompletedRequestsPaginated :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND (
+      @cursor_updated_at::TIMESTAMPTZ IS NULL
+      OR r.updated_at < @cursor_updated_at
+      OR (r.updated_at = @cursor_updated_at AND r.created_at < @cursor_created_at)
+      OR (r.updated_at = @cursor_updated_at AND r.created_at = @cursor_created_at AND r.id < @cursor_id::UUID)
+  )
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT @page_size;
+
+-- name: ListCompletedRequestsForKindsPaginated :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND r.kind = ANY(sqlc.arg(kinds)::TEXT[])
+  AND (
+      @cursor_updated_at::TIMESTAMPTZ IS NULL
+      OR r.updated_at < @cursor_updated_at
+      OR (r.updated_at = @cursor_updated_at AND r.created_at < @cursor_created_at)
+      OR (r.updated_at = @cursor_updated_at AND r.created_at = @cursor_created_at AND r.id < @cursor_id::UUID)
+  )
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT @page_size;
+
+-- name: ListRequestHistoryByRequesterPaginated :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND (
+      @cursor_updated_at::TIMESTAMPTZ IS NULL
+      OR r.updated_at < @cursor_updated_at
+      OR (r.updated_at = @cursor_updated_at AND r.created_at < @cursor_created_at)
+      OR (r.updated_at = @cursor_updated_at AND r.created_at = @cursor_created_at AND r.id < @cursor_id::UUID)
+  )
+ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT @page_size;
+
 -- name: GetRequestByID :one
 SELECT
     r.id,

@@ -2,7 +2,10 @@ package requests
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -17,6 +20,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+const (
+	defaultPageSize = 50
+	maxPageSize     = 100
+)
+
+type RequestCursor struct {
+	UpdatedAt time.Time `json:"u"`
+	CreatedAt time.Time `json:"c"`
+	ID        uuid.UUID `json:"i"`
+}
+
+type PaginatedResult[T any] struct {
+	Items      []T            `json:"items"`
+	NextCursor *RequestCursor `json:"next_cursor,omitempty"`
+}
+
+func EncodeCursor(cursor RequestCursor) string {
+	b, _ := json.Marshal(cursor)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func DecodeCursor(raw string) (RequestCursor, error) {
+	b, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return RequestCursor{}, err
+	}
+	var cursor RequestCursor
+	if err := json.Unmarshal(b, &cursor); err != nil {
+		return RequestCursor{}, err
+	}
+	return cursor, nil
+}
+
+func ParseLimit(raw string) (int32, error) {
+	if raw == "" {
+		return defaultPageSize, nil
+	}
+	var n int32
+	_, err := fmt.Sscanf(raw, "%d", &n)
+	if err != nil {
+		return 0, errors.New("invalid limit")
+	}
+	if raw != fmt.Sprintf("%d", n) {
+		return 0, errors.New("invalid limit")
+	}
+	if n < 1 {
+		return 0, errors.New("limit must be at least 1")
+	}
+	if n > maxPageSize {
+		n = maxPageSize
+	}
+	return n, nil
+}
 
 const (
 	RequestKindInventoryVMPower            = "inventory.vm.power"
@@ -186,6 +243,119 @@ func (s *Service) ListRequestHistoryByRequester(
 		ctx,
 		requesterPrincipalID,
 	)
+}
+
+func (s *Service) ListCompletedRequestsPaginated(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+	pageSize int32,
+	cursor *RequestCursor,
+) (PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow], error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{}, err
+	}
+
+	params := database.ListCompletedRequestsForKindsPaginatedParams{
+		Kinds:    reviewableRequestKinds(reviewerPermissions),
+		PageSize: pageSize + 1,
+	}
+	if cursor != nil {
+		params.CursorUpdatedAt = pgtype.Timestamptz{Time: cursor.UpdatedAt, Valid: true}
+		params.CursorCreatedAt = pgtype.Timestamptz{Time: cursor.CreatedAt, Valid: true}
+		params.CursorID = cursor.ID
+	}
+
+	rows, err := database.New(s.db).ListCompletedRequestsForKindsPaginated(ctx, params)
+	if err != nil {
+		return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{}, err
+	}
+
+	return paginateCompletedForKinds(rows, pageSize), nil
+}
+
+func (s *Service) ListRequestHistoryByRequesterPaginated(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	pageSize int32,
+	cursor *RequestCursor,
+) (PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow], error) {
+	params := database.ListRequestHistoryByRequesterPaginatedParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		PageSize:             pageSize + 1,
+	}
+	if cursor != nil {
+		params.CursorUpdatedAt = pgtype.Timestamptz{Time: cursor.UpdatedAt, Valid: true}
+		params.CursorCreatedAt = pgtype.Timestamptz{Time: cursor.CreatedAt, Valid: true}
+		params.CursorID = cursor.ID
+	}
+
+	rows, err := database.New(s.db).ListRequestHistoryByRequesterPaginated(ctx, params)
+	if err != nil {
+		return PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow]{}, err
+	}
+
+	return paginateRequesterHistory(rows, pageSize), nil
+}
+
+func reviewableRequestKinds(
+	perms authorization.EffectiveManagementPermissions,
+) []string {
+	if !perms.Has(authorization.ManagementPermissionManager) {
+		return nil
+	}
+
+	return []string{
+		RequestKindInventoryVMPower,
+		RequestKindInventoryVMSnapshotCreate,
+		RequestKindInventoryVMSnapshotRollback,
+	}
+}
+
+func paginateCompletedForKinds(
+	rows []database.ListCompletedRequestsForKindsPaginatedRow,
+	pageSize int32,
+) PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow] {
+	if int32(len(rows)) <= pageSize {
+		return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{
+			Items: rows,
+		}
+	}
+
+	last := rows[pageSize-1]
+	return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{
+		Items:      rows[:pageSize],
+		NextCursor: cursorFromTimes(last.UpdatedAt, last.CreatedAt, last.ID),
+	}
+}
+
+func paginateRequesterHistory(
+	rows []database.ListRequestHistoryByRequesterPaginatedRow,
+	pageSize int32,
+) PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow] {
+	if int32(len(rows)) <= pageSize {
+		return PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow]{
+			Items: rows,
+		}
+	}
+
+	last := rows[pageSize-1]
+	return PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow]{
+		Items:      rows[:pageSize],
+		NextCursor: cursorFromTimes(last.UpdatedAt, last.CreatedAt, last.ID),
+	}
+}
+
+func cursorFromTimes(
+	updatedAt pgtype.Timestamptz,
+	createdAt pgtype.Timestamptz,
+	id uuid.UUID,
+) *RequestCursor {
+	return &RequestCursor{
+		UpdatedAt: updatedAt.Time,
+		CreatedAt: createdAt.Time,
+		ID:        id,
+	}
 }
 
 func (s *Service) GetRequest(

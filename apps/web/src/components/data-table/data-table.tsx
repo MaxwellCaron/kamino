@@ -59,6 +59,7 @@ interface DataTableProps<TData, TValue> {
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
+  enablePagination?: boolean
   showSelectionSummary?: boolean
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
@@ -74,6 +75,7 @@ export function DataTable<TData, TValue>({
   error,
   getRowId,
   initialPageSize = 25,
+  enablePagination = true,
   showSelectionSummary = true,
   selectionActions,
   expandedRowComponent: ExpandedRowComponent,
@@ -96,7 +98,9 @@ export function DataTable<TData, TValue>({
       ? (row) => getRowCanExpand(row.original)
       : undefined,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getPaginationRowModel: enablePagination
+      ? getPaginationRowModel()
+      : undefined,
     getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
@@ -107,11 +111,13 @@ export function DataTable<TData, TValue>({
       rowSelection,
       expanded,
     },
-    initialState: {
-      pagination: {
-        pageSize: initialPageSize,
-      },
-    },
+    initialState: enablePagination
+      ? {
+          pagination: {
+            pageSize: initialPageSize,
+          },
+        }
+      : undefined,
   })
   const selectedRows = table
     .getSelectedRowModel()
@@ -133,30 +139,34 @@ export function DataTable<TData, TValue>({
           />
         </InputGroup>
 
-        <div className="flex items-center gap-2">
-          <p className="hidden text-sm font-medium lg:block">Rows per page</p>
-          <Select
-            value={`${table.getState().pagination.pageSize}`}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value))
-            }}
-            disabled={notReady}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} align="end">
-              <SelectGroup>
-                <SelectLabel>Rows</SelectLabel>
-                {[10, 20, 25, 30, 40, 50].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+        {enablePagination && (
+          <div className="flex items-center gap-2">
+            <p className="hidden text-sm font-medium lg:block">Rows per page</p>
+            <Select
+              value={`${table.getState().pagination.pageSize}`}
+              onValueChange={(value) => {
+                table.setPageSize(Number(value))
+              }}
+              disabled={notReady}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={table.getState().pagination.pageSize}
+                />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false} align="end">
+                <SelectGroup>
+                  <SelectLabel>Rows</SelectLabel>
+                  {[10, 20, 25, 30, 40, 50].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
       <div className="overflow-hidden py-6">
         <Table className="border-y">
@@ -250,10 +260,12 @@ export function DataTable<TData, TValue>({
           </AnimatePresence>
         </Table>
       </div>
-      <DataTablePagination
-        table={table}
-        showSelectionSummary={showSelectionSummary}
-      />
+      {enablePagination ? (
+        <DataTablePagination
+          table={table}
+          showSelectionSummary={showSelectionSummary}
+        />
+      ) : null}
       {selectionActions && (
         <ActionBar
           open={selectedRows.length > 0}

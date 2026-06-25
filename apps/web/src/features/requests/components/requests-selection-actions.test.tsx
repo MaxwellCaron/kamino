@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { act, screen } from "@testing-library/react"
 import { createElement } from "react"
+import type * as ActionBarModule from "@workspace/ui/components/action-bar"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { renderWithQueryClient } from "@/test/test-utils"
 
@@ -19,7 +20,7 @@ vi.mock("@/features/shared/utils/format", () => ({
 }))
 
 vi.mock("@workspace/ui/components/action-bar", async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof ActionBarModule>()
   return {
     ...actual,
     ActionBarItem: ({

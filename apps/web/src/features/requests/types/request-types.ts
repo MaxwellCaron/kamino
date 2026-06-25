@@ -37,6 +37,11 @@ export type ApiRequestSummary = {
   inventory?: ApiRequestInventoryPayload | null
 }
 
+export type ApiPaginatedRequests = {
+  items: Array<ApiRequestSummary>
+  next_cursor?: string | null
+}
+
 export type ApiRequestEvent = {
   id: number
   event_kind: string

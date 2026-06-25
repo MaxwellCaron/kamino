@@ -67,6 +67,11 @@ type requestDetailResponse struct {
 	Events []requestEventResponse `json:"events"`
 }
 
+type paginatedRequestResponse struct {
+	Items      []requestSummaryResponse `json:"items"`
+	NextCursor *string                  `json:"next_cursor,omitempty"`
+}
+
 type requestInventoryPayload struct {
 	ItemID       *uuid.UUID `json:"item_id,omitempty"`
 	ItemName     *string    `json:"item_name,omitempty"`
@@ -116,17 +121,39 @@ func (h *RequestsHandler) List(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, response)
 	case "completed", "history":
-		rows, err := h.Service.ListCompletedRequests(c.Request.Context(), principalID)
+		limit, err := requestqueue.ParseLimit(c.Query("limit"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+			return
+		}
+
+		var cursor *requestqueue.RequestCursor
+		if raw := c.Query("cursor"); raw != "" {
+			parsed, err := requestqueue.DecodeCursor(raw)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cursor"})
+				return
+			}
+			cursor = &parsed
+		}
+
+		result, err := h.Service.ListCompletedRequestsPaginated(
+			c.Request.Context(), principalID, limit, cursor,
+		)
 		if err != nil {
 			writeRequestServiceError(c, err, "list completed requests")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, completedRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, paginatedCompletedForKindsRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+
+		c.JSON(http.StatusOK, paginatedRequestResponse{
+			Items:      response,
+			NextCursor: cursorPtrToString(result.NextCursor),
+		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
 	}
@@ -161,20 +188,39 @@ func (h *RequestsHandler) ListMine(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, response)
 	case "completed", "history":
-		rows, err := h.Service.ListRequestHistoryByRequester(
-			c.Request.Context(),
-			principalID,
+		limit, err := requestqueue.ParseLimit(c.Query("limit"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+			return
+		}
+
+		var cursor *requestqueue.RequestCursor
+		if raw := c.Query("cursor"); raw != "" {
+			parsed, err := requestqueue.DecodeCursor(raw)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cursor"})
+				return
+			}
+			cursor = &parsed
+		}
+
+		result, err := h.Service.ListRequestHistoryByRequesterPaginated(
+			c.Request.Context(), principalID, limit, cursor,
 		)
 		if err != nil {
 			writeRequestServiceError(c, err, "list own request history")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, requesterHistoryRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, paginatedRequesterHistoryRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+
+		c.JSON(http.StatusOK, paginatedRequestResponse{
+			Items:      response,
+			NextCursor: cursorPtrToString(result.NextCursor),
+		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
 	}
@@ -520,6 +566,98 @@ func completedRequestRowToResponse(row database.ListCompletedRequestsRow) reques
 		row.PowerAction,
 		row.SnapshotName,
 	)
+}
+
+func paginatedCompletedRequestRowToResponse(row database.ListCompletedRequestsPaginatedRow) requestSummaryResponse {
+	return buildRequestSummaryResponse(
+		row.ID,
+		string(row.Family),
+		row.Kind,
+		string(row.Status),
+		row.RequesterPrincipalID,
+		row.RequesterUsername,
+		row.ReviewerPrincipalID,
+		row.ReviewerUsername,
+		row.ReviewedAt,
+		row.ExecutedAt,
+		row.CanceledAt,
+		row.ExecutionError,
+		row.CreatedAt,
+		row.UpdatedAt,
+		row.InventoryItemID,
+		row.InventoryItemName,
+		row.InventoryItemKind,
+		row.InventoryItemParentID,
+		row.InventoryVmNode,
+		row.InventoryVmVmid,
+		row.InventoryVmIsTemplate,
+		row.PowerAction,
+		row.SnapshotName,
+	)
+}
+
+func paginatedCompletedForKindsRowToResponse(row database.ListCompletedRequestsForKindsPaginatedRow) requestSummaryResponse {
+	return buildRequestSummaryResponse(
+		row.ID,
+		string(row.Family),
+		row.Kind,
+		string(row.Status),
+		row.RequesterPrincipalID,
+		row.RequesterUsername,
+		row.ReviewerPrincipalID,
+		row.ReviewerUsername,
+		row.ReviewedAt,
+		row.ExecutedAt,
+		row.CanceledAt,
+		row.ExecutionError,
+		row.CreatedAt,
+		row.UpdatedAt,
+		row.InventoryItemID,
+		row.InventoryItemName,
+		row.InventoryItemKind,
+		row.InventoryItemParentID,
+		row.InventoryVmNode,
+		row.InventoryVmVmid,
+		row.InventoryVmIsTemplate,
+		row.PowerAction,
+		row.SnapshotName,
+	)
+}
+
+func paginatedRequesterHistoryRowToResponse(row database.ListRequestHistoryByRequesterPaginatedRow) requestSummaryResponse {
+	return buildRequestSummaryResponse(
+		row.ID,
+		string(row.Family),
+		row.Kind,
+		string(row.Status),
+		row.RequesterPrincipalID,
+		row.RequesterUsername,
+		row.ReviewerPrincipalID,
+		row.ReviewerUsername,
+		row.ReviewedAt,
+		row.ExecutedAt,
+		row.CanceledAt,
+		row.ExecutionError,
+		row.CreatedAt,
+		row.UpdatedAt,
+		row.InventoryItemID,
+		row.InventoryItemName,
+		row.InventoryItemKind,
+		row.InventoryItemParentID,
+		row.InventoryVmNode,
+		row.InventoryVmVmid,
+		row.InventoryVmIsTemplate,
+		row.PowerAction,
+		row.SnapshotName,
+	)
+}
+
+func cursorPtrToString(cursor *requestqueue.RequestCursor) *string {
+	if cursor == nil {
+		return nil
+	}
+	s := requestqueue.EncodeCursor(*cursor)
+	return &s
 }
 
 func requesterPendingRequestRowToResponse(

@@ -377,6 +377,14 @@ CREATE INDEX ix_requests_executing_started_at
 CREATE INDEX ix_requests_reviewer_created_at
     ON requests (reviewer_principal_id, created_at DESC);
 
+CREATE INDEX ix_requests_completed_updated_at
+    ON requests (updated_at DESC, created_at DESC, id DESC)
+    WHERE status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed');
+
+CREATE INDEX ix_requests_requester_history_updated_at
+    ON requests (requester_principal_id, updated_at DESC, created_at DESC, id DESC)
+    WHERE status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed');
+
 CREATE TABLE request_events (
     id                  BIGSERIAL PRIMARY KEY,
     request_id          UUID NOT NULL REFERENCES requests(id) ON DELETE CASCADE,

@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 import { toast } from "sonner"
 
@@ -21,6 +26,7 @@ import {
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   approveRequest,
+  completedRequestsInfiniteQueryOptions,
   denyRequest,
   requestDetailQueryOptions,
   requestsQueryOptions,
@@ -52,11 +58,30 @@ export function RequestsPage() {
     error: pendingError,
     isLoading: isPendingLoading,
   } = useQuery(requestsQueryOptions("pending"))
+
   const {
-    data: completedRequests,
-    error: completedError,
-    isLoading: isCompletedLoading,
-  } = useQuery(requestsQueryOptions("completed"))
+    data: completedRequestsPages,
+    error: completedRequestsError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isCompletedRequestsLoading,
+  } = useInfiniteQuery({
+    ...completedRequestsInfiniteQueryOptions(),
+    enabled: scope === "completed",
+  })
+  const completedItems = useMemo(
+    () =>
+      completedRequestsPages?.pages.flatMap((page) => page.items) ?? [],
+    [completedRequestsPages?.pages]
+  )
+
+  const handleLoadMoreCompleted = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage()
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
+
   const {
     data: requestDetail,
     error: requestDetailError,
@@ -67,14 +92,14 @@ export function RequestsPage() {
   })
 
   const activeRequests =
-    (scope === "pending" ? pendingRequests : completedRequests) ?? []
-  const activeError = scope === "pending" ? pendingError : completedError
+    scope === "pending" ? pendingRequests ?? [] : completedItems
+  const activeError =
+    scope === "pending" ? pendingError : completedRequestsError
   const isActiveLoading =
-    scope === "pending" ? isPendingLoading : isCompletedLoading
-  const isRequestsLoading =
-    isTreeLoading || isPendingLoading || isCompletedLoading
+    scope === "pending" ? isPendingLoading : isCompletedRequestsLoading
+  const isRequestsLoading = isTreeLoading || isPendingLoading
   const pendingCount = pendingRequests?.length ?? 0
-  const completedCount = completedRequests?.length ?? 0
+  const completedCount = completedItems.length
   const statusCounts = useMemo(() => {
     const counts: Record<ApiRequestStatus, number> = {
       pending: 0,
@@ -87,12 +112,12 @@ export function RequestsPage() {
     pendingRequests?.forEach((r) => {
       counts[r.status]++
     })
-    completedRequests?.forEach((r) => {
+    completedItems.forEach((r) => {
       counts[r.status]++
     })
 
     return counts
-  }, [pendingRequests, completedRequests])
+  }, [pendingRequests, completedItems])
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
@@ -201,11 +226,20 @@ export function RequestsPage() {
           activeRequests={activeRequests}
           isActiveLoading={isActiveLoading}
           activeError={activeError}
+          tableMode={scope === "pending" ? "paginated" : "loaded-list"}
           canReview={canReview}
           tree={tree}
           approveMutation={approveMutation}
           denyMutation={denyMutation}
           onOpenConfirm={setConfirm}
+          loadMore={
+            scope === "completed" && hasNextPage
+              ? {
+                  isLoading: isFetchingNextPage,
+                  onClick: handleLoadMoreCompleted,
+                }
+              : undefined
+          }
         />
       </div>
 

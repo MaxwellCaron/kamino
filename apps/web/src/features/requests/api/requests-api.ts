@@ -1,4 +1,5 @@
 import type {
+  ApiPaginatedRequests,
   ApiRequestActionResponse,
   ApiRequestDetail,
   ApiRequestScope,
@@ -7,10 +8,29 @@ import type {
 } from "../types/request-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
+const DEFAULT_REQUEST_PAGE_LIMIT = 50
+
+type RequestPageParams = {
+  cursor?: string | null
+  limit?: number
+}
+
+function requestPageSearchParams(scope: string, params: RequestPageParams) {
+  const search = new URLSearchParams({ scope })
+  if (params.cursor) search.set("cursor", params.cursor)
+  if (params.limit) search.set("limit", String(params.limit))
+  return search
+}
+
 export function requestsQueryOptions(scope: ApiRequestScope) {
   return {
     queryKey: ["requests", scope] as const,
     queryFn: async (): Promise<Array<ApiRequestSummary>> => {
+      if (scope === "completed") {
+        const page = await fetchCompletedRequests()
+        return page.items
+      }
+
       const res = await apiFetch(`/api/v1/requests?scope=${scope}`)
       if (!res.ok) {
         throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
@@ -18,6 +38,47 @@ export function requestsQueryOptions(scope: ApiRequestScope) {
       return res.json()
     },
   }
+}
+
+async function fetchCompletedRequests(
+  params: RequestPageParams = {}
+): Promise<ApiPaginatedRequests> {
+  const search = requestPageSearchParams("completed", {
+    limit: DEFAULT_REQUEST_PAGE_LIMIT,
+    ...params,
+  })
+  const res = await apiFetch(`/api/v1/requests?${search}`)
+  if (!res.ok) {
+    throw new Error(`Failed to fetch completed requests: ${res.status}`)
+  }
+  return res.json()
+}
+
+export function completedRequestsInfiniteQueryOptions(
+  limit = DEFAULT_REQUEST_PAGE_LIMIT
+) {
+  return {
+    queryKey: ["requests", "completed", "pages", { limit }] as const,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }: { pageParam: string | null }) =>
+      fetchCompletedRequests({ cursor: pageParam, limit }),
+    getNextPageParam: (lastPage: ApiPaginatedRequests) =>
+      lastPage.next_cursor ?? undefined,
+  }
+}
+
+async function fetchRequesterHistoryRequests(
+  params: RequestPageParams = {}
+): Promise<ApiPaginatedRequests> {
+  const search = requestPageSearchParams("history", {
+    limit: DEFAULT_REQUEST_PAGE_LIMIT,
+    ...params,
+  })
+  const res = await apiFetch(`/api/v1/requests/mine?${search}`)
+  if (!res.ok) {
+    throw new Error(`Failed to fetch your history requests: ${res.status}`)
+  }
+  return res.json()
 }
 
 export function requestDetailQueryOptions(requestId: string) {
@@ -38,6 +99,11 @@ export function requesterRequestsQueryOptions(scope: ApiRequesterRequestScope) {
   return {
     queryKey: ["requests", "mine", scope] as const,
     queryFn: async (): Promise<Array<ApiRequestSummary>> => {
+      if (scope === "history") {
+        const page = await fetchRequesterHistoryRequests()
+        return page.items
+      }
+
       const res = await apiFetch(`/api/v1/requests/mine?scope=${scope}`)
       if (!res.ok) {
         throw new Error(`Failed to fetch your ${scope} requests: ${res.status}`)
