@@ -15,7 +15,7 @@ export function InventoryTreeHeader() {
 
   return (
     <div>
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-1">
         <SidebarGroupLabel className="text-xl font-semibold tracking-tight text-foreground">
           Inventory
         </SidebarGroupLabel>
@@ -56,9 +56,9 @@ export function InventoryTreeHeader() {
           </Tooltip>
         </div>
       </div>
-      <Separator className="my-3" />
+      <Separator className="my-2" />
       <InventoryFavoritesSection />
-      <Separator className="mt-3" />
+      <Separator className="mt-2" />
     </div>
   )
 }

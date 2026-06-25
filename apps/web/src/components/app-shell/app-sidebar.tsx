@@ -32,7 +32,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
-
+import { Image } from "@unpic/react"
 import { NavUser } from "./nav-user"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import {
@@ -187,8 +187,8 @@ function IconRailHoverCard({
       <HoverCardContent
         side="right"
         align="center"
-        sideOffset={14}
-        className="w-xs"
+        sideOffset={15}
+        className="w-sm"
       >
         <div className="flex flex-col gap-1">
           <p className="font-medium text-foreground">{title}</p>
@@ -291,7 +291,13 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
                 className="cursor-pointer justify-center md:size-9! md:p-0"
                 render={<Link to="/" />}
               >
-                <img src="/kamino.svg" alt="Kamino" className="size-6!" />
+                <Image
+                  src="/kamino.svg"
+                  height={64}
+                  width={64}
+                  loading="eager"
+                  alt="Kamino"
+                />
               </SidebarMenuButton>
             </IconRailHoverCard>
           </SidebarMenuItem>
@@ -378,10 +384,10 @@ export function AppSidebar({
           collapsible="none"
           className="ml-2 flex min-w-0 flex-1 border-l group-data-[state=collapsed]:border-l-0"
         >
-          <SidebarHeader className="py-0">
+          <SidebarHeader>
             <InventoryTreeHeader />
           </SidebarHeader>
-          <SidebarContent className="px-2">
+          <SidebarContent className="pl-1">
             <InventoryTreeBody />
           </SidebarContent>
         </Sidebar>
