@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -388,3 +390,316 @@ func TestBuildPrincipalPodQuestionAnswerParamsCopiesLiveAnsweredAt(t *testing.T)
 		t.Fatalf("AnsweredAt = %#v, want %#v", params.AnsweredAt, answeredAt)
 	}
 }
+
+func TestNormalizeRouterIPBase(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"empty returns empty", "", "", false},
+		{"whitespace returns empty", "   ", "", false},
+		{"single octet", "172", "172.", false},
+		{"two octets", "172.16", "172.16.", false},
+		{"three octets", "172.16.0", "172.16.0.", false},
+		{"trailing dot stripped", "172.16.", "172.16.", false},
+		{"double trailing dot", "172.16..", "", true},
+		{"empty parts", "172..16", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeRouterIPBase(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got %q", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateClonedRouterCloudInitFileName(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		wantErr  bool
+		errMsg   string
+	}{
+		{"valid filename", "user-data.yaml", false, ""},
+		{"empty filename", "", true, "required"},
+		{"whitespace only", "   ", true, "required"},
+		{"path separator forward slash", "dir/file.yaml", true, "path separators"},
+		{"path separator backslash", "dir\\file.yaml", true, "path separators"},
+		{"double dot", "dir..file.yaml", true, "'..'"},
+		{"contains space", "user data.yaml", true, "whitespace"},
+		{"contains tab", "user\tdata.yaml", true, "whitespace"},
+		{"contains newline", "user\ndata.yaml", true, "whitespace"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateClonedRouterCloudInitFileName(tt.filename)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errMsg)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestClonedPodRuntimeStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		statuses []string
+		want     string
+	}{
+		{"empty returns partial", nil, "partial"},
+		{"single running", []string{"running"}, "running"},
+		{"single stopped", []string{"stopped"}, "stopped"},
+		{"all running", []string{"running", "running"}, "running"},
+		{"all stopped", []string{"stopped", "stopped"}, "stopped"},
+		{"mixed returns partial", []string{"running", "stopped"}, "partial"},
+		{"unknown status returns partial", []string{"running", "paused"}, "partial"},
+		{"single unknown returns partial", []string{"paused"}, "partial"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := clonedPodRuntimeStatus(tt.statuses); got != tt.want {
+				t.Errorf("clonedPodRuntimeStatus(%v) = %q, want %q", tt.statuses, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestVmidsFromTargets(t *testing.T) {
+	targets := []vmactions.Target{
+		{VMID: 100},
+		{VMID: 200},
+		{VMID: 300},
+	}
+	got := vmidsFromTargets(targets)
+	if len(got) != 3 || got[0] != 100 || got[1] != 200 || got[2] != 300 {
+		t.Errorf("vmidsFromTargets() = %v, want [100 200 300]", got)
+	}
+
+	got = vmidsFromTargets(nil)
+	if len(got) != 0 {
+		t.Errorf("nil input: got %v, want empty", got)
+	}
+}
+
+func TestClonedPodVMAlreadyInPowerState(t *testing.T) {
+	tests := []struct {
+		name   string
+		action string
+		status string
+		want   bool
+	}{
+		{"start when running", "start", "running", true},
+		{"start when stopped", "start", "stopped", false},
+		{"start when empty", "start", "", false},
+		{"shutdown when stopped", "shutdown", "stopped", true},
+		{"shutdown when running", "shutdown", "running", false},
+		{"shutdown when empty", "shutdown", "", false},
+		{"shutdown when paused", "shutdown", "paused", true},
+		{"unknown action", "restart", "running", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := clonedPodVMAlreadyInPowerState(tt.action, tt.status); got != tt.want {
+				t.Errorf("clonedPodVMAlreadyInPowerState(%q, %q) = %v, want %v", tt.action, tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsMissingProxmoxVMError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"does not exist", fmt.Errorf("VM does not exist"), true},
+		{"not found", fmt.Errorf("404 Not Found"), true},
+		{"no such vm", fmt.Errorf("no such vm 123"), true},
+		{"case insensitive", fmt.Errorf("VM Does Not Exist on node"), true},
+		{"unrelated error", fmt.Errorf("connection refused"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMissingProxmoxVMError(tt.err); got != tt.want {
+				t.Errorf("isMissingProxmoxVMError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAnswersMatch(t *testing.T) {
+	tests := []struct {
+		name     string
+		answer   string
+		expected string
+		want     bool
+	}{
+		{"exact match", "hello", "hello", true},
+		{"case insensitive", "Hello", "hello", true},
+		{"trimmed whitespace", "  hello  ", "hello", true},
+		{"both trimmed", "  hello  ", "  hello  ", true},
+		{"different", "hello", "world", false},
+		{"empty match", "", "", true},
+		{"empty vs whitespace", "", "   ", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := answersMatch(tt.answer, tt.expected); got != tt.want {
+				t.Errorf("answersMatch(%q, %q) = %v, want %v", tt.answer, tt.expected, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCloneFolderName(t *testing.T) {
+	t.Run("valid username", func(t *testing.T) {
+		got, err := cloneFolderName("alice")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "alice" {
+			t.Errorf("got %q, want %q", got, "alice")
+		}
+	})
+	t.Run("numeric prefix gets User- prefix", func(t *testing.T) {
+		got, err := cloneFolderName("123user")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.HasPrefix(got, "User-") {
+			t.Errorf("got %q, expected User- prefix", got)
+		}
+	})
+	t.Run("long name is truncated", func(t *testing.T) {
+		long := strings.Repeat("a", 100)
+		got, err := cloneFolderName(long)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) > 63 {
+			t.Errorf("len(%q) = %d, want <= 63", got, len(got))
+		}
+	})
+	t.Run("sanitizes special characters", func(t *testing.T) {
+		got, err := cloneFolderName("user@name!")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if err := names.ValidateFolder(got); err != nil {
+			t.Errorf("ValidateFolder(%q) = %v; want nil", got, err)
+		}
+	})
+}
+
+func TestPodNetworkTargetsFromCloneResults(t *testing.T) {
+	results := []clonePublishedVMResult{
+		{
+			published: database.ListPublishedPodVMsForCloneRow{Name: "router"},
+			clone:     clonedVM{VMID: 100},
+			router:    true,
+		},
+		{
+			published: database.ListPublishedPodVMsForCloneRow{Name: "workstation"},
+			clone:     clonedVM{VMID: 101},
+			router:    false,
+		},
+	}
+	targets := podNetworkTargetsFromCloneResults(results)
+	if len(targets) != 2 {
+		t.Fatalf("len = %d, want 2", len(targets))
+	}
+	if targets[0].name != "router" || !targets[0].router {
+		t.Errorf("target[0] = %+v", targets[0])
+	}
+	if targets[1].name != "workstation" || targets[1].router {
+		t.Errorf("target[1] = %+v", targets[1])
+	}
+}
+
+func TestCloneOwnerFromPrincipal(t *testing.T) {
+	id := uuid.New()
+
+	t.Run("uses name over external ID", func(t *testing.T) {
+		name := "Alice Smith"
+		row := database.ListPrincipalDetailsByIDsRow{
+			ID:            id,
+			PrincipalType: database.PrincipalTypeUser,
+			ExternalID:    "alice@ad",
+			Name:          &name,
+		}
+		got := cloneOwnerFromPrincipal(row)
+		if got.Label != "Alice Smith" {
+			t.Errorf("Label = %q, want %q", got.Label, "Alice Smith")
+		}
+		if got.Description != "alice@ad" {
+			t.Errorf("Description = %q, want %q", got.Description, "alice@ad")
+		}
+	})
+	t.Run("falls back to external ID for label", func(t *testing.T) {
+		row := database.ListPrincipalDetailsByIDsRow{
+			ID:            id,
+			PrincipalType: database.PrincipalTypeUser,
+			ExternalID:    "alice@ad",
+		}
+		got := cloneOwnerFromPrincipal(row)
+		if got.Label != "alice@ad" {
+			t.Errorf("Label = %q, want %q", got.Label, "alice@ad")
+		}
+	})
+	t.Run("uses description when present", func(t *testing.T) {
+		desc := "Lab admin"
+		row := database.ListPrincipalDetailsByIDsRow{
+			ID:            id,
+			PrincipalType: database.PrincipalTypeGroup,
+			ExternalID:    "grp-001",
+			Description:   &desc,
+		}
+		got := cloneOwnerFromPrincipal(row)
+		if got.Description != "Lab admin" {
+			t.Errorf("Description = %q, want %q", got.Description, "Lab admin")
+		}
+	})
+}
+
+func TestNewClonePodProgressReporter(t *testing.T) {
+	t.Run("empty ID returns nil", func(t *testing.T) {
+		if got := newClonePodProgressReporter(""); got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+	t.Run("whitespace ID returns nil", func(t *testing.T) {
+		if got := newClonePodProgressReporter("   "); got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+	t.Run("valid ID returns reporter", func(t *testing.T) {
+		if got := newClonePodProgressReporter("test-123"); got == nil {
+			t.Error("expected non-nil reporter")
+		}
+	})
+}
+
+// Suppress unused import warnings
+var _ = fmt.Sprintf
+var _ = vmactions.PowerActionStart
