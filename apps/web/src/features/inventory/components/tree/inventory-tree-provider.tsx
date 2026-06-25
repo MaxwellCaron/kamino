@@ -163,7 +163,20 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const lastAutoRevealedItemIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!activeItemId) {
+    if (!activeItemId || !isSearchActive || items.has(activeItemId)) {
+      return
+    }
+
+    const activeItem = fullTree.items.get(activeItemId)
+    if (activeItem?.kind !== "vm") {
+      return
+    }
+
+    setQuery("")
+  }, [activeItemId, fullTree.items, isSearchActive, items])
+
+  useEffect(() => {
+    if (!activeItemId || !items.has(activeItemId)) {
       lastAutoRevealedItemIdRef.current = null
       return
     }
@@ -173,21 +186,13 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    if (!items.has(activeItemId)) {
-      if (isSearchActive) {
-        lastAutoRevealedItemIdRef.current = null
-        setQuery("")
-      }
-      return
-    }
-
     if (lastAutoRevealedItemIdRef.current === activeItemId) {
       return
     }
 
     lastAutoRevealedItemIdRef.current = activeItemId
     void revealItem(activeItemId)
-  }, [activeItemId, fullTree.items, isSearchActive, items, revealItem])
+  }, [activeItemId, fullTree.items, items, revealItem])
 
   const value: InventoryTreeContextValue = {
     query,
