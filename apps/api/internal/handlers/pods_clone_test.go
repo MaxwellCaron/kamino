@@ -10,6 +10,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -142,7 +143,10 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 		},
 	}
 
-	got := handler.clonedPodNetworkMetadata(24)
+	got, err := handler.clonedPodNetworkMetadata(24)
+	if err != nil {
+		t.Fatalf("clonedPodNetworkMetadata() error = %v", err)
+	}
 	if got.Number != 24 || got.VNet != "pod24" {
 		t.Fatalf("metadata identity = %#v", got)
 	}
@@ -394,7 +398,7 @@ func TestBuildPrincipalPodQuestionAnswerParamsCopiesLiveAnsweredAt(t *testing.T)
 	}
 }
 
-func TestNormalizeRouterIPBase(t *testing.T) {
+func TestNormalizeDottedPrefix(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -409,10 +413,13 @@ func TestNormalizeRouterIPBase(t *testing.T) {
 		{"trailing dot stripped", "172.16.", "172.16.", false},
 		{"double trailing dot", "172.16..", "", true},
 		{"empty parts", "172..16", "", true},
+		{"non-numeric octet", "abc.def", "", true},
+		{"octet out of range", "256.0.0.1", "", true},
+		{"negative octet", "-1.0.0.1", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeRouterIPBase(tt.input)
+			got, err := routerconfig.NormalizeDottedPrefix(tt.input)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got %q", got)
@@ -429,7 +436,7 @@ func TestNormalizeRouterIPBase(t *testing.T) {
 	}
 }
 
-func TestValidateClonedRouterCloudInitFileName(t *testing.T) {
+func TestValidateCloudInitSnippetFilename(t *testing.T) {
 	tests := []struct {
 		name     string
 		filename string
@@ -448,7 +455,7 @@ func TestValidateClonedRouterCloudInitFileName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateClonedRouterCloudInitFileName(tt.filename)
+			err := routerconfig.ValidateCloudInitSnippetFilename(tt.filename)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")

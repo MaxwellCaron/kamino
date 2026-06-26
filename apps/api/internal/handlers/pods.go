@@ -728,6 +728,11 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
 		}
 
+		network, err := h.clonedPodNetworkMetadata(s.NetworkNumber)
+		if err != nil {
+			return nil, fmt.Errorf("clone %s network metadata: %w", s.ID, err)
+		}
+
 		response = append(response, publishedPodCloneResponse{
 			ID:    s.ID,
 			PodID: s.PodID,
@@ -740,7 +745,7 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			ClonedAt:  s.CreatedAt.Time,
 			UpdatedAt: s.UpdatedAt.Time,
 			Status:    clonedPodRuntimeStatus(vmStatusList),
-			Network:   h.clonedPodNetworkMetadata(s.NetworkNumber),
+			Network:   network,
 			VMCount:   int32(s.VmCount),
 			TaskSummary: publishedPodCloneTaskSummaryResponse{
 				Total:     s.TaskTotal,

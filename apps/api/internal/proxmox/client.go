@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/google/uuid"
 )
 
@@ -703,25 +704,6 @@ func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid in
 	}
 }
 
-func validateCloudInitSnippetFileName(filename string) error {
-	filename = strings.TrimSpace(filename)
-	if filename == "" {
-		return fmt.Errorf("filename is required")
-	}
-	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
-		return fmt.Errorf("filename must not contain path separators")
-	}
-	if strings.Contains(filename, "..") {
-		return fmt.Errorf("filename must not contain '..'")
-	}
-	for _, r := range filename {
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
-			return fmt.Errorf("filename must not contain whitespace")
-		}
-	}
-	return nil
-}
-
 // EnsureVMCloudInitDrive verifies the VM has a cloud-init disk configured.
 func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
@@ -760,13 +742,13 @@ func (c *Client) SetVMCloudInitCustom(
 	if storage == "" {
 		return fmt.Errorf("storage is required")
 	}
-	if err := validateCloudInitSnippetFileName(userFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(userFile); err != nil {
 		return fmt.Errorf("invalid user cloud-init snippet filename: %w", err)
 	}
-	if err := validateCloudInitSnippetFileName(metaFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(metaFile); err != nil {
 		return fmt.Errorf("invalid meta cloud-init snippet filename: %w", err)
 	}
-	if err := validateCloudInitSnippetFileName(networkFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(networkFile); err != nil {
 		return fmt.Errorf("invalid network cloud-init snippet filename: %w", err)
 	}
 

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/auth"
@@ -20,6 +19,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
@@ -103,80 +103,6 @@ func parseOptionalUUID(value string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func normalizeDottedPrefix(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	trimmed = strings.TrimSuffix(trimmed, ".")
-	segments := strings.Split(trimmed, ".")
-	if len(segments) == 0 {
-		return "", fmt.Errorf("must be a dotted numeric prefix")
-	}
-
-	for _, segment := range segments {
-		if strings.TrimSpace(segment) == "" {
-			return "", fmt.Errorf("must be a dotted numeric prefix")
-		}
-		octet, err := strconv.Atoi(segment)
-		if err != nil || octet < 0 || octet > 255 {
-			return "", fmt.Errorf("must be a dotted numeric prefix")
-		}
-	}
-
-	return strings.Join(segments, ".") + ".", nil
-}
-
-func validateCloudInitSnippetFilename(value string) error {
-	if value == "" {
-		return fmt.Errorf("must not be empty")
-	}
-	if strings.Contains(value, "/") || strings.Contains(value, "\\") {
-		return fmt.Errorf("must not contain path separators")
-	}
-	if strings.Contains(value, "..") {
-		return fmt.Errorf("must not contain '..'")
-	}
-	if strings.IndexFunc(value, unicode.IsSpace) >= 0 {
-		return fmt.Errorf("must not contain whitespace")
-	}
-	return nil
-}
-
-func normalizeCloudInitStorage(value string) string {
-	return strings.TrimSpace(value)
-}
-
-func normalizeCloudInitFilePattern(envName, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("%s must not be empty", envName)
-	}
-	if strings.Count(trimmed, "{network}") != 1 {
-		return "", fmt.Errorf("%s must contain {network} exactly once", envName)
-	}
-	filename := strings.Replace(trimmed, "{network}", "24", 1)
-	if err := validateCloudInitSnippetFilename(filename); err != nil {
-		return "", fmt.Errorf("%s %w", envName, err)
-	}
-	return trimmed, nil
-}
-
-func normalizeCloudInitFileName(envName, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("%s must not be empty", envName)
-	}
-	if strings.Contains(trimmed, "{network}") {
-		return "", fmt.Errorf("%s must not contain {network}", envName)
-	}
-	if err := validateCloudInitSnippetFilename(trimmed); err != nil {
-		return "", fmt.Errorf("%s %w", envName, err)
-	}
-	return trimmed, nil
-}
-
 func validatePodVNetPrefix(prefix string, maxNetworkNumber int32) error {
 	trimmed := strings.TrimSpace(prefix)
 	if trimmed == "" {
@@ -231,39 +157,39 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAIT_TIMEOUT must be positive")
 	}
 
-	wanIPBase, err := normalizeDottedPrefix(config.PodRouterWANIPBase)
+	wanIPBase, err := routerconfig.NormalizeDottedPrefix(config.PodRouterWANIPBase)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAN_IP_BASE: %w", err)
 	}
 	if wanIPBase == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAN_IP_BASE must not be empty")
 	}
-	internalIPBase, err := normalizeDottedPrefix(config.PodRouterLANIPBase)
+	internalIPBase, err := routerconfig.NormalizeDottedPrefix(config.PodRouterLANIPBase)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_IP_BASE: %w", err)
 	}
 	if internalIPBase == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_INTERNAL_IP_BASE must not be empty")
 	}
-	cloudInitStorage := normalizeCloudInitStorage(config.PodRouterCloudInitStorage)
+	cloudInitStorage := routerconfig.NormalizeCloudInitStorage(config.PodRouterCloudInitStorage)
 	if cloudInitStorage == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_CLOUD_INIT_STORAGE must not be empty")
 	}
-	cloudInitUserFilePattern, err := normalizeCloudInitFilePattern(
+	cloudInitUserFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
 		"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN",
 		config.PodRouterCloudInitUserFilePattern,
 	)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, err
 	}
-	cloudInitMetaFilePattern, err := normalizeCloudInitFilePattern(
+	cloudInitMetaFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
 		"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN",
 		config.PodRouterCloudInitMetaFilePattern,
 	)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, err
 	}
-	cloudInitNetworkFile, err := normalizeCloudInitFileName(
+	cloudInitNetworkFile, err := routerconfig.NormalizeCloudInitFileName(
 		"POD_ROUTER_CLOUD_INIT_NETWORK_FILE",
 		config.PodRouterCloudInitNetworkFile,
 	)

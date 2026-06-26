@@ -131,3 +131,38 @@ default prefix and ranges, the longest generated ID is `pod254`.
 - Keep real credentials only in untracked `.env*` files (`.env`, `.env.docker`). Never commit them.
 - Generate `JWT_SECRET` with `openssl rand -base64 32`.
 - Leave `PROXMOX_INSECURE` and `LDAP_INSECURE` as `false` outside isolated lab environments.
+
+## Operations
+
+### Source of truth
+
+Postgres is the source of truth for all Kamino state. Proxmox is treated as an external resource that Kamino mirrors and reconciles against. When a discrepancy is found, Kamino updates Proxmox to match the database, not the other way around.
+
+### Startup sequence
+
+On startup the API performs these steps in order:
+
+1. Connect to Postgres and initialize the query layer.
+2. Connect to Proxmox and verify API access.
+3. Run an initial inventory import from Proxmox into the database.
+4. Optionally run AD/LDAP sync if `LDAP_URL` is configured.
+5. Start event notifiers (inventory, VM status, requests).
+6. Reconcile Proxmox mirror state against the database.
+7. Bootstrap admin group ACLs from `LDAP_ADMIN_GROUP_DN` if configured.
+8. Normalize permission inheritance across the inventory tree.
+9. Register HTTP routes and begin serving.
+
+### Mirror reconcile and managed pool deletion
+
+During step 6, Kamino compares its database state with Proxmox. Pools that Kamino previously managed but are no longer present in the database may be deleted from Proxmox during reconcile. This is expected behavior when inventory items are removed from Kamino. Review Proxmox mirror logs before running destructive sync operations in production.
+
+### Pod router prerequisites
+
+Pod cloning requires the following to be configured and healthy:
+
+| Prerequisite | Env var | Check |
+|---|---|---|
+| Router template VM exists in inventory | `POD_ROUTER_TEMPLATE_ITEM_ID` | Must point to a valid template inventory item |
+| Cloud-init snippets exist on Proxmox storage | `POD_ROUTER_CLOUD_INIT_*` | Filenames must pass validation (no path separators, no `..`) |
+| VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_CLONE_NETWORK_MIN/MAX` | Each `{prefix}{number}` VNet must be present in Proxmox SDN |
+| IP prefixes are valid dotted numeric values | `POD_ROUTER_WAN_IP_BASE`, `POD_ROUTER_INTERNAL_IP_BASE` | Each segment must be 0-255 |

@@ -16,6 +16,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -251,45 +252,6 @@ func findPodNetworkRouterTarget(targets []podNetworkVMTarget) (*podNetworkVMTarg
 	return router, nil
 }
 
-func normalizeRouterIPBase(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	trimmed = strings.TrimSuffix(trimmed, ".")
-	parts := strings.Split(trimmed, ".")
-	if len(parts) == 0 {
-		return "", fmt.Errorf("invalid router network prefix")
-	}
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "" {
-			return "", fmt.Errorf("invalid router network prefix")
-		}
-	}
-
-	return strings.Join(parts, ".") + ".", nil
-}
-
-func validateClonedRouterCloudInitFileName(filename string) error {
-	filename = strings.TrimSpace(filename)
-	if filename == "" {
-		return fmt.Errorf("filename is required")
-	}
-	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
-		return fmt.Errorf("filename must not contain path separators")
-	}
-	if strings.Contains(filename, "..") {
-		return fmt.Errorf("filename must not contain '..'")
-	}
-	for _, r := range filename {
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
-			return fmt.Errorf("filename must not contain whitespace")
-		}
-	}
-	return nil
-}
-
 func formatClonedRouterCloudInitFile(pattern string, networkNumber int32) (string, error) {
 	pattern = strings.TrimSpace(pattern)
 	if strings.Count(pattern, routerCloudInitNetworkPlaceholder) != 1 {
@@ -302,7 +264,7 @@ func formatClonedRouterCloudInitFile(pattern string, networkNumber int32) (strin
 		fmt.Sprintf("%d", networkNumber),
 		1,
 	)
-	if err := validateClonedRouterCloudInitFileName(filename); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(filename); err != nil {
 		return "", err
 	}
 
@@ -328,7 +290,7 @@ func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterClone
 	if strings.Contains(networkFile, routerCloudInitNetworkPlaceholder) {
 		return nil, fmt.Errorf("router cloud-init network-config filename must not contain %s", routerCloudInitNetworkPlaceholder)
 	}
-	if err := validateClonedRouterCloudInitFileName(networkFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(networkFile); err != nil {
 		return nil, fmt.Errorf("build router cloud-init network-config filename: %w", err)
 	}
 
@@ -1586,9 +1548,15 @@ func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
 	return h.podVNetName(networkNumber)
 }
 
-func (h *PodsHandler) podNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
-	wanBase, _ := normalizeRouterIPBase(h.RouterCloneConfig.WANIPBase)
-	internalBase, _ := normalizeRouterIPBase(h.RouterCloneConfig.InternalIPBase)
+func (h *PodsHandler) podNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
+	wanBase, err := routerconfig.NormalizeDottedPrefix(h.RouterCloneConfig.WANIPBase)
+	if err != nil {
+		return clonedPodNetworkResponse{}, fmt.Errorf("invalid WAN IP base %q: %w", h.RouterCloneConfig.WANIPBase, err)
+	}
+	internalBase, err := routerconfig.NormalizeDottedPrefix(h.RouterCloneConfig.InternalIPBase)
+	if err != nil {
+		return clonedPodNetworkResponse{}, fmt.Errorf("invalid internal IP base %q: %w", h.RouterCloneConfig.InternalIPBase, err)
+	}
 
 	response := clonedPodNetworkResponse{
 		Number:          networkNumber,
@@ -1604,10 +1572,10 @@ func (h *PodsHandler) podNetworkMetadata(networkNumber int32) clonedPodNetworkRe
 		response.InternalGateway = &internalGateway
 	}
 
-	return response
+	return response, nil
 }
 
-func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
+func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
 	return h.podNetworkMetadata(networkNumber)
 }
 
@@ -2073,13 +2041,18 @@ func (h *PodsHandler) hydrateClonedPod(
 	}
 	owner := cloneOwnerFromPrincipal(principals[0])
 
+	network, err := h.clonedPodNetworkMetadata(clone.NetworkNumber)
+	if err != nil {
+		return clonedPodResponse{}, err
+	}
+
 	return clonedPodResponse{
 		ID:       clone.ID,
 		PodID:    clone.PodID,
 		Owner:    owner,
 		ClonedAt: pgTime(clone.CreatedAt),
 		Status:   status,
-		Network:  h.clonedPodNetworkMetadata(clone.NetworkNumber),
+		Network:  network,
 		VMs:      vms,
 		TaskSummary: clonedPodTaskSummaryResponse{
 			Total:     totalTasks,
