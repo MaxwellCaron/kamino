@@ -1641,7 +1641,7 @@ AS $$
         JOIN chain
           ON parent.id = chain.parent_id
     )
-    SELECT string_agg(name, '/' ORDER BY depth DESC)
+    SELECT COALESCE(string_agg(name, '/' ORDER BY depth DESC), '')
     FROM chain;
 $$;
 
