@@ -30,7 +30,7 @@ export function DataTablePagination<TData>({
         Page {table.getState().pagination.pageIndex + 1} of{" "}
         {table.getPageCount()}
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"

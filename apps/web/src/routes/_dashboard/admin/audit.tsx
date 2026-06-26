@@ -4,8 +4,8 @@ import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_dashboard/admin/audit")({
   staticData: {
-    breadcrumb: { label: "Audit" },
+    breadcrumb: { label: "Audit Logs" },
   },
-  head: () => pageTitle("Audit Ledger"),
+  head: () => pageTitle("Audit Logs"),
   component: AuditPage,
 })

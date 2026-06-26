@@ -7,7 +7,6 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Service struct {
@@ -69,57 +68,56 @@ func (s *Service) RecordFailure(ctx context.Context, params EventParams, errMsg 
 }
 
 type ListParams struct {
-	CursorID        *int64
-	CursorCreatedAt *pgtype.Timestamptz
-	PageSize        int32
+	Page   int32
+	Rows   int32
+	Search string
 }
 
 type ListResult struct {
-	Items      []database.ListActionEventsPaginatedRow
-	NextCursor *int64
-	Total      int32
+	Items []database.ListActionEventsPaginatedRow
+	Total int32
+	Page  int32
+	Rows  int32
+}
+
+// normalizeListParams applies the page=1/rows=25 defaults shared by audit
+// table consumers and computes the corresponding row offset.
+func normalizeListParams(params ListParams) (page int32, rows int32, offset int32) {
+	page = params.Page
+	if page <= 0 {
+		page = 1
+	}
+	rows = params.Rows
+	if rows <= 0 {
+		rows = 25
+	}
+	offset = (page - 1) * rows
+	return page, rows, offset
 }
 
 func (s *Service) List(ctx context.Context, params ListParams) (ListResult, error) {
 	q := database.New(s.db)
 
-	var cursorTS pgtype.Timestamptz
-	var cursorID int64
-	if params.CursorCreatedAt != nil {
-		cursorTS = *params.CursorCreatedAt
-	}
-	if params.CursorID != nil {
-		cursorID = *params.CursorID
-	}
+	page, rows, offset := normalizeListParams(params)
 
-	pageSize := params.PageSize
-	if pageSize <= 0 || pageSize > 100 {
-		pageSize = 50
-	}
-
-	rows, err := q.ListActionEventsPaginated(ctx, database.ListActionEventsPaginatedParams{
-		CursorCreatedAt: cursorTS,
-		CursorID:        cursorID,
-		PageSize:        pageSize,
+	items, err := q.ListActionEventsPaginated(ctx, database.ListActionEventsPaginatedParams{
+		Search:    params.Search,
+		Rows:      rows,
+		RowOffset: offset,
 	})
 	if err != nil {
 		return ListResult{}, err
 	}
 
-	total, err := q.CountActionEvents(ctx)
+	total, err := q.CountActionEventsFiltered(ctx, params.Search)
 	if err != nil {
 		return ListResult{}, err
 	}
 
-	result := ListResult{
-		Items: rows,
+	return ListResult{
+		Items: items,
 		Total: total,
-	}
-
-	if len(rows) == int(pageSize) {
-		last := rows[len(rows)-1]
-		result.NextCursor = &last.ID
-	}
-
-	return result, nil
+		Page:  page,
+		Rows:  rows,
+	}, nil
 }

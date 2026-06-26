@@ -2,10 +2,7 @@ package requests
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -21,58 +18,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	defaultPageSize = 50
-	maxPageSize     = 100
-)
-
-type RequestCursor struct {
-	UpdatedAt time.Time `json:"u"`
-	CreatedAt time.Time `json:"c"`
-	ID        uuid.UUID `json:"i"`
-}
-
-type PaginatedResult[T any] struct {
-	Items      []T            `json:"items"`
-	NextCursor *RequestCursor `json:"next_cursor,omitempty"`
-}
-
-func EncodeCursor(cursor RequestCursor) string {
-	b, _ := json.Marshal(cursor)
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-func DecodeCursor(raw string) (RequestCursor, error) {
-	b, err := base64.RawURLEncoding.DecodeString(raw)
-	if err != nil {
-		return RequestCursor{}, err
-	}
-	var cursor RequestCursor
-	if err := json.Unmarshal(b, &cursor); err != nil {
-		return RequestCursor{}, err
-	}
-	return cursor, nil
-}
-
-func ParseLimit(raw string) (int32, error) {
-	if raw == "" {
-		return defaultPageSize, nil
-	}
-	var n int32
-	_, err := fmt.Sscanf(raw, "%d", &n)
-	if err != nil {
-		return 0, errors.New("invalid limit")
-	}
-	if raw != fmt.Sprintf("%d", n) {
-		return 0, errors.New("invalid limit")
-	}
-	if n < 1 {
-		return 0, errors.New("limit must be at least 1")
-	}
-	if n > maxPageSize {
-		n = maxPageSize
-	}
-	return n, nil
+// TablePageResult is the page/rows/search response shape used by data
+// tables for audit/request lists: a bounded slice of items plus the
+// filtered total row count.
+type TablePageResult[T any] struct {
+	Items []T   `json:"items"`
+	Total int32 `json:"total"`
+	Page  int32 `json:"page"`
+	Rows  int32 `json:"rows"`
 }
 
 const (
@@ -165,54 +118,6 @@ func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, event Event) {
 	s.notify(ctx, tx, event)
 }
 
-func (s *Service) ListPendingRequests(
-	ctx context.Context,
-	actorPrincipalID uuid.UUID,
-) ([]database.ListPendingRequestsRow, error) {
-	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := database.New(s.db).ListPendingRequests(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	filtered := make([]database.ListPendingRequestsRow, 0, len(rows))
-	for _, row := range rows {
-		if canReviewRequestKind(reviewerPermissions, row.Kind) {
-			filtered = append(filtered, row)
-		}
-	}
-
-	return filtered, nil
-}
-
-func (s *Service) ListCompletedRequests(
-	ctx context.Context,
-	actorPrincipalID uuid.UUID,
-) ([]database.ListCompletedRequestsRow, error) {
-	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := database.New(s.db).ListCompletedRequests(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	filtered := make([]database.ListCompletedRequestsRow, 0, len(rows))
-	for _, row := range rows {
-		if canReviewRequestKind(reviewerPermissions, row.Kind) {
-			filtered = append(filtered, row)
-		}
-	}
-
-	return filtered, nil
-}
-
 func (s *Service) ListStaleExecutingRequests(
 	ctx context.Context,
 	threshold time.Duration,
@@ -225,77 +130,178 @@ func (s *Service) ListStaleExecutingRequests(
 	return database.New(s.db).ListStaleExecutingRequests(ctx, cutoff)
 }
 
-func (s *Service) ListPendingRequestsByRequester(
-	ctx context.Context,
-	requesterPrincipalID uuid.UUID,
-) ([]database.ListPendingRequestsByRequesterRow, error) {
-	return database.New(s.db).ListPendingRequestsByRequester(
-		ctx,
-		requesterPrincipalID,
-	)
+// TablePageParams is page/rows/search input shared by request table
+// endpoints (manager pending, manager completed, requester pending,
+// requester history).
+type TablePageParams struct {
+	Page   int32
+	Rows   int32
+	Search string
 }
 
-func (s *Service) ListRequestHistoryByRequester(
-	ctx context.Context,
-	requesterPrincipalID uuid.UUID,
-) ([]database.ListRequestHistoryByRequesterRow, error) {
-	return database.New(s.db).ListRequestHistoryByRequester(
-		ctx,
-		requesterPrincipalID,
-	)
+func normalizeTablePage(params TablePageParams) (page int32, rows int32, offset int32) {
+	page = params.Page
+	if page <= 0 {
+		page = 1
+	}
+	rows = params.Rows
+	if rows <= 0 {
+		rows = 25
+	}
+	offset = (page - 1) * rows
+	return page, rows, offset
 }
 
-func (s *Service) ListCompletedRequestsPaginated(
+// ListPendingRequestsTable returns the manager pending-requests table page,
+// scoped to request kinds the actor may review.
+func (s *Service) ListPendingRequestsTable(
 	ctx context.Context,
 	actorPrincipalID uuid.UUID,
-	pageSize int32,
-	cursor *RequestCursor,
-) (PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow], error) {
+	params TablePageParams,
+) (TablePageResult[database.ListPendingRequestsFilteredRow], error) {
 	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
 	if err != nil {
-		return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{}, err
+		return TablePageResult[database.ListPendingRequestsFilteredRow]{}, err
 	}
 
-	params := database.ListCompletedRequestsForKindsPaginatedParams{
-		Kinds:    reviewableRequestKinds(reviewerPermissions),
-		PageSize: pageSize + 1,
-	}
-	if cursor != nil {
-		params.CursorUpdatedAt = pgtype.Timestamptz{Time: cursor.UpdatedAt, Valid: true}
-		params.CursorCreatedAt = pgtype.Timestamptz{Time: cursor.CreatedAt, Valid: true}
-		params.CursorID = cursor.ID
-	}
+	page, rows, offset := normalizeTablePage(params)
+	kinds := reviewableRequestKinds(reviewerPermissions)
 
-	rows, err := database.New(s.db).ListCompletedRequestsForKindsPaginated(ctx, params)
+	items, err := database.New(s.db).ListPendingRequestsFiltered(ctx, database.ListPendingRequestsFilteredParams{
+		Kinds:     kinds,
+		Search:    params.Search,
+		Rows:      rows,
+		RowOffset: offset,
+	})
 	if err != nil {
-		return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{}, err
+		return TablePageResult[database.ListPendingRequestsFilteredRow]{}, err
 	}
 
-	return paginateCompletedForKinds(rows, pageSize), nil
+	total, err := database.New(s.db).CountPendingRequestsFiltered(ctx, database.CountPendingRequestsFilteredParams{
+		Kinds:  kinds,
+		Search: params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListPendingRequestsFilteredRow]{}, err
+	}
+
+	return TablePageResult[database.ListPendingRequestsFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
 }
 
-func (s *Service) ListRequestHistoryByRequesterPaginated(
+// ListCompletedRequestsTable returns the manager completed-requests table
+// page, scoped to request kinds the actor may review.
+func (s *Service) ListCompletedRequestsTable(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+	params TablePageParams,
+) (TablePageResult[database.ListCompletedRequestsForKindsFilteredRow], error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{}, err
+	}
+
+	page, rows, offset := normalizeTablePage(params)
+	kinds := reviewableRequestKinds(reviewerPermissions)
+
+	items, err := database.New(s.db).ListCompletedRequestsForKindsFiltered(ctx, database.ListCompletedRequestsForKindsFilteredParams{
+		Kinds:     kinds,
+		Search:    params.Search,
+		Rows:      rows,
+		RowOffset: offset,
+	})
+	if err != nil {
+		return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{}, err
+	}
+
+	total, err := database.New(s.db).CountCompletedRequestsForKindsFiltered(ctx, database.CountCompletedRequestsForKindsFilteredParams{
+		Kinds:  kinds,
+		Search: params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{}, err
+	}
+
+	return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
+}
+
+// ListPendingRequestsByRequesterTable returns the requester's own pending
+// requests table page.
+func (s *Service) ListPendingRequestsByRequesterTable(
 	ctx context.Context,
 	requesterPrincipalID uuid.UUID,
-	pageSize int32,
-	cursor *RequestCursor,
-) (PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow], error) {
-	params := database.ListRequestHistoryByRequesterPaginatedParams{
+	params TablePageParams,
+) (TablePageResult[database.ListPendingRequestsByRequesterFilteredRow], error) {
+	page, rows, offset := normalizeTablePage(params)
+
+	items, err := database.New(s.db).ListPendingRequestsByRequesterFiltered(ctx, database.ListPendingRequestsByRequesterFilteredParams{
 		RequesterPrincipalID: requesterPrincipalID,
-		PageSize:             pageSize + 1,
-	}
-	if cursor != nil {
-		params.CursorUpdatedAt = pgtype.Timestamptz{Time: cursor.UpdatedAt, Valid: true}
-		params.CursorCreatedAt = pgtype.Timestamptz{Time: cursor.CreatedAt, Valid: true}
-		params.CursorID = cursor.ID
-	}
-
-	rows, err := database.New(s.db).ListRequestHistoryByRequesterPaginated(ctx, params)
+		Search:               params.Search,
+		Rows:                 rows,
+		RowOffset:            offset,
+	})
 	if err != nil {
-		return PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow]{}, err
+		return TablePageResult[database.ListPendingRequestsByRequesterFilteredRow]{}, err
 	}
 
-	return paginateRequesterHistory(rows, pageSize), nil
+	total, err := database.New(s.db).CountPendingRequestsByRequesterFiltered(ctx, database.CountPendingRequestsByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListPendingRequestsByRequesterFilteredRow]{}, err
+	}
+
+	return TablePageResult[database.ListPendingRequestsByRequesterFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
+}
+
+// ListRequestHistoryByRequesterTable returns the requester's own request
+// history table page.
+func (s *Service) ListRequestHistoryByRequesterTable(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+	params TablePageParams,
+) (TablePageResult[database.ListRequestHistoryByRequesterFilteredRow], error) {
+	page, rows, offset := normalizeTablePage(params)
+
+	items, err := database.New(s.db).ListRequestHistoryByRequesterFiltered(ctx, database.ListRequestHistoryByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+		Rows:                 rows,
+		RowOffset:            offset,
+	})
+	if err != nil {
+		return TablePageResult[database.ListRequestHistoryByRequesterFilteredRow]{}, err
+	}
+
+	total, err := database.New(s.db).CountRequestHistoryByRequesterFiltered(ctx, database.CountRequestHistoryByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListRequestHistoryByRequesterFilteredRow]{}, err
+	}
+
+	return TablePageResult[database.ListRequestHistoryByRequesterFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
 }
 
 func reviewableRequestKinds(
@@ -309,52 +315,6 @@ func reviewableRequestKinds(
 		RequestKindInventoryVMPower,
 		RequestKindInventoryVMSnapshotCreate,
 		RequestKindInventoryVMSnapshotRollback,
-	}
-}
-
-func paginateCompletedForKinds(
-	rows []database.ListCompletedRequestsForKindsPaginatedRow,
-	pageSize int32,
-) PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow] {
-	if int32(len(rows)) <= pageSize {
-		return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{
-			Items: rows,
-		}
-	}
-
-	last := rows[pageSize-1]
-	return PaginatedResult[database.ListCompletedRequestsForKindsPaginatedRow]{
-		Items:      rows[:pageSize],
-		NextCursor: cursorFromTimes(last.UpdatedAt, last.CreatedAt, last.ID),
-	}
-}
-
-func paginateRequesterHistory(
-	rows []database.ListRequestHistoryByRequesterPaginatedRow,
-	pageSize int32,
-) PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow] {
-	if int32(len(rows)) <= pageSize {
-		return PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow]{
-			Items: rows,
-		}
-	}
-
-	last := rows[pageSize-1]
-	return PaginatedResult[database.ListRequestHistoryByRequesterPaginatedRow]{
-		Items:      rows[:pageSize],
-		NextCursor: cursorFromTimes(last.UpdatedAt, last.CreatedAt, last.ID),
-	}
-}
-
-func cursorFromTimes(
-	updatedAt pgtype.Timestamptz,
-	createdAt pgtype.Timestamptz,
-	id uuid.UUID,
-) *RequestCursor {
-	return &RequestCursor{
-		UpdatedAt: updatedAt.Time,
-		CreatedAt: createdAt.Time,
-		ID:        id,
 	}
 }
 

@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useState } from "react"
 import {
   Card,
   CardContent,
@@ -7,20 +7,27 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { IconShield } from "@tabler/icons-react"
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { actionEventsQueryOptions } from "../api/audit-api"
 import { columns } from "./audit-columns"
+import type { PaginationState } from "@tanstack/react-table"
 import { DataTable } from "@/components/data-table/data-table"
 
 export function AuditPage() {
-  const { data, error, isLoading, isFetchingNextPage } = useInfiniteQuery(
-    actionEventsQueryOptions()
-  )
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 25,
+  })
+  const [search, setSearch] = useState("")
 
-  const items = useMemo(
-    () => data?.pages.flatMap((p) => p.items) ?? [],
-    [data?.pages]
-  )
+  const { data, error, isLoading } = useQuery({
+    ...actionEventsQueryOptions({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      search,
+    }),
+    placeholderData: keepPreviousData,
+  })
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -40,9 +47,17 @@ export function AuditPage() {
           <CardContent className="px-0">
             <DataTable
               columns={columns}
-              data={items}
-              isLoading={isLoading || isFetchingNextPage}
+              data={data?.items ?? []}
+              isLoading={isLoading}
               error={error}
+              serverPagination={{
+                mode: "server",
+                pagination,
+                onPaginationChange: setPagination,
+                rowCount: data?.total ?? 0,
+                search,
+                onSearchChange: setSearch,
+              }}
             />
           </CardContent>
         </Card>

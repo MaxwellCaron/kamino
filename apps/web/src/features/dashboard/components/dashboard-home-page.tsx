@@ -32,7 +32,7 @@ import {
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import {
   requestDetailQueryOptions,
-  requesterRequestsQueryOptions,
+  requesterRequestSummariesQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
@@ -62,12 +62,12 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     data: pendingRequests,
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
-  } = useQuery(requesterRequestsQueryOptions("pending"))
+  } = useQuery(requesterRequestSummariesQueryOptions("pending"))
   const {
     data: historyRequests,
     error: historyRequestsError,
     isLoading: isHistoryRequestsLoading,
-  } = useQuery(requesterRequestsQueryOptions("history"))
+  } = useQuery(requesterRequestSummariesQueryOptions("history"))
   const {
     data: catalog,
     error: catalogError,

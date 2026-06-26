@@ -1,10 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 import { toast } from "sonner"
 
@@ -19,6 +14,7 @@ import type {
   ApiRequestStatus,
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -26,16 +22,25 @@ import {
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   approveRequest,
-  completedRequestsInfiniteQueryOptions,
   denyRequest,
   requestDetailQueryOptions,
-  requestsQueryOptions,
+  requestsTableQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
 import { formatToastError } from "@/features/shared/utils/format"
 
 const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")
+
+type RequestsTableState = {
+  pagination: PaginationState
+  search: string
+}
+
+const DEFAULT_TABLE_STATE: RequestsTableState = {
+  pagination: { pageIndex: 0, pageSize: 25 },
+  search: "",
+}
 
 export function RequestsPage() {
   const { user } = requestsRouteApi.useRouteContext()
@@ -44,6 +49,10 @@ export function RequestsPage() {
     null
   )
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+  const [pendingTableState, setPendingTableState] =
+    useState<RequestsTableState>(DEFAULT_TABLE_STATE)
+  const [completedTableState, setCompletedTableState] =
+    useState<RequestsTableState>(DEFAULT_TABLE_STATE)
   const queryClient = useQueryClient()
   const canReview = hasManagementPermission(
     user.management_permissions,
@@ -53,34 +62,33 @@ export function RequestsPage() {
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
   )
+
   const {
-    data: pendingRequests,
+    data: pendingPage,
     error: pendingError,
     isLoading: isPendingLoading,
-  } = useQuery(requestsQueryOptions("pending"))
+  } = useQuery({
+    ...requestsTableQueryOptions("pending", {
+      pageIndex: pendingTableState.pagination.pageIndex,
+      pageSize: pendingTableState.pagination.pageSize,
+      search: pendingTableState.search,
+    }),
+    placeholderData: keepPreviousData,
+  })
 
   const {
-    data: completedRequestsPages,
-    error: completedRequestsError,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: isCompletedRequestsLoading,
-  } = useInfiniteQuery({
-    ...completedRequestsInfiniteQueryOptions(),
+    data: completedPage,
+    error: completedError,
+    isLoading: isCompletedLoading,
+  } = useQuery({
+    ...requestsTableQueryOptions("completed", {
+      pageIndex: completedTableState.pagination.pageIndex,
+      pageSize: completedTableState.pagination.pageSize,
+      search: completedTableState.search,
+    }),
+    placeholderData: keepPreviousData,
     enabled: scope === "completed",
   })
-  const completedItems = useMemo(
-    () =>
-      completedRequestsPages?.pages.flatMap((page) => page.items) ?? [],
-    [completedRequestsPages?.pages]
-  )
-
-  const handleLoadMoreCompleted = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage()
-    }
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   const {
     data: requestDetail,
@@ -92,14 +100,12 @@ export function RequestsPage() {
   })
 
   const activeRequests =
-    scope === "pending" ? pendingRequests ?? [] : completedItems
-  const activeError =
-    scope === "pending" ? pendingError : completedRequestsError
-  const isActiveLoading =
-    scope === "pending" ? isPendingLoading : isCompletedRequestsLoading
+    (scope === "pending" ? pendingPage?.items : completedPage?.items) ?? []
+  const activeError = scope === "pending" ? pendingError : completedError
+  const isActiveLoading = scope === "pending" ? isPendingLoading : isCompletedLoading
   const isRequestsLoading = isTreeLoading || isPendingLoading
-  const pendingCount = pendingRequests?.length ?? 0
-  const completedCount = completedItems.length
+  const pendingCount = pendingPage?.total ?? 0
+  const completedCount = completedPage?.total ?? 0
   const statusCounts = useMemo(() => {
     const counts: Record<ApiRequestStatus, number> = {
       pending: 0,
@@ -109,15 +115,15 @@ export function RequestsPage() {
       execution_failed: 0,
     }
 
-    pendingRequests?.forEach((r) => {
+    pendingPage?.items.forEach((r) => {
       counts[r.status]++
     })
-    completedItems.forEach((r) => {
+    completedPage?.items.forEach((r) => {
       counts[r.status]++
     })
 
     return counts
-  }, [pendingRequests, completedItems])
+  }, [pendingPage, completedPage])
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
@@ -205,6 +211,37 @@ export function RequestsPage() {
     })
   }, [denyMutation, selectedRequestId])
 
+  const handleScopeChange = useCallback((nextScope: ApiRequestScope) => {
+    setScope(nextScope)
+  }, [])
+
+  const setPendingPagination = useCallback<OnChangeFn<PaginationState>>(
+    (updater) => {
+      setPendingTableState((prev) => ({
+        ...prev,
+        pagination:
+          typeof updater === "function" ? updater(prev.pagination) : updater,
+      }))
+    },
+    []
+  )
+  const setPendingSearch = useCallback((value: string) => {
+    setPendingTableState((prev) => ({ ...prev, search: value }))
+  }, [])
+  const setCompletedPagination = useCallback<OnChangeFn<PaginationState>>(
+    (updater) => {
+      setCompletedTableState((prev) => ({
+        ...prev,
+        pagination:
+          typeof updater === "function" ? updater(prev.pagination) : updater,
+      }))
+    },
+    []
+  )
+  const setCompletedSearch = useCallback((value: string) => {
+    setCompletedTableState((prev) => ({ ...prev, search: value }))
+  }, [])
+
   if (isRequestsLoading) {
     return <RequestsPageSkeleton />
   }
@@ -219,26 +256,36 @@ export function RequestsPage() {
 
         <RequestsPageQueueCard
           scope={scope}
-          onScopeChange={setScope}
+          onScopeChange={handleScopeChange}
           pendingCount={pendingCount}
           completedCount={completedCount}
           columns={columns}
           activeRequests={activeRequests}
           isActiveLoading={isActiveLoading}
           activeError={activeError}
-          tableMode={scope === "pending" ? "paginated" : "loaded-list"}
           canReview={canReview}
           tree={tree}
           approveMutation={approveMutation}
           denyMutation={denyMutation}
           onOpenConfirm={setConfirm}
-          loadMore={
-            scope === "completed" && hasNextPage
+          serverPagination={
+            scope === "pending"
               ? {
-                  isLoading: isFetchingNextPage,
-                  onClick: handleLoadMoreCompleted,
+                  mode: "server",
+                  pagination: pendingTableState.pagination,
+                  onPaginationChange: setPendingPagination,
+                  rowCount: pendingPage?.total ?? 0,
+                  search: pendingTableState.search,
+                  onSearchChange: setPendingSearch,
                 }
-              : undefined
+              : {
+                  mode: "server",
+                  pagination: completedTableState.pagination,
+                  onPaginationChange: setCompletedPagination,
+                  rowCount: completedPage?.total ?? 0,
+                  search: completedTableState.search,
+                  onSearchChange: setCompletedSearch,
+                }
           }
         />
       </div>

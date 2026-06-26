@@ -36,7 +36,7 @@ import {
   approveRequest,
   denyRequest,
   requestDetailQueryOptions,
-  requestsQueryOptions,
+  requestSummariesQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
@@ -74,9 +74,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     data: pendingRequestsData,
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
-  } = useQuery(requestsQueryOptions("pending"))
+  } = useQuery(requestSummariesQueryOptions("pending"))
   const { data: completedRequestsData, isLoading: isCompletedRequestsLoading } =
-    useQuery(requestsQueryOptions("completed"))
+    useQuery(requestSummariesQueryOptions("completed"))
   const { data: nodesData } = useQuery(nodesQueryOptions)
   const {
     data: requestDetail,

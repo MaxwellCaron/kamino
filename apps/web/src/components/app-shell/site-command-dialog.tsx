@@ -38,7 +38,7 @@ import {
   podCatalogQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
-import { requestsQueryOptions } from "@/features/requests/api/requests-api"
+import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
 import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 
 export function SiteCommandDialog({
@@ -106,7 +106,7 @@ export function SiteCommandDialog({
     isError: isPendingRequestsError,
     isLoading: isPendingRequestsLoading,
   } = useQuery({
-    ...requestsQueryOptions("pending"),
+    ...requestSummariesQueryOptions("pending"),
     enabled: canManage,
   })
   const {
@@ -114,7 +114,7 @@ export function SiteCommandDialog({
     isError: isCompletedRequestsError,
     isLoading: isCompletedRequestsLoading,
   } = useQuery({
-    ...requestsQueryOptions("completed"),
+    ...requestSummariesQueryOptions("completed"),
     enabled: canManage,
   })
 

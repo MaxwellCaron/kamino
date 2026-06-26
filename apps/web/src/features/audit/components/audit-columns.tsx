@@ -1,8 +1,13 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
+import {
+  formatAuditStatus,
+  getAuditStatusClassName,
+} from "../utils/audit-presenters"
 import type { ApiActionEvent } from "../api/audit-api"
 import type { ColumnDef } from "@tanstack/react-table"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 export const columns: Array<ColumnDef<ApiActionEvent>> = [
   {
@@ -42,25 +47,31 @@ export const columns: Array<ColumnDef<ApiActionEvent>> = [
   {
     accessorKey: "inventory_item_name",
     header: "Item",
-    cell: ({ row }) => row.original.inventory_item_name || "—",
+    cell: ({ row }) => {
+      const item = row.original
+      const primary = item.inventory_vm_vmid
+        ? formatVmReference(item.inventory_vm_vmid, item.inventory_item_name)
+        : item.inventory_item_name || "—"
+      const secondary = item.inventory_item_path || item.inventory_item_parent_name
+
+      return (
+        <div className="flex flex-col">
+          <span>{primary}</span>
+          {secondary && (
+            <span className="text-xs text-muted-foreground">{secondary}</span>
+          )}
+        </div>
+      )
+    },
   },
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => {
-      const className =
-        row.original.status === "succeeded"
-          ? "bg-emerald-400/20 dark:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400"
-          : row.original.status === "failed"
-            ? "bg-destructive/20 text-destructive"
-            : "bg-amber-400/20 dark:bg-amber-600/20 text-amber-600 dark:text-amber-400"
-      return (
-        <Badge className={className}>
-          {row.original.status.charAt(0).toUpperCase() +
-            row.original.status.slice(1)}
-        </Badge>
-      )
-    },
+    cell: ({ row }) => (
+      <Badge className={getAuditStatusClassName(row.original.status)}>
+        {formatAuditStatus(row.original.status)}
+      </Badge>
+    ),
   },
   {
     accessorKey: "error_message",

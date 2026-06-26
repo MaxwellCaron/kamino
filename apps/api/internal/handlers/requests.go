@@ -67,9 +67,11 @@ type requestDetailResponse struct {
 	Events []requestEventResponse `json:"events"`
 }
 
-type paginatedRequestResponse struct {
-	Items      []requestSummaryResponse `json:"items"`
-	NextCursor *string                  `json:"next_cursor,omitempty"`
+type tableRequestResponse struct {
+	Items []requestSummaryResponse `json:"items"`
+	Total int32                    `json:"total"`
+	Page  int32                    `json:"page"`
+	Rows  int32                    `json:"rows"`
 }
 
 type requestInventoryPayload struct {
@@ -107,39 +109,33 @@ func (h *RequestsHandler) List(c *gin.Context) {
 		scope = "pending"
 	}
 
+	page, rows, ok := parseTableParams(c)
+	if !ok {
+		return
+	}
+	search := strings.TrimSpace(c.Query("search"))
+	tableParams := requestqueue.TablePageParams{Page: page, Rows: rows, Search: search}
+
 	switch scope {
 	case "pending":
-		rows, err := h.Service.ListPendingRequests(c.Request.Context(), principalID)
+		result, err := h.Service.ListPendingRequestsTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list pending requests")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, pendingRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, pendingRequestFilteredRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
+		})
 	case "completed", "history":
-		limit, err := requestqueue.ParseLimit(c.Query("limit"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
-			return
-		}
-
-		var cursor *requestqueue.RequestCursor
-		if raw := c.Query("cursor"); raw != "" {
-			parsed, err := requestqueue.DecodeCursor(raw)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cursor"})
-				return
-			}
-			cursor = &parsed
-		}
-
-		result, err := h.Service.ListCompletedRequestsPaginated(
-			c.Request.Context(), principalID, limit, cursor,
-		)
+		result, err := h.Service.ListCompletedRequestsTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list completed requests")
 			return
@@ -147,12 +143,14 @@ func (h *RequestsHandler) List(c *gin.Context) {
 
 		response := make([]requestSummaryResponse, 0, len(result.Items))
 		for _, row := range result.Items {
-			response = append(response, paginatedCompletedForKindsRowToResponse(row))
+			response = append(response, completedRequestsForKindsFilteredRowToResponse(row))
 		}
 
-		c.JSON(http.StatusOK, paginatedRequestResponse{
-			Items:      response,
-			NextCursor: cursorPtrToString(result.NextCursor),
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
 		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
@@ -171,42 +169,33 @@ func (h *RequestsHandler) ListMine(c *gin.Context) {
 		scope = "history"
 	}
 
+	page, rows, ok := parseTableParams(c)
+	if !ok {
+		return
+	}
+	search := strings.TrimSpace(c.Query("search"))
+	tableParams := requestqueue.TablePageParams{Page: page, Rows: rows, Search: search}
+
 	switch scope {
 	case "pending":
-		rows, err := h.Service.ListPendingRequestsByRequester(
-			c.Request.Context(),
-			principalID,
-		)
+		result, err := h.Service.ListPendingRequestsByRequesterTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list own pending requests")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, requesterPendingRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, requesterPendingRequestFilteredRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
+		})
 	case "completed", "history":
-		limit, err := requestqueue.ParseLimit(c.Query("limit"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
-			return
-		}
-
-		var cursor *requestqueue.RequestCursor
-		if raw := c.Query("cursor"); raw != "" {
-			parsed, err := requestqueue.DecodeCursor(raw)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cursor"})
-				return
-			}
-			cursor = &parsed
-		}
-
-		result, err := h.Service.ListRequestHistoryByRequesterPaginated(
-			c.Request.Context(), principalID, limit, cursor,
-		)
+		result, err := h.Service.ListRequestHistoryByRequesterTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list own request history")
 			return
@@ -214,16 +203,37 @@ func (h *RequestsHandler) ListMine(c *gin.Context) {
 
 		response := make([]requestSummaryResponse, 0, len(result.Items))
 		for _, row := range result.Items {
-			response = append(response, paginatedRequesterHistoryRowToResponse(row))
+			response = append(response, requesterHistoryFilteredRowToResponse(row))
 		}
 
-		c.JSON(http.StatusOK, paginatedRequestResponse{
-			Items:      response,
-			NextCursor: cursorPtrToString(result.NextCursor),
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
 		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
 	}
+}
+
+// parseTableParams parses the shared page/rows query contract used by
+// request table endpoints. On invalid input it writes a 400 response and
+// returns ok=false.
+func parseTableParams(c *gin.Context) (page int32, rows int32, ok bool) {
+	page, ok = parsePageParam(c.Query("page"))
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
+		return 0, 0, false
+	}
+
+	rows, ok = parseRowsParam(c.Query("rows"))
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rows"})
+		return 0, 0, false
+	}
+
+	return page, rows, true
 }
 
 func (h *RequestsHandler) Get(c *gin.Context) {
@@ -512,7 +522,7 @@ func requestEventsToResponse(events []database.ListRequestEventsByRequestIDRow) 
 	return response
 }
 
-func pendingRequestRowToResponse(row database.ListPendingRequestsRow) requestSummaryResponse {
+func pendingRequestFilteredRowToResponse(row database.ListPendingRequestsFilteredRow) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
 		string(row.Family),
@@ -540,7 +550,7 @@ func pendingRequestRowToResponse(row database.ListPendingRequestsRow) requestSum
 	)
 }
 
-func completedRequestRowToResponse(row database.ListCompletedRequestsRow) requestSummaryResponse {
+func completedRequestsForKindsFilteredRowToResponse(row database.ListCompletedRequestsForKindsFilteredRow) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
 		string(row.Family),
@@ -568,100 +578,8 @@ func completedRequestRowToResponse(row database.ListCompletedRequestsRow) reques
 	)
 }
 
-func paginatedCompletedRequestRowToResponse(row database.ListCompletedRequestsPaginatedRow) requestSummaryResponse {
-	return buildRequestSummaryResponse(
-		row.ID,
-		string(row.Family),
-		row.Kind,
-		string(row.Status),
-		row.RequesterPrincipalID,
-		row.RequesterUsername,
-		row.ReviewerPrincipalID,
-		row.ReviewerUsername,
-		row.ReviewedAt,
-		row.ExecutedAt,
-		row.CanceledAt,
-		row.ExecutionError,
-		row.CreatedAt,
-		row.UpdatedAt,
-		row.InventoryItemID,
-		row.InventoryItemName,
-		row.InventoryItemKind,
-		row.InventoryItemParentID,
-		row.InventoryVmNode,
-		row.InventoryVmVmid,
-		row.InventoryVmIsTemplate,
-		row.PowerAction,
-		row.SnapshotName,
-	)
-}
-
-func paginatedCompletedForKindsRowToResponse(row database.ListCompletedRequestsForKindsPaginatedRow) requestSummaryResponse {
-	return buildRequestSummaryResponse(
-		row.ID,
-		string(row.Family),
-		row.Kind,
-		string(row.Status),
-		row.RequesterPrincipalID,
-		row.RequesterUsername,
-		row.ReviewerPrincipalID,
-		row.ReviewerUsername,
-		row.ReviewedAt,
-		row.ExecutedAt,
-		row.CanceledAt,
-		row.ExecutionError,
-		row.CreatedAt,
-		row.UpdatedAt,
-		row.InventoryItemID,
-		row.InventoryItemName,
-		row.InventoryItemKind,
-		row.InventoryItemParentID,
-		row.InventoryVmNode,
-		row.InventoryVmVmid,
-		row.InventoryVmIsTemplate,
-		row.PowerAction,
-		row.SnapshotName,
-	)
-}
-
-func paginatedRequesterHistoryRowToResponse(row database.ListRequestHistoryByRequesterPaginatedRow) requestSummaryResponse {
-	return buildRequestSummaryResponse(
-		row.ID,
-		string(row.Family),
-		row.Kind,
-		string(row.Status),
-		row.RequesterPrincipalID,
-		row.RequesterUsername,
-		row.ReviewerPrincipalID,
-		row.ReviewerUsername,
-		row.ReviewedAt,
-		row.ExecutedAt,
-		row.CanceledAt,
-		row.ExecutionError,
-		row.CreatedAt,
-		row.UpdatedAt,
-		row.InventoryItemID,
-		row.InventoryItemName,
-		row.InventoryItemKind,
-		row.InventoryItemParentID,
-		row.InventoryVmNode,
-		row.InventoryVmVmid,
-		row.InventoryVmIsTemplate,
-		row.PowerAction,
-		row.SnapshotName,
-	)
-}
-
-func cursorPtrToString(cursor *requestqueue.RequestCursor) *string {
-	if cursor == nil {
-		return nil
-	}
-	s := requestqueue.EncodeCursor(*cursor)
-	return &s
-}
-
-func requesterPendingRequestRowToResponse(
-	row database.ListPendingRequestsByRequesterRow,
+func requesterPendingRequestFilteredRowToResponse(
+	row database.ListPendingRequestsByRequesterFilteredRow,
 ) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
@@ -690,8 +608,8 @@ func requesterPendingRequestRowToResponse(
 	)
 }
 
-func requesterHistoryRequestRowToResponse(
-	row database.ListRequestHistoryByRequesterRow,
+func requesterHistoryFilteredRowToResponse(
+	row database.ListRequestHistoryByRequesterFilteredRow,
 ) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,

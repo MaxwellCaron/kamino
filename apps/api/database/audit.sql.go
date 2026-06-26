@@ -12,13 +12,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countActionEvents = `-- name: CountActionEvents :one
+const countActionEventsFiltered = `-- name: CountActionEventsFiltered :one
 SELECT count(*)::int
-FROM action_events
+FROM action_events ae
+LEFT JOIN principals actor
+  ON actor.id = ae.actor_principal_id
+LEFT JOIN inventory_items ii
+  ON ii.id = ae.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ae.inventory_item_id
+WHERE (
+    $1::TEXT = ''
+    OR COALESCE(actor.name, actor.external_id, '') ILIKE '%' || $1::TEXT || '%'
+    OR ae.action_kind ILIKE '%' || $1::TEXT || '%'
+    OR ae.target_kind ILIKE '%' || $1::TEXT || '%'
+    OR ae.status ILIKE '%' || $1::TEXT || '%'
+    OR ae.error_message ILIKE '%' || $1::TEXT || '%'
+    OR ii.name ILIKE '%' || $1::TEXT || '%'
+    OR ae.inventory_item_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR parent.name ILIKE '%' || $1::TEXT || '%'
+    OR get_inventory_item_path(ii.id) ILIKE '%' || $1::TEXT || '%'
+    OR pv.node ILIKE '%' || $1::TEXT || '%'
+    OR pv.vmid::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR ae.pod_id::TEXT ILIKE '%' || $1::TEXT || '%'
+)
 `
 
-func (q *Queries) CountActionEvents(ctx context.Context) (int32, error) {
-	row := q.db.QueryRow(ctx, countActionEvents)
+func (q *Queries) CountActionEventsFiltered(ctx context.Context, search string) (int32, error) {
+	row := q.db.QueryRow(ctx, countActionEventsFiltered, search)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -112,44 +135,69 @@ SELECT
     ae.metadata,
     ae.created_at,
     COALESCE(actor.name, actor.external_id, '') AS actor_username,
-    ii.name AS inventory_item_name
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    parent.name AS inventory_item_parent_name,
+    get_inventory_item_path(ii.id) AS inventory_item_path,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid
 FROM action_events ae
 LEFT JOIN principals actor
   ON actor.id = ae.actor_principal_id
 LEFT JOIN inventory_items ii
   ON ii.id = ae.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ae.inventory_item_id
 WHERE (
-    $1::TIMESTAMPTZ IS NULL
-    OR ae.created_at < $1
-    OR (ae.created_at = $1 AND ae.id < $2::BIGINT)
+    $1::TEXT = ''
+    OR COALESCE(actor.name, actor.external_id, '') ILIKE '%' || $1::TEXT || '%'
+    OR ae.action_kind ILIKE '%' || $1::TEXT || '%'
+    OR ae.target_kind ILIKE '%' || $1::TEXT || '%'
+    OR ae.status ILIKE '%' || $1::TEXT || '%'
+    OR ae.error_message ILIKE '%' || $1::TEXT || '%'
+    OR ii.name ILIKE '%' || $1::TEXT || '%'
+    OR ae.inventory_item_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR parent.name ILIKE '%' || $1::TEXT || '%'
+    OR get_inventory_item_path(ii.id) ILIKE '%' || $1::TEXT || '%'
+    OR pv.node ILIKE '%' || $1::TEXT || '%'
+    OR pv.vmid::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR ae.pod_id::TEXT ILIKE '%' || $1::TEXT || '%'
 )
 ORDER BY ae.created_at DESC, ae.id DESC
 LIMIT $3
+OFFSET $2
 `
 
 type ListActionEventsPaginatedParams struct {
-	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
-	CursorID        int64              `json:"cursor_id"`
-	PageSize        int32              `json:"page_size"`
+	Search    string `json:"search"`
+	RowOffset int32  `json:"row_offset"`
+	Rows      int32  `json:"rows"`
 }
 
 type ListActionEventsPaginatedRow struct {
-	ID                int64              `json:"id"`
-	ActorPrincipalID  *uuid.UUID         `json:"actor_principal_id"`
-	ActionKind        string             `json:"action_kind"`
-	TargetKind        string             `json:"target_kind"`
-	InventoryItemID   *uuid.UUID         `json:"inventory_item_id"`
-	PodID             *uuid.UUID         `json:"pod_id"`
-	Status            string             `json:"status"`
-	ErrorMessage      *string            `json:"error_message"`
-	Metadata          []byte             `json:"metadata"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	ActorUsername     string             `json:"actor_username"`
-	InventoryItemName *string            `json:"inventory_item_name"`
+	ID                      int64              `json:"id"`
+	ActorPrincipalID        *uuid.UUID         `json:"actor_principal_id"`
+	ActionKind              string             `json:"action_kind"`
+	TargetKind              string             `json:"target_kind"`
+	InventoryItemID         *uuid.UUID         `json:"inventory_item_id"`
+	PodID                   *uuid.UUID         `json:"pod_id"`
+	Status                  string             `json:"status"`
+	ErrorMessage            *string            `json:"error_message"`
+	Metadata                []byte             `json:"metadata"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	ActorUsername           string             `json:"actor_username"`
+	InventoryItemName       *string            `json:"inventory_item_name"`
+	InventoryItemParentID   *uuid.UUID         `json:"inventory_item_parent_id"`
+	InventoryItemParentName *string            `json:"inventory_item_parent_name"`
+	InventoryItemPath       string             `json:"inventory_item_path"`
+	InventoryVmNode         *string            `json:"inventory_vm_node"`
+	InventoryVmVmid         *int32             `json:"inventory_vm_vmid"`
 }
 
 func (q *Queries) ListActionEventsPaginated(ctx context.Context, arg ListActionEventsPaginatedParams) ([]ListActionEventsPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listActionEventsPaginated, arg.CursorCreatedAt, arg.CursorID, arg.PageSize)
+	rows, err := q.db.Query(ctx, listActionEventsPaginated, arg.Search, arg.RowOffset, arg.Rows)
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +218,11 @@ func (q *Queries) ListActionEventsPaginated(ctx context.Context, arg ListActionE
 			&i.CreatedAt,
 			&i.ActorUsername,
 			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryItemParentName,
+			&i.InventoryItemPath,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
 		); err != nil {
 			return nil, err
 		}

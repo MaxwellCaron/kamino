@@ -1,6 +1,5 @@
 import { IconCheckbox, IconClock } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -19,6 +18,7 @@ import type {
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { DataTableServerPagination } from "@/components/data-table/data-table"
 import { formatRequestScope } from "@/features/requests/utils/request-presenters"
 import { DataTable } from "@/components/data-table/data-table"
 
@@ -31,7 +31,6 @@ type RequestsPageQueueCardProps = {
   activeRequests: Array<ApiRequestSummary>
   isActiveLoading: boolean
   activeError: Error | null
-  tableMode?: "paginated" | "loaded-list"
   canReview: boolean
   tree: Array<ApiTreeNode> | undefined
   approveMutation: UseMutationResult<
@@ -47,10 +46,7 @@ type RequestsPageQueueCardProps = {
     unknown
   >
   onOpenConfirm: (config: ConfirmConfig) => void
-  loadMore?: {
-    isLoading: boolean
-    onClick: () => void
-  }
+  serverPagination: DataTableServerPagination
 }
 
 export function RequestsPageQueueCard({
@@ -62,13 +58,12 @@ export function RequestsPageQueueCard({
   activeRequests,
   isActiveLoading,
   activeError,
-  tableMode = "paginated",
   canReview,
   tree,
   approveMutation,
   denyMutation,
   onOpenConfirm,
-  loadMore,
+  serverPagination,
 }: RequestsPageQueueCardProps) {
   return (
     <Card>
@@ -114,7 +109,7 @@ export function RequestsPageQueueCard({
           isLoading={isActiveLoading}
           error={activeError}
           getRowId={(request: ApiRequestSummary) => request.id}
-          enablePagination={tableMode === "paginated"}
+          serverPagination={serverPagination}
           selectionActions={
             canReview && scope === "pending"
               ? ({
@@ -136,19 +131,6 @@ export function RequestsPageQueueCard({
               : undefined
           }
         />
-        {loadMore && (
-          <div className="flex justify-center px-6 pb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadMore.onClick}
-              disabled={isActiveLoading || loadMore.isLoading}
-              aria-busy={loadMore.isLoading}
-            >
-              {loadMore.isLoading ? "Loading..." : "Load more"}
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

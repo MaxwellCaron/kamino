@@ -1,84 +1,113 @@
 import type {
-  ApiPaginatedRequests,
   ApiRequestActionResponse,
   ApiRequestDetail,
   ApiRequestScope,
   ApiRequestSummary,
+  ApiRequestTablePage,
   ApiRequesterRequestScope,
 } from "../types/request-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
-const DEFAULT_REQUEST_PAGE_LIMIT = 50
-
-type RequestPageParams = {
-  cursor?: string | null
-  limit?: number
+type RequestTableQueryParams = {
+  pageIndex: number
+  pageSize: number
+  search: string
 }
 
-function requestPageSearchParams(scope: string, params: RequestPageParams) {
-  const search = new URLSearchParams({ scope })
-  if (params.cursor) search.set("cursor", params.cursor)
-  if (params.limit) search.set("limit", String(params.limit))
-  return search
-}
-
-export function requestsQueryOptions(scope: ApiRequestScope) {
-  return {
-    queryKey: ["requests", scope] as const,
-    queryFn: async (): Promise<Array<ApiRequestSummary>> => {
-      if (scope === "completed") {
-        const page = await fetchCompletedRequests()
-        return page.items
-      }
-
-      const res = await apiFetch(`/api/v1/requests?scope=${scope}`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
-      }
-      return res.json()
-    },
-  }
-}
-
-async function fetchCompletedRequests(
-  params: RequestPageParams = {}
-): Promise<ApiPaginatedRequests> {
-  const search = requestPageSearchParams("completed", {
-    limit: DEFAULT_REQUEST_PAGE_LIMIT,
-    ...params,
+function tableSearchParams(
+  scope: string,
+  { pageIndex, pageSize, search }: RequestTableQueryParams
+) {
+  const search_ = new URLSearchParams({
+    scope,
+    page: String(pageIndex + 1),
+    rows: String(pageSize),
   })
+  if (search) search_.set("search", search)
+  return search_
+}
+
+async function fetchRequestsTablePage(
+  scope: ApiRequestScope,
+  params: RequestTableQueryParams
+): Promise<ApiRequestTablePage> {
+  const search = tableSearchParams(scope, params)
   const res = await apiFetch(`/api/v1/requests?${search}`)
   if (!res.ok) {
-    throw new Error(`Failed to fetch completed requests: ${res.status}`)
+    throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
   }
   return res.json()
 }
 
-export function completedRequestsInfiniteQueryOptions(
-  limit = DEFAULT_REQUEST_PAGE_LIMIT
+export function requestsTableQueryOptions(
+  scope: ApiRequestScope,
+  params: RequestTableQueryParams
 ) {
   return {
-    queryKey: ["requests", "completed", "pages", { limit }] as const,
-    initialPageParam: null as string | null,
-    queryFn: ({ pageParam }: { pageParam: string | null }) =>
-      fetchCompletedRequests({ cursor: pageParam, limit }),
-    getNextPageParam: (lastPage: ApiPaginatedRequests) =>
-      lastPage.next_cursor ?? undefined,
+    queryKey: ["requests", scope, "table", params] as const,
+    queryFn: () => fetchRequestsTablePage(scope, params),
   }
 }
 
-async function fetchRequesterHistoryRequests(
-  params: RequestPageParams = {}
-): Promise<ApiPaginatedRequests> {
-  const search = requestPageSearchParams("history", {
-    limit: DEFAULT_REQUEST_PAGE_LIMIT,
-    ...params,
-  })
+async function fetchRequesterRequestsTablePage(
+  scope: ApiRequesterRequestScope,
+  params: RequestTableQueryParams
+): Promise<ApiRequestTablePage> {
+  const search = tableSearchParams(scope, params)
   const res = await apiFetch(`/api/v1/requests/mine?${search}`)
   if (!res.ok) {
-    throw new Error(`Failed to fetch your history requests: ${res.status}`)
+    throw new Error(`Failed to fetch your ${scope} requests: ${res.status}`)
   }
   return res.json()
+}
+
+/**
+ * Fetches a single bounded page of request summaries and returns only the
+ * `items`. For non-table consumers (dashboards, the command palette) that
+ * need a small, fixed-size list rather than full table pagination.
+ */
+async function fetchRequestSummaries(
+  scope: ApiRequestScope,
+  rows: number
+): Promise<Array<ApiRequestSummary>> {
+  const page = await fetchRequestsTablePage(scope, {
+    pageIndex: 0,
+    pageSize: rows,
+    search: "",
+  })
+  return page.items
+}
+
+export function requestSummariesQueryOptions(
+  scope: ApiRequestScope,
+  rows = 50
+) {
+  return {
+    queryKey: ["requests", scope, "summaries", { rows }] as const,
+    queryFn: () => fetchRequestSummaries(scope, rows),
+  }
+}
+
+async function fetchRequesterRequestSummaries(
+  scope: ApiRequesterRequestScope,
+  rows: number
+): Promise<Array<ApiRequestSummary>> {
+  const page = await fetchRequesterRequestsTablePage(scope, {
+    pageIndex: 0,
+    pageSize: rows,
+    search: "",
+  })
+  return page.items
+}
+
+export function requesterRequestSummariesQueryOptions(
+  scope: ApiRequesterRequestScope,
+  rows = 50
+) {
+  return {
+    queryKey: ["requests", "mine", scope, "summaries", { rows }] as const,
+    queryFn: () => fetchRequesterRequestSummaries(scope, rows),
+  }
 }
 
 export function requestDetailQueryOptions(requestId: string) {
@@ -92,24 +121,6 @@ export function requestDetailQueryOptions(requestId: string) {
       return res.json()
     },
     enabled: !!requestId,
-  }
-}
-
-export function requesterRequestsQueryOptions(scope: ApiRequesterRequestScope) {
-  return {
-    queryKey: ["requests", "mine", scope] as const,
-    queryFn: async (): Promise<Array<ApiRequestSummary>> => {
-      if (scope === "history") {
-        const page = await fetchRequesterHistoryRequests()
-        return page.items
-      }
-
-      const res = await apiFetch(`/api/v1/requests/mine?scope=${scope}`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch your ${scope} requests: ${res.status}`)
-      }
-      return res.json()
-    },
   }
 }
 

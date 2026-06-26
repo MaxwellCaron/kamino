@@ -47,20 +47,63 @@ SELECT
     ae.metadata,
     ae.created_at,
     COALESCE(actor.name, actor.external_id, '') AS actor_username,
-    ii.name AS inventory_item_name
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    parent.name AS inventory_item_parent_name,
+    get_inventory_item_path(ii.id) AS inventory_item_path,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid
 FROM action_events ae
 LEFT JOIN principals actor
   ON actor.id = ae.actor_principal_id
 LEFT JOIN inventory_items ii
   ON ii.id = ae.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ae.inventory_item_id
 WHERE (
-    @cursor_created_at::TIMESTAMPTZ IS NULL
-    OR ae.created_at < @cursor_created_at
-    OR (ae.created_at = @cursor_created_at AND ae.id < @cursor_id::BIGINT)
+    @search::TEXT = ''
+    OR COALESCE(actor.name, actor.external_id, '') ILIKE '%' || @search::TEXT || '%'
+    OR ae.action_kind ILIKE '%' || @search::TEXT || '%'
+    OR ae.target_kind ILIKE '%' || @search::TEXT || '%'
+    OR ae.status ILIKE '%' || @search::TEXT || '%'
+    OR ae.error_message ILIKE '%' || @search::TEXT || '%'
+    OR ii.name ILIKE '%' || @search::TEXT || '%'
+    OR ae.inventory_item_id::TEXT ILIKE '%' || @search::TEXT || '%'
+    OR parent.name ILIKE '%' || @search::TEXT || '%'
+    OR get_inventory_item_path(ii.id) ILIKE '%' || @search::TEXT || '%'
+    OR pv.node ILIKE '%' || @search::TEXT || '%'
+    OR pv.vmid::TEXT ILIKE '%' || @search::TEXT || '%'
+    OR ae.pod_id::TEXT ILIKE '%' || @search::TEXT || '%'
 )
 ORDER BY ae.created_at DESC, ae.id DESC
-LIMIT @page_size;
+LIMIT @rows
+OFFSET @row_offset;
 
--- name: CountActionEvents :one
+-- name: CountActionEventsFiltered :one
 SELECT count(*)::int
-FROM action_events;
+FROM action_events ae
+LEFT JOIN principals actor
+  ON actor.id = ae.actor_principal_id
+LEFT JOIN inventory_items ii
+  ON ii.id = ae.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ae.inventory_item_id
+WHERE (
+    @search::TEXT = ''
+    OR COALESCE(actor.name, actor.external_id, '') ILIKE '%' || @search::TEXT || '%'
+    OR ae.action_kind ILIKE '%' || @search::TEXT || '%'
+    OR ae.target_kind ILIKE '%' || @search::TEXT || '%'
+    OR ae.status ILIKE '%' || @search::TEXT || '%'
+    OR ae.error_message ILIKE '%' || @search::TEXT || '%'
+    OR ii.name ILIKE '%' || @search::TEXT || '%'
+    OR ae.inventory_item_id::TEXT ILIKE '%' || @search::TEXT || '%'
+    OR parent.name ILIKE '%' || @search::TEXT || '%'
+    OR get_inventory_item_path(ii.id) ILIKE '%' || @search::TEXT || '%'
+    OR pv.node ILIKE '%' || @search::TEXT || '%'
+    OR pv.vmid::TEXT ILIKE '%' || @search::TEXT || '%'
+    OR ae.pod_id::TEXT ILIKE '%' || @search::TEXT || '%'
+);

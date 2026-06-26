@@ -11,6 +11,7 @@ import {
   IconNetwork,
   IconPackages,
   IconReceipt,
+  IconShield,
   IconUser,
   IconUsersGroup,
 } from "@tabler/icons-react"
@@ -132,6 +133,14 @@ const navItems = [
     description: "Reconcile inventory drift against Proxmox.",
     url: "/admin/proxmox-sync",
     icon: IconDeviceDesktopQuestion,
+    group: "admin",
+    visibility: "admin",
+  },
+  {
+    title: "Audit Logs",
+    description: "Review direct VM and pod action history.",
+    url: "/admin/audit",
+    icon: IconShield,
     group: "admin",
     visibility: "admin",
   },

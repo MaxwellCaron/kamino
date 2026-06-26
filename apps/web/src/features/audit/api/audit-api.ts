@@ -8,6 +8,11 @@ export type ApiActionEvent = {
   target_kind: string
   inventory_item_id?: string
   inventory_item_name?: string
+  inventory_item_parent_id?: string
+  inventory_item_parent_name?: string
+  inventory_item_path?: string
+  inventory_vm_node?: string
+  inventory_vm_vmid?: number
   pod_id?: string
   status: string
   error_message?: string
@@ -17,35 +22,37 @@ export type ApiActionEvent = {
 export type ApiActionEventsListResponse = {
   items: Array<ApiActionEvent>
   total: number
-  next_cursor?: number
+  page: number
+  rows: number
 }
 
-async function fetchActionEvents(
-  cursor?: number | null,
-  pageSize = 50
-): Promise<ApiActionEventsListResponse> {
-  const search = new URLSearchParams()
-  if (cursor != null) search.set("cursor", String(cursor))
-  search.set("page_size", String(pageSize))
+type ActionEventsQueryParams = {
+  pageIndex: number
+  pageSize: number
+  search: string
+}
 
-  const res = await apiFetch(`/api/v1/admin/audit/actions?${search}`)
+async function fetchActionEvents({
+  pageIndex,
+  pageSize,
+  search,
+}: ActionEventsQueryParams): Promise<ApiActionEventsListResponse> {
+  const params = new URLSearchParams({
+    page: String(pageIndex + 1),
+    rows: String(pageSize),
+  })
+  if (search) params.set("search", search)
+
+  const res = await apiFetch(`/api/v1/admin/audit/actions?${params}`)
   if (!res.ok) {
     throw new Error(`Failed to fetch audit events: ${res.status}`)
   }
   return res.json()
 }
 
-export function actionEventsQueryOptions(pageSize = 50) {
+export function actionEventsQueryOptions(params: ActionEventsQueryParams) {
   return {
-    queryKey: ["audit", "actions", { pageSize }] as const,
-    initialPageParam: null as number | null,
-    queryFn: ({
-      pageParam,
-    }: {
-      pageParam: number | null
-    }): Promise<ApiActionEventsListResponse> =>
-      fetchActionEvents(pageParam, pageSize),
-    getNextPageParam: (lastPage: ApiActionEventsListResponse) =>
-      lastPage.next_cursor ?? undefined,
+    queryKey: ["audit", "actions", params] as const,
+    queryFn: () => fetchActionEvents(params),
   }
 }
