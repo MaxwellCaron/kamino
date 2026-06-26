@@ -232,7 +232,7 @@ export function PublishedPodClonesTable({
             <Empty className="py-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <IconCubeOff />
+                  <IconCubeOff className="text-muted-foreground" />
                 </EmptyMedia>
                 <EmptyTitle>No clones yet</EmptyTitle>
                 <EmptyDescription>

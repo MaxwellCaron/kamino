@@ -156,9 +156,9 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 {powerStatus !== "running" ? (
-                  <IconPower />
+                  <IconPower className="text-muted-foreground" />
                 ) : (
-                  <IconPlugConnectedX />
+                  <IconPlugConnectedX className="text-muted-foreground" />
                 )}
               </EmptyMedia>
               <EmptyTitle>

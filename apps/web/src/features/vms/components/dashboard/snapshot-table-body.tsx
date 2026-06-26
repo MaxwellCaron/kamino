@@ -101,7 +101,10 @@ export function SnapshotTableBody({
           ))
         ) : error ? (
           <TableRow>
-            <TableCell colSpan={4} className="h-24 text-center text-destructive">
+            <TableCell
+              colSpan={4}
+              className="h-24 text-center text-destructive"
+            >
               {error.message || "Failed to load snapshots."}
             </TableCell>
           </TableRow>
@@ -116,7 +119,7 @@ export function SnapshotTableBody({
             <TableRow key={snapshot.name} className="group cursor-pointer">
               <TableCell className="pl-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <IconCamera className="size-5" />
                   </div>
                   <div className="flex min-w-0 flex-col gap-0.5">

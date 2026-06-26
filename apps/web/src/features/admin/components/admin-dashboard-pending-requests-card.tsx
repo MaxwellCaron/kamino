@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
+import { buttonVariants } from "@workspace/ui/components/button"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
@@ -36,19 +36,10 @@ export function AdminDashboardPendingRequestsCard({
           Newest requests waiting for review.
         </CardDescription>
         <CardAction>
-          <Button
-            nativeButton={false}
-            size="sm"
-            render={
-              <Link
-                to="/manager/requests"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Queue
-                <IconArrowUpRight className="size-4" />
-              </Link>
-            }
-          />
+          <Link to="/manager/requests" className={buttonVariants()}>
+            Queue
+            <IconArrowUpRight data-icon="inline-end" />
+          </Link>
         </CardAction>
       </CardHeader>
       <CardContent className="px-0">

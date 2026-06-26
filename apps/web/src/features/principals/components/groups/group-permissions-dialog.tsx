@@ -333,7 +333,7 @@ export function GroupPermissionsDialog({
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <IconAlertTriangle />
+                  <IconAlertTriangle className="text-muted-foreground" />
                 </EmptyMedia>
                 <EmptyTitle>Could Not Load Roles</EmptyTitle>
                 <EmptyDescription>{accessError.message}</EmptyDescription>

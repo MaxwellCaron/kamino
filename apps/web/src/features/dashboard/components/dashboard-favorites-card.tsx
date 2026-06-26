@@ -63,7 +63,7 @@ export function DashboardFavoritesCard({
           <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconStar />
+                <IconStar className="text-muted-foreground" />
               </EmptyMedia>
               <EmptyTitle>No favorites yet</EmptyTitle>
               <EmptyDescription>

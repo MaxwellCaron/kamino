@@ -25,8 +25,8 @@ export function getPrincipalColumns({
               size={32}
             />
           ) : (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
-              <Icon className="size-5" />
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Icon className="size-5 text-muted-foreground" />
             </div>
           )}
           <div className="flex min-w-0 flex-col gap-0.5">

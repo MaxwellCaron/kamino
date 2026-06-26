@@ -550,7 +550,7 @@ export function PublishPodVirtualMachinesStep({
                           <Empty className="border border-dashed">
                             <EmptyHeader>
                               <EmptyMedia variant="icon">
-                                <IconFolderOpen />
+                                <IconFolderOpen className="text-muted-foreground" />
                               </EmptyMedia>
                               <EmptyTitle>No Pod Folder selected</EmptyTitle>
                               <EmptyDescription>

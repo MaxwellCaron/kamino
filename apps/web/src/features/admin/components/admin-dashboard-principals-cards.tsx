@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
+import { buttonVariants } from "@workspace/ui/components/button"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
@@ -45,19 +45,10 @@ export function AdminDashboardPrincipalsCards({
             Last five created group principals.
           </CardDescription>
           <CardAction>
-            <Button
-              nativeButton={false}
-              size="sm"
-              render={
-                <Link
-                  to="/admin/principals/groups"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  All Groups
-                  <IconArrowUpRight className="size-4" />
-                </Link>
-              }
-            />
+            <Link to="/admin/principals/groups" className={buttonVariants()}>
+              All Groups
+              <IconArrowUpRight data-icon="inline-end" />
+            </Link>
           </CardAction>
         </CardHeader>
         <CardContent className="px-0">
@@ -81,19 +72,10 @@ export function AdminDashboardPrincipalsCards({
             Last five created user principals.
           </CardDescription>
           <CardAction>
-            <Button
-              nativeButton={false}
-              size="sm"
-              render={
-                <Link
-                  to="/admin/principals/users"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  All Users
-                  <IconArrowUpRight className="size-4" />
-                </Link>
-              }
-            />
+            <Link to="/admin/principals/users" className={buttonVariants()}>
+              All Users
+              <IconArrowUpRight data-icon="inline-end" />
+            </Link>
           </CardAction>
         </CardHeader>
         <CardContent className="px-0">

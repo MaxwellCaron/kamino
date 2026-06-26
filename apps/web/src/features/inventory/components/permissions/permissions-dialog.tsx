@@ -241,7 +241,7 @@ function InventoryPermissionsFormBody({
             <Empty className="border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <IconSearch />
+                  <IconSearch className="text-muted-foreground" />
                 </EmptyMedia>
                 <EmptyTitle>No Matching Principals</EmptyTitle>
                 <EmptyDescription>
@@ -254,7 +254,7 @@ function InventoryPermissionsFormBody({
           <Empty className="border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconUsersGroup />
+                <IconUsersGroup className="text-muted-foreground" />
               </EmptyMedia>
               <EmptyTitle>No Principals Configured</EmptyTitle>
               <EmptyDescription>

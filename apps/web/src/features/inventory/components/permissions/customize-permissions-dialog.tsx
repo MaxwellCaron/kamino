@@ -111,7 +111,7 @@ export function CustomizePermissionsDialog({
                 <Empty className="border">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <IconSearch />
+                      <IconSearch className="text-muted-foreground" />
                     </EmptyMedia>
                     <EmptyTitle>No Matching Permissions</EmptyTitle>
                     <EmptyDescription>

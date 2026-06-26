@@ -40,10 +40,11 @@ export function VmNotes({
             <>
               <Button
                 variant="ghost"
-                size="icon-xs"
+                size="icon-sm"
+                className="-mt-1"
                 onClick={() => setIsNotesOpen(true)}
               >
-                <IconEdit className="size-4" />
+                <IconEdit />
               </Button>
               <VmNotesDialog
                 itemId={itemId}

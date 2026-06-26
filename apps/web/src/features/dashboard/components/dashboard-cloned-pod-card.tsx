@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { IconArrowUpRight, IconCopy } from "@tabler/icons-react"
-import { Button } from "@workspace/ui/components/button"
+import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -48,21 +48,20 @@ export function DashboardCurrentClonedPodCard({
         <CardDescription>Most recently cloned environment.</CardDescription>
         <CardAction>
           {entry && (
-            <Button
-              nativeButton={false}
-              render={
-                <Link to="/pods/$podSlug" params={{ podSlug: entry.pod.slug }}>
-                  Continue
-                  <IconArrowUpRight data-icon="inline-end" />
-                </Link>
-              }
-            />
+            <Link
+              to="/pods/$podSlug"
+              params={{ podSlug: entry.pod.slug }}
+              className={buttonVariants()}
+            >
+              Continue
+              <IconArrowUpRight data-icon="inline-end" />
+            </Link>
           )}
         </CardAction>
       </CardHeader>
       <CardContent>
         {error ? (
-          <Empty className="min-h-52 border border-dashed">
+          <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyTitle>Could not load clone status</EmptyTitle>
               <EmptyDescription>{error.message}</EmptyDescription>
@@ -118,10 +117,10 @@ export function DashboardCurrentClonedPodCard({
             />
           </div>
         ) : (
-          <Empty className="min-h-52 border border-dashed">
+          <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCopy />
+                <IconCopy className="text-muted-foreground" />
               </EmptyMedia>
               <EmptyTitle>No cloned pods</EmptyTitle>
               <EmptyDescription>

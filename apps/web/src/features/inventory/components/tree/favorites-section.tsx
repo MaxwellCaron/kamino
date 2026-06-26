@@ -13,7 +13,8 @@ import {
 } from "@workspace/ui/components/item"
 import { Link } from "@tanstack/react-router"
 import { useCallback, useMemo, useSyncExternalStore } from "react"
-import { IconChevronDown, IconFolder } from "@tabler/icons-react"
+import { IconEye, IconEyeOff, IconFolder } from "@tabler/icons-react"
+import { buttonVariants } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
@@ -141,13 +142,22 @@ export function InventoryFavoritesSection() {
   return (
     <Collapsible open={favoritesOpen} onOpenChange={setFavoritesOpen}>
       <div className="flex flex-col">
-        <CollapsibleTrigger className="group/collapsible-trigger flex w-full items-center gap-1 rounded-2xl px-3 py-1 text-xs text-sidebar-foreground/70 transition-colors hover:bg-muted/50">
+        <div className="flex items-center justify-between pl-3 text-xs text-muted-foreground">
           <span>Favorites ({favoriteItems.length})</span>
-          <IconChevronDown className="ml-auto size-3.5 transition-transform group-data-panel-open/collapsible-trigger:rotate-180" />
-        </CollapsibleTrigger>
-        {favoritesOpen && (
+          <CollapsibleTrigger
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            {favoritesOpen ? (
+              <IconEyeOff className="size-3.5" />
+            ) : (
+              <IconEye className="size-3.5" />
+            )}
+          </CollapsibleTrigger>
+        </div>
+
+        {favoritesOpen && favoriteItems.length > 0 && (
           <CollapsibleContent>
-            <ItemGroup className="flex flex-col gap-1.5 px-1 py-2">
+            <ItemGroup className="flex flex-col gap-1.5 py-3 pl-1">
               {favoriteItems.map((item) => (
                 <FavoriteItemCard
                   key={item.id}

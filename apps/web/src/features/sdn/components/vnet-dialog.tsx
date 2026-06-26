@@ -197,7 +197,7 @@ function VNetZonesUnavailableState() {
     <Empty className="border">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <IconNetwork />
+          <IconNetwork className="text-muted-foreground" />
         </EmptyMedia>
         <EmptyTitle>No SDN zones available</EmptyTitle>
         <EmptyDescription>
@@ -340,15 +340,13 @@ function VNetBooleanFields({
               <Checkbox
                 id={field.name}
                 checked={field.state.value}
-                onCheckedChange={(checked) =>
-                  field.handleChange(!!checked)
-                }
+                onCheckedChange={(checked) => field.handleChange(!!checked)}
               />
               <FieldContent>
                 <FieldTitle>Isolate Ports</FieldTitle>
                 <FieldDescription>
-                  Prevent guests on this VNet from communicating with each
-                  other directly through the bridge.
+                  Prevent guests on this VNet from communicating with each other
+                  directly through the bridge.
                 </FieldDescription>
               </FieldContent>
             </Field>
@@ -368,9 +366,7 @@ function VNetBooleanFields({
                 id={field.name}
                 checked={field.state.value}
                 disabled={vlanAwareDisabled}
-                onCheckedChange={(checked) =>
-                  field.handleChange(!!checked)
-                }
+                onCheckedChange={(checked) => field.handleChange(!!checked)}
               />
               <FieldContent>
                 <FieldTitle>VLAN Aware</FieldTitle>

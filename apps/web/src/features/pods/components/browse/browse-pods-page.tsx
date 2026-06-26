@@ -17,9 +17,11 @@ import { GrainientBackground } from "@/components/grainient-background"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
-  const { data: catalog, isLoading: isCatalogLoading, error } = useQuery(
-    podCatalogQueryOptions
-  )
+  const {
+    data: catalog,
+    isLoading: isCatalogLoading,
+    error,
+  } = useQuery(podCatalogQueryOptions)
   const visiblePods = catalog ?? []
 
   return (
@@ -55,7 +57,7 @@ export function BrowsePodsPage() {
           <Empty className="min-h-[45vh] border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCubeOff />
+                <IconCubeOff className="text-muted-foreground" />
               </EmptyMedia>
               <EmptyTitle>No Pods</EmptyTitle>
               <EmptyDescription>

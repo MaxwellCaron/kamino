@@ -229,7 +229,7 @@ export function ProxmoxSyncPage() {
                 <Empty className="min-h-[80vh] border border-dashed">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <IconCircleCheck className="size-6 text-primary" />
+                      <IconCircleCheck className="size-6 text-emerald-600 dark:text-emerald-400" />
                     </EmptyMedia>
                     <EmptyTitle>Synced</EmptyTitle>
                     <EmptyDescription>

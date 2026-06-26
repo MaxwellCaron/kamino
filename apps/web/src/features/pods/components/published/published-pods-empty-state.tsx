@@ -16,7 +16,7 @@ export function PublishedPodsEmptyState() {
       <Empty className="min-h-[55vh] border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <IconCubeOff />
+            <IconCubeOff className="text-muted-foreground" />
           </EmptyMedia>
           <EmptyTitle>No published pods yet</EmptyTitle>
           <EmptyDescription>

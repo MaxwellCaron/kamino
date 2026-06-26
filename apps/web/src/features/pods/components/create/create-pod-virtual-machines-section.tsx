@@ -190,7 +190,7 @@ export function CreatePodVirtualMachinesSection({
                   <Empty className="mt-6 border">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
-                        <IconTemplate />
+                        <IconTemplate className="text-muted-foreground" />
                       </EmptyMedia>
                       <EmptyTitle>No templates selected</EmptyTitle>
                       <EmptyDescription>

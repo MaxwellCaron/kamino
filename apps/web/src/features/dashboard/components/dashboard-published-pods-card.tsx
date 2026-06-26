@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconCube } from "@tabler/icons-react"
-import { Button } from "@workspace/ui/components/button"
+import { IconArrowUpRight, IconCubeOff } from "@tabler/icons-react"
+import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -41,23 +41,15 @@ export function DashboardRecentPodsCard({
           Newest catalog entries visible to you.
         </CardDescription>
         <CardAction>
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                to="/pods"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                All Pods
-                <IconArrowUpRight data-icon="inline-end" />
-              </Link>
-            }
-          />
+          <Link to="/pods" className={buttonVariants()}>
+            All Pods
+            <IconArrowUpRight data-icon="inline-end" />
+          </Link>
         </CardAction>
       </CardHeader>
       <CardContent className="mx-6 h-full rounded-4xl bg-muted/50 p-6">
         {error ? (
-          <Empty className="min-h-52 border border-dashed">
+          <Empty className="h-full min-h-52">
             <EmptyHeader>
               <EmptyTitle>Could not load pods</EmptyTitle>
               <EmptyDescription>{error.message}</EmptyDescription>
@@ -70,10 +62,10 @@ export function DashboardRecentPodsCard({
             ))}
           </div>
         ) : (
-          <Empty className="h-full min-h-52 border border-dashed">
+          <Empty className="h-full min-h-52">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCube />
+                <IconCubeOff className="text-muted-foreground" />
               </EmptyMedia>
               <EmptyTitle>No published pods</EmptyTitle>
               <EmptyDescription>

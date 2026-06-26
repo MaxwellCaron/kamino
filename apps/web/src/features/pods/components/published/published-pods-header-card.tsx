@@ -37,7 +37,7 @@ export function PublishedPodsHeaderCard({
           </Link>
           <Link
             to="/pods/publish"
-            className={`${buttonVariants()} cursor-pointer`}
+            className={`${buttonVariants({ variant: "default" })} cursor-pointer`}
           >
             <IconCubeSend data-icon="inline-start" />
             Publish
