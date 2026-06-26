@@ -461,6 +461,153 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 	return items, nil
 }
 
+const getVisibleInventoryTreeForPrincipal = `-- name: GetVisibleInventoryTreeForPrincipal :many
+WITH RECURSIVE
+visible_items AS (
+    SELECT
+        ii.id,
+        ii.parent_id,
+        ii.kind,
+        ii.name,
+        ii.inherit_permissions,
+        ii.vm_limit AS direct_vm_limit,
+        (CASE
+          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+          ELSE 0
+        END)::INTEGER AS effective_vm_limit,
+        (CASE
+          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+          ELSE 0
+        END)::INTEGER AS vm_count,
+        pv.node,
+        pv.vmid,
+        pv.is_template,
+        pv.notes,
+        pv.cpu_count,
+        pv.memory_mb,
+        pv.disk_gb,
+        perms.allowed_mask,
+        perms.denied_mask,
+        1 AS priority
+    FROM inventory_items ii
+    LEFT JOIN proxmox_vms pv
+      ON pv.inventory_item_id = ii.id
+    CROSS JOIN LATERAL (
+        SELECT
+            gep.allowed_mask::BIGINT AS allowed_mask,
+            gep.denied_mask::BIGINT AS denied_mask
+        FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    ) AS perms
+    WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
+),
+ancestors AS (
+    SELECT DISTINCT vi.parent_id
+    FROM visible_items vi
+    WHERE vi.parent_id IS NOT NULL
+
+    UNION
+
+    SELECT ii.parent_id
+    FROM inventory_items ii
+    JOIN ancestors a ON ii.id = a.parent_id
+    WHERE ii.parent_id IS NOT NULL
+),
+ancestor_rows AS (
+    SELECT
+        ii.id,
+        ii.parent_id,
+        ii.kind,
+        ii.name,
+        true AS inherit_permissions,
+        ii.vm_limit AS direct_vm_limit,
+        COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)::INTEGER AS effective_vm_limit,
+        inventory_folder_vm_count(ii.id, NULL)::INTEGER AS vm_count,
+        NULL::TEXT AS node,
+        NULL::INTEGER AS vmid,
+        NULL::BOOLEAN AS is_template,
+        NULL::TEXT AS notes,
+        NULL::INTEGER AS cpu_count,
+        NULL::INTEGER AS memory_mb,
+        NULL::NUMERIC AS disk_gb,
+        0::BIGINT AS allowed_mask,
+        0::BIGINT AS denied_mask,
+        2 AS priority
+    FROM inventory_items ii
+    WHERE ii.id IN (SELECT parent_id FROM ancestors)
+      AND ii.kind = 'folder'
+),
+combined AS (
+    SELECT id, parent_id, kind, name, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM visible_items
+    UNION ALL
+    SELECT id, parent_id, kind, name, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM ancestor_rows
+)
+SELECT DISTINCT ON (id)
+    id, parent_id, kind, name, inherit_permissions,
+    direct_vm_limit, effective_vm_limit, vm_count,
+    node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb,
+    allowed_mask, denied_mask
+FROM combined
+ORDER BY id, priority
+`
+
+type GetVisibleInventoryTreeForPrincipalRow struct {
+	ID                 uuid.UUID         `json:"id"`
+	ParentID           *uuid.UUID        `json:"parent_id"`
+	Kind               InventoryItemKind `json:"kind"`
+	Name               string            `json:"name"`
+	InheritPermissions bool              `json:"inherit_permissions"`
+	DirectVmLimit      *int32            `json:"direct_vm_limit"`
+	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
+	VmCount            int32             `json:"vm_count"`
+	Node               *string           `json:"node"`
+	Vmid               *int32            `json:"vmid"`
+	IsTemplate         *bool             `json:"is_template"`
+	Notes              *string           `json:"notes"`
+	CpuCount           *int32            `json:"cpu_count"`
+	MemoryMb           *int32            `json:"memory_mb"`
+	DiskGb             *float64          `json:"disk_gb"`
+	AllowedMask        int64             `json:"allowed_mask"`
+	DeniedMask         int64             `json:"denied_mask"`
+}
+
+func (q *Queries) GetVisibleInventoryTreeForPrincipal(ctx context.Context, principalID uuid.UUID) ([]GetVisibleInventoryTreeForPrincipalRow, error) {
+	rows, err := q.db.Query(ctx, getVisibleInventoryTreeForPrincipal, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetVisibleInventoryTreeForPrincipalRow
+	for rows.Next() {
+		var i GetVisibleInventoryTreeForPrincipalRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Kind,
+			&i.Name,
+			&i.InheritPermissions,
+			&i.DirectVmLimit,
+			&i.EffectiveVmLimit,
+			&i.VmCount,
+			&i.Node,
+			&i.Vmid,
+			&i.IsTemplate,
+			&i.Notes,
+			&i.CpuCount,
+			&i.MemoryMb,
+			&i.DiskGb,
+			&i.AllowedMask,
+			&i.DeniedMask,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const hasAnyInventoryPermission = `-- name: HasAnyInventoryPermission :one
 SELECT EXISTS (
     SELECT 1

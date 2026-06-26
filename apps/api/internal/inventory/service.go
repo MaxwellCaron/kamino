@@ -120,20 +120,39 @@ func (s *Service) GetVisibleInventoryItems(
 		return toFullAccessInventoryRows(allRows), nil
 	}
 
-	visibleRows, err := q.GetVisibleInventoryItemsForPrincipal(ctx, principalID)
+	treeRows, err := q.GetVisibleInventoryTreeForPrincipal(ctx, principalID)
 	if err != nil {
 		return nil, err
 	}
-	if len(visibleRows) == 0 {
-		return visibleRows, nil
-	}
+	return convertTreeRowsToVisibleRows(treeRows), nil
+}
 
-	allRows, err := q.GetAllInventoryItems(ctx)
-	if err != nil {
-		return nil, err
+func convertTreeRowsToVisibleRows(
+	rows []database.GetVisibleInventoryTreeForPrincipalRow,
+) []database.GetVisibleInventoryItemsForPrincipalRow {
+	result := make([]database.GetVisibleInventoryItemsForPrincipalRow, len(rows))
+	for i, r := range rows {
+		result[i] = database.GetVisibleInventoryItemsForPrincipalRow{
+			ID:                 r.ID,
+			ParentID:           r.ParentID,
+			Kind:               r.Kind,
+			Name:               r.Name,
+			InheritPermissions: r.InheritPermissions,
+			DirectVmLimit:      r.DirectVmLimit,
+			EffectiveVmLimit:   r.EffectiveVmLimit,
+			VmCount:            r.VmCount,
+			Node:               r.Node,
+			Vmid:               r.Vmid,
+			IsTemplate:         r.IsTemplate,
+			Notes:              r.Notes,
+			CpuCount:           r.CpuCount,
+			MemoryMb:           r.MemoryMb,
+			DiskGb:             r.DiskGb,
+			AllowedMask:        r.AllowedMask,
+			DeniedMask:         r.DeniedMask,
+		}
 	}
-
-	return expandVisibleInventoryRows(visibleRows, allRows), nil
+	return result
 }
 
 func expandVisibleInventoryRows(
