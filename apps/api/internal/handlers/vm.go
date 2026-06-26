@@ -28,13 +28,41 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 	return val, err
 }
 
+// vmProxmox is the seam VMHandler uses to talk to Proxmox
+type vmProxmox interface {
+	GetVMIdentity(ctx context.Context, node string, vmid int) (*proxmox.VMIdentity, error)
+	GetVMs(ctx context.Context) ([]proxmox.VM, error)
+	RenameVM(ctx context.Context, node string, vmid int, name string) error
+	UpdateVMNotes(ctx context.Context, node string, vmid int, notes string) error
+	GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error)
+	UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error
+	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
+	GetNextVMID(ctx context.Context) (int, error)
+	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
+	CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error
+	SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error
+	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
+	GetSnapshots(ctx context.Context, node string, vmid int) ([]proxmox.Snapshot, error)
+	DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error
+	ConvertToTemplate(ctx context.Context, node string, vmid int) error
+	DeleteVM(ctx context.Context, node string, vmid int) error
+}
+
+// vmAuthz is the seam VMHandler uses to talk to the authorization service
+type vmAuthz interface {
+	Require(ctx context.Context, principalID uuid.UUID, itemID uuid.UUID, required authorization.Mask) error
+	GetVMRecord(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
+	GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
+	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
+}
+
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX       *proxmox.Client
+	PX       vmProxmox
 	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service
 	Notifier *vmstatus.Notifier
-	Authz    *authorization.Service
+	Authz    vmAuthz
 	Actions  *vmactions.Executor
 	Claims   *vmactions.Claims
 	Audit    *audit.Service

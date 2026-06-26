@@ -50,7 +50,7 @@ func toManagementPermissionEnvelope(
 
 func requireInventoryPermission(
 	c *gin.Context,
-	authzService *authorization.Service,
+	authzService vmAuthz,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
 	required authorization.Mask,
@@ -147,8 +147,8 @@ func writeRequestError(c *gin.Context, reqErr *requestError) {
 
 func resolveVerifiedVMItemPermission(
 	ctx context.Context,
-	authzService *authorization.Service,
-	px *proxmox.Client,
+	authzService vmAuthz,
+	px vmProxmox,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
 	required authorization.Mask,
@@ -243,8 +243,8 @@ func resolveVerifiedVMItemPermission(
 //  6. Only execute the action if they match.
 func requireVerifiedVMItemPermission(
 	c *gin.Context,
-	authzService *authorization.Service,
-	px *proxmox.Client,
+	authzService vmAuthz,
+	px vmProxmox,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
 	required authorization.Mask,
