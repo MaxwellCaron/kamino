@@ -443,6 +443,9 @@ func (s *Service) ApproveRequest(
 	if locked.Status != database.RequestStatusPending {
 		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
 	}
+	if reviewerPrincipalID == locked.RequesterPrincipalID {
+		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
+	}
 	if !canReviewRequestKind(reviewerPermissions, locked.Kind) {
 		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
 	}
@@ -529,6 +532,9 @@ func (s *Service) DenyRequest(
 	}
 	if locked.Status != database.RequestStatusPending {
 		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+	}
+	if reviewerPrincipalID == locked.RequesterPrincipalID {
+		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
 	}
 	if !canReviewRequestKind(reviewerPermissions, locked.Kind) {
 		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
