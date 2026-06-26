@@ -1,5 +1,10 @@
-import { useCallback, useMemo, useState } from "react"
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useCallback, useMemo, useReducer } from "react"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 import { toast } from "sonner"
 
@@ -37,22 +42,106 @@ type RequestsTableState = {
   search: string
 }
 
-const DEFAULT_TABLE_STATE: RequestsTableState = {
+type RequestsPageState = {
+  scope: ApiRequestScope
+  selectedRequestId: string | null
+  confirm: ConfirmConfig | null
+  pendingTableState: RequestsTableState
+  completedTableState: RequestsTableState
+}
+
+type RequestsPageAction =
+  | { type: "setScope"; scope: ApiRequestScope }
+  | { type: "setSelectedRequestId"; requestId: string | null }
+  | { type: "setConfirm"; confirm: ConfirmConfig | null }
+  | {
+      type: "setPendingPagination"
+      updater: PaginationState | ((old: PaginationState) => PaginationState)
+    }
+  | { type: "setPendingSearch"; search: string }
+  | {
+      type: "setCompletedPagination"
+      updater: PaginationState | ((old: PaginationState) => PaginationState)
+    }
+  | { type: "setCompletedSearch"; search: string }
+
+const DEFAULT_TABLE_STATE = (): RequestsTableState => ({
   pagination: { pageIndex: 0, pageSize: 25 },
   search: "",
+})
+
+const INITIAL_STATE: RequestsPageState = {
+  scope: "pending",
+  selectedRequestId: null,
+  confirm: null,
+  pendingTableState: DEFAULT_TABLE_STATE(),
+  completedTableState: DEFAULT_TABLE_STATE(),
+}
+
+function requestsPageReducer(
+  state: RequestsPageState,
+  action: RequestsPageAction
+): RequestsPageState {
+  switch (action.type) {
+    case "setScope":
+      return { ...state, scope: action.scope }
+    case "setSelectedRequestId":
+      return { ...state, selectedRequestId: action.requestId }
+    case "setConfirm":
+      return { ...state, confirm: action.confirm }
+    case "setPendingPagination":
+      return {
+        ...state,
+        pendingTableState: {
+          ...state.pendingTableState,
+          pagination:
+            typeof action.updater === "function"
+              ? action.updater(state.pendingTableState.pagination)
+              : action.updater,
+        },
+      }
+    case "setPendingSearch":
+      return {
+        ...state,
+        pendingTableState: {
+          ...state.pendingTableState,
+          search: action.search,
+        },
+      }
+    case "setCompletedPagination":
+      return {
+        ...state,
+        completedTableState: {
+          ...state.completedTableState,
+          pagination:
+            typeof action.updater === "function"
+              ? action.updater(state.completedTableState.pagination)
+              : action.updater,
+        },
+      }
+    case "setCompletedSearch":
+      return {
+        ...state,
+        completedTableState: {
+          ...state.completedTableState,
+          search: action.search,
+        },
+      }
+    default:
+      return state
+  }
 }
 
 export function RequestsPage() {
   const { user } = requestsRouteApi.useRouteContext()
-  const [scope, setScope] = useState<ApiRequestScope>("pending")
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
-    null
-  )
-  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
-  const [pendingTableState, setPendingTableState] =
-    useState<RequestsTableState>(DEFAULT_TABLE_STATE)
-  const [completedTableState, setCompletedTableState] =
-    useState<RequestsTableState>(DEFAULT_TABLE_STATE)
+  const [state, dispatch] = useReducer(requestsPageReducer, INITIAL_STATE)
+  const {
+    scope,
+    selectedRequestId,
+    confirm,
+    pendingTableState,
+    completedTableState,
+  } = state
   const queryClient = useQueryClient()
   const canReview = hasManagementPermission(
     user.management_permissions,
@@ -102,7 +191,8 @@ export function RequestsPage() {
   const activeRequests =
     (scope === "pending" ? pendingPage?.items : completedPage?.items) ?? []
   const activeError = scope === "pending" ? pendingError : completedError
-  const isActiveLoading = scope === "pending" ? isPendingLoading : isCompletedLoading
+  const isActiveLoading =
+    scope === "pending" ? isPendingLoading : isCompletedLoading
   const isRequestsLoading = isTreeLoading || isPendingLoading
   const pendingCount = pendingPage?.total ?? 0
   const completedCount = completedPage?.total ?? 0
@@ -147,10 +237,12 @@ export function RequestsPage() {
     )
   }, [statusCounts])
 
-  const openRequest = (requestId: string) => setSelectedRequestId(requestId)
+  const openRequest = useCallback((requestId: string) => {
+    dispatch({ type: "setSelectedRequestId", requestId })
+  }, [])
   const handleRequestDetailOpenChange = useCallback((open: boolean) => {
     if (!open) {
-      setSelectedRequestId(null)
+      dispatch({ type: "setSelectedRequestId", requestId: null })
     }
   }, [])
 
@@ -160,7 +252,7 @@ export function RequestsPage() {
         onOpen: (request) => openRequest(request.id),
         tree,
       }),
-    [tree]
+    [openRequest, tree]
   )
 
   const approveMutation = useMutation({
@@ -181,7 +273,7 @@ export function RequestsPage() {
       return
     }
     const id = selectedRequestId
-    setSelectedRequestId(null)
+    dispatch({ type: "setSelectedRequestId", requestId: null })
     toast.promise(approveMutation.mutateAsync([id]), {
       loading: "Approving request...",
       success: (result: ApiRequestActionResponse) => {
@@ -198,7 +290,7 @@ export function RequestsPage() {
       return
     }
     const id = selectedRequestId
-    setSelectedRequestId(null)
+    dispatch({ type: "setSelectedRequestId", requestId: null })
     toast.promise(denyMutation.mutateAsync([id]), {
       loading: "Denying request...",
       success: (result: ApiRequestActionResponse) => {
@@ -212,34 +304,32 @@ export function RequestsPage() {
   }, [denyMutation, selectedRequestId])
 
   const handleScopeChange = useCallback((nextScope: ApiRequestScope) => {
-    setScope(nextScope)
+    dispatch({ type: "setScope", scope: nextScope })
   }, [])
 
   const setPendingPagination = useCallback<OnChangeFn<PaginationState>>(
     (updater) => {
-      setPendingTableState((prev) => ({
-        ...prev,
-        pagination:
-          typeof updater === "function" ? updater(prev.pagination) : updater,
-      }))
+      dispatch({ type: "setPendingPagination", updater })
     },
     []
   )
   const setPendingSearch = useCallback((value: string) => {
-    setPendingTableState((prev) => ({ ...prev, search: value }))
+    dispatch({ type: "setPendingSearch", search: value })
   }, [])
   const setCompletedPagination = useCallback<OnChangeFn<PaginationState>>(
     (updater) => {
-      setCompletedTableState((prev) => ({
-        ...prev,
-        pagination:
-          typeof updater === "function" ? updater(prev.pagination) : updater,
-      }))
+      dispatch({ type: "setCompletedPagination", updater })
     },
     []
   )
   const setCompletedSearch = useCallback((value: string) => {
-    setCompletedTableState((prev) => ({ ...prev, search: value }))
+    dispatch({ type: "setCompletedSearch", search: value })
+  }, [])
+  const handleOpenConfirm = useCallback((nextConfirm: ConfirmConfig) => {
+    dispatch({ type: "setConfirm", confirm: nextConfirm })
+  }, [])
+  const handleConfirmClose = useCallback(() => {
+    dispatch({ type: "setConfirm", confirm: null })
   }, [])
 
   if (isRequestsLoading) {
@@ -267,7 +357,7 @@ export function RequestsPage() {
           tree={tree}
           approveMutation={approveMutation}
           denyMutation={denyMutation}
-          onOpenConfirm={setConfirm}
+          onOpenConfirm={handleOpenConfirm}
           serverPagination={
             scope === "pending"
               ? {
@@ -301,7 +391,7 @@ export function RequestsPage() {
         requestDetail={requestDetail}
         tree={tree}
         confirm={confirm}
-        onConfirmClose={() => setConfirm(null)}
+        onConfirmClose={handleConfirmClose}
       />
     </div>
   )
