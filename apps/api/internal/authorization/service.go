@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -21,8 +20,14 @@ var (
 	ErrUnknownManagementPermission = errors.New("unknown management permission")
 )
 
+// dbtx is the seam Service uses to talk to the database
+type dbtx interface {
+	database.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type Service struct {
-	db                          *pgxpool.Pool
+	db                          dbtx
 	protectedManagementGroupIDs map[uuid.UUID]struct{}
 }
 
@@ -33,7 +38,7 @@ type VMRecord struct {
 	UpstreamUUID    uuid.UUID
 }
 
-func NewService(db *pgxpool.Pool, protectedManagementGroupIDs []uuid.UUID) *Service {
+func NewService(db dbtx, protectedManagementGroupIDs []uuid.UUID) *Service {
 	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedManagementGroupIDs))
 	for _, principalID := range protectedManagementGroupIDs {
 		if principalID == uuid.Nil {
@@ -560,7 +565,7 @@ func WithPrincipalCache(ctx context.Context) context.Context {
 
 func loadEffectivePrincipalIDs(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	db dbtx,
 	principalID uuid.UUID,
 ) ([]uuid.UUID, error) {
 	cache, _ := ctx.Value(principalCacheKey{}).(*principalCache)
@@ -589,7 +594,7 @@ func loadEffectivePrincipalIDs(
 
 func HasProtectedPrincipalAccess(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	db dbtx,
 	principalID uuid.UUID,
 	protectedPrincipalIDs map[uuid.UUID]struct{},
 ) (bool, error) {

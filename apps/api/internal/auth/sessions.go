@@ -20,12 +20,18 @@ import (
 
 var ErrInvalidSession = errors.New("invalid session")
 
+// sessionStore is the seam SessionManager uses to talk to the database
+type sessionStore interface {
+	database.DBTX
+	BeginTx(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error)
+}
+
 type SessionManager struct {
-	db *pgxpool.Pool
+	store sessionStore
 }
 
 func NewSessionManager(db *pgxpool.Pool) *SessionManager {
-	return &SessionManager{db: db}
+	return &SessionManager{store: db}
 }
 
 type Session struct {
@@ -52,7 +58,7 @@ func (m *SessionManager) CreateSession(
 		ExpiresAt:   now.Add(RefreshTokenDuration),
 	}
 
-	q := database.New(m.db)
+	q := database.New(m.store)
 	if err := q.CreateAuthSession(ctx, database.CreateAuthSessionParams{
 		ID:          session.ID,
 		PrincipalID: session.PrincipalID,
@@ -76,7 +82,7 @@ func (m *SessionManager) RotateSession(
 ) (newToken string, session Session, err error) {
 	tokenHash := hashOpaqueToken(rawToken)
 
-	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := m.store.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return "", Session{}, fmt.Errorf("begin auth session tx: %w", err)
 	}
@@ -162,7 +168,7 @@ func (m *SessionManager) RotateSession(
 func (m *SessionManager) RevokeSession(ctx context.Context, rawToken string) error {
 	tokenHash := hashOpaqueToken(rawToken)
 
-	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := m.store.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin auth session revoke tx: %w", err)
 	}
