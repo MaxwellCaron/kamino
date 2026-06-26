@@ -1595,6 +1595,81 @@ AS $$
 $$;
 
 -- ----------------------------------------------------------------------------
+-- Core helper: effective permissions for a user on an inventory item, given
+-- a precomputed principal set.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION get_effective_permissions_for_set(
+    p_user_principal_id UUID,
+    p_principal_ids UUID[],
+    p_inventory_item_id UUID
+)
+RETURNS TABLE (
+    allowed_mask BIGINT,
+    denied_mask  BIGINT
+)
+LANGUAGE sql
+STABLE
+AS $$
+    WITH RECURSIVE principal_set AS (
+        SELECT up.principal_id
+        FROM UNNEST(p_principal_ids) AS up(principal_id)
+    ),
+    chain AS (
+        WITH RECURSIVE c AS (
+            SELECT
+                ii.id,
+                ii.parent_id,
+                0::INTEGER AS depth
+            FROM inventory_items ii
+            WHERE ii.id = p_inventory_item_id
+
+            UNION ALL
+
+            SELECT
+                parent.id,
+                parent.parent_id,
+                c.depth + 1
+            FROM inventory_items parent
+            JOIN c
+              ON parent.id = c.parent_id
+        )
+        SELECT id, depth
+        FROM c
+    ),
+    applicable_aces AS (
+        SELECT
+            ace.effect,
+            ace.permissions
+        FROM chain ch
+        JOIN inventory_acl_entries ace
+          ON ace.inventory_item_id = ch.id
+        JOIN principal_set ps
+          ON ps.principal_id = ace.principal_id
+        WHERE
+            (
+                ch.depth = 0
+                AND ace.applies_to_self = true
+                AND ace.inherited_only = false
+            )
+            OR
+            (
+                ch.depth > 0
+                AND ace.applies_to_children = true
+            )
+    ),
+    agg AS (
+        SELECT
+            COALESCE(bit_or(permissions) FILTER (WHERE effect = 'allow'), 0::BIGINT) AS allow_bits,
+            COALESCE(bit_or(permissions) FILTER (WHERE effect = 'deny'),  0::BIGINT) AS deny_bits
+        FROM applicable_aces
+    )
+    SELECT
+        (allow_bits & ~deny_bits) AS allowed_mask,
+        deny_bits                 AS denied_mask
+    FROM agg;
+$$;
+
+-- ----------------------------------------------------------------------------
 -- Optional helper: boolean permission check for a specific bit mask
 -- Example:
 --   SELECT has_permission(user_id, item_id, 128); -- power_vm

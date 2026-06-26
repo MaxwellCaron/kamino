@@ -228,6 +228,10 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 }
 
 const getInventoryItemsWithPermissions = `-- name: GetInventoryItemsWithPermissions :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
 SELECT
     ii.id,
     ii.parent_id,
@@ -259,7 +263,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE ii.id = ANY($2::UUID[])
 `
@@ -363,6 +371,10 @@ func (q *Queries) GetPrincipalGroupsByName(ctx context.Context, dollar_1 []strin
 }
 
 const getVisibleInventoryItemsForPrincipal = `-- name: GetVisibleInventoryItemsForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
 SELECT
     ii.id,
     ii.parent_id,
@@ -394,7 +406,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 ORDER BY
@@ -463,6 +479,9 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 
 const getVisibleInventoryTreeForPrincipal = `-- name: GetVisibleInventoryTreeForPrincipal :many
 WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+),
 visible_items AS (
     SELECT
         ii.id,
@@ -496,7 +515,11 @@ visible_items AS (
         SELECT
             gep.allowed_mask::BIGINT AS allowed_mask,
             gep.denied_mask::BIGINT AS denied_mask
-        FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+        FROM get_effective_permissions_for_set(
+            $1,
+            (SELECT array_agg(principal_id) FROM effective_principals),
+            ii.id
+        ) AS gep(allowed_mask, denied_mask)
     ) AS perms
     WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 ),
@@ -915,6 +938,10 @@ func (q *Queries) ListRootInventoryFolderIDs(ctx context.Context) ([]uuid.UUID, 
 }
 
 const listVisibleVMIDsForPrincipal = `-- name: ListVisibleVMIDsForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
 SELECT pv.vmid
 FROM proxmox_vms pv
 JOIN inventory_items ii
@@ -923,7 +950,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 `

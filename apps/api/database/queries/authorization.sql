@@ -36,6 +36,10 @@ SELECT ep.principal_id::UUID
 FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id);
 
 -- name: GetVisibleInventoryItemsForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+)
 SELECT
     ii.id,
     ii.parent_id,
@@ -67,7 +71,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        sqlc.arg(principal_id),
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 ORDER BY
@@ -77,6 +85,9 @@ ORDER BY
 
 -- name: GetVisibleInventoryTreeForPrincipal :many
 WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+),
 visible_items AS (
     SELECT
         ii.id,
@@ -110,7 +121,11 @@ visible_items AS (
         SELECT
             gep.allowed_mask::BIGINT AS allowed_mask,
             gep.denied_mask::BIGINT AS denied_mask
-        FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+        FROM get_effective_permissions_for_set(
+            sqlc.arg(principal_id),
+            (SELECT array_agg(principal_id) FROM effective_principals),
+            ii.id
+        ) AS gep(allowed_mask, denied_mask)
     ) AS perms
     WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 ),
@@ -200,6 +215,10 @@ CROSS JOIN LATERAL (
 WHERE ii.id = sqlc.arg(inventory_item_id);
 
 -- name: GetInventoryItemsWithPermissions :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+)
 SELECT
     ii.id,
     ii.parent_id,
@@ -231,7 +250,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        sqlc.arg(principal_id),
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE ii.id = ANY(sqlc.arg(item_ids)::UUID[]);
 
@@ -241,6 +264,10 @@ FROM proxmox_vms
 WHERE node = $1 AND vmid = $2;
 
 -- name: ListVisibleVMIDsForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+)
 SELECT pv.vmid
 FROM proxmox_vms pv
 JOIN inventory_items ii
@@ -249,7 +276,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions(sqlc.arg(principal_id), ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        sqlc.arg(principal_id),
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT;
 
