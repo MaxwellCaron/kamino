@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
@@ -542,6 +543,50 @@ func IsManagementACLRequiresGroup(err error) bool {
 	return errors.Is(err, ErrManagementACLRequiresGroup)
 }
 
+type principalCacheKey struct{}
+
+// principalCache memoizes ListEffectivePrincipalIDs results
+type principalCache struct {
+	mu   sync.Mutex
+	data map[uuid.UUID][]uuid.UUID
+}
+
+// WithPrincipalCache returns a context carrying a per-request cache
+func WithPrincipalCache(ctx context.Context) context.Context {
+	return context.WithValue(ctx, principalCacheKey{}, &principalCache{
+		data: make(map[uuid.UUID][]uuid.UUID),
+	})
+}
+
+func loadEffectivePrincipalIDs(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	principalID uuid.UUID,
+) ([]uuid.UUID, error) {
+	cache, _ := ctx.Value(principalCacheKey{}).(*principalCache)
+	if cache != nil {
+		cache.mu.Lock()
+		ids, ok := cache.data[principalID]
+		cache.mu.Unlock()
+		if ok {
+			return ids, nil
+		}
+	}
+
+	ids, err := database.New(db).ListEffectivePrincipalIDs(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+
+	if cache != nil {
+		cache.mu.Lock()
+		cache.data[principalID] = ids
+		cache.mu.Unlock()
+	}
+
+	return ids, nil
+}
+
 func HasProtectedPrincipalAccess(
 	ctx context.Context,
 	db *pgxpool.Pool,
@@ -552,7 +597,7 @@ func HasProtectedPrincipalAccess(
 		return false, nil
 	}
 
-	effectivePrincipalIDs, err := database.New(db).ListEffectivePrincipalIDs(ctx, principalID)
+	effectivePrincipalIDs, err := loadEffectivePrincipalIDs(ctx, db, principalID)
 	if err != nil {
 		return false, err
 	}
