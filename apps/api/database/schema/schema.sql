@@ -1649,13 +1649,15 @@ $$;
 -- Direct action audit ledger
 -- Append-only log of high-risk direct VM and pod actions performed outside
 -- the request workflow (power, delete, clone, snapshot, template, pod ops).
+-- Actor and inventory IDs are historical references, not foreign keys: FK
+-- ON DELETE actions would mutate append-only rows when targets are deleted.
 -- ----------------------------------------------------------------------------
 CREATE TABLE action_events (
     id                  BIGSERIAL PRIMARY KEY,
-    actor_principal_id  UUID NULL REFERENCES principals(id) ON DELETE SET NULL,
+    actor_principal_id  UUID NULL,
     action_kind         TEXT NOT NULL,
     target_kind         TEXT NOT NULL,
-    inventory_item_id   UUID NULL REFERENCES inventory_items(id) ON DELETE SET NULL,
+    inventory_item_id   UUID NULL,
     pod_id              UUID NULL,
     status              TEXT NOT NULL,
     error_message       TEXT NULL,
