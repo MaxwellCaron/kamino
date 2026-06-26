@@ -20,7 +20,7 @@ export type ApiActionEventsListResponse = {
   next_cursor?: number
 }
 
-export async function fetchActionEvents(
+async function fetchActionEvents(
   cursor?: number | null,
   pageSize = 50
 ): Promise<ApiActionEventsListResponse> {

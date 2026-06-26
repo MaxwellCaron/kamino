@@ -163,19 +163,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const lastAutoRevealedItemIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!activeItemId || !isSearchActive || items.has(activeItemId)) {
-      return
-    }
-
-    const activeItem = fullTree.items.get(activeItemId)
-    if (activeItem?.kind !== "vm") {
-      return
-    }
-
-    setQuery("")
-  }, [activeItemId, fullTree.items, isSearchActive, items])
-
-  useEffect(() => {
     if (!activeItemId || !items.has(activeItemId)) {
       lastAutoRevealedItemIdRef.current = null
       return
