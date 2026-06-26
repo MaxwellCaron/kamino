@@ -214,7 +214,7 @@ export function AppDialogScrollBody({
   return (
     <div
       className={cn(
-        "-mx-4 -mb-2 no-scrollbar flex max-h-[60vh] flex-col gap-6 overflow-y-auto border-t p-6",
+        "-mx-4 -mb-2 no-scrollbar flex max-h-[60vh] scroll-fade flex-col gap-6 overflow-y-auto border-t p-6",
         className
       )}
       {...props}
@@ -232,6 +232,10 @@ export function AppDialogPrimaryButton({
   ...props
 }: AppDialogPrimaryButtonProps) {
   return (
-    <AppActionButton className={cn("w-full", className)} type={type} {...props} />
+    <AppActionButton
+      className={cn("w-full", className)}
+      type={type}
+      {...props}
+    />
   )
 }

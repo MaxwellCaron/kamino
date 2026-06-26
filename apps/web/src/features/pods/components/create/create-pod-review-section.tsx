@@ -17,12 +17,12 @@ import {
   IconBox,
   IconChevronDown,
   IconDeviceDesktop,
-  IconFolderOpen,
   IconNetwork,
 } from "@tabler/icons-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { getReviewVmNames } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
+import { FolderIcon } from "@/components/status/folder-icon"
 import { VmIcon } from "@/components/status/vm-icon"
 
 const treePreviewRowClass =
@@ -43,7 +43,7 @@ function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
       <div className="flex flex-col gap-0.5">
         <div className={treePreviewRowClass}>
           <IconChevronDown className="size-4 text-muted-foreground" />
-          <IconFolderOpen className="fill-size-4 size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
+          <FolderIcon open />
           <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
         </div>
 

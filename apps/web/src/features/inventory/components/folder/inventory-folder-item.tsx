@@ -19,8 +19,8 @@ import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeIcon } from "../inventory-node-icon"
 import type { ApiTreeNode } from "../../types/inventory-types"
-import { VmIcon } from "@/components/status/vm-icon"
 import { formatMemory } from "@/features/shared/utils/format"
 
 function FolderDescription({ node }: { node: ApiTreeNode }) {
@@ -78,7 +78,6 @@ export function InventoryFolderItem({
   onToggleFavorite: () => void
 }) {
   const isFolder = node.kind === "folder"
-  const isTemplate = !isFolder && (node.vm?.is_template ?? false)
 
   return (
     <Item
@@ -90,11 +89,7 @@ export function InventoryFolderItem({
           className="flex min-w-0 flex-1 items-center gap-3.5"
         >
           <ItemMedia variant="icon">
-            {isFolder ? (
-              <IconFolder className="fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
-            ) : (
-              <VmIcon status={status} isTemplate={isTemplate} />
-            )}
+            <InventoryNodeIcon node={node} status={status} />
           </ItemMedia>
           <ItemContent>
             <ItemTitle>{node.name}</ItemTitle>

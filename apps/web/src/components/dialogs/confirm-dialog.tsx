@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query"
 import { isValidElement, useMemo, useRef, useState } from "react"
 import {
   IconAlertTriangle,
-  IconFolder,
   IconInfoCircle,
   IconTrash,
   IconTrashOff,
@@ -27,6 +26,7 @@ import {
   AppAlertDialogContent,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { FolderIcon } from "@/components/status/folder-icon"
 import { VmIcon } from "@/components/status/vm-icon"
 import { getRequestStatusClassName } from "@/features/requests/utils/request-presenters"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
@@ -107,9 +107,7 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
   }
 
   if (item.kind === "folder") {
-    return (
-      <IconFolder className="size-4 fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
-    )
+    return <FolderIcon />
   }
 
   return <VmIcon status={item.vmStatus} isTemplate={item.isTemplate} />

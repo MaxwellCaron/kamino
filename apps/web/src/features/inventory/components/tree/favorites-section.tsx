@@ -13,12 +13,12 @@ import {
 } from "@workspace/ui/components/item"
 import { Link } from "@tanstack/react-router"
 import { useCallback, useMemo, useSyncExternalStore } from "react"
-import { IconEye, IconEyeOff, IconFolder } from "@tabler/icons-react"
+import { IconEye, IconEyeOff } from "@tabler/icons-react"
 import { buttonVariants } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeIcon } from "../inventory-node-icon"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
-import { VmIcon } from "@/components/status/vm-icon"
 
 const FAVORITES_OPEN_STORAGE_KEY = "kamino-favorite-inventory-open"
 const favoritesOpenListeners = new Set<() => void>()
@@ -90,9 +90,6 @@ function FavoriteItemCard({
   item: ApiTreeNode
   status?: string
 }) {
-  const isFolder = item.kind === "folder"
-  const isTemplate = item.vm?.is_template
-
   return (
     <Item
       variant="muted"
@@ -100,11 +97,7 @@ function FavoriteItemCard({
       render={
         <Link to="/inventory/items/$itemId" params={{ itemId: item.id }}>
           <ItemMedia variant="icon">
-            {isFolder ? (
-              <IconFolder className="fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
-            ) : (
-              <VmIcon status={status} isTemplate={isTemplate} />
-            )}
+            <InventoryNodeIcon node={item} status={status} />
           </ItemMedia>
           <ItemContent>
             <ItemTitle>{item.name}</ItemTitle>
