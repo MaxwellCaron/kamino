@@ -16,6 +16,7 @@ import (
 	"unicode"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -68,6 +69,7 @@ type PodsHandler struct {
 	Actions              *vmactions.Executor
 	RouterTemplateItemID uuid.UUID
 	RouterCloneConfig    PodRouterCloneConfig
+	Audit                *audit.Service
 }
 
 type publishedPodPrincipalResponse struct {

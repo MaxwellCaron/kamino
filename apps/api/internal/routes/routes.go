@@ -24,6 +24,7 @@ func RegisterRoutes(
 	requests *handlers.RequestsHandler,
 	events *handlers.EventsHandler,
 	proxmoxSync *handlers.ProxmoxSyncHandler,
+	auditHandler *handlers.AuditHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -159,6 +160,11 @@ func RegisterRoutes(
 	if proxmoxSync != nil {
 		protected.GET("/admin/proxmox/sync/preview", proxmoxSync.Preview)
 		protected.POST("/admin/proxmox/sync/apply", proxmoxSync.Apply)
+	}
+
+	// Audit ledger endpoints
+	if auditHandler != nil {
+		protected.GET("/admin/audit/actions", auditHandler.List)
 	}
 
 	// Principals endpoints (AD users & groups)

@@ -1646,6 +1646,55 @@ AS $$
 $$;
 
 -- ----------------------------------------------------------------------------
+-- Direct action audit ledger
+-- Append-only log of high-risk direct VM and pod actions performed outside
+-- the request workflow (power, delete, clone, snapshot, template, pod ops).
+-- ----------------------------------------------------------------------------
+CREATE TABLE action_events (
+    id                  BIGSERIAL PRIMARY KEY,
+    actor_principal_id  UUID NULL REFERENCES principals(id) ON DELETE SET NULL,
+    action_kind         TEXT NOT NULL,
+    target_kind         TEXT NOT NULL,
+    inventory_item_id   UUID NULL REFERENCES inventory_items(id) ON DELETE SET NULL,
+    pod_id              UUID NULL,
+    status              TEXT NOT NULL,
+    error_message       TEXT NULL,
+    metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT action_events_action_kind_not_empty
+        CHECK (length(trim(action_kind)) > 0),
+    CONSTRAINT action_events_target_kind_not_empty
+        CHECK (length(trim(target_kind)) > 0),
+    CONSTRAINT action_events_status_valid
+        CHECK (status IN ('started', 'succeeded', 'failed'))
+);
+
+CREATE INDEX ix_action_events_created_at
+    ON action_events (created_at DESC, id DESC);
+
+CREATE INDEX ix_action_events_actor_created_at
+    ON action_events (actor_principal_id, created_at DESC, id DESC)
+    WHERE actor_principal_id IS NOT NULL;
+
+CREATE INDEX ix_action_events_inventory_item_created_at
+    ON action_events (inventory_item_id, created_at DESC, id DESC)
+    WHERE inventory_item_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION action_events_prevent_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'Action events are append-only';
+END;
+$$;
+
+CREATE TRIGGER trg_action_events_prevent_update
+BEFORE UPDATE OR DELETE ON action_events
+FOR EACH ROW
+EXECUTE FUNCTION action_events_prevent_mutation();
+
+-- ----------------------------------------------------------------------------
 -- Seed reserved system principals
 -- ----------------------------------------------------------------------------
 INSERT INTO principal_providers (provider_type, name)

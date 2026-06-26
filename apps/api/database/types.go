@@ -402,6 +402,19 @@ func (ns NullRequestStatus) Value() (driver.Value, error) {
 	return string(ns.RequestStatus), nil
 }
 
+type ActionEvents struct {
+	ID               int64              `json:"id"`
+	ActorPrincipalID *uuid.UUID         `json:"actor_principal_id"`
+	ActionKind       string             `json:"action_kind"`
+	TargetKind       string             `json:"target_kind"`
+	InventoryItemID  *uuid.UUID         `json:"inventory_item_id"`
+	PodID            *uuid.UUID         `json:"pod_id"`
+	Status           string             `json:"status"`
+	ErrorMessage     *string            `json:"error_message"`
+	Metadata         []byte             `json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type AuthSessions struct {
 	ID                  uuid.UUID          `json:"id"`
 	PrincipalID         uuid.UUID          `json:"principal_id"`

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -514,6 +515,13 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 
 	progress.succeed("Pod cloned successfully.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.clone",
+		TargetKind:       "pod",
+		PodID:            &pod.ID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 	c.JSON(http.StatusOK, response)
 }
 
@@ -556,6 +564,13 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 	}
 
 	progress.succeed("Pod virtual machines replaced successfully.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.reclone",
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 	c.JSON(http.StatusOK, response)
 }
 
@@ -628,6 +643,13 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.power." + req.Action,
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 }
 
 func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
@@ -672,6 +694,13 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.delete",
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 }
 
 func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
@@ -2840,6 +2869,16 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 		resp.Succeeded = append(resp.Succeeded, clone.ID)
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.bulk." + req.Action,
+		TargetKind:       "pod",
+		PodID:            &podID,
+		Metadata: map[string]any{
+			"succeeded": len(resp.Succeeded),
+			"failed":    len(resp.Failed),
+		},
+	})
 	c.JSON(http.StatusOK, resp)
 }
 

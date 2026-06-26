@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -36,6 +37,7 @@ type VMHandler struct {
 	Authz    *authorization.Service
 	Actions  *vmactions.Executor
 	Claims   *vmactions.Claims
+	Audit    *audit.Service
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a
@@ -274,10 +276,23 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 			req.Description,
 			req.VMState,
 		); err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.snapshot.create",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, err.Error())
 			writeLoggedError(c, http.StatusBadGateway, "failed to create snapshot", "create vm snapshot", err)
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.snapshot.create",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"snapname": req.Snapname},
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})
@@ -336,6 +351,12 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		}
 		if actionErr != nil {
 			logRequestError(c, fmt.Sprintf("vm power action=%s item_id=%s", req.Action, target.ItemID), actionErr)
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.power." + req.Action,
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, actionErr.Error())
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: fmt.Sprintf("%s failed", req.Action),
@@ -343,6 +364,12 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 			continue
 		}
 
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.power." + req.Action,
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -396,12 +423,24 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		}
 		if actionErr != nil {
 			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), actionErr)
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.delete",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, actionErr.Error())
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "delete failed",
 			})
 			continue
 		}
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.delete",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -905,6 +944,13 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 			ItemID: clonedItemID,
 			Item:   buildInventoryItem(item),
 		})
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.clone",
+			TargetKind:       "vm",
+			InventoryItemID:  &source.ItemID,
+			Metadata:         map[string]any{"new_vmid": newID, "cloned_item_id": clonedItemID.String()},
+		})
 		return true
 	})
 }
@@ -966,6 +1012,12 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 				operation = "update vm template state in inventory"
 			}
 			logRequestError(c, operation+" item_id="+target.ItemID.String(), actionErr)
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.template",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, errMessage)
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: errMessage,
@@ -973,6 +1025,12 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 			continue
 		}
 
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.template",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -1065,10 +1123,23 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
 			req.Snapname,
 		); err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.snapshot.rollback",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, err.Error())
 			writeLoggedError(c, http.StatusBadGateway, "failed to rollback snapshot", "rollback vm snapshot", err)
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.snapshot.rollback",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"snapname": req.Snapname},
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})
@@ -1095,10 +1166,23 @@ func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 
 	h.runClaimedVMAction(c, target.ItemID, "delete_snapshot", principalID, func() bool {
 		if err := h.PX.DeleteSnapshot(c.Request.Context(), target.Node, target.VMID, snapname); err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.snapshot.delete",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, err.Error())
 			writeLoggedError(c, http.StatusBadGateway, "failed to delete snapshot", "delete vm snapshot", err)
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.snapshot.delete",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"snapname": snapname},
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})

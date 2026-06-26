@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
@@ -450,6 +451,7 @@ func main() {
 		vmStatusNotifier,
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
+	auditService := audit.NewService(server.DBPool)
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Importer: server.ProxmoxImport,
@@ -458,6 +460,7 @@ func main() {
 		Authz:    authzService,
 		Actions:  vmActionExecutor,
 		Claims:   vmActionClaims,
+		Audit:    auditService,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:       server.ProxmoxClient,
@@ -479,6 +482,7 @@ func main() {
 		Actions:              vmActionExecutor,
 		RouterTemplateItemID: routerTemplateItemID,
 		RouterCloneConfig:    routerCloneConfig,
+		Audit:                auditService,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
@@ -488,6 +492,10 @@ func main() {
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Authz:    authzService,
+	}
+	auditHandler := &handlers.AuditHandler{
+		Audit: auditService,
+		Authz: authzService,
 	}
 	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
 	requestService := requestqueue.NewService(
@@ -570,6 +578,7 @@ func main() {
 		requestsHandler,
 		eventsHandler,
 		proxmoxSyncHandler,
+		auditHandler,
 	)
 
 	r.Run(config.Port)
