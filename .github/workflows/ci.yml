@@ -27,7 +27,7 @@ jobs:
 
       - name: test
         working-directory: apps/api
-        run: go test ./...
+        run: go test -race ./...
 
       - name: sqlc-drift-check
         working-directory: apps/api
@@ -66,6 +66,9 @@ jobs:
 
       - name: lint
         run: bun run lint
+
+      - name: test
+        run: bun run test
 
       - name: react-doctor
         uses: millionco/react-doctor@v2
