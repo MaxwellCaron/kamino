@@ -117,8 +117,9 @@ export function CreatePodPage() {
   const createPodMutation = useMutation({
     mutationFn: createPod,
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({
+      await queryClient.refetchQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
+        type: "all",
       })
       dispatch({ type: "creationSucceeded", result })
     },
