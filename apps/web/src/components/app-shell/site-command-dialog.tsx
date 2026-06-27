@@ -29,7 +29,6 @@ import {
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useOptionalInventoryDialogs } from "@/features/inventory/components/inventory-dialogs-provider"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -49,7 +48,6 @@ export function SiteCommandDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
-  const inventoryDialogs = useOptionalInventoryDialogs()
   const [searchQuery, setSearchQuery] = useState("")
 
   const { data: sessionData, isLoading: isSessionLoading } = useQuery(
@@ -141,17 +139,8 @@ export function SiteCommandDialog({
       navigateToRequests: () => navigate({ to: "/manager/requests" }),
       navigateToSdn: () => navigate({ to: "/admin/sdn" }),
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
-      openClone: inventoryDialogs?.openClone,
-      openCreateFolder: inventoryDialogs?.openCreateFolder,
-      openCreateVm: inventoryDialogs?.openCreateVm,
-      openEditVmHardware: inventoryDialogs?.openEditVmHardware,
-      openFolderLimit: inventoryDialogs?.openFolderLimit,
-      openPermissions: inventoryDialogs?.openPermissions,
-      openRenameFolder: inventoryDialogs?.openRenameFolder,
-      openRenameVm: inventoryDialogs?.openRenameVm,
-      openSnapshot: inventoryDialogs?.openSnapshot,
     }),
-    [close, inventoryDialogs, navigate]
+    [close, navigate]
   )
 
   const commands = useMemo(() => {
