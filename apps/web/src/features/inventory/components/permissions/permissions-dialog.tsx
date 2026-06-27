@@ -4,7 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
   ChevronDownIcon,
-  LockIcon,
+  LockedIcon,
   Search01Icon,
   Settings01Icon,
   UserGroupIcon,
@@ -343,7 +343,7 @@ export function InventoryPermissionsDialog(
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={open}
-        icon={LockIcon}
+        icon={LockedIcon}
         title="Permissions"
         description={
           <>

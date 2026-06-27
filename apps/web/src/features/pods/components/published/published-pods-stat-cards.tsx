@@ -1,7 +1,7 @@
 import {
   PackageIcon,
   Copy01Icon,
-  LockIcon,
+  LockedIcon,
   ViewIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -26,7 +26,7 @@ export function PublishedPodsStatCards({
       description: `${stats.listed} listed and ${stats.unlisted} unlisted pods.`,
     },
     {
-      icon: LockIcon,
+      icon: LockedIcon,
       title: "Restricted Pods",
       value: `${stats.restricted}`,
       description: "Pods limited to specific users or groups.",

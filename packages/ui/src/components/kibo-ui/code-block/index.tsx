@@ -40,12 +40,12 @@ import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 
 export type { BundledLanguage } from "shiki"
 
-type CodeBlockIcon = IconSvgElement
+type CodeBLockedIcon = IconSvgElement
 
 function getCodeBlockHeaderIcon(
   value?: string,
   filename?: ReactNode
-): CodeBlockIcon | undefined {
+): CodeBLockedIcon | undefined {
   if (value !== undefined) {
     return SourceCodeIcon
   }
@@ -361,7 +361,7 @@ export const CodeBlockFiles = ({
 }
 
 export type CodeBlockFilenameProps = HTMLAttributes<HTMLDivElement> & {
-  icon?: CodeBlockIcon
+  icon?: CodeBLockedIcon
   value?: string
 }
 

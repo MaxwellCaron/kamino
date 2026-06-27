@@ -19,7 +19,7 @@ import {
   Delete01Icon,
   ExternalLinkIcon,
   GlobeIcon,
-  LockIcon,
+  LockedIcon,
   MoreVerticalIcon,
   PencilEdit01Icon,
   ViewIcon,
@@ -166,7 +166,7 @@ export function getPublishedPodsColumns({
           <div className="flex min-w-32 flex-col gap-2 py-1">
             <Badge variant={isRestricted ? "outline" : "secondary"}>
               {isRestricted ? (
-                <HugeiconsIcon icon={LockIcon} data-icon="inline-start" />
+                <HugeiconsIcon icon={LockedIcon} data-icon="inline-start" />
               ) : (
                 <HugeiconsIcon icon={GlobeIcon} data-icon="inline-start" />
               )}

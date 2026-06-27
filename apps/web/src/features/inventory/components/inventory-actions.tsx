@@ -10,7 +10,7 @@ import {
   FolderAddIcon,
   GaugeIcon,
   Layout01Icon,
-  LockIcon,
+  LockedIcon,
   MoreHorizontalIcon,
   PencilEdit01Icon,
   Settings01Icon,
@@ -204,7 +204,7 @@ function FolderMenuItems({
                 disabled={isLoading}
               >
                 <HugeiconsIcon
-                  icon={LockIcon}
+                  icon={LockedIcon}
                   className="text-muted-foreground"
                 />
                 Permissions
@@ -409,7 +409,7 @@ function VmMenuItems({
                 disabled={isLoading}
               >
                 <HugeiconsIcon
-                  icon={LockIcon}
+                  icon={LockedIcon}
                   className="text-muted-foreground"
                 />
                 Permissions
@@ -531,7 +531,7 @@ function TemplateMenuItems({
               disabled={isLoading}
             >
               <HugeiconsIcon
-                icon={LockIcon}
+                icon={LockedIcon}
                 className="text-muted-foreground"
               />
               Permissions
