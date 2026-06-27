@@ -398,8 +398,10 @@ func (s *Service) ResolveVMItems(
 	return result, nil
 }
 
-// GetVMRecordForUpdate uses SELECT ... FOR UPDATE for mutation paths. The row
-// lock only persists for the lifetime of the surrounding transaction.
+// GetVMRecordForUpdate uses SELECT ... FOR UPDATE for mutation paths. With the
+// current pool-backed callers it does not serialize the full verify-then-act
+// window; vm_action_claims is the actual mutation boundary. The row lock only
+// persists for the lifetime of a surrounding transaction.
 func (s *Service) GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (VMRecord, error) {
 	row, err := database.New(s.db).GetProxmoxVMByInventoryItemIDForUpdate(ctx, itemID)
 	if err != nil {

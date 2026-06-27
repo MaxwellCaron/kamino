@@ -333,28 +333,6 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	upstreamUUID := uuid.New()
 	params["smbios1"] = fmt.Sprintf("uuid=%s", upstreamUUID.String())
 
-	vmid := req.VMID
-	if vmid <= 0 {
-		nextID, err := h.PX.GetNextVMID(c.Request.Context())
-		if err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
-			return
-		}
-		vmid = nextID
-	}
-
-	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), vmid)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
-		return
-	}
-	if !available {
-		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
-		return
-	}
-
-	params["vmid"] = fmt.Sprintf("%d", vmid)
-
 	if req.OSType != "" {
 		params["ostype"] = req.OSType
 	}
@@ -420,7 +398,16 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		targetNode = optimalNode.Node
 	}
 
-	if err := h.PX.CreateVM(c.Request.Context(), targetNode, params); err != nil {
+	vmid, err := runWithAvailableVMID(c.Request.Context(), h.PX, req.VMID, func(vmid int) error {
+		params["vmid"] = fmt.Sprintf("%d", vmid)
+		return h.PX.CreateVM(c.Request.Context(), targetNode, params)
+	})
+	switch {
+	case err == nil:
+	case isVMIDUnavailable(err):
+		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+		return
+	default:
 		writeLoggedError(c, http.StatusBadGateway, "failed to create VM", "create proxmox vm", err)
 		return
 	}

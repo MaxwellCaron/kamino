@@ -244,11 +244,15 @@ func verifyVMRecordIdentity(
 //
 // Before any sensitive action:
 //  1. Load the VM row by inventory_item_id.
-//  2. For mutating paths, use the FOR UPDATE lookup variant.
+//  2. For mutating paths, the lock=true path uses the FOR UPDATE lookup
+//     variant, but with the current pool-backed callers it does not hold a
+//     lock across the full verify-then-act window.
 //  3. Fetch current Proxmox config for the resolved node/vmid.
 //  4. Extract the current upstream UUID from Proxmox.
 //  5. Compare it to the stored upstream_uuid.
 //  6. Only execute the action if they match.
+//
+// VM mutations are serialized by vm_action_claims around the actual action.
 func requireVerifiedVMItemPermission(
 	c *gin.Context,
 	authzService vmAuthz,

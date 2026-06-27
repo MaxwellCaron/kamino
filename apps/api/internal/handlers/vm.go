@@ -40,6 +40,8 @@ type vmProxmox interface {
 	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
 	GetNextVMID(ctx context.Context) (int, error)
 	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
+	UsedVMIDs(ctx context.Context) (map[int]struct{}, error)
+	QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error)
 	CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error
 	SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error
 	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
@@ -960,31 +962,19 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		targetNode = optimalNode.Node
 	}
 
-	newID := req.NewID
-	if newID <= 0 {
-		nextID, err := h.PX.GetNextVMID(c.Request.Context())
-		if err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
-			return
-		}
-		newID = nextID
-	}
-
-	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), newID)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
-		return
-	}
-	if !available {
-		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
-		return
-	}
-
 	// The source VM is the inventory item being mutated for the duration of
 	// the clone (Proxmox reads its disks/config); claim it so a concurrent
 	// rename/delete/power action on the source cannot interleave.
 	h.runClaimedVMAction(c, source.ItemID, "clone_vm", principalID, func() bool {
-		if err := h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, newID, req.Name, req.Full, targetNode); err != nil {
+		newID, err := runWithAvailableVMID(c.Request.Context(), h.PX, req.NewID, func(vmid int) error {
+			return h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, vmid, req.Name, req.Full, targetNode)
+		})
+		switch {
+		case err == nil:
+		case isVMIDUnavailable(err):
+			c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+			return false
+		default:
 			writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
 			return false
 		}
