@@ -29,7 +29,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { IconTemplate } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Layout01Icon } from "@hugeicons/core-free-icons"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
 import { syncSelectedTemplates } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
@@ -190,7 +191,10 @@ export function CreatePodVirtualMachinesSection({
                   <Empty className="mt-6 border">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
-                        <IconTemplate className="text-muted-foreground" />
+                        <HugeiconsIcon
+                          icon={Layout01Icon}
+                          className="text-muted-foreground"
+                        />
                       </EmptyMedia>
                       <EmptyTitle>No templates selected</EmptyTitle>
                       <EmptyDescription>

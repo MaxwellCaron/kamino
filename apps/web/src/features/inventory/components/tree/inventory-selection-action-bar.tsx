@@ -1,4 +1,5 @@
-import { IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBar,
   ActionBarClose,
@@ -76,7 +77,7 @@ export function InventorySelectionActionBar() {
         />
       </ActionBarGroup>
       <ActionBarClose aria-label="Clear selection">
-        <IconX />
+        <HugeiconsIcon icon={Cancel01Icon} />
       </ActionBarClose>
     </ActionBar>
   )

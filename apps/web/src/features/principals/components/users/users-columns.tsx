@@ -7,12 +7,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconDots,
-  IconEdit,
-  IconTrash,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  Delete01Icon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -114,17 +115,23 @@ export function getUserColumns({
             <DropdownMenuTrigger
               render={
                 <Button variant="ghost" size="icon-xs">
-                  <IconDots className="size-4" />
+                  <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
                 </Button>
               }
             />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEditClick(user)}>
-                <IconEdit className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PencilEdit01Icon}
+                  className="text-muted-foreground"
+                />
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEditGroups(user)}>
-                <IconUsersGroup className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={UserGroupIcon}
+                  className="text-muted-foreground"
+                />
                 Groups
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -132,7 +139,7 @@ export function getUserColumns({
                 variant="destructive"
                 onClick={() => onDeleteClick(user)}
               >
-                <IconTrash />
+                <HugeiconsIcon icon={Delete01Icon} />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { z } from "zod"
-import { IconCopy } from "@tabler/icons-react"
+import { Copy01Icon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   FieldGroup,
@@ -115,7 +115,7 @@ export function CloneDialog({
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
       initialFocus={false}
-      icon={IconCopy}
+      icon={Copy01Icon}
       title="Clone"
       description={`Clone ${formatVmReference(
         currentVmid,

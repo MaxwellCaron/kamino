@@ -1,4 +1,5 @@
-import { IconReceipt } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Invoice01Icon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -43,7 +44,10 @@ export function RequestsPageOverviewCard({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex max-w-2xl flex-col gap-3">
             <CardTitle className="flex items-center gap-2 text-4xl font-black tracking-tight">
-              <IconReceipt className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Invoice01Icon}
+                className="size-7 text-muted-foreground"
+              />
               Requests
             </CardTitle>
             <CardDescription className="max-w-2xl text-sm/relaxed">
@@ -77,7 +81,7 @@ export function RequestsPageOverviewCard({
                       getRequestStatusClassName(status)
                     )}
                   >
-                    <StatusIcon className="size-4" />
+                    <HugeiconsIcon icon={StatusIcon} className="size-4" />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle>{formatRequestStatus(status)}</ItemTitle>

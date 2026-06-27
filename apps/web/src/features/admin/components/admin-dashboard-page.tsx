@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { IconUser, IconUsersGroup } from "@tabler/icons-react"
+import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import {
   buildStorageByNode,
@@ -106,11 +106,11 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     [inventoryTree]
   )
   const userColumns = useMemo(
-    () => getPrincipalColumns({ icon: IconUser, label: "User" }),
+    () => getPrincipalColumns({ icon: UserIcon, label: "User" }),
     []
   )
   const groupColumns = useMemo(
-    () => getPrincipalColumns({ icon: IconUsersGroup, label: "Group" }),
+    () => getPrincipalColumns({ icon: UserGroupIcon, label: "Group" }),
     []
   )
 

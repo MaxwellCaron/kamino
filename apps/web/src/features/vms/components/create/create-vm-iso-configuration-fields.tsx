@@ -1,4 +1,5 @@
-import { IconBolt, IconSettings } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { BoltIcon, Settings01Icon } from "@hugeicons/core-free-icons"
 import {
   Field,
   FieldDescription,
@@ -75,7 +76,7 @@ export const IsoConfigurationFields = withCreateVmForm({
       <div className="flex flex-col gap-6">
         <FieldSet>
           <FieldLegend className="flex items-center gap-2">
-            <IconSettings className="size-4" />
+            <HugeiconsIcon icon={Settings01Icon} className="size-4" />
             General
           </FieldLegend>
           <FieldDescription>
@@ -203,7 +204,7 @@ export const IsoConfigurationFields = withCreateVmForm({
         <FieldSeparator />
 
         <VmHardwareOperatingSystemSection
-          legendIcon={<IconBolt className="size-4" />}
+          legendIcon={<HugeiconsIcon icon={BoltIcon} className="size-4" />}
           description="Select the guest OS type and the ISO that should boot the VM."
         >
           <form.AppField name="iso_storage">

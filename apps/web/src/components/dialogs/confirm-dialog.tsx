@@ -1,12 +1,13 @@
 import { Loader } from "@dot-loaders/react"
 import { useQuery } from "@tanstack/react-query"
 import { isValidElement, useMemo, useRef, useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconAlertTriangle,
-  IconInfoCircle,
-  IconTrash,
-  IconTrashOff,
-} from "@tabler/icons-react"
+  Alert01Icon,
+  Delete01Icon,
+  Delete02Icon,
+  InformationCircleIcon,
+} from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -20,7 +21,8 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { ComponentType, ReactNode, RefObject } from "react"
+import type { ReactNode, RefObject } from "react"
+import type { IconSvgElement } from "@hugeicons/react"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   AppAlertDialogContent,
@@ -36,7 +38,7 @@ export type ConfirmStatusItem = {
   kind: "folder" | "vm"
   label: ReactNode
   description?: ReactNode
-  icon?: ComponentType<{ className?: string }> | ReactNode
+  icon?: IconSvgElement | ReactNode
   status: "idle" | "pending" | "success" | "error"
   error?: string
   vmid?: number
@@ -51,16 +53,13 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
   const isPending = item.status === "pending"
 
   if (item.icon) {
-    const Icon = item.icon
+    const icon = item.icon
 
-    if (isValidElement(Icon)) {
-      return Icon
+    if (isValidElement(icon)) {
+      return icon
     }
 
-    if (
-      typeof Icon === "function" ||
-      (typeof Icon === "object" && "render" in Icon)
-    ) {
+    if (Array.isArray(icon)) {
       let statusClasses = "bg-secondary text-secondary-foreground"
 
       if (item.status === "success") {
@@ -68,8 +67,6 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
       } else if (item.status === "error") {
         statusClasses = getRequestStatusClassName("denied")
       }
-
-      const IconComponent = Icon as ComponentType<{ className?: string }>
 
       return (
         <div
@@ -81,13 +78,13 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
           {isPending ? (
             <Loader loader="braille" renderer="svg-grid" />
           ) : (
-            <IconComponent className="size-5" />
+            <HugeiconsIcon icon={icon} className="size-5" />
           )}
         </div>
       )
     }
 
-    return Icon as ReactNode
+    return icon as ReactNode
   }
 
   if (isPending) {
@@ -97,12 +94,20 @@ function ConfirmStatusIcon({ item }: { item: ConfirmStatusItem }) {
   if (item.successDisplay === "deleted") {
     if (item.status === "success") {
       return (
-        <IconTrash className="size-4 text-emerald-600 dark:text-emerald-400" />
+        <HugeiconsIcon
+          icon={Delete01Icon}
+          className="size-4 text-emerald-600 dark:text-emerald-400"
+        />
       )
     }
 
     if (item.status === "error") {
-      return <IconTrashOff className="size-4 text-destructive" />
+      return (
+        <HugeiconsIcon
+          icon={Delete02Icon}
+          className="size-4 text-destructive"
+        />
+      )
     }
   }
 
@@ -129,9 +134,7 @@ export type ConfirmConfig = {
   pendingLabel?: ReactNode
   actionDisabled?: boolean
   closeOnSuccess?: boolean
-  icon?: ComponentType<{
-    className?: string
-  }>
+  icon?: IconSvgElement
   statusItems?: Array<ConfirmStatusItem>
   variant?: "default" | "destructive"
   onConfirm: (controls: ConfirmDialogControls) => Promise<void> | void
@@ -188,7 +191,7 @@ function ConfirmDialogSession({
 
   const HeaderIcon =
     config.icon ??
-    (config.variant === "destructive" ? IconAlertTriangle : IconInfoCircle)
+    (config.variant === "destructive" ? Alert01Icon : InformationCircleIcon)
   statusItemsRef.current = statusItems
   isPendingRef.current = isPending
 

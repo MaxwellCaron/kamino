@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { IconCubeOff } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Empty,
@@ -235,7 +236,10 @@ export function PublishedPodClonesTable({
             <Empty className="py-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <IconCubeOff className="text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={PackageRemoveIcon}
+                    className="text-muted-foreground"
+                  />
                 </EmptyMedia>
                 <EmptyTitle>No clones yet</EmptyTitle>
                 <EmptyDescription>

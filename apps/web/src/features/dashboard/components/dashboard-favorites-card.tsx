@@ -1,4 +1,5 @@
-import { IconStar } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { StarIcon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -63,7 +64,10 @@ export function DashboardFavoritesCard({
           <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconStar className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={StarIcon}
+                  className="text-muted-foreground"
+                />
               </EmptyMedia>
               <EmptyTitle>No favorites yet</EmptyTitle>
               <EmptyDescription>

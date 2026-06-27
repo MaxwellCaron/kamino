@@ -13,7 +13,9 @@ import {
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
 import { useRef } from "react"
-import type { ComponentProps, ComponentType, ReactNode } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { ComponentProps, ReactNode } from "react"
+import type { IconSvgElement } from "@hugeicons/react"
 import { AppActionButton } from "@/components/actions/app-action-button"
 
 function Freeze({
@@ -28,9 +30,7 @@ function Freeze({
   return <>{freeze ? frozen.current : children}</>
 }
 
-type AppDialogIcon = ComponentType<{
-  className?: string
-}>
+type AppDialogIcon = IconSvgElement
 
 type AppDialogVariant = "default" | "child"
 
@@ -60,12 +60,14 @@ function AppAlertDialogHeader({
       <AlertDialogTitle className="flex items-center gap-2">
         {variant === "child" ? (
           <>
-            {Icon ? <Icon /> : null}
+            {Icon ? <HugeiconsIcon icon={Icon} /> : null}
             <span>{title}</span>
           </>
         ) : (
           <>
-            {Icon ? <Icon className="text-muted-foreground" /> : null}
+            {Icon ? (
+              <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
+            ) : null}
             <span className="text-2xl font-semibold tracking-tight">
               {title}
             </span>
@@ -131,12 +133,14 @@ export function AppDialogHeader({
       <DialogTitle className="flex items-center gap-2">
         {variant === "child" ? (
           <>
-            {Icon ? <Icon /> : null}
+            {Icon ? <HugeiconsIcon icon={Icon} /> : null}
             <span>{title}</span>
           </>
         ) : (
           <>
-            {Icon ? <Icon className="text-muted-foreground" /> : null}
+            {Icon ? (
+              <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
+            ) : null}
             <span className="text-2xl font-semibold tracking-tight">
               {title}
             </span>

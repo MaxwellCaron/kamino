@@ -9,7 +9,7 @@
     "baseColor": "neutral",
     "cssVariables": true
   },
-  "iconLibrary": "tabler",
+  "iconLibrary": "hugeicons",
   "aliases": {
     "components": "@/components",
     "hooks": "@/hooks",

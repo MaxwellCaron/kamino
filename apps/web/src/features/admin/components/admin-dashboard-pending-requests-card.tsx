@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardAction,
@@ -38,7 +39,7 @@ export function AdminDashboardPendingRequestsCard({
         <CardAction>
           <Link to="/manager/requests" className={buttonVariants()}>
             Queue
-            <IconArrowUpRight data-icon="inline-end" />
+            <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
           </Link>
         </CardAction>
       </CardHeader>

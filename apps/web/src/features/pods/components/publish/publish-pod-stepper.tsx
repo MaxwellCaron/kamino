@@ -1,9 +1,10 @@
 import { useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconCubeSend,
-} from "@tabler/icons-react"
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  PackageCheck,
+} from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -67,7 +68,10 @@ export function PublishPodStepper({
               <StepperPrev
                 render={(props) => (
                   <Button variant="outline" {...props}>
-                    <IconArrowLeft data-icon="inline-start" />
+                    <HugeiconsIcon
+                      icon={ArrowLeft01Icon}
+                      data-icon="inline-start"
+                    />
                     Previous
                   </Button>
                 )}
@@ -80,7 +84,7 @@ export function PublishPodStepper({
                   type="button"
                   onClick={() => setPublishConfirmOpen(true)}
                 >
-                  <IconCubeSend data-icon="inline-start" />
+                  <HugeiconsIcon icon={PackageCheck} data-icon="inline-start" />
                   {submitLabel}
                 </Button>
               ) : (
@@ -88,7 +92,10 @@ export function PublishPodStepper({
                   render={(props) => (
                     <Button {...props}>
                       Next
-                      <IconArrowRight data-icon="inline-end" />
+                      <HugeiconsIcon
+                        icon={ArrowRight01Icon}
+                        data-icon="inline-end"
+                      />
                     </Button>
                   )}
                 />
@@ -108,7 +115,7 @@ export function PublishPodStepper({
       >
         <AppAlertDialogContent
           open={publishConfirmOpen}
-          icon={IconCubeSend}
+          icon={PackageCheck}
           title={confirmTitle}
           description={confirmDescription}
         >

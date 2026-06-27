@@ -1,12 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconKeyboard,
-  IconPlugConnected,
-  IconPlugConnectedX,
-  IconPower,
-  IconTerminal2,
-  IconX,
-} from "@tabler/icons-react"
+  Cancel01Icon,
+  ConnectIcon,
+  KeyboardIcon,
+  Plug01Icon,
+  PowerIcon,
+  TerminalIcon,
+} from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -132,7 +133,10 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconTerminal2 className="size-5 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={TerminalIcon}
+            className="size-5 text-muted-foreground"
+          />
           Console
         </CardTitle>
         <CardDescription>
@@ -157,9 +161,15 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 {powerStatus !== "running" ? (
-                  <IconPower className="text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={PowerIcon}
+                    className="text-muted-foreground"
+                  />
                 ) : (
-                  <IconPlugConnectedX className="text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={ConnectIcon}
+                    className="text-muted-foreground"
+                  />
                 )}
               </EmptyMedia>
               <EmptyTitle>
@@ -292,14 +302,14 @@ function ConsoleToolbar({
       return (
         <div className="flex items-center gap-2">
           <Badge>
-            <IconPlugConnected />
+            <HugeiconsIcon icon={Plug01Icon} />
             <span className="font-mono">{elapsed}</span>
           </Badge>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <Button variant="outline" size="xs">
-                  <IconKeyboard data-icon="inline-start" />
+                  <HugeiconsIcon icon={KeyboardIcon} data-icon="inline-start" />
                   Send Keys
                 </Button>
               }
@@ -324,7 +334,7 @@ function ConsoleToolbar({
                     size="icon-xs"
                     onClick={onDisconnect}
                   >
-                    <IconX />
+                    <HugeiconsIcon icon={Cancel01Icon} />
                   </Button>
                 }
               />
@@ -340,7 +350,7 @@ function ConsoleToolbar({
           <Tooltip>
             <TooltipTrigger>
               <Badge variant="destructive">
-                <IconPlugConnectedX />
+                <HugeiconsIcon icon={ConnectIcon} />
                 {status === "error" ? "Error" : "Disconnected"}
               </Badge>
             </TooltipTrigger>

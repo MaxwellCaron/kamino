@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
   Command,
@@ -245,7 +246,6 @@ export function SiteCommandDialog({
               {index > 0 && <CommandSeparator />}
               <CommandGroup heading={groupLabels[group]}>
                 {groupCommands.map((command) => {
-                  const Icon = command.icon
                   return (
                     <CommandItem
                       key={command.id}
@@ -253,7 +253,7 @@ export function SiteCommandDialog({
                       keywords={command.keywords}
                       onSelect={command.onSelect}
                     >
-                      <Icon />
+                      <HugeiconsIcon icon={command.icon} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{command.label}</span>
                         <span className="block truncate text-xs font-normal text-muted-foreground">

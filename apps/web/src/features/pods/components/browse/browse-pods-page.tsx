@@ -6,7 +6,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { IconCubeOff } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { BrowsePodsCard } from "./browse-pods-card"
 import {
   BrowsePodsGridSkeleton,
@@ -57,7 +58,10 @@ export function BrowsePodsPage() {
           <Empty className="min-h-[45vh] border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCubeOff className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PackageRemoveIcon}
+                  className="text-muted-foreground"
+                />
               </EmptyMedia>
               <EmptyTitle>No Pods</EmptyTitle>
               <EmptyDescription>

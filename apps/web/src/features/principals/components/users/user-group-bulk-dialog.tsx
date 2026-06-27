@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
-import { IconUserMinus, IconUserPlus } from "@tabler/icons-react"
+import { UserAdd01Icon, UserMinusIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Item,
@@ -131,7 +131,7 @@ export function UserGroupBulkDialog({
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
       initialFocus={false}
-      icon={mode === "add" ? IconUserPlus : IconUserMinus}
+      icon={mode === "add" ? UserAdd01Icon : UserMinusIcon}
       title={mode === "add" ? "Add Users" : "Remove Users"}
       description={
         mode === "add" ? (

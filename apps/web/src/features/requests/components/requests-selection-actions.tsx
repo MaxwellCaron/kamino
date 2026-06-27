@@ -1,4 +1,5 @@
-import { IconCheck, IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import {
   ActionBarItem,
@@ -54,7 +55,7 @@ export function RequestsSelectionActions({
     const isApprove = action === "approve"
     const mutation = isApprove ? approveMutation : denyMutation
     const title = isApprove ? "Approve Requests" : "Deny Requests"
-    const icon = isApprove ? IconCheck : IconX
+    const icon = isApprove ? Tick01Icon : Cancel01Icon
     const actionLabel = isApprove ? "Approve" : "Deny"
     const variant = isApprove ? "default" : ("destructive" as const)
 
@@ -119,11 +120,15 @@ export function RequestsSelectionActions({
             if (result.failed.length > 0) {
               toast.error(result.failed[0].error)
             } else {
-              toast.success(`Denied ${ids.length} request${ids.length === 1 ? "" : "s"}`)
+              toast.success(
+                `Denied ${ids.length} request${ids.length === 1 ? "" : "s"}`
+              )
             }
             clearSelection()
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to deny requests")
+            toast.error(
+              err instanceof Error ? err.message : "Failed to deny requests"
+            )
           }
           return
         }
@@ -181,7 +186,7 @@ export function RequestsSelectionActions({
         tooltip="Approve"
         variant="default"
       >
-        <IconCheck />
+        <HugeiconsIcon icon={Tick01Icon} />
       </ActionBarItem>
       <ActionBarSeparator />
       <ActionBarItem
@@ -191,7 +196,7 @@ export function RequestsSelectionActions({
         tooltip="Deny"
         variant="destructive"
       >
-        <IconX />
+        <HugeiconsIcon icon={Cancel01Icon} />
       </ActionBarItem>
     </>
   )

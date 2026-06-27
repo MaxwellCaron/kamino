@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { IconSearch, IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import {
@@ -164,7 +165,7 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center justify-between gap-6 px-6">
         <InputGroup className="max-w-sm">
           <InputGroupAddon>
-            <IconSearch />
+            <HugeiconsIcon icon={Search01Icon} />
           </InputGroupAddon>
           <InputGroupInput
             placeholder="Search..."
@@ -255,9 +256,7 @@ export function DataTable<TData, TValue>({
             <m.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
-              initial={
-                hasBeenLoading.current ? { opacity: 0, y: 4 } : false
-              }
+              initial={hasBeenLoading.current ? { opacity: 0, y: 4 } : false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -2 }}
               transition={loadingTransition}
@@ -336,7 +335,7 @@ export function DataTable<TData, TValue>({
             {selectionActions({ clearSelection, selectedRows })}
           </ActionBarGroup>
           <ActionBarClose aria-label="Clear selection">
-            <IconX />
+            <HugeiconsIcon icon={Cancel01Icon} />
           </ActionBarClose>
         </ActionBar>
       )}

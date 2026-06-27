@@ -11,7 +11,8 @@ import {
   EmptyDescription,
   EmptyHeader,
 } from "@workspace/ui/components/empty"
-import { IconDeviceDesktop } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ComputerIcon } from "@hugeicons/core-free-icons"
 import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
 import { VmListItem } from "@/features/vms/components/vm-list-item"
 
@@ -47,7 +48,10 @@ export function PodVms({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconDeviceDesktop className="text-muted-foreground" />
+          <HugeiconsIcon
+            icon={ComputerIcon}
+            className="text-muted-foreground"
+          />
           <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
             Virtual Machines
           </span>

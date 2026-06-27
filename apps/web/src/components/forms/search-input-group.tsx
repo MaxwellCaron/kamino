@@ -1,4 +1,5 @@
-import { IconSearch } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Search01Icon } from "@hugeicons/core-free-icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -37,7 +38,7 @@ export function SearchInputGroup({
         aria-label={ariaLabel}
       />
       <InputGroupAddon>
-        <IconSearch />
+        <HugeiconsIcon icon={Search01Icon} />
       </InputGroupAddon>
       {resultCount != null && (
         <InputGroupAddon align="inline-end">

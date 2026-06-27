@@ -1,7 +1,12 @@
 import { createContext, useContext, useMemo } from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { IconChevronDown, IconMinus, IconPlus } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Add01Icon,
+  ChevronDownIcon,
+  MinusSignIcon,
+} from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ItemInstance } from "@headless-tree/core"
 
@@ -28,22 +33,25 @@ function useTreeContext<T = any>() {
 function renderToggleIcon(isExpanded: boolean, toggleIconType: ToggleIconType) {
   if (toggleIconType === "plus-minus") {
     return isExpanded ? (
-      <IconMinus
+      <HugeiconsIcon
+        icon={MinusSignIcon}
         className="size-3.5 text-muted-foreground"
         stroke="currentColor"
-        strokeWidth="1"
       />
     ) : (
-      <IconPlus
+      <HugeiconsIcon
+        icon={Add01Icon}
         className="size-3.5 text-muted-foreground"
         stroke="currentColor"
-        strokeWidth="1"
       />
     )
   }
 
   return (
-    <IconChevronDown className="size-4 text-muted-foreground in-aria-[expanded=false]:-rotate-90" />
+    <HugeiconsIcon
+      icon={ChevronDownIcon}
+      className="size-4 text-muted-foreground in-aria-[expanded=false]:-rotate-90"
+    />
   )
 }
 

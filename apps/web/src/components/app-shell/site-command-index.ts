@@ -1,21 +1,22 @@
 import {
-  IconCubePlus,
-  IconCubeSend,
-  IconDeviceDesktop,
-  IconDeviceDesktopQuestion,
-  IconFolder,
-  IconHome,
-  IconLayoutDashboard,
-  IconListDetails,
-  IconNetwork,
-  IconPackage,
-  IconPackages,
-  IconReceipt,
-  IconShield,
-  IconTemplate,
-  IconUser,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  ComputerIcon,
+  DashboardSquare01Icon,
+  FolderIcon,
+  Globe02Icon,
+  Home03Icon,
+  Invoice01Icon,
+  Layout01Icon,
+  ListViewIcon,
+  PackageAddIcon,
+  PackageCheck,
+  PackageIcon,
+  PackageMovingIcon,
+  ReloadIcon,
+  Shield01Icon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
@@ -39,7 +40,7 @@ export type CommandGroupKey =
 export type SiteCommandResult = {
   id: string
   group: CommandGroupKey
-  icon: typeof IconHome
+  icon: IconSvgElement
   label: string
   keywords: Array<string>
   onSelect: () => void
@@ -49,7 +50,7 @@ export type SiteCommandResult = {
 
 type StaticCommandConfig = {
   group: CommandGroupKey
-  icon: typeof IconHome
+  icon: IconSvgElement
   id: string
   keywords: Array<string>
   label: string
@@ -104,7 +105,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Home",
     subtitle: "Dashboard overview",
-    icon: IconHome,
+    icon: Home03Icon,
     to: "/",
     shortcut: "⌘H",
     visibility: "all",
@@ -115,7 +116,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Pods",
     subtitle: "Browse published pods",
-    icon: IconPackages,
+    icon: PackageIcon,
     to: "/pods",
     visibility: "all",
     keywords: ["catalog", "launch", "clone"],
@@ -125,7 +126,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Create Pod",
     subtitle: "Build a pod from templates",
-    icon: IconCubePlus,
+    icon: PackageAddIcon,
     to: "/pods/create",
     visibility: "manager",
     keywords: ["manager", "new pod", "templates"],
@@ -135,7 +136,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Publish Pod",
     subtitle: "Configure catalog access and tasks",
-    icon: IconCubeSend,
+    icon: PackageCheck,
     to: "/pods/publish",
     visibility: "manager",
     keywords: ["manager", "catalog", "tasks"],
@@ -145,7 +146,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Published Pods",
     subtitle: "Manage catalog entries",
-    icon: IconListDetails,
+    icon: PackageMovingIcon,
     to: "/pods/published",
     visibility: "manager",
     keywords: ["manager", "catalog", "visibility"],
@@ -155,7 +156,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Requests",
     subtitle: "Review request queue",
-    icon: IconReceipt,
+    icon: Invoice01Icon,
     to: "/manager/requests",
     visibility: "manager",
     keywords: ["approval", "pending", "manager"],
@@ -165,7 +166,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Admin",
     subtitle: "Cluster and platform overview",
-    icon: IconLayoutDashboard,
+    icon: DashboardSquare01Icon,
     to: "/admin",
     visibility: "admin",
     keywords: ["administrator", "metrics", "cluster"],
@@ -175,7 +176,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "SDN",
     subtitle: "Software-defined networking",
-    icon: IconNetwork,
+    icon: Globe02Icon,
     to: "/admin/sdn",
     visibility: "admin",
     keywords: ["administrator", "network", "vnet"],
@@ -185,7 +186,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Users",
     subtitle: "Manage user principals",
-    icon: IconUser,
+    icon: UserIcon,
     to: "/admin/principals/users",
     visibility: "admin",
     keywords: ["administrator", "principals", "accounts"],
@@ -195,7 +196,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Groups",
     subtitle: "Manage group principals",
-    icon: IconUsersGroup,
+    icon: UserGroupIcon,
     to: "/admin/principals/groups",
     visibility: "admin",
     keywords: ["administrator", "principals", "roles"],
@@ -205,7 +206,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Proxmox Sync",
     subtitle: "Reconcile inventory drift against Proxmox",
-    icon: IconDeviceDesktopQuestion,
+    icon: ReloadIcon,
     to: "/admin/proxmox-sync",
     visibility: "admin",
     keywords: ["administrator", "reconcile", "drift", "sync"],
@@ -215,7 +216,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Audit Logs",
     subtitle: "Review direct VM and pod action history",
-    icon: IconShield,
+    icon: Shield01Icon,
     to: "/admin/audit",
     visibility: "admin",
     keywords: ["administrator", "audit", "history", "events"],
@@ -348,7 +349,7 @@ function appendVmCommands(
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: isTemplate ? IconTemplate : IconDeviceDesktop,
+    icon: isTemplate ? Layout01Icon : ComputerIcon,
     label: node.name,
     subtitle: `${vmLabel} ${vm.vmid} on ${vm.node}`,
     keywords: vmKeywords,
@@ -368,7 +369,7 @@ function appendFolderCommands(
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: IconFolder,
+    icon: FolderIcon,
     label: node.name,
     subtitle: path,
     keywords: folderKeywords,
@@ -391,7 +392,7 @@ function buildPodCommands({
     results.push({
       id: `pod:${pod.id}`,
       group: "pods",
-      icon: IconPackage,
+      icon: PackageIcon,
       label: pod.title,
       subtitle: "Published pod catalog",
       keywords: [
@@ -409,7 +410,7 @@ function buildPodCommands({
       results.push({
         id: `published-pod:${pod.id}`,
         group: "pods",
-        icon: IconListDetails,
+        icon: ListViewIcon,
         label: `Edit ${pod.title}`,
         subtitle: `Published pod · ${pod.status}`,
         keywords: [pod.slug, pod.description, pod.source_folder, "manager"],
@@ -440,7 +441,7 @@ function buildAdminCommands({
     results.push({
       id: `user:${principal.id}`,
       group: "principals",
-      icon: IconUser,
+      icon: UserIcon,
       label,
       subtitle: principal.description ?? "User principal",
       keywords: [principal.external_id, principal.description ?? "", "user"],
@@ -452,7 +453,7 @@ function buildAdminCommands({
     results.push({
       id: `group:${principal.id}`,
       group: "principals",
-      icon: IconUsersGroup,
+      icon: UserGroupIcon,
       label,
       subtitle: principal.description ?? "Group principal",
       keywords: [
@@ -468,7 +469,7 @@ function buildAdminCommands({
     results.push({
       id: `vnet:${vnet.vnet}`,
       group: "network",
-      icon: IconNetwork,
+      icon: Globe02Icon,
       label: vnet.vnet,
       subtitle: `${vnet.zone}${vnet.tag ? ` · VLAN ${vnet.tag}` : ""}`,
       keywords: [vnet.alias ?? "", vnet.zone, String(vnet.tag ?? ""), "sdn"],
@@ -500,7 +501,7 @@ function buildRequestCommands({
     return {
       id: `request:${request.id}`,
       group: "requests",
-      icon: IconReceipt,
+      icon: Invoice01Icon,
       label: formatRequestLabel(request),
       subtitle: `${formatRequestStatus(request.status)} · ${request.requester_username}`,
       keywords: [

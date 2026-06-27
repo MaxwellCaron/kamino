@@ -1,4 +1,5 @@
-import { IconCheckbox, IconClock } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { CheckmarkSquare01Icon, Clock01Icon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -73,9 +74,15 @@ export function RequestsPageQueueCard({
           <div className="flex flex-col gap-1">
             <CardTitle className="flex items-center gap-2">
               {scope === "pending" ? (
-                <IconClock className="size-5 text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Clock01Icon}
+                  className="size-5 text-muted-foreground"
+                />
               ) : (
-                <IconCheckbox className="size-5 text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={CheckmarkSquare01Icon}
+                  className="size-5 text-muted-foreground"
+                />
               )}
               {formatRequestScope(scope)}
             </CardTitle>

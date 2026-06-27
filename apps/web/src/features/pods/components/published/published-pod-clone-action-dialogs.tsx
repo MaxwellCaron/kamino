@@ -1,9 +1,9 @@
 import {
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconRefresh,
-  IconTrash,
-} from "@tabler/icons-react"
+  Delete01Icon,
+  PlayIcon,
+  ReloadIcon,
+  StopIcon,
+} from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,10 @@ export function PublishedPodCloneActionDialogs({
 }: {
   pendingAction: PublishedPodClonePendingAction
   isMutating: boolean
-  onPowerConfirm: (clone: PublishedPodCloneSummary, action: "start" | "shutdown") => void
+  onPowerConfirm: (
+    clone: PublishedPodCloneSummary,
+    action: "start" | "shutdown"
+  ) => void
   onRecloneConfirm: (clone: PublishedPodCloneSummary) => void
   onDeleteConfirm: (clone: PublishedPodCloneSummary) => void
   onOpenChange: (open: boolean) => void
@@ -49,9 +52,7 @@ export function PublishedPodCloneActionDialogs({
             pendingAction?.type === "start" ||
             pendingAction?.type === "shutdown"
           }
-          icon={
-            pendingAction?.type === "start" ? IconPlayerPlay : IconPlayerStop
-          }
+          icon={pendingAction?.type === "start" ? PlayIcon : StopIcon}
           title={
             pendingAction?.type === "start"
               ? "Start Clone?"
@@ -94,7 +95,7 @@ export function PublishedPodCloneActionDialogs({
       >
         <AppAlertDialogContent
           open={pendingAction?.type === "reclone"}
-          icon={IconRefresh}
+          icon={ReloadIcon}
           title="Re-clone Clone?"
           description={
             pendingAction?.type === "reclone"
@@ -127,7 +128,7 @@ export function PublishedPodCloneActionDialogs({
       >
         <AppAlertDialogContent
           open={pendingAction?.type === "delete"}
-          icon={IconTrash}
+          icon={Delete01Icon}
           title="Delete Clone?"
           description={
             pendingAction?.type === "delete"

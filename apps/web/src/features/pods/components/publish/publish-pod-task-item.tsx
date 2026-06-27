@@ -21,7 +21,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/tabs"
-import { IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Delete01Icon } from "@hugeicons/core-free-icons"
 import { PublishPodTaskQuestions } from "./publish-pod-task-questions"
 import { publishPodTaskContentMaxLength } from "./publish-pod-form"
 import type {
@@ -220,7 +221,7 @@ export function PublishPodTaskItem({
                 })
               }}
             >
-              <IconTrash data-icon="inline-start" />
+              <HugeiconsIcon icon={Delete01Icon} data-icon="inline-start" />
               Delete Task
             </Button>
           </div>

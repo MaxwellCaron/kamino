@@ -1,5 +1,9 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconCubeOff } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  ArrowUpRight01Icon,
+  PackageRemoveIcon,
+} from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -43,7 +47,7 @@ export function DashboardRecentPodsCard({
         <CardAction>
           <Link to="/pods" className={buttonVariants()}>
             All Pods
-            <IconArrowUpRight data-icon="inline-end" />
+            <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
           </Link>
         </CardAction>
       </CardHeader>
@@ -65,7 +69,10 @@ export function DashboardRecentPodsCard({
           <Empty className="h-full min-h-52">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCubeOff className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PackageRemoveIcon}
+                  className="text-muted-foreground"
+                />
               </EmptyMedia>
               <EmptyTitle>No published pods</EmptyTitle>
               <EmptyDescription>

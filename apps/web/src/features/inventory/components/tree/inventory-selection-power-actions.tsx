@@ -1,9 +1,10 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconPower,
-  IconRefresh,
-} from "@tabler/icons-react"
+  PlayIcon,
+  PowerIcon,
+  ReloadIcon,
+  StopIcon,
+} from "@hugeicons/core-free-icons"
 import {
   ActionBarItem,
   ActionBarSeparator,
@@ -49,7 +50,7 @@ export function InventorySelectionPowerActions({
         onClick={() =>
           openConfirm({
             title: "Start",
-            icon: IconPlayerPlay,
+            icon: PlayIcon,
             description: <p>This will power on {powerSelectionLabel}.</p>,
             actionLabel: "Start",
             closeOnSuccess: false,
@@ -65,14 +66,14 @@ export function InventorySelectionPowerActions({
         tooltip="Start"
         variant="default"
       >
-        <IconPlayerPlay />
+        <HugeiconsIcon icon={PlayIcon} />
       </ActionBarItem>
       <ActionBarItem
         onSelect={(event) => event.preventDefault()}
         onClick={() =>
           openConfirm({
             title: "Shutdown",
-            icon: IconPower,
+            icon: PowerIcon,
             description: (
               <p>This will send a shutdown signal to {powerSelectionLabel}.</p>
             ),
@@ -90,14 +91,14 @@ export function InventorySelectionPowerActions({
         aria-label="Shut down selected VMs"
         tooltip="Shutdown"
       >
-        <IconPower />
+        <HugeiconsIcon icon={PowerIcon} />
       </ActionBarItem>
       <ActionBarItem
         onSelect={(event) => event.preventDefault()}
         onClick={() =>
           openConfirm({
             title: "Reboot",
-            icon: IconRefresh,
+            icon: ReloadIcon,
             description: (
               <p>This will send a reboot signal to {powerSelectionLabel}.</p>
             ),
@@ -115,14 +116,14 @@ export function InventorySelectionPowerActions({
         aria-label="Reboot selected VMs"
         tooltip="Reboot"
       >
-        <IconRefresh />
+        <HugeiconsIcon icon={ReloadIcon} />
       </ActionBarItem>
       <ActionBarItem
         onSelect={(event) => event.preventDefault()}
         onClick={() =>
           openConfirm({
             title: "Stop",
-            icon: IconPlayerStop,
+            icon: StopIcon,
             description: (
               <p>This will immediately stop {powerSelectionLabel}.</p>
             ),
@@ -140,7 +141,7 @@ export function InventorySelectionPowerActions({
         aria-label="Stop selected VMs"
         tooltip="Stop"
       >
-        <IconPlayerStop />
+        <HugeiconsIcon icon={StopIcon} />
       </ActionBarItem>
       {(canTemplate || canDelete) && <ActionBarSeparator />}
     </>

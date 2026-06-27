@@ -230,3 +230,7 @@
     scroll-behavior: auto !important;
   }
 }
+
+svg path {
+  stroke-width: 2px;
+}

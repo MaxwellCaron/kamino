@@ -2,7 +2,7 @@ import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
-import { IconUsersGroup } from "@tabler/icons-react"
+import { UserGroupIcon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -57,7 +57,7 @@ export function MembershipDialog(props: MembershipDialogProps) {
       open={open}
       onOpenChange={onOpenChange}
       initialFocus={false}
-      icon={IconUsersGroup}
+      icon={UserGroupIcon}
       title={mode === "user-groups" ? "Groups" : "Members"}
       description={
         mode === "user-groups"

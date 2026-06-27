@@ -21,7 +21,8 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { IconChevronDown } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronDownIcon } from "@hugeicons/core-free-icons"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import { AppActionButton } from "@/components/actions/app-action-button"
@@ -157,7 +158,6 @@ export function PodHeaderActions({
       <ButtonGroup aria-label="Pod actions" className="rounded-3xl bg-muted">
         {visibleActions.map((action) => {
           const config = POD_CLONE_ACTION_CONFIG[action]
-          const Icon = config.icon
 
           return (
             <Fragment key={action}>
@@ -166,7 +166,7 @@ export function PodHeaderActions({
                 disabled={actionPending}
                 onClick={() => openAction(action)}
               >
-                <Icon data-icon="inline-start" />
+                <HugeiconsIcon icon={config.icon} data-icon="inline-start" />
                 {config.label}
               </Button>
             </Fragment>
@@ -181,7 +181,7 @@ export function PodHeaderActions({
                 aria-label="More pod actions"
                 disabled={actionPending}
               >
-                <IconChevronDown />
+                <HugeiconsIcon icon={ChevronDownIcon} />
               </Button>
             }
           />
@@ -189,7 +189,6 @@ export function PodHeaderActions({
             <DropdownMenuGroup>
               {POD_CLONE_OVERFLOW_ACTIONS.map((action) => {
                 const config = POD_CLONE_ACTION_CONFIG[action]
-                const Icon = config.icon
 
                 return (
                   <Fragment key={action}>
@@ -202,7 +201,7 @@ export function PodHeaderActions({
                     >
                       <Item className="w-full p-1">
                         <ItemMedia variant="icon">
-                          <Icon />
+                          <HugeiconsIcon icon={config.icon} />
                         </ItemMedia>
                         <ItemContent className="gap-0">
                           <ItemTitle>{config.label}</ItemTitle>
@@ -232,10 +231,7 @@ export function PodHeaderActions({
             description={activeDialogConfig.description}
           >
             {actionError && (
-              <InlineErrorAlert
-                error={actionError}
-                fallback="Action failed."
-              />
+              <InlineErrorAlert error={actionError} fallback="Action failed." />
             )}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={actionPending}>

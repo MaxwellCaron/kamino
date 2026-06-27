@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { IconEdit, IconFolderPlus } from "@tabler/icons-react"
+import { FolderAddIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -76,7 +76,7 @@ export function RenameDialog(props: RenameDialogProps) {
           submitLabel: "Create Folder",
           pendingLabel: "Creating...",
           placeholder: "Folder",
-          icon: IconFolderPlus,
+          icon: FolderAddIcon,
           schema: folderNameSchema,
         }
       case "rename-folder":
@@ -86,7 +86,7 @@ export function RenameDialog(props: RenameDialogProps) {
           submitLabel: "Rename Folder",
           pendingLabel: "Renaming...",
           placeholder: "Folder",
-          icon: IconEdit,
+          icon: PencilEdit01Icon,
           schema: folderNameSchema,
         }
       case "rename-item":
@@ -99,7 +99,7 @@ export function RenameDialog(props: RenameDialogProps) {
           submitLabel: "Rename",
           pendingLabel: "Renaming...",
           placeholder: "Name",
-          icon: IconEdit,
+          icon: PencilEdit01Icon,
           schema: vmNameSchema,
         }
     }

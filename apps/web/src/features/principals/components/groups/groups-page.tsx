@@ -1,12 +1,13 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconPlus,
-  IconRefresh,
-  IconTrash,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  Add01Icon,
+  Delete01Icon,
+  ReloadIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
@@ -156,7 +157,7 @@ export function GroupsPage() {
         onDeleteClick: (group: ApiPrincipal) =>
           setConfirm({
             title: "Delete Group",
-            icon: IconTrash,
+            icon: Delete01Icon,
             description: `Are you sure you want to delete ${getGroupLabel(group)}? This will permanently remove the group.`,
             actionLabel: "Delete",
             variant: "destructive",
@@ -188,7 +189,10 @@ export function GroupsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconUsersGroup className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={UserGroupIcon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Groups
               </h1>
@@ -207,13 +211,13 @@ export function GroupsPage() {
                   pending={syncMutation.isPending}
                   pendingLabel="Syncing..."
                 >
-                  <IconRefresh data-icon="inline-start" />
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
                   Sync
                 </AppActionButton>
               ) : null}
               {canAdminister ? (
                 <Button onClick={() => setCreateOpen(true)}>
-                  <IconPlus data-icon="inline-start" />
+                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
               ) : null}
@@ -244,7 +248,7 @@ export function GroupsPage() {
                               selectedRows.length === 1
                                 ? "Delete Group"
                                 : "Delete Groups",
-                            icon: IconTrash,
+                            icon: Delete01Icon,
                             description:
                               selectedRows.length === 1
                                 ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
@@ -265,7 +269,10 @@ export function GroupsPage() {
                           })
                         }
                       >
-                        <IconTrash data-icon="inline-start" />
+                        <HugeiconsIcon
+                          icon={Delete01Icon}
+                          data-icon="inline-start"
+                        />
                         Delete
                       </ActionBarItem>
                     )

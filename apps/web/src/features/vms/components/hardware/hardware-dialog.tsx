@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { IconSettings } from "@tabler/icons-react"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { Dialog } from "@workspace/ui/components/dialog"
 import {
   AppDialogContent,
@@ -71,7 +71,7 @@ export function VmHardwareDialog({
       <AppDialogContent
         open={open}
         initialFocus={false}
-        icon={IconSettings}
+        icon={Settings01Icon}
         title="Hardware"
         description={`Review and update the hardware profile for ${formatVmReference(
           initialVmid ?? vmid,

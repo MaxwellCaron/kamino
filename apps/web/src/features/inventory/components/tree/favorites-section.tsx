@@ -13,7 +13,8 @@ import {
 } from "@workspace/ui/components/item"
 import { Link } from "@tanstack/react-router"
 import { useCallback, useMemo, useSyncExternalStore } from "react"
-import { IconEye, IconEyeOff } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
 import { InventoryNodeMenu } from "../inventory-actions"
 import { InventoryNodeIcon } from "../inventory-node-icon"
@@ -141,9 +142,9 @@ export function InventoryFavoritesSection() {
             className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
           >
             {favoritesOpen ? (
-              <IconEyeOff className="size-3.5" />
+              <HugeiconsIcon icon={ViewOffSlashIcon} className="size-3.5" />
             ) : (
-              <IconEye className="size-3.5" />
+              <HugeiconsIcon icon={ViewIcon} className="size-3.5" />
             )}
           </CollapsibleTrigger>
         </div>

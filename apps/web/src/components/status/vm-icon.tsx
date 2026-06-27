@@ -1,4 +1,5 @@
-import { IconDeviceDesktop, IconTemplate } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ComputerIcon, Layout01Icon } from "@hugeicons/core-free-icons"
 
 export function VmIcon({
   status,
@@ -8,14 +9,22 @@ export function VmIcon({
   isTemplate?: boolean
 }) {
   if (isTemplate) {
-    return <IconTemplate className="size-4 text-muted-foreground" />
+    return (
+      <HugeiconsIcon
+        icon={Layout01Icon}
+        className="size-4 text-muted-foreground"
+      />
+    )
   }
 
   const color = getVmPowerStatusDotClassName(status)
 
   return (
     <span className="relative">
-      <IconDeviceDesktop className="size-4 text-muted-foreground" />
+      <HugeiconsIcon
+        icon={ComputerIcon}
+        className="size-4 text-muted-foreground"
+      />
       {color && (
         <span
           className={`absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full ring-1 ring-background ${color}`}
@@ -40,9 +49,7 @@ export function getVmPowerStatusTextClassName(
   return undefined
 }
 
-function getVmPowerStatusDotClassName(
-  status?: string
-): string | undefined {
+function getVmPowerStatusDotClassName(status?: string): string | undefined {
   if (status === "running") return "bg-emerald-600 dark:bg-emerald-400"
   if (status === "stopped") return "bg-muted-foreground/40"
   if (status) return "bg-amber-600 dark:bg-amber-400"

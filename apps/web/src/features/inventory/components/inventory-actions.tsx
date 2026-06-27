@@ -1,20 +1,21 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCamera,
-  IconCopy,
-  IconDeviceDesktopPlus,
-  IconDots,
-  IconEdit,
-  IconExternalLink,
-  IconFolderPlus,
-  IconGauge,
-  IconLock,
-  IconSettings,
-  IconStar,
-  IconTemplate,
-  IconTrash,
-} from "@tabler/icons-react"
+  Camera01Icon,
+  ComputerAddIcon,
+  Copy01Icon,
+  Delete01Icon,
+  ExternalLinkIcon,
+  FolderAddIcon,
+  GaugeIcon,
+  Layout01Icon,
+  LockIcon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  Settings01Icon,
+  StarIcon,
+} from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,12 +109,15 @@ function GeneralVmMenuItems({
           />
         }
       >
-        <IconExternalLink className="text-muted-foreground" />
+        <HugeiconsIcon
+          icon={ExternalLinkIcon}
+          className="text-muted-foreground"
+        />
         Open
       </DropdownMenuItem>
       {canToggleFavorite && (
         <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
-          <IconStar className="text-muted-foreground" />
+          <HugeiconsIcon icon={StarIcon} className="text-muted-foreground" />
           {isFavorite ? "Unfavorite" : "Favorite"}
         </DropdownMenuItem>
       )}
@@ -150,13 +154,19 @@ function FolderMenuItems({
             <DropdownMenuLabel>Create</DropdownMenuLabel>
             {capabilities.createFolder.visible && (
               <DropdownMenuItem onClick={onCreateFolder} disabled={isLoading}>
-                <IconFolderPlus className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={FolderAddIcon}
+                  className="text-muted-foreground"
+                />
                 New Folder
               </DropdownMenuItem>
             )}
             {capabilities.createVm.visible && (
               <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
-                <IconDeviceDesktopPlus className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={ComputerAddIcon}
+                  className="text-muted-foreground"
+                />
                 New VM
               </DropdownMenuItem>
             )}
@@ -172,13 +182,19 @@ function FolderMenuItems({
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {capabilities.rename.visible && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
-                <IconEdit className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PencilEdit01Icon}
+                  className="text-muted-foreground"
+                />
                 Rename
               </DropdownMenuItem>
             )}
             {capabilities.managePermissions.visible && (
               <DropdownMenuItem onClick={onEditLimit} disabled={isLoading}>
-                <IconGauge className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={GaugeIcon}
+                  className="text-muted-foreground"
+                />
                 Limit
               </DropdownMenuItem>
             )}
@@ -187,7 +203,10 @@ function FolderMenuItems({
                 onClick={onManagePermissions}
                 disabled={isLoading}
               >
-                <IconLock className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={LockIcon}
+                  className="text-muted-foreground"
+                />
                 Permissions
               </DropdownMenuItem>
             )}
@@ -201,7 +220,7 @@ function FolderMenuItems({
           onClick={onDelete}
           disabled={isLoading}
         >
-          <IconTrash />
+          <HugeiconsIcon icon={Delete01Icon} />
           Delete
         </DropdownMenuItem>
       )}
@@ -272,8 +291,6 @@ function VmMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Power</DropdownMenuLabel>
             {powerActions.actions.map((action) => {
-              const ActionIcon = action.icon
-
               return (
                 <DropdownMenuItem
                   key={action.action}
@@ -283,7 +300,10 @@ function VmMenuItems({
                     powerActions.openPowerAction(action.action, onAction)
                   }
                 >
-                  <ActionIcon className="text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={action.icon}
+                    className="text-muted-foreground"
+                  />
                   {action.label}
                 </DropdownMenuItem>
               )
@@ -300,7 +320,10 @@ function VmMenuItems({
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
-                <IconCopy className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Copy01Icon}
+                  className="text-muted-foreground"
+                />
                 Clone
               </DropdownMenuItem>
             )}
@@ -313,7 +336,10 @@ function VmMenuItems({
                 }}
                 disabled={isLoading}
               >
-                <IconCamera className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Camera01Icon}
+                  className="text-muted-foreground"
+                />
                 Snapshot
               </DropdownMenuItem>
             )}
@@ -323,7 +349,7 @@ function VmMenuItems({
                 onClick={() =>
                   onAction({
                     title: "Templatize",
-                    icon: IconTemplate,
+                    icon: Layout01Icon,
                     description: `This will convert ${formatVmReference(vmid, name)} to a template. Once a VM is converted to a template, you will not be able to make any additional edits to this VM.`,
                     actionLabel: "Templatize",
                     variant: "destructive",
@@ -342,7 +368,10 @@ function VmMenuItems({
                   })
                 }
               >
-                <IconTemplate className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Layout01Icon}
+                  className="text-muted-foreground"
+                />
                 Templatize
               </DropdownMenuItem>
             )}
@@ -358,13 +387,19 @@ function VmMenuItems({
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {capabilities.rename.visible && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
-                <IconEdit className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PencilEdit01Icon}
+                  className="text-muted-foreground"
+                />
                 Rename
               </DropdownMenuItem>
             )}
             {capabilities.editHardware.visible && (
               <DropdownMenuItem onClick={onEditHardware} disabled={isLoading}>
-                <IconSettings className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Settings01Icon}
+                  className="text-muted-foreground"
+                />
                 Hardware
               </DropdownMenuItem>
             )}
@@ -373,7 +408,10 @@ function VmMenuItems({
                 onClick={onManagePermissions}
                 disabled={isLoading}
               >
-                <IconLock className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={LockIcon}
+                  className="text-muted-foreground"
+                />
                 Permissions
               </DropdownMenuItem>
             )}
@@ -388,7 +426,7 @@ function VmMenuItems({
           onClick={() =>
             onAction({
               title: "Delete",
-              icon: IconTrash,
+              icon: Delete01Icon,
               description: `This will permanently delete ${formatVmReference(vmid, name)}.`,
               actionLabel: "Delete",
               variant: "destructive",
@@ -407,7 +445,7 @@ function VmMenuItems({
             })
           }
         >
-          <IconTrash />
+          <HugeiconsIcon icon={Delete01Icon} />
           Delete
         </DropdownMenuItem>
       )}
@@ -462,7 +500,10 @@ function TemplateMenuItems({
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
-                <IconCopy className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Copy01Icon}
+                  className="text-muted-foreground"
+                />
                 Clone
               </DropdownMenuItem>
             )}
@@ -478,7 +519,10 @@ function TemplateMenuItems({
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {capabilities.rename.visible && (
               <DropdownMenuItem onClick={onRename} disabled={isLoading}>
-                <IconEdit className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PencilEdit01Icon}
+                  className="text-muted-foreground"
+                />
                 Rename
               </DropdownMenuItem>
             )}
@@ -486,7 +530,10 @@ function TemplateMenuItems({
               onClick={onManagePermissions}
               disabled={isLoading}
             >
-              <IconLock className="text-muted-foreground" />
+              <HugeiconsIcon
+                icon={LockIcon}
+                className="text-muted-foreground"
+              />
               Permissions
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -500,7 +547,7 @@ function TemplateMenuItems({
           onClick={() =>
             onAction({
               title: "Delete Template?",
-              icon: IconTrash,
+              icon: Delete01Icon,
               description: `This will permanently delete template ${vmIdentifier}.`,
               actionLabel: "Delete",
               variant: "destructive",
@@ -523,7 +570,7 @@ function TemplateMenuItems({
             })
           }
         >
-          <IconTrash />
+          <HugeiconsIcon icon={Delete01Icon} />
           Delete
         </DropdownMenuItem>
       )}
@@ -590,7 +637,7 @@ export function InventoryNodeMenu({
 
     openConfirm({
       title: `Delete folder "${data.name}"?`,
-      icon: IconTrash,
+      icon: Delete01Icon,
       description: null,
       actionLabel: "Delete",
       pendingLabel: "Deleting...",
@@ -630,7 +677,7 @@ export function InventoryNodeMenu({
             onClick={stopTreeItemEvent}
             onPointerDown={stopTreeItemEvent}
           >
-            <IconDots />
+            <HugeiconsIcon icon={MoreHorizontalIcon} />
           </Button>
         }
       />
@@ -815,7 +862,7 @@ export function VmOptionsMenu({
         <DropdownMenuTrigger
           render={
             <Button variant="ghost" size="icon">
-              <IconDots />
+              <HugeiconsIcon icon={MoreHorizontalIcon} />
             </Button>
           }
         />

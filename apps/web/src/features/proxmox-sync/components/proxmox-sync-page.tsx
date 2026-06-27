@@ -1,11 +1,12 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconRefresh,
-} from "@tabler/icons-react"
+  Alert01Icon,
+  CheckmarkCircle01Icon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
@@ -160,7 +161,7 @@ export function ProxmoxSyncPage() {
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         {diff?.warning && (
           <Alert variant="destructive">
-            <IconAlertTriangle className="size-4" />
+            <HugeiconsIcon icon={Alert01Icon} className="size-4" />
             <AlertDescription>{diff.warning}</AlertDescription>
           </Alert>
         )}
@@ -168,7 +169,10 @@ export function ProxmoxSyncPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2">
-              <IconRefresh className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={ReloadIcon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 pr-2 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Proxmox Sync
               </h1>
@@ -207,7 +211,8 @@ export function ProxmoxSyncPage() {
                 onClick={() => refetch()}
                 disabled={isFetching}
               >
-                <IconRefresh
+                <HugeiconsIcon
+                  icon={ReloadIcon}
                   className={isFetching ? "animate-spin" : ""}
                   data-icon="inline-start"
                 />
@@ -229,7 +234,10 @@ export function ProxmoxSyncPage() {
                 <Empty className="min-h-[80vh] border border-dashed">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <IconCircleCheck className="size-6 text-emerald-600 dark:text-emerald-400" />
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle01Icon}
+                        className="size-6 text-emerald-600 dark:text-emerald-400"
+                      />
                     </EmptyMedia>
                     <EmptyTitle>Synced</EmptyTitle>
                     <EmptyDescription>
@@ -259,7 +267,7 @@ export function ProxmoxSyncPage() {
                         const statusItems = buildStatusItems(selectableRows)
                         setConfirm({
                           title: "Apply Sync Changes",
-                          icon: IconRefresh,
+                          icon: ReloadIcon,
                           description: `Apply ${selectableRows.length} selected change${selectableRows.length === 1 ? "" : "s"} to the inventory.`,
                           actionLabel: "Apply",
                           variant: "default",
@@ -334,7 +342,10 @@ export function ProxmoxSyncPage() {
                         })
                       }}
                     >
-                      <IconRefresh data-icon="inline-start" />
+                      <HugeiconsIcon
+                        icon={ReloadIcon}
+                        data-icon="inline-start"
+                      />
                       Sync {selectableRows.length} change
                       {selectableRows.length === 1 ? "" : "s"}
                     </ActionBarItem>

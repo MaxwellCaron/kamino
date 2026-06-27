@@ -1,7 +1,12 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
-import { IconNetwork, IconPlus, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Add01Icon,
+  Delete01Icon,
+  Globe02Icon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
@@ -108,7 +113,7 @@ export function SdnPage() {
         onDeleteClick: (v) =>
           setConfirm({
             title: "Delete VNet",
-            icon: IconTrash,
+            icon: Delete01Icon,
             description: `Are you sure you want to delete ${v.vnet}? This will apply the SDN configuration immediately.`,
             actionLabel: "Delete",
             variant: "destructive",
@@ -134,7 +139,10 @@ export function SdnPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconNetwork className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Globe02Icon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 VNets
               </h1>
@@ -149,7 +157,7 @@ export function SdnPage() {
                   onClick={() => setCreateOpen(true)}
                   disabled={error !== null}
                 >
-                  <IconPlus data-icon="inline-start" />
+                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
               ) : null}
@@ -174,7 +182,7 @@ export function SdnPage() {
                               selectedRows.length === 1
                                 ? "Delete VNet"
                                 : "Delete VNets",
-                            icon: IconTrash,
+                            icon: Delete01Icon,
                             description:
                               selectedRows.length === 1
                                 ? `Are you sure you want to delete ${getVNetLabel(selectedRows[0])}? This will apply the SDN configuration immediately.`
@@ -194,7 +202,10 @@ export function SdnPage() {
                           })
                         }
                       >
-                        <IconTrash data-icon="inline-start" />
+                        <HugeiconsIcon
+                          icon={Delete01Icon}
+                          data-icon="inline-start"
+                        />
                         Delete
                       </ActionBarItem>
                     )

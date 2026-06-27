@@ -19,16 +19,17 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { Item, ItemGroup } from "@workspace/ui/components/item"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCpu,
-  IconDatabase,
-  IconDeviceDesktop,
-  IconPlus,
-  IconTemplate,
-  IconTopologyBus,
-  IconTrash,
-  IconX,
-} from "@tabler/icons-react"
+  Add01Icon,
+  Cancel01Icon,
+  ComputerIcon,
+  CpuIcon,
+  HardDriveIcon,
+  Delete01Icon,
+  Layout01Icon,
+  RamMemoryIcon,
+} from "@hugeicons/core-free-icons"
 import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
 import type { ReactNode } from "react"
 import type { CreatePodFormApi, CreatePodFormValues } from "./create-pod-form"
@@ -140,7 +141,10 @@ export function CreatePodTemplateCard({
           <Card data-invalid={isVmInvalid || undefined}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <IconTemplate className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Layout01Icon}
+                  className="text-muted-foreground"
+                />
                 <span>{templateConfig.templateName}</span>
               </CardTitle>
               <CardDescription>
@@ -153,7 +157,7 @@ export function CreatePodTemplateCard({
                   onClick={onRemoveTemplate}
                   aria-label={`Delete ${templateConfig.templateName} template`}
                 >
-                  <IconTrash data-icon="inline-start" />
+                  <HugeiconsIcon icon={Delete01Icon} data-icon="inline-start" />
                   <span className="hidden md:block">Delete</span>
                 </Button>
                 <Button
@@ -168,7 +172,7 @@ export function CreatePodTemplateCard({
                     )
                   }
                 >
-                  <IconPlus data-icon="inline-start" />
+                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden md:block">Add VM</span>
                 </Button>
               </CardAction>
@@ -210,7 +214,10 @@ export function CreatePodTemplateCard({
                                 </FieldLabel>
                                 <InputGroup>
                                   <InputGroupAddon>
-                                    <IconDeviceDesktop className="text-muted-foreground" />
+                                    <HugeiconsIcon
+                                      icon={ComputerIcon}
+                                      className="text-muted-foreground"
+                                    />
                                   </InputGroupAddon>
                                   <InputGroupInput
                                     id={vmNameField.name}
@@ -247,7 +254,7 @@ export function CreatePodTemplateCard({
                           aria-label={`Remove ${vm.name || `VM ${vmIndex + 1}`}`}
                           onClick={() => vmsField.removeValue(vmIndex)}
                         >
-                          <IconX />
+                          <HugeiconsIcon icon={Cancel01Icon} />
                         </Button>
                       </div>
 
@@ -260,7 +267,7 @@ export function CreatePodTemplateCard({
                           min={1}
                           max={8}
                           unit="vCPU"
-                          icon={<IconCpu />}
+                          icon={<HugeiconsIcon icon={CpuIcon} />}
                           submissionAttempts={submissionAttempts}
                         />
                         <CreatePodVmNumberField
@@ -271,7 +278,7 @@ export function CreatePodTemplateCard({
                           min={1}
                           max={32}
                           unit="GB"
-                          icon={<IconTopologyBus className="rotate-180" />}
+                          icon={<HugeiconsIcon icon={RamMemoryIcon} />}
                           submissionAttempts={submissionAttempts}
                         />
                         <CreatePodVmNumberField
@@ -282,7 +289,7 @@ export function CreatePodTemplateCard({
                           min={getMinimumStorageGb(templateConfig)}
                           max={100}
                           unit="GB"
-                          icon={<IconDatabase />}
+                          icon={<HugeiconsIcon icon={HardDriveIcon} />}
                           submissionAttempts={submissionAttempts}
                         />
                       </div>

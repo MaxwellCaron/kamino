@@ -13,12 +13,13 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconBox,
-  IconChevronDown,
-  IconDeviceDesktop,
-  IconNetwork,
-} from "@tabler/icons-react"
+  PackageIcon,
+  ChevronDownIcon,
+  ComputerIcon,
+  Globe02Icon,
+} from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import { getReviewVmNames } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
@@ -42,7 +43,10 @@ function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
     <div>
       <div className="flex flex-col gap-0.5">
         <div className={treePreviewRowClass}>
-          <IconChevronDown className="size-4 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={ChevronDownIcon}
+            className="size-4 text-muted-foreground"
+          />
           <FolderIcon open />
           <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
         </div>
@@ -85,7 +89,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                       variant="icon"
                       className="translate-y-0! self-center!"
                     >
-                      <IconBox />
+                      <HugeiconsIcon icon={PackageIcon} />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Pod Name</ItemTitle>
@@ -102,7 +106,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                       variant="icon"
                       className="translate-y-0! self-center!"
                     >
-                      <IconNetwork />
+                      <HugeiconsIcon icon={Globe02Icon} />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Automated Networking</ItemTitle>
@@ -119,7 +123,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                       variant="icon"
                       className="translate-y-0! self-center!"
                     >
-                      <IconDeviceDesktop />
+                      <HugeiconsIcon icon={ComputerIcon} />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Virtual Machines</ItemTitle>

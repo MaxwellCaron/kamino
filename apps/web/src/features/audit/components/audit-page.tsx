@@ -6,7 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { IconShield } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Shield01Icon } from "@hugeicons/core-free-icons"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { actionEventsQueryOptions } from "../api/audit-api"
 import { columns } from "./audit-columns"
@@ -35,7 +36,10 @@ export function AuditPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconShield className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Shield01Icon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Audit Logs
               </h1>

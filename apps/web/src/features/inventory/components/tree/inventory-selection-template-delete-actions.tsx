@@ -1,4 +1,5 @@
-import { IconTemplate, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Delete01Icon, Layout01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBarItem,
   ActionBarSeparator,
@@ -43,7 +44,7 @@ export function InventorySelectionTemplateDeleteActions({
             onClick={() =>
               openConfirm({
                 title: "Templatize",
-                icon: IconTemplate,
+                icon: Layout01Icon,
                 description: (
                   <p>
                     This will convert {templateSelectionLabel} to templates.
@@ -63,7 +64,7 @@ export function InventorySelectionTemplateDeleteActions({
             aria-label="Templatize selected VMs"
             tooltip="Templatize"
           >
-            <IconTemplate />
+            <HugeiconsIcon icon={Layout01Icon} />
           </ActionBarItem>
           {canDelete && <ActionBarSeparator />}
         </>
@@ -74,7 +75,7 @@ export function InventorySelectionTemplateDeleteActions({
           onClick={() =>
             openConfirm({
               title: "Delete",
-              icon: IconTrash,
+              icon: Delete01Icon,
               description: null,
               actionLabel: "Delete",
               pendingLabel: "Deleting...",
@@ -88,7 +89,7 @@ export function InventorySelectionTemplateDeleteActions({
           tooltip="Delete"
           variant="destructive"
         >
-          <IconTrash />
+          <HugeiconsIcon icon={Delete01Icon} />
         </ActionBarItem>
       )}
     </>

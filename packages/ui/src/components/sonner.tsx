@@ -1,12 +1,13 @@
 import { useTheme } from "next-themes"
 import { Toaster as Sonner } from "sonner"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconAlertOctagonFilled,
-  IconAlertTriangleFilled,
-  IconCircleCheckFilled,
-  IconInfoCircleFilled,
-  IconLoader,
-} from "@tabler/icons-react"
+  Alert01Icon,
+  AlertDiamondIcon,
+  CheckmarkCircle01Icon,
+  InformationCircleIcon,
+  Loading01Icon,
+} from "@hugeicons/core-free-icons"
 import type { ToasterProps } from "sonner"
 
 const Toaster = ({ ...props }: ToasterProps) => {
@@ -18,17 +19,34 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       icons={{
         success: (
-          <IconCircleCheckFilled className="size-4 text-emerald-600 dark:text-emerald-400" />
+          <HugeiconsIcon
+            icon={CheckmarkCircle01Icon}
+            className="size-4 text-emerald-600 dark:text-emerald-400"
+          />
         ),
         info: (
-          <IconInfoCircleFilled className="size-4 text-teal-600 dark:text-teal-400" />
+          <HugeiconsIcon
+            icon={InformationCircleIcon}
+            className="size-4 text-teal-600 dark:text-teal-400"
+          />
         ),
         warning: (
-          <IconAlertTriangleFilled className="size-4 text-amber-600 dark:text-amber-400" />
+          <HugeiconsIcon
+            icon={Alert01Icon}
+            className="size-4 text-amber-600 dark:text-amber-400"
+          />
         ),
-        error: <IconAlertOctagonFilled className="size-4 text-destructive" />,
+        error: (
+          <HugeiconsIcon
+            icon={AlertDiamondIcon}
+            className="size-4 text-destructive"
+          />
+        ),
         loading: (
-          <IconLoader className="size-4 animate-spin text-muted-foreground" />
+          <HugeiconsIcon
+            icon={Loading01Icon}
+            className="size-4 animate-spin text-muted-foreground"
+          />
         ),
       }}
       style={

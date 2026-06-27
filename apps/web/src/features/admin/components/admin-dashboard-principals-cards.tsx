@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardAction,
@@ -47,7 +48,7 @@ export function AdminDashboardPrincipalsCards({
           <CardAction>
             <Link to="/admin/principals/groups" className={buttonVariants()}>
               All Groups
-              <IconArrowUpRight data-icon="inline-end" />
+              <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
             </Link>
           </CardAction>
         </CardHeader>
@@ -74,7 +75,7 @@ export function AdminDashboardPrincipalsCards({
           <CardAction>
             <Link to="/admin/principals/users" className={buttonVariants()}>
               All Users
-              <IconArrowUpRight data-icon="inline-end" />
+              <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
             </Link>
           </CardAction>
         </CardHeader>

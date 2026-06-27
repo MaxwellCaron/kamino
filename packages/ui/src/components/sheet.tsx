@@ -3,7 +3,8 @@
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
-import { IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 
@@ -82,7 +83,7 @@ function SheetContent({
               />
             }
           >
-            <IconX />
+            <HugeiconsIcon icon={Cancel01Icon} />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         )}

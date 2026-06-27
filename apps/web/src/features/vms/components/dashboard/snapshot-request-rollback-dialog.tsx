@@ -1,4 +1,4 @@
-import { IconHistory } from "@tabler/icons-react"
+import { HistoryIcon } from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -50,7 +50,7 @@ export function SnapshotRequestRollbackDialog({
     >
       <AppAlertDialogContent
         open={open}
-        icon={IconHistory}
+        icon={HistoryIcon}
         title="Rollback"
         description={
           snapshotName ? (

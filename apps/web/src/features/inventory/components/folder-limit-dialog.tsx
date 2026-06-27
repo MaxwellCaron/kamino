@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { IconGauge } from "@tabler/icons-react"
+import { GaugeIcon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -102,7 +102,7 @@ export function FolderLimitDialog({
       open={open}
       onOpenChange={onOpenChange}
       onClosed={reset}
-      icon={IconGauge}
+      icon={GaugeIcon}
       title="Folder Limit"
       description={`Set the limit for "${folderName}".`}
     >

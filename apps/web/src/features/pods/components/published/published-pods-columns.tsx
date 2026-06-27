@@ -12,18 +12,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconChevronRight,
-  IconCopy,
-  IconDotsVertical,
-  IconEdit,
-  IconExternalLink,
-  IconEye,
-  IconEyeOff,
-  IconLock,
-  IconTrash,
-  IconWorld,
-} from "@tabler/icons-react"
+  ChevronRightIcon,
+  Copy01Icon,
+  Delete01Icon,
+  ExternalLinkIcon,
+  GlobeIcon,
+  LockIcon,
+  MoreVerticalIcon,
+  PencilEdit01Icon,
+  ViewIcon,
+  ViewOffSlashIcon,
+} from "@hugeicons/core-free-icons"
 import { Link } from "@tanstack/react-router"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { PublishedPodStatusBadge } from "./published-pod-status-badge"
@@ -80,7 +81,8 @@ export function getPublishedPodsColumns({
             aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
             onClick={() => row.toggleExpanded()}
           >
-            <IconChevronRight
+            <HugeiconsIcon
+              icon={ChevronRightIcon}
               data-icon="inline-start"
               className={
                 row.getIsExpanded()
@@ -164,9 +166,9 @@ export function getPublishedPodsColumns({
           <div className="flex min-w-32 flex-col gap-2 py-1">
             <Badge variant={isRestricted ? "outline" : "secondary"}>
               {isRestricted ? (
-                <IconLock data-icon="inline-start" />
+                <HugeiconsIcon icon={LockIcon} data-icon="inline-start" />
               ) : (
-                <IconWorld data-icon="inline-start" />
+                <HugeiconsIcon icon={GlobeIcon} data-icon="inline-start" />
               )}
               {isRestricted ? "Restricted" : "Public"}
             </Badge>
@@ -240,7 +242,10 @@ export function getPublishedPodsColumns({
                   />
                 }
               >
-                <IconDotsVertical className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={MoreVerticalIcon}
+                  className="text-muted-foreground"
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
@@ -255,11 +260,17 @@ export function getPublishedPodsColumns({
                       />
                     }
                   >
-                    <IconExternalLink className="text-muted-foreground" />
+                    <HugeiconsIcon
+                      icon={ExternalLinkIcon}
+                      className="text-muted-foreground"
+                    />
                     Open
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onEdit(pod)}>
-                    <IconEdit className="text-muted-foreground" />
+                    <HugeiconsIcon
+                      icon={PencilEdit01Icon}
+                      className="text-muted-foreground"
+                    />
                     Edit
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
@@ -273,12 +284,14 @@ export function getPublishedPodsColumns({
                       onManagerClone(pod)
                     }}
                   >
-                    <IconCopy className="text-muted-foreground" />
+                    <HugeiconsIcon
+                      icon={Copy01Icon}
+                      className="text-muted-foreground"
+                    />
                     Clone
                   </DropdownMenuItem>
                   {POD_CLONE_ACTIONS.map((action) => {
                     const config = POD_CLONE_ACTION_CONFIG[action]
-                    const Icon = config.icon
 
                     return (
                       <DropdownMenuItem
@@ -293,7 +306,10 @@ export function getPublishedPodsColumns({
                         }
                         onClick={() => onCloneBulkAction(pod, action)}
                       >
-                        <Icon className="text-muted-foreground" />
+                        <HugeiconsIcon
+                          icon={config.icon}
+                          className="text-muted-foreground"
+                        />
                         {config.label}
                       </DropdownMenuItem>
                     )
@@ -309,11 +325,17 @@ export function getPublishedPodsColumns({
                     }
                   >
                     <DropdownMenuRadioItem value="listed">
-                      <IconEye className="text-muted-foreground" />
+                      <HugeiconsIcon
+                        icon={ViewIcon}
+                        className="text-muted-foreground"
+                      />
                       Listed
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="unlisted">
-                      <IconEyeOff className="text-muted-foreground" />
+                      <HugeiconsIcon
+                        icon={ViewOffSlashIcon}
+                        className="text-muted-foreground"
+                      />
                       Unlisted
                     </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
@@ -323,7 +345,7 @@ export function getPublishedPodsColumns({
                   variant="destructive"
                   onClick={() => onDelete(pod)}
                 >
-                  <IconTrash />
+                  <HugeiconsIcon icon={Delete01Icon} />
                   Delete Pod
                 </DropdownMenuItem>
               </DropdownMenuContent>

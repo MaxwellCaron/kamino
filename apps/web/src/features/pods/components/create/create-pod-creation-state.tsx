@@ -1,4 +1,4 @@
-import { IconBox, IconCubePlus, IconRefresh } from "@tabler/icons-react"
+import { BoxIcon, PackageAddIcon, ReloadIcon } from "@hugeicons/core-free-icons"
 import type {
   ProgressStateStep,
   ProgressStateSteps,
@@ -51,7 +51,8 @@ const CREATE_POD_WAITING_STEP = {
 const CREATE_POD_CONFIGURING_STEP = {
   id: 6,
   title: "Configuring VNet bridges",
-  description: "Connecting the router and workload virtual machines to the dev VNet.",
+  description:
+    "Connecting the router and workload virtual machines to the dev VNet.",
 } satisfies ProgressStateStep<CreatePodStepId>
 
 const CREATE_POD_ROUTER_STEP = {
@@ -145,14 +146,14 @@ export function CreatePodSubmitState({
           description="Your Pod has been created. Create another Pod or open the new Pod from the inventory view."
           actions={[
             {
-              icon: IconCubePlus,
+              icon: PackageAddIcon,
               label: "Create Another",
               onClick: onReset,
               to: "/pods/create",
               variant: "secondary",
             },
             {
-              icon: IconBox,
+              icon: BoxIcon,
               label: "View Pod",
               ...(createdPodFolderId
                 ? {
@@ -176,7 +177,7 @@ export function CreatePodSubmitState({
           }
           actions={[
             {
-              icon: IconRefresh,
+              icon: ReloadIcon,
               label: "Try Again",
               onClick: onReset,
               to: "/pods/create",

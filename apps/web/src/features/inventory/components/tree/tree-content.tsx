@@ -1,4 +1,5 @@
-import { IconStar } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { StarIcon } from "@hugeicons/core-free-icons"
 import {
   Tree,
   TreeDragLine,
@@ -202,7 +203,8 @@ function InventoryTreeRow({
               onToggleFavorite(id)
             }}
           >
-            <IconStar
+            <HugeiconsIcon
+              icon={StarIcon}
               className={cn(
                 isFavorite && "fill-muted-foreground dark:fill-muted-foreground"
               )}

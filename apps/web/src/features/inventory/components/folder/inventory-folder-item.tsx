@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCpu,
-  IconDatabase,
-  IconDeviceDesktop,
-  IconFolder,
-  IconStar,
-  IconTopologyBus,
-} from "@tabler/icons-react"
+  ComputerIcon,
+  CpuIcon,
+  HardDriveIcon,
+  FolderIcon,
+  RamMemoryIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -31,12 +32,12 @@ function FolderDescription({ node }: { node: ApiTreeNode }) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <IconFolder className="size-3.5" />
+        <HugeiconsIcon icon={FolderIcon} className="size-3.5" />
         {folderCount} {folderCount === 1 ? "Folder" : "Folders"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
-        <IconDeviceDesktop className="size-3.5" />
+        <HugeiconsIcon icon={ComputerIcon} className="size-3.5" />
         {vmCount} {vmCount === 1 ? "VM" : "VMs"}
       </div>
     </>
@@ -47,19 +48,19 @@ function VmDescription({ vm }: { vm: ApiTreeNode["vm"] }) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <IconCpu className="size-3.5" />
+        <HugeiconsIcon icon={CpuIcon} className="size-3.5" />
         {vm?.cpu_count != null
           ? `${vm.cpu_count} CPU${vm.cpu_count === 1 ? "" : "s"}`
           : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
-        <IconTopologyBus className="size-3.5 rotate-180" />
+        <HugeiconsIcon icon={RamMemoryIcon} className="size-3.5" />
         {vm?.memory_mb != null ? formatMemory(vm.memory_mb) : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
-        <IconDatabase className="size-3.5" />
+        <HugeiconsIcon icon={HardDriveIcon} className="size-3.5" />
         {vm?.disk_gb != null ? `${vm.disk_gb} GB` : "—"}
       </div>
     </>
@@ -120,7 +121,8 @@ export function InventoryFolderItem({
               )}
               onClick={onToggleFavorite}
             >
-              <IconStar
+              <HugeiconsIcon
+                icon={StarIcon}
                 className={
                   isFavorite
                     ? "fill-muted-foreground dark:fill-muted-foreground"

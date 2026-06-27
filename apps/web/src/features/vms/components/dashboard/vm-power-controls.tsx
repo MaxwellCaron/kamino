@@ -1,4 +1,5 @@
-import { IconPower } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PowerIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -42,15 +43,16 @@ export function VmPowerControls({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconPower className="size-4 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={PowerIcon}
+            className="size-4 text-muted-foreground"
+          />
           Power Options
         </CardTitle>
       </CardHeader>
       <CardContent className="h-full">
         <div className="grid h-full grid-cols-2 grid-rows-2 gap-4 [&_button]:h-full [&_button]:min-h-14">
           {powerActions.actions.map((action: VmPowerActionItem) => {
-            const ActionIcon = action.icon
-
             return (
               <Button
                 key={action.action}
@@ -60,7 +62,7 @@ export function VmPowerControls({
                 }
                 disabled={action.disabled}
               >
-                <ActionIcon data-icon="inline-start" />
+                <HugeiconsIcon icon={action.icon} data-icon="inline-start" />
                 <span className="inline md:hidden 2xl:inline">
                   {action.label}
                 </span>

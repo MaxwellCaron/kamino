@@ -1,11 +1,11 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
-  IconClock,
-  IconCopy,
-  IconDeviceDesktop,
-  IconPlayerPlay,
-} from "@tabler/icons-react"
+  Clock01Icon,
+  ComputerIcon,
+  Copy01Icon,
+  PlayIcon,
+} from "@hugeicons/core-free-icons"
 import { DashboardActivityTableCard } from "./dashboard-requests-card"
 import { getDashboardActivityColumns } from "./dashboard-requests-columns"
 import { DashboardCurrentClonedPodCard } from "./dashboard-cloned-pod-card"
@@ -228,22 +228,22 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const stats = [
     {
-      icon: IconDeviceDesktop,
+      icon: ComputerIcon,
       label: "Virtual Machines",
       value: String(inventoryStats.vms),
     },
     {
-      icon: IconPlayerPlay,
+      icon: PlayIcon,
       label: "Running VMs",
       value: String(runningVms),
     },
     {
-      icon: IconCopy,
+      icon: Copy01Icon,
       label: "Cloned Pods",
       value: String(cloneStatus.entries.length),
     },
     {
-      icon: IconClock,
+      icon: Clock01Icon,
       label: "Pending Requests",
       value: String(pendingRequests?.length ?? 0),
     },

@@ -1,14 +1,15 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconPlus,
-  IconRefresh,
-  IconTrash,
-  IconUser,
-  IconUsersMinus,
-  IconUsersPlus,
-} from "@tabler/icons-react"
+  Add01Icon,
+  AddTeam02Icon,
+  Delete01Icon,
+  ReloadIcon,
+  UserIcon,
+  UserMinusIcon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import {
   ActionBarItem,
@@ -147,7 +148,7 @@ export function UsersPage() {
         onDeleteClick: (targetUser: ApiPrincipal) =>
           setConfirm({
             title: "Delete User",
-            icon: IconTrash,
+            icon: Delete01Icon,
             description: `Are you sure you want to delete ${getUserLabel(targetUser)}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
@@ -189,7 +190,10 @@ export function UsersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconUser className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={UserIcon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Users
               </h1>
@@ -209,7 +213,7 @@ export function UsersPage() {
                   pending={syncMutation.isPending}
                   pendingLabel="Syncing..."
                 >
-                  <IconRefresh data-icon="inline-start" />
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
                   <span className="hidden lg:block">Sync</span>
                 </AppActionButton>
               ) : null}
@@ -218,7 +222,7 @@ export function UsersPage() {
                   onClick={() => setCreateOpen(true)}
                   disabled={error !== null}
                 >
-                  <IconPlus data-icon="inline-start" />
+                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
               ) : null}
@@ -254,7 +258,7 @@ export function UsersPage() {
                           tooltip="Add to group"
                           variant="default"
                         >
-                          <IconUsersPlus />
+                          <HugeiconsIcon icon={AddTeam02Icon} />
                         </ActionBarItem>
                         <ActionBarItem
                           onSelect={(event) => event.preventDefault()}
@@ -269,7 +273,7 @@ export function UsersPage() {
                           tooltip="Remove from group"
                           variant="destructive"
                         >
-                          <IconUsersMinus />
+                          <HugeiconsIcon icon={UserMinusIcon} />
                         </ActionBarItem>
                         <ActionBarSeparator />
                         <ActionBarItem
@@ -283,7 +287,7 @@ export function UsersPage() {
                                 selectedRows.length === 1
                                   ? "Delete User"
                                   : "Delete Users",
-                              icon: IconTrash,
+                              icon: Delete01Icon,
                               description:
                                 selectedRows.length === 1
                                   ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`
@@ -304,7 +308,7 @@ export function UsersPage() {
                             })
                           }
                         >
-                          <IconTrash />
+                          <HugeiconsIcon icon={Delete01Icon} />
                         </ActionBarItem>
                       </>
                     )

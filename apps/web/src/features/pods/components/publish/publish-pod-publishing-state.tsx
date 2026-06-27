@@ -1,9 +1,10 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconArrowLeft,
-  IconBox,
-  IconDeviceDesktop,
-  IconListDetails,
-} from "@tabler/icons-react"
+  ArrowLeft01Icon,
+  PackageIcon,
+  ComputerIcon,
+  ListViewIcon,
+} from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { PUBLISH_POD_STEP_IDS } from "./publish-pod-submit-types"
 import type {
@@ -120,7 +121,7 @@ function UpdatingState({
           <div className="flex flex-wrap justify-center gap-2">
             {updateVirtualMachines.map((vm) => (
               <Badge key={vm.id} variant="secondary">
-                <IconDeviceDesktop data-icon="inline-start" />
+                <HugeiconsIcon icon={ComputerIcon} data-icon="inline-start" />
                 {vm.name}
               </Badge>
             ))}
@@ -145,13 +146,13 @@ function SuccessState({ podSlug }: { podSlug: string }) {
       description="Your Pod has been successfully published. View it in the catalog or go directly to its page."
       actions={[
         {
-          icon: IconListDetails,
+          icon: ListViewIcon,
           label: "View Catalog",
           to: "/pods/published",
           variant: "outline",
         },
         {
-          icon: IconBox,
+          icon: PackageIcon,
           label: "View Pod",
           to: "/pods/$podSlug",
           params: { podSlug },
@@ -177,13 +178,13 @@ function ErrorState({
       }
       actions={[
         {
-          icon: IconArrowLeft,
+          icon: ArrowLeft01Icon,
           label: "Back to Form",
           onClick: onBackToForm,
           variant: "outline",
         },
         {
-          icon: IconListDetails,
+          icon: ListViewIcon,
           label: "View Catalog",
           to: "/pods/published",
           variant: "secondary",

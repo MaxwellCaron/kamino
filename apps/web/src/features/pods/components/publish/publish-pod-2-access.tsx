@@ -26,7 +26,8 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { IconLock } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { LockIcon } from "@hugeicons/core-free-icons"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { toPodAudiencePrincipal } from "./publish-pod-form"
 import type { PublishPodFormApi } from "./publish-pod-form"
@@ -52,7 +53,10 @@ export function PublishPodAccessStep({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <IconLock className="size-5 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={LockIcon}
+              className="size-5 text-muted-foreground"
+            />
             Access
           </CardTitle>
           <CardDescription>

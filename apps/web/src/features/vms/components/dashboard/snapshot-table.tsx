@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { IconCamera, IconPlus } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Add01Icon, Camera01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -55,10 +56,18 @@ export function SnapshotsTable({
   isTemplate: boolean
   permissions: SnapshotTablePermissions
 }) {
-  const { data: snapshots, isLoading: isSnapshotsLoading, error: snapshotsError } = useQuery({
+  const {
+    data: snapshots,
+    isLoading: isSnapshotsLoading,
+    error: snapshotsError,
+  } = useQuery({
     ...snapshotsQueryOptions(itemId),
     enabled: !!itemId && vmid != null && permissions.canView,
-  }) as { data: Array<ApiSnapshot> | undefined; isLoading: boolean; error: Error | null }
+  }) as {
+    data: Array<ApiSnapshot> | undefined
+    isLoading: boolean
+    error: Error | null
+  }
   const isLoading = isSnapshotsLoading
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
@@ -93,7 +102,10 @@ export function SnapshotsTable({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconCamera className="size-5 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={Camera01Icon}
+            className="size-5 text-muted-foreground"
+          />
           Snapshots
         </CardTitle>
         <CardDescription>
@@ -109,7 +121,7 @@ export function SnapshotsTable({
               disabled={isLoading || isTemplate || !itemId || vmid == null}
               onClick={() => setSnapshotOpen(true)}
             >
-              <IconPlus data-icon="inline-start" />
+              <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
               <span className="hidden lg:block">Create</span>
             </Button>
           </CardAction>

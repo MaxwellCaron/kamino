@@ -1,4 +1,5 @@
-import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ComputerIcon, Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenuGroup,
   DropdownMenuLabel,
@@ -22,15 +23,18 @@ export function ThemeToggleMenuItems() {
         }}
       >
         <DropdownMenuRadioItem value="light">
-          <IconSun className="text-muted-foreground" />
+          <HugeiconsIcon icon={Sun01Icon} className="text-muted-foreground" />
           Light
         </DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="dark">
-          <IconMoon className="text-muted-foreground" />
+          <HugeiconsIcon icon={Moon01Icon} className="text-muted-foreground" />
           Dark
         </DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="system">
-          <IconDeviceDesktop className="text-muted-foreground" />
+          <HugeiconsIcon
+            icon={ComputerIcon}
+            className="text-muted-foreground"
+          />
           System
         </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>

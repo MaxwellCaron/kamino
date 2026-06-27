@@ -1,4 +1,5 @@
-import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronDownIcon, ChevronUpIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 import {
@@ -29,7 +30,7 @@ export function InventoryTreeHeader() {
                   onClick={expandAll}
                   disabled={isLoading}
                 >
-                  <IconChevronDown />
+                  <HugeiconsIcon icon={ChevronDownIcon} />
                 </Button>
               }
             />
@@ -46,7 +47,7 @@ export function InventoryTreeHeader() {
                   onClick={collapseAll}
                   disabled={isLoading}
                 >
-                  <IconChevronUp />
+                  <HugeiconsIcon icon={ChevronUpIcon} />
                 </Button>
               }
             />

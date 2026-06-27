@@ -7,7 +7,12 @@ import {
   transformerNotationHighlight,
   transformerNotationWordHighlight,
 } from "@shikijs/transformers"
-import { IconCheck, IconCode, IconCopy } from "@tabler/icons-react"
+import {
+  Copy01Icon,
+  SourceCodeIcon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { createBundledHighlighter } from "shiki/core"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 import {
@@ -30,26 +35,24 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { BundledLanguage } from "shiki"
 import type { CodeOptionsMultipleThemes } from "shiki/core"
-import type {
-  ComponentProps,
-  ComponentType,
-  HTMLAttributes,
-  ReactNode,
-} from "react"
+import type { IconSvgElement } from "@hugeicons/react"
+import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 
 export type { BundledLanguage } from "shiki"
 
-type CodeBlockIcon = ComponentType<{ className?: string }>
+type CodeBlockIcon = IconSvgElement
 
 function getCodeBlockHeaderIcon(
   value?: string,
   filename?: ReactNode
 ): CodeBlockIcon | undefined {
   if (value !== undefined) {
-    return IconCode
+    return SourceCodeIcon
   }
 
-  return typeof filename === "string" && filename.length > 0 ? IconCode : undefined
+  return typeof filename === "string" && filename.length > 0
+    ? SourceCodeIcon
+    : undefined
 }
 
 const lineNumberClassNames = cn(
@@ -382,7 +385,7 @@ export const CodeBlockFilename = ({
       className="flex items-center gap-2 bg-muted px-4 py-1.5 text-xs text-muted-foreground"
       {...props}
     >
-      {Icon && <Icon className="h-4 w-4 shrink-0" />}
+      {Icon && <HugeiconsIcon icon={Icon} className="h-4 w-4 shrink-0" />}
       <span className="flex-1 truncate">{children}</span>
     </div>
   )
@@ -515,7 +518,7 @@ export const CodeBlockCopyButton = ({
     }
   }
 
-  const Icon = isCopied ? IconCheck : IconCopy
+  const Icon = isCopied ? Tick01Icon : Copy01Icon
   const handleClick: NonNullable<ComponentProps<typeof Button>["onClick"]> = (
     event
   ) => {
@@ -535,7 +538,9 @@ export const CodeBlockCopyButton = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <Icon className="text-muted-foreground" />}
+      {children ?? (
+        <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
+      )}
     </Button>
   )
 }

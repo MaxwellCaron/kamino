@@ -1,4 +1,5 @@
-import { IconArrowLeft, IconHome } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowLeft01Icon, Home03Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import { useRouter } from "@tanstack/react-router"
 import { GrainientBackground } from "@/components/grainient-background"
@@ -30,11 +31,11 @@ export function NotFound() {
             size="default"
             onClick={() => router.history.back()}
           >
-            <IconArrowLeft data-icon="inline-start" />
+            <HugeiconsIcon icon={ArrowLeft01Icon} data-icon="inline-start" />
             Go back
           </Button>
           <Button size="default" onClick={() => router.navigate({ to: "/" })}>
-            <IconHome data-icon="inline-start" />
+            <HugeiconsIcon icon={Home03Icon} data-icon="inline-start" />
             Take me home
           </Button>
         </div>

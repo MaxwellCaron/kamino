@@ -1,4 +1,5 @@
-import { IconArrowUpRight } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
@@ -29,10 +30,6 @@ export function getDashboardActivityColumns({
       accessorKey: "kind",
       header: () => <p className="pl-4">Request</p>,
       cell: ({ row: { original: request } }) => {
-        const Icon = getRequestIcon(
-          request.kind,
-          request.inventory?.power_action
-        )
         const path =
           tree && request.inventory?.item_id
             ? findTreePath(tree, request.inventory.item_id)
@@ -47,7 +44,13 @@ export function getDashboardActivityColumns({
         return (
           <div className="flex items-center gap-3 pl-4">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
-              <Icon className="size-5" />
+              <HugeiconsIcon
+                icon={getRequestIcon(
+                  request.kind,
+                  request.inventory?.power_action
+                )}
+                className="size-5"
+              />
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="font-medium">{getRequestTitle(request)}</div>
@@ -107,7 +110,7 @@ export function getDashboardActivityColumns({
         <div className="flex justify-end pr-6">
           <Button variant="outline" size="sm" onClick={() => onOpen(request)}>
             View
-            <IconArrowUpRight data-icon="inline-end" />
+            <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
           </Button>
         </div>
       ),

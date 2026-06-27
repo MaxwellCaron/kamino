@@ -1,4 +1,5 @@
-import { IconArrowUpRight } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
@@ -89,7 +90,7 @@ export function getRequestColumns({
         return (
           <div className="flex items-center gap-3 pl-4">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
-              <Icon className="size-5" />
+              <HugeiconsIcon icon={Icon} className="size-5" />
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex flex-col">
@@ -127,7 +128,7 @@ export function getRequestColumns({
 
         return (
           <Badge className={getRequestStatusClassName(request.status)}>
-            <StatusIcon className="size-3.5!" />
+            <HugeiconsIcon icon={StatusIcon} className="size-3.5!" />
             {formatRequestStatus(request.status)}
           </Badge>
         )
@@ -196,7 +197,7 @@ export function getRequestColumns({
         <div className="flex justify-end pr-6">
           <Button variant="outline" size="sm" onClick={() => onOpen(request)}>
             {request.status === "pending" ? "Review" : "View"}
-            <IconArrowUpRight data-icon="inline-end" />
+            <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
           </Button>
         </div>
       ),

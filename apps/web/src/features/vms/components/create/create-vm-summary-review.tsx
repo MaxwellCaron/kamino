@@ -1,11 +1,12 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconBolt,
-  IconCpu,
-  IconDatabase,
-  IconNetwork,
-  IconSettings,
-  IconTopologyBus,
-} from "@tabler/icons-react"
+  BoltIcon,
+  CpuIcon,
+  HardDriveIcon,
+  Globe02Icon,
+  RamMemoryIcon,
+  Settings01Icon,
+} from "@hugeicons/core-free-icons"
 import {
   FieldDescription,
   FieldLegend,
@@ -55,7 +56,7 @@ export function IsoReview({
     <div className="flex flex-col gap-6">
       <FieldSet>
         <FieldLegend className="flex items-center gap-2">
-          <IconSettings className="size-4" />
+          <HugeiconsIcon icon={Settings01Icon} className="size-4" />
           General
         </FieldLegend>
         <FieldDescription>
@@ -79,7 +80,7 @@ export function IsoReview({
 
       <FieldSet>
         <FieldLegend className="flex items-center gap-2">
-          <IconBolt className="size-4" />
+          <HugeiconsIcon icon={BoltIcon} className="size-4" />
           Operating System
         </FieldLegend>
         <FieldDescription>
@@ -105,7 +106,7 @@ export function IsoReview({
 
       <FieldSet>
         <FieldLegend className="flex items-center gap-2">
-          <IconCpu className="size-4" />
+          <HugeiconsIcon icon={CpuIcon} className="size-4" />
           Compute
         </FieldLegend>
         <FieldDescription>
@@ -114,7 +115,7 @@ export function IsoReview({
         <div className="flex flex-col gap-4">
           <Item variant="muted">
             <ItemMedia>
-              <IconCpu className="size-5" />
+              <HugeiconsIcon icon={CpuIcon} className="size-5" />
             </ItemMedia>
             <ItemContent>
               <ItemTitle className="pl-1">CPU</ItemTitle>
@@ -134,7 +135,7 @@ export function IsoReview({
 
           <Item variant="muted">
             <ItemMedia>
-              <IconTopologyBus className="size-5 rotate-180" />
+              <HugeiconsIcon icon={RamMemoryIcon} className="size-5" />
             </ItemMedia>
             <ItemContent>
               <ItemTitle className="pl-1">Memory</ItemTitle>
@@ -152,7 +153,7 @@ export function IsoReview({
 
           <Item variant="muted">
             <ItemMedia>
-              <IconDatabase className="size-5" />
+              <HugeiconsIcon icon={HardDriveIcon} className="size-5" />
             </ItemMedia>
             <ItemContent>
               <ItemTitle className="pl-1">Storage</ItemTitle>
@@ -174,7 +175,7 @@ export function IsoReview({
 
       <FieldSet>
         <FieldLegend className="flex items-center gap-2">
-          <IconNetwork className="size-4" />
+          <HugeiconsIcon icon={Globe02Icon} className="size-4" />
           Network
         </FieldLegend>
         <FieldDescription>

@@ -1,16 +1,16 @@
 import {
-  IconPlayerPlay,
-  IconPower,
-  IconRefresh,
-  IconTrash,
-} from "@tabler/icons-react"
-import type { ComponentType } from "react"
+  Delete01Icon,
+  PlayIcon,
+  PowerIcon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
 
 export type PodCloneAction = "start" | "shutdown" | "reclone" | "delete"
 export type PodClonePowerAction = Extract<PodCloneAction, "start" | "shutdown">
 
-type PodCloneActionIcon = ComponentType<{ className?: string }>
+type PodCloneActionIcon = IconSvgElement
 
 export const POD_CLONE_ACTIONS = [
   "start",
@@ -32,28 +32,28 @@ export const POD_CLONE_POWER_ACTIONS_BY_STATUS = {
 
 export const POD_CLONE_ACTION_CONFIG = {
   start: {
-    icon: IconPlayerPlay,
+    icon: PlayIcon,
     label: "Start",
     pendingLabel: "Starting",
     menuDescription: "Power on all virtual machines.",
     variant: "default",
   },
   shutdown: {
-    icon: IconPower,
+    icon: PowerIcon,
     label: "Shutdown",
     pendingLabel: "Shutting down",
     menuDescription: "Safely power off all virtual machines.",
     variant: "destructive",
   },
   reclone: {
-    icon: IconRefresh,
+    icon: ReloadIcon,
     label: "Re-clone",
     pendingLabel: "Re-cloning",
     menuDescription: "Recreate virtual machines.",
     variant: "destructive",
   },
   delete: {
-    icon: IconTrash,
+    icon: Delete01Icon,
     label: "Delete",
     pendingLabel: "Deleting",
     menuDescription: "Delete virtual machines and task progress.",

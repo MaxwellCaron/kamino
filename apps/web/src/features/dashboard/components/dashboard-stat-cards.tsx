@@ -1,3 +1,4 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Card,
   CardDescription,
@@ -17,12 +18,13 @@ export function DashboardStatsGrid({
   return (
     <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
       {stats.map((stat) => {
-        const Icon = stat.icon
-
         return (
           <Card key={stat.label} className="min-h-36">
             <CardHeader className="pb-2">
-              <Icon className="text-muted-foreground" />
+              <HugeiconsIcon
+                icon={stat.icon}
+                className="text-muted-foreground"
+              />
               <CardDescription className="mt-4">{stat.label}</CardDescription>
               <CardTitle className="text-4xl font-extrabold tracking-tight text-balance">
                 {stat.value}

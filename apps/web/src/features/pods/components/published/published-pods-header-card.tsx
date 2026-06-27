@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { IconCubePlus, IconCubeSend } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PackageAddIcon, PackageCheck } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -32,14 +33,14 @@ export function PublishedPodsHeaderCard({
             to="/pods/create"
             className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
           >
-            <IconCubePlus data-icon="inline-start" />
+            <HugeiconsIcon icon={PackageAddIcon} data-icon="inline-start" />
             Create
           </Link>
           <Link
             to="/pods/publish"
             className={`${buttonVariants({ variant: "default" })} cursor-pointer`}
           >
-            <IconCubeSend data-icon="inline-start" />
+            <HugeiconsIcon icon={PackageCheck} data-icon="inline-start" />
             Publish
           </Link>
         </CardAction>

@@ -1,4 +1,5 @@
-import { IconHistory, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Delete01Icon, HistoryIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiSnapshot } from "@/features/vms/types/vm-types"
@@ -59,7 +60,7 @@ export function SnapshotTableRowActions({
           onClick={() =>
             onOpenConfirm({
               title: "Rollback Snapshot",
-              icon: IconHistory,
+              icon: HistoryIcon,
               description: `Are you sure you want to rollback to snapshot "${snapshot.name}"? The current VM state will be lost.`,
               actionLabel: "Rollback",
               onConfirm: () => {
@@ -73,7 +74,7 @@ export function SnapshotTableRowActions({
             })
           }
         >
-          <IconHistory className="size-4" />
+          <HugeiconsIcon icon={HistoryIcon} className="size-4" />
         </Button>
         <Button
           variant="ghost"
@@ -83,7 +84,7 @@ export function SnapshotTableRowActions({
           onClick={() =>
             onOpenConfirm({
               title: "Delete Snapshot",
-              icon: IconTrash,
+              icon: Delete01Icon,
               description: `Are you sure you want to delete snapshot "${snapshot.name}"?`,
               actionLabel: "Delete",
               variant: "destructive",
@@ -98,7 +99,10 @@ export function SnapshotTableRowActions({
             })
           }
         >
-          <IconTrash className="size-4 text-destructive" />
+          <HugeiconsIcon
+            icon={Delete01Icon}
+            className="size-4 text-destructive"
+          />
         </Button>
       </>
     )
@@ -113,7 +117,7 @@ export function SnapshotTableRowActions({
         disabled={submitRollbackRequest.isPending}
         onClick={() => onOpenRequestRollback(snapshot.name)}
       >
-        <IconHistory className="size-4" />
+        <HugeiconsIcon icon={HistoryIcon} className="size-4" />
       </Button>
     )
   }

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { IconEdit, IconPlus } from "@tabler/icons-react"
+import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import type {
@@ -123,7 +123,7 @@ export function GroupDialog({
       onClosed={resetDialog}
       initialFocus={false}
       className={nestedDialogAnimationClassName}
-      icon={isEdit ? IconEdit : IconPlus}
+      icon={isEdit ? PencilEdit01Icon : Add01Icon}
       title={isEdit ? "Edit Group" : "Create Groups"}
       description={
         isEdit

@@ -1,4 +1,4 @@
-import { IconTrash } from "@tabler/icons-react"
+import { Delete01Icon } from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ export function DeletePublishedPodDialog({
     <AlertDialog open={pod !== null} onOpenChange={onOpenChange}>
       <AppAlertDialogContent
         open={pod !== null}
-        icon={IconTrash}
+        icon={Delete01Icon}
         title="Delete Catalog Entry?"
         description={
           pod

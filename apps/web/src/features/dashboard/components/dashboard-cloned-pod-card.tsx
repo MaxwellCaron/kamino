@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { IconArrowUpRight, IconCopy } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowUpRight01Icon, Copy01Icon } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -54,7 +55,7 @@ export function DashboardCurrentClonedPodCard({
               className={buttonVariants()}
             >
               Continue
-              <IconArrowUpRight data-icon="inline-end" />
+              <HugeiconsIcon icon={ArrowUpRight01Icon} data-icon="inline-end" />
             </Link>
           )}
         </CardAction>
@@ -95,7 +96,7 @@ export function DashboardCurrentClonedPodCard({
                     </ItemTitle>
                     <ItemDescription>{entry.pod.description}</ItemDescription>
                     <span className="flex items-center gap-1 text-muted-foreground">
-                      <IconCopy className="size-4" />
+                      <HugeiconsIcon icon={Copy01Icon} className="size-4" />
                       Cloned{" "}
                       <RelativeTimeCard
                         date={entry.clonedPod.cloned_at}
@@ -120,7 +121,10 @@ export function DashboardCurrentClonedPodCard({
           <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCopy className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Copy01Icon}
+                  className="text-muted-foreground"
+                />
               </EmptyMedia>
               <EmptyTitle>No cloned pods</EmptyTitle>
               <EmptyDescription>
