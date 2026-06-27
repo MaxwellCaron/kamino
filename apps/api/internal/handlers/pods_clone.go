@@ -542,7 +542,7 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
 	q := database.New(h.DB)
-	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	clone, reqErr := h.loadClonedPodForMutation(c.Request.Context(), q, principalID, cloneID)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
@@ -666,7 +666,7 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	clone, reqErr := h.loadClonedPodForMutation(c.Request.Context(), q, principalID, cloneID)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
@@ -887,6 +887,48 @@ func (h *PodsHandler) loadAccessibleClonedPod(
 	return clone, nil
 }
 
+func (h *PodsHandler) loadClonedPodForMutation(
+	ctx context.Context,
+	q *database.Queries,
+	principalID uuid.UUID,
+	cloneID uuid.UUID,
+) (database.ClonedPods, *requestError) {
+	isManager, err := h.Authz.HasManagement(ctx, principalID, authorization.ManagementPermissionManager)
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "authorization failed",
+			Operation:   "authorize cloned pod mutation",
+			Err:         err,
+		}
+	}
+
+	clone, err := q.GetClonedPodByID(ctx, cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod",
+			Operation:   "load cloned pod for mutation",
+			Err:         err,
+		}
+	}
+
+	if !cloneMutationAllowed(isManager, clone.UserPrincipalID, principalID) {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+
+	return clone, nil
+}
+
 func (h *PodsHandler) clonedPodActionTargets(
 	ctx context.Context,
 	q *database.Queries,
@@ -946,6 +988,10 @@ func vmidsFromTargets(targets []vmactions.Target) []int {
 		vmids = append(vmids, target.VMID)
 	}
 	return vmids
+}
+
+func cloneMutationAllowed(isManager bool, ownerPrincipalID, actorPrincipalID uuid.UUID) bool {
+	return isManager || ownerPrincipalID == actorPrincipalID
 }
 
 func clonedPodVMAlreadyInPowerState(action string, status string) bool {

@@ -511,6 +511,34 @@ func TestVmidsFromTargets(t *testing.T) {
 	}
 }
 
+func TestCloneMutationAllowed(t *testing.T) {
+	owner := uuid.New()
+	other := uuid.New()
+
+	tests := []struct {
+		name      string
+		isManager bool
+		owner     uuid.UUID
+		actor     uuid.UUID
+		want      bool
+	}{
+		{"owner non-manager allowed", false, owner, owner, true},
+		{"non-owner non-manager denied", false, owner, other, false},
+		{"non-owner manager allowed", true, owner, other, true},
+		{"owner manager allowed", true, owner, owner, true},
+		{"zero-value owner denied for non-manager", false, uuid.Nil, other, false},
+		{"zero-value owner allowed for manager", true, uuid.Nil, other, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cloneMutationAllowed(tt.isManager, tt.owner, tt.actor); got != tt.want {
+				t.Errorf("cloneMutationAllowed(%v, %v, %v) = %v, want %v", tt.isManager, tt.owner, tt.actor, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestClonedPodVMAlreadyInPowerState(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -727,6 +755,36 @@ func TestListCatalogCloneSummariesUnauthorized(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/v1/pods/catalog/clones/summary", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestRecloneClonedPodUnauthorized(t *testing.T) {
+	handler := &PodsHandler{}
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/api/v1/pods/clones/:id/reclone", handler.RecloneClonedPod)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/pods/clones/"+uuid.New().String()+"/reclone", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestDeleteClonedPodUnauthorized(t *testing.T) {
+	handler := &PodsHandler{}
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.DELETE("/api/v1/pods/clones/:id", handler.DeleteClonedPod)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodDelete, "/api/v1/pods/clones/"+uuid.New().String(), nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {
