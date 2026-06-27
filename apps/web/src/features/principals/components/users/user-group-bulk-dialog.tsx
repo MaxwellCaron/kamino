@@ -8,14 +8,15 @@ import {
   Item,
   ItemContent,
   ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
 } from "@workspace/ui/components/item"
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldError,
   FieldGroup,
-  FieldLabel,
 } from "@workspace/ui/components/field"
 import {
   Combobox,
@@ -25,11 +26,12 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
-import { Badge } from "@workspace/ui/components/badge"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   AppDialog,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import {
@@ -134,17 +136,9 @@ export function UserGroupBulkDialog({
       icon={mode === "add" ? UserAdd01Icon : UserMinusIcon}
       title={mode === "add" ? "Add Users" : "Remove Users"}
       description={
-        mode === "add" ? (
-          <>
-            <p>{`Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group.`}</p>
-            <p>Users already in the group will be kept there.</p>
-          </>
-        ) : (
-          <>
-            <p>{`Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group.`}</p>
-            <p>Users not in the group will remain unchanged.</p>
-          </>
-        )
+        mode === "add"
+          ? `Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group.`
+          : `Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group.`
       }
       descriptionProps={{ render: <div /> }}
     >
@@ -166,24 +160,7 @@ export function UserGroupBulkDialog({
             void form.handleSubmit()
           }}
         >
-          <Item variant="outline">
-            <ItemContent>
-              <ItemDescription>
-                <span className="flex flex-wrap gap-2">
-                  {users.map((user) => (
-                    <Badge
-                      key={user.id}
-                      variant={mode === "add" ? "default" : "destructive"}
-                    >
-                      {user.name ?? user.external_id}
-                    </Badge>
-                  ))}
-                </span>
-              </ItemDescription>
-            </ItemContent>
-          </Item>
-
-          <FieldGroup>
+          <FieldGroup className="-mt-2 pb-3">
             <form.Field name="group">
               {(field) => {
                 const isInvalid =
@@ -191,7 +168,6 @@ export function UserGroupBulkDialog({
 
                 return (
                   <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Group</FieldLabel>
                     <FieldContent>
                       <Combobox
                         items={groups ?? []}
@@ -218,9 +194,6 @@ export function UserGroupBulkDialog({
                         </ComboboxContent>
                       </Combobox>
                     </FieldContent>
-                    <FieldDescription>
-                      {`Group that the users will be ${mode === "add" ? "added to" : "removed from"}.`}
-                    </FieldDescription>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />
                     )}
@@ -229,6 +202,24 @@ export function UserGroupBulkDialog({
               }}
             </form.Field>
           </FieldGroup>
+
+          <AppDialogScrollBody className="gap-4">
+            <ItemGroup>
+              {users.map((user) => (
+                <Item variant="muted">
+                  <ItemMedia variant="icon">
+                    <FacehashIcon
+                      name={user.name || user.external_id}
+                      size={28}
+                    />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{user.name || user.external_id}</ItemTitle>
+                  </ItemContent>
+                </Item>
+              ))}
+            </ItemGroup>
+          </AppDialogScrollBody>
 
           <DialogFooter>
             <form.Subscribe
