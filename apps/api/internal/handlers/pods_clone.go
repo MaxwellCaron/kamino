@@ -1105,9 +1105,16 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 
+	var created map[int]clonedVM
+	provisioned := false
+	defer func() {
+		if !provisioned {
+			h.cleanupFailedUserClone(targetFolderID, created)
+		}
+	}()
+
 	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, targetFolderID, int32(len(publishedVMs)), "pod_clone")
 	if err != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 	if reservation != nil {
@@ -1116,13 +1123,11 @@ func (h *PodsHandler) clonePublishedPod(
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, targetFolderID)
 	if err != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 
 	targetNode, err := h.resolveCloneTargetNode(ctx)
 	if err != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to resolve target node",
@@ -1133,43 +1138,23 @@ func (h *PodsHandler) clonePublishedPod(
 
 	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID)
 	if reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.ensureClonedPodVNetExists(ctx, h.clonedPodVNetName(clone.NetworkNumber)); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
-	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, progress)
 	if reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
-	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
-		return database.ClonedPods{}, reqErr
-	}
-	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepRouter, "Starting router.")
-	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.recordClonedPodDetails(ctx, clone, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
 	}
 
+	provisioned = true
 	return clone, nil
 }
 
@@ -1207,6 +1192,14 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
+	var created map[int]clonedVM
+	provisioned := false
+	defer func() {
+		if !provisioned {
+			h.cleanupFailedUserClone(uuid.Nil, created)
+		}
+	}()
+
 	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs)), "pod_reclone")
 	if err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
@@ -1230,35 +1223,48 @@ func (h *PodsHandler) reclonePublishedPod(
 		}
 	}
 
-	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
-	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, progress)
 	if reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
-	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
-		return database.ClonedPods{}, reqErr
-	}
-	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepRouter, "Starting router.")
-	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
 		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.recordReclonedPodVMs(ctx, clone.ID, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
 		return database.ClonedPods{}, reqErr
 	}
 
+	provisioned = true
 	return clone, nil
+}
+
+func (h *PodsHandler) provisionClonedPodVMs(
+	ctx context.Context,
+	principalID uuid.UUID,
+	placement inventory.FolderPlacement,
+	targetNode string,
+	publishedVMs []database.ListPublishedPodVMsForCloneRow,
+	clone database.ClonedPods,
+	progress *clonePodProgressReporter,
+) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
+	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
+	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	if reqErr != nil {
+		return nil, created, reqErr
+	}
+
+	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
+	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
+		return nil, created, reqErr
+	}
+	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
+		return nil, created, reqErr
+	}
+
+	progress.set(cloneProgressStepRouter, "Starting router.")
+	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
+		return nil, created, reqErr
+	}
+
+	return results, created, nil
 }
 
 func (h *PodsHandler) deleteExistingClonedPodVMs(
