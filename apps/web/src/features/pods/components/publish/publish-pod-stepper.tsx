@@ -4,10 +4,8 @@ import {
   IconArrowRight,
   IconCubeSend,
 } from "@tabler/icons-react"
-import { Loader } from "@dot-loaders/react"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
@@ -24,6 +22,7 @@ import {
 } from "@workspace/ui/components/stepper"
 import { steps } from "./publish-pod-steps"
 import type { PublishPodStep } from "./publish-pod-steps"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type PublishPodStepperProps = {
@@ -120,10 +119,11 @@ export function PublishPodStepper({
             >
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
+            <AppActionButton
               type="button"
               variant="default"
-              disabled={isSubmitting}
+              pending={isSubmitting}
+              pendingLabel={isPublishAction ? "Publishing..." : "Saving..."}
               onClick={async (event) => {
                 event.preventDefault()
                 setIsSubmitting(true)
@@ -137,11 +137,8 @@ export function PublishPodStepper({
                 }
               }}
             >
-              {isSubmitting ? (
-                <Loader loader="braille" renderer="svg-grid" />
-              ) : null}
               {submitLabel}
-            </AlertDialogAction>
+            </AppActionButton>
           </AlertDialogFooter>
         </AppAlertDialogContent>
       </AlertDialog>

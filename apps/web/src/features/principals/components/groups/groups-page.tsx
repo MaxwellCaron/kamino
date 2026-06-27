@@ -21,6 +21,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
@@ -200,14 +201,15 @@ export function GroupsPage() {
             </CardDescription>
             <CardAction className="flex items-center gap-2">
               {canAdminister ? (
-                <Button
+                <AppActionButton
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
-                  disabled={syncMutation.isPending}
+                  pending={syncMutation.isPending}
+                  pendingLabel="Syncing..."
                 >
                   <IconRefresh data-icon="inline-start" />
-                  {syncMutation.isPending ? "Syncing..." : "Sync"}
-                </Button>
+                  Sync
+                </AppActionButton>
               ) : null}
               {canAdminister ? (
                 <Button onClick={() => setCreateOpen(true)}>

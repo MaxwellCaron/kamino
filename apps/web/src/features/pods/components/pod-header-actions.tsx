@@ -2,7 +2,6 @@ import { Fragment, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
@@ -22,10 +21,12 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { IconChevronDown, IconLoader2 } from "@tabler/icons-react"
+import { IconChevronDown } from "@tabler/icons-react"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import {
   deleteClonedPod,
   powerClonedPod,
@@ -231,27 +232,24 @@ export function PodHeaderActions({
             description={activeDialogConfig.description}
           >
             {actionError && (
-              <p className="text-sm text-destructive">{actionError.message}</p>
+              <InlineErrorAlert
+                error={actionError}
+                fallback="Action failed."
+              />
             )}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={actionPending}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction
+              <AppActionButton
+                type="button"
                 variant={activeActionConfig.variant}
-                disabled={actionPending}
+                pending={actionPending}
+                pendingLabel={`${activeActionConfig.pendingLabel}...`}
                 onClick={confirmActiveAction}
               >
-                {actionPending && (
-                  <IconLoader2
-                    data-icon="inline-start"
-                    className="animate-spin"
-                  />
-                )}
-                {actionPending
-                  ? `${activeActionConfig.pendingLabel}...`
-                  : activeActionConfig.label}
-              </AlertDialogAction>
+                {activeActionConfig.label}
+              </AppActionButton>
             </AlertDialogFooter>
           </AppAlertDialogContent>
         </AlertDialog>

@@ -1,7 +1,5 @@
-import { IconLoader2 } from "@tabler/icons-react"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
@@ -11,6 +9,7 @@ import type {
 } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
 
@@ -73,19 +72,18 @@ export function BulkCloneActionDialog({
       >
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <AppActionButton
+            type="button"
             variant={dialogConfig.variant}
-            disabled={isPending}
+            pending={isPending}
+            pendingLabel={`${baseConfig.pendingLabel}...`}
             onClick={(event) => {
               event.preventDefault()
               onConfirm(pendingAction)
             }}
           >
-            {isPending && (
-              <IconLoader2 data-icon="inline-start" className="animate-spin" />
-            )}
-            {isPending ? `${baseConfig.pendingLabel}...` : baseConfig.label}
-          </AlertDialogAction>
+            {baseConfig.label}
+          </AppActionButton>
         </AlertDialogFooter>
       </AppAlertDialogContent>
     </AlertDialog>

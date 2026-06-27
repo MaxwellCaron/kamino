@@ -315,8 +315,12 @@ function MembershipForm({
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton disabled={!hasChanges || isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save"}
+            <AppDialogPrimaryButton
+              disabled={!hasChanges}
+              pending={isSubmitting}
+              pendingLabel="Saving..."
+            >
+              Save
             </AppDialogPrimaryButton>
           )}
         </form.Subscribe>

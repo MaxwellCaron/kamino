@@ -22,6 +22,7 @@ import type {
   PodTaskQuestionAnswer,
   UUID,
 } from "@/features/pods/types/pod-types"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppDialogContent } from "@/components/dialogs/app-dialog"
 import { answerClonedPodQuestion } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
@@ -109,7 +110,7 @@ function PodTaskQuestionField({
   const hint = question.hint?.trim()
   const controlsDisabled = disabled || answerIsCorrect || mutation.isPending
   const canSubmit =
-    !controlsDisabled && !!clonedPodId && value.trim().length > 0
+    !disabled && !answerIsCorrect && !!clonedPodId && value.trim().length > 0
 
   return (
     <Field
@@ -156,8 +157,11 @@ function PodTaskQuestionField({
             </AppDialogContent>
           </Dialog>
         )}
-        <Button
+        <AppActionButton
+          type="button"
           disabled={!canSubmit}
+          pending={mutation.isPending}
+          pendingLabel="Submitting..."
           onClick={() => {
             if (!clonedPodId) return
             mutation.mutate({
@@ -168,7 +172,7 @@ function PodTaskQuestionField({
           }}
         >
           {answerIsCorrect ? "Correct" : "Submit"}
-        </Button>
+        </AppActionButton>
       </div>
       {question.description && (
         <FieldDescription>{question.description}</FieldDescription>

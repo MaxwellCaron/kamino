@@ -238,16 +238,12 @@ export function UserGroupBulkDialog({
             >
               {([group, isSubmitting]) => (
                 <AppDialogPrimaryButton
-                  disabled={!group || isSubmitting}
+                  disabled={!group}
+                  pending={isSubmitting}
+                  pendingLabel={mode === "add" ? "Adding..." : "Removing..."}
                   variant={mode === "add" ? "default" : "destructive"}
                 >
-                  {isSubmitting
-                    ? mode === "add"
-                      ? "Adding..."
-                      : "Removing..."
-                    : mode === "add"
-                      ? "Add"
-                      : "Remove"}
+                  {mode === "add" ? "Add" : "Remove"}
                 </AppDialogPrimaryButton>
               )}
             </form.Subscribe>

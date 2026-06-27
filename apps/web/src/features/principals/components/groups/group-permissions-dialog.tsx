@@ -274,11 +274,11 @@ function GroupPermissionsForm({
 
       <DialogFooter>
         <AppDialogPrimaryButton
-          disabled={
-            controlsDisabled || immutable || !hasChanges || isSubmitting
-          }
+          disabled={controlsDisabled || immutable || !hasChanges}
+          pending={isSubmitting}
+          pendingLabel="Saving..."
         >
-          {isSubmitting ? "Saving..." : "Save"}
+          Save
         </AppDialogPrimaryButton>
       </DialogFooter>
     </form>

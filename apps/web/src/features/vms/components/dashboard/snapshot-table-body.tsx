@@ -9,6 +9,7 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiSnapshot } from "@/features/vms/types/vm-types"
 import type { SnapshotTablePermissions } from "./snapshot-table"
 import type { UseMutationResult } from "@tanstack/react-query"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { loadingTransition } from "@/components/loading-transition"
 
 type SnapshotTableBodyProps = {
@@ -101,11 +102,11 @@ export function SnapshotTableBody({
           ))
         ) : error ? (
           <TableRow>
-            <TableCell
-              colSpan={4}
-              className="h-24 text-center text-destructive"
-            >
-              {error.message || "Failed to load snapshots."}
+            <TableCell colSpan={4} className="h-24">
+              <InlineErrorAlert
+                error={error}
+                fallback="Failed to load snapshots."
+              />
             </TableCell>
           </TableRow>
         ) : filtered.length === 0 ? (

@@ -31,6 +31,7 @@ import type {
 } from "@/features/pods/types/pod-types"
 import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
 import type { PublishedPodClonePendingAction } from "./published-pod-clone-action-dialogs"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -144,9 +145,11 @@ export function PublishedPodClonesTable({
       {isLoading ? (
         <ClonesTableSkeleton />
       ) : error ? (
-        <p className="px-4 py-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : "Failed to load clones."}
-        </p>
+        <InlineErrorAlert
+          error={error}
+          fallback="Failed to load clones."
+          className="mx-4 my-3"
+        />
       ) : (
         <>
           {pendingRows.length > 0 && (

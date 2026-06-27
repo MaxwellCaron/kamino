@@ -41,7 +41,7 @@ import {
   capitalizeFirstLetter,
   formatToastError,
 } from "@/features/shared/utils/format"
-
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
@@ -202,16 +202,16 @@ export function UsersPage() {
             </CardDescription>
             <CardAction className="flex items-center gap-2">
               {canAdminister ? (
-                <Button
+                <AppActionButton
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
-                  disabled={syncMutation.isPending || error !== null}
+                  disabled={error !== null}
+                  pending={syncMutation.isPending}
+                  pendingLabel="Syncing..."
                 >
                   <IconRefresh data-icon="inline-start" />
-                  <span className="hidden lg:block">
-                    {syncMutation.isPending ? "Syncing..." : "Sync"}
-                  </span>
-                </Button>
+                  <span className="hidden lg:block">Sync</span>
+                </AppActionButton>
               ) : null}
               {canAdminister ? (
                 <Button

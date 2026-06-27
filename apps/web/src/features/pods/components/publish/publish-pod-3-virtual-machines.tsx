@@ -74,6 +74,7 @@ import type {
   DraftPrincipal,
   PermissionState,
 } from "@/features/inventory/types/inventory-types"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
 import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
 import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
@@ -498,9 +499,11 @@ export function PublishPodVirtualMachinesStep({
                         errors={showValidation ? field.state.meta.errors : []}
                       />
                       {podFoldersError ? (
-                        <FieldDescription className="text-destructive">
-                          Failed to load Pod Folders.
-                        </FieldDescription>
+                        <InlineErrorAlert
+                          error={podFoldersError}
+                          fallback="Failed to load Pod Folders."
+                          className="mt-3"
+                        />
                       ) : null}
                       <div className="flex flex-col gap-1 pt-4">
                         <p className="font-medium">Pod VMs</p>

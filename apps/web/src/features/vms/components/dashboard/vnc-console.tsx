@@ -40,6 +40,7 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import type { VncScreenHandle } from "react-vnc"
 
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 
 const LazyVncScreen = lazy(() =>
@@ -171,17 +172,14 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row justify-center gap-2">
-              <Button
+              <AppActionButton
                 onClick={startConnection}
-                disabled={
-                  status === "connecting" ||
-                  powerStatus !== "running" ||
-                  !itemId
-                }
+                disabled={powerStatus !== "running" || !itemId}
+                pending={status === "connecting"}
+                pendingLabel="Connecting..."
               >
-                {status === "connecting" && <Spinner />}
-                {status === "connecting" ? "Connecting..." : "Connect"}
-              </Button>
+                Connect
+              </AppActionButton>
             </EmptyContent>
           </Empty>
         )}
