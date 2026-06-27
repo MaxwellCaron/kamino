@@ -130,6 +130,32 @@ func (s *Service) ListStaleExecutingRequests(
 	return database.New(s.db).ListStaleExecutingRequests(ctx, cutoff)
 }
 
+func (s *Service) FailStaleExecutingRequests(ctx context.Context) ([]uuid.UUID, error) {
+	stale, err := s.ListStaleExecutingRequests(ctx, StaleExecutingThreshold)
+	if err != nil {
+		return nil, err
+	}
+
+	failed := make([]uuid.UUID, 0, len(stale))
+	for _, request := range stale {
+		errorMessage := "request was stranded in executing state (likely a prior process died mid-execution)"
+		if err := s.markExecutionFailedRecord(
+			ctx,
+			request.ID,
+			request.RequesterPrincipalID,
+			request.Kind,
+			nil,
+			errorMessage,
+		); err != nil {
+			log.Printf("failed to fence stale executing request %s: %v", request.ID, err)
+			continue
+		}
+		failed = append(failed, request.ID)
+	}
+
+	return failed, nil
+}
+
 // TablePageParams is page/rows/search input shared by request table
 // endpoints (manager pending, manager completed, requester pending,
 // requester history).
@@ -493,12 +519,13 @@ func (s *Service) ApproveRequest(
 		locked.Kind,
 	))
 
-	if executeErr := s.executeApprovedRequest(ctx, locked); executeErr != nil {
-		if err := s.markExecutionFailed(ctx, locked, reviewerPrincipalID, executeErr.Error()); err != nil {
+	execCtx := context.WithoutCancel(ctx)
+	if executeErr := s.executeApprovedRequest(execCtx, locked); executeErr != nil {
+		if err := s.markExecutionFailed(execCtx, locked, reviewerPrincipalID, executeErr.Error()); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
 		}
 	} else {
-		if err := s.markExecuted(ctx, locked, reviewerPrincipalID); err != nil {
+		if err := s.markExecuted(execCtx, locked, reviewerPrincipalID); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
 		}
 	}
@@ -976,6 +1003,24 @@ func (s *Service) markExecutionFailed(
 	actorPrincipalID uuid.UUID,
 	errorMessage string,
 ) error {
+	return s.markExecutionFailedRecord(
+		ctx,
+		requestRow.ID,
+		requestRow.RequesterPrincipalID,
+		requestRow.Kind,
+		&actorPrincipalID,
+		errorMessage,
+	)
+}
+
+func (s *Service) markExecutionFailedRecord(
+	ctx context.Context,
+	requestID uuid.UUID,
+	requesterPrincipalID uuid.UUID,
+	kind string,
+	actorPrincipalID *uuid.UUID,
+	errorMessage string,
+) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -984,15 +1029,15 @@ func (s *Service) markExecutionFailed(
 
 	q := database.New(tx)
 	if _, err := q.MarkRequestExecutionFailed(ctx, database.MarkRequestExecutionFailedParams{
-		ID:             requestRow.ID,
+		ID:             requestID,
 		ExecutionError: &errorMessage,
 	}); err != nil {
 		return err
 	}
 	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
-		RequestID:        requestRow.ID,
+		RequestID:        requestID,
 		EventKind:        database.RequestEventKindExecutionFailed,
-		ActorPrincipalID: &actorPrincipalID,
+		ActorPrincipalID: actorPrincipalID,
 		FromStatus:       validRequestStatus(database.RequestStatusExecuting),
 		ToStatus:         database.RequestStatusExecutionFailed,
 		ErrorMessage:     &errorMessage,
@@ -1005,9 +1050,9 @@ func (s *Service) markExecutionFailed(
 	}
 
 	s.notify(ctx, nil, requestChangedEvent(
-		requestRow.ID,
-		requestRow.RequesterPrincipalID,
-		requestRow.Kind,
+		requestID,
+		requesterPrincipalID,
+		kind,
 	))
 
 	return nil
