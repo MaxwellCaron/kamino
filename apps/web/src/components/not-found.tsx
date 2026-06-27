@@ -1,12 +1,10 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, Home03Icon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
-import { useRouter } from "@tanstack/react-router"
+import { buttonVariants } from "@workspace/ui/components/button"
+import { Link } from "@tanstack/react-router"
 import { GrainientBackground } from "@/components/grainient-background"
 
 export function NotFound() {
-  const router = useRouter()
-
   return (
     <div className="relative isolate min-h-svh overflow-hidden bg-background">
       <GrainientBackground />
@@ -26,18 +24,14 @@ export function NotFound() {
         </p>
 
         <div className="mt-8 flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="default"
-            onClick={() => router.history.back()}
-          >
+          <Link to=".." className={buttonVariants({ variant: "outline" })}>
             <HugeiconsIcon icon={ArrowLeft01Icon} data-icon="inline-start" />
             Go back
-          </Button>
-          <Button size="default" onClick={() => router.navigate({ to: "/" })}>
+          </Link>
+          <Link to="/" className={buttonVariants()}>
             <HugeiconsIcon icon={Home03Icon} data-icon="inline-start" />
             Take me home
-          </Button>
+          </Link>
         </div>
       </div>
     </div>
