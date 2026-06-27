@@ -69,12 +69,6 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
-  useEffect(() => {
-    return () => {
-      vncRef.current?.disconnect()
-    }
-  }, [])
-
   async function startConnection() {
     if (connectingRef.current) return
     connectingRef.current = true
