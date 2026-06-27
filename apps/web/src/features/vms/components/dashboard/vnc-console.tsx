@@ -69,6 +69,12 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
 
+  useEffect(() => {
+    return () => {
+      vncRef.current?.disconnect()
+    }
+  }, [])
+
   async function startConnection() {
     if (connectingRef.current) return
     connectingRef.current = true
@@ -232,11 +238,14 @@ function useElapsed(since: number | null): string {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
+    if (since === null) {
+      return
+    }
     const id = setInterval(() => {
       setNow(Date.now())
     }, 1000)
     return () => clearInterval(id)
-  }, [])
+  }, [since])
 
   const elapsed =
     since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000))
