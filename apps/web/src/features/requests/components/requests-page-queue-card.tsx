@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { RequestsSelectionActions } from "./requests-selection-actions"
 import type { UseMutationResult } from "@tanstack/react-query"
@@ -26,7 +27,7 @@ type RequestsPageQueueCardProps = {
   scope: ApiRequestScope
   onScopeChange: (scope: ApiRequestScope) => void
   pendingCount: number
-  completedCount: number
+  completedCount: number | null
   columns: Array<ColumnDef<ApiRequestSummary>>
   activeRequests: Array<ApiRequestSummary>
   isActiveLoading: boolean
@@ -96,7 +97,13 @@ export function RequestsPageQueueCard({
               </TabsTrigger>
               <TabsTrigger value="completed">
                 Completed
-                <Badge variant="outline">{completedCount}</Badge>
+                <Badge variant="outline">
+                  {completedCount === null ? (
+                    <Skeleton className="h-3 w-4 rounded-full" />
+                  ) : (
+                    completedCount
+                  )}
+                </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>

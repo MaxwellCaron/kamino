@@ -3,9 +3,6 @@ import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
 
 export interface InventoryTreeContextValue {
-  query: string
-  setQuery: (query: string) => void
-  resultCount: number | null
   tree: TreeInstance<ApiTreeNode>
   expandAll: () => void
   collapseAll: () => void

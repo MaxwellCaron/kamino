@@ -195,7 +195,7 @@ export function RequestsPage() {
     scope === "pending" ? isPendingLoading : isCompletedLoading
   const isRequestsLoading = isTreeLoading || isPendingLoading
   const pendingCount = pendingPage?.total ?? 0
-  const completedCount = completedPage?.total ?? 0
+  const completedCount = isCompletedLoading ? null : (completedPage?.total ?? 0)
   const statusCounts = useMemo(() => {
     const counts: Record<ApiRequestStatus, number> = {
       pending: 0,
