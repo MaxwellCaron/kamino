@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -167,33 +168,51 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		currentVMPools[vmKey{Node: vm.Node, VMID: vm.VMID}] = vm.Pool
 	}
 
+	poolGroup, poolCtx := errgroup.WithContext(ctx)
+	poolGroup.SetLimit(8)
 	for key, desiredPool := range desiredVMPools {
-		currentPool, exists := currentVMPools[key]
-		if !exists || currentPool == desiredPool {
-			continue
-		}
-
-		if currentPool != "" {
-			if err := m.client.RemoveVMFromPool(ctx, currentPool, key.VMID); err != nil {
-				return fmt.Errorf("removing VM %d on %s from pool %q: %w", key.VMID, key.Node, currentPool, err)
+		poolGroup.Go(func() error {
+			currentPool, exists := currentVMPools[key]
+			if !exists || currentPool == desiredPool {
+				return nil
 			}
-		}
 
-		if desiredPool != "" {
-			if err := m.client.AddVMToPool(ctx, desiredPool, key.VMID); err != nil {
-				return fmt.Errorf("adding VM %d on %s to pool %q: %w", key.VMID, key.Node, desiredPool, err)
+			if currentPool != "" {
+				if err := m.client.RemoveVMFromPool(poolCtx, currentPool, key.VMID); err != nil {
+					return fmt.Errorf("removing VM %d on %s from pool %q: %w", key.VMID, key.Node, currentPool, err)
+				}
 			}
-		}
+
+			if desiredPool != "" {
+				if err := m.client.AddVMToPool(poolCtx, desiredPool, key.VMID); err != nil {
+					return fmt.Errorf("adding VM %d on %s to pool %q: %w", key.VMID, key.Node, desiredPool, err)
+				}
+			}
+
+			return nil
+		})
+	}
+	if err := poolGroup.Wait(); err != nil {
+		return err
 	}
 
+	notesGroup, notesCtx := errgroup.WithContext(ctx)
+	notesGroup.SetLimit(8)
 	for key, desiredNotes := range desiredVMNotes {
-		if _, exists := currentVMPools[key]; !exists {
-			continue
-		}
+		notesGroup.Go(func() error {
+			if _, exists := currentVMPools[key]; !exists {
+				return nil
+			}
 
-		if err := m.client.UpdateVMNotes(ctx, key.Node, key.VMID, desiredNotes); err != nil {
-			return fmt.Errorf("updating notes for VM %d on %s: %w", key.VMID, key.Node, err)
-		}
+			if err := m.client.UpdateVMNotes(notesCtx, key.Node, key.VMID, desiredNotes); err != nil {
+				return fmt.Errorf("updating notes for VM %d on %s: %w", key.VMID, key.Node, err)
+			}
+
+			return nil
+		})
+	}
+	if err := notesGroup.Wait(); err != nil {
+		return err
 	}
 
 	for _, poolID := range staleManagedPoolIDs(currentPools, desiredPools) {

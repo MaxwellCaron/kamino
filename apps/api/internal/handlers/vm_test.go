@@ -38,6 +38,57 @@ func (f *fakeVMAuthz) GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID
 	return f.vmRecord, f.vmRecordErr
 }
 
+func (f *fakeVMAuthz) ResolveVMItems(
+	ctx context.Context,
+	principalID uuid.UUID,
+	itemIDs []uuid.UUID,
+	required authorization.Mask,
+	lock bool,
+) (map[uuid.UUID]authorization.VMItemAccess, error) {
+	if f.requireErr != nil {
+		switch {
+		case errors.Is(f.requireErr, authorization.ErrForbidden):
+			result := make(map[uuid.UUID]authorization.VMItemAccess, len(itemIDs))
+			for _, itemID := range itemIDs {
+				result[itemID] = authorization.VMItemAccess{Allowed: false}
+			}
+			return result, nil
+		case errors.Is(f.requireErr, pgx.ErrNoRows):
+			return map[uuid.UUID]authorization.VMItemAccess{}, nil
+		default:
+			return nil, f.requireErr
+		}
+	}
+
+	if f.vmRecordErr != nil {
+		switch {
+		case errors.Is(f.vmRecordErr, pgx.ErrNoRows):
+			result := make(map[uuid.UUID]authorization.VMItemAccess, len(itemIDs))
+			for _, itemID := range itemIDs {
+				result[itemID] = authorization.VMItemAccess{Allowed: true}
+			}
+			return result, nil
+		default:
+			return nil, f.vmRecordErr
+		}
+	}
+
+	result := make(map[uuid.UUID]authorization.VMItemAccess, len(itemIDs))
+	for _, itemID := range itemIDs {
+		record := f.vmRecord
+		if record.InventoryItemID == uuid.Nil {
+			record.InventoryItemID = itemID
+		}
+		result[itemID] = authorization.VMItemAccess{
+			Allowed: true,
+			HasVM:   true,
+			Record:  record,
+		}
+	}
+
+	return result, nil
+}
+
 func (f *fakeVMAuthz) FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error) {
 	return f.filterStatuses, f.filterStatusesErr
 }

@@ -38,6 +38,17 @@ type VMRecord struct {
 	UpstreamUUID    uuid.UUID
 }
 
+type VMItemAccess struct {
+	Allowed bool
+	HasVM   bool
+	Record  VMRecord
+}
+
+func hasVMFlag(value any) bool {
+	hasVM, ok := value.(bool)
+	return ok && hasVM
+}
+
 func NewService(db dbtx, protectedManagementGroupIDs []uuid.UUID) *Service {
 	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedManagementGroupIDs))
 	for _, principalID := range protectedManagementGroupIDs {
@@ -270,6 +281,121 @@ func (s *Service) GetVMRecord(ctx context.Context, itemID uuid.UUID) (VMRecord, 
 		Vmid:            row.Vmid,
 		UpstreamUUID:    row.UpstreamUuid,
 	}, nil
+}
+
+func (s *Service) ResolveVMItems(
+	ctx context.Context,
+	principalID uuid.UUID,
+	itemIDs []uuid.UUID,
+	required Mask,
+	lock bool,
+) (map[uuid.UUID]VMItemAccess, error) {
+	result := make(map[uuid.UUID]VMItemAccess, len(itemIDs))
+	if len(itemIDs) == 0 {
+		return result, nil
+	}
+
+	q := database.New(s.db)
+	isAdmin, err := s.HasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+
+	if isAdmin {
+		if lock {
+			rows, err := q.GetBulkVMItemsForUpdate(ctx, itemIDs)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, row := range rows {
+				access := VMItemAccess{Allowed: true}
+				if hasVMFlag(row.HasVm) {
+					access.HasVM = true
+					access.Record = VMRecord{
+						InventoryItemID: row.ID,
+						Node:            row.Node,
+						Vmid:            row.Vmid,
+						UpstreamUUID:    row.UpstreamUuid,
+					}
+				}
+				result[row.ID] = access
+			}
+		} else {
+			rows, err := q.GetBulkVMItems(ctx, itemIDs)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, row := range rows {
+				access := VMItemAccess{Allowed: true}
+				if hasVMFlag(row.HasVm) {
+					access.HasVM = true
+					access.Record = VMRecord{
+						InventoryItemID: row.ID,
+						Node:            row.Node,
+						Vmid:            row.Vmid,
+						UpstreamUUID:    row.UpstreamUuid,
+					}
+				}
+				result[row.ID] = access
+			}
+		}
+
+		return result, nil
+	}
+
+	if lock {
+		rows, err := q.GetBulkVMItemsWithPermissionsForUpdate(ctx, database.GetBulkVMItemsWithPermissionsForUpdateParams{
+			PrincipalID: principalID,
+			ItemIds:     itemIDs,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, row := range rows {
+			access := VMItemAccess{
+				Allowed: Mask(row.AllowedMask).Has(required),
+			}
+			if hasVMFlag(row.HasVm) {
+				access.HasVM = true
+				access.Record = VMRecord{
+					InventoryItemID: row.ID,
+					Node:            row.Node,
+					Vmid:            row.Vmid,
+					UpstreamUUID:    row.UpstreamUuid,
+				}
+			}
+			result[row.ID] = access
+		}
+	} else {
+		rows, err := q.GetBulkVMItemsWithPermissions(ctx, database.GetBulkVMItemsWithPermissionsParams{
+			PrincipalID: principalID,
+			ItemIds:     itemIDs,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, row := range rows {
+			access := VMItemAccess{
+				Allowed: Mask(row.AllowedMask).Has(required),
+			}
+			if hasVMFlag(row.HasVm) {
+				access.HasVM = true
+				access.Record = VMRecord{
+					InventoryItemID: row.ID,
+					Node:            row.Node,
+					Vmid:            row.Vmid,
+					UpstreamUUID:    row.UpstreamUuid,
+				}
+			}
+			result[row.ID] = access
+		}
+	}
+
+	return result, nil
 }
 
 // GetVMRecordForUpdate uses SELECT ... FOR UPDATE for mutation paths. The row

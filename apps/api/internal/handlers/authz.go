@@ -199,6 +199,14 @@ func resolveVerifiedVMItemPermission(
 		}
 	}
 
+	return verifyVMRecordIdentity(ctx, px, record)
+}
+
+func verifyVMRecordIdentity(
+	ctx context.Context,
+	px vmProxmox,
+	record authorization.VMRecord,
+) (verifiedVMTarget, *requestError) {
 	identity, err := px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
 	switch {
 	case err == nil:

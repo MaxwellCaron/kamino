@@ -18,6 +18,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 func parseIntParam(c *gin.Context, name string) (int, error) {
@@ -53,6 +54,7 @@ type vmAuthz interface {
 	Require(ctx context.Context, principalID uuid.UUID, itemID uuid.UUID, required authorization.Mask) error
 	GetVMRecord(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
 	GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
+	ResolveVMItems(ctx context.Context, principalID uuid.UUID, itemIDs []uuid.UUID, required authorization.Mask, lock bool) (map[uuid.UUID]authorization.VMItemAccess, error)
 	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
 }
 
@@ -227,28 +229,85 @@ func (h *VMHandler) collectVerifiedVMTargets(
 	}
 	targets := make([]verifiedVMTarget, 0, len(itemIDs))
 
-	for _, itemID := range itemIDs {
-		target, reqErr := resolveVerifiedVMItemPermission(
-			c.Request.Context(),
-			h.Authz,
-			h.PX,
-			principalID,
-			itemID,
-			required,
-			lock,
-		)
-		if reqErr != nil {
-			if reqErr.Err != nil {
-				logRequestError(c, reqErr.Operation+" item_id="+itemID.String(), reqErr.Err)
-			}
+	accessByItemID, err := h.Authz.ResolveVMItems(c.Request.Context(), principalID, itemIDs, required, lock)
+	if err != nil {
+		logRequestError(c, "resolve bulk vm inventory access", err)
+		for _, itemID := range itemIDs {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    itemID.String(),
+				Error: "authorization failed",
+			})
+		}
+		return targets, response
+	}
+
+	type pendingVerification struct {
+		index  int
+		itemID uuid.UUID
+		record authorization.VMRecord
+	}
+
+	pending := make([]pendingVerification, 0, len(itemIDs))
+	for _, itemID := range itemIDs {
+		access, ok := accessByItemID[itemID]
+		switch {
+		case !ok:
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: "item not found",
+			})
+		case !access.Allowed:
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: "forbidden",
+			})
+		case !access.HasVM:
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: "vm not found",
+			})
+		default:
+			pending = append(pending, pendingVerification{
+				index:  len(pending),
+				itemID: itemID,
+				record: access.Record,
+			})
+		}
+	}
+
+	verifiedTargets := make([]verifiedVMTarget, len(pending))
+	verifyErrors := make([]*requestError, len(pending))
+	group, groupCtx := errgroup.WithContext(c.Request.Context())
+	group.SetLimit(8)
+	for _, pendingTarget := range pending {
+		pendingTarget := pendingTarget
+		group.Go(func() error {
+			target, reqErr := verifyVMRecordIdentity(groupCtx, h.PX, pendingTarget.record)
+			if reqErr != nil {
+				verifyErrors[pendingTarget.index] = reqErr
+				return nil
+			}
+
+			verifiedTargets[pendingTarget.index] = target
+			return nil
+		})
+	}
+	_ = group.Wait()
+
+	for _, pendingTarget := range pending {
+		reqErr := verifyErrors[pendingTarget.index]
+		if reqErr != nil {
+			if reqErr.Err != nil {
+				logRequestError(c, reqErr.Operation+" item_id="+pendingTarget.itemID.String(), reqErr.Err)
+			}
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    pendingTarget.itemID.String(),
 				Error: reqErr.UserMessage,
 			})
 			continue
 		}
 
-		targets = append(targets, target)
+		targets = append(targets, verifiedTargets[pendingTarget.index])
 	}
 
 	return targets, response
