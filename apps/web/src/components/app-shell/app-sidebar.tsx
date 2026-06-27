@@ -396,7 +396,7 @@ export function AppSidebar({
           <SidebarHeader>
             <InventoryTreeHeader />
           </SidebarHeader>
-          <SidebarContent className="pl-1">
+          <SidebarContent className="scroll-fade pl-1">
             <InventoryTreeBody />
           </SidebarContent>
         </Sidebar>
