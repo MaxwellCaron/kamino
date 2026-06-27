@@ -1,6 +1,5 @@
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -9,12 +8,14 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { GrainientBackground } from "@/components/grainient-background"
 
-export function PodPageSkeleton() {
+const STEPPER_ITEM_IDS = ["personalize", "access", "vms", "tasks", "preview"]
+
+export function PublishPodFormSkeleton() {
   return (
     <div
       aria-busy="true"
-      aria-label="Loading pod"
-      className="@container/main flex flex-1 flex-col"
+      aria-label="Loading publish pod form"
+      className="@container/main relative flex flex-1 flex-col"
     >
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 mb-1 overflow-hidden rounded-b-[40px] shadow ring-1 ring-border/50">
@@ -53,34 +54,50 @@ export function PodPageSkeleton() {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-        <Card className="rounded-b-2xl! pb-0">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Skeleton className="size-6 rounded-md" />
-              <Skeleton className="h-7 w-20 rounded-md" />
+              <Skeleton className="size-5 rounded-md" />
+              <Skeleton className="h-5 w-28 rounded-md" />
             </CardTitle>
-            <CardDescription className="flex flex-col gap-2 pt-1">
-              <Skeleton className="h-4 w-full max-w-2xl rounded-md" />
-              <Skeleton className="h-4 w-2/3 max-w-xl rounded-md" />
+            <CardDescription>
+              <Skeleton className="h-4 w-full max-w-lg rounded-md" />
             </CardDescription>
-            <CardAction>
-              <Skeleton className="h-5 w-12 rounded-full" />
-            </CardAction>
           </CardHeader>
-          <CardContent className="-mx-6 border-t px-0">
-            <div className="divide-y">
-              {Array.from({ length: 4 }, (_, index) => (
+          <CardContent className="flex flex-col gap-4 border-t pt-6">
+            <Skeleton className="h-10 w-full rounded-3xl" />
+            <Skeleton className="h-28 w-full rounded-3xl" />
+            <Skeleton className="h-10 w-full max-w-md rounded-3xl" />
+            <Skeleton className="h-10 w-full rounded-3xl" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="sticky bottom-6 z-50 mx-auto w-full max-w-500 px-2 lg:px-6">
+        <Card className="bg-muted">
+          <CardContent className="flex flex-col gap-6">
+            <div className="flex items-center">
+              {STEPPER_ITEM_IDS.map((item, index) => (
                 <div
-                  key={index}
-                  className="flex min-h-14 items-center gap-3 px-6 py-4"
+                  key={item}
+                  className="flex min-w-0 flex-1 items-center gap-2"
                 >
-                  <Skeleton className="h-5 w-16 shrink-0 rounded-md" />
-                  <Skeleton className="size-4 shrink-0 rounded-full" />
-                  <Skeleton className="h-5 w-3/5 max-w-lg rounded-md" />
-                  <Skeleton className="ml-auto size-4 shrink-0 rounded-md" />
+                  <div className="flex flex-col gap-1">
+                    <Skeleton className="size-8 rounded-full bg-card" />
+                    <Skeleton className="hidden h-4 w-14 rounded-md md:block" />
+                  </div>
+                  {index < STEPPER_ITEM_IDS.length - 1 ? (
+                    <Skeleton className="mx-4 h-px flex-1 rounded-none" />
+                  ) : null}
                 </div>
               ))}
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-10 w-28 rounded-md" />
+              <Skeleton className="h-4 w-24 rounded-md" />
+              <Skeleton className="h-10 w-24 rounded-md" />
             </div>
           </CardContent>
         </Card>

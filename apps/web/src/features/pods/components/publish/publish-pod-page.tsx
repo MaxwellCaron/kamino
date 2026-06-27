@@ -15,11 +15,11 @@ import type { PublishPodSubmitStatus } from "./publish-pod-submit-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
 import { uuid } from "@/features/shared/utils/uuid"
-import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"
 import {
   publishPodOptionsQueryOptions,
   publishedPodProgressQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
+import { PublishPodFormSkeleton } from "@/features/pods/components/publish/publish-pod-skeleton"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import {
   groupsQueryOptions,
@@ -262,7 +262,7 @@ export function PublishPodPage({
   }
 
   if (isLoadingFormOptions) {
-    return <PodPageSkeleton />
+    return <PublishPodFormSkeleton />
   }
 
   return (

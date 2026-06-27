@@ -128,10 +128,26 @@ export function TablePageSkeleton({
           )}
         </CardHeader>
         <CardContent className="px-0">
-          <TableBlockSkeleton rows={rowCount} />
+          <TableControlsSkeleton />
+          <div className="overflow-hidden py-6">
+            <TableBlockSkeleton rows={rowCount} />
+          </div>
+          <TableFooterSkeleton />
         </CardContent>
       </Card>
     </PageSkeleton>
+  )
+}
+
+export function TableControlsSkeleton() {
+  return (
+    <div className="flex items-center justify-between gap-6 px-6">
+      <Skeleton className="h-10 w-full max-w-sm rounded-md" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="hidden h-4 w-24 rounded-md lg:block" />
+        <Skeleton className="h-10 w-20 rounded-md" />
+      </div>
+    </div>
   )
 }
 
@@ -149,6 +165,21 @@ export function TableBlockSkeleton({ rows = 3 }: { rows?: number }) {
           <Skeleton className="h-5 w-20 rounded-md" />
         </div>
       ))}
+    </div>
+  )
+}
+
+export function TableFooterSkeleton() {
+  return (
+    <div className="flex items-center justify-between px-6">
+      <Skeleton className="h-4 w-32 rounded-md" />
+      <Skeleton className="h-4 w-24 rounded-md" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="hidden size-8 rounded-md lg:block" />
+        <Skeleton className="size-8 rounded-md" />
+        <Skeleton className="size-8 rounded-md" />
+        <Skeleton className="hidden size-8 rounded-md lg:block" />
+      </div>
     </div>
   )
 }

@@ -35,15 +35,14 @@ export function PublishedPodsPageSkeleton() {
               {Array.from({ length: 4 }, (_, index) => (
                 <div
                   key={index}
-                  className="flex min-h-32 flex-col gap-3 rounded-lg bg-muted/50 p-4"
+                  className="flex flex-col gap-3.5 rounded-2xl bg-muted/50 px-4 py-3.5"
                 >
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="size-9 rounded-md" />
+                  <div className="flex items-center gap-3.5">
+                    <Skeleton className="size-5 rounded-md" />
                     <Skeleton className="h-4 w-28 rounded-md" />
                   </div>
                   <Skeleton className="h-8 w-16 rounded-md" />
-                  <Skeleton className="h-4 w-full rounded-md" />
-                  <Skeleton className="h-4 w-3/4 rounded-md" />
+                  <Skeleton className="h-4 w-full max-w-xs rounded-md" />
                 </div>
               ))}
             </div>

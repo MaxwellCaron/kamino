@@ -13,6 +13,7 @@ import { actionEventsQueryOptions } from "../api/audit-api"
 import { columns } from "./audit-columns"
 import type { PaginationState } from "@tanstack/react-table"
 import { DataTable } from "@/components/data-table/data-table"
+import { TablePageSkeleton } from "@/components/loading-skeletons"
 
 export function AuditPage() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -29,6 +30,10 @@ export function AuditPage() {
     }),
     placeholderData: keepPreviousData,
   })
+
+  if (isLoading) {
+    return <TablePageSkeleton titleWidth="w-32" />
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
