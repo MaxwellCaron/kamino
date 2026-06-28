@@ -300,7 +300,7 @@ export function CreatePodPage() {
                   dispatch({ type: "confirmOpenChanged", open: false })
                 }
               >
-                Cancel
+                Close
               </AlertDialogCancel>
               <AlertDialogAction
                 variant="default"

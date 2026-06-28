@@ -127,7 +127,7 @@ export function PodHeaderActions({
   }
 
   function handleActionOpenChange(open: boolean) {
-    if (open || actionPending) return
+    if (open) return
     setActiveAction(null)
     powerMutation.reset()
     deleteMutation.reset()
@@ -234,8 +234,8 @@ export function PodHeaderActions({
               <InlineErrorAlert error={actionError} fallback="Action failed." />
             )}
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={actionPending}>
-                Cancel
+              <AlertDialogCancel>
+                Close
               </AlertDialogCancel>
               <AppActionButton
                 type="button"

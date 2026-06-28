@@ -108,7 +108,7 @@ export function PublishPodStepper({
       <AlertDialog
         open={publishConfirmOpen}
         onOpenChange={(open) => {
-          if (!open && !isSubmitting) {
+          if (!open) {
             setPublishConfirmOpen(false)
           }
         }}
@@ -121,10 +121,9 @@ export function PublishPodStepper({
         >
           <AlertDialogFooter>
             <AlertDialogCancel
-              disabled={isSubmitting}
               onClick={() => setPublishConfirmOpen(false)}
             >
-              Cancel
+              Close
             </AlertDialogCancel>
             <AppActionButton
               type="button"

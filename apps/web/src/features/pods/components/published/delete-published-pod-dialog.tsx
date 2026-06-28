@@ -32,7 +32,7 @@ export function DeletePublishedPodDialog({
         }
       >
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Close</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={isPending}

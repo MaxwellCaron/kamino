@@ -170,7 +170,7 @@ export function PublishPodTasksStep({
         >
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPendingTaskDelete(null)}>
-              Cancel
+              Close
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"

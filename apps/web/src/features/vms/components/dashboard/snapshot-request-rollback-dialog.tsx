@@ -40,10 +40,6 @@ export function SnapshotRequestRollbackDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
-          if (submitRollbackRequest.isPending) {
-            return
-          }
-
           onClose()
         }
       }}
@@ -63,8 +59,8 @@ export function SnapshotRequestRollbackDialog({
         }
       >
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={submitRollbackRequest.isPending}>
-            Cancel
+          <AlertDialogCancel>
+            Close
           </AlertDialogCancel>
           <AppActionButton
             type="button"

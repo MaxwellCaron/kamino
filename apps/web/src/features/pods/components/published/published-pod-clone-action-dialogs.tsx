@@ -44,7 +44,7 @@ export function PublishedPodCloneActionDialogs({
           pendingAction?.type === "start" || pendingAction?.type === "shutdown"
         }
         onOpenChange={(open) => {
-          if (!open && !isMutating) onOpenChange(false)
+          if (!open) onOpenChange(false)
         }}
       >
         <AppAlertDialogContent
@@ -67,7 +67,7 @@ export function PublishedPodCloneActionDialogs({
           }
         >
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
               disabled={isMutating}
               onClick={(e) => {
@@ -90,7 +90,7 @@ export function PublishedPodCloneActionDialogs({
       <AlertDialog
         open={pendingAction?.type === "reclone"}
         onOpenChange={(open) => {
-          if (!open && !isMutating) onOpenChange(false)
+          if (!open) onOpenChange(false)
         }}
       >
         <AppAlertDialogContent
@@ -104,7 +104,7 @@ export function PublishedPodCloneActionDialogs({
           }
         >
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={isMutating}
@@ -123,7 +123,7 @@ export function PublishedPodCloneActionDialogs({
       <AlertDialog
         open={pendingAction?.type === "delete"}
         onOpenChange={(open) => {
-          if (!open && !isMutating) onOpenChange(false)
+          if (!open) onOpenChange(false)
         }}
       >
         <AppAlertDialogContent
@@ -137,7 +137,7 @@ export function PublishedPodCloneActionDialogs({
           }
         >
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={isMutating}

@@ -205,15 +205,13 @@ export function PublishedPodsPage() {
         isDeletePending={deleteMutation.isPending}
         onDeleteConfirm={(pod) => deleteMutation.mutate(pod.id)}
         onDeleteOpenChange={(open) => {
-          if (!open && !deleteMutation.isPending) setPendingDeletePod(null)
+          if (!open) setPendingDeletePod(null)
         }}
         pendingCloneBulkAction={pendingCloneBulkAction}
         isBulkClonePending={bulkCloneActionMutation.isPending}
         onBulkCloneConfirm={(action) => bulkCloneActionMutation.mutate(action)}
         onBulkCloneOpenChange={(open) => {
-          if (!open && !bulkCloneActionMutation.isPending) {
-            setPendingCloneBulkAction(null)
-          }
+          if (!open) setPendingCloneBulkAction(null)
         }}
         pendingManagerClonePod={pendingManagerClonePod}
         pendingCloneRowsByPodId={pendingCloneRowsByPodId}

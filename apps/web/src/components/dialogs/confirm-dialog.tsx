@@ -21,7 +21,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { ReactNode, RefObject } from "react"
+import type { ReactNode } from "react"
 import type { IconSvgElement } from "@hugeicons/react"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import {
@@ -175,14 +175,11 @@ function ConfirmStatusList({ items }: { items: Array<ConfirmStatusItem> }) {
 function ConfirmDialogSession({
   config,
   onClose,
-  isPendingRef,
 }: {
   config: ConfirmConfig
   onClose: () => void
-  isPendingRef: RefObject<boolean>
 }) {
   const [isPending, setIsPending] = useState(false)
-  const [hasSubmitted, setHasSubmitted] = useState(false)
   const [statusItems, setStatusItems] = useState<Array<ConfirmStatusItem>>(
     () => config.statusItems ?? []
   )
@@ -193,7 +190,6 @@ function ConfirmDialogSession({
     config.icon ??
     (config.variant === "destructive" ? Alert01Icon : InformationCircleIcon)
   statusItemsRef.current = statusItems
-  isPendingRef.current = isPending
 
   const resolvedStatusItems = useMemo(() => {
     if (!vmStatuses) {
@@ -251,8 +247,8 @@ function ConfirmDialogSession({
         <ConfirmStatusList items={resolvedStatusItems} />
       )}
       <AlertDialogFooter>
-        <AlertDialogCancel disabled={isPending}>
-          {resolvedStatusItems.length > 0 && hasSubmitted ? "Close" : "Cancel"}
+        <AlertDialogCancel>
+          Close
         </AlertDialogCancel>
         <AppActionButton
           variant={config.variant ?? "default"}
@@ -260,7 +256,6 @@ function ConfirmDialogSession({
           pendingLabel={config.pendingLabel}
           disabled={allActionsSucceeded || config.actionDisabled === true}
           onClick={async () => {
-            setHasSubmitted(true)
             const closeOnSuccess = config.closeOnSuccess ?? true
 
             if (closeOnSuccess) {
@@ -303,7 +298,6 @@ export function ConfirmDialog({
 }) {
   const prevConfigRef = useRef<ConfirmConfig | null>(null)
   const sessionKeyRef = useRef(0)
-  const isPendingRef = useRef(false)
 
   if (config !== prevConfigRef.current && config !== null) {
     sessionKeyRef.current += 1
@@ -314,7 +308,7 @@ export function ConfirmDialog({
     <AlertDialog
       open={config !== null}
       onOpenChange={(open) => {
-        if (!open && !isPendingRef.current) onClose()
+        if (!open) onClose()
       }}
     >
       {config ? (
@@ -322,7 +316,6 @@ export function ConfirmDialog({
           key={sessionKeyRef.current}
           config={config}
           onClose={onClose}
-          isPendingRef={isPendingRef}
         />
       ) : null}
     </AlertDialog>

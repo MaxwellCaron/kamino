@@ -71,7 +71,7 @@ export function BulkCloneActionDialog({
         description={dialogConfig.description(pendingAction.pod)}
       >
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Close</AlertDialogCancel>
           <AppActionButton
             type="button"
             variant={dialogConfig.variant}
