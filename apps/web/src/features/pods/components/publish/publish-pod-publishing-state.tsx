@@ -1,9 +1,9 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowLeft01Icon,
-  PackageIcon,
   ComputerIcon,
-  ListViewIcon,
+  PackageIcon,
+  PackageMovingIcon,
 } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { PUBLISH_POD_STEP_IDS } from "./publish-pod-submit-types"
@@ -146,7 +146,7 @@ function SuccessState({ podSlug }: { podSlug: string }) {
       description="Your Pod has been successfully published. View it in the catalog or go directly to its page."
       actions={[
         {
-          icon: ListViewIcon,
+          icon: PackageMovingIcon,
           label: "View Catalog",
           to: "/pods/published",
           variant: "outline",
@@ -184,7 +184,7 @@ function ErrorState({
           variant: "outline",
         },
         {
-          icon: ListViewIcon,
+          icon: PackageMovingIcon,
           label: "View Catalog",
           to: "/pods/published",
           variant: "secondary",

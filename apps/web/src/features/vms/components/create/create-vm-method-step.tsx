@@ -1,6 +1,6 @@
 import {
+  Copy02Icon,
   FloppyDiskIcon,
-  Layout01Icon,
   Upload01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -33,7 +33,7 @@ const createMethodCards: Array<{
     title: "Template",
     description:
       "Clone from an existing VM template already registered in Kamino.",
-    icon: Layout01Icon,
+    icon: Copy02Icon,
   },
   {
     value: "iso",

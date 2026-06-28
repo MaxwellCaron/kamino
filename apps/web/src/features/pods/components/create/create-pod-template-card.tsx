@@ -24,10 +24,10 @@ import {
   Add01Icon,
   Cancel01Icon,
   ComputerIcon,
+  Copy02Icon,
   CpuIcon,
-  HardDriveIcon,
   Delete01Icon,
-  Layout01Icon,
+  HardDriveIcon,
   RamMemoryIcon,
 } from "@hugeicons/core-free-icons"
 import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
@@ -142,7 +142,7 @@ export function CreatePodTemplateCard({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <HugeiconsIcon
-                  icon={Layout01Icon}
+                  icon={Copy02Icon}
                   className="text-muted-foreground"
                 />
                 <span>{templateConfig.templateName}</span>

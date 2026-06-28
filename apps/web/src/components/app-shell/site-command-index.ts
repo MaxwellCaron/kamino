@@ -1,12 +1,11 @@
 import {
   ComputerIcon,
+  Copy02Icon,
   DashboardSquare01Icon,
   FolderIcon,
   Globe02Icon,
   Home03Icon,
   Invoice01Icon,
-  Layout01Icon,
-  ListViewIcon,
   PackageAddIcon,
   PackageCheck,
   PackageIcon,
@@ -349,7 +348,7 @@ function appendVmCommands(
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: isTemplate ? Layout01Icon : ComputerIcon,
+    icon: isTemplate ? Copy02Icon : ComputerIcon,
     label: node.name,
     subtitle: `${vmLabel} ${vm.vmid} on ${vm.node}`,
     keywords: vmKeywords,
@@ -410,7 +409,7 @@ function buildPodCommands({
       results.push({
         id: `published-pod:${pod.id}`,
         group: "pods",
-        icon: ListViewIcon,
+        icon: PackageMovingIcon,
         label: `Edit ${pod.title}`,
         subtitle: `Published pod · ${pod.status}`,
         keywords: [pod.slug, pod.description, pod.source_folder, "manager"],

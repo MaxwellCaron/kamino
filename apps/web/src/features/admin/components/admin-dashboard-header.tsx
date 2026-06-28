@@ -3,7 +3,7 @@ import {
   ComputerIcon,
   FolderIcon,
   Invoice01Icon,
-  Layout01Icon,
+  Copy02Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
@@ -74,7 +74,7 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
     {
       icon: (
         <HugeiconsIcon
-          icon={Layout01Icon}
+          icon={Copy02Icon}
           className="size-5 text-muted-foreground"
         />
       ),

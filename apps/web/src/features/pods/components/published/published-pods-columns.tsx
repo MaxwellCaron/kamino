@@ -15,7 +15,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ChevronRightIcon,
-  Copy01Icon,
+  CopyIcon,
   Delete01Icon,
   ExternalLinkIcon,
   GlobeIcon,
@@ -285,7 +285,7 @@ export function getPublishedPodsColumns({
                     }}
                   >
                     <HugeiconsIcon
-                      icon={Copy01Icon}
+                      icon={CopyIcon}
                       className="text-muted-foreground"
                     />
                     Clone

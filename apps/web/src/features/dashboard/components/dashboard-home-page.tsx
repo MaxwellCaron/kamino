@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import {
   Clock01Icon,
   ComputerIcon,
-  Copy01Icon,
+  CopyIcon,
   PlayIcon,
 } from "@hugeicons/core-free-icons"
 import { DashboardActivityTableCard } from "./dashboard-requests-card"
@@ -238,7 +238,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
       value: String(runningVms),
     },
     {
-      icon: Copy01Icon,
+      icon: CopyIcon,
       label: "Cloned Pods",
       value: String(cloneStatus.entries.length),
     },

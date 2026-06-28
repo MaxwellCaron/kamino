@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { z } from "zod"
-import { Copy01Icon } from "@hugeicons/core-free-icons"
+import { CopyIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   FieldGroup,
@@ -115,7 +115,7 @@ export function CloneDialog({
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
       initialFocus={false}
-      icon={Copy01Icon}
+      icon={CopyIcon}
       title="Clone"
       description={`Clone ${formatVmReference(
         currentVmid,
@@ -123,7 +123,10 @@ export function CloneDialog({
       )} into a new virtual machine.`}
     >
       {optionsError ? (
-        <InlineErrorAlert error={optionsError} fallback="Failed to load clone options." />
+        <InlineErrorAlert
+          error={optionsError}
+          fallback="Failed to load clone options."
+        />
       ) : isLoadingOptions ? (
         <DialogBodySkeleton rows={4} />
       ) : (

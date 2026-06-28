@@ -4,12 +4,12 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Camera01Icon,
   ComputerAddIcon,
-  Copy01Icon,
+  Copy02Icon,
+  CopyIcon,
   Delete01Icon,
   ExternalLinkIcon,
   FolderAddIcon,
   GaugeIcon,
-  Layout01Icon,
   LockedIcon,
   MoreHorizontalIcon,
   PencilEdit01Icon,
@@ -321,7 +321,7 @@ function VmMenuItems({
             {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <HugeiconsIcon
-                  icon={Copy01Icon}
+                  icon={CopyIcon}
                   className="text-muted-foreground"
                 />
                 Clone
@@ -349,7 +349,7 @@ function VmMenuItems({
                 onClick={() =>
                   onAction({
                     title: "Templatize",
-                    icon: Layout01Icon,
+                    icon: Copy02Icon,
                     description: `This will convert ${formatVmReference(vmid, name)} to a template. Once a VM is converted to a template, you will not be able to make any additional edits to this VM.`,
                     actionLabel: "Templatize",
                     variant: "destructive",
@@ -369,7 +369,7 @@ function VmMenuItems({
                 }
               >
                 <HugeiconsIcon
-                  icon={Layout01Icon}
+                  icon={Copy02Icon}
                   className="text-muted-foreground"
                 />
                 Templatize
@@ -501,7 +501,7 @@ function TemplateMenuItems({
             {capabilities.clone.visible && (
               <DropdownMenuItem onClick={onClone} disabled={isLoading}>
                 <HugeiconsIcon
-                  icon={Copy01Icon}
+                  icon={CopyIcon}
                   className="text-muted-foreground"
                 />
                 Clone

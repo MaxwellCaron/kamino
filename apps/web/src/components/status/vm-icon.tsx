@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ComputerIcon, Layout01Icon } from "@hugeicons/core-free-icons"
+import { ComputerIcon, Copy02Icon } from "@hugeicons/core-free-icons"
 
 export function VmIcon({
   status,
@@ -11,7 +11,7 @@ export function VmIcon({
   if (isTemplate) {
     return (
       <HugeiconsIcon
-        icon={Layout01Icon}
+        icon={Copy02Icon}
         className="size-4 text-muted-foreground"
       />
     )

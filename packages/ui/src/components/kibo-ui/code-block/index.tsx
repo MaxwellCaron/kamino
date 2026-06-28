@@ -8,7 +8,7 @@ import {
   transformerNotationWordHighlight,
 } from "@shikijs/transformers"
 import {
-  Copy01Icon,
+  CopyIcon,
   SourceCodeIcon,
   Tick01Icon,
 } from "@hugeicons/core-free-icons"
@@ -518,7 +518,7 @@ export const CodeBlockCopyButton = ({
     }
   }
 
-  const Icon = isCopied ? Tick01Icon : Copy01Icon
+  const Icon = isCopied ? Tick01Icon : CopyIcon
   const handleClick: NonNullable<ComponentProps<typeof Button>["onClick"]> = (
     event
   ) => {

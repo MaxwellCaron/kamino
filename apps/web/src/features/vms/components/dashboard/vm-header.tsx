@@ -1,11 +1,11 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerIcon,
+  Copy02Icon,
   CpuIcon,
   Globe02Icon,
   HardDriveIcon,
   IdentityCardIcon,
-  Layout01Icon,
   PowerIcon,
   RamMemoryIcon,
 } from "@hugeicons/core-free-icons"
@@ -299,7 +299,7 @@ export function VmHeader({
         <CardTitle className="flex items-center gap-2">
           {isTemplate ? (
             <HugeiconsIcon
-              icon={Layout01Icon}
+              icon={Copy02Icon}
               className="size-7 text-muted-foreground"
             />
           ) : (

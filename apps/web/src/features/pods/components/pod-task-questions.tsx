@@ -14,7 +14,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { BulbIcon, SearchVisualIcon } from "@hugeicons/core-free-icons"
+import { BulbIcon, SearchIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
 import type {
@@ -46,7 +46,7 @@ export function PodTaskQuestions({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HugeiconsIcon
-            icon={SearchVisualIcon}
+            icon={SearchIcon}
             className="size-4.5 text-muted-foreground"
           />
           Questions

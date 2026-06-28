@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowUpRight01Icon, Copy01Icon } from "@hugeicons/core-free-icons"
+import { ArrowUpRight01Icon, CopyIcon } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -96,7 +96,7 @@ export function DashboardCurrentClonedPodCard({
                     </ItemTitle>
                     <ItemDescription>{entry.pod.description}</ItemDescription>
                     <span className="flex items-center gap-1 text-muted-foreground">
-                      <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+                      <HugeiconsIcon icon={CopyIcon} className="size-4" />
                       Cloned{" "}
                       <RelativeTimeCard
                         date={entry.clonedPod.cloned_at}
@@ -122,7 +122,7 @@ export function DashboardCurrentClonedPodCard({
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <HugeiconsIcon
-                  icon={Copy01Icon}
+                  icon={CopyIcon}
                   className="text-muted-foreground"
                 />
               </EmptyMedia>

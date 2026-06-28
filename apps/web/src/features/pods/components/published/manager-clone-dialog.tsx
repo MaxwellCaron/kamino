@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Copy01Icon } from "@hugeicons/core-free-icons"
+import { CopyIcon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -77,7 +77,7 @@ export function ManagerCloneDialog({
       open={open}
       onOpenChange={onOpenChange}
       onClosed={() => setSelectedPrincipals([])}
-      icon={Copy01Icon}
+      icon={CopyIcon}
       title="Clone"
       description={pod ? `Clone "${pod.title}" for selected principals.` : ""}
     >

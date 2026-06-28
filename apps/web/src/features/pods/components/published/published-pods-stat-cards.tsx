@@ -1,7 +1,7 @@
 import {
-  PackageIcon,
-  Copy01Icon,
+  CopyIcon,
   LockedIcon,
+  PackageIcon,
   ViewIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -32,7 +32,7 @@ export function PublishedPodsStatCards({
       description: "Pods limited to specific users or groups.",
     },
     {
-      icon: Copy01Icon,
+      icon: CopyIcon,
       title: "Clones",
       value: `${stats.totalClones}`,
       description: "Total clone count across the current catalog.",

@@ -30,7 +30,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Layout01Icon } from "@hugeicons/core-free-icons"
+import { Copy02Icon } from "@hugeicons/core-free-icons"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
 import { syncSelectedTemplates } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
@@ -192,7 +192,7 @@ export function CreatePodVirtualMachinesSection({
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
                         <HugeiconsIcon
-                          icon={Layout01Icon}
+                          icon={Copy02Icon}
                           className="text-muted-foreground"
                         />
                       </EmptyMedia>
