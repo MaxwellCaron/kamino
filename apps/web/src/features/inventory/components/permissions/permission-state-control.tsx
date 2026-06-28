@@ -1,9 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Cancel01Icon,
-  DivideSignIcon,
-  Tick01Icon,
-} from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -42,7 +38,7 @@ export function PermissionStateControl({
         aria-label="Inherit"
         className="transition-colors"
       >
-        <HugeiconsIcon icon={DivideSignIcon} className="size-4" />
+        {"/"}
       </ToggleGroupItem>
       <ToggleGroupItem
         value="allow"
