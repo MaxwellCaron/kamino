@@ -2,10 +2,37 @@ package routerconfig
 
 import (
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 	"unicode"
 )
+
+// ParseIPv4Subnet24 parses value as a canonical IPv4 /24 network address,
+// rejecting IPv6, other prefix lengths, and host addresses (e.g.
+// 10.128.1.7/24 has a non-zero host part and is rejected).
+func ParseIPv4Subnet24(value string) (netip.Prefix, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return netip.Prefix{}, fmt.Errorf("must not be empty")
+	}
+
+	prefix, err := netip.ParsePrefix(trimmed)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("must be a CIDR subnet: %w", err)
+	}
+	if !prefix.Addr().Is4() {
+		return netip.Prefix{}, fmt.Errorf("must be an IPv4 subnet")
+	}
+	if prefix.Bits() != 24 {
+		return netip.Prefix{}, fmt.Errorf("must be a /24 subnet")
+	}
+	if prefix.Masked() != prefix {
+		return netip.Prefix{}, fmt.Errorf("must be a network address, not a host address")
+	}
+
+	return prefix, nil
+}
 
 func NormalizeDottedPrefix(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)

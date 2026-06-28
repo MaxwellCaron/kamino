@@ -130,21 +130,21 @@ describe("DataTable server mode", () => {
 
     const trigger = screen.getByRole("combobox")
     trigger.focus()
-    await act(async () => {
+    await act(() => {
       fireEvent.keyDown(trigger, { key: "ArrowDown" })
     })
 
     // Options render as 10, 20, 25 (selected), 30, 40, 50 - three more
     // ArrowDown presses from the selected "25" option highlights "50".
     for (let i = 0; i < 3; i += 1) {
-      await act(async () => {
+      await act(() => {
         fireEvent.keyDown(document.activeElement ?? trigger, {
           key: "ArrowDown",
         })
       })
     }
 
-    await act(async () => {
+    await act(() => {
       fireEvent.keyDown(document.activeElement ?? trigger, { key: "Enter" })
     })
 

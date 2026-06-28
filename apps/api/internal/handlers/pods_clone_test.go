@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -135,29 +136,44 @@ func TestClonedPodVNetName(t *testing.T) {
 }
 
 func TestClonedPodNetworkMetadata(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			VNetPrefix:     "pod",
-			WANIPBase:      "172.16.",
-			InternalIPBase: "10.128.",
-		},
+	tests := []struct {
+		name           string
+		networkNumber  int32
+		wantVNet       string
+		wantExtSubnet  string
+		wantExtGateway string
+	}{
+		{"published clone", 24, "pod24", "172.16.24.0/24", "172.16.24.1"},
+		{"development", 245, "pod245", "172.16.245.0/24", "172.16.245.1"},
 	}
 
-	got, err := handler.clonedPodNetworkMetadata(24)
-	if err != nil {
-		t.Fatalf("clonedPodNetworkMetadata() error = %v", err)
-	}
-	if got.Number != 24 || got.VNet != "pod24" {
-		t.Fatalf("metadata identity = %#v", got)
-	}
-	if got.ExternalSubnet != "172.16.24.0/24" || got.ExternalGateway != "172.16.24.1" {
-		t.Fatalf("external metadata = %#v", got)
-	}
-	if got.InternalSubnet == nil || *got.InternalSubnet != "10.128.24.0/24" {
-		t.Fatalf("internal subnet = %#v", got.InternalSubnet)
-	}
-	if got.InternalGateway == nil || *got.InternalGateway != "10.128.24.1" {
-		t.Fatalf("internal gateway = %#v", got.InternalGateway)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := &PodsHandler{
+				RouterCloneConfig: PodRouterCloneConfig{
+					VNetPrefix:     "pod",
+					WANIPBase:      "172.16.",
+					InternalSubnet: netip.MustParsePrefix("10.128.1.0/24"),
+				},
+			}
+
+			got, err := handler.clonedPodNetworkMetadata(tt.networkNumber)
+			if err != nil {
+				t.Fatalf("clonedPodNetworkMetadata() error = %v", err)
+			}
+			if got.Number != tt.networkNumber || got.VNet != tt.wantVNet {
+				t.Fatalf("metadata identity = %#v", got)
+			}
+			if got.ExternalSubnet != tt.wantExtSubnet || got.ExternalGateway != tt.wantExtGateway {
+				t.Fatalf("external metadata = %#v", got)
+			}
+			if got.InternalSubnet != "10.128.1.0/24" {
+				t.Fatalf("internal subnet = %q, want 10.128.1.0/24", got.InternalSubnet)
+			}
+			if got.InternalGateway != "10.128.1.1" {
+				t.Fatalf("internal gateway = %q, want 10.128.1.1", got.InternalGateway)
+			}
+		})
 	}
 }
 
@@ -165,7 +181,6 @@ func TestBuildClonedRouterCloudInitConfig(t *testing.T) {
 	config, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
 		CloudInitStorage:         "local",
 		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
-		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
 		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
 	})
 	if err != nil {
@@ -177,9 +192,6 @@ func TestBuildClonedRouterCloudInitConfig(t *testing.T) {
 	if config.UserFile != "kamino-router-24-user-data.yaml" {
 		t.Fatalf("UserFile = %q, want %q", config.UserFile, "kamino-router-24-user-data.yaml")
 	}
-	if config.MetaFile != "kamino-router-24-meta-data.yaml" {
-		t.Fatalf("MetaFile = %q, want %q", config.MetaFile, "kamino-router-24-meta-data.yaml")
-	}
 	if config.NetworkFile != "kamino-router-network-config.yaml" {
 		t.Fatalf("NetworkFile = %q, want %q", config.NetworkFile, "kamino-router-network-config.yaml")
 	}
@@ -189,7 +201,6 @@ func TestBuildClonedRouterCloudInitConfigSupportsCustomPatterns(t *testing.T) {
 	config, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
 		CloudInitStorage:         "local-zfs",
 		CloudInitUserFilePattern: "lab-router-{network}-userdata.yml",
-		CloudInitMetaFilePattern: "lab-router-{network}-metadata.yml",
 		CloudInitNetworkFile:     "lab-router-network.yml",
 	})
 	if err != nil {
@@ -201,9 +212,6 @@ func TestBuildClonedRouterCloudInitConfigSupportsCustomPatterns(t *testing.T) {
 	if config.UserFile != "lab-router-24-userdata.yml" {
 		t.Fatalf("UserFile = %q, want %q", config.UserFile, "lab-router-24-userdata.yml")
 	}
-	if config.MetaFile != "lab-router-24-metadata.yml" {
-		t.Fatalf("MetaFile = %q, want %q", config.MetaFile, "lab-router-24-metadata.yml")
-	}
 	if config.NetworkFile != "lab-router-network.yml" {
 		t.Fatalf("NetworkFile = %q, want %q", config.NetworkFile, "lab-router-network.yml")
 	}
@@ -213,7 +221,6 @@ func TestBuildClonedRouterCloudInitConfigRejectsInvalidPatterns(t *testing.T) {
 	_, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
 		CloudInitStorage:         "local",
 		CloudInitUserFilePattern: "kamino-router-user-data.yaml",
-		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
 		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
 	})
 	if err == nil {
@@ -226,7 +233,6 @@ func TestBuildClonedRouterCloudInitConfigRejectsInvalidPatterns(t *testing.T) {
 	_, err = buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
 		CloudInitStorage:         "local",
 		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
-		CloudInitMetaFilePattern: "kamino-router-{network}-meta-data.yaml",
 		CloudInitNetworkFile:     "kamino-router-{network}-network-config.yaml",
 	})
 	if err == nil {
@@ -251,6 +257,37 @@ func TestIsPublishedPodRouterVM(t *testing.T) {
 			t.Fatalf("expected %q not to be recognized as router", name)
 		}
 	}
+}
+
+func TestPublishedPodVMTemplateItemID(t *testing.T) {
+	publishedTemplateID := uuid.New()
+	routerTemplateID := uuid.New()
+
+	t.Run("router uses configured source template", func(t *testing.T) {
+		got, err := publishedPodVMTemplateItemID("router", publishedTemplateID, routerTemplateID)
+		if err != nil {
+			t.Fatalf("publishedPodVMTemplateItemID() error = %v", err)
+		}
+		if got != routerTemplateID {
+			t.Fatalf("template ID = %s, want %s", got, routerTemplateID)
+		}
+	})
+
+	t.Run("non-router uses published template", func(t *testing.T) {
+		got, err := publishedPodVMTemplateItemID("workstation", publishedTemplateID, routerTemplateID)
+		if err != nil {
+			t.Fatalf("publishedPodVMTemplateItemID() error = %v", err)
+		}
+		if got != publishedTemplateID {
+			t.Fatalf("template ID = %s, want %s", got, publishedTemplateID)
+		}
+	})
+
+	t.Run("router requires configured template", func(t *testing.T) {
+		if _, err := publishedPodVMTemplateItemID("router", publishedTemplateID, uuid.Nil); err == nil {
+			t.Fatal("expected missing router template error")
+		}
+	})
 }
 
 func TestFindPodNetworkRouterTargetRequiresExactlyOneRouter(t *testing.T) {

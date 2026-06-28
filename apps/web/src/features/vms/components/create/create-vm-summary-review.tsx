@@ -2,8 +2,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   BoltIcon,
   CpuIcon,
-  HardDriveIcon,
   Globe02Icon,
+  HardDriveIcon,
   RamMemoryIcon,
   Settings01Icon,
 } from "@hugeicons/core-free-icons"

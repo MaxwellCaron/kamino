@@ -3,8 +3,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerIcon,
   CpuIcon,
-  HardDriveIcon,
   FolderIcon,
+  HardDriveIcon,
   RamMemoryIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons"

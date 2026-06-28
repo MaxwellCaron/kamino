@@ -3,12 +3,12 @@ import { AnimatePresence, m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
-  PackageIcon,
   CheckmarkCircle01Icon,
   ChevronUpIcon,
   CircleIcon,
   Clock01Icon,
   Loading03Icon,
+  PackageIcon,
 } from "@hugeicons/core-free-icons"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"

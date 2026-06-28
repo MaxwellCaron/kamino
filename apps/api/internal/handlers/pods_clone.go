@@ -60,7 +60,6 @@ type podNetworkVMTarget struct {
 type clonedRouterCloudInitConfig struct {
 	Storage     string
 	UserFile    string
-	MetaFile    string
 	NetworkFile string
 }
 
@@ -214,8 +213,22 @@ func (r *clonePodProgressReporter) emit(step int, state, message string) {
 	})
 }
 
+func isPodRouterName(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), "router")
+}
+
 func isPublishedPodRouterVM(publishedVM database.ListPublishedPodVMsForCloneRow) bool {
-	return strings.EqualFold(strings.TrimSpace(publishedVM.Name), "router")
+	return isPodRouterName(publishedVM.Name)
+}
+
+func publishedPodVMTemplateItemID(name string, publishedTemplateID, routerTemplateID uuid.UUID) (uuid.UUID, error) {
+	if !isPodRouterName(name) {
+		return publishedTemplateID, nil
+	}
+	if routerTemplateID == uuid.Nil {
+		return uuid.Nil, fmt.Errorf("router template is not configured")
+	}
+	return routerTemplateID, nil
 }
 
 func podNetworkTargetsFromCloneResults(results []clonePublishedVMResult) []podNetworkVMTarget {
@@ -282,10 +295,6 @@ func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterClone
 	if err != nil {
 		return nil, fmt.Errorf("build router cloud-init user-data filename: %w", err)
 	}
-	metaFile, err := formatClonedRouterCloudInitFile(config.CloudInitMetaFilePattern, networkNumber)
-	if err != nil {
-		return nil, fmt.Errorf("build router cloud-init meta-data filename: %w", err)
-	}
 
 	networkFile := strings.TrimSpace(config.CloudInitNetworkFile)
 	if strings.Contains(networkFile, routerCloudInitNetworkPlaceholder) {
@@ -298,7 +307,6 @@ func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterClone
 	return &clonedRouterCloudInitConfig{
 		Storage:     storage,
 		UserFile:    userFile,
-		MetaFile:    metaFile,
 		NetworkFile: networkFile,
 	}, nil
 }
@@ -1373,7 +1381,19 @@ func (h *PodsHandler) clonePublishedPodVMs(
 		index, publishedVM := index, publishedVM
 		group.Go(func() error {
 			progress.set(cloneProgressStepCloning, "Cloning "+publishedVM.Name+" into a Cloned Pod VM")
-			source, reqErr := h.resolvePublishedPodVMTemplate(gctx, publishedVM.SourceInventoryItemID)
+			router := isPublishedPodRouterVM(publishedVM)
+			sourceItemID, err := publishedPodVMTemplateItemID(
+				publishedVM.Name,
+				publishedVM.SourceInventoryItemID,
+				h.RouterTemplateItemID,
+			)
+			if err != nil {
+				return &requestError{
+					Status:      http.StatusConflict,
+					UserMessage: err.Error(),
+				}
+			}
+			source, reqErr := h.resolvePublishedPodVMTemplate(gctx, sourceItemID)
 			if reqErr != nil {
 				return reqErr
 			}
@@ -1381,7 +1401,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 			clone, reqErr := h.cloneVerifiedVMIntoFolder(
 				gctx,
 				source,
-				publishedVM.SourceInventoryItemID,
+				sourceItemID,
 				placement,
 				targetNode,
 				publishedVM.Name,
@@ -1409,7 +1429,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 			results[index] = clonePublishedVMResult{
 				published: publishedVM,
 				clone:     clone,
-				router:    isPublishedPodRouterVM(publishedVM),
+				router:    router,
 			}
 			return nil
 		})
@@ -1634,26 +1654,15 @@ func (h *PodsHandler) podNetworkMetadata(networkNumber int32) (clonedPodNetworkR
 	if err != nil {
 		return clonedPodNetworkResponse{}, fmt.Errorf("invalid WAN IP base %q: %w", h.RouterCloneConfig.WANIPBase, err)
 	}
-	internalBase, err := routerconfig.NormalizeDottedPrefix(h.RouterCloneConfig.InternalIPBase)
-	if err != nil {
-		return clonedPodNetworkResponse{}, fmt.Errorf("invalid internal IP base %q: %w", h.RouterCloneConfig.InternalIPBase, err)
-	}
 
-	response := clonedPodNetworkResponse{
+	return clonedPodNetworkResponse{
 		Number:          networkNumber,
 		VNet:            h.podVNetName(networkNumber),
 		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
 		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
-	}
-
-	if internalBase != "" {
-		internalSubnet := fmt.Sprintf("%s%d.0/24", internalBase, networkNumber)
-		internalGateway := fmt.Sprintf("%s%d.1", internalBase, networkNumber)
-		response.InternalSubnet = &internalSubnet
-		response.InternalGateway = &internalGateway
-	}
-
-	return response, nil
+		InternalSubnet:  h.RouterCloneConfig.InternalSubnet.String(),
+		InternalGateway: h.RouterCloneConfig.InternalSubnet.Addr().Next().String(),
+	}, nil
 }
 
 func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
@@ -1910,7 +1919,6 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 		router.clone.VMID,
 		cloudInitConfig.Storage,
 		cloudInitConfig.UserFile,
-		cloudInitConfig.MetaFile,
 		cloudInitConfig.NetworkFile,
 	); err != nil {
 		return &requestError{

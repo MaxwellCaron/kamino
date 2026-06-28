@@ -15,10 +15,10 @@ import {
 } from "@workspace/ui/components/item"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  PackageIcon,
   ChevronDownIcon,
   ComputerIcon,
   Globe02Icon,
+  PackageIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import { getReviewVmNames } from "./create-pod-form"

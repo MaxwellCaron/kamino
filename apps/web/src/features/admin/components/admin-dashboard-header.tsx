@@ -1,9 +1,9 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerIcon,
+  Copy02Icon,
   FolderIcon,
   Invoice01Icon,
-  Copy02Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"

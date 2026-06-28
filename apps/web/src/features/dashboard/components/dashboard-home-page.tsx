@@ -118,7 +118,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           number: 0,
           vnet: "",
           external_subnet: "",
-          external_gateway: "",
+          internal_subnet: "",
         },
         vms: [],
         task_summary: item.summary.task_summary,

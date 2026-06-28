@@ -58,10 +58,9 @@ type Config struct {
 	PodDevNetworkMax                  int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"254"`
 	PodRouterWait                     string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
 	PodRouterWANIPBase                string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
-	PodRouterLANIPBase                string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:"10.128."`
+	PodRouterInternalSubnet           string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"10.128.1.0/24"`
 	PodRouterCloudInitStorage         string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
 	PodRouterCloudInitUserFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
-	PodRouterCloudInitMetaFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN" default:"kamino-router-{network}-meta-data.yaml"`
 	PodRouterCloudInitNetworkFile     string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
 }
 
@@ -165,12 +164,9 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if wanIPBase == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAN_IP_BASE must not be empty")
 	}
-	internalIPBase, err := routerconfig.NormalizeDottedPrefix(config.PodRouterLANIPBase)
+	internalSubnet, err := routerconfig.ParseIPv4Subnet24(config.PodRouterInternalSubnet)
 	if err != nil {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_IP_BASE: %w", err)
-	}
-	if internalIPBase == "" {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_INTERNAL_IP_BASE must not be empty")
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_SUBNET: %w", err)
 	}
 	cloudInitStorage := routerconfig.NormalizeCloudInitStorage(config.PodRouterCloudInitStorage)
 	if cloudInitStorage == "" {
@@ -179,13 +175,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	cloudInitUserFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
 		"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN",
 		config.PodRouterCloudInitUserFilePattern,
-	)
-	if err != nil {
-		return handlers.PodRouterCloneConfig{}, err
-	}
-	cloudInitMetaFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
-		"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN",
-		config.PodRouterCloudInitMetaFilePattern,
 	)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, err
@@ -206,15 +195,14 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		DevNetworkMax:            config.PodDevNetworkMax,
 		RouterWaitTimeout:        waitTimeout,
 		WANIPBase:                wanIPBase,
-		InternalIPBase:           internalIPBase,
+		InternalSubnet:           internalSubnet,
 		CloudInitStorage:         cloudInitStorage,
 		CloudInitUserFilePattern: cloudInitUserFilePattern,
-		CloudInitMetaFilePattern: cloudInitMetaFilePattern,
 		CloudInitNetworkFile:     cloudInitNetworkFile,
 	}
 
 	log.Printf(
-		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d wait_timeout=%s cloud_init_storage=%q",
+		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
 		routerConfig.VNetPrefix,
 		routerConfig.NetworkMin,
 		routerConfig.NetworkMax,
@@ -222,6 +210,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		routerConfig.DevNetworkMax,
 		routerConfig.RouterWaitTimeout,
 		routerConfig.CloudInitStorage,
+		routerConfig.InternalSubnet,
 	)
 
 	return routerConfig, nil

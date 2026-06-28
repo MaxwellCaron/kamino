@@ -2,8 +2,8 @@ import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   PackageAddIcon,
-  PackageRemoveIcon,
   PackageCheck,
+  PackageRemoveIcon,
 } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
