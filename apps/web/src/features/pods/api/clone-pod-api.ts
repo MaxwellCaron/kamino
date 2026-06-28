@@ -1,5 +1,6 @@
 import type {
   ClonedPod,
+  ClonedPodStatus,
   PodQuestionActivityAnswer,
 } from "@/features/pods/types/pod-types"
 import {
@@ -13,6 +14,7 @@ export type CatalogCloneSummary = {
     id: string
     pod_id: string
     cloned_at: string
+    status: ClonedPodStatus
     task_summary: {
       total: number
       completed: number

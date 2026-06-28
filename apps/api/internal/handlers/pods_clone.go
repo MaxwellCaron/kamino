@@ -118,6 +118,7 @@ type catalogCloneSummaryResponse struct {
 	ID          uuid.UUID                       `json:"id"`
 	PodID       uuid.UUID                       `json:"pod_id"`
 	ClonedAt    time.Time                       `json:"cloned_at"`
+	Status      string                          `json:"status"`
 	TaskSummary catalogCloneTaskSummaryResponse `json:"task_summary"`
 }
 
@@ -431,10 +432,17 @@ func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
 			progress = (float64(completedTasks) / float64(totalTasks)) * 100
 		}
 
+		status, err := h.hydrateClonedPodRuntimeStatus(c.Request.Context(), q, row.ID)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to load clone runtime status", "hydrate clone runtime status for summary", err)
+			return
+		}
+
 		cloneByPodID[row.PodID] = catalogCloneSummaryResponse{
 			ID:       row.ID,
 			PodID:    row.PodID,
 			ClonedAt: pgTime(row.CreatedAt),
+			Status:   status,
 			TaskSummary: catalogCloneTaskSummaryResponse{
 				Total:     totalTasks,
 				Completed: completedTasks,

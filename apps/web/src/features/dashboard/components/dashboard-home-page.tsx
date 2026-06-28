@@ -113,7 +113,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         pod_id: item.summary.pod_id,
         owner: { id: "", type: "user", label: "", description: "" },
         cloned_at: item.summary.cloned_at,
-        status: "partial" as const,
+        status: item.summary.status,
         network: {
           number: 0,
           vnet: "",
