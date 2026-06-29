@@ -60,6 +60,13 @@ The compose file has no Postgres service — `DATABASE_URL` must point at an exi
 
 The API healthcheck endpoint is `GET /api/v1/health`.
 
+## Kubernetes / Argo CD
+
+Production Kustomize manifests for k3s with Traefik, plus the Argo CD
+Application definition, live under `deploy/`. See
+[`deploy/k8s/README.md`](deploy/k8s/README.md) for database, cluster-only
+Secret, TLS, and deployment prerequisites.
+
 ## Commands
 
 ### Root (run from repo root)

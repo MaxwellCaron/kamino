@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kamino
+resources:
+  - ../../base
+  - configmap.yaml
+  - ingress.yaml
+images:
+  - name: ghcr.io/maxwellcaron/kamino-api
+    newTag: latest
+  - name: ghcr.io/maxwellcaron/kamino-web
+    newTag: latest
+replacements:
+  - source:
+      kind: ConfigMap
+      name: kamino-config
+      fieldPath: data.PUBLIC_HOST
+    targets:
+      - select:
+          kind: Ingress
+          name: kamino
+        fieldPaths:
+          - spec.tls.0.hosts.0
+          - spec.rules.0.host
+      - select:
+          kind: ConfigMap
+          name: kamino-config
+        fieldPaths:
+          - data.FRONTEND_URL
+        options:
+          delimiter: /
+          index: 2

@@ -29,6 +29,12 @@ dist
 .vinxi
 apps/api/bin/
 
+# Per-cluster deployment configuration
+/deploy/argocd/kamino-application.yaml
+/deploy/k8s/kamino-secrets.env
+/deploy/k8s/kamino-tls.crt
+/deploy/k8s/kamino-tls.key
+
 # Debug
 npm-debug.log*
 
