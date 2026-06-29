@@ -252,24 +252,32 @@ export function ProxmoxSyncPage() {
                                   const response =
                                     await applyProxmoxSync(selection)
 
-                                  await queryClient.invalidateQueries({
-                                    queryKey:
-                                      proxmoxSyncPreviewQueryOptions.queryKey,
-                                  })
-                                  await queryClient.invalidateQueries({
-                                    queryKey:
-                                      inventoryTreeQueryOptions.queryKey,
-                                  })
+                                  await Promise.all([
+                                    queryClient.invalidateQueries({
+                                      queryKey:
+                                        proxmoxSyncPreviewQueryOptions.queryKey,
+                                    }),
+                                    queryClient.invalidateQueries({
+                                      queryKey:
+                                        inventoryTreeQueryOptions.queryKey,
+                                    }),
+                                  ])
 
-                                  const succeeded = response.results
-                                    .filter((r) => r.status === "success")
-                                    .map((r) => r.id)
-                                  const failed = response.results
-                                    .filter((r) => r.status !== "success")
-                                    .map((r) => ({
-                                      id: r.id,
-                                      error: r.error ?? "skipped",
-                                    }))
+                                  const succeeded: Array<string> = []
+                                  const failed: Array<{
+                                    id: string
+                                    error: string
+                                  }> = []
+                                  for (const r of response.results) {
+                                    if (r.status === "success") {
+                                      succeeded.push(r.id)
+                                    } else {
+                                      failed.push({
+                                        id: r.id,
+                                        error: r.error ?? "skipped",
+                                      })
+                                    }
+                                  }
 
                                   if (failed.length === 0) {
                                     clearSelection()

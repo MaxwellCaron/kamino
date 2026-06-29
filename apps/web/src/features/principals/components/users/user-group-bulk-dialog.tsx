@@ -206,7 +206,7 @@ export function UserGroupBulkDialog({
           <AppDialogScrollBody className="gap-4">
             <ItemGroup>
               {users.map((user) => (
-                <Item variant="muted">
+                <Item key={user.id} variant="muted">
                   <ItemMedia variant="icon">
                     <FacehashIcon
                       name={user.name || user.external_id}

@@ -40,62 +40,6 @@ export function PageSkeleton({
   )
 }
 
-function StatGridSkeleton({ count = 6 }: { count?: number }) {
-  return (
-    <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
-      {Array.from({ length: count }, (_, index) => (
-        <div
-          key={index}
-          className="flex min-h-28 flex-wrap items-center rounded-2xl bg-muted/50 px-4 py-3.5"
-        >
-          <Skeleton className="size-5 shrink-0 rounded-md" />
-          <div className="ml-3.5 flex flex-1 flex-col gap-3">
-            <Skeleton className="h-4 w-16 rounded-md" />
-            <Skeleton className="h-7 w-20 rounded-md" />
-            <Skeleton className="h-4 w-12 rounded-md" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export function SummaryCardSkeleton({
-  action = true,
-  description = true,
-  statCount = 6,
-  titleWidth = "w-64",
-}: {
-  action?: boolean
-  description?: boolean
-  statCount?: number
-  titleWidth?: string
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Skeleton className="size-7 rounded-md" />
-          <Skeleton className={cn("h-10 max-w-full rounded-md", titleWidth)} />
-        </CardTitle>
-        {description && (
-          <CardDescription>
-            <Skeleton className="h-4 w-full max-w-md rounded-md" />
-          </CardDescription>
-        )}
-        {action && (
-          <CardAction>
-            <Skeleton className="size-10 rounded-md" />
-          </CardAction>
-        )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <StatGridSkeleton count={statCount} />
-      </CardContent>
-    </Card>
-  )
-}
-
 export function TablePageSkeleton({
   actionCount = 1,
   rowCount = 5,

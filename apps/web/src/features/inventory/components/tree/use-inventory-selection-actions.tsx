@@ -171,9 +171,21 @@ export function useInventorySelectionActions() {
   }
 
   function runTemplateAction() {
-    const targetItemIds = selectedVmItems
-      .filter((item) => !item.vm.is_template)
-      .map((item) => item.id)
+    const targetItemIds: Array<string> = []
+    const targetItems: Array<{
+      id: string
+      name: string
+      successDescription: string
+    }> = []
+    for (const item of selectedVmItems) {
+      if (item.vm.is_template) continue
+      targetItemIds.push(item.id)
+      targetItems.push({
+        id: item.id,
+        name: formatVmReference(item.vm.vmid, item.name),
+        successDescription: "Converted to template",
+      })
+    }
 
     if (targetItemIds.length === 0) {
       return
@@ -181,13 +193,7 @@ export function useInventorySelectionActions() {
 
     showMutationToast({
       title: `Converting ${targetItemIds.length} VM${targetItemIds.length === 1 ? "" : "s"} to templates`,
-      items: selectedVmItems
-        .filter((item) => !item.vm.is_template)
-        .map((item) => ({
-          id: item.id,
-          name: formatVmReference(item.vm.vmid, item.name),
-          successDescription: "Converted to template",
-        })),
+      items: targetItems,
       runMutation: async (): Promise<MutationResult> => {
         try {
           const result = await convertToTemplate.mutateAsync({
