@@ -2,6 +2,7 @@ import { createRootRouteWithContext } from "@tanstack/react-router"
 import appCss from "@workspace/ui/globals.css?url"
 import type { QueryClient } from "@tanstack/react-query"
 import { NotFound } from "@/components/not-found"
+import { RouteError } from "@/components/route-error"
 import { formatPageTitle } from "@/features/shared/utils/page-title"
 import { RootComponent, RootShell } from "@/components/app-shell/root-layout"
 
@@ -41,4 +42,5 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFound,
+  errorComponent: RouteError,
 })
