@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
+import { z } from "zod"
 import type { AppBreadcrumb } from "@/components/app-shell/site-breadcrumb-data"
 import {
   inventoryItemQueryOptions,
@@ -13,7 +14,14 @@ import {
 import { pageTitle } from "@/features/shared/utils/page-title"
 import { VmDashboardPage } from "@/features/vms/components/dashboard/vm-dashboard-page"
 
+const inventoryItemIdSchema = z.uuid()
+
 export const Route = createFileRoute("/_dashboard/inventory/items/$itemId")({
+  beforeLoad: ({ params }) => {
+    if (!inventoryItemIdSchema.safeParse(params.itemId).success) {
+      throw notFound()
+    }
+  },
   loader: async ({ context, params }) => {
     const [item, tree] = await Promise.all([
       context.queryClient
