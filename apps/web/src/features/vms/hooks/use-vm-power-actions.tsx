@@ -170,8 +170,8 @@ function toastVmPowerAction(
   showSingleMutationToast({
     title:
       powerMode === "direct"
-        ? `${definition.directLoading} ${vmIdentifier}`
-        : `Submitting ${definition.requestLoading} request for ${vmIdentifier}`,
+        ? definition.directLoading
+        : `Submitting ${definition.requestLoading} request`,
     name: vmIdentifier,
     promise,
     successDescription:

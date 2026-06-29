@@ -81,7 +81,7 @@ export function FolderLimitDialog({
 
       onOpenChange(false)
       showSingleMutationToast({
-        title: `Updating limit for "${folderName}"`,
+        title: "Updating limit",
         name: folderName,
         promise: updateLimit.mutateAsync({ id: folderId, vmLimit: parsed }),
         successDescription: "Limit updated",
