@@ -232,10 +232,10 @@ export const groupLabels = {
 } as const satisfies Record<CommandGroupKey, string>
 
 export const groupOrder = [
+  "pods",
   "pages",
   "principals",
   "inventory",
-  "pods",
   "network",
   "requests",
 ] as const satisfies Array<CommandGroupKey>
@@ -378,9 +378,7 @@ function appendFolderCommands(
 
 function buildPodCommands({
   actions,
-  canManage,
   podCatalog,
-  publishedPods,
 }: Pick<
   BuildSiteCommandsParams,
   "actions" | "canManage" | "podCatalog" | "publishedPods"
@@ -393,7 +391,7 @@ function buildPodCommands({
       group: "pods",
       icon: PackageIcon,
       label: pod.title,
-      subtitle: "Published pod catalog",
+      subtitle: "Pod",
       keywords: [
         pod.slug,
         pod.description,
@@ -402,22 +400,6 @@ function buildPodCommands({
       ],
       onSelect: runCommand(actions, () => actions.navigateToPod(pod.slug)),
     })
-  }
-
-  if (canManage) {
-    for (const pod of publishedPods ?? []) {
-      results.push({
-        id: `published-pod:${pod.id}`,
-        group: "pods",
-        icon: PackageMovingIcon,
-        label: `Edit ${pod.title}`,
-        subtitle: `Published pod · ${pod.status}`,
-        keywords: [pod.slug, pod.description, pod.source_folder, "manager"],
-        onSelect: runCommand(actions, () =>
-          actions.navigateToPublishedPod(pod.id)
-        ),
-      })
-    }
   }
 
   return results
