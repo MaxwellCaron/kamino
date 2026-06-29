@@ -6,12 +6,15 @@ import {
   Globe02Icon,
   Home03Icon,
   Invoice01Icon,
+  Logout01Icon,
+  Moon02Icon,
   PackageAddIcon,
   PackageCheck,
   PackageIcon,
   PackageMovingIcon,
   ReloadIcon,
   Shield01Icon,
+  Sun01Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
@@ -29,12 +32,15 @@ import {
 } from "@/features/requests/utils/request-presenters"
 
 export type CommandGroupKey =
+  | "account"
   | "pages"
   | "inventory"
   | "pods"
   | "principals"
   | "network"
   | "requests"
+
+export type CommandTheme = "light" | "dark" | "system"
 
 export type SiteCommandResult = {
   id: string
@@ -45,6 +51,7 @@ export type SiteCommandResult = {
   onSelect: () => void
   shortcut?: string
   subtitle: string
+  variant?: "default" | "destructive"
 }
 
 type StaticCommandConfig = {
@@ -73,6 +80,7 @@ type StaticCommandConfig = {
 
 export type BuildSiteCommandsActions = {
   close: () => void
+  logout: () => void
   navigateHome: () => void
   navigateToInventoryItem: (itemId: string) => void
   navigateToPage: (to: StaticCommandConfig["to"]) => void
@@ -82,6 +90,7 @@ export type BuildSiteCommandsActions = {
   navigateToSdn: () => void
   navigateToUsers: () => void
   navigateToGroups: () => void
+  setTheme: (theme: CommandTheme) => void
 }
 
 export type BuildSiteCommandsParams = {
@@ -106,7 +115,6 @@ const staticCommands: Array<StaticCommandConfig> = [
     subtitle: "Dashboard overview",
     icon: Home03Icon,
     to: "/",
-    shortcut: "⌘H",
     visibility: "all",
     keywords: ["dashboard", "overview", "activity"],
   },
@@ -223,6 +231,7 @@ const staticCommands: Array<StaticCommandConfig> = [
 ]
 
 export const groupLabels = {
+  account: "Account",
   pages: "Pages",
   inventory: "Inventory",
   pods: "Pods",
@@ -232,6 +241,7 @@ export const groupLabels = {
 } as const satisfies Record<CommandGroupKey, string>
 
 export const groupOrder = [
+  "account",
   "pods",
   "pages",
   "principals",
@@ -277,6 +287,43 @@ function runCommand(actions: BuildSiteCommandsActions, action: () => void) {
     actions.close()
     action()
   }
+}
+
+function buildAccountCommands(actions: BuildSiteCommandsActions) {
+  const themes: Array<{
+    theme: CommandTheme
+    icon: IconSvgElement
+    label: string
+  }> = [
+    { theme: "light", icon: Sun01Icon, label: "Light" },
+    { theme: "dark", icon: Moon02Icon, label: "Dark" },
+    { theme: "system", icon: ComputerIcon, label: "System" },
+  ]
+
+  const commands: Array<SiteCommandResult> = themes.map(
+    ({ theme, icon, label }) => ({
+      id: `account:theme-${theme}`,
+      group: "account",
+      icon,
+      label: `${label} theme`,
+      subtitle: "Change appearance",
+      keywords: ["theme", "appearance", theme],
+      onSelect: runCommand(actions, () => actions.setTheme(theme)),
+    })
+  )
+
+  commands.push({
+    id: "account:logout",
+    group: "account",
+    icon: Logout01Icon,
+    label: "Log out",
+    subtitle: "Sign out of Kamino",
+    keywords: ["logout", "sign out", "exit"],
+    onSelect: runCommand(actions, actions.logout),
+    variant: "destructive",
+  })
+
+  return commands
 }
 
 function buildPageCommands({
@@ -501,6 +548,7 @@ function buildRequestCommands({
 
 export function buildSiteCommands(params: BuildSiteCommandsParams) {
   return [
+    ...buildAccountCommands(params.actions),
     ...buildPageCommands(params),
     ...buildInventoryCommands(params.inventoryTree ?? [], params.actions),
     ...buildPodCommands(params),

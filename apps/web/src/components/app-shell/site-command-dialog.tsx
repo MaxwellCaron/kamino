@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
@@ -16,6 +16,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@workspace/ui/components/command"
+import { useTheme } from "@workspace/ui/components/theme-provider"
 
 import {
   buildSiteCommands,
@@ -24,7 +25,7 @@ import {
 } from "./site-command-index"
 import { commandMatchesQuery } from "./site-command-search"
 import type { BuildSiteCommandsActions } from "./site-command-index"
-import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
+import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
   canAccessAdmin,
   canAccessRequestQueue,
@@ -49,7 +50,18 @@ export function SiteCommandDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
+
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear()
+      router.navigate({ to: "/login" })
+    },
+  })
 
   const { data: sessionData, isLoading: isSessionLoading } = useQuery(
     authSessionQueryOptions
@@ -122,6 +134,7 @@ export function SiteCommandDialog({
   const commandActions = useMemo<BuildSiteCommandsActions>(
     () => ({
       close,
+      logout: () => logoutMutation.mutate(),
       navigateHome: () => navigate({ to: "/" }),
       navigateToGroups: () => navigate({ to: "/admin/principals/groups" }),
       navigateToInventoryItem: (itemId: string) =>
@@ -140,8 +153,9 @@ export function SiteCommandDialog({
       navigateToRequests: () => navigate({ to: "/manager/requests" }),
       navigateToSdn: () => navigate({ to: "/admin/sdn" }),
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
+      setTheme,
     }),
-    [close, navigate]
+    [close, logoutMutation, navigate, setTheme]
   )
 
   const commands = useMemo(() => {
@@ -252,6 +266,7 @@ export function SiteCommandDialog({
                       value={`${command.label} ${command.subtitle} ${command.id}`}
                       keywords={command.keywords}
                       onSelect={command.onSelect}
+                      variant={command.variant}
                     >
                       <HugeiconsIcon icon={command.icon} />
                       <span className="min-w-0 flex-1">
