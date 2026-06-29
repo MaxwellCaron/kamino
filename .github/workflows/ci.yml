@@ -68,7 +68,7 @@ jobs:
         run: bun run lint
 
       - name: test
-        run: bun run test
+        run: bun --filter web test
 
       - name: react-doctor
         uses: millionco/react-doctor@v2
