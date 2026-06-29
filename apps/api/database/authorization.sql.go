@@ -97,6 +97,270 @@ func (q *Queries) DeleteManagementPermissionGrantsForGroup(ctx context.Context, 
 	return err
 }
 
+const getBulkVMItems = `-- name: GetBulkVMItems :many
+SELECT
+    ii.id,
+    COALESCE(pv.node, '') AS node,
+    COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
+    (pv.upstream_uuid IS NOT NULL) AS has_vm
+FROM inventory_items ii
+LEFT JOIN LATERAL (
+    SELECT
+        proxmox_vms.node,
+        proxmox_vms.vmid,
+        proxmox_vms.upstream_uuid
+    FROM proxmox_vms
+    WHERE proxmox_vms.inventory_item_id = ii.id
+) AS pv ON TRUE
+WHERE ii.id = ANY($1::UUID[])
+`
+
+type GetBulkVMItemsRow struct {
+	ID           uuid.UUID   `json:"id"`
+	Node         string      `json:"node"`
+	Vmid         int32       `json:"vmid"`
+	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
+	HasVm        interface{} `json:"has_vm"`
+}
+
+func (q *Queries) GetBulkVMItems(ctx context.Context, itemIds []uuid.UUID) ([]GetBulkVMItemsRow, error) {
+	rows, err := q.db.Query(ctx, getBulkVMItems, itemIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBulkVMItemsRow
+	for rows.Next() {
+		var i GetBulkVMItemsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Node,
+			&i.Vmid,
+			&i.UpstreamUuid,
+			&i.HasVm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBulkVMItemsForUpdate = `-- name: GetBulkVMItemsForUpdate :many
+SELECT
+    ii.id,
+    COALESCE(pv.node, '') AS node,
+    COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
+    (pv.upstream_uuid IS NOT NULL) AS has_vm
+FROM inventory_items ii
+LEFT JOIN LATERAL (
+    SELECT
+        proxmox_vms.node,
+        proxmox_vms.vmid,
+        proxmox_vms.upstream_uuid
+    FROM proxmox_vms
+    WHERE proxmox_vms.inventory_item_id = ii.id
+    FOR UPDATE
+) AS pv ON TRUE
+WHERE ii.id = ANY($1::UUID[])
+`
+
+type GetBulkVMItemsForUpdateRow struct {
+	ID           uuid.UUID   `json:"id"`
+	Node         string      `json:"node"`
+	Vmid         int32       `json:"vmid"`
+	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
+	HasVm        interface{} `json:"has_vm"`
+}
+
+func (q *Queries) GetBulkVMItemsForUpdate(ctx context.Context, itemIds []uuid.UUID) ([]GetBulkVMItemsForUpdateRow, error) {
+	rows, err := q.db.Query(ctx, getBulkVMItemsForUpdate, itemIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBulkVMItemsForUpdateRow
+	for rows.Next() {
+		var i GetBulkVMItemsForUpdateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Node,
+			&i.Vmid,
+			&i.UpstreamUuid,
+			&i.HasVm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBulkVMItemsWithPermissions = `-- name: GetBulkVMItemsWithPermissions :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
+SELECT
+    ii.id,
+    COALESCE(pv.node, '') AS node,
+    COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
+    (pv.upstream_uuid IS NOT NULL) AS has_vm,
+    perms.allowed_mask,
+    perms.denied_mask
+FROM inventory_items ii
+LEFT JOIN LATERAL (
+    SELECT
+        proxmox_vms.node,
+        proxmox_vms.vmid,
+        proxmox_vms.upstream_uuid
+    FROM proxmox_vms
+    WHERE proxmox_vms.inventory_item_id = ii.id
+) AS pv ON TRUE
+CROSS JOIN LATERAL (
+    SELECT
+        gep.allowed_mask::BIGINT AS allowed_mask,
+        gep.denied_mask::BIGINT AS denied_mask
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
+) AS perms
+WHERE ii.id = ANY($2::UUID[])
+`
+
+type GetBulkVMItemsWithPermissionsParams struct {
+	PrincipalID uuid.UUID   `json:"principal_id"`
+	ItemIds     []uuid.UUID `json:"item_ids"`
+}
+
+type GetBulkVMItemsWithPermissionsRow struct {
+	ID           uuid.UUID   `json:"id"`
+	Node         string      `json:"node"`
+	Vmid         int32       `json:"vmid"`
+	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
+	HasVm        interface{} `json:"has_vm"`
+	AllowedMask  int64       `json:"allowed_mask"`
+	DeniedMask   int64       `json:"denied_mask"`
+}
+
+func (q *Queries) GetBulkVMItemsWithPermissions(ctx context.Context, arg GetBulkVMItemsWithPermissionsParams) ([]GetBulkVMItemsWithPermissionsRow, error) {
+	rows, err := q.db.Query(ctx, getBulkVMItemsWithPermissions, arg.PrincipalID, arg.ItemIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBulkVMItemsWithPermissionsRow
+	for rows.Next() {
+		var i GetBulkVMItemsWithPermissionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Node,
+			&i.Vmid,
+			&i.UpstreamUuid,
+			&i.HasVm,
+			&i.AllowedMask,
+			&i.DeniedMask,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBulkVMItemsWithPermissionsForUpdate = `-- name: GetBulkVMItemsWithPermissionsForUpdate :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
+SELECT
+    ii.id,
+    COALESCE(pv.node, '') AS node,
+    COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
+    (pv.upstream_uuid IS NOT NULL) AS has_vm,
+    perms.allowed_mask,
+    perms.denied_mask
+FROM inventory_items ii
+LEFT JOIN LATERAL (
+    SELECT
+        proxmox_vms.node,
+        proxmox_vms.vmid,
+        proxmox_vms.upstream_uuid
+    FROM proxmox_vms
+    WHERE proxmox_vms.inventory_item_id = ii.id
+    FOR UPDATE
+) AS pv ON TRUE
+CROSS JOIN LATERAL (
+    SELECT
+        gep.allowed_mask::BIGINT AS allowed_mask,
+        gep.denied_mask::BIGINT AS denied_mask
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
+) AS perms
+WHERE ii.id = ANY($2::UUID[])
+`
+
+type GetBulkVMItemsWithPermissionsForUpdateParams struct {
+	PrincipalID uuid.UUID   `json:"principal_id"`
+	ItemIds     []uuid.UUID `json:"item_ids"`
+}
+
+type GetBulkVMItemsWithPermissionsForUpdateRow struct {
+	ID           uuid.UUID   `json:"id"`
+	Node         string      `json:"node"`
+	Vmid         int32       `json:"vmid"`
+	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
+	HasVm        interface{} `json:"has_vm"`
+	AllowedMask  int64       `json:"allowed_mask"`
+	DeniedMask   int64       `json:"denied_mask"`
+}
+
+func (q *Queries) GetBulkVMItemsWithPermissionsForUpdate(ctx context.Context, arg GetBulkVMItemsWithPermissionsForUpdateParams) ([]GetBulkVMItemsWithPermissionsForUpdateRow, error) {
+	rows, err := q.db.Query(ctx, getBulkVMItemsWithPermissionsForUpdate, arg.PrincipalID, arg.ItemIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBulkVMItemsWithPermissionsForUpdateRow
+	for rows.Next() {
+		var i GetBulkVMItemsWithPermissionsForUpdateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Node,
+			&i.Vmid,
+			&i.UpstreamUuid,
+			&i.HasVm,
+			&i.AllowedMask,
+			&i.DeniedMask,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEffectiveInventoryPermissions = `-- name: GetEffectiveInventoryPermissions :one
 SELECT gep.allowed_mask::BIGINT AS allowed_mask, gep.denied_mask::BIGINT AS denied_mask
 FROM get_effective_permissions(
@@ -228,6 +492,10 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 }
 
 const getInventoryItemsWithPermissions = `-- name: GetInventoryItemsWithPermissions :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
 SELECT
     ii.id,
     ii.parent_id,
@@ -259,7 +527,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE ii.id = ANY($2::UUID[])
 `
@@ -363,6 +635,10 @@ func (q *Queries) GetPrincipalGroupsByName(ctx context.Context, dollar_1 []strin
 }
 
 const getVisibleInventoryItemsForPrincipal = `-- name: GetVisibleInventoryItemsForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
 SELECT
     ii.id,
     ii.parent_id,
@@ -394,7 +670,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 ORDER BY
@@ -459,6 +739,186 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 		return nil, err
 	}
 	return items, nil
+}
+
+const getVisibleInventoryTreeForPrincipal = `-- name: GetVisibleInventoryTreeForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+),
+visible_items AS (
+    SELECT
+        ii.id,
+        ii.parent_id,
+        ii.kind,
+        ii.name,
+        ii.inherit_permissions,
+        ii.vm_limit AS direct_vm_limit,
+        (CASE
+          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
+          ELSE 0
+        END)::INTEGER AS effective_vm_limit,
+        (CASE
+          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
+          ELSE 0
+        END)::INTEGER AS vm_count,
+        pv.node,
+        pv.vmid,
+        pv.is_template,
+        pv.notes,
+        pv.cpu_count,
+        pv.memory_mb,
+        pv.disk_gb,
+        perms.allowed_mask,
+        perms.denied_mask,
+        1 AS priority
+    FROM inventory_items ii
+    LEFT JOIN proxmox_vms pv
+      ON pv.inventory_item_id = ii.id
+    CROSS JOIN LATERAL (
+        SELECT
+            gep.allowed_mask::BIGINT AS allowed_mask,
+            gep.denied_mask::BIGINT AS denied_mask
+        FROM get_effective_permissions_for_set(
+            $1,
+            (SELECT array_agg(principal_id) FROM effective_principals),
+            ii.id
+        ) AS gep(allowed_mask, denied_mask)
+    ) AS perms
+    WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
+),
+ancestors AS (
+    SELECT DISTINCT vi.parent_id
+    FROM visible_items vi
+    WHERE vi.parent_id IS NOT NULL
+
+    UNION
+
+    SELECT ii.parent_id
+    FROM inventory_items ii
+    JOIN ancestors a ON ii.id = a.parent_id
+    WHERE ii.parent_id IS NOT NULL
+),
+ancestor_rows AS (
+    SELECT
+        ii.id,
+        ii.parent_id,
+        ii.kind,
+        ii.name,
+        true AS inherit_permissions,
+        ii.vm_limit AS direct_vm_limit,
+        COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)::INTEGER AS effective_vm_limit,
+        inventory_folder_vm_count(ii.id, NULL)::INTEGER AS vm_count,
+        NULL::TEXT AS node,
+        NULL::INTEGER AS vmid,
+        NULL::BOOLEAN AS is_template,
+        NULL::TEXT AS notes,
+        NULL::INTEGER AS cpu_count,
+        NULL::INTEGER AS memory_mb,
+        NULL::NUMERIC AS disk_gb,
+        0::BIGINT AS allowed_mask,
+        0::BIGINT AS denied_mask,
+        2 AS priority
+    FROM inventory_items ii
+    WHERE ii.id IN (SELECT parent_id FROM ancestors)
+      AND ii.kind = 'folder'
+),
+combined AS (
+    SELECT id, parent_id, kind, name, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM visible_items
+    UNION ALL
+    SELECT id, parent_id, kind, name, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM ancestor_rows
+)
+SELECT DISTINCT ON (id)
+    id, parent_id, kind, name, inherit_permissions,
+    direct_vm_limit, effective_vm_limit, vm_count,
+    node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb,
+    allowed_mask, denied_mask
+FROM combined
+ORDER BY id, priority
+`
+
+type GetVisibleInventoryTreeForPrincipalRow struct {
+	ID                 uuid.UUID         `json:"id"`
+	ParentID           *uuid.UUID        `json:"parent_id"`
+	Kind               InventoryItemKind `json:"kind"`
+	Name               string            `json:"name"`
+	InheritPermissions bool              `json:"inherit_permissions"`
+	DirectVmLimit      *int32            `json:"direct_vm_limit"`
+	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
+	VmCount            int32             `json:"vm_count"`
+	Node               *string           `json:"node"`
+	Vmid               *int32            `json:"vmid"`
+	IsTemplate         *bool             `json:"is_template"`
+	Notes              *string           `json:"notes"`
+	CpuCount           *int32            `json:"cpu_count"`
+	MemoryMb           *int32            `json:"memory_mb"`
+	DiskGb             *float64          `json:"disk_gb"`
+	AllowedMask        int64             `json:"allowed_mask"`
+	DeniedMask         int64             `json:"denied_mask"`
+}
+
+func (q *Queries) GetVisibleInventoryTreeForPrincipal(ctx context.Context, principalID uuid.UUID) ([]GetVisibleInventoryTreeForPrincipalRow, error) {
+	rows, err := q.db.Query(ctx, getVisibleInventoryTreeForPrincipal, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetVisibleInventoryTreeForPrincipalRow
+	for rows.Next() {
+		var i GetVisibleInventoryTreeForPrincipalRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Kind,
+			&i.Name,
+			&i.InheritPermissions,
+			&i.DirectVmLimit,
+			&i.EffectiveVmLimit,
+			&i.VmCount,
+			&i.Node,
+			&i.Vmid,
+			&i.IsTemplate,
+			&i.Notes,
+			&i.CpuCount,
+			&i.MemoryMb,
+			&i.DiskGb,
+			&i.AllowedMask,
+			&i.DeniedMask,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const hasAnyInventoryPermission = `-- name: HasAnyInventoryPermission :one
+SELECT EXISTS (
+    SELECT 1
+    FROM inventory_items ii
+    CROSS JOIN LATERAL (
+        SELECT
+            gep.allowed_mask::BIGINT AS allowed_mask
+        FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    ) AS perms
+    WHERE ii.kind = 'folder'
+      AND (perms.allowed_mask & $2::BIGINT) = $2::BIGINT
+)
+`
+
+type HasAnyInventoryPermissionParams struct {
+	PrincipalID  uuid.UUID `json:"principal_id"`
+	RequiredMask int64     `json:"required_mask"`
+}
+
+func (q *Queries) HasAnyInventoryPermission(ctx context.Context, arg HasAnyInventoryPermissionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasAnyInventoryPermission, arg.PrincipalID, arg.RequiredMask)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const hasInventoryPermission = `-- name: HasInventoryPermission :one
@@ -742,6 +1202,10 @@ func (q *Queries) ListRootInventoryFolderIDs(ctx context.Context) ([]uuid.UUID, 
 }
 
 const listVisibleVMIDsForPrincipal = `-- name: ListVisibleVMIDsForPrincipal :many
+WITH RECURSIVE
+effective_principals AS (
+    SELECT ep.principal_id FROM get_user_effective_principals($1) AS ep(principal_id)
+)
 SELECT pv.vmid
 FROM proxmox_vms pv
 JOIN inventory_items ii
@@ -750,7 +1214,11 @@ CROSS JOIN LATERAL (
     SELECT
         gep.allowed_mask::BIGINT AS allowed_mask,
         gep.denied_mask::BIGINT AS denied_mask
-    FROM get_effective_permissions($1, ii.id) AS gep(allowed_mask, denied_mask)
+    FROM get_effective_permissions_for_set(
+        $1,
+        (SELECT array_agg(principal_id) FROM effective_principals),
+        ii.id
+    ) AS gep(allowed_mask, denied_mask)
 ) AS perms
 WHERE (perms.allowed_mask & 1::BIGINT) = 1::BIGINT
 `

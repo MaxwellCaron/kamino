@@ -1,11 +1,11 @@
 import { Suspense, lazy, useMemo, useState } from "react"
-import { useQueries, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import {
-  IconClock,
-  IconCopy,
-  IconDeviceDesktop,
-  IconPlayerPlay,
-} from "@tabler/icons-react"
+  Clock01Icon,
+  ComputerIcon,
+  CopyIcon,
+  PlayIcon,
+} from "@hugeicons/core-free-icons"
 import { DashboardActivityTableCard } from "./dashboard-requests-card"
 import { getDashboardActivityColumns } from "./dashboard-requests-columns"
 import { DashboardCurrentClonedPodCard } from "./dashboard-cloned-pod-card"
@@ -26,13 +26,13 @@ import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-ap
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
 import { indexInventoryTree } from "@/features/inventory/utils/inventory-tree"
 import {
-  clonedPodQueryOptions,
+  catalogCloneSummariesQueryOptions,
   podQuestionActivityQueryOptions,
 } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import {
   requestDetailQueryOptions,
-  requesterRequestsQueryOptions,
+  requesterRequestSummariesQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
@@ -62,12 +62,12 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     data: pendingRequests,
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
-  } = useQuery(requesterRequestsQueryOptions("pending"))
+  } = useQuery(requesterRequestSummariesQueryOptions("pending"))
   const {
     data: historyRequests,
     error: historyRequestsError,
     isLoading: isHistoryRequestsLoading,
-  } = useQuery(requesterRequestsQueryOptions("history"))
+  } = useQuery(requesterRequestSummariesQueryOptions("history"))
   const {
     data: catalog,
     error: catalogError,
@@ -90,33 +90,73 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const { data: vmStatuses, isLoading: isVmStatusLoading } =
     useQuery(vmStatusQueryOptions)
   const visiblePods = useMemo(() => catalog ?? [], [catalog])
-  const cloneStatus = useQueries({
-    queries: visiblePods.map((pod) => clonedPodQueryOptions(pod.slug)),
-    combine: (results) => {
-      const entries = results.flatMap<ClonedPodEntry>((result, index) => {
-        const clonedPod = result.data
-        const pod = visiblePods[index]
+  const {
+    data: cloneSummaries,
+    error: cloneSummariesError,
+    isLoading: isCloneSummariesLoading,
+  } = useQuery(catalogCloneSummariesQueryOptions())
 
-        return clonedPod ? [{ clonedPod, pod }] : []
-      })
-      const current = entries.reduce<ClonedPodEntry | null>(
-        (latest, entry) =>
-          latest &&
-          toTime(latest.clonedPod.cloned_at) >=
-            toTime(entry.clonedPod.cloned_at)
-            ? latest
-            : entry,
-        null
-      )
-
+  const cloneStatus = useMemo(() => {
+    if (!cloneSummaries) {
       return {
-        current,
-        entries,
-        error: results.find((result) => result.error)?.error ?? null,
-        isLoading: results.some((result) => result.isLoading),
+        current: null,
+        entries: [] as Array<ClonedPodEntry>,
+        error:
+          cloneSummariesError instanceof Error ? cloneSummariesError : null,
+        isLoading: isCloneSummariesLoading,
       }
-    },
-  })
+    }
+
+    const entries: Array<ClonedPodEntry> = cloneSummaries.map((item) => ({
+      clonedPod: {
+        id: item.summary.id,
+        pod_id: item.summary.pod_id,
+        owner: { id: "", type: "user", label: "", description: "" },
+        cloned_at: item.summary.cloned_at,
+        status: item.summary.status,
+        network: {
+          number: 0,
+          vnet: "",
+          external_subnet: "",
+          internal_subnet: "",
+        },
+        vms: [],
+        task_summary: item.summary.task_summary,
+        task_states: [],
+        question_answers: [],
+      },
+      pod: {
+        id: item.pod.id,
+        slug: item.pod.slug,
+        title: item.pod.title,
+        description: item.pod.description,
+        image: item.pod.image_url,
+        creators: [],
+        created_at: "",
+        clone_count: 0,
+        status: "listed" as const,
+        audience: [],
+        source_folder: "",
+        virtual_machines: [],
+      },
+    }))
+
+    const current = entries.reduce<ClonedPodEntry | null>(
+      (latest, entry) =>
+        latest &&
+        toTime(latest.clonedPod.cloned_at) >= toTime(entry.clonedPod.cloned_at)
+          ? latest
+          : entry,
+      null
+    )
+
+    return {
+      current,
+      entries,
+      error: cloneSummariesError instanceof Error ? cloneSummariesError : null,
+      isLoading: isCloneSummariesLoading,
+    }
+  }, [cloneSummaries, cloneSummariesError, isCloneSummariesLoading])
 
   const inventoryStats = useMemo(
     () => countAccessibleInventory(tree ?? []),
@@ -188,22 +228,22 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   const stats = [
     {
-      icon: IconDeviceDesktop,
+      icon: ComputerIcon,
       label: "Virtual Machines",
       value: String(inventoryStats.vms),
     },
     {
-      icon: IconPlayerPlay,
+      icon: PlayIcon,
       label: "Running VMs",
       value: String(runningVms),
     },
     {
-      icon: IconCopy,
+      icon: CopyIcon,
       label: "Cloned Pods",
       value: String(cloneStatus.entries.length),
     },
     {
-      icon: IconClock,
+      icon: Clock01Icon,
       label: "Pending Requests",
       value: String(pendingRequests?.length ?? 0),
     },

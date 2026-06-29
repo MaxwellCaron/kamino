@@ -4,11 +4,9 @@ import (
 	"context"
 	"log"
 	"time"
-
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
 )
 
-func cleanupProxmoxVM(parent context.Context, px *proxmox.Client, node string, vmid int, reason string) {
+func cleanupProxmoxVM(parent context.Context, px vmProxmox, node string, vmid int, reason string) {
 	if px == nil {
 		return
 	}

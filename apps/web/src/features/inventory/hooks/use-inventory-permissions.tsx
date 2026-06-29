@@ -1,5 +1,4 @@
 import React from "react"
-import { toast } from "sonner"
 
 import {
   buildPrincipalOptions,
@@ -23,7 +22,7 @@ import type {
   PrincipalListSectionKey,
   PrincipalOption,
 } from "../types/inventory-types"
-import { formatToastError } from "@/features/shared/utils/format"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 type AclEntry = {
   effect: "allow" | "deny"
@@ -320,17 +319,18 @@ export function useInventoryPermissions({
     const entries = toAclEntries(draftPrincipals)
     const updatePromise = updateAcl.mutateAsync({ itemId, entries })
 
-    toast.promise(updatePromise, {
-      loading: `Updating permissions for ${itemName}...`,
-      success: `Permissions updated for ${itemName}`,
-      error: formatToastError,
+    showSingleMutationToast({
+      title: `Updating permissions for ${itemName}`,
+      name: itemName,
+      promise: updatePromise,
+      successDescription: "Permissions updated",
     })
 
     try {
       await updatePromise
       onOpenChange(false)
     } catch {
-      // toast.promise reports the error; keep the draft open for correction.
+      // The toast reports the error; keep the draft open for correction.
     }
   }
 

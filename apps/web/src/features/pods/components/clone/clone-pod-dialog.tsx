@@ -9,21 +9,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@workspace/ui/components/alert"
 import { Progress } from "@workspace/ui/components/progress"
-import { IconAlertTriangle, IconLoader2 } from "@tabler/icons-react"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import { CloneStatusItem } from "./clone-status-item"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
+import { AppActionButton } from "@/components/actions/app-action-button"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { uuid } from "@/features/shared/utils/uuid"
 import {
   COMPLETE_PROGRESS_COLORS,
@@ -320,13 +315,12 @@ export function ClonePodDialog({
             elapsedTime={elapsedTime}
           />
           {errorMessage && (
-            <Alert variant="destructive" className="bg-muted/50">
-              <IconAlertTriangle />
-              <AlertTitle>{actionLabel} failed</AlertTitle>
-              <AlertDescription>
-                {errorMessage.charAt(0).toUpperCase() + errorMessage.slice(1)}
-              </AlertDescription>
-            </Alert>
+            <InlineErrorAlert
+              error={errorMessage}
+              fallback={`${actionLabel} failed.`}
+              title={`${actionLabel} failed`}
+              className="bg-muted/50"
+            />
           )}
         </ItemGroup>
 
@@ -342,26 +336,20 @@ export function ClonePodDialog({
           >
             {isFinished ? "Close" : "Cancel"}
           </AlertDialogCancel>
-          <Button
+          <AppActionButton
+            type="button"
             variant={isError ? "destructive" : isBusy ? "default" : undefined}
             className={cn(
               "w-[50%] cursor-pointer transition-colors duration-500",
               isBusy ? colors.bg : undefined
             )}
-            disabled={isBusy || isFinished || isError}
+            disabled={isFinished || isError}
+            pending={isBusy}
+            pendingLabel={pendingLabel}
             onClick={startCloning}
           >
-            {isBusy ? (
-              <>
-                <IconLoader2 className="size-4 animate-spin" />
-                {pendingLabel}
-              </>
-            ) : isError ? (
-              "Failed"
-            ) : (
-              actionLabel
-            )}
-          </Button>
+            {isError ? "Failed" : actionLabel}
+          </AppActionButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

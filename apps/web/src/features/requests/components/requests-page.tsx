@@ -1,7 +1,11 @@
-import { useCallback, useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useCallback, useMemo, useReducer } from "react"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
-import { toast } from "sonner"
 
 import { RequestsPageSkeleton } from "./requests-page-skeleton"
 import { RequestsPageOverviewCard } from "./requests-page-overview-card"
@@ -9,11 +13,12 @@ import { RequestsPageQueueCard } from "./requests-page-queue-card"
 import { RequestsPageDialogs } from "./requests-page-dialogs"
 
 import type {
-  ApiRequestActionResponse,
   ApiRequestScope,
   ApiRequestStatus,
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -23,21 +28,118 @@ import {
   approveRequest,
   denyRequest,
   requestDetailQueryOptions,
-  requestsQueryOptions,
+  requestsTableQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
-import { formatToastError } from "@/features/shared/utils/format"
 
 const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")
 
+type RequestsTableState = {
+  pagination: PaginationState
+  search: string
+}
+
+type RequestsPageState = {
+  scope: ApiRequestScope
+  selectedRequestId: string | null
+  confirm: ConfirmConfig | null
+  pendingTableState: RequestsTableState
+  completedTableState: RequestsTableState
+}
+
+type RequestsPageAction =
+  | { type: "setScope"; scope: ApiRequestScope }
+  | { type: "setSelectedRequestId"; requestId: string | null }
+  | { type: "setConfirm"; confirm: ConfirmConfig | null }
+  | {
+      type: "setPendingPagination"
+      updater: PaginationState | ((old: PaginationState) => PaginationState)
+    }
+  | { type: "setPendingSearch"; search: string }
+  | {
+      type: "setCompletedPagination"
+      updater: PaginationState | ((old: PaginationState) => PaginationState)
+    }
+  | { type: "setCompletedSearch"; search: string }
+
+const DEFAULT_TABLE_STATE = (): RequestsTableState => ({
+  pagination: { pageIndex: 0, pageSize: 25 },
+  search: "",
+})
+
+const INITIAL_STATE: RequestsPageState = {
+  scope: "pending",
+  selectedRequestId: null,
+  confirm: null,
+  pendingTableState: DEFAULT_TABLE_STATE(),
+  completedTableState: DEFAULT_TABLE_STATE(),
+}
+
+function requestsPageReducer(
+  state: RequestsPageState,
+  action: RequestsPageAction
+): RequestsPageState {
+  switch (action.type) {
+    case "setScope":
+      return { ...state, scope: action.scope }
+    case "setSelectedRequestId":
+      return { ...state, selectedRequestId: action.requestId }
+    case "setConfirm":
+      return { ...state, confirm: action.confirm }
+    case "setPendingPagination":
+      return {
+        ...state,
+        pendingTableState: {
+          ...state.pendingTableState,
+          pagination:
+            typeof action.updater === "function"
+              ? action.updater(state.pendingTableState.pagination)
+              : action.updater,
+        },
+      }
+    case "setPendingSearch":
+      return {
+        ...state,
+        pendingTableState: {
+          ...state.pendingTableState,
+          search: action.search,
+        },
+      }
+    case "setCompletedPagination":
+      return {
+        ...state,
+        completedTableState: {
+          ...state.completedTableState,
+          pagination:
+            typeof action.updater === "function"
+              ? action.updater(state.completedTableState.pagination)
+              : action.updater,
+        },
+      }
+    case "setCompletedSearch":
+      return {
+        ...state,
+        completedTableState: {
+          ...state.completedTableState,
+          search: action.search,
+        },
+      }
+    default:
+      return state
+  }
+}
+
 export function RequestsPage() {
   const { user } = requestsRouteApi.useRouteContext()
-  const [scope, setScope] = useState<ApiRequestScope>("pending")
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
-    null
-  )
-  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+  const [state, dispatch] = useReducer(requestsPageReducer, INITIAL_STATE)
+  const {
+    scope,
+    selectedRequestId,
+    confirm,
+    pendingTableState,
+    completedTableState,
+  } = state
   const queryClient = useQueryClient()
   const canReview = hasManagementPermission(
     user.management_permissions,
@@ -47,16 +149,34 @@ export function RequestsPage() {
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
   )
+
   const {
-    data: pendingRequests,
+    data: pendingPage,
     error: pendingError,
     isLoading: isPendingLoading,
-  } = useQuery(requestsQueryOptions("pending"))
+  } = useQuery({
+    ...requestsTableQueryOptions("pending", {
+      pageIndex: pendingTableState.pagination.pageIndex,
+      pageSize: pendingTableState.pagination.pageSize,
+      search: pendingTableState.search,
+    }),
+    placeholderData: keepPreviousData,
+  })
+
   const {
-    data: completedRequests,
+    data: completedPage,
     error: completedError,
     isLoading: isCompletedLoading,
-  } = useQuery(requestsQueryOptions("completed"))
+  } = useQuery({
+    ...requestsTableQueryOptions("completed", {
+      pageIndex: completedTableState.pagination.pageIndex,
+      pageSize: completedTableState.pagination.pageSize,
+      search: completedTableState.search,
+    }),
+    placeholderData: keepPreviousData,
+    enabled: scope === "completed",
+  })
+
   const {
     data: requestDetail,
     error: requestDetailError,
@@ -67,14 +187,13 @@ export function RequestsPage() {
   })
 
   const activeRequests =
-    (scope === "pending" ? pendingRequests : completedRequests) ?? []
+    (scope === "pending" ? pendingPage?.items : completedPage?.items) ?? []
   const activeError = scope === "pending" ? pendingError : completedError
   const isActiveLoading =
     scope === "pending" ? isPendingLoading : isCompletedLoading
-  const isRequestsLoading =
-    isTreeLoading || isPendingLoading || isCompletedLoading
-  const pendingCount = pendingRequests?.length ?? 0
-  const completedCount = completedRequests?.length ?? 0
+  const isRequestsLoading = isTreeLoading || isPendingLoading
+  const pendingCount = pendingPage?.total ?? 0
+  const completedCount = isCompletedLoading ? null : (completedPage?.total ?? 0)
   const statusCounts = useMemo(() => {
     const counts: Record<ApiRequestStatus, number> = {
       pending: 0,
@@ -84,15 +203,15 @@ export function RequestsPage() {
       execution_failed: 0,
     }
 
-    pendingRequests?.forEach((r) => {
+    pendingPage?.items.forEach((r) => {
       counts[r.status]++
     })
-    completedRequests?.forEach((r) => {
+    completedPage?.items.forEach((r) => {
       counts[r.status]++
     })
 
     return counts
-  }, [pendingRequests, completedRequests])
+  }, [pendingPage, completedPage])
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
@@ -116,10 +235,12 @@ export function RequestsPage() {
     )
   }, [statusCounts])
 
-  const openRequest = (requestId: string) => setSelectedRequestId(requestId)
+  const openRequest = useCallback((requestId: string) => {
+    dispatch({ type: "setSelectedRequestId", requestId })
+  }, [])
   const handleRequestDetailOpenChange = useCallback((open: boolean) => {
     if (!open) {
-      setSelectedRequestId(null)
+      dispatch({ type: "setSelectedRequestId", requestId: null })
     }
   }, [])
 
@@ -129,7 +250,7 @@ export function RequestsPage() {
         onOpen: (request) => openRequest(request.id),
         tree,
       }),
-    [tree]
+    [openRequest, tree]
   )
 
   const approveMutation = useMutation({
@@ -150,16 +271,17 @@ export function RequestsPage() {
       return
     }
     const id = selectedRequestId
-    setSelectedRequestId(null)
-    toast.promise(approveMutation.mutateAsync([id]), {
-      loading: "Approving request...",
-      success: (result: ApiRequestActionResponse) => {
+    dispatch({ type: "setSelectedRequestId", requestId: null })
+    showSingleMutationToast({
+      title: "Approving request",
+      name: "Request",
+      promise: approveMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request approved"
-      },
-      error: formatToastError,
+        return result
+      }),
+      successDescription: "Approved",
     })
   }, [approveMutation, selectedRequestId])
   const handleDenyRequest = useCallback(() => {
@@ -167,18 +289,48 @@ export function RequestsPage() {
       return
     }
     const id = selectedRequestId
-    setSelectedRequestId(null)
-    toast.promise(denyMutation.mutateAsync([id]), {
-      loading: "Denying request...",
-      success: (result: ApiRequestActionResponse) => {
+    dispatch({ type: "setSelectedRequestId", requestId: null })
+    showSingleMutationToast({
+      title: "Denying request",
+      name: "Request",
+      promise: denyMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request denied"
-      },
-      error: formatToastError,
+        return result
+      }),
+      successDescription: "Denied",
     })
   }, [denyMutation, selectedRequestId])
+
+  const handleScopeChange = useCallback((nextScope: ApiRequestScope) => {
+    dispatch({ type: "setScope", scope: nextScope })
+  }, [])
+
+  const setPendingPagination = useCallback<OnChangeFn<PaginationState>>(
+    (updater) => {
+      dispatch({ type: "setPendingPagination", updater })
+    },
+    []
+  )
+  const setPendingSearch = useCallback((value: string) => {
+    dispatch({ type: "setPendingSearch", search: value })
+  }, [])
+  const setCompletedPagination = useCallback<OnChangeFn<PaginationState>>(
+    (updater) => {
+      dispatch({ type: "setCompletedPagination", updater })
+    },
+    []
+  )
+  const setCompletedSearch = useCallback((value: string) => {
+    dispatch({ type: "setCompletedSearch", search: value })
+  }, [])
+  const handleOpenConfirm = useCallback((nextConfirm: ConfirmConfig) => {
+    dispatch({ type: "setConfirm", confirm: nextConfirm })
+  }, [])
+  const handleConfirmClose = useCallback(() => {
+    dispatch({ type: "setConfirm", confirm: null })
+  }, [])
 
   if (isRequestsLoading) {
     return <RequestsPageSkeleton />
@@ -194,7 +346,7 @@ export function RequestsPage() {
 
         <RequestsPageQueueCard
           scope={scope}
-          onScopeChange={setScope}
+          onScopeChange={handleScopeChange}
           pendingCount={pendingCount}
           completedCount={completedCount}
           columns={columns}
@@ -202,10 +354,28 @@ export function RequestsPage() {
           isActiveLoading={isActiveLoading}
           activeError={activeError}
           canReview={canReview}
-          tree={tree}
           approveMutation={approveMutation}
           denyMutation={denyMutation}
-          onOpenConfirm={setConfirm}
+          onOpenConfirm={handleOpenConfirm}
+          serverPagination={
+            scope === "pending"
+              ? {
+                  mode: "server",
+                  pagination: pendingTableState.pagination,
+                  onPaginationChange: setPendingPagination,
+                  rowCount: pendingPage?.total ?? 0,
+                  search: pendingTableState.search,
+                  onSearchChange: setPendingSearch,
+                }
+              : {
+                  mode: "server",
+                  pagination: completedTableState.pagination,
+                  onPaginationChange: setCompletedPagination,
+                  rowCount: completedPage?.total ?? 0,
+                  search: completedTableState.search,
+                  onSearchChange: setCompletedSearch,
+                }
+          }
         />
       </div>
 
@@ -220,7 +390,7 @@ export function RequestsPage() {
         requestDetail={requestDetail}
         tree={tree}
         confirm={confirm}
-        onConfirmClose={() => setConfirm(null)}
+        onConfirmClose={handleConfirmClose}
       />
     </div>
   )

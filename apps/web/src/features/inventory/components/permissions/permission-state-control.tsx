@@ -1,4 +1,5 @@
-import { IconCheck, IconSlash, IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -30,21 +31,21 @@ export function PermissionStateControl({
         aria-label="Deny"
         className="text-destructive! transition-colors aria-pressed:bg-destructive/10!"
       >
-        <IconX className="size-4" />
+        <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
       </ToggleGroupItem>
       <ToggleGroupItem
         value="inherit"
         aria-label="Inherit"
         className="transition-colors"
       >
-        <IconSlash className="size-4" />
+        {"/"}
       </ToggleGroupItem>
       <ToggleGroupItem
         value="allow"
         aria-label="Allow"
         className="text-emerald-600! transition-colors aria-pressed:bg-emerald-600/10! dark:text-emerald-400! dark:aria-pressed:bg-emerald-400/10!"
       >
-        <IconCheck className="size-4" />
+        <HugeiconsIcon icon={Tick01Icon} className="size-4" />
       </ToggleGroupItem>
     </ToggleGroup>
   )

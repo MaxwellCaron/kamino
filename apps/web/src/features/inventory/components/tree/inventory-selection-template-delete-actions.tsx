@@ -1,36 +1,29 @@
-import { IconTemplate, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Copy02Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { SelectedVmItem } from "../../types/inventory-types"
+import type { InventoryDeleteItem } from "@/features/inventory/utils/inventory-delete-items"
+import { InventoryDeleteConfirmItems } from "@/features/inventory/components/inventory-delete-confirm-items"
 
 type InventorySelectionTemplateDeleteActionsProps = {
   canTemplate: boolean
   canDelete: boolean
+  deleteItems: Array<InventoryDeleteItem>
   templateSelectionLabel: string
-  selectedVmItems: Array<SelectedVmItem>
-  deleteStatusItems: ConfirmConfig["statusItems"]
-  getStatus: (itemId: string) => string | undefined
   openConfirm: (config: ConfirmConfig) => void
-  createTemplateConfirmStatusItems: (
-    items: Array<SelectedVmItem>,
-    getStatus: (itemId: string) => string | undefined
-  ) => ConfirmConfig["statusItems"]
-  runTemplateAction: ConfirmConfig["onConfirm"]
-  runDeleteAction: ConfirmConfig["onConfirm"]
+  runTemplateAction: () => void
+  runDeleteAction: () => void
 }
 
 export function InventorySelectionTemplateDeleteActions({
   canTemplate,
   canDelete,
+  deleteItems,
   templateSelectionLabel,
-  selectedVmItems,
-  deleteStatusItems,
-  getStatus,
   openConfirm,
-  createTemplateConfirmStatusItems,
   runTemplateAction,
   runDeleteAction,
 }: InventorySelectionTemplateDeleteActionsProps) {
@@ -43,7 +36,7 @@ export function InventorySelectionTemplateDeleteActions({
             onClick={() =>
               openConfirm({
                 title: "Templatize",
-                icon: IconTemplate,
+                icon: Copy02Icon,
                 description: (
                   <p>
                     This will convert {templateSelectionLabel} to templates.
@@ -51,19 +44,14 @@ export function InventorySelectionTemplateDeleteActions({
                   </p>
                 ),
                 actionLabel: "Templatize",
-                closeOnSuccess: false,
-                statusItems: createTemplateConfirmStatusItems(
-                  selectedVmItems,
-                  getStatus
-                ),
                 variant: "destructive",
-                onConfirm: runTemplateAction,
+                onConfirm: () => runTemplateAction(),
               })
             }
             aria-label="Templatize selected VMs"
             tooltip="Templatize"
           >
-            <IconTemplate />
+            <HugeiconsIcon icon={Copy02Icon} />
           </ActionBarItem>
           {canDelete && <ActionBarSeparator />}
         </>
@@ -74,21 +62,19 @@ export function InventorySelectionTemplateDeleteActions({
           onClick={() =>
             openConfirm({
               title: "Delete",
-              icon: IconTrash,
+              icon: Delete01Icon,
               description: null,
+              body: <InventoryDeleteConfirmItems items={deleteItems} />,
               actionLabel: "Delete",
-              pendingLabel: "Deleting...",
-              closeOnSuccess: false,
-              statusItems: deleteStatusItems,
               variant: "destructive",
-              onConfirm: runDeleteAction,
+              onConfirm: () => runDeleteAction(),
             })
           }
           aria-label="Delete selected items"
           tooltip="Delete"
           variant="destructive"
         >
-          <IconTrash />
+          <HugeiconsIcon icon={Delete01Icon} />
         </ActionBarItem>
       )}
     </>

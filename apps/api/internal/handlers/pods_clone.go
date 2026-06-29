@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -58,7 +60,6 @@ type podNetworkVMTarget struct {
 type clonedRouterCloudInitConfig struct {
 	Storage     string
 	UserFile    string
-	MetaFile    string
 	NetworkFile string
 }
 
@@ -111,6 +112,33 @@ type podQuestionActivityResponse struct {
 	PodID      uuid.UUID `json:"pod_id"`
 	QuestionID uuid.UUID `json:"question_id"`
 	AnsweredAt time.Time `json:"answered_at"`
+}
+
+type catalogCloneSummaryResponse struct {
+	ID          uuid.UUID                       `json:"id"`
+	PodID       uuid.UUID                       `json:"pod_id"`
+	ClonedAt    time.Time                       `json:"cloned_at"`
+	Status      string                          `json:"status"`
+	TaskSummary catalogCloneTaskSummaryResponse `json:"task_summary"`
+}
+
+type catalogCloneTaskSummaryResponse struct {
+	Total     int     `json:"total"`
+	Completed int     `json:"completed"`
+	Progress  float64 `json:"progress"`
+}
+
+type catalogClonePodResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Slug        string    `json:"slug"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	ImageURL    string    `json:"image_url"`
+}
+
+type catalogCloneSummaryResponseWithPod struct {
+	Summary catalogCloneSummaryResponse `json:"summary"`
+	Pod     catalogClonePodResponse     `json:"pod"`
 }
 
 type answerPodQuestionRequest struct {
@@ -186,8 +214,22 @@ func (r *clonePodProgressReporter) emit(step int, state, message string) {
 	})
 }
 
+func isPodRouterName(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), "router")
+}
+
 func isPublishedPodRouterVM(publishedVM database.ListPublishedPodVMsForCloneRow) bool {
-	return strings.EqualFold(strings.TrimSpace(publishedVM.Name), "router")
+	return isPodRouterName(publishedVM.Name)
+}
+
+func publishedPodVMTemplateItemID(name string, publishedTemplateID, routerTemplateID uuid.UUID) (uuid.UUID, error) {
+	if !isPodRouterName(name) {
+		return publishedTemplateID, nil
+	}
+	if routerTemplateID == uuid.Nil {
+		return uuid.Nil, fmt.Errorf("router template is not configured")
+	}
+	return routerTemplateID, nil
 }
 
 func podNetworkTargetsFromCloneResults(results []clonePublishedVMResult) []podNetworkVMTarget {
@@ -225,45 +267,6 @@ func findPodNetworkRouterTarget(targets []podNetworkVMTarget) (*podNetworkVMTarg
 	return router, nil
 }
 
-func normalizeRouterIPBase(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	trimmed = strings.TrimSuffix(trimmed, ".")
-	parts := strings.Split(trimmed, ".")
-	if len(parts) == 0 {
-		return "", fmt.Errorf("invalid router network prefix")
-	}
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "" {
-			return "", fmt.Errorf("invalid router network prefix")
-		}
-	}
-
-	return strings.Join(parts, ".") + ".", nil
-}
-
-func validateClonedRouterCloudInitFileName(filename string) error {
-	filename = strings.TrimSpace(filename)
-	if filename == "" {
-		return fmt.Errorf("filename is required")
-	}
-	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
-		return fmt.Errorf("filename must not contain path separators")
-	}
-	if strings.Contains(filename, "..") {
-		return fmt.Errorf("filename must not contain '..'")
-	}
-	for _, r := range filename {
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
-			return fmt.Errorf("filename must not contain whitespace")
-		}
-	}
-	return nil
-}
-
 func formatClonedRouterCloudInitFile(pattern string, networkNumber int32) (string, error) {
 	pattern = strings.TrimSpace(pattern)
 	if strings.Count(pattern, routerCloudInitNetworkPlaceholder) != 1 {
@@ -276,7 +279,7 @@ func formatClonedRouterCloudInitFile(pattern string, networkNumber int32) (strin
 		fmt.Sprintf("%d", networkNumber),
 		1,
 	)
-	if err := validateClonedRouterCloudInitFileName(filename); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(filename); err != nil {
 		return "", err
 	}
 
@@ -293,23 +296,18 @@ func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterClone
 	if err != nil {
 		return nil, fmt.Errorf("build router cloud-init user-data filename: %w", err)
 	}
-	metaFile, err := formatClonedRouterCloudInitFile(config.CloudInitMetaFilePattern, networkNumber)
-	if err != nil {
-		return nil, fmt.Errorf("build router cloud-init meta-data filename: %w", err)
-	}
 
 	networkFile := strings.TrimSpace(config.CloudInitNetworkFile)
 	if strings.Contains(networkFile, routerCloudInitNetworkPlaceholder) {
 		return nil, fmt.Errorf("router cloud-init network-config filename must not contain %s", routerCloudInitNetworkPlaceholder)
 	}
-	if err := validateClonedRouterCloudInitFileName(networkFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(networkFile); err != nil {
 		return nil, fmt.Errorf("build router cloud-init network-config filename: %w", err)
 	}
 
 	return &clonedRouterCloudInitConfig{
 		Storage:     storage,
 		UserFile:    userFile,
-		MetaFile:    metaFile,
 		NetworkFile: networkFile,
 	}, nil
 }
@@ -371,6 +369,109 @@ func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	q := database.New(h.DB)
+	isProtected, err := h.Authz.HasProtectedAccess(c.Request.Context(), principalID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize catalog clone summaries", err)
+		return
+	}
+
+	var bases []publishedPodBase
+	if isProtected {
+		rows, err := q.ListPublishedPods(c.Request.Context())
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to load pod catalog", "list protected published pod catalog for clone summaries", err)
+			return
+		}
+		for _, row := range listPublishedRowsToBase(rows) {
+			if row.Status == database.PublishedPodStatusListed {
+				bases = append(bases, row)
+			}
+		}
+	} else {
+		rows, err := q.ListVisiblePublishedPodsForPrincipal(c.Request.Context(), principalID)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to load pod catalog", "list visible published pod catalog for clone summaries", err)
+			return
+		}
+		bases = visiblePublishedRowsToBase(rows)
+	}
+
+	podIDs := make([]uuid.UUID, 0, len(bases))
+	for _, base := range bases {
+		podIDs = append(podIDs, base.ID)
+	}
+
+	if len(podIDs) == 0 {
+		c.JSON(http.StatusOK, []catalogCloneSummaryResponse{})
+		return
+	}
+
+	cloneRows, err := q.ListAccessibleClonedPodSummariesByPodIDs(c.Request.Context(), database.ListAccessibleClonedPodSummariesByPodIDsParams{
+		Column1:     podIDs,
+		PrincipalID: principalID,
+	})
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load clone summaries", "list accessible cloned pod summaries", err)
+		return
+	}
+
+	cloneByPodID := make(map[uuid.UUID]catalogCloneSummaryResponse, len(cloneRows))
+	for _, row := range cloneRows {
+		totalTasks := int(row.TaskTotal)
+		completedTasks := int(row.TaskCompleted)
+		progress := 0.0
+		if totalTasks > 0 {
+			progress = (float64(completedTasks) / float64(totalTasks)) * 100
+		}
+
+		status, err := h.hydrateClonedPodRuntimeStatus(c.Request.Context(), q, row.ID)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to load clone runtime status", "hydrate clone runtime status for summary", err)
+			return
+		}
+
+		cloneByPodID[row.PodID] = catalogCloneSummaryResponse{
+			ID:       row.ID,
+			PodID:    row.PodID,
+			ClonedAt: pgTime(row.CreatedAt),
+			Status:   status,
+			TaskSummary: catalogCloneTaskSummaryResponse{
+				Total:     totalTasks,
+				Completed: completedTasks,
+				Progress:  progress,
+			},
+		}
+	}
+
+	result := make([]catalogCloneSummaryResponseWithPod, 0, len(bases))
+	for _, base := range bases {
+		summary, exists := cloneByPodID[base.ID]
+		if !exists {
+			continue
+		}
+		result = append(result, catalogCloneSummaryResponseWithPod{
+			Summary: summary,
+			Pod: catalogClonePodResponse{
+				ID:          base.ID,
+				Slug:        base.Slug,
+				Title:       base.Title,
+				Description: base.Description,
+				ImageURL:    base.ImageURL,
+			},
+		})
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -430,6 +531,13 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 
 	progress.succeed("Pod cloned successfully.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.clone",
+		TargetKind:       "pod",
+		PodID:            &pod.ID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 	c.JSON(http.StatusOK, response)
 }
 
@@ -450,7 +558,7 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
 	q := database.New(h.DB)
-	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	clone, reqErr := h.loadClonedPodForMutation(c.Request.Context(), q, principalID, cloneID)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
@@ -472,6 +580,13 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 	}
 
 	progress.succeed("Pod virtual machines replaced successfully.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.reclone",
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 	c.JSON(http.StatusOK, response)
 }
 
@@ -544,6 +659,13 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.power." + req.Action,
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 }
 
 func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
@@ -560,7 +682,7 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	clone, reqErr := h.loadClonedPodForMutation(c.Request.Context(), q, principalID, cloneID)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
@@ -588,6 +710,13 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.delete",
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 }
 
 func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
@@ -774,6 +903,48 @@ func (h *PodsHandler) loadAccessibleClonedPod(
 	return clone, nil
 }
 
+func (h *PodsHandler) loadClonedPodForMutation(
+	ctx context.Context,
+	q *database.Queries,
+	principalID uuid.UUID,
+	cloneID uuid.UUID,
+) (database.ClonedPods, *requestError) {
+	isManager, err := h.Authz.HasManagement(ctx, principalID, authorization.ManagementPermissionManager)
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "authorization failed",
+			Operation:   "authorize cloned pod mutation",
+			Err:         err,
+		}
+	}
+
+	clone, err := q.GetClonedPodByID(ctx, cloneID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+	if err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load cloned pod",
+			Operation:   "load cloned pod for mutation",
+			Err:         err,
+		}
+	}
+
+	if !cloneMutationAllowed(isManager, clone.UserPrincipalID, principalID) {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusNotFound,
+			UserMessage: "cloned pod not found",
+		}
+	}
+
+	return clone, nil
+}
+
 func (h *PodsHandler) clonedPodActionTargets(
 	ctx context.Context,
 	q *database.Queries,
@@ -833,6 +1004,10 @@ func vmidsFromTargets(targets []vmactions.Target) []int {
 		vmids = append(vmids, target.VMID)
 	}
 	return vmids
+}
+
+func cloneMutationAllowed(isManager bool, ownerPrincipalID, actorPrincipalID uuid.UUID) bool {
+	return isManager || ownerPrincipalID == actorPrincipalID
 }
 
 func clonedPodVMAlreadyInPowerState(action string, status string) bool {
@@ -992,20 +1167,29 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 
-	if err := h.Service.EnsureFolderHasVMCapacity(ctx, targetFolderID, int32(len(publishedVMs))); err != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
+	var created map[int]clonedVM
+	provisioned := false
+	defer func() {
+		if !provisioned {
+			h.cleanupFailedUserClone(targetFolderID, created)
+		}
+	}()
+
+	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, targetFolderID, int32(len(publishedVMs)), "pod_clone")
+	if err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
+	}
+	if reservation != nil {
+		defer reservation.Release(ctx)
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, targetFolderID)
 	if err != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 
 	targetNode, err := h.resolveCloneTargetNode(ctx)
 	if err != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to resolve target node",
@@ -1016,43 +1200,23 @@ func (h *PodsHandler) clonePublishedPod(
 
 	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID)
 	if reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.ensureClonedPodVNetExists(ctx, h.clonedPodVNetName(clone.NetworkNumber)); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, nil)
 		return database.ClonedPods{}, reqErr
 	}
 
-	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
-	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, progress)
 	if reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
-	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
-		return database.ClonedPods{}, reqErr
-	}
-	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepRouter, "Starting router.")
-	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.recordClonedPodDetails(ctx, clone, results); reqErr != nil {
-		h.cleanupFailedUserClone(targetFolderID, created)
 		return database.ClonedPods{}, reqErr
 	}
 
+	provisioned = true
 	return clone, nil
 }
 
@@ -1090,8 +1254,20 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	if err := h.Service.EnsureFolderHasVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs))); err != nil {
+	var created map[int]clonedVM
+	provisioned := false
+	defer func() {
+		if !provisioned {
+			h.cleanupFailedUserClone(uuid.Nil, created)
+		}
+	}()
+
+	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs)), "pod_reclone")
+	if err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
+	}
+	if reservation != nil {
+		defer reservation.Release(ctx)
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, clone.FolderID)
@@ -1109,35 +1285,48 @@ func (h *PodsHandler) reclonePublishedPod(
 		}
 	}
 
-	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
-	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, progress)
 	if reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
-	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
-		return database.ClonedPods{}, reqErr
-	}
-	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
-		return database.ClonedPods{}, reqErr
-	}
-
-	progress.set(cloneProgressStepRouter, "Starting router.")
-	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
 		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.recordReclonedPodVMs(ctx, clone.ID, results); reqErr != nil {
-		h.cleanupFailedUserClone(uuid.Nil, created)
 		return database.ClonedPods{}, reqErr
 	}
 
+	provisioned = true
 	return clone, nil
+}
+
+func (h *PodsHandler) provisionClonedPodVMs(
+	ctx context.Context,
+	principalID uuid.UUID,
+	placement inventory.FolderPlacement,
+	targetNode string,
+	publishedVMs []database.ListPublishedPodVMsForCloneRow,
+	clone database.ClonedPods,
+	progress *clonePodProgressReporter,
+) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
+	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
+	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	if reqErr != nil {
+		return nil, created, reqErr
+	}
+
+	progress.set(cloneProgressStepWaiting, "Preparing virtual machines.")
+	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
+		return nil, created, reqErr
+	}
+	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
+		return nil, created, reqErr
+	}
+
+	progress.set(cloneProgressStepRouter, "Starting router.")
+	if reqErr := h.configureClonedRouter(ctx, clone, results); reqErr != nil {
+		return nil, created, reqErr
+	}
+
+	return results, created, nil
 }
 
 func (h *PodsHandler) deleteExistingClonedPodVMs(
@@ -1200,7 +1389,19 @@ func (h *PodsHandler) clonePublishedPodVMs(
 		index, publishedVM := index, publishedVM
 		group.Go(func() error {
 			progress.set(cloneProgressStepCloning, "Cloning "+publishedVM.Name+" into a Cloned Pod VM")
-			source, reqErr := h.resolvePublishedPodVMTemplate(gctx, publishedVM.SourceInventoryItemID)
+			router := isPublishedPodRouterVM(publishedVM)
+			sourceItemID, err := publishedPodVMTemplateItemID(
+				publishedVM.Name,
+				publishedVM.SourceInventoryItemID,
+				h.RouterTemplateItemID,
+			)
+			if err != nil {
+				return &requestError{
+					Status:      http.StatusConflict,
+					UserMessage: err.Error(),
+				}
+			}
+			source, reqErr := h.resolvePublishedPodVMTemplate(gctx, sourceItemID)
 			if reqErr != nil {
 				return reqErr
 			}
@@ -1208,7 +1409,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 			clone, reqErr := h.cloneVerifiedVMIntoFolder(
 				gctx,
 				source,
-				publishedVM.SourceInventoryItemID,
+				sourceItemID,
 				placement,
 				targetNode,
 				publishedVM.Name,
@@ -1236,7 +1437,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 			results[index] = clonePublishedVMResult{
 				published: publishedVM,
 				clone:     clone,
-				router:    isPublishedPodRouterVM(publishedVM),
+				router:    router,
 			}
 			return nil
 		})
@@ -1456,28 +1657,23 @@ func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
 	return h.podVNetName(networkNumber)
 }
 
-func (h *PodsHandler) podNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
-	wanBase, _ := normalizeRouterIPBase(h.RouterCloneConfig.WANIPBase)
-	internalBase, _ := normalizeRouterIPBase(h.RouterCloneConfig.InternalIPBase)
+func (h *PodsHandler) podNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
+	wanBase, err := routerconfig.NormalizeDottedPrefix(h.RouterCloneConfig.WANIPBase)
+	if err != nil {
+		return clonedPodNetworkResponse{}, fmt.Errorf("invalid WAN IP base %q: %w", h.RouterCloneConfig.WANIPBase, err)
+	}
 
-	response := clonedPodNetworkResponse{
+	return clonedPodNetworkResponse{
 		Number:          networkNumber,
 		VNet:            h.podVNetName(networkNumber),
 		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
 		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
-	}
-
-	if internalBase != "" {
-		internalSubnet := fmt.Sprintf("%s%d.0/24", internalBase, networkNumber)
-		internalGateway := fmt.Sprintf("%s%d.1", internalBase, networkNumber)
-		response.InternalSubnet = &internalSubnet
-		response.InternalGateway = &internalGateway
-	}
-
-	return response
+		InternalSubnet:  h.RouterCloneConfig.InternalSubnet.String(),
+		InternalGateway: h.RouterCloneConfig.InternalSubnet.Addr().Next().String(),
+	}, nil
 }
 
-func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) clonedPodNetworkResponse {
+func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
 	return h.podNetworkMetadata(networkNumber)
 }
 
@@ -1731,7 +1927,6 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 		router.clone.VMID,
 		cloudInitConfig.Storage,
 		cloudInitConfig.UserFile,
-		cloudInitConfig.MetaFile,
 		cloudInitConfig.NetworkFile,
 	); err != nil {
 		return &requestError{
@@ -1943,13 +2138,18 @@ func (h *PodsHandler) hydrateClonedPod(
 	}
 	owner := cloneOwnerFromPrincipal(principals[0])
 
+	network, err := h.clonedPodNetworkMetadata(clone.NetworkNumber)
+	if err != nil {
+		return clonedPodResponse{}, err
+	}
+
 	return clonedPodResponse{
 		ID:       clone.ID,
 		PodID:    clone.PodID,
 		Owner:    owner,
 		ClonedAt: pgTime(clone.CreatedAt),
 		Status:   status,
-		Network:  h.clonedPodNetworkMetadata(clone.NetworkNumber),
+		Network:  network,
 		VMs:      vms,
 		TaskSummary: clonedPodTaskSummaryResponse{
 			Total:     totalTasks,
@@ -2737,6 +2937,16 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 		resp.Succeeded = append(resp.Succeeded, clone.ID)
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.bulk." + req.Action,
+		TargetKind:       "pod",
+		PodID:            &podID,
+		Metadata: map[string]any{
+			"succeeded": len(resp.Succeeded),
+			"failed":    len(resp.Failed),
+		},
+	})
 	c.JSON(http.StatusOK, resp)
 }
 

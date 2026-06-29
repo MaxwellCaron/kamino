@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { IconLogout } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Logout01Icon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,7 +77,7 @@ export function NavUser({
               variant="destructive"
               onClick={() => logoutMutation.mutate()}
             >
-              <IconLogout />
+              <HugeiconsIcon icon={Logout01Icon} />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

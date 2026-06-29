@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCpu,
-  IconDatabase,
-  IconDeviceDesktop,
-  IconFolder,
-  IconStar,
-  IconTopologyBus,
-} from "@tabler/icons-react"
+  ComputerIcon,
+  CpuIcon,
+  FolderIcon,
+  HardDriveIcon,
+  RamMemoryIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -19,8 +20,8 @@ import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeIcon } from "../inventory-node-icon"
 import type { ApiTreeNode } from "../../types/inventory-types"
-import { VmIcon } from "@/components/status/vm-icon"
 import { formatMemory } from "@/features/shared/utils/format"
 
 function FolderDescription({ node }: { node: ApiTreeNode }) {
@@ -31,12 +32,12 @@ function FolderDescription({ node }: { node: ApiTreeNode }) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <IconFolder className="size-3.5" />
+        <HugeiconsIcon icon={FolderIcon} className="size-3.5" />
         {folderCount} {folderCount === 1 ? "Folder" : "Folders"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
-        <IconDeviceDesktop className="size-3.5" />
+        <HugeiconsIcon icon={ComputerIcon} className="size-3.5" />
         {vmCount} {vmCount === 1 ? "VM" : "VMs"}
       </div>
     </>
@@ -47,19 +48,19 @@ function VmDescription({ vm }: { vm: ApiTreeNode["vm"] }) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <IconCpu className="size-3.5" />
+        <HugeiconsIcon icon={CpuIcon} className="size-3.5" />
         {vm?.cpu_count != null
           ? `${vm.cpu_count} CPU${vm.cpu_count === 1 ? "" : "s"}`
           : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
-        <IconTopologyBus className="size-3.5 rotate-180" />
+        <HugeiconsIcon icon={RamMemoryIcon} className="size-3.5" />
         {vm?.memory_mb != null ? formatMemory(vm.memory_mb) : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
-        <IconDatabase className="size-3.5" />
+        <HugeiconsIcon icon={HardDriveIcon} className="size-3.5" />
         {vm?.disk_gb != null ? `${vm.disk_gb} GB` : "—"}
       </div>
     </>
@@ -78,7 +79,6 @@ export function InventoryFolderItem({
   onToggleFavorite: () => void
 }) {
   const isFolder = node.kind === "folder"
-  const isTemplate = !isFolder && (node.vm?.is_template ?? false)
 
   return (
     <Item
@@ -90,11 +90,7 @@ export function InventoryFolderItem({
           className="flex min-w-0 flex-1 items-center gap-3.5"
         >
           <ItemMedia variant="icon">
-            {isFolder ? (
-              <IconFolder className="fill-amber-600/20 text-amber-600 dark:fill-amber-400/20 dark:text-amber-400" />
-            ) : (
-              <VmIcon status={status} isTemplate={isTemplate} />
-            )}
+            <InventoryNodeIcon node={node} status={status} />
           </ItemMedia>
           <ItemContent>
             <ItemTitle>{node.name}</ItemTitle>
@@ -125,7 +121,8 @@ export function InventoryFolderItem({
               )}
               onClick={onToggleFavorite}
             >
-              <IconStar
+              <HugeiconsIcon
+                icon={StarIcon}
                 className={
                   isFavorite
                     ? "fill-muted-foreground dark:fill-muted-foreground"

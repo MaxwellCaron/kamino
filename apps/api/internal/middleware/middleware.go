@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/MaxwellCaron/kamino/internal/auth"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,6 +31,7 @@ func Auth(authService *auth.Service) gin.HandlerFunc {
 		if claims.ExpiresAt != nil {
 			c.Set("accessTokenExpiresAt", claims.ExpiresAt.Time.UTC())
 		}
+		c.Request = c.Request.WithContext(authorization.WithPrincipalCache(c.Request.Context()))
 		c.Next()
 	}
 }

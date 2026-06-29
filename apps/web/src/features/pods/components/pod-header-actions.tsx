@@ -1,11 +1,5 @@
 import { Fragment, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogFooter,
-} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {
@@ -22,10 +16,13 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { IconChevronDown, IconLoader2 } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronDownIcon } from "@hugeicons/core-free-icons"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
-import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   deleteClonedPod,
   powerClonedPod,
@@ -38,6 +35,7 @@ import {
 } from "@/features/pods/utils/pod-clone-actions"
 
 type VisiblePodHeaderAction = "start" | "shutdown"
+type ConfirmablePodAction = Exclude<PodCloneAction, "reclone">
 
 const ACTION_BUTTON_VARIANT: Record<
   VisiblePodHeaderAction,
@@ -48,7 +46,7 @@ const ACTION_BUTTON_VARIANT: Record<
 }
 
 const POD_HEADER_DIALOG_CONFIG: Record<
-  PodCloneAction,
+  ConfirmablePodAction,
   { title: string; description: string }
 > = {
   start: {
@@ -60,11 +58,6 @@ const POD_HEADER_DIALOG_CONFIG: Record<
     description:
       "This will send a shutdown signal to all running virtual machines in your cloned pod.",
   },
-  reclone: {
-    title: "Re-clone Pod?",
-    description:
-      "This deletes and recreates your cloned virtual machines while keeping your saved task progress and question answers.",
-  },
   delete: {
     title: "Delete Pod?",
     description:
@@ -73,16 +66,20 @@ const POD_HEADER_DIALOG_CONFIG: Record<
 }
 
 export function PodHeaderActions({
+  podTitle,
   clonedPod,
   onReclone,
   onClonedPodChange,
 }: {
+  podTitle: string
   clonedPod: ClonedPod
   onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
   const queryClient = useQueryClient()
-  const [activeAction, setActiveAction] = useState<PodCloneAction | null>(null)
+  const [activeAction, setActiveAction] = useState<ConfirmablePodAction | null>(
+    null
+  )
   const powerMutation = useMutation({
     mutationFn: powerClonedPod,
     onSuccess: async (nextClonedPod) => {
@@ -90,6 +87,9 @@ export function PodHeaderActions({
       await queryClient.invalidateQueries({
         queryKey: podCatalogQueryOptions.queryKey,
       })
+      setActiveAction(null)
+    },
+    onError: () => {
       setActiveAction(null)
     },
   })
@@ -102,61 +102,66 @@ export function PodHeaderActions({
       })
       setActiveAction(null)
     },
+    onError: () => {
+      setActiveAction(null)
+    },
   })
-  const activeActionConfig = activeAction
-    ? POD_CLONE_ACTION_CONFIG[activeAction]
-    : null
-  const activeDialogConfig = activeAction
-    ? POD_HEADER_DIALOG_CONFIG[activeAction]
-    : null
   const actionPending = powerMutation.isPending || deleteMutation.isPending
-  const actionError =
-    activeAction === "reclone"
-      ? null
-      : activeAction === "delete"
-        ? deleteMutation.error
-        : powerMutation.error
   const visibleActions = POD_CLONE_POWER_ACTIONS_BY_STATUS[clonedPod.status]
 
-  function openAction(action: PodCloneAction) {
+  function openAction(action: ConfirmablePodAction) {
     powerMutation.reset()
     deleteMutation.reset()
     setActiveAction(action)
   }
 
-  function handleActionOpenChange(open: boolean) {
-    if (open || actionPending) return
+  function handleActionClose() {
     setActiveAction(null)
-    powerMutation.reset()
-    deleteMutation.reset()
   }
 
   function confirmActiveAction() {
     if (!activeAction) return
-
-    if (activeAction === "reclone") {
-      setActiveAction(null)
-      onReclone?.()
-      return
-    }
+    const actionConfig = POD_CLONE_ACTION_CONFIG[activeAction]
 
     if (activeAction === "delete") {
-      deleteMutation.mutate({ clonedPodId: clonedPod.id })
+      showSingleMutationToast({
+        title: actionConfig.pendingLabel,
+        name: podTitle,
+        promise: () =>
+          deleteMutation.mutateAsync({ clonedPodId: clonedPod.id }),
+        successDescription: "Deleted",
+      })
       return
     }
 
-    powerMutation.mutate({
-      clonedPodId: clonedPod.id,
-      action: activeAction,
+    showSingleMutationToast({
+      title: actionConfig.pendingLabel,
+      name: podTitle,
+      promise: () =>
+        powerMutation.mutateAsync({
+          clonedPodId: clonedPod.id,
+          action: activeAction,
+        }),
+      successDescription: activeAction === "start" ? "Started" : "Shut down",
     })
   }
+
+  const confirm: ConfirmConfig | null = activeAction
+    ? {
+        title: POD_HEADER_DIALOG_CONFIG[activeAction].title,
+        description: POD_HEADER_DIALOG_CONFIG[activeAction].description,
+        actionLabel: POD_CLONE_ACTION_CONFIG[activeAction].label,
+        icon: POD_CLONE_ACTION_CONFIG[activeAction].icon,
+        variant: POD_CLONE_ACTION_CONFIG[activeAction].variant,
+        onConfirm: confirmActiveAction,
+      }
+    : null
 
   return (
     <>
       <ButtonGroup aria-label="Pod actions" className="rounded-3xl bg-muted">
         {visibleActions.map((action) => {
           const config = POD_CLONE_ACTION_CONFIG[action]
-          const Icon = config.icon
 
           return (
             <Fragment key={action}>
@@ -165,7 +170,7 @@ export function PodHeaderActions({
                 disabled={actionPending}
                 onClick={() => openAction(action)}
               >
-                <Icon data-icon="inline-start" />
+                <HugeiconsIcon icon={config.icon} data-icon="inline-start" />
                 {config.label}
               </Button>
             </Fragment>
@@ -180,7 +185,7 @@ export function PodHeaderActions({
                 aria-label="More pod actions"
                 disabled={actionPending}
               >
-                <IconChevronDown />
+                <HugeiconsIcon icon={ChevronDownIcon} />
               </Button>
             }
           />
@@ -188,7 +193,6 @@ export function PodHeaderActions({
             <DropdownMenuGroup>
               {POD_CLONE_OVERFLOW_ACTIONS.map((action) => {
                 const config = POD_CLONE_ACTION_CONFIG[action]
-                const Icon = config.icon
 
                 return (
                   <Fragment key={action}>
@@ -197,11 +201,17 @@ export function PodHeaderActions({
                       disabled={
                         actionPending || (action === "reclone" && !onReclone)
                       }
-                      onClick={() => openAction(action)}
+                      onClick={() => {
+                        if (action === "reclone") {
+                          onReclone?.()
+                          return
+                        }
+                        openAction(action)
+                      }}
                     >
                       <Item className="w-full p-1">
                         <ItemMedia variant="icon">
-                          <Icon />
+                          <HugeiconsIcon icon={config.icon} />
                         </ItemMedia>
                         <ItemContent className="gap-0">
                           <ItemTitle>{config.label}</ItemTitle>
@@ -219,42 +229,8 @@ export function PodHeaderActions({
         </DropdownMenu>
       </ButtonGroup>
 
-      {activeActionConfig && activeDialogConfig && (
-        <AlertDialog
-          open={activeAction != null}
-          onOpenChange={handleActionOpenChange}
-        >
-          <AppAlertDialogContent
-            open={activeAction != null}
-            icon={activeActionConfig.icon}
-            title={activeDialogConfig.title}
-            description={activeDialogConfig.description}
-          >
-            {actionError && (
-              <p className="text-sm text-destructive">{actionError.message}</p>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={actionPending}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                variant={activeActionConfig.variant}
-                disabled={actionPending}
-                onClick={confirmActiveAction}
-              >
-                {actionPending && (
-                  <IconLoader2
-                    data-icon="inline-start"
-                    className="animate-spin"
-                  />
-                )}
-                {actionPending
-                  ? `${activeActionConfig.pendingLabel}...`
-                  : activeActionConfig.label}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AppAlertDialogContent>
-        </AlertDialog>
+      {confirm && (
+        <ConfirmDialog config={confirm} onClose={handleActionClose} />
       )}
     </>
   )

@@ -1,4 +1,10 @@
-import { IconBox, IconCopy, IconEye, IconLock } from "@tabler/icons-react"
+import {
+  CopyIcon,
+  LockedIcon,
+  PackageIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Item,
   ItemFooter,
@@ -14,25 +20,25 @@ export function PublishedPodsStatCards({
 }) {
   const statItems = [
     {
-      icon: IconBox,
+      icon: PackageIcon,
       title: "Pods",
       value: `${stats.total}`,
       description: `${stats.listed} listed and ${stats.unlisted} unlisted pods.`,
     },
     {
-      icon: IconLock,
+      icon: LockedIcon,
       title: "Restricted Pods",
       value: `${stats.restricted}`,
       description: "Pods limited to specific users or groups.",
     },
     {
-      icon: IconCopy,
+      icon: CopyIcon,
       title: "Clones",
       value: `${stats.totalClones}`,
       description: "Total clone count across the current catalog.",
     },
     {
-      icon: IconEye,
+      icon: ViewIcon,
       title: "Visibility",
       value: `${stats.listed}/${stats.total}`,
       description: "Pods currently visible in the public browse catalog.",
@@ -44,7 +50,10 @@ export function PublishedPodsStatCards({
       {statItems.map((stat) => (
         <Item key={stat.title} variant="muted">
           <ItemMedia>
-            <stat.icon className="size-5 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={stat.icon}
+              className="size-5 text-muted-foreground"
+            />
           </ItemMedia>
           <ItemTitle className="text-muted-foreground">{stat.title}</ItemTitle>
           <ItemFooter className="flex justify-start">

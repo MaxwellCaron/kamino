@@ -270,12 +270,13 @@ func (ns NullPublishedPodStatus) Value() (driver.Value, error) {
 type RequestEventKind string
 
 const (
-	RequestEventKindSubmitted       RequestEventKind = "submitted"
-	RequestEventKindApproved        RequestEventKind = "approved"
-	RequestEventKindDenied          RequestEventKind = "denied"
-	RequestEventKindExecuted        RequestEventKind = "executed"
-	RequestEventKindExecutionFailed RequestEventKind = "execution_failed"
-	RequestEventKindCanceled        RequestEventKind = "canceled"
+	RequestEventKindSubmitted        RequestEventKind = "submitted"
+	RequestEventKindApproved         RequestEventKind = "approved"
+	RequestEventKindExecutionStarted RequestEventKind = "execution_started"
+	RequestEventKindDenied           RequestEventKind = "denied"
+	RequestEventKindExecuted         RequestEventKind = "executed"
+	RequestEventKindExecutionFailed  RequestEventKind = "execution_failed"
+	RequestEventKindCanceled         RequestEventKind = "canceled"
 )
 
 func (e *RequestEventKind) Scan(src interface{}) error {
@@ -359,6 +360,7 @@ type RequestStatus string
 const (
 	RequestStatusPending         RequestStatus = "pending"
 	RequestStatusApproved        RequestStatus = "approved"
+	RequestStatusExecuting       RequestStatus = "executing"
 	RequestStatusDenied          RequestStatus = "denied"
 	RequestStatusExecuted        RequestStatus = "executed"
 	RequestStatusExecutionFailed RequestStatus = "execution_failed"
@@ -400,6 +402,19 @@ func (ns NullRequestStatus) Value() (driver.Value, error) {
 	return string(ns.RequestStatus), nil
 }
 
+type ActionEvents struct {
+	ID               int64              `json:"id"`
+	ActorPrincipalID *uuid.UUID         `json:"actor_principal_id"`
+	ActionKind       string             `json:"action_kind"`
+	TargetKind       string             `json:"target_kind"`
+	InventoryItemID  *uuid.UUID         `json:"inventory_item_id"`
+	PodID            *uuid.UUID         `json:"pod_id"`
+	Status           string             `json:"status"`
+	ErrorMessage     *string            `json:"error_message"`
+	Metadata         []byte             `json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type AuthSessions struct {
 	ID                  uuid.UUID          `json:"id"`
 	PrincipalID         uuid.UUID          `json:"principal_id"`
@@ -422,6 +437,14 @@ type ClonedPods struct {
 	NetworkNumber   int32              `json:"network_number"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FolderVmCapacityReservations struct {
+	ID        uuid.UUID          `json:"id"`
+	FolderID  uuid.UUID          `json:"folder_id"`
+	VmCount   int32              `json:"vm_count"`
+	Operation string             `json:"operation"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type InventoryRequests struct {
@@ -472,9 +495,18 @@ type Requests struct {
 	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
 	Status               RequestStatus      `json:"status"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutionStartedAt   pgtype.Timestamptz `json:"execution_started_at"`
 	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
 	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
 	ExecutionError       *string            `json:"execution_error"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VmActionClaims struct {
+	InventoryItemID  uuid.UUID          `json:"inventory_item_id"`
+	Action           string             `json:"action"`
+	ActorPrincipalID uuid.UUID          `json:"actor_principal_id"`
+	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
+	Detail           *string            `json:"detail"`
 }

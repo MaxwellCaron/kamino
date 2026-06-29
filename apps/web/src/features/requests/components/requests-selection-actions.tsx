@@ -1,31 +1,21 @@
-import { IconCheck, IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type {
   ApiRequestActionResponse,
   ApiRequestSummary,
 } from "@/features/requests/types/request-types"
-import type {
-  ConfirmConfig,
-  ConfirmDialogControls,
-  ConfirmStatusItem,
-} from "@/components/dialogs/confirm-dialog"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { UseMutationResult } from "@tanstack/react-query"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
-import {
-  formatRequestKind,
-  formatRequestPowerAction,
-  getRequestIcon,
-} from "@/features/requests/utils/request-presenters"
-import { formatVmReference } from "@/features/shared/utils/format"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { formatRequestKind } from "@/features/requests/utils/request-presenters"
 
 type RequestsSelectionActionsProps = {
   selectedRows: Array<ApiRequestSummary>
   clearSelection: () => void
-  tree: Array<ApiTreeNode> | undefined
   approveMutation: UseMutationResult<
     ApiRequestActionResponse,
     Error,
@@ -44,7 +34,6 @@ type RequestsSelectionActionsProps = {
 export function RequestsSelectionActions({
   selectedRows,
   clearSelection,
-  tree,
   approveMutation,
   denyMutation,
   onOpenConfirm,
@@ -53,7 +42,7 @@ export function RequestsSelectionActions({
     const isApprove = action === "approve"
     const mutation = isApprove ? approveMutation : denyMutation
     const title = isApprove ? "Approve Requests" : "Deny Requests"
-    const icon = isApprove ? IconCheck : IconX
+    const icon = isApprove ? Tick01Icon : Cancel01Icon
     const actionLabel = isApprove ? "Approve" : "Deny"
     const variant = isApprove ? "default" : ("destructive" as const)
 
@@ -62,102 +51,53 @@ export function RequestsSelectionActions({
       icon,
       actionLabel,
       variant,
-      closeOnSuccess: !isApprove,
       description: `Are you sure you want to ${action} ${selectedRows.length} requests?`,
-      statusItems: isApprove
-        ? selectedRows.map((r) => {
-            const powerAction = formatRequestPowerAction(
-              r.inventory?.power_action
+      onConfirm: () => {
+        const ids = selectedRows.map((r) => r.id)
+
+        showMutationToast({
+          title: `${isApprove ? "Approving" : "Denying"} ${ids.length} request${ids.length === 1 ? "" : "s"}`,
+          items: selectedRows.map((r) => ({
+            id: r.id,
+            name: formatRequestKind(r.kind),
+            successDescription: isApprove ? "Approved" : "Denied",
+          })),
+          runMutation: async () => {
+            const results = await Promise.allSettled(
+              ids.map((id) => mutation.mutateAsync([id]))
             )
-            const Icon = getRequestIcon(r.kind, r.inventory?.power_action)
-            const inventoryTree = tree ?? []
-            const path = r.inventory?.item_id
-              ? findTreePath(inventoryTree, r.inventory.item_id)
-              : null
+            const succeeded: Array<string> = []
+            const failed: Array<{ id: string; error: string }> = []
 
-            const pathLabel = path
-              ? path
-                  .slice(1, -1)
-                  .map((n: ApiTreeNode) => n.name)
-                  .join(" / ")
-              : null
+            results.forEach((result, index) => {
+              const id = ids[index]
+              if (result.status === "fulfilled") {
+                const requestFailure:
+                  | ApiRequestActionResponse["failed"][number]
+                  | undefined = result.value.failed.find((f) => f.id === id)
+                if (requestFailure) {
+                  failed.push({ id, error: requestFailure.error })
+                } else {
+                  succeeded.push(id)
+                }
+              } else {
+                failed.push({
+                  id,
+                  error:
+                    result.reason instanceof Error
+                      ? result.reason.message
+                      : "Action failed",
+                })
+              }
+            })
 
-            return {
-              id: r.id,
-              kind: "vm",
-              icon: Icon,
-              label: (
-                <div className="font-medium">
-                  {powerAction ||
-                    (r.inventory?.snapshot_name ? (
-                      <span>
-                        {formatRequestKind(r.kind)}: {r.inventory.snapshot_name}
-                      </span>
-                    ) : (
-                      formatRequestKind(r.kind)
-                    ))}
-                </div>
-              ),
-              description: (
-                <span className="truncate">
-                  {pathLabel}
-                  {" / "}
-                  {r.inventory?.vmid &&
-                    formatVmReference(r.inventory.vmid, r.inventory.item_name)}
-                </span>
-              ),
-              status: "idle",
+            if (failed.length === 0) {
+              clearSelection()
             }
-          })
-        : undefined,
-      onConfirm: async (controls: ConfirmDialogControls) => {
-        if (!isApprove) {
-          const ids = selectedRows.map((r) => r.id)
-          mutation.mutate(ids)
-          clearSelection()
-          return
-        }
 
-        const items = controls.getStatusItems()
-
-        controls.setStatusItems((prev) =>
-          prev.map((i) => ({ ...i, status: "pending" }))
-        )
-
-        await Promise.allSettled(
-          items.map(async (item: ConfirmStatusItem) => {
-            try {
-              const result: ApiRequestActionResponse =
-                await mutation.mutateAsync([item.id])
-              const failed = result.failed.find((f) => f.id === item.id)
-
-              controls.setStatusItems((prev) =>
-                prev.map((i) =>
-                  i.id === item.id
-                    ? {
-                        ...i,
-                        status: failed
-                          ? ("error" as const)
-                          : ("success" as const),
-                        error: failed?.error,
-                      }
-                    : i
-                )
-              )
-            } catch (err) {
-              const message =
-                err instanceof Error ? err.message : "Action failed"
-              controls.setStatusItems((prev) =>
-                prev.map((i) =>
-                  i.id === item.id
-                    ? { ...i, status: "error", error: message }
-                    : i
-                )
-              )
-            }
-          })
-        )
-        clearSelection()
+            return { succeeded, failed }
+          },
+        })
       },
     })
   }
@@ -171,7 +111,7 @@ export function RequestsSelectionActions({
         tooltip="Approve"
         variant="default"
       >
-        <IconCheck />
+        <HugeiconsIcon icon={Tick01Icon} />
       </ActionBarItem>
       <ActionBarSeparator />
       <ActionBarItem
@@ -181,7 +121,7 @@ export function RequestsSelectionActions({
         tooltip="Deny"
         variant="destructive"
       >
-        <IconX />
+        <HugeiconsIcon icon={Cancel01Icon} />
       </ActionBarItem>
     </>
   )

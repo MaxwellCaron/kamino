@@ -1,19 +1,21 @@
 import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCubePlus,
-  IconCubeSend,
-  IconDeviceDesktopQuestion,
-  IconHome,
-  IconLayoutDashboard,
-  IconListDetails,
-  IconNetwork,
-  IconPackages,
-  IconReceipt,
-  IconUser,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  DashboardSquare01Icon,
+  Globe02Icon,
+  Home03Icon,
+  Invoice01Icon,
+  PackageAddIcon,
+  PackageCheck,
+  PackageIcon,
+  PackageMovingIcon,
+  ReloadIcon,
+  Shield01Icon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
 import {
   HoverCard,
   HoverCardContent,
@@ -47,7 +49,7 @@ const navItems = [
     title: "Home",
     description: "Overview of infrastructure, activity, and recent changes.",
     url: "/",
-    icon: IconHome,
+    icon: Home03Icon,
     group: "home",
     visibility: "all",
   },
@@ -55,7 +57,7 @@ const navItems = [
     title: "Pods",
     description: "Browse and launch published pods.",
     url: "/pods",
-    icon: IconPackages,
+    icon: PackageIcon,
     group: "home",
     visibility: "all",
   },
@@ -64,7 +66,7 @@ const navItems = [
     description:
       "Initialize a foundation for your pod by using virutal machine templates and more.",
     url: "/pods/create",
-    icon: IconCubePlus,
+    icon: PackageAddIcon,
     group: "manager",
     visibility: "manager",
   },
@@ -73,7 +75,7 @@ const navItems = [
     description:
       "Configure and publish a new pod for users to clone and interact with.",
     url: "/pods/publish",
-    icon: IconCubeSend,
+    icon: PackageCheck,
     group: "manager",
     visibility: "manager",
   },
@@ -82,7 +84,7 @@ const navItems = [
     description:
       "Manager-facing catalog for reviewing pod visibility, access, and edit state.",
     url: "/pods/published",
-    icon: IconListDetails,
+    icon: PackageMovingIcon,
     group: "manager",
     visibility: "manager",
   },
@@ -90,7 +92,7 @@ const navItems = [
     title: "Requests",
     description: "Review pending and completed user requests.",
     url: "/manager/requests",
-    icon: IconReceipt,
+    icon: Invoice01Icon,
     group: "manager",
     visibility: "manager",
   },
@@ -99,7 +101,7 @@ const navItems = [
     description:
       "Review cluster health, principal activity, request flow, and capacity.",
     url: "/admin",
-    icon: IconLayoutDashboard,
+    icon: DashboardSquare01Icon,
     group: "admin",
     visibility: "admin",
   },
@@ -107,7 +109,7 @@ const navItems = [
     title: "SDN",
     description: "Inspect networks, topology, and software-defined resources.",
     url: "/admin/sdn",
-    icon: IconNetwork,
+    icon: Globe02Icon,
     group: "admin",
     visibility: "admin",
   },
@@ -115,7 +117,7 @@ const navItems = [
     title: "Users",
     description: "Browse people, identities, and account-level access details.",
     url: "/admin/principals/users",
-    icon: IconUser,
+    icon: UserIcon,
     group: "admin",
     visibility: "admin",
   },
@@ -123,7 +125,7 @@ const navItems = [
     title: "Groups",
     description: "Manage shared access, memberships, and management roles.",
     url: "/admin/principals/groups",
-    icon: IconUsersGroup,
+    icon: UserGroupIcon,
     group: "admin",
     visibility: "admin",
   },
@@ -131,7 +133,15 @@ const navItems = [
     title: "Proxmox Sync",
     description: "Reconcile inventory drift against Proxmox.",
     url: "/admin/proxmox-sync",
-    icon: IconDeviceDesktopQuestion,
+    icon: ReloadIcon,
+    group: "admin",
+    visibility: "admin",
+  },
+  {
+    title: "Audit Logs",
+    description: "Review direct VM and pod action history.",
+    url: "/admin/audit",
+    icon: Shield01Icon,
     group: "admin",
     visibility: "admin",
   },
@@ -242,7 +252,6 @@ function IconRailNavItem({
   item: NavItem
   pathname: string
 }) {
-  const Icon = item.icon
   const isActive = isActivePath(pathname, item.url)
   const styles = navGroupStyles[item.group]
 
@@ -257,7 +266,7 @@ function IconRailNavItem({
           )}
           render={<Link to={item.url} />}
         >
-          <Icon className="size-5!" />
+          <HugeiconsIcon icon={item.icon} className="size-5!" />
           <span className="sr-only">{item.title}</span>
         </SidebarMenuButton>
       </IconRailHoverCard>
@@ -382,12 +391,12 @@ export function AppSidebar({
         {/* Inventory panel */}
         <Sidebar
           collapsible="none"
-          className="ml-2 flex min-w-0 flex-1 border-l group-data-[state=collapsed]:border-l-0"
+          className="ml-2 flex min-w-0 flex-1 rounded-2xl border-l group-data-[state=collapsed]:border-l-0"
         >
           <SidebarHeader>
             <InventoryTreeHeader />
           </SidebarHeader>
-          <SidebarContent className="pl-1">
+          <SidebarContent className="scroll-fade px-1">
             <InventoryTreeBody />
           </SidebarContent>
         </Sidebar>

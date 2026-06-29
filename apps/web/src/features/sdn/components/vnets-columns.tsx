@@ -6,7 +6,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Delete01Icon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 
@@ -85,20 +90,20 @@ export function getVNetColumns({
             <DropdownMenuTrigger
               render={
                 <Button variant="ghost" size="icon-xs">
-                  <IconDots className="size-4" />
+                  <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
                 </Button>
               }
             />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEditVnet(vnet)}>
-                <IconEdit />
+                <HugeiconsIcon icon={PencilEdit01Icon} />
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => onDeleteClick(vnet)}
               >
-                <IconTrash />
+                <HugeiconsIcon icon={Delete01Icon} />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

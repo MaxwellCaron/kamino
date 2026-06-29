@@ -1,10 +1,11 @@
 import * as React from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCubePlus,
-  IconNetwork,
-  IconUserPlus,
-  IconUsersPlus,
-} from "@tabler/icons-react"
+  AddTeam02Icon,
+  Globe02Icon,
+  PackageAddIcon,
+  UserAdd01Icon,
+} from "@hugeicons/core-free-icons"
 import { Link } from "@tanstack/react-router"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
@@ -22,22 +23,38 @@ export function AdminDashboardActionButtons() {
       <Card className="h-full">
         <CardContent className="grid h-full grid-cols-2 grid-rows-2 gap-2 [&_button]:h-full [&_button]:min-h-14">
           <Button variant="outline" onClick={() => setUserDialogOpen(true)}>
-            <IconUserPlus data-icon="inline-start" />
+            <HugeiconsIcon
+              icon={UserAdd01Icon}
+              data-icon="inline-start"
+              className="text-muted-foreground"
+            />
             Create Users
           </Button>
           <Button variant="outline" onClick={() => setGroupDialogOpen(true)}>
-            <IconUsersPlus data-icon="inline-start" />
+            <HugeiconsIcon
+              icon={AddTeam02Icon}
+              data-icon="inline-start"
+              className="text-muted-foreground"
+            />
             Create Groups
           </Button>
           <Button variant="outline" onClick={() => setVnetDialogOpen(true)}>
-            <IconNetwork data-icon="inline-start" />
+            <HugeiconsIcon
+              icon={Globe02Icon}
+              data-icon="inline-start"
+              className="text-muted-foreground"
+            />
             Create VNets
           </Button>
           <Link
             to="/pods/create"
             className={`${buttonVariants({ variant: "outline" })} h-full min-h-14`}
           >
-            <IconCubePlus data-icon="inline-start" />
+            <HugeiconsIcon
+              icon={PackageAddIcon}
+              data-icon="inline-start"
+              className="text-muted-foreground"
+            />
             Create Pod
           </Link>
         </CardContent>

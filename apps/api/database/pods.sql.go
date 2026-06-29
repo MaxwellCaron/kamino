@@ -908,6 +908,77 @@ func (q *Queries) InsertPublishedPodVM(ctx context.Context, arg InsertPublishedP
 	return err
 }
 
+const listAccessibleClonedPodSummariesByPodIDs = `-- name: ListAccessibleClonedPodSummariesByPodIDs :many
+SELECT DISTINCT ON (cp.pod_id)
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.created_at,
+    COUNT(DISTINCT task.id)::int AS task_total,
+    COUNT(DISTINCT state.task_id) FILTER (WHERE state.completed)::int AS task_completed
+FROM cloned_pods cp
+LEFT JOIN published_pod_tasks task
+  ON task.pod_id = cp.pod_id
+LEFT JOIN cloned_pod_task_states state
+  ON state.cloned_pod_id = cp.id
+ AND state.task_id = task.id
+WHERE cp.pod_id = ANY($1::UUID[])
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals($2) AS ep(principal_id)
+  )
+GROUP BY
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.created_at
+ORDER BY
+    cp.pod_id,
+    CASE WHEN cp.user_principal_id = $2 THEN 0 ELSE 1 END,
+    cp.created_at DESC
+`
+
+type ListAccessibleClonedPodSummariesByPodIDsParams struct {
+	Column1     []uuid.UUID `json:"column_1"`
+	PrincipalID uuid.UUID   `json:"principal_id"`
+}
+
+type ListAccessibleClonedPodSummariesByPodIDsRow struct {
+	ID              uuid.UUID          `json:"id"`
+	PodID           uuid.UUID          `json:"pod_id"`
+	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TaskTotal       int32              `json:"task_total"`
+	TaskCompleted   int32              `json:"task_completed"`
+}
+
+func (q *Queries) ListAccessibleClonedPodSummariesByPodIDs(ctx context.Context, arg ListAccessibleClonedPodSummariesByPodIDsParams) ([]ListAccessibleClonedPodSummariesByPodIDsRow, error) {
+	rows, err := q.db.Query(ctx, listAccessibleClonedPodSummariesByPodIDs, arg.Column1, arg.PrincipalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAccessibleClonedPodSummariesByPodIDsRow
+	for rows.Next() {
+		var i ListAccessibleClonedPodSummariesByPodIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PodID,
+			&i.UserPrincipalID,
+			&i.CreatedAt,
+			&i.TaskTotal,
+			&i.TaskCompleted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClonedPodQuestionAnswers = `-- name: ListClonedPodQuestionAnswers :many
 SELECT
     question_id,

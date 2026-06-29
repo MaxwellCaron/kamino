@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { IconSearch, IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import {
@@ -45,12 +46,32 @@ import type { DataTableSelectionActionsContext } from "./data-table-types"
 import type {
   ColumnDef,
   ExpandedState,
+  OnChangeFn,
+  PaginationState,
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
 import { loadingTransition } from "@/components/loading-transition"
 
 const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
+
+const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 50]
+
+/**
+ * Server-pagination mode for DataTable. When provided, the table no longer
+ * paginates or filters rows locally: `data` is treated as the current API
+ * page only, `pagination`/`onPaginationChange` are controlled by the
+ * consumer, and `search`/`onSearchChange` drive a server-side search query
+ * instead of TanStack's local global filter.
+ */
+export type DataTableServerPagination = {
+  mode: "server"
+  pagination: PaginationState
+  onPaginationChange: OnChangeFn<PaginationState>
+  rowCount: number
+  search: string
+  onSearchChange: (value: string) => void
+}
 
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
@@ -59,12 +80,14 @@ interface DataTableProps<TData, TValue> {
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
+  enablePagination?: boolean
   showSelectionSummary?: boolean
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
   expandedRowComponent?: ComponentType<{ row: TData }>
   getRowCanExpand?: (row: TData) => boolean
+  serverPagination?: DataTableServerPagination
 }
 
 export function DataTable<TData, TValue>({
@@ -74,17 +97,25 @@ export function DataTable<TData, TValue>({
   error,
   getRowId,
   initialPageSize = 25,
+  enablePagination = true,
   showSelectionSummary = true,
   selectionActions,
   expandedRowComponent: ExpandedRowComponent,
   getRowCanExpand,
+  serverPagination,
 }: DataTableProps<TData, TValue>) {
+  const isServerMode = serverPagination?.mode === "server"
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
   const notReady = isLoading || error !== null
+
+  const searchValue = isServerMode ? serverPagination.search : globalFilter
+  const onSearchChange = isServerMode
+    ? serverPagination.onSearchChange
+    : (value: string) => setGlobalFilter(value)
 
   const table = useReactTable({
     data,
@@ -96,22 +127,33 @@ export function DataTable<TData, TValue>({
       ? (row) => getRowCanExpand(row.original)
       : undefined,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onGlobalFilterChange: setGlobalFilter,
+    getPaginationRowModel:
+      enablePagination && !isServerMode ? getPaginationRowModel() : undefined,
+    getFilteredRowModel: isServerMode ? undefined : getFilteredRowModel(),
+    manualPagination: isServerMode,
+    rowCount: isServerMode ? serverPagination.rowCount : undefined,
+    onPaginationChange: isServerMode
+      ? serverPagination.onPaginationChange
+      : undefined,
+    onGlobalFilterChange: isServerMode ? undefined : setGlobalFilter,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
-    globalFilterFn: "includesString",
+    globalFilterFn: isServerMode ? undefined : "includesString",
     state: {
-      globalFilter,
+      ...(isServerMode
+        ? { pagination: serverPagination.pagination }
+        : { globalFilter }),
       rowSelection,
       expanded,
     },
-    initialState: {
-      pagination: {
-        pageSize: initialPageSize,
-      },
-    },
+    initialState:
+      enablePagination && !isServerMode
+        ? {
+            pagination: {
+              pageSize: initialPageSize,
+            },
+          }
+        : undefined,
   })
   const selectedRows = table
     .getSelectedRowModel()
@@ -123,40 +165,63 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center justify-between gap-6 px-6">
         <InputGroup className="max-w-sm">
           <InputGroupAddon>
-            <IconSearch />
+            <HugeiconsIcon icon={Search01Icon} />
           </InputGroupAddon>
           <InputGroupInput
             placeholder="Search..."
-            value={globalFilter}
-            onChange={(e) => table.setGlobalFilter(String(e.target.value))}
+            value={searchValue}
+            onChange={(e) => {
+              const value = String(e.target.value)
+              if (isServerMode) {
+                onSearchChange(value)
+                serverPagination.onPaginationChange((prev) => ({
+                  ...prev,
+                  pageIndex: 0,
+                }))
+              } else {
+                table.setGlobalFilter(value)
+              }
+            }}
             disabled={notReady}
           />
         </InputGroup>
 
-        <div className="flex items-center gap-2">
-          <p className="hidden text-sm font-medium lg:block">Rows per page</p>
-          <Select
-            value={`${table.getState().pagination.pageSize}`}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value))
-            }}
-            disabled={notReady}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} align="end">
-              <SelectGroup>
-                <SelectLabel>Rows</SelectLabel>
-                {[10, 20, 25, 30, 40, 50].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+        {enablePagination && (
+          <div className="flex items-center gap-2">
+            <p className="hidden text-sm font-medium lg:block">Rows per page</p>
+            <Select
+              value={`${table.getState().pagination.pageSize}`}
+              onValueChange={(value) => {
+                if (isServerMode) {
+                  serverPagination.onPaginationChange((prev) => ({
+                    ...prev,
+                    pageSize: Number(value),
+                    pageIndex: 0,
+                  }))
+                } else {
+                  table.setPageSize(Number(value))
+                }
+              }}
+              disabled={notReady}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={table.getState().pagination.pageSize}
+                />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false} align="end">
+                <SelectGroup>
+                  <SelectLabel>Rows</SelectLabel>
+                  {ROWS_PER_PAGE_OPTIONS.map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
       <div className="overflow-hidden py-6">
         <Table className="border-y">
@@ -191,9 +256,7 @@ export function DataTable<TData, TValue>({
             <m.tbody
               key={isLoading ? "loading" : "loaded"}
               data-slot="table-body"
-              initial={
-                hasBeenLoading.current ? { opacity: 0, y: 4 } : false
-              }
+              initial={hasBeenLoading.current ? { opacity: 0, y: 4 } : false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -2 }}
               transition={loadingTransition}
@@ -250,10 +313,12 @@ export function DataTable<TData, TValue>({
           </AnimatePresence>
         </Table>
       </div>
-      <DataTablePagination
-        table={table}
-        showSelectionSummary={showSelectionSummary}
-      />
+      {enablePagination ? (
+        <DataTablePagination
+          table={table}
+          showSelectionSummary={showSelectionSummary}
+        />
+      ) : null}
       {selectionActions && (
         <ActionBar
           open={selectedRows.length > 0}
@@ -270,7 +335,7 @@ export function DataTable<TData, TValue>({
             {selectionActions({ clearSelection, selectedRows })}
           </ActionBarGroup>
           <ActionBarClose aria-label="Clear selection">
-            <IconX />
+            <HugeiconsIcon icon={Cancel01Icon} />
           </ActionBarClose>
         </ActionBar>
       )}

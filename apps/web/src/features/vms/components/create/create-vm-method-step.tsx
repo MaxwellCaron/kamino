@@ -1,4 +1,9 @@
-import { IconDeviceFloppy, IconTemplate, IconUpload } from "@tabler/icons-react"
+import {
+  Copy02Icon,
+  FloppyDiskIcon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Field,
@@ -14,34 +19,35 @@ import {
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
 import { createVmFormOptions, withCreateVmForm } from "./create-vm-form"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { CreateVmMethod } from "./create-vm-form"
 
 const createMethodCards: Array<{
   value: CreateVmMethod
   title: string
   description: string
-  icon: typeof IconTemplate
+  icon: IconSvgElement
 }> = [
   {
     value: "template",
     title: "Template",
     description:
       "Clone from an existing VM template already registered in Kamino.",
-    icon: IconTemplate,
+    icon: Copy02Icon,
   },
   {
     value: "iso",
     title: "ISO",
     description:
       "Build a new virtual machine from an ISO already stored in Proxmox.",
-    icon: IconDeviceFloppy,
+    icon: FloppyDiskIcon,
   },
   {
     value: "upload",
     title: "Upload",
     description:
       "Future flow for uploading media and creating a VM from your own ISO.",
-    icon: IconUpload,
+    icon: Upload01Icon,
   },
 ]
 
@@ -75,7 +81,7 @@ export const CreateVmMethodStep = withCreateVmForm({
                     <Field orientation="horizontal">
                       <FieldContent>
                         <FieldTitle>
-                          <Icon className="size-4" />
+                          <HugeiconsIcon icon={Icon} className="size-4" />
                           {method.title}
                           {method.value === "upload" && (
                             <Badge variant="destructive">Disabled</Badge>

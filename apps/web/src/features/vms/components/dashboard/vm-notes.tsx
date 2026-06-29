@@ -1,4 +1,8 @@
-import { IconEdit, IconInfoCircle } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  InformationCircleIcon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -32,7 +36,10 @@ export function VmNotes({
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconInfoCircle className="size-4 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={InformationCircleIcon}
+            className="size-5 text-muted-foreground"
+          />
           <span>Notes</span>
         </CardTitle>
         <CardAction>
@@ -40,10 +47,11 @@ export function VmNotes({
             <>
               <Button
                 variant="ghost"
-                size="icon-xs"
+                size="icon-sm"
+                className="-mt-1"
                 onClick={() => setIsNotesOpen(true)}
               >
-                <IconEdit className="size-4" />
+                <HugeiconsIcon icon={PencilEdit01Icon} />
               </Button>
               <VmNotesDialog
                 itemId={itemId}

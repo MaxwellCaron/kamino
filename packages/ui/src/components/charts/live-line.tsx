@@ -274,7 +274,6 @@ export function LiveLine({
             fill={dotColor}
             r={dotSize}
             stroke={chartCssVars.background}
-            strokeWidth={2}
           />
         </g>
 

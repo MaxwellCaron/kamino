@@ -39,7 +39,7 @@ func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
 			CheckOrigin: func(r *http.Request) bool {
 				origin := strings.TrimSpace(r.Header.Get("Origin"))
 				if origin == "" {
-					return true
+					return false
 				}
 				return allowedOrigin != "" && middleware.NormalizeOrigin(origin) == allowedOrigin
 			},

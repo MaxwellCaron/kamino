@@ -16,9 +16,10 @@ const approveRequest = `-- name: ApproveRequest :one
 
 UPDATE requests
 SET
-    status = 'approved',
+    status = 'executing',
     reviewer_principal_id = $2,
     reviewed_at = now(),
+    execution_started_at = now(),
     canceled_at = NULL,
     execution_error = NULL
 WHERE id = $1
@@ -31,6 +32,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -57,6 +59,7 @@ func (q *Queries) ApproveRequest(ctx context.Context, arg ApproveRequestParams) 
 		&i.ReviewerPrincipalID,
 		&i.Status,
 		&i.ReviewedAt,
+		&i.ExecutionStartedAt,
 		&i.ExecutedAt,
 		&i.CanceledAt,
 		&i.ExecutionError,
@@ -88,9 +91,24 @@ RETURNING
     updated_at
 `
 
-func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (Requests, error) {
+type CancelRequestRow struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (CancelRequestRow, error) {
 	row := q.db.QueryRow(ctx, cancelRequest, id)
-	var i Requests
+	var i CancelRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.Family,
@@ -108,6 +126,55 @@ func (q *Queries) CancelRequest(ctx context.Context, id uuid.UUID) (Requests, er
 	return i, err
 }
 
+const countCompletedRequestsForKindsFiltered = `-- name: CountCompletedRequestsForKindsFiltered :one
+SELECT count(*)::int
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND r.kind = ANY($1::TEXT[])
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR r.requester_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
+`
+
+type CountCompletedRequestsForKindsFilteredParams struct {
+	Kinds  []string `json:"kinds"`
+	Search string   `json:"search"`
+}
+
+func (q *Queries) CountCompletedRequestsForKindsFiltered(ctx context.Context, arg CountCompletedRequestsForKindsFilteredParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countCompletedRequestsForKindsFiltered, arg.Kinds, arg.Search)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countPendingRequestsByRequester = `-- name: CountPendingRequestsByRequester :one
 SELECT count(*)::int
 FROM requests
@@ -117,6 +184,151 @@ WHERE requester_principal_id = $1
 
 func (q *Queries) CountPendingRequestsByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countPendingRequestsByRequester, requesterPrincipalID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countPendingRequestsByRequesterFiltered = `-- name: CountPendingRequestsByRequesterFiltered :one
+SELECT count(*)::int
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status = 'pending'
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
+`
+
+type CountPendingRequestsByRequesterFilteredParams struct {
+	RequesterPrincipalID uuid.UUID `json:"requester_principal_id"`
+	Search               string    `json:"search"`
+}
+
+func (q *Queries) CountPendingRequestsByRequesterFiltered(ctx context.Context, arg CountPendingRequestsByRequesterFilteredParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countPendingRequestsByRequesterFiltered, arg.RequesterPrincipalID, arg.Search)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countPendingRequestsFiltered = `-- name: CountPendingRequestsFiltered :one
+SELECT count(*)::int
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.status = 'pending'
+  AND r.kind = ANY($1::TEXT[])
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR r.requester_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
+`
+
+type CountPendingRequestsFilteredParams struct {
+	Kinds  []string `json:"kinds"`
+	Search string   `json:"search"`
+}
+
+func (q *Queries) CountPendingRequestsFiltered(ctx context.Context, arg CountPendingRequestsFilteredParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countPendingRequestsFiltered, arg.Kinds, arg.Search)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countRequestHistoryByRequesterFiltered = `-- name: CountRequestHistoryByRequesterFiltered :one
+SELECT count(*)::int
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
+`
+
+type CountRequestHistoryByRequesterFilteredParams struct {
+	RequesterPrincipalID uuid.UUID `json:"requester_principal_id"`
+	Search               string    `json:"search"`
+}
+
+func (q *Queries) CountRequestHistoryByRequesterFiltered(ctx context.Context, arg CountRequestHistoryByRequesterFilteredParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countRequestHistoryByRequesterFiltered, arg.RequesterPrincipalID, arg.Search)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -198,9 +410,24 @@ type CreateRequestParams struct {
 	RequesterPrincipalID uuid.UUID     `json:"requester_principal_id"`
 }
 
-func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (Requests, error) {
+type CreateRequestRow struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (CreateRequestRow, error) {
 	row := q.db.QueryRow(ctx, createRequest, arg.Family, arg.Kind, arg.RequesterPrincipalID)
-	var i Requests
+	var i CreateRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.Family,
@@ -306,9 +533,24 @@ type DenyRequestParams struct {
 	ReviewerPrincipalID *uuid.UUID `json:"reviewer_principal_id"`
 }
 
-func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (Requests, error) {
+type DenyRequestRow struct {
+	ID                   uuid.UUID          `json:"id"`
+	Family               RequestFamily      `json:"family"`
+	Kind                 string             `json:"kind"`
+	RequesterPrincipalID uuid.UUID          `json:"requester_principal_id"`
+	ReviewerPrincipalID  *uuid.UUID         `json:"reviewer_principal_id"`
+	Status               RequestStatus      `json:"status"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	ExecutedAt           pgtype.Timestamptz `json:"executed_at"`
+	CanceledAt           pgtype.Timestamptz `json:"canceled_at"`
+	ExecutionError       *string            `json:"execution_error"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (DenyRequestRow, error) {
 	row := q.db.QueryRow(ctx, denyRequest, arg.ID, arg.ReviewerPrincipalID)
-	var i Requests
+	var i DenyRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.Family,
@@ -573,7 +815,7 @@ func (q *Queries) GetRequestForExecution(ctx context.Context, id uuid.UUID) (Get
 	return i, err
 }
 
-const listCompletedRequests = `-- name: ListCompletedRequests :many
+const listCompletedRequestsForKindsFiltered = `-- name: ListCompletedRequestsForKindsFiltered :many
 SELECT
     r.id,
     r.family,
@@ -595,6 +837,8 @@ SELECT
     ii.kind AS inventory_item_kind,
     ii.name AS inventory_item_name,
     ii.parent_id AS inventory_item_parent_id,
+    parent.name AS inventory_item_parent_name,
+    get_inventory_item_path(ii.id) AS inventory_item_path,
     pv.node AS inventory_vm_node,
     pv.vmid AS inventory_vm_vmid,
     pv.is_template AS inventory_vm_is_template
@@ -607,47 +851,84 @@ LEFT JOIN inventory_requests ir
   ON ir.request_id = r.id
 LEFT JOIN inventory_items ii
   ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
-WHERE r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+WHERE r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND r.kind = ANY($1::TEXT[])
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR r.requester_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT $4
+OFFSET $3
 `
 
-type ListCompletedRequestsRow struct {
-	ID                    uuid.UUID                       `json:"id"`
-	Family                RequestFamily                   `json:"family"`
-	Kind                  string                          `json:"kind"`
-	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
-	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
-	Status                RequestStatus                   `json:"status"`
-	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
-	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
-	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
-	ExecutionError        *string                         `json:"execution_error"`
-	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
-	RequesterUsername     string                          `json:"requester_username"`
-	ReviewerUsername      string                          `json:"reviewer_username"`
-	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
-	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
-	SnapshotName          *string                         `json:"snapshot_name"`
-	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
-	InventoryItemName     *string                         `json:"inventory_item_name"`
-	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
-	InventoryVmNode       *string                         `json:"inventory_vm_node"`
-	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
-	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+type ListCompletedRequestsForKindsFilteredParams struct {
+	Kinds     []string `json:"kinds"`
+	Search    string   `json:"search"`
+	RowOffset int32    `json:"row_offset"`
+	Rows      int32    `json:"rows"`
 }
 
-func (q *Queries) ListCompletedRequests(ctx context.Context) ([]ListCompletedRequestsRow, error) {
-	rows, err := q.db.Query(ctx, listCompletedRequests)
+type ListCompletedRequestsForKindsFilteredRow struct {
+	ID                      uuid.UUID                       `json:"id"`
+	Family                  RequestFamily                   `json:"family"`
+	Kind                    string                          `json:"kind"`
+	RequesterPrincipalID    uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID     *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                  RequestStatus                   `json:"status"`
+	ReviewedAt              pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt              pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt              pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError          *string                         `json:"execution_error"`
+	CreatedAt               pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername       string                          `json:"requester_username"`
+	ReviewerUsername        string                          `json:"reviewer_username"`
+	InventoryItemID         *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction             NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName            *string                         `json:"snapshot_name"`
+	InventoryItemKind       NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName       *string                         `json:"inventory_item_name"`
+	InventoryItemParentID   *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryItemParentName *string                         `json:"inventory_item_parent_name"`
+	InventoryItemPath       string                          `json:"inventory_item_path"`
+	InventoryVmNode         *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid         *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate   *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListCompletedRequestsForKindsFiltered(ctx context.Context, arg ListCompletedRequestsForKindsFilteredParams) ([]ListCompletedRequestsForKindsFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listCompletedRequestsForKindsFiltered,
+		arg.Kinds,
+		arg.Search,
+		arg.RowOffset,
+		arg.Rows,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListCompletedRequestsRow
+	var items []ListCompletedRequestsForKindsFilteredRow
 	for rows.Next() {
-		var i ListCompletedRequestsRow
+		var i ListCompletedRequestsForKindsFilteredRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Family,
@@ -669,6 +950,8 @@ func (q *Queries) ListCompletedRequests(ctx context.Context) ([]ListCompletedReq
 			&i.InventoryItemKind,
 			&i.InventoryItemName,
 			&i.InventoryItemParentID,
+			&i.InventoryItemParentName,
+			&i.InventoryItemPath,
 			&i.InventoryVmNode,
 			&i.InventoryVmVmid,
 			&i.InventoryVmIsTemplate,
@@ -683,7 +966,158 @@ func (q *Queries) ListCompletedRequests(ctx context.Context) ([]ListCompletedReq
 	return items, nil
 }
 
-const listPendingRequests = `-- name: ListPendingRequests :many
+const listPendingRequestsByRequesterFiltered = `-- name: ListPendingRequestsByRequesterFiltered :many
+SELECT
+    r.id,
+    r.family,
+    r.kind,
+    r.requester_principal_id,
+    r.reviewer_principal_id,
+    r.status,
+    r.reviewed_at,
+    r.executed_at,
+    r.canceled_at,
+    r.execution_error,
+    r.created_at,
+    r.updated_at,
+    COALESCE(requester.name, requester.external_id) AS requester_username,
+    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
+    ir.inventory_item_id,
+    ir.power_action,
+    ir.snapshot_name,
+    ii.kind AS inventory_item_kind,
+    ii.name AS inventory_item_name,
+    ii.parent_id AS inventory_item_parent_id,
+    parent.name AS inventory_item_parent_name,
+    get_inventory_item_path(ii.id) AS inventory_item_path,
+    pv.node AS inventory_vm_node,
+    pv.vmid AS inventory_vm_vmid,
+    pv.is_template AS inventory_vm_is_template
+FROM requests r
+JOIN principals requester
+  ON requester.id = r.requester_principal_id
+LEFT JOIN principals reviewer
+  ON reviewer.id = r.reviewer_principal_id
+LEFT JOIN inventory_requests ir
+  ON ir.request_id = r.id
+LEFT JOIN inventory_items ii
+  ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = ir.inventory_item_id
+WHERE r.requester_principal_id = $1
+  AND r.status = 'pending'
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
+ORDER BY r.created_at DESC, r.id DESC
+LIMIT $4
+OFFSET $3
+`
+
+type ListPendingRequestsByRequesterFilteredParams struct {
+	RequesterPrincipalID uuid.UUID `json:"requester_principal_id"`
+	Search               string    `json:"search"`
+	RowOffset            int32     `json:"row_offset"`
+	Rows                 int32     `json:"rows"`
+}
+
+type ListPendingRequestsByRequesterFilteredRow struct {
+	ID                      uuid.UUID                       `json:"id"`
+	Family                  RequestFamily                   `json:"family"`
+	Kind                    string                          `json:"kind"`
+	RequesterPrincipalID    uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID     *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                  RequestStatus                   `json:"status"`
+	ReviewedAt              pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt              pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt              pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError          *string                         `json:"execution_error"`
+	CreatedAt               pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername       string                          `json:"requester_username"`
+	ReviewerUsername        string                          `json:"reviewer_username"`
+	InventoryItemID         *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction             NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName            *string                         `json:"snapshot_name"`
+	InventoryItemKind       NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName       *string                         `json:"inventory_item_name"`
+	InventoryItemParentID   *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryItemParentName *string                         `json:"inventory_item_parent_name"`
+	InventoryItemPath       string                          `json:"inventory_item_path"`
+	InventoryVmNode         *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid         *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate   *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListPendingRequestsByRequesterFiltered(ctx context.Context, arg ListPendingRequestsByRequesterFilteredParams) ([]ListPendingRequestsByRequesterFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRequestsByRequesterFiltered,
+		arg.RequesterPrincipalID,
+		arg.Search,
+		arg.RowOffset,
+		arg.Rows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingRequestsByRequesterFilteredRow
+	for rows.Next() {
+		var i ListPendingRequestsByRequesterFilteredRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RequesterUsername,
+			&i.ReviewerUsername,
+			&i.InventoryItemID,
+			&i.PowerAction,
+			&i.SnapshotName,
+			&i.InventoryItemKind,
+			&i.InventoryItemName,
+			&i.InventoryItemParentID,
+			&i.InventoryItemParentName,
+			&i.InventoryItemPath,
+			&i.InventoryVmNode,
+			&i.InventoryVmVmid,
+			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingRequestsFiltered = `-- name: ListPendingRequestsFiltered :many
+
 
 SELECT
     r.id,
@@ -706,6 +1140,8 @@ SELECT
     ii.kind AS inventory_item_kind,
     ii.name AS inventory_item_name,
     ii.parent_id AS inventory_item_parent_id,
+    parent.name AS inventory_item_parent_name,
+    get_inventory_item_path(ii.id) AS inventory_item_path,
     pv.node AS inventory_vm_node,
     pv.vmid AS inventory_vm_vmid,
     pv.is_template AS inventory_vm_is_template
@@ -718,50 +1154,90 @@ LEFT JOIN inventory_requests ir
   ON ir.request_id = r.id
 LEFT JOIN inventory_items ii
   ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
 WHERE r.status = 'pending'
+  AND r.kind = ANY($1::TEXT[])
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR r.requester_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
 ORDER BY r.created_at ASC, r.id ASC
+LIMIT $4
+OFFSET $3
 `
 
-type ListPendingRequestsRow struct {
-	ID                    uuid.UUID                       `json:"id"`
-	Family                RequestFamily                   `json:"family"`
-	Kind                  string                          `json:"kind"`
-	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
-	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
-	Status                RequestStatus                   `json:"status"`
-	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
-	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
-	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
-	ExecutionError        *string                         `json:"execution_error"`
-	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
-	RequesterUsername     string                          `json:"requester_username"`
-	ReviewerUsername      string                          `json:"reviewer_username"`
-	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
-	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
-	SnapshotName          *string                         `json:"snapshot_name"`
-	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
-	InventoryItemName     *string                         `json:"inventory_item_name"`
-	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
-	InventoryVmNode       *string                         `json:"inventory_vm_node"`
-	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
-	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+type ListPendingRequestsFilteredParams struct {
+	Kinds     []string `json:"kinds"`
+	Search    string   `json:"search"`
+	RowOffset int32    `json:"row_offset"`
+	Rows      int32    `json:"rows"`
+}
+
+type ListPendingRequestsFilteredRow struct {
+	ID                      uuid.UUID                       `json:"id"`
+	Family                  RequestFamily                   `json:"family"`
+	Kind                    string                          `json:"kind"`
+	RequesterPrincipalID    uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID     *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                  RequestStatus                   `json:"status"`
+	ReviewedAt              pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt              pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt              pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError          *string                         `json:"execution_error"`
+	CreatedAt               pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername       string                          `json:"requester_username"`
+	ReviewerUsername        string                          `json:"reviewer_username"`
+	InventoryItemID         *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction             NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName            *string                         `json:"snapshot_name"`
+	InventoryItemKind       NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName       *string                         `json:"inventory_item_name"`
+	InventoryItemParentID   *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryItemParentName *string                         `json:"inventory_item_parent_name"`
+	InventoryItemPath       string                          `json:"inventory_item_path"`
+	InventoryVmNode         *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid         *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate   *bool                           `json:"inventory_vm_is_template"`
 }
 
 // ---------------------------------------------------------------------------
 // Request reads
 // ---------------------------------------------------------------------------
-func (q *Queries) ListPendingRequests(ctx context.Context) ([]ListPendingRequestsRow, error) {
-	rows, err := q.db.Query(ctx, listPendingRequests)
+// ---------------------------------------------------------------------------
+// Request table reads: page/rows/search (no cursor)
+// ---------------------------------------------------------------------------
+func (q *Queries) ListPendingRequestsFiltered(ctx context.Context, arg ListPendingRequestsFilteredParams) ([]ListPendingRequestsFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRequestsFiltered,
+		arg.Kinds,
+		arg.Search,
+		arg.RowOffset,
+		arg.Rows,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListPendingRequestsRow
+	var items []ListPendingRequestsFilteredRow
 	for rows.Next() {
-		var i ListPendingRequestsRow
+		var i ListPendingRequestsFilteredRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Family,
@@ -783,117 +1259,8 @@ func (q *Queries) ListPendingRequests(ctx context.Context) ([]ListPendingRequest
 			&i.InventoryItemKind,
 			&i.InventoryItemName,
 			&i.InventoryItemParentID,
-			&i.InventoryVmNode,
-			&i.InventoryVmVmid,
-			&i.InventoryVmIsTemplate,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPendingRequestsByRequester = `-- name: ListPendingRequestsByRequester :many
-SELECT
-    r.id,
-    r.family,
-    r.kind,
-    r.requester_principal_id,
-    r.reviewer_principal_id,
-    r.status,
-    r.reviewed_at,
-    r.executed_at,
-    r.canceled_at,
-    r.execution_error,
-    r.created_at,
-    r.updated_at,
-    COALESCE(requester.name, requester.external_id) AS requester_username,
-    COALESCE(reviewer.name, reviewer.external_id, '') AS reviewer_username,
-    ir.inventory_item_id,
-    ir.power_action,
-    ir.snapshot_name,
-    ii.kind AS inventory_item_kind,
-    ii.name AS inventory_item_name,
-    ii.parent_id AS inventory_item_parent_id,
-    pv.node AS inventory_vm_node,
-    pv.vmid AS inventory_vm_vmid,
-    pv.is_template AS inventory_vm_is_template
-FROM requests r
-JOIN principals requester
-  ON requester.id = r.requester_principal_id
-LEFT JOIN principals reviewer
-  ON reviewer.id = r.reviewer_principal_id
-LEFT JOIN inventory_requests ir
-  ON ir.request_id = r.id
-LEFT JOIN inventory_items ii
-  ON ii.id = ir.inventory_item_id
-LEFT JOIN proxmox_vms pv
-  ON pv.inventory_item_id = ir.inventory_item_id
-WHERE r.requester_principal_id = $1
-  AND r.status = 'pending'
-ORDER BY r.created_at DESC, r.id DESC
-`
-
-type ListPendingRequestsByRequesterRow struct {
-	ID                    uuid.UUID                       `json:"id"`
-	Family                RequestFamily                   `json:"family"`
-	Kind                  string                          `json:"kind"`
-	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
-	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
-	Status                RequestStatus                   `json:"status"`
-	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
-	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
-	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
-	ExecutionError        *string                         `json:"execution_error"`
-	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
-	RequesterUsername     string                          `json:"requester_username"`
-	ReviewerUsername      string                          `json:"reviewer_username"`
-	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
-	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
-	SnapshotName          *string                         `json:"snapshot_name"`
-	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
-	InventoryItemName     *string                         `json:"inventory_item_name"`
-	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
-	InventoryVmNode       *string                         `json:"inventory_vm_node"`
-	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
-	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
-}
-
-func (q *Queries) ListPendingRequestsByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) ([]ListPendingRequestsByRequesterRow, error) {
-	rows, err := q.db.Query(ctx, listPendingRequestsByRequester, requesterPrincipalID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListPendingRequestsByRequesterRow
-	for rows.Next() {
-		var i ListPendingRequestsByRequesterRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Family,
-			&i.Kind,
-			&i.RequesterPrincipalID,
-			&i.ReviewerPrincipalID,
-			&i.Status,
-			&i.ReviewedAt,
-			&i.ExecutedAt,
-			&i.CanceledAt,
-			&i.ExecutionError,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.RequesterUsername,
-			&i.ReviewerUsername,
-			&i.InventoryItemID,
-			&i.PowerAction,
-			&i.SnapshotName,
-			&i.InventoryItemKind,
-			&i.InventoryItemName,
-			&i.InventoryItemParentID,
+			&i.InventoryItemParentName,
+			&i.InventoryItemPath,
 			&i.InventoryVmNode,
 			&i.InventoryVmVmid,
 			&i.InventoryVmIsTemplate,
@@ -968,7 +1335,7 @@ func (q *Queries) ListRequestEventsByRequestID(ctx context.Context, requestID uu
 	return items, nil
 }
 
-const listRequestHistoryByRequester = `-- name: ListRequestHistoryByRequester :many
+const listRequestHistoryByRequesterFiltered = `-- name: ListRequestHistoryByRequesterFiltered :many
 SELECT
     r.id,
     r.family,
@@ -990,6 +1357,8 @@ SELECT
     ii.kind AS inventory_item_kind,
     ii.name AS inventory_item_name,
     ii.parent_id AS inventory_item_parent_id,
+    parent.name AS inventory_item_parent_name,
+    get_inventory_item_path(ii.id) AS inventory_item_path,
     pv.node AS inventory_vm_node,
     pv.vmid AS inventory_vm_vmid,
     pv.is_template AS inventory_vm_is_template
@@ -1002,48 +1371,83 @@ LEFT JOIN inventory_requests ir
   ON ir.request_id = r.id
 LEFT JOIN inventory_items ii
   ON ii.id = ir.inventory_item_id
+LEFT JOIN inventory_items parent
+  ON parent.id = ii.parent_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = ir.inventory_item_id
 WHERE r.requester_principal_id = $1
-  AND r.status IN ('approved', 'denied', 'executed', 'execution_failed')
+  AND r.status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed')
+  AND (
+      $2::TEXT = ''
+      OR r.kind ILIKE '%' || $2::TEXT || '%'
+      OR ir.power_action::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ir.snapshot_name ILIKE '%' || $2::TEXT || '%'
+      OR r.status::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(requester.name, requester.external_id) ILIKE '%' || $2::TEXT || '%'
+      OR COALESCE(reviewer.name, reviewer.external_id, '') ILIKE '%' || $2::TEXT || '%'
+      OR r.reviewer_principal_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR ii.name ILIKE '%' || $2::TEXT || '%'
+      OR ir.inventory_item_id::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR parent.name ILIKE '%' || $2::TEXT || '%'
+      OR get_inventory_item_path(ii.id) ILIKE '%' || $2::TEXT || '%'
+      OR pv.node ILIKE '%' || $2::TEXT || '%'
+      OR pv.vmid::TEXT ILIKE '%' || $2::TEXT || '%'
+      OR r.execution_error ILIKE '%' || $2::TEXT || '%'
+  )
 ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
+LIMIT $4
+OFFSET $3
 `
 
-type ListRequestHistoryByRequesterRow struct {
-	ID                    uuid.UUID                       `json:"id"`
-	Family                RequestFamily                   `json:"family"`
-	Kind                  string                          `json:"kind"`
-	RequesterPrincipalID  uuid.UUID                       `json:"requester_principal_id"`
-	ReviewerPrincipalID   *uuid.UUID                      `json:"reviewer_principal_id"`
-	Status                RequestStatus                   `json:"status"`
-	ReviewedAt            pgtype.Timestamptz              `json:"reviewed_at"`
-	ExecutedAt            pgtype.Timestamptz              `json:"executed_at"`
-	CanceledAt            pgtype.Timestamptz              `json:"canceled_at"`
-	ExecutionError        *string                         `json:"execution_error"`
-	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz              `json:"updated_at"`
-	RequesterUsername     string                          `json:"requester_username"`
-	ReviewerUsername      string                          `json:"reviewer_username"`
-	InventoryItemID       *uuid.UUID                      `json:"inventory_item_id"`
-	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
-	SnapshotName          *string                         `json:"snapshot_name"`
-	InventoryItemKind     NullInventoryItemKind           `json:"inventory_item_kind"`
-	InventoryItemName     *string                         `json:"inventory_item_name"`
-	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
-	InventoryVmNode       *string                         `json:"inventory_vm_node"`
-	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
-	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
+type ListRequestHistoryByRequesterFilteredParams struct {
+	RequesterPrincipalID uuid.UUID `json:"requester_principal_id"`
+	Search               string    `json:"search"`
+	RowOffset            int32     `json:"row_offset"`
+	Rows                 int32     `json:"rows"`
 }
 
-func (q *Queries) ListRequestHistoryByRequester(ctx context.Context, requesterPrincipalID uuid.UUID) ([]ListRequestHistoryByRequesterRow, error) {
-	rows, err := q.db.Query(ctx, listRequestHistoryByRequester, requesterPrincipalID)
+type ListRequestHistoryByRequesterFilteredRow struct {
+	ID                      uuid.UUID                       `json:"id"`
+	Family                  RequestFamily                   `json:"family"`
+	Kind                    string                          `json:"kind"`
+	RequesterPrincipalID    uuid.UUID                       `json:"requester_principal_id"`
+	ReviewerPrincipalID     *uuid.UUID                      `json:"reviewer_principal_id"`
+	Status                  RequestStatus                   `json:"status"`
+	ReviewedAt              pgtype.Timestamptz              `json:"reviewed_at"`
+	ExecutedAt              pgtype.Timestamptz              `json:"executed_at"`
+	CanceledAt              pgtype.Timestamptz              `json:"canceled_at"`
+	ExecutionError          *string                         `json:"execution_error"`
+	CreatedAt               pgtype.Timestamptz              `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz              `json:"updated_at"`
+	RequesterUsername       string                          `json:"requester_username"`
+	ReviewerUsername        string                          `json:"reviewer_username"`
+	InventoryItemID         *uuid.UUID                      `json:"inventory_item_id"`
+	PowerAction             NullInventoryRequestPowerAction `json:"power_action"`
+	SnapshotName            *string                         `json:"snapshot_name"`
+	InventoryItemKind       NullInventoryItemKind           `json:"inventory_item_kind"`
+	InventoryItemName       *string                         `json:"inventory_item_name"`
+	InventoryItemParentID   *uuid.UUID                      `json:"inventory_item_parent_id"`
+	InventoryItemParentName *string                         `json:"inventory_item_parent_name"`
+	InventoryItemPath       string                          `json:"inventory_item_path"`
+	InventoryVmNode         *string                         `json:"inventory_vm_node"`
+	InventoryVmVmid         *int32                          `json:"inventory_vm_vmid"`
+	InventoryVmIsTemplate   *bool                           `json:"inventory_vm_is_template"`
+}
+
+func (q *Queries) ListRequestHistoryByRequesterFiltered(ctx context.Context, arg ListRequestHistoryByRequesterFilteredParams) ([]ListRequestHistoryByRequesterFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listRequestHistoryByRequesterFiltered,
+		arg.RequesterPrincipalID,
+		arg.Search,
+		arg.RowOffset,
+		arg.Rows,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListRequestHistoryByRequesterRow
+	var items []ListRequestHistoryByRequesterFilteredRow
 	for rows.Next() {
-		var i ListRequestHistoryByRequesterRow
+		var i ListRequestHistoryByRequesterFilteredRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Family,
@@ -1065,9 +1469,67 @@ func (q *Queries) ListRequestHistoryByRequester(ctx context.Context, requesterPr
 			&i.InventoryItemKind,
 			&i.InventoryItemName,
 			&i.InventoryItemParentID,
+			&i.InventoryItemParentName,
+			&i.InventoryItemPath,
 			&i.InventoryVmNode,
 			&i.InventoryVmVmid,
 			&i.InventoryVmIsTemplate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleExecutingRequests = `-- name: ListStaleExecutingRequests :many
+SELECT
+    id,
+    family,
+    kind,
+    requester_principal_id,
+    reviewer_principal_id,
+    status,
+    reviewed_at,
+    execution_started_at,
+    executed_at,
+    canceled_at,
+    execution_error,
+    created_at,
+    updated_at
+FROM requests
+WHERE status = 'executing'
+  AND execution_started_at IS NOT NULL
+  AND execution_started_at < $1
+ORDER BY execution_started_at ASC, id ASC
+`
+
+func (q *Queries) ListStaleExecutingRequests(ctx context.Context, executionStartedAt pgtype.Timestamptz) ([]Requests, error) {
+	rows, err := q.db.Query(ctx, listStaleExecutingRequests, executionStartedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Requests
+	for rows.Next() {
+		var i Requests
+		if err := rows.Scan(
+			&i.ID,
+			&i.Family,
+			&i.Kind,
+			&i.RequesterPrincipalID,
+			&i.ReviewerPrincipalID,
+			&i.Status,
+			&i.ReviewedAt,
+			&i.ExecutionStartedAt,
+			&i.ExecutedAt,
+			&i.CanceledAt,
+			&i.ExecutionError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1103,7 +1565,7 @@ SET
     executed_at = now(),
     execution_error = NULL
 WHERE id = $1
-  AND status = 'approved'
+  AND status = 'executing'
 RETURNING
     id,
     family,
@@ -1112,6 +1574,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -1130,6 +1593,7 @@ func (q *Queries) MarkRequestExecuted(ctx context.Context, id uuid.UUID) (Reques
 		&i.ReviewerPrincipalID,
 		&i.Status,
 		&i.ReviewedAt,
+		&i.ExecutionStartedAt,
 		&i.ExecutedAt,
 		&i.CanceledAt,
 		&i.ExecutionError,
@@ -1146,7 +1610,7 @@ SET
     executed_at = now(),
     execution_error = $2
 WHERE id = $1
-  AND status = 'approved'
+  AND status = 'executing'
 RETURNING
     id,
     family,
@@ -1155,6 +1619,7 @@ RETURNING
     reviewer_principal_id,
     status,
     reviewed_at,
+    execution_started_at,
     executed_at,
     canceled_at,
     execution_error,
@@ -1178,6 +1643,7 @@ func (q *Queries) MarkRequestExecutionFailed(ctx context.Context, arg MarkReques
 		&i.ReviewerPrincipalID,
 		&i.Status,
 		&i.ReviewedAt,
+		&i.ExecutionStartedAt,
 		&i.ExecutedAt,
 		&i.CanceledAt,
 		&i.ExecutionError,

@@ -1,13 +1,14 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCpu,
-  IconDatabase,
-  IconDeviceDesktop,
-  IconNetwork,
-  IconPackages,
-  IconPower,
-  IconTemplate,
-  IconTopologyBus,
-} from "@tabler/icons-react"
+  ComputerIcon,
+  Copy02Icon,
+  CpuIcon,
+  Globe02Icon,
+  HardDriveIcon,
+  IdentityCardIcon,
+  PowerIcon,
+  RamMemoryIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Card,
   CardAction,
@@ -33,7 +34,7 @@ import type {
   ApiVmNetworkSummary,
   VmResources,
 } from "@/features/vms/types/vm-types"
-import type { ReactNode } from "@tabler/icons-react"
+import type { ReactNode } from "react"
 import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
 import {
   formatBytes,
@@ -171,7 +172,12 @@ function buildStats(
 
   return [
     {
-      icon: <IconPower className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={PowerIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Status",
       value: isTemplate ? "Template" : formatVmPowerStatus(powerStatus),
       textStyle: isTemplate
@@ -183,17 +189,32 @@ function buildStats(
       detail: getUptimeDetail(isTemplate, powerStatus, resources),
     },
     {
-      icon: <IconPackages className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={IdentityCardIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Node / VMID",
       value: `${vm.node} / ${vm.vmid}`,
     },
     {
-      icon: <IconDatabase className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={HardDriveIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Storage",
       value: vm.disk_gb != null ? `${vm.disk_gb} GB` : "—",
     },
     {
-      icon: <IconCpu className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={CpuIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "CPU",
       value:
         vm.cpu_count != null
@@ -206,7 +227,10 @@ function buildStats(
     },
     {
       icon: (
-        <IconTopologyBus className="size-5 rotate-180 text-muted-foreground" />
+        <HugeiconsIcon
+          icon={RamMemoryIcon}
+          className="size-5 text-muted-foreground"
+        />
       ),
       label: "Memory",
       value:
@@ -219,7 +243,12 @@ function buildStats(
       detail: memoryUsage ? memoryUsage.label : null,
     },
     {
-      icon: <IconNetwork className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={Globe02Icon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Networking",
       value: "",
       content: (
@@ -269,9 +298,15 @@ export function VmHeader({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {isTemplate ? (
-            <IconTemplate className="size-7 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={Copy02Icon}
+              className="size-7 text-muted-foreground"
+            />
           ) : (
-            <IconDeviceDesktop className="size-7 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={ComputerIcon}
+              className="size-7 text-muted-foreground"
+            />
           )}
           <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
             {node.name}

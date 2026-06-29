@@ -2,11 +2,12 @@ import { useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useSelector } from "@tanstack/react-store"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconDeviceDesktop,
-} from "@tabler/icons-react"
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  ComputerIcon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -235,7 +236,7 @@ export function CreateVmDialog({
     >
       <DialogContent className="sm:max-w-xl" initialFocus={false}>
         <AppDialogHeader
-          icon={IconDeviceDesktop}
+          icon={ComputerIcon}
           title="Create Virtual Machine"
           description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
         />
@@ -265,7 +266,10 @@ export function CreateVmDialog({
           <form action={() => {}}>
             <AppDialogScrollBody className="h-[40vh]">
               {initialOptionsError ? (
-                <InlineErrorAlert error={initialOptionsError} fallback="Failed to load VM creation options." />
+                <InlineErrorAlert
+                  error={initialOptionsError}
+                  fallback="Failed to load VM creation options."
+                />
               ) : isLoadingInitialOptions ? (
                 <DialogBodySkeleton rows={4} />
               ) : (
@@ -308,7 +312,7 @@ export function CreateVmDialog({
                       isLoadingInitialOptions || initialOptionsError !== null
                     }
                   >
-                    <IconArrowLeft />
+                    <HugeiconsIcon icon={ArrowLeft01Icon} />
                   </Button>
                 }
               />
@@ -342,7 +346,7 @@ export function CreateVmDialog({
                         isLoadingInitialOptions || initialOptionsError !== null
                       }
                     >
-                      <IconArrowRight />
+                      <HugeiconsIcon icon={ArrowRight01Icon} />
                     </Button>
                   }
                 />

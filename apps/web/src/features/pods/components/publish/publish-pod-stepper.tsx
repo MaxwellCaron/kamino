@@ -1,13 +1,12 @@
 import { useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconCubeSend,
-} from "@tabler/icons-react"
-import { Loader } from "@dot-loaders/react"
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  PackageCheck,
+} from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
@@ -24,6 +23,7 @@ import {
 } from "@workspace/ui/components/stepper"
 import { steps } from "./publish-pod-steps"
 import type { PublishPodStep } from "./publish-pod-steps"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type PublishPodStepperProps = {
@@ -68,7 +68,10 @@ export function PublishPodStepper({
               <StepperPrev
                 render={(props) => (
                   <Button variant="outline" {...props}>
-                    <IconArrowLeft data-icon="inline-start" />
+                    <HugeiconsIcon
+                      icon={ArrowLeft01Icon}
+                      data-icon="inline-start"
+                    />
                     Previous
                   </Button>
                 )}
@@ -81,7 +84,7 @@ export function PublishPodStepper({
                   type="button"
                   onClick={() => setPublishConfirmOpen(true)}
                 >
-                  <IconCubeSend data-icon="inline-start" />
+                  <HugeiconsIcon icon={PackageCheck} data-icon="inline-start" />
                   {submitLabel}
                 </Button>
               ) : (
@@ -89,7 +92,10 @@ export function PublishPodStepper({
                   render={(props) => (
                     <Button {...props}>
                       Next
-                      <IconArrowRight data-icon="inline-end" />
+                      <HugeiconsIcon
+                        icon={ArrowRight01Icon}
+                        data-icon="inline-end"
+                      />
                     </Button>
                   )}
                 />
@@ -102,28 +108,28 @@ export function PublishPodStepper({
       <AlertDialog
         open={publishConfirmOpen}
         onOpenChange={(open) => {
-          if (!open && !isSubmitting) {
+          if (!open) {
             setPublishConfirmOpen(false)
           }
         }}
       >
         <AppAlertDialogContent
           open={publishConfirmOpen}
-          icon={IconCubeSend}
+          icon={PackageCheck}
           title={confirmTitle}
           description={confirmDescription}
         >
           <AlertDialogFooter>
             <AlertDialogCancel
-              disabled={isSubmitting}
               onClick={() => setPublishConfirmOpen(false)}
             >
-              Cancel
+              Close
             </AlertDialogCancel>
-            <AlertDialogAction
+            <AppActionButton
               type="button"
               variant="default"
-              disabled={isSubmitting}
+              pending={isSubmitting}
+              pendingLabel={isPublishAction ? "Publishing..." : "Saving..."}
               onClick={async (event) => {
                 event.preventDefault()
                 setIsSubmitting(true)
@@ -137,11 +143,8 @@ export function PublishPodStepper({
                 }
               }}
             >
-              {isSubmitting ? (
-                <Loader loader="braille" renderer="svg-grid" />
-              ) : null}
               {submitLabel}
-            </AlertDialogAction>
+            </AppActionButton>
           </AlertDialogFooter>
         </AppAlertDialogContent>
       </AlertDialog>

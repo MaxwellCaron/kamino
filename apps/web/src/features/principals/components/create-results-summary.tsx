@@ -1,4 +1,5 @@
-import { IconAlertCircle } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { AlertCircleIcon } from "@hugeicons/core-free-icons"
 import {
   Alert,
   AlertDescription,
@@ -36,7 +37,7 @@ export function BulkCreateResultsSummary({
         <AppDialogScrollBody>
           {result.failures.map((failure) => (
             <Alert key={failure.name} variant="destructive">
-              <IconAlertCircle />
+              <HugeiconsIcon icon={AlertCircleIcon} />
               <AlertTitle>{failure.name}</AlertTitle>
               <AlertDescription>{failure.error}</AlertDescription>
             </Alert>

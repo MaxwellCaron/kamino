@@ -37,6 +37,13 @@ export type ApiRequestSummary = {
   inventory?: ApiRequestInventoryPayload | null
 }
 
+export type ApiRequestTablePage = {
+  items: Array<ApiRequestSummary>
+  total: number
+  page: number
+  rows: number
+}
+
 export type ApiRequestEvent = {
   id: number
   event_kind: string

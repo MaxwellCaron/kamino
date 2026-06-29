@@ -3,7 +3,8 @@
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
-import { IconCheck, IconSearch } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   Dialog,
@@ -82,7 +83,10 @@ function CommandInput({
           {...props}
         />
         <InputGroupAddon>
-          <IconSearch className="size-4 shrink-0 opacity-50" />
+          <HugeiconsIcon
+            icon={Search01Icon}
+            className="size-4 shrink-0 opacity-50"
+          />
         </InputGroupAddon>
       </InputGroup>
     </div>
@@ -162,7 +166,10 @@ function CommandItem({
       {...props}
     >
       {children}
-      <IconCheck className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+      <HugeiconsIcon
+        icon={Tick01Icon}
+        className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100"
+      />
     </CommandPrimitive.Item>
   )
 }

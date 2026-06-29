@@ -1,15 +1,15 @@
 import { useState } from "react"
 import { AnimatePresence, m } from "motion/react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconBox,
-  IconChevronUp,
-  IconCircle,
-  IconCircleCheckFilled,
-  IconClock,
-  IconLoader2,
-  IconX,
-  IconXFilled,
-} from "@tabler/icons-react"
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  ChevronUpIcon,
+  CircleIcon,
+  Clock01Icon,
+  Loading03Icon,
+  PackageIcon,
+} from "@hugeicons/core-free-icons"
 import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -90,7 +90,7 @@ export function CloneStatusItem({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                <IconXFilled size={24} />
+                <HugeiconsIcon icon={Cancel01Icon} size={24} />
               </m.div>
             ) : isCloning && !isFinished ? (
               <m.div
@@ -118,12 +118,13 @@ export function CloneStatusItem({
                 exit={{ opacity: 0 }}
               >
                 {isFinished ? (
-                  <IconCircleCheckFilled
+                  <HugeiconsIcon
+                    icon={CheckmarkCircle01Icon}
                     size={24}
                     className={COMPLETE_PROGRESS_COLORS.text}
                   />
                 ) : (
-                  <IconBox size={24} stroke={1.5} />
+                  <HugeiconsIcon icon={PackageIcon} size={24} />
                 )}
               </m.div>
             )}
@@ -142,7 +143,8 @@ export function CloneStatusItem({
                   >
                     <div className="flex-none">
                       {task.status === "completed" ? (
-                        <IconCircleCheckFilled
+                        <HugeiconsIcon
+                          icon={CheckmarkCircle01Icon}
                           className={cn(
                             "size-5 transition-colors duration-500",
                             colors.text
@@ -150,14 +152,16 @@ export function CloneStatusItem({
                         />
                       ) : task.status === "in-progress" ? (
                         isFailed ? (
-                          <IconX
+                          <HugeiconsIcon
+                            icon={Cancel01Icon}
                             className={cn(
                               "size-5",
                               FAILED_PROGRESS_COLORS.text
                             )}
                           />
                         ) : (
-                          <IconLoader2
+                          <HugeiconsIcon
+                            icon={Loading03Icon}
                             className={cn(
                               "size-5 animate-spin",
                               IDLE_PROGRESS_COLORS.text
@@ -165,7 +169,8 @@ export function CloneStatusItem({
                           />
                         )
                       ) : (
-                        <IconCircle
+                        <HugeiconsIcon
+                          icon={CircleIcon}
                           className={cn("size-5", IDLE_PROGRESS_COLORS.text)}
                         />
                       )}
@@ -214,7 +219,7 @@ export function CloneStatusItem({
           <ItemContent className="flex-none self-start pt-0.5 text-center">
             <ItemDescription>
               <Badge variant="outline" className="font-mono">
-                <IconClock />
+                <HugeiconsIcon icon={Clock01Icon} />
                 {elapsedTime}
               </Badge>
             </ItemDescription>
@@ -227,7 +232,8 @@ export function CloneStatusItem({
             className="text-muted-foreground"
             onClick={() => setShowDetails((current) => !current)}
           >
-            <IconChevronUp
+            <HugeiconsIcon
+              icon={ChevronUpIcon}
               data-icon="inline-start"
               className={cn("transition-transform duration-200", {
                 "rotate-180": !showDetails,

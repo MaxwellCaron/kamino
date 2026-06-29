@@ -1,6 +1,6 @@
 import { useRef } from "react"
 import { useForm } from "@tanstack/react-form"
-import { IconCamera } from "@tabler/icons-react"
+import { Camera01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -84,7 +84,7 @@ function DirectSnapshotDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
-      icon={IconCamera}
+      icon={Camera01Icon}
       title="Snapshot"
       description={`Take a point-in-time snapshot for ${formatVmReference(
         vmid,
@@ -202,8 +202,11 @@ function DirectSnapshotForm({
       <DialogFooter className="mt-6">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create"}
+            <AppDialogPrimaryButton
+              pending={isSubmitting}
+              pendingLabel="Creating..."
+            >
+              Create
             </AppDialogPrimaryButton>
           )}
         </form.Subscribe>
@@ -233,7 +236,7 @@ function RequestSnapshotDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
-      icon={IconCamera}
+      icon={Camera01Icon}
       title="Snapshot"
       description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
     >
@@ -304,8 +307,11 @@ function RequestSnapshotForm({
       <DialogFooter className="mt-6">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Submit"}
+            <AppDialogPrimaryButton
+              pending={isSubmitting}
+              pendingLabel="Submitting..."
+            >
+              Submit
             </AppDialogPrimaryButton>
           )}
         </form.Subscribe>

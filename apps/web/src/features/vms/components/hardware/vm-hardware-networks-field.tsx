@@ -1,4 +1,5 @@
-import { IconPlus, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
@@ -87,7 +88,7 @@ export function VmHardwareNetworksField({
                     aria-label="Remove network interface"
                     onClick={() => networksField.removeValue(index)}
                   >
-                    <IconTrash />
+                    <HugeiconsIcon icon={Delete01Icon} />
                   </Button>
                 ) : undefined
               }
@@ -251,7 +252,7 @@ export function VmHardwareNetworksField({
                 })
               }
             >
-              <IconPlus data-icon="inline-start" />
+              <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
               Add Network Interface
             </Button>
           </div>

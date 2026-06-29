@@ -1,14 +1,15 @@
 import React from "react"
 import { useQuery } from "@tanstack/react-query"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconChevronDown,
-  IconLock,
-  IconSearch,
-  IconSettings,
-  IconUser,
-  IconUsersGroup,
-  IconX,
-} from "@tabler/icons-react"
+  Cancel01Icon,
+  ChevronDownIcon,
+  LockedIcon,
+  Search01Icon,
+  Settings01Icon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
 
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -165,7 +166,10 @@ function InventoryPermissionsFormBody({
                         </span>
                         <Badge variant="outline">{section.items.length}</Badge>
                       </span>
-                      <IconChevronDown className="size-4 transition-transform group-data-panel-open/collapsible-trigger:rotate-180" />
+                      <HugeiconsIcon
+                        icon={ChevronDownIcon}
+                        className="size-4 transition-transform group-data-panel-open/collapsible-trigger:rotate-180"
+                      />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-1">
                       <ItemGroup>
@@ -173,9 +177,9 @@ function InventoryPermissionsFormBody({
                           <Item key={item.principalId} variant="muted">
                             <ItemMedia variant="icon">
                               {item.principalType === "group" ? (
-                                <IconUsersGroup />
+                                <HugeiconsIcon icon={UserGroupIcon} />
                               ) : (
-                                <IconUser />
+                                <HugeiconsIcon icon={UserIcon} />
                               )}
                             </ItemMedia>
                             <ItemContent>
@@ -206,7 +210,10 @@ function InventoryPermissionsFormBody({
                                   )
                                 }
                               >
-                                <IconSettings data-icon="inline-start" />
+                                <HugeiconsIcon
+                                  icon={Settings01Icon}
+                                  data-icon="inline-start"
+                                />
                                 Edit
                               </Button>
                               <Button
@@ -226,7 +233,7 @@ function InventoryPermissionsFormBody({
                                   )
                                 }}
                               >
-                                <IconX />
+                                <HugeiconsIcon icon={Cancel01Icon} />
                               </Button>
                             </ItemActions>
                           </Item>
@@ -241,7 +248,10 @@ function InventoryPermissionsFormBody({
             <Empty className="border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <IconSearch />
+                  <HugeiconsIcon
+                    icon={Search01Icon}
+                    className="text-muted-foreground"
+                  />
                 </EmptyMedia>
                 <EmptyTitle>No Matching Principals</EmptyTitle>
                 <EmptyDescription>
@@ -254,7 +264,10 @@ function InventoryPermissionsFormBody({
           <Empty className="border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconUsersGroup />
+                <HugeiconsIcon
+                  icon={UserGroupIcon}
+                  className="text-muted-foreground"
+                />
               </EmptyMedia>
               <EmptyTitle>No Principals Configured</EmptyTitle>
               <EmptyDescription>
@@ -330,7 +343,7 @@ export function InventoryPermissionsDialog(
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={open}
-        icon={IconLock}
+        icon={LockedIcon}
         title="Permissions"
         description={
           <>

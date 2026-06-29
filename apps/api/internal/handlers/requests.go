@@ -67,6 +67,13 @@ type requestDetailResponse struct {
 	Events []requestEventResponse `json:"events"`
 }
 
+type tableRequestResponse struct {
+	Items []requestSummaryResponse `json:"items"`
+	Total int32                    `json:"total"`
+	Page  int32                    `json:"page"`
+	Rows  int32                    `json:"rows"`
+}
+
 type requestInventoryPayload struct {
 	ItemID       *uuid.UUID `json:"item_id,omitempty"`
 	ItemName     *string    `json:"item_name,omitempty"`
@@ -102,31 +109,49 @@ func (h *RequestsHandler) List(c *gin.Context) {
 		scope = "pending"
 	}
 
+	page, rows, ok := parseTableParams(c)
+	if !ok {
+		return
+	}
+	search := strings.TrimSpace(c.Query("search"))
+	tableParams := requestqueue.TablePageParams{Page: page, Rows: rows, Search: search}
+
 	switch scope {
 	case "pending":
-		rows, err := h.Service.ListPendingRequests(c.Request.Context(), principalID)
+		result, err := h.Service.ListPendingRequestsTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list pending requests")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, pendingRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, pendingRequestFilteredRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
+		})
 	case "completed", "history":
-		rows, err := h.Service.ListCompletedRequests(c.Request.Context(), principalID)
+		result, err := h.Service.ListCompletedRequestsTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list completed requests")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, completedRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, completedRequestsForKindsFilteredRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
+		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
 	}
@@ -144,40 +169,71 @@ func (h *RequestsHandler) ListMine(c *gin.Context) {
 		scope = "history"
 	}
 
+	page, rows, ok := parseTableParams(c)
+	if !ok {
+		return
+	}
+	search := strings.TrimSpace(c.Query("search"))
+	tableParams := requestqueue.TablePageParams{Page: page, Rows: rows, Search: search}
+
 	switch scope {
 	case "pending":
-		rows, err := h.Service.ListPendingRequestsByRequester(
-			c.Request.Context(),
-			principalID,
-		)
+		result, err := h.Service.ListPendingRequestsByRequesterTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list own pending requests")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, requesterPendingRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, requesterPendingRequestFilteredRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
+		})
 	case "completed", "history":
-		rows, err := h.Service.ListRequestHistoryByRequester(
-			c.Request.Context(),
-			principalID,
-		)
+		result, err := h.Service.ListRequestHistoryByRequesterTable(c.Request.Context(), principalID, tableParams)
 		if err != nil {
 			writeRequestServiceError(c, err, "list own request history")
 			return
 		}
 
-		response := make([]requestSummaryResponse, 0, len(rows))
-		for _, row := range rows {
-			response = append(response, requesterHistoryRequestRowToResponse(row))
+		response := make([]requestSummaryResponse, 0, len(result.Items))
+		for _, row := range result.Items {
+			response = append(response, requesterHistoryFilteredRowToResponse(row))
 		}
-		c.JSON(http.StatusOK, response)
+
+		c.JSON(http.StatusOK, tableRequestResponse{
+			Items: response,
+			Total: result.Total,
+			Page:  result.Page,
+			Rows:  result.Rows,
+		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
 	}
+}
+
+// parseTableParams parses the shared page/rows query contract used by
+// request table endpoints. On invalid input it writes a 400 response and
+// returns ok=false.
+func parseTableParams(c *gin.Context) (page int32, rows int32, ok bool) {
+	page, ok = parsePageParam(c.Query("page"))
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
+		return 0, 0, false
+	}
+
+	rows, ok = parseRowsParam(c.Query("rows"))
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rows"})
+		return 0, 0, false
+	}
+
+	return page, rows, true
 }
 
 func (h *RequestsHandler) Get(c *gin.Context) {
@@ -466,7 +522,7 @@ func requestEventsToResponse(events []database.ListRequestEventsByRequestIDRow) 
 	return response
 }
 
-func pendingRequestRowToResponse(row database.ListPendingRequestsRow) requestSummaryResponse {
+func pendingRequestFilteredRowToResponse(row database.ListPendingRequestsFilteredRow) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
 		string(row.Family),
@@ -494,7 +550,7 @@ func pendingRequestRowToResponse(row database.ListPendingRequestsRow) requestSum
 	)
 }
 
-func completedRequestRowToResponse(row database.ListCompletedRequestsRow) requestSummaryResponse {
+func completedRequestsForKindsFilteredRowToResponse(row database.ListCompletedRequestsForKindsFilteredRow) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
 		string(row.Family),
@@ -522,8 +578,8 @@ func completedRequestRowToResponse(row database.ListCompletedRequestsRow) reques
 	)
 }
 
-func requesterPendingRequestRowToResponse(
-	row database.ListPendingRequestsByRequesterRow,
+func requesterPendingRequestFilteredRowToResponse(
+	row database.ListPendingRequestsByRequesterFilteredRow,
 ) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,
@@ -552,8 +608,8 @@ func requesterPendingRequestRowToResponse(
 	)
 }
 
-func requesterHistoryRequestRowToResponse(
-	row database.ListRequestHistoryByRequesterRow,
+func requesterHistoryFilteredRowToResponse(
+	row database.ListRequestHistoryByRequesterFilteredRow,
 ) requestSummaryResponse {
 	return buildRequestSummaryResponse(
 		row.ID,

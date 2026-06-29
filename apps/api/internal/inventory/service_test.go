@@ -233,10 +233,181 @@ func TestExpandVisibleInventoryRows_EmptyInput(t *testing.T) {
 		[]database.GetAllInventoryItemsRow{},
 	)
 	if result == nil {
-		// nil is acceptable per the plan
 		return
 	}
 	if len(result) != 0 {
 		t.Errorf("expected empty result, got %d rows", len(result))
+	}
+}
+
+// TestExpandVisibleInventoryRows_FolderWithNoVisibleDescendants: a folder that
+// is neither directly visible nor an ancestor of any visible item is omitted.
+func TestExpandVisibleInventoryRows_FolderWithNoVisibleDescendants(t *testing.T) {
+	rootID := uuid.New()
+	visibleFolderID := uuid.New()
+	unrelatedFolderID := uuid.New()
+
+	visibleFolder := folderRow(ptr(visibleFolderID), ptr(rootID), "visible-folder", 1, 0, false)
+
+	allRows := []database.GetAllInventoryItemsRow{
+		allFolderRow(ptr(rootID), nil, "root"),
+		allFolderRow(ptr(visibleFolderID), ptr(rootID), "visible-folder"),
+		allFolderRow(ptr(unrelatedFolderID), ptr(rootID), "unrelated-folder"),
+	}
+
+	result := expandVisibleInventoryRows(
+		[]database.GetVisibleInventoryItemsForPrincipalRow{visibleFolder},
+		allRows,
+	)
+
+	byID := make(map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow)
+	for _, r := range result {
+		byID[r.ID] = r
+	}
+
+	if _, ok := byID[unrelatedFolderID]; ok {
+		t.Error("unrelated folder should not appear in result")
+	}
+	if _, ok := byID[rootID]; !ok {
+		t.Error("root ancestor folder should be included")
+	}
+	if _, ok := byID[visibleFolderID]; !ok {
+		t.Error("directly visible folder should be included")
+	}
+}
+
+// TestExpandVisibleInventoryRows_VMPreservesAllFields: VM rows preserve
+// Node, Vmid, IsTemplate, Notes, CpuCount, MemoryMb, DiskGb through expansion.
+func TestExpandVisibleInventoryRows_VMPreservesAllFields(t *testing.T) {
+	parentID := uuid.New()
+	vmID := uuid.New()
+
+	node := "node1"
+	vmid := int32(100)
+	isTemplate := true
+	notes := "test notes"
+	cpuCount := int32(4)
+	memMB := int32(8192)
+	diskGB := 50.0
+
+	vm := database.GetVisibleInventoryItemsForPrincipalRow{
+		ID:                 vmID,
+		ParentID:           ptr(parentID),
+		Kind:               database.InventoryItemKindVm,
+		Name:               "my-vm",
+		InheritPermissions: false,
+		AllowedMask:        1,
+		DeniedMask:         0,
+		Node:               &node,
+		Vmid:               &vmid,
+		IsTemplate:         &isTemplate,
+		Notes:              &notes,
+		CpuCount:           &cpuCount,
+		MemoryMb:           &memMB,
+		DiskGb:             &diskGB,
+	}
+
+	allRows := []database.GetAllInventoryItemsRow{
+		allFolderRow(ptr(parentID), nil, "parent-folder"),
+		{
+			ID:         vmID,
+			ParentID:   ptr(parentID),
+			Kind:       database.InventoryItemKindVm,
+			Name:       "my-vm",
+			Node:       &node,
+			Vmid:       &vmid,
+			IsTemplate: &isTemplate,
+			Notes:      &notes,
+			CpuCount:   &cpuCount,
+			MemoryMb:   &memMB,
+			DiskGb:     &diskGB,
+		},
+	}
+
+	result := expandVisibleInventoryRows(
+		[]database.GetVisibleInventoryItemsForPrincipalRow{vm},
+		allRows,
+	)
+
+	var resultVM *database.GetVisibleInventoryItemsForPrincipalRow
+	for i, r := range result {
+		if r.ID == vmID {
+			resultVM = &result[i]
+			break
+		}
+	}
+
+	if resultVM == nil {
+		t.Fatal("VM not found in result")
+	}
+	if resultVM.Node == nil || *resultVM.Node != node {
+		t.Errorf("Node = %v, want %v", resultVM.Node, node)
+	}
+	if resultVM.Vmid == nil || *resultVM.Vmid != vmid {
+		t.Errorf("Vmid = %v, want %v", resultVM.Vmid, vmid)
+	}
+	if resultVM.IsTemplate == nil || *resultVM.IsTemplate != isTemplate {
+		t.Errorf("IsTemplate = %v, want %v", resultVM.IsTemplate, isTemplate)
+	}
+	if resultVM.Notes == nil || *resultVM.Notes != notes {
+		t.Errorf("Notes = %v, want %v", resultVM.Notes, notes)
+	}
+	if resultVM.CpuCount == nil || *resultVM.CpuCount != cpuCount {
+		t.Errorf("CpuCount = %v, want %v", resultVM.CpuCount, cpuCount)
+	}
+	if resultVM.MemoryMb == nil || *resultVM.MemoryMb != memMB {
+		t.Errorf("MemoryMb = %v, want %v", resultVM.MemoryMb, memMB)
+	}
+	if resultVM.DiskGb == nil || *resultVM.DiskGb != diskGB {
+		t.Errorf("DiskGb = %v, want %v", resultVM.DiskGb, diskGB)
+	}
+}
+
+// TestExpandVisibleInventoryRows_AncestorPreservesVmLimits: synthesized ancestor
+// folders carry EffectiveVmLimit and VmCount from allRows.
+func TestExpandVisibleInventoryRows_AncestorPreservesVmLimits(t *testing.T) {
+	rootID := uuid.New()
+	parentID := uuid.New()
+	vmID := uuid.New()
+
+	vm := vmRow(ptr(vmID), ptr(parentID), "my-vm", 1, 0, false)
+
+	limit := int32(10)
+	allRows := []database.GetAllInventoryItemsRow{
+		allFolderRow(ptr(rootID), nil, "root"),
+		{
+			ID:               parentID,
+			ParentID:         ptr(rootID),
+			Kind:             database.InventoryItemKindFolder,
+			Name:             "parent",
+			DirectVmLimit:    &limit,
+			EffectiveVmLimit: 10,
+			VmCount:          3,
+		},
+		allVMRow(ptr(vmID), ptr(parentID), "my-vm"),
+	}
+
+	result := expandVisibleInventoryRows(
+		[]database.GetVisibleInventoryItemsForPrincipalRow{vm},
+		allRows,
+	)
+
+	byID := make(map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow)
+	for _, r := range result {
+		byID[r.ID] = r
+	}
+
+	parent, ok := byID[parentID]
+	if !ok {
+		t.Fatal("parent not found in result")
+	}
+	if parent.EffectiveVmLimit != 10 {
+		t.Errorf("ancestor EffectiveVmLimit = %d, want 10", parent.EffectiveVmLimit)
+	}
+	if parent.VmCount != 3 {
+		t.Errorf("ancestor VmCount = %d, want 3", parent.VmCount)
+	}
+	if parent.DirectVmLimit == nil || *parent.DirectVmLimit != limit {
+		t.Errorf("ancestor DirectVmLimit = %v, want %v", parent.DirectVmLimit, limit)
 	}
 }

@@ -11,15 +11,16 @@ import {
   EmptyDescription,
   EmptyHeader,
 } from "@workspace/ui/components/empty"
-import { IconDeviceDesktop } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ComputerIcon } from "@hugeicons/core-free-icons"
 import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
 import { VmListItem } from "@/features/vms/components/vm-list-item"
 
-function NetworkValue({ label, value }: { label: string; value: string }) {
+function NetworkColumn({ label, subnet }: { label: string; subnet: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 text-center">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span className="font-mono text-sm break-all tabular-nums">{value}</span>
+      <span className="font-mono text-sm break-all tabular-nums">{subnet}</span>
     </div>
   )
 }
@@ -27,11 +28,9 @@ function NetworkValue({ label, value }: { label: string; value: string }) {
 function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
   return (
     <div className="grid gap-3 rounded-4xl bg-muted px-6 py-4 sm:grid-cols-3">
-      <NetworkValue label="VNet" value={network.vnet} />
-      <NetworkValue label="External" value={network.external_subnet} />
-      {network.internal_subnet ? (
-        <NetworkValue label="Internal" value={network.internal_subnet} />
-      ) : null}
+      <NetworkColumn label="VNet" subnet={network.vnet} />
+      <NetworkColumn label="External" subnet={network.external_subnet} />
+      <NetworkColumn label="Internal" subnet={network.internal_subnet} />
     </div>
   )
 }
@@ -47,7 +46,10 @@ export function PodVms({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconDeviceDesktop className="text-muted-foreground" />
+          <HugeiconsIcon
+            icon={ComputerIcon}
+            className="text-muted-foreground"
+          />
           <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
             Virtual Machines
           </span>

@@ -23,7 +23,6 @@ interface SelectionState {
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
-  const [query, setQuery] = useState("")
   const [selectionState, setSelectionState] = useState<SelectionState | null>(
     null
   )
@@ -37,14 +36,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
   const moveItems = useMoveInventoryItems()
-  const searchQuery = query.trim()
-  const isSearchActive = searchQuery.length >= 2
-
-  const filteredApiTree = useMemo(
-    () => (isSearchActive ? filterTree(apiTree, searchQuery) : apiTree),
-    [apiTree, isSearchActive, searchQuery]
-  )
-  const resultCount = isSearchActive ? countLeaves(filteredApiTree) : null
 
   const fullTree = useMemo(() => flattenApiTree(apiTree), [apiTree])
 
@@ -53,10 +44,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     children: treeChildren,
     folderIds,
     parentIds,
-  } = useMemo(
-    () => (isSearchActive ? flattenApiTree(filteredApiTree) : fullTree),
-    [filteredApiTree, fullTree, isSearchActive]
-  )
+  } = fullTree
 
   const selectedItemIds = useMemo(() => {
     const itemIdsForActiveRoute =
@@ -153,7 +141,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   const handleFavoritePrimaryAction = useCallback(
     (itemId: string) => {
-      setQuery("")
       void revealItem(itemId)
       handlePrimaryAction(itemId)
     },
@@ -163,7 +150,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const lastAutoRevealedItemIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!activeItemId) {
+    if (!activeItemId || !items.has(activeItemId)) {
       lastAutoRevealedItemIdRef.current = null
       return
     }
@@ -173,26 +160,15 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    if (!items.has(activeItemId)) {
-      if (isSearchActive) {
-        lastAutoRevealedItemIdRef.current = null
-        setQuery("")
-      }
-      return
-    }
-
     if (lastAutoRevealedItemIdRef.current === activeItemId) {
       return
     }
 
     lastAutoRevealedItemIdRef.current = activeItemId
     void revealItem(activeItemId)
-  }, [activeItemId, fullTree.items, isSearchActive, items, revealItem])
+  }, [activeItemId, fullTree.items, items, revealItem])
 
   const value: InventoryTreeContextValue = {
-    query,
-    setQuery,
-    resultCount,
     tree,
     expandAll,
     collapseAll,
@@ -252,49 +228,6 @@ function flattenApiTree(roots: Array<ApiTreeNode>): FlatTree {
 
   return { items, children, folderIds, parentIds }
 }
-
-function filterTree(
-  nodes: Array<ApiTreeNode>,
-  query: string
-): Array<ApiTreeNode> {
-  if (!query) return nodes
-
-  const normalizedQuery = query.toLowerCase()
-  const result: Array<ApiTreeNode> = []
-
-  for (const node of nodes) {
-    if (node.kind === "folder") {
-      const filteredChildren = filterTree(node.children ?? [], query)
-      if (filteredChildren.length > 0) {
-        result.push({ ...node, children: filteredChildren })
-      } else if (node.name.toLowerCase().includes(normalizedQuery)) {
-        result.push(node)
-      }
-      continue
-    }
-
-    if (node.name.toLowerCase().includes(normalizedQuery)) {
-      result.push(node)
-    }
-  }
-
-  return result
-}
-
-function countLeaves(nodes: Array<ApiTreeNode>): number {
-  let count = 0
-
-  for (const node of nodes) {
-    if (node.kind === "folder") {
-      count += countLeaves(node.children ?? [])
-    } else {
-      count++
-    }
-  }
-
-  return count
-}
-
 function buildVmIdMap(items: Map<string, ApiTreeNode>): Map<string, number> {
   const map = new Map<string, number>()
 

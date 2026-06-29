@@ -6,19 +6,23 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { IconCubeOff } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { BrowsePodsCard } from "./browse-pods-card"
 import {
   BrowsePodsGridSkeleton,
   browsePodsGridClassName,
 } from "./browse-pods-skeleton"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { GrainientBackground } from "@/components/grainient-background"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
-  const { data: catalog, isLoading: isCatalogLoading } = useQuery(
-    podCatalogQueryOptions
-  )
+  const {
+    data: catalog,
+    isLoading: isCatalogLoading,
+    error,
+  } = useQuery(podCatalogQueryOptions)
   const visiblePods = catalog ?? []
 
   return (
@@ -43,11 +47,21 @@ export function BrowsePodsPage() {
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
         {isCatalogLoading ? (
           <BrowsePodsGridSkeleton />
+        ) : error ? (
+          <InlineErrorAlert
+            error={error}
+            fallback="Failed to load pods."
+            title="Pods Error"
+            className="mx-auto max-w-lg"
+          />
         ) : visiblePods.length === 0 ? (
           <Empty className="min-h-[45vh] border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <IconCubeOff />
+                <HugeiconsIcon
+                  icon={PackageRemoveIcon}
+                  className="text-muted-foreground"
+                />
               </EmptyMedia>
               <EmptyTitle>No Pods</EmptyTitle>
               <EmptyDescription>

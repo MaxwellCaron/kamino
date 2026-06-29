@@ -6,7 +6,8 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
-import { IconCubePlus } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PackageAddIcon } from "@hugeicons/core-free-icons"
 import { CreatePodFormSection } from "./create-pod-form-section"
 import { useCreatePodForm } from "./create-pod-form"
 import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
@@ -116,8 +117,9 @@ export function CreatePodPage() {
   const createPodMutation = useMutation({
     mutationFn: createPod,
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({
+      await queryClient.refetchQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
+        type: "all",
       })
       dispatch({ type: "creationSucceeded", result })
     },
@@ -267,7 +269,10 @@ export function CreatePodPage() {
                   className="w-full"
                   size="lg"
                 >
-                  <IconCubePlus data-icon="inline-start" />
+                  <HugeiconsIcon
+                    icon={PackageAddIcon}
+                    data-icon="inline-start"
+                  />
                   Create Pod
                 </AppActionButton>
               )}
@@ -285,7 +290,7 @@ export function CreatePodPage() {
         >
           <AppAlertDialogContent
             open={state.createConfirmOpen}
-            icon={IconCubePlus}
+            icon={PackageAddIcon}
             title="Create Pod?"
             description="This will create the Pod inventory folder, assign its permissions, and begin preparing the router and selected virtual machine templates."
           >
@@ -295,7 +300,7 @@ export function CreatePodPage() {
                   dispatch({ type: "confirmOpenChanged", open: false })
                 }
               >
-                Cancel
+                Close
               </AlertDialogCancel>
               <AlertDialogAction
                 variant="default"

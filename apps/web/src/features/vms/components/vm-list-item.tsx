@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { IconClock, IconExternalLink } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Clock01Icon, ExternalLinkIcon } from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -66,7 +67,7 @@ export function VmListItem({
                 <>
                   <span aria-hidden="true">•</span>
                   <span className="inline-flex items-center gap-1 tabular-nums">
-                    <IconClock className="size-3.5" />
+                    <HugeiconsIcon icon={Clock01Icon} className="size-3.5" />
                     {formatUptime(uptime)}
                   </span>
                 </>
@@ -74,7 +75,10 @@ export function VmListItem({
             </ItemDescription>
           </ItemContent>
           <ItemActions>
-            <IconExternalLink className="size-4 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={ExternalLinkIcon}
+              className="size-4 text-muted-foreground"
+            />
           </ItemActions>
         </Link>
       }

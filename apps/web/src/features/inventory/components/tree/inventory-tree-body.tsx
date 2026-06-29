@@ -1,6 +1,7 @@
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
 import { InventoryTreeContent } from "./tree-content"
 import { useInventoryTreeContext } from "./inventory-tree-context"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { SidebarListSkeleton } from "@/components/loading-skeletons"
 
 export function InventoryTreeBody() {
@@ -9,7 +10,11 @@ export function InventoryTreeBody() {
 
   if (error) {
     return (
-      <div className="px-4 py-2 text-sm text-destructive">{error.message}</div>
+      <InlineErrorAlert
+        error={error}
+        fallback="Failed to load inventory tree."
+        className="mx-4 mt-2"
+      />
     )
   }
 

@@ -5,7 +5,8 @@ import {
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
 import { Separator } from "@workspace/ui/components/separator"
-import { IconInfoCircle } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InformationCircleIcon } from "@hugeicons/core-free-icons"
 import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
 
 type ClonedPodStatusConfig = {
@@ -75,7 +76,7 @@ export function ClonedPodStatusBadge({ status }: { status: ClonedPodStatus }) {
         })}
         <Separator />
         <div className="flex items-center gap-1">
-          <IconInfoCircle className="size-4" />
+          <HugeiconsIcon icon={InformationCircleIcon} className="size-4" />
           <p className="text-sm">
             Some virtual machines may not be visible to you.
           </p>

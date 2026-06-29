@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
@@ -20,6 +20,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
@@ -57,10 +58,9 @@ type Config struct {
 	PodDevNetworkMax                  int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"254"`
 	PodRouterWait                     string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
 	PodRouterWANIPBase                string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
-	PodRouterLANIPBase                string `envconfig:"POD_ROUTER_INTERNAL_IP_BASE" default:"10.128."`
+	PodRouterInternalSubnet           string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"10.128.1.0/24"`
 	PodRouterCloudInitStorage         string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
 	PodRouterCloudInitUserFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
-	PodRouterCloudInitMetaFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN" default:"kamino-router-{network}-meta-data.yaml"`
 	PodRouterCloudInitNetworkFile     string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
 }
 
@@ -101,80 +101,6 @@ func parseOptionalUUID(value string) (uuid.UUID, error) {
 	}
 
 	return id, nil
-}
-
-func normalizeDottedPrefix(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	trimmed = strings.TrimSuffix(trimmed, ".")
-	segments := strings.Split(trimmed, ".")
-	if len(segments) == 0 {
-		return "", fmt.Errorf("must be a dotted numeric prefix")
-	}
-
-	for _, segment := range segments {
-		if strings.TrimSpace(segment) == "" {
-			return "", fmt.Errorf("must be a dotted numeric prefix")
-		}
-		octet, err := strconv.Atoi(segment)
-		if err != nil || octet < 0 || octet > 255 {
-			return "", fmt.Errorf("must be a dotted numeric prefix")
-		}
-	}
-
-	return strings.Join(segments, ".") + ".", nil
-}
-
-func validateCloudInitSnippetFilename(value string) error {
-	if value == "" {
-		return fmt.Errorf("must not be empty")
-	}
-	if strings.Contains(value, "/") || strings.Contains(value, "\\") {
-		return fmt.Errorf("must not contain path separators")
-	}
-	if strings.Contains(value, "..") {
-		return fmt.Errorf("must not contain '..'")
-	}
-	if strings.IndexFunc(value, unicode.IsSpace) >= 0 {
-		return fmt.Errorf("must not contain whitespace")
-	}
-	return nil
-}
-
-func normalizeCloudInitStorage(value string) string {
-	return strings.TrimSpace(value)
-}
-
-func normalizeCloudInitFilePattern(envName, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("%s must not be empty", envName)
-	}
-	if strings.Count(trimmed, "{network}") != 1 {
-		return "", fmt.Errorf("%s must contain {network} exactly once", envName)
-	}
-	filename := strings.Replace(trimmed, "{network}", "24", 1)
-	if err := validateCloudInitSnippetFilename(filename); err != nil {
-		return "", fmt.Errorf("%s %w", envName, err)
-	}
-	return trimmed, nil
-}
-
-func normalizeCloudInitFileName(envName, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("%s must not be empty", envName)
-	}
-	if strings.Contains(trimmed, "{network}") {
-		return "", fmt.Errorf("%s must not contain {network}", envName)
-	}
-	if err := validateCloudInitSnippetFilename(trimmed); err != nil {
-		return "", fmt.Errorf("%s %w", envName, err)
-	}
-	return trimmed, nil
 }
 
 func validatePodVNetPrefix(prefix string, maxNetworkNumber int32) error {
@@ -231,39 +157,29 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAIT_TIMEOUT must be positive")
 	}
 
-	wanIPBase, err := normalizeDottedPrefix(config.PodRouterWANIPBase)
+	wanIPBase, err := routerconfig.NormalizeDottedPrefix(config.PodRouterWANIPBase)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_WAN_IP_BASE: %w", err)
 	}
 	if wanIPBase == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_WAN_IP_BASE must not be empty")
 	}
-	internalIPBase, err := normalizeDottedPrefix(config.PodRouterLANIPBase)
+	internalSubnet, err := routerconfig.ParseIPv4Subnet24(config.PodRouterInternalSubnet)
 	if err != nil {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_IP_BASE: %w", err)
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("invalid POD_ROUTER_INTERNAL_SUBNET: %w", err)
 	}
-	if internalIPBase == "" {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_INTERNAL_IP_BASE must not be empty")
-	}
-	cloudInitStorage := normalizeCloudInitStorage(config.PodRouterCloudInitStorage)
+	cloudInitStorage := routerconfig.NormalizeCloudInitStorage(config.PodRouterCloudInitStorage)
 	if cloudInitStorage == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_ROUTER_CLOUD_INIT_STORAGE must not be empty")
 	}
-	cloudInitUserFilePattern, err := normalizeCloudInitFilePattern(
+	cloudInitUserFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
 		"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN",
 		config.PodRouterCloudInitUserFilePattern,
 	)
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, err
 	}
-	cloudInitMetaFilePattern, err := normalizeCloudInitFilePattern(
-		"POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN",
-		config.PodRouterCloudInitMetaFilePattern,
-	)
-	if err != nil {
-		return handlers.PodRouterCloneConfig{}, err
-	}
-	cloudInitNetworkFile, err := normalizeCloudInitFileName(
+	cloudInitNetworkFile, err := routerconfig.NormalizeCloudInitFileName(
 		"POD_ROUTER_CLOUD_INIT_NETWORK_FILE",
 		config.PodRouterCloudInitNetworkFile,
 	)
@@ -279,15 +195,14 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		DevNetworkMax:            config.PodDevNetworkMax,
 		RouterWaitTimeout:        waitTimeout,
 		WANIPBase:                wanIPBase,
-		InternalIPBase:           internalIPBase,
+		InternalSubnet:           internalSubnet,
 		CloudInitStorage:         cloudInitStorage,
 		CloudInitUserFilePattern: cloudInitUserFilePattern,
-		CloudInitMetaFilePattern: cloudInitMetaFilePattern,
 		CloudInitNetworkFile:     cloudInitNetworkFile,
 	}
 
 	log.Printf(
-		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d wait_timeout=%s cloud_init_storage=%q",
+		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
 		routerConfig.VNetPrefix,
 		routerConfig.NetworkMin,
 		routerConfig.NetworkMax,
@@ -295,6 +210,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		routerConfig.DevNetworkMax,
 		routerConfig.RouterWaitTimeout,
 		routerConfig.CloudInitStorage,
+		routerConfig.InternalSubnet,
 	)
 
 	return routerConfig, nil
@@ -523,6 +439,8 @@ func main() {
 		inventoryService,
 		vmStatusNotifier,
 	)
+	vmActionClaims := vmactions.NewClaims(server.DBPool)
+	auditService := audit.NewService(server.DBPool)
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Importer: server.ProxmoxImport,
@@ -530,6 +448,8 @@ func main() {
 		Notifier: vmStatusNotifier,
 		Authz:    authzService,
 		Actions:  vmActionExecutor,
+		Claims:   vmActionClaims,
+		Audit:    auditService,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:       server.ProxmoxClient,
@@ -551,6 +471,7 @@ func main() {
 		Actions:              vmActionExecutor,
 		RouterTemplateItemID: routerTemplateItemID,
 		RouterCloneConfig:    routerCloneConfig,
+		Audit:                auditService,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
@@ -560,6 +481,10 @@ func main() {
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Authz:    authzService,
+	}
+	auditHandler := &handlers.AuditHandler{
+		Audit: auditService,
+		Authz: authzService,
 	}
 	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
 	requestService := requestqueue.NewService(
@@ -571,6 +496,13 @@ func main() {
 		requestsNotifier,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
+
+	if fenced, err := requestService.FailStaleExecutingRequests(context.Background()); err != nil {
+		log.Printf("Stale executing request recovery failed: %v", err)
+	} else if len(fenced) > 0 {
+		log.Printf("Recovered %d stranded executing request(s): %v", len(fenced), fenced)
+	}
+
 	eventsHandler := &handlers.EventsHandler{
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,
@@ -622,6 +554,7 @@ func main() {
 		requestsHandler,
 		eventsHandler,
 		proxmoxSyncHandler,
+		auditHandler,
 	)
 
 	r.Run(config.Port)

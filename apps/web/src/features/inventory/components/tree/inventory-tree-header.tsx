@@ -1,4 +1,5 @@
-import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronDownIcon, ChevronUpIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 import {
@@ -15,21 +16,21 @@ export function InventoryTreeHeader() {
 
   return (
     <div>
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex items-center justify-between">
         <SidebarGroupLabel className="text-xl font-semibold tracking-tight text-foreground">
           Inventory
         </SidebarGroupLabel>
-        <div className="flex">
+        <div className="flex gap-1">
           <Tooltip>
             <TooltipTrigger
               render={
                 <Button
-                  size="icon-sm"
                   variant="ghost"
+                  size="icon"
                   onClick={expandAll}
                   disabled={isLoading}
                 >
-                  <IconChevronDown className="size-3.5" />
+                  <HugeiconsIcon icon={ChevronDownIcon} />
                 </Button>
               }
             />
@@ -41,12 +42,12 @@ export function InventoryTreeHeader() {
             <TooltipTrigger
               render={
                 <Button
-                  size="icon-sm"
                   variant="ghost"
+                  size="icon"
                   onClick={collapseAll}
                   disabled={isLoading}
                 >
-                  <IconChevronUp className="size-3.5" />
+                  <HugeiconsIcon icon={ChevronUpIcon} />
                 </Button>
               }
             />

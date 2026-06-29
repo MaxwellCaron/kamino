@@ -27,12 +27,18 @@ jobs:
 
       - name: test
         working-directory: apps/api
-        run: go test ./...
+        run: go test -race ./...
+
+      - name: sqlc-drift-check
+        working-directory: apps/api
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          sqlc generate
+          git diff --exit-code -- database/
 
       - name: govulncheck
         working-directory: apps/api
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
-        continue-on-error: true
 
   web:
     name: Web
@@ -60,6 +66,9 @@ jobs:
 
       - name: lint
         run: bun run lint
+
+      - name: test
+        run: bun --filter web test
 
       - name: react-doctor
         uses: millionco/react-doctor@v2

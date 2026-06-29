@@ -1,4 +1,5 @@
-import { IconCamera } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Camera01Icon } from "@hugeicons/core-free-icons"
 import { AnimatePresence, m } from "motion/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -9,12 +10,14 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiSnapshot } from "@/features/vms/types/vm-types"
 import type { SnapshotTablePermissions } from "./snapshot-table"
 import type { UseMutationResult } from "@tanstack/react-query"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { loadingTransition } from "@/components/loading-transition"
 
 type SnapshotTableBodyProps = {
   isLoading: boolean
   hasBeenLoading: boolean
   filtered: Array<ApiSnapshot>
+  error: Error | null
   itemId: string
   permissions: SnapshotTablePermissions
   onOpenConfirm: (config: ConfirmConfig) => void
@@ -48,6 +51,7 @@ export function SnapshotTableBody({
   isLoading,
   hasBeenLoading,
   filtered,
+  error,
   itemId,
   permissions,
   onOpenConfirm,
@@ -97,6 +101,15 @@ export function SnapshotTableBody({
               </TableCell>
             </TableRow>
           ))
+        ) : error ? (
+          <TableRow>
+            <TableCell colSpan={4} className="h-24">
+              <InlineErrorAlert
+                error={error}
+                fallback="Failed to load snapshots."
+              />
+            </TableCell>
+          </TableRow>
         ) : filtered.length === 0 ? (
           <TableRow>
             <TableCell colSpan={4} className="h-24 text-center">
@@ -108,8 +121,8 @@ export function SnapshotTableBody({
             <TableRow key={snapshot.name} className="group cursor-pointer">
               <TableCell className="pl-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
-                    <IconCamera className="size-5" />
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <HugeiconsIcon icon={Camera01Icon} className="size-5" />
                   </div>
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <div className="truncate font-medium">{snapshot.name}</div>

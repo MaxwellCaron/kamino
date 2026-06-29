@@ -1,32 +1,26 @@
 import { useCallback } from "react"
 import {
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconPower,
-  IconRefresh,
-} from "@tabler/icons-react"
-import { toast } from "sonner"
+  PlayIcon,
+  PowerIcon,
+  Refresh03Icon,
+  StopIcon,
+} from "@hugeicons/core-free-icons"
 import {
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "./use-vm-actions"
-import type { ComponentType } from "react"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 import type { ApiBulkVmMutationResponse } from "../types/vm-types"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { getInventoryPermissionMode } from "@/features/inventory/utils/inventory-capabilities"
-import {
-  formatToastError,
-  formatVmReference,
-} from "@/features/shared/utils/format"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 export type VmPowerAction = "start" | "shutdown" | "reboot" | "stop"
 export type VmPowerMode = "direct" | "request"
 
-type PowerIcon = ComponentType<{
-  className?: string
-  "data-icon"?: "inline-start" | "inline-end"
-}>
+type PowerIcon = IconSvgElement
 
 type VmPowerActionDefinition = {
   action: VmPowerAction
@@ -58,7 +52,7 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
   {
     action: "start",
     label: "Start",
-    icon: IconPlayerPlay,
+    icon: PlayIcon,
     dialogVariant: "default",
     directDescription: (vmIdentifier) => `This will power on ${vmIdentifier}.`,
     requestDescription: (vmIdentifier) =>
@@ -70,7 +64,7 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
   {
     action: "shutdown",
     label: "Shutdown",
-    icon: IconPower,
+    icon: PowerIcon,
     dialogVariant: "destructive",
     directDescription: (vmIdentifier) =>
       `This will send a shutdown signal to ${vmIdentifier}.`,
@@ -83,7 +77,7 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
   {
     action: "reboot",
     label: "Reboot",
-    icon: IconRefresh,
+    icon: Refresh03Icon,
     dialogVariant: "destructive",
     directDescription: (vmIdentifier) =>
       `This will send a reboot signal to ${vmIdentifier}.`,
@@ -96,7 +90,7 @@ const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
   {
     action: "stop",
     label: "Stop",
-    icon: IconPlayerStop,
+    icon: StopIcon,
     dialogVariant: "destructive",
     directDescription: (vmIdentifier) =>
       `This will immediately stop ${vmIdentifier}.`,
@@ -173,16 +167,17 @@ function toastVmPowerAction(
   const definition = getVmPowerActionDefinition(action)
   const vmIdentifier = formatVmReference(vmid, vmName)
 
-  return toast.promise(promise, {
-    loading:
+  showSingleMutationToast({
+    title:
       powerMode === "direct"
-        ? `${definition.directLoading} ${vmIdentifier}…`
-        : `Submitting ${definition.requestLoading} request for ${vmIdentifier}…`,
-    success:
+        ? `${definition.directLoading} ${vmIdentifier}`
+        : `Submitting ${definition.requestLoading} request for ${vmIdentifier}`,
+    name: vmIdentifier,
+    promise,
+    successDescription:
       powerMode === "direct"
-        ? `${vmIdentifier} ${definition.directSuccess}`
-        : `${definition.label} request for ${vmIdentifier} submitted`,
-    error: formatToastError,
+        ? definition.directSuccess
+        : `${definition.label} request submitted`,
   })
 }
 

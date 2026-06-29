@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -16,6 +18,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 func parseIntParam(c *gin.Context, name string) (int, error) {
@@ -26,14 +29,78 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 	return val, err
 }
 
+// vmProxmox is the seam VMHandler uses to talk to Proxmox
+type vmProxmox interface {
+	GetVMIdentity(ctx context.Context, node string, vmid int) (*proxmox.VMIdentity, error)
+	GetVMs(ctx context.Context) ([]proxmox.VM, error)
+	RenameVM(ctx context.Context, node string, vmid int, name string) error
+	UpdateVMNotes(ctx context.Context, node string, vmid int, notes string) error
+	GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error)
+	UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error
+	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
+	GetNextVMID(ctx context.Context) (int, error)
+	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
+	UsedVMIDs(ctx context.Context) (map[int]struct{}, error)
+	QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error)
+	CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error
+	SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error
+	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
+	GetSnapshots(ctx context.Context, node string, vmid int) ([]proxmox.Snapshot, error)
+	DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error
+	ConvertToTemplate(ctx context.Context, node string, vmid int) error
+	DeleteVM(ctx context.Context, node string, vmid int) error
+}
+
+// vmAuthz is the seam VMHandler uses to talk to the authorization service
+type vmAuthz interface {
+	Require(ctx context.Context, principalID uuid.UUID, itemID uuid.UUID, required authorization.Mask) error
+	GetVMRecord(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
+	GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
+	ResolveVMItems(ctx context.Context, principalID uuid.UUID, itemIDs []uuid.UUID, required authorization.Mask, lock bool) (map[uuid.UUID]authorization.VMItemAccess, error)
+	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
+}
+
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX       *proxmox.Client
+	PX       vmProxmox
 	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service
 	Notifier *vmstatus.Notifier
-	Authz    *authorization.Service
+	Authz    vmAuthz
 	Actions  *vmactions.Executor
+	Claims   *vmactions.Claims
+	Audit    *audit.Service
+}
+
+// writeActionInProgress writes a deterministic 409 Conflict response when a
+// VM action claim is already held for the target item.
+func writeActionInProgress(c *gin.Context) {
+	c.JSON(http.StatusConflict, gin.H{"error": "another action is already in progress for this VM"})
+}
+
+// runClaimedVMAction claims itemID for the given action name before running
+func (h *VMHandler) runClaimedVMAction(
+	c *gin.Context,
+	itemID uuid.UUID,
+	action string,
+	principalID uuid.UUID,
+	fn func() bool,
+) bool {
+	ctx := c.Request.Context()
+
+	if err := h.Claims.Claim(ctx, itemID, action, principalID, ""); err != nil {
+		if vmactions.IsActionInProgress(err) {
+			writeActionInProgress(c)
+			return false
+		}
+		writeLoggedError(c, http.StatusInternalServerError, "failed to claim vm for mutation", "claim vm action", err)
+		return false
+	}
+	defer func() {
+		_ = h.Claims.Release(ctx, itemID)
+	}()
+
+	return fn()
 }
 
 // GetStatuses returns a map of vmid -> status directly from Proxmox.
@@ -164,31 +231,106 @@ func (h *VMHandler) collectVerifiedVMTargets(
 	}
 	targets := make([]verifiedVMTarget, 0, len(itemIDs))
 
-	for _, itemID := range itemIDs {
-		target, reqErr := resolveVerifiedVMItemPermission(
-			c.Request.Context(),
-			h.Authz,
-			h.PX,
-			principalID,
-			itemID,
-			required,
-			lock,
-		)
-		if reqErr != nil {
-			if reqErr.Err != nil {
-				logRequestError(c, reqErr.Operation+" item_id="+itemID.String(), reqErr.Err)
-			}
+	accessByItemID, err := h.Authz.ResolveVMItems(c.Request.Context(), principalID, itemIDs, required, lock)
+	if err != nil {
+		logRequestError(c, "resolve bulk vm inventory access", err)
+		for _, itemID := range itemIDs {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    itemID.String(),
+				Error: "authorization failed",
+			})
+		}
+		return targets, response
+	}
+
+	type pendingVerification struct {
+		index  int
+		itemID uuid.UUID
+		record authorization.VMRecord
+	}
+
+	pending := make([]pendingVerification, 0, len(itemIDs))
+	for _, itemID := range itemIDs {
+		access, ok := accessByItemID[itemID]
+		switch {
+		case !ok:
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: "item not found",
+			})
+		case !access.Allowed:
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: "forbidden",
+			})
+		case !access.HasVM:
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    itemID.String(),
+				Error: "vm not found",
+			})
+		default:
+			pending = append(pending, pendingVerification{
+				index:  len(pending),
+				itemID: itemID,
+				record: access.Record,
+			})
+		}
+	}
+
+	verifiedTargets := make([]verifiedVMTarget, len(pending))
+	verifyErrors := make([]*requestError, len(pending))
+	group, groupCtx := errgroup.WithContext(c.Request.Context())
+	group.SetLimit(8)
+	for _, pendingTarget := range pending {
+		pendingTarget := pendingTarget
+		group.Go(func() error {
+			target, reqErr := verifyVMRecordIdentity(groupCtx, h.PX, pendingTarget.record)
+			if reqErr != nil {
+				verifyErrors[pendingTarget.index] = reqErr
+				return nil
+			}
+
+			verifiedTargets[pendingTarget.index] = target
+			return nil
+		})
+	}
+	_ = group.Wait()
+
+	for _, pendingTarget := range pending {
+		reqErr := verifyErrors[pendingTarget.index]
+		if reqErr != nil {
+			if reqErr.Err != nil {
+				logRequestError(c, reqErr.Operation+" item_id="+pendingTarget.itemID.String(), reqErr.Err)
+			}
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    pendingTarget.itemID.String(),
 				Error: reqErr.UserMessage,
 			})
 			continue
 		}
 
-		targets = append(targets, target)
+		targets = append(targets, verifiedTargets[pendingTarget.index])
 	}
 
 	return targets, response
+}
+
+// runClaimedBulkVMAction claims target.ItemID for action and invokes fn,
+func (h *VMHandler) runClaimedBulkVMAction(
+	ctx context.Context,
+	target verifiedVMTarget,
+	action string,
+	principalID uuid.UUID,
+	fn func() error,
+) (fnErr error, claimed bool) {
+	if err := h.Claims.Claim(ctx, target.ItemID, action, principalID, ""); err != nil {
+		return nil, false
+	}
+	defer func() {
+		_ = h.Claims.Release(ctx, target.ItemID)
+	}()
+
+	return fn(), true
 }
 
 // CreateSnapshot creates a snapshot of a VM and waits for the Proxmox task to complete.
@@ -215,18 +357,34 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 		return
 	}
 
-	if err := h.Actions.CreateSnapshot(
-		c.Request.Context(),
-		vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
-		req.Snapname,
-		req.Description,
-		req.VMState,
-	); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to create snapshot", "create vm snapshot", err)
-		return
-	}
+	h.runClaimedVMAction(c, target.ItemID, "create_snapshot", principalID, func() bool {
+		if err := h.Actions.CreateSnapshot(
+			c.Request.Context(),
+			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+			req.Snapname,
+			req.Description,
+			req.VMState,
+		); err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.snapshot.create",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, err.Error())
+			writeLoggedError(c, http.StatusBadGateway, "failed to create snapshot", "create vm snapshot", err)
+			return false
+		}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.snapshot.create",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"snapname": req.Snapname},
+		})
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return true
+	})
 }
 
 type powerActionRequest struct {
@@ -266,13 +424,28 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	for _, target := range targets {
-		actionErr := h.Actions.PowerAction(
-			ctx,
-			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
-			vmactions.PowerAction(req.Action),
-		)
+		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "power_action", principalID, func() error {
+			return h.Actions.PowerAction(
+				ctx,
+				vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+				vmactions.PowerAction(req.Action),
+			)
+		})
+		if !claimed {
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "another action is already in progress for this VM",
+			})
+			continue
+		}
 		if actionErr != nil {
 			logRequestError(c, fmt.Sprintf("vm power action=%s item_id=%s", req.Action, target.ItemID), actionErr)
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.power." + req.Action,
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, actionErr.Error())
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: fmt.Sprintf("%s failed", req.Action),
@@ -280,6 +453,12 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 			continue
 		}
 
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.power." + req.Action,
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -318,17 +497,39 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	for _, target := range targets {
-		if err := h.Actions.DeleteVM(
-			ctx,
-			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
-		); err != nil {
-			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), err)
+		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "delete_vm", principalID, func() error {
+			return h.Actions.DeleteVM(
+				ctx,
+				vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+			)
+		})
+		if !claimed {
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "another action is already in progress for this VM",
+			})
+			continue
+		}
+		if actionErr != nil {
+			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), actionErr)
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.delete",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, actionErr.Error())
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "delete failed",
 			})
 			continue
 		}
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.delete",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -398,19 +599,22 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
+	h.runClaimedVMAction(c, target.ItemID, "rename_vm", principalID, func() bool {
+		ctx := c.Request.Context()
 
-	if err := h.PX.RenameVM(ctx, target.Node, target.VMID, req.Name); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to rename VM", "rename vm", err)
-		return
-	}
+		if err := h.PX.RenameVM(ctx, target.Node, target.VMID, req.Name); err != nil {
+			writeLoggedError(c, http.StatusBadGateway, "failed to rename VM", "rename vm", err)
+			return false
+		}
 
-	if err := h.Service.UpdateInventoryVMName(ctx, target.ItemID, req.Name); err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm renamed in Proxmox but failed to refresh inventory metadata", "update inventory name for vm", err)
-		return
-	}
+		if err := h.Service.UpdateInventoryVMName(ctx, target.ItemID, req.Name); err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "vm renamed in Proxmox but failed to refresh inventory metadata", "update inventory name for vm", err)
+			return false
+		}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return true
+	})
 }
 
 // UpdateNotes stores VM notes in Postgres and replicates them to Proxmox.
@@ -446,23 +650,26 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 		return
 	}
 
-	if err := h.Service.UpdateInventoryVMNotes(c.Request.Context(), target.ItemID, notes); err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to update VM notes", "update vm notes in inventory", err)
-		return
-	}
+	h.runClaimedVMAction(c, target.ItemID, "update_notes", principalID, func() bool {
+		if err := h.Service.UpdateInventoryVMNotes(c.Request.Context(), target.ItemID, notes); err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to update VM notes", "update vm notes in inventory", err)
+			return false
+		}
 
-	if h.PX == nil {
-		c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
-		return
-	}
+		if h.PX == nil {
+			c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
+			return true
+		}
 
-	if err := h.PX.UpdateVMNotes(c.Request.Context(), target.Node, target.VMID, notes); err != nil {
-		log.Printf("vm notes saved to postgres but proxmox sync is pending for %s/%d: %v", target.Node, target.VMID, err)
-		c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
-		return
-	}
+		if err := h.PX.UpdateVMNotes(c.Request.Context(), target.Node, target.VMID, notes); err != nil {
+			log.Printf("vm notes saved to postgres but proxmox sync is pending for %s/%d: %v", target.Node, target.VMID, err)
+			c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
+			return true
+		}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "synced": true})
+		c.JSON(http.StatusOK, gin.H{"ok": true, "synced": true})
+		return true
+	})
 }
 
 // GetHardware returns the current editable hardware configuration for a VM.
@@ -599,25 +806,28 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		})
 	}
 
-	if err := h.PX.UpdateVMHardware(c.Request.Context(), target.Node, target.VMID, config); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
+	h.runClaimedVMAction(c, target.ItemID, "update_hardware", principalID, func() bool {
+		if err := h.PX.UpdateVMHardware(c.Request.Context(), target.Node, target.VMID, config); err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return false
+		}
 
-	cpuCount := int32(req.Sockets * req.Cores)
-	memoryMB := int32(req.Memory * 1024)
-	if err := h.Service.UpdateInventoryVMHardwareSummary(
-		c.Request.Context(),
-		target.ItemID,
-		cpuCount,
-		memoryMB,
-		float64(req.DiskSize),
-	); err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm hardware updated in Proxmox but failed to refresh inventory metadata", "update vm hardware summary", err)
-		return
-	}
+		cpuCount := int32(req.Sockets * req.Cores)
+		memoryMB := int32(req.Memory * 1024)
+		if err := h.Service.UpdateInventoryVMHardwareSummary(
+			c.Request.Context(),
+			target.ItemID,
+			cpuCount,
+			memoryMB,
+			float64(req.DiskSize),
+		); err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "vm hardware updated in Proxmox but failed to refresh inventory metadata", "update vm hardware summary", err)
+			return false
+		}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return true
+	})
 }
 
 func validateVMHardwareRequest(req updateVMHardwareRequest) error {
@@ -733,9 +943,13 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
-	if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), targetFolderID, 1); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), targetFolderID, 1, "vm_clone")
+	if err != nil {
 		writeInventoryError(c, err)
 		return
+	}
+	if reservation != nil {
+		defer reservation.Release(c.Request.Context())
 	}
 
 	targetNode := strings.TrimSpace(req.Target)
@@ -748,72 +962,73 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		targetNode = optimalNode.Node
 	}
 
-	newID := req.NewID
-	if newID <= 0 {
-		nextID, err := h.PX.GetNextVMID(c.Request.Context())
-		if err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
-			return
+	// The source VM is the inventory item being mutated for the duration of
+	// the clone (Proxmox reads its disks/config); claim it so a concurrent
+	// rename/delete/power action on the source cannot interleave.
+	h.runClaimedVMAction(c, source.ItemID, "clone_vm", principalID, func() bool {
+		newID, err := runWithAvailableVMID(c.Request.Context(), h.PX, req.NewID, func(vmid int) error {
+			return h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, vmid, req.Name, req.Full, targetNode)
+		})
+		switch {
+		case err == nil:
+		case isVMIDUnavailable(err):
+			c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+			return false
+		default:
+			writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
+			return false
 		}
-		newID = nextID
-	}
 
-	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), newID)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
-		return
-	}
-	if !available {
-		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
-		return
-	}
+		if err := h.PX.SetVMUpstreamUUID(c.Request.Context(), targetNode, newID, uuid.New()); err != nil {
+			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM identity failure")
+			writeLoggedError(c, http.StatusBadGateway, "failed to assign clone identity", "assign cloned vm upstream uuid", err)
+			return false
+		}
 
-	if err := h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, newID, req.Name, req.Full, targetNode); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
-		return
-	}
+		if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
+			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM pool sync failure")
+			writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
+			return false
+		}
 
-	if err := h.PX.SetVMUpstreamUUID(c.Request.Context(), targetNode, newID, uuid.New()); err != nil {
-		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM identity failure")
-		writeLoggedError(c, http.StatusBadGateway, "failed to assign clone identity", "assign cloned vm upstream uuid", err)
-		return
-	}
+		clonedItemID, err := h.Importer.SyncVM(
+			c.Request.Context(),
+			placement.FolderID,
+			targetNode,
+			newID,
+		)
+		if err != nil {
+			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM inventory sync failure")
+			writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to sync inventory metadata", "sync cloned vm inventory metadata", err)
+			return false
+		}
 
-	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
-		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM pool sync failure")
-		writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
-		return
-	}
+		h.Service.NotifyInventoryChanged(c.Request.Context(), clonedItemID)
 
-	clonedItemID, err := h.Importer.SyncVM(
-		c.Request.Context(),
-		placement.FolderID,
-		targetNode,
-		newID,
-	)
-	if err != nil {
-		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM inventory sync failure")
-		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to sync inventory metadata", "sync cloned vm inventory metadata", err)
-		return
-	}
+		item, err := h.Service.GetInventoryItemWithPermissions(
+			c.Request.Context(),
+			principalID,
+			clonedItemID,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to load inventory item", "load cloned vm inventory item", err)
+			return false
+		}
 
-	h.Service.NotifyInventoryChanged(c.Request.Context(), clonedItemID)
-
-	item, err := h.Service.GetInventoryItemWithPermissions(
-		c.Request.Context(),
-		principalID,
-		clonedItemID,
-	)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to load inventory item", "load cloned vm inventory item", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, vmMutationResponse{
-		OK:     true,
-		VMID:   newID,
-		ItemID: clonedItemID,
-		Item:   buildInventoryItem(item),
+		c.JSON(http.StatusOK, vmMutationResponse{
+			OK:     true,
+			VMID:   newID,
+			ItemID: clonedItemID,
+			Item:   buildInventoryItem(item),
+		})
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.clone",
+			TargetKind:       "vm",
+			InventoryItemID:  &source.ItemID,
+			Metadata:         map[string]any{"new_vmid": newID, "cloned_item_id": clonedItemID.String()},
+		})
+		return true
 	})
 }
 
@@ -848,24 +1063,51 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	for _, target := range targets {
-		if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
-			logRequestError(c, "convert vm to template item_id="+target.ItemID.String(), err)
+		inventorySyncFailed := false
+		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "convert_to_template", principalID, func() error {
+			if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
+				return err
+			}
+			if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
+				inventorySyncFailed = true
+				return err
+			}
+			return nil
+		})
+		if !claimed {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
-				Error: "templatize failed",
+				Error: "another action is already in progress for this VM",
+			})
+			continue
+		}
+		if actionErr != nil {
+			errMessage := "templatize failed"
+			operation := "convert vm to template"
+			if inventorySyncFailed {
+				errMessage = "inventory sync failed"
+				operation = "update vm template state in inventory"
+			}
+			logRequestError(c, operation+" item_id="+target.ItemID.String(), actionErr)
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.template",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, errMessage)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: errMessage,
 			})
 			continue
 		}
 
-		if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
-			logRequestError(c, "update vm template state in inventory item_id="+target.ItemID.String(), err)
-			response.Failed = append(response.Failed, bulkVMActionFailure{
-				ID:    target.ItemID.String(),
-				Error: "inventory sync failed",
-			})
-			continue
-		}
-
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.template",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		response.Succeeded = append(response.Succeeded, target.ItemID.String())
 	}
 
@@ -952,16 +1194,32 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 		return
 	}
 
-	if err := h.Actions.RollbackSnapshot(
-		c.Request.Context(),
-		vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
-		req.Snapname,
-	); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to rollback snapshot", "rollback vm snapshot", err)
-		return
-	}
+	h.runClaimedVMAction(c, target.ItemID, "rollback_snapshot", principalID, func() bool {
+		if err := h.Actions.RollbackSnapshot(
+			c.Request.Context(),
+			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+			req.Snapname,
+		); err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.snapshot.rollback",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, err.Error())
+			writeLoggedError(c, http.StatusBadGateway, "failed to rollback snapshot", "rollback vm snapshot", err)
+			return false
+		}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.snapshot.rollback",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"snapname": req.Snapname},
+		})
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return true
+	})
 }
 
 // DeleteSnapshot deletes a VM snapshot and waits for the Proxmox task to complete.
@@ -983,10 +1241,26 @@ func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.DeleteSnapshot(c.Request.Context(), target.Node, target.VMID, snapname); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to delete snapshot", "delete vm snapshot", err)
-		return
-	}
+	h.runClaimedVMAction(c, target.ItemID, "delete_snapshot", principalID, func() bool {
+		if err := h.PX.DeleteSnapshot(c.Request.Context(), target.Node, target.VMID, snapname); err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.snapshot.delete",
+				TargetKind:       "vm",
+				InventoryItemID:  &target.ItemID,
+			}, err.Error())
+			writeLoggedError(c, http.StatusBadGateway, "failed to delete snapshot", "delete vm snapshot", err)
+			return false
+		}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.snapshot.delete",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"snapname": snapname},
+		})
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return true
+	})
 }

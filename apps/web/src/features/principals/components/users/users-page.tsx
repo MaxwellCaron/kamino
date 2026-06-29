@@ -1,14 +1,15 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconPlus,
-  IconRefresh,
-  IconTrash,
-  IconUser,
-  IconUsersMinus,
-  IconUsersPlus,
-} from "@tabler/icons-react"
+  Add01Icon,
+  AddTeam02Icon,
+  Delete01Icon,
+  ReloadIcon,
+  UserIcon,
+  UserMinusIcon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import {
   ActionBarItem,
@@ -37,14 +38,12 @@ import {
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
-import {
-  capitalizeFirstLetter,
-  formatToastError,
-} from "@/features/shared/utils/format"
-
+import { formatToastError } from "@/features/shared/utils/format"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
 const ConfirmDialog = lazy(() =>
@@ -103,40 +102,38 @@ export function UsersPage() {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
-  const userLabelsByID = useMemo(() => {
-    return new Map(
-      (users ?? []).map((principal) => [principal.id, getUserLabel(principal)])
-    )
-  }, [users])
-
   const deleteMutation = useMutation({
     mutationFn: deleteUser,
-    onSuccess: (result) => {
-      const deletedCount = result.deleted.length
-      const failedCount = result.failed.length
-
-      if (deletedCount > 0) {
-        toast.success(
-          deletedCount === 1 ? "User deleted" : `${deletedCount} users deleted`
-        )
-      }
-
-      if (failedCount === 1) {
-        const failure = result.failed[0]
-        const userLabel = userLabelsByID.get(failure.id) ?? failure.id
-        toast.error(
-          `Failed to delete ${userLabel}: ${capitalizeFirstLetter(failure.error)}`
-        )
-      } else if (failedCount > 1) {
-        toast.error(`Failed to delete ${failedCount} users`)
-      }
-
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
+
+  const showDeleteToast = useCallback(
+    (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
+      const targetIds = targets.map((target) => target.id)
+
+      showMutationToast({
+        title: "Deleting",
+        items: targets.map((target) => ({
+          id: target.id,
+          name: getUserLabel(target),
+          successDescription: "Deleted",
+          retry: async () => {
+            const result = await deleteMutation.mutateAsync([target.id])
+            const failure = result.failed.find((item) => item.id === target.id)
+            if (failure) throw new Error(failure.error)
+          },
+        })),
+        runMutation: async () => {
+          const result = await deleteMutation.mutateAsync(targetIds)
+          if (result.failed.length === 0) onAllSucceeded?.()
+          return { succeeded: result.deleted, failed: result.failed }
+        },
+      })
+    },
+    [deleteMutation]
+  )
 
   const columns = useMemo(
     () =>
@@ -147,20 +144,18 @@ export function UsersPage() {
         onDeleteClick: (targetUser: ApiPrincipal) =>
           setConfirm({
             title: "Delete User",
-            icon: IconTrash,
+            icon: Delete01Icon,
             description: `Are you sure you want to delete ${getUserLabel(targetUser)}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: async () => {
-              await deleteMutation.mutateAsync([targetUser.id])
-            },
+            onConfirm: () => showDeleteToast([targetUser]),
           }),
       }),
     [
       canAdminister,
-      deleteMutation,
       editDialog.openWith,
       membershipDialog.openWith,
+      showDeleteToast,
     ]
   )
 
@@ -189,7 +184,10 @@ export function UsersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconUser className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={UserIcon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Users
               </h1>
@@ -202,23 +200,23 @@ export function UsersPage() {
             </CardDescription>
             <CardAction className="flex items-center gap-2">
               {canAdminister ? (
-                <Button
+                <AppActionButton
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
-                  disabled={syncMutation.isPending || error !== null}
+                  disabled={error !== null}
+                  pending={syncMutation.isPending}
+                  pendingLabel="Syncing..."
                 >
-                  <IconRefresh data-icon="inline-start" />
-                  <span className="hidden lg:block">
-                    {syncMutation.isPending ? "Syncing..." : "Sync"}
-                  </span>
-                </Button>
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                  <span className="hidden lg:block">Sync</span>
+                </AppActionButton>
               ) : null}
               {canAdminister ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
                   disabled={error !== null}
                 >
-                  <IconPlus data-icon="inline-start" />
+                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
               ) : null}
@@ -254,7 +252,7 @@ export function UsersPage() {
                           tooltip="Add to group"
                           variant="default"
                         >
-                          <IconUsersPlus />
+                          <HugeiconsIcon icon={AddTeam02Icon} />
                         </ActionBarItem>
                         <ActionBarItem
                           onSelect={(event) => event.preventDefault()}
@@ -269,7 +267,7 @@ export function UsersPage() {
                           tooltip="Remove from group"
                           variant="destructive"
                         >
-                          <IconUsersMinus />
+                          <HugeiconsIcon icon={UserMinusIcon} />
                         </ActionBarItem>
                         <ActionBarSeparator />
                         <ActionBarItem
@@ -283,28 +281,19 @@ export function UsersPage() {
                                 selectedRows.length === 1
                                   ? "Delete User"
                                   : "Delete Users",
-                              icon: IconTrash,
+                              icon: Delete01Icon,
                               description:
                                 selectedRows.length === 1
                                   ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`
                                   : `Are you sure you want to delete ${selectedRows.length} users? This will permanently remove the selected users.`,
                               actionLabel: "Delete",
                               variant: "destructive",
-                              onConfirm: async () => {
-                                const result = await deleteMutation.mutateAsync(
-                                  selectedRows.map(
-                                    (selectedUser: ApiPrincipal) =>
-                                      selectedUser.id
-                                  )
-                                )
-                                if (result.failed.length === 0) {
-                                  clearSelection()
-                                }
-                              },
+                              onConfirm: () =>
+                                showDeleteToast(selectedRows, clearSelection),
                             })
                           }
                         >
-                          <IconTrash />
+                          <HugeiconsIcon icon={Delete01Icon} />
                         </ActionBarItem>
                       </>
                     )

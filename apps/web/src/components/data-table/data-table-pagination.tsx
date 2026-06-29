@@ -1,10 +1,11 @@
 import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronsLeft,
-  IconChevronsRight,
-} from "@tabler/icons-react"
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+} from "@hugeicons/core-free-icons"
 import type { Table } from "@tanstack/react-table"
 
 interface DataTablePaginationProps<TData> {
@@ -30,7 +31,7 @@ export function DataTablePagination<TData>({
         Page {table.getState().pagination.pageIndex + 1} of{" "}
         {table.getPageCount()}
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"
@@ -39,7 +40,7 @@ export function DataTablePagination<TData>({
           disabled={!table.getCanPreviousPage()}
         >
           <span className="sr-only">Go to first page</span>
-          <IconChevronsLeft />
+          <HugeiconsIcon icon={ChevronsLeftIcon} />
         </Button>
         <Button
           variant="outline"
@@ -49,7 +50,7 @@ export function DataTablePagination<TData>({
           disabled={!table.getCanPreviousPage()}
         >
           <span className="sr-only">Go to previous page</span>
-          <IconChevronLeft />
+          <HugeiconsIcon icon={ChevronLeftIcon} />
         </Button>
         <Button
           variant="outline"
@@ -59,7 +60,7 @@ export function DataTablePagination<TData>({
           disabled={!table.getCanNextPage()}
         >
           <span className="sr-only">Go to next page</span>
-          <IconChevronRight />
+          <HugeiconsIcon icon={ChevronRightIcon} />
         </Button>
         <Button
           variant="outline"
@@ -69,7 +70,7 @@ export function DataTablePagination<TData>({
           disabled={!table.getCanNextPage()}
         >
           <span className="sr-only">Go to last page</span>
-          <IconChevronsRight />
+          <HugeiconsIcon icon={ChevronsRightIcon} />
         </Button>
       </div>
     </div>

@@ -1,9 +1,10 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconDotsVertical,
-  IconPlayerPlay,
-  IconRefresh,
-  IconTrash,
-} from "@tabler/icons-react"
+  Delete01Icon,
+  MoreVerticalIcon,
+  PlayIcon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
@@ -14,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import type { PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
-import type { PublishedPodClonePendingAction } from "./published-pod-clone-action-dialogs"
+import type { PublishedPodClonePendingAction } from "../../types/published-pods-types"
 import {
   POD_CLONE_ACTION_CONFIG,
   canRunPodCloneAction,
@@ -41,7 +42,10 @@ export function PublishedPodCloneActionsMenu({
           />
         }
       >
-        <IconDotsVertical className="text-muted-foreground" />
+        <HugeiconsIcon
+          icon={MoreVerticalIcon}
+          className="text-muted-foreground"
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
@@ -51,7 +55,7 @@ export function PublishedPodCloneActionsMenu({
             }
             onClick={() => onAction({ type: "start", clone })}
           >
-            <IconPlayerPlay className="text-muted-foreground" />
+            <HugeiconsIcon icon={PlayIcon} className="text-muted-foreground" />
             {POD_CLONE_ACTION_CONFIG.start.label}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -60,7 +64,10 @@ export function PublishedPodCloneActionsMenu({
             }
             onClick={() => onAction({ type: "shutdown", clone })}
           >
-            <POD_CLONE_ACTION_CONFIG.shutdown.icon className="text-muted-foreground" />
+            <HugeiconsIcon
+              icon={POD_CLONE_ACTION_CONFIG.shutdown.icon}
+              className="text-muted-foreground"
+            />
             {POD_CLONE_ACTION_CONFIG.shutdown.label}
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -71,7 +78,7 @@ export function PublishedPodCloneActionsMenu({
             disabled={isMutating}
             onClick={() => onAction({ type: "reclone", clone })}
           >
-            <IconRefresh />
+            <HugeiconsIcon icon={ReloadIcon} />
             {POD_CLONE_ACTION_CONFIG.reclone.label}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -79,7 +86,7 @@ export function PublishedPodCloneActionsMenu({
             disabled={isMutating}
             onClick={() => onAction({ type: "delete", clone })}
           >
-            <IconTrash />
+            <HugeiconsIcon icon={Delete01Icon} />
             {POD_CLONE_ACTION_CONFIG.delete.label}
           </DropdownMenuItem>
         </DropdownMenuGroup>

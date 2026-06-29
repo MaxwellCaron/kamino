@@ -1,4 +1,5 @@
-import { IconAlertCircle } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { AlertCircleIcon } from "@hugeicons/core-free-icons"
 import {
   Alert,
   AlertDescription,
@@ -23,7 +24,7 @@ export function InlineErrorAlert({
 }: InlineErrorAlertProps) {
   return (
     <Alert variant="destructive" className={cn(className)}>
-      <IconAlertCircle />
+      <HugeiconsIcon icon={AlertCircleIcon} />
       {title && <AlertTitle>{title}</AlertTitle>}
       <AlertDescription>{formatErrorMessage(error, fallback)}</AlertDescription>
     </Alert>

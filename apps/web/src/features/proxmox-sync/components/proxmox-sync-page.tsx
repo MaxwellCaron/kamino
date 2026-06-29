@@ -1,12 +1,12 @@
 import { Suspense, lazy, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconRefresh,
-} from "@tabler/icons-react"
-import { toast } from "sonner"
+  Alert01Icon,
+  CheckmarkCircle01Icon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
@@ -26,12 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
-  ConfirmConfig,
-  ConfirmStatusItem,
-} from "@/components/dialogs/confirm-dialog"
-import type {
-  SyncApplyResult,
   SyncChange,
   SyncSelection,
 } from "@/features/proxmox-sync/api/proxmox-sync-api"
@@ -47,7 +43,9 @@ import {
 } from "@/features/proxmox-sync/api/proxmox-sync-api"
 import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff-columns"
 import { DataTable } from "@/components/data-table/data-table"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
 const ConfirmDialog = lazy(() =>
@@ -62,18 +60,6 @@ function allChanges(
   updates: Array<SyncChange>
 ): Array<SyncChange> {
   return [...adds, ...removes, ...updates]
-}
-
-function buildStatusItems(
-  selected: Array<SyncChange>
-): Array<ConfirmStatusItem> {
-  return selected.map((c) => ({
-    id: c.id,
-    kind: "vm" as const,
-    label: c.name,
-    description: `${c.node}/${c.vmid} — ${c.kind}`,
-    status: "idle" as const,
-  }))
 }
 
 function buildSyncSelection(selected: Array<SyncChange>): SyncSelection {
@@ -94,23 +80,6 @@ function buildSyncSelection(selected: Array<SyncChange>): SyncSelection {
   }
 
   return selection
-}
-
-function applyResultToStatus(
-  item: ConfirmStatusItem,
-  result: SyncApplyResult
-): ConfirmStatusItem {
-  if (result.status === "success") {
-    return {
-      ...item,
-      status: "success",
-      successDisplay: result.kind === "remove" ? "deleted" : "vm",
-    }
-  }
-  if (result.status === "error") {
-    return { ...item, status: "error", error: result.error }
-  }
-  return { ...item, status: "error", error: result.error ?? "skipped" }
 }
 
 export function ProxmoxSyncPage() {
@@ -159,7 +128,7 @@ export function ProxmoxSyncPage() {
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         {diff?.warning && (
           <Alert variant="destructive">
-            <IconAlertTriangle className="size-4" />
+            <HugeiconsIcon icon={Alert01Icon} className="size-4" />
             <AlertDescription>{diff.warning}</AlertDescription>
           </Alert>
         )}
@@ -167,7 +136,10 @@ export function ProxmoxSyncPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2">
-              <IconRefresh className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={ReloadIcon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 pr-2 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Proxmox Sync
               </h1>
@@ -206,7 +178,8 @@ export function ProxmoxSyncPage() {
                 onClick={() => refetch()}
                 disabled={isFetching}
               >
-                <IconRefresh
+                <HugeiconsIcon
+                  icon={ReloadIcon}
                   className={isFetching ? "animate-spin" : ""}
                   data-icon="inline-start"
                 />
@@ -215,12 +188,23 @@ export function ProxmoxSyncPage() {
             </CardAction>
           </CardHeader>
           <CardContent className="px-0">
-            {isEmpty ? (
+            {error ? (
+              <div className="mx-6 py-6">
+                <InlineErrorAlert
+                  error={error}
+                  fallback="Failed to load sync preview."
+                  title="Sync Error"
+                />
+              </div>
+            ) : isEmpty ? (
               <div className="mx-6">
                 <Empty className="min-h-[80vh] border border-dashed">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <IconCircleCheck className="size-6 text-primary" />
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle01Icon}
+                        className="size-6 text-emerald-600 dark:text-emerald-400"
+                      />
                     </EmptyMedia>
                     <EmptyTitle>Synced</EmptyTitle>
                     <EmptyDescription>
@@ -247,85 +231,82 @@ export function ProxmoxSyncPage() {
                     <ActionBarItem
                       onSelect={(e) => e.preventDefault()}
                       onClick={() => {
-                        const statusItems = buildStatusItems(selectableRows)
                         setConfirm({
                           title: "Apply Sync Changes",
-                          icon: IconRefresh,
+                          icon: ReloadIcon,
                           description: `Apply ${selectableRows.length} selected change${selectableRows.length === 1 ? "" : "s"} to the inventory.`,
                           actionLabel: "Apply",
                           variant: "default",
-                          closeOnSuccess: false,
-                          statusItems,
-                          onConfirm: async ({ setStatusItems }) => {
-                            setStatusItems((prev) =>
-                              prev.map((item) => ({
-                                ...item,
-                                status: "pending",
-                              }))
-                            )
+                          onConfirm: () => {
+                            showMutationToast({
+                              title: `Applying ${selectableRows.length} sync change${selectableRows.length === 1 ? "" : "s"}`,
+                              items: selectableRows.map((c) => ({
+                                id: c.id,
+                                name: c.name,
+                              })),
+                              runMutation: async () => {
+                                const selection =
+                                  buildSyncSelection(selectableRows)
 
-                            const selection = buildSyncSelection(selectableRows)
+                                try {
+                                  const response =
+                                    await applyProxmoxSync(selection)
 
-                            try {
-                              const response = await applyProxmoxSync(selection)
-                              const resultsByID = new Map(
-                                response.results.map((r) => [r.id, r])
-                              )
+                                  await Promise.all([
+                                    queryClient.invalidateQueries({
+                                      queryKey:
+                                        proxmoxSyncPreviewQueryOptions.queryKey,
+                                    }),
+                                    queryClient.invalidateQueries({
+                                      queryKey:
+                                        inventoryTreeQueryOptions.queryKey,
+                                    }),
+                                  ])
 
-                              setStatusItems((prev) =>
-                                prev.map((item) => {
-                                  const result = resultsByID.get(item.id)
-                                  return result
-                                    ? applyResultToStatus(item, result)
-                                    : {
-                                        ...item,
-                                        status: "error",
-                                        error: "no result",
-                                      }
-                                })
-                              )
+                                  const succeeded: Array<string> = []
+                                  const failed: Array<{
+                                    id: string
+                                    error: string
+                                  }> = []
+                                  for (const r of response.results) {
+                                    if (r.status === "success") {
+                                      succeeded.push(r.id)
+                                    } else {
+                                      failed.push({
+                                        id: r.id,
+                                        error: r.error ?? "skipped",
+                                      })
+                                    }
+                                  }
 
-                              const { applied, failed, skipped } = response
-                              if (failed === 0 && skipped === 0) {
-                                toast.success(
-                                  `Synced ${applied} change${applied === 1 ? "" : "s"}`
-                                )
-                              } else {
-                                toast.warning(
-                                  `Applied ${applied}, failed ${failed}, skipped ${skipped}`
-                                )
-                              }
+                                  if (failed.length === 0) {
+                                    clearSelection()
+                                  }
 
-                              await queryClient.invalidateQueries({
-                                queryKey:
-                                  proxmoxSyncPreviewQueryOptions.queryKey,
-                              })
-                              await queryClient.invalidateQueries({
-                                queryKey: inventoryTreeQueryOptions.queryKey,
-                              })
-                              clearSelection()
-                            } catch (err) {
-                              setStatusItems((prev) =>
-                                prev.map((item) => ({
-                                  ...item,
-                                  status: "error",
-                                  error:
+                                  return { succeeded, failed }
+                                } catch (err) {
+                                  const message =
                                     err instanceof Error
                                       ? err.message
-                                      : "Unknown error",
-                                }))
-                              )
-                              toast.error(
-                                err instanceof Error
-                                  ? err.message
-                                  : "Sync failed"
-                              )
-                            }
+                                      : "Sync failed"
+                                  return {
+                                    succeeded: [],
+                                    failed: selectableRows.map((c) => ({
+                                      id: c.id,
+                                      error: message,
+                                    })),
+                                  }
+                                }
+                              },
+                            })
                           },
                         })
                       }}
                     >
-                      <IconRefresh data-icon="inline-start" />
+                      <HugeiconsIcon
+                        icon={ReloadIcon}
+                        data-icon="inline-start"
+                      />
                       Sync {selectableRows.length} change
                       {selectableRows.length === 1 ? "" : "s"}
                     </ActionBarItem>

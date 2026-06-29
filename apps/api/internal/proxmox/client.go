@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/google/uuid"
 )
 
@@ -703,25 +704,6 @@ func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid in
 	}
 }
 
-func validateCloudInitSnippetFileName(filename string) error {
-	filename = strings.TrimSpace(filename)
-	if filename == "" {
-		return fmt.Errorf("filename is required")
-	}
-	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
-		return fmt.Errorf("filename must not contain path separators")
-	}
-	if strings.Contains(filename, "..") {
-		return fmt.Errorf("filename must not contain '..'")
-	}
-	for _, r := range filename {
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
-			return fmt.Errorf("filename must not contain whitespace")
-		}
-	}
-	return nil
-}
-
 // EnsureVMCloudInitDrive verifies the VM has a cloud-init disk configured.
 func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
@@ -742,14 +724,14 @@ func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid i
 	return fmt.Errorf("VM %d has no cloud-init drive configured", vmid)
 }
 
-// SetVMCloudInitCustom points a VM's NoCloud config at pre-created Proxmox snippets.
+// SetVMCloudInitCustom points a VM's NoCloud config at pre-created Proxmox
+// snippets. Meta-data is omitted so Proxmox generates the instance ID.
 func (c *Client) SetVMCloudInitCustom(
 	ctx context.Context,
 	node string,
 	vmid int,
 	storage string,
 	userFile string,
-	metaFile string,
 	networkFile string,
 ) error {
 	if err := c.requireAllowedNode(node); err != nil {
@@ -760,23 +742,18 @@ func (c *Client) SetVMCloudInitCustom(
 	if storage == "" {
 		return fmt.Errorf("storage is required")
 	}
-	if err := validateCloudInitSnippetFileName(userFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(userFile); err != nil {
 		return fmt.Errorf("invalid user cloud-init snippet filename: %w", err)
 	}
-	if err := validateCloudInitSnippetFileName(metaFile); err != nil {
-		return fmt.Errorf("invalid meta cloud-init snippet filename: %w", err)
-	}
-	if err := validateCloudInitSnippetFileName(networkFile); err != nil {
+	if err := routerconfig.ValidateCloudInitSnippetFilename(networkFile); err != nil {
 		return fmt.Errorf("invalid network cloud-init snippet filename: %w", err)
 	}
 
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
 	cicustom := fmt.Sprintf(
-		"user=%s:snippets/%s,meta=%s:snippets/%s,network=%s:snippets/%s",
+		"user=%s:snippets/%s,network=%s:snippets/%s",
 		storage,
 		userFile,
-		storage,
-		metaFile,
 		storage,
 		networkFile,
 	)

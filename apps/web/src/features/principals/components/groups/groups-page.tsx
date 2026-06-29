@@ -1,12 +1,13 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconPlus,
-  IconRefresh,
-  IconTrash,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  Add01Icon,
+  Delete01Icon,
+  ReloadIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
@@ -21,6 +22,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
@@ -32,13 +34,11 @@ import {
   triggerADSync,
 } from "@/features/principals/api/principals-api"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
-import {
-  capitalizeFirstLetter,
-  formatToastError,
-} from "@/features/shared/utils/format"
+import { formatToastError } from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const groupsRouteApi = getRouteApi("/_dashboard/admin/principals/groups")
 const ConfirmDialog = lazy(() =>
@@ -93,45 +93,38 @@ export function GroupsPage() {
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const accessDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
-  const groupLabelsByID = useMemo(() => {
-    return new Map(
-      (groups ?? []).map((principal) => [
-        principal.id,
-        getGroupLabel(principal),
-      ])
-    )
-  }, [groups])
-
   const deleteMutation = useMutation({
     mutationFn: deleteGroup,
-    onSuccess: (result) => {
-      const deletedCount = result.deleted.length
-      const failedCount = result.failed.length
-
-      if (deletedCount > 0) {
-        toast.success(
-          deletedCount === 1
-            ? "Group deleted"
-            : `${deletedCount} groups deleted`
-        )
-      }
-
-      if (failedCount === 1) {
-        const failure = result.failed[0]
-        const groupLabel = groupLabelsByID.get(failure.id) ?? failure.id
-        toast.error(
-          `Failed to delete ${groupLabel}: ${capitalizeFirstLetter(failure.error)}`
-        )
-      } else if (failedCount > 1) {
-        toast.error(`Failed to delete ${failedCount} groups`)
-      }
-
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["principals", "groups"] })
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
+
+  const showDeleteToast = useCallback(
+    (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
+      const targetIds = targets.map((target) => target.id)
+
+      showMutationToast({
+        title: "Deleting",
+        items: targets.map((target) => ({
+          id: target.id,
+          name: getGroupLabel(target),
+          successDescription: "Deleted",
+          retry: async () => {
+            const result = await deleteMutation.mutateAsync([target.id])
+            const failure = result.failed.find((item) => item.id === target.id)
+            if (failure) throw new Error(failure.error)
+          },
+        })),
+        runMutation: async () => {
+          const result = await deleteMutation.mutateAsync(targetIds)
+          if (result.failed.length === 0) onAllSucceeded?.()
+          return { succeeded: result.deleted, failed: result.failed }
+        },
+      })
+    },
+    [deleteMutation]
+  )
 
   const syncMutation = useMutation({
     mutationFn: triggerADSync,
@@ -155,21 +148,19 @@ export function GroupsPage() {
         onDeleteClick: (group: ApiPrincipal) =>
           setConfirm({
             title: "Delete Group",
-            icon: IconTrash,
+            icon: Delete01Icon,
             description: `Are you sure you want to delete ${getGroupLabel(group)}? This will permanently remove the group.`,
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: async () => {
-              await deleteMutation.mutateAsync([group.id])
-            },
+            onConfirm: () => showDeleteToast([group]),
           }),
       }),
     [
       accessDialog.openWith,
       canAdminister,
-      deleteMutation,
       editDialog.openWith,
       membershipDialog.openWith,
+      showDeleteToast,
     ]
   )
 
@@ -187,7 +178,10 @@ export function GroupsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconUsersGroup className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={UserGroupIcon}
+                className="size-7 text-muted-foreground"
+              />
               <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
                 Groups
               </h1>
@@ -200,18 +194,19 @@ export function GroupsPage() {
             </CardDescription>
             <CardAction className="flex items-center gap-2">
               {canAdminister ? (
-                <Button
+                <AppActionButton
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
-                  disabled={syncMutation.isPending}
+                  pending={syncMutation.isPending}
+                  pendingLabel="Syncing..."
                 >
-                  <IconRefresh data-icon="inline-start" />
-                  {syncMutation.isPending ? "Syncing..." : "Sync"}
-                </Button>
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                  Sync
+                </AppActionButton>
               ) : null}
               {canAdminister ? (
                 <Button onClick={() => setCreateOpen(true)}>
-                  <IconPlus data-icon="inline-start" />
+                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>
                 </Button>
               ) : null}
@@ -242,28 +237,22 @@ export function GroupsPage() {
                               selectedRows.length === 1
                                 ? "Delete Group"
                                 : "Delete Groups",
-                            icon: IconTrash,
+                            icon: Delete01Icon,
                             description:
                               selectedRows.length === 1
                                 ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
                                 : `Are you sure you want to delete ${selectedRows.length} groups? This will permanently remove the selected groups.`,
                             actionLabel: "Delete",
                             variant: "destructive",
-                            onConfirm: async () => {
-                              const result = await deleteMutation.mutateAsync(
-                                selectedRows.map(
-                                  (selectedGroup: ApiPrincipal) =>
-                                    selectedGroup.id
-                                )
-                              )
-                              if (result.failed.length === 0) {
-                                clearSelection()
-                              }
-                            },
+                            onConfirm: () =>
+                              showDeleteToast(selectedRows, clearSelection),
                           })
                         }
                       >
-                        <IconTrash data-icon="inline-start" />
+                        <HugeiconsIcon
+                          icon={Delete01Icon}
+                          data-icon="inline-start"
+                        />
                         Delete
                       </ActionBarItem>
                     )

@@ -3,7 +3,8 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva } from "class-variance-authority"
 
-import { IconLayoutSidebar } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { SidebarLeft01Icon } from "@hugeicons/core-free-icons"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
@@ -315,7 +316,7 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <IconLayoutSidebar />
+      <HugeiconsIcon icon={SidebarLeft01Icon} />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
@@ -352,7 +353,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-3 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-2xl md:peer-data-[variant=inset]:shadow-sm",
+        "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-3 md:peer-data-[variant=inset]:ml-0.5 md:peer-data-[variant=inset]:rounded-2xl md:peer-data-[variant=inset]:shadow-sm",
         className
       )}
       {...props}

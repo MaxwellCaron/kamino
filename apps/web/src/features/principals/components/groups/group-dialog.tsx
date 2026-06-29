@@ -1,8 +1,7 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { IconEdit, IconPlus } from "@tabler/icons-react"
-import { toast } from "sonner"
+import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import type {
   ApiBulkCreateResponse,
@@ -15,6 +14,10 @@ import {
   AppDialogPrimaryButton,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
+import {
+  showMutationToast,
+  showSingleMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
 import {
   createGroup,
@@ -28,7 +31,6 @@ import {
   groupSchema,
   normalizeDescription,
 } from "@/features/principals/components/groups/group-dialog-utils"
-import { formatToastError } from "@/features/shared/utils/format"
 
 export function GroupDialog({
   group,
@@ -84,24 +86,66 @@ export function GroupDialog({
 
       if (isEdit) {
         const parsed = groupSchema.parse(value)
-        toast.promise(mutation.mutateAsync(parsed), {
-          loading: "Updating group...",
-          success: "Group updated",
-          error: formatToastError,
+        showSingleMutationToast({
+          title: "Updating group",
+          name: parsed.name,
+          promise: mutation.mutateAsync(parsed),
+          successDescription: "Updated",
         })
         return
       }
 
       const payload = buildCreateGroups(mode, value)
-      toast.promise(mutation.mutateAsync(payload), {
-        loading: "Creating groups...",
-        success: (result) => {
-          if (result && result.failures.length > 0) {
-            return `Created ${result.successful} group${result.successful === 1 ? "" : "s"} with some failures`
+      const createGroups = async (inputs: Array<CreateGroupInput>) => {
+        const result = await mutation.mutateAsync(inputs)
+        if (result === null) {
+          throw new Error("Group creation returned no result")
+        }
+        return result
+      }
+      const groupItems = payload.map((input, index) => ({
+        id: `${index}:${input.name}`,
+        input,
+      }))
+
+      showMutationToast({
+        title: "Creating groups",
+        items: groupItems.map(({ id, input }) => ({
+          id,
+          name: input.name,
+          successDescription: "Created",
+          retry: async () => {
+            const result = await createGroups([input])
+            const failure = result.failures.at(0)
+            if (failure !== undefined) throw new Error(failure.error)
+          },
+        })),
+        runMutation: async () => {
+          const result = await createGroups(payload)
+          const errorsByName = new Map<string, Array<string>>()
+
+          for (const failure of result.failures) {
+            const errors = errorsByName.get(failure.name) ?? []
+            errors.push(failure.error)
+            errorsByName.set(failure.name, errors)
           }
-          return "Groups created successfully"
+
+          const succeeded: Array<string> = []
+          const failed: Array<{ id: string; error: string }> = []
+
+          for (const { id, input } of groupItems) {
+            const errors = errorsByName.get(input.name)
+            const error = errors?.shift()
+
+            if (error) {
+              failed.push({ id, error })
+            } else {
+              succeeded.push(id)
+            }
+          }
+
+          return { succeeded, failed }
         },
-        error: formatToastError,
       })
     },
   })
@@ -123,7 +167,7 @@ export function GroupDialog({
       onClosed={resetDialog}
       initialFocus={false}
       className={nestedDialogAnimationClassName}
-      icon={isEdit ? IconEdit : IconPlus}
+      icon={isEdit ? PencilEdit01Icon : Add01Icon}
       title={isEdit ? "Edit Group" : "Create Groups"}
       description={
         isEdit
@@ -145,14 +189,11 @@ export function GroupDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting
-                  ? isEdit
-                    ? "Saving..."
-                    : "Creating..."
-                  : isEdit
-                    ? "Save"
-                    : "Create"}
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                pendingLabel={isEdit ? "Saving..." : "Creating..."}
+              >
+                {isEdit ? "Save" : "Create"}
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>

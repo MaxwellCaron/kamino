@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 )
@@ -11,6 +12,15 @@ import (
 // directly from Proxmox RRD data.
 // GET /api/v1/proxmox/cluster/usage-history
 func (h *VMCreateHandler) GetClusterUsageHistory(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+		return
+	}
+
 	history, err := h.PX.GetClusterUsageHistory(
 		c.Request.Context(),
 		c.DefaultQuery("timeframe", string(proxmox.ClusterUsageTimeframeHour)),

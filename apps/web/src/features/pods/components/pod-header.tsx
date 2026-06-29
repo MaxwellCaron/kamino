@@ -5,7 +5,8 @@ import {
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
 import { Image } from "@unpic/react"
-import { IconCopy, IconCubePlus } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { CopyIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
@@ -65,11 +66,12 @@ export function PodHeader({
             <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
               {clonedPod == null ? (
                 <Button onClick={onClone} disabled={!onClone}>
-                  <IconCopy data-icon="inline-start" />
+                  <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
                   Clone
                 </Button>
               ) : (
                 <PodHeaderActions
+                  podTitle={pod.title}
                   clonedPod={clonedPod}
                   onReclone={onReclone}
                   onClonedPodChange={onClonedPodChange}
@@ -96,7 +98,10 @@ export function PodHeader({
                 />
 
                 <div className="flex items-center gap-1.5 text-sm">
-                  <IconCubePlus className="size-4 text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={CopyIcon}
+                    className="size-4 text-muted-foreground"
+                  />
                   <span className="font-medium">{pod.clone_count}</span>
                   <span className="text-muted-foreground">Clones</span>
                 </div>

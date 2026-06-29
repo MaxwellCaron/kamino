@@ -22,6 +22,7 @@ CREATE TYPE request_family AS ENUM ('inventory');
 CREATE TYPE request_status AS ENUM (
     'pending',
     'approved',
+    'executing',
     'denied',
     'executed',
     'execution_failed',
@@ -30,6 +31,7 @@ CREATE TYPE request_status AS ENUM (
 CREATE TYPE request_event_kind AS ENUM (
     'submitted',
     'approved',
+    'execution_started',
     'denied',
     'executed',
     'execution_failed',
@@ -244,6 +246,39 @@ CREATE INDEX ix_proxmox_vms_vmid
 
 
 -- ----------------------------------------------------------------------------
+-- VM action claims
+-- Durable serialization boundary: only one direct mutation may hold a claim
+-- on a given inventory item at a time. The unique constraint on
+-- inventory_item_id (enforced via the primary key) is what actually blocks
+-- concurrent claims; the row lock taken by SELECT ... FOR UPDATE only lasts
+-- for the surrounding transaction/statement, so this table is the source of
+-- truth for cross-request serialization.
+-- ----------------------------------------------------------------------------
+CREATE TABLE vm_action_claims (
+    inventory_item_id    UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
+    action               TEXT NOT NULL,
+    actor_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
+    claimed_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    detail               TEXT NULL,
+    CONSTRAINT vm_action_claims_action_not_empty
+        CHECK (length(trim(action)) > 0)
+);
+
+-- ----------------------------------------------------------------------------
+-- Folder VM capacity reservations
+-- Serialization boundary for folder VM capacity checks.
+-- ----------------------------------------------------------------------------
+CREATE TABLE folder_vm_capacity_reservations (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    folder_id   UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    vm_count    INTEGER NOT NULL CHECK (vm_count > 0),
+    operation   TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT folder_vm_capacity_reservations_operation_not_empty
+        CHECK (length(trim(operation)) > 0)
+);
+
+-- ----------------------------------------------------------------------------
 -- ACL entries
 -- Applies to folders and VM items
 -- ----------------------------------------------------------------------------
@@ -302,6 +337,7 @@ CREATE TABLE requests (
     reviewer_principal_id   UUID NULL REFERENCES principals(id) ON DELETE RESTRICT,
     status                  request_status NOT NULL DEFAULT 'pending',
     reviewed_at             TIMESTAMPTZ NULL,
+    execution_started_at    TIMESTAMPTZ NULL,
     executed_at             TIMESTAMPTZ NULL,
     canceled_at             TIMESTAMPTZ NULL,
     execution_error         TEXT NULL,
@@ -334,8 +370,20 @@ CREATE INDEX ix_requests_pending_requester
     ON requests (requester_principal_id)
     WHERE status = 'pending';
 
+CREATE INDEX ix_requests_executing_started_at
+    ON requests (execution_started_at)
+    WHERE status = 'executing';
+
 CREATE INDEX ix_requests_reviewer_created_at
     ON requests (reviewer_principal_id, created_at DESC);
+
+CREATE INDEX ix_requests_completed_updated_at
+    ON requests (updated_at DESC, created_at DESC, id DESC)
+    WHERE status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed');
+
+CREATE INDEX ix_requests_requester_history_updated_at
+    ON requests (requester_principal_id, updated_at DESC, created_at DESC, id DESC)
+    WHERE status IN ('approved', 'executing', 'denied', 'executed', 'execution_failed');
 
 CREATE TABLE request_events (
     id                  BIGSERIAL PRIMARY KEY,
@@ -1547,6 +1595,81 @@ AS $$
 $$;
 
 -- ----------------------------------------------------------------------------
+-- Core helper: effective permissions for a user on an inventory item, given
+-- a precomputed principal set.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION get_effective_permissions_for_set(
+    p_user_principal_id UUID,
+    p_principal_ids UUID[],
+    p_inventory_item_id UUID
+)
+RETURNS TABLE (
+    allowed_mask BIGINT,
+    denied_mask  BIGINT
+)
+LANGUAGE sql
+STABLE
+AS $$
+    WITH RECURSIVE principal_set AS (
+        SELECT up.principal_id
+        FROM UNNEST(p_principal_ids) AS up(principal_id)
+    ),
+    chain AS (
+        WITH RECURSIVE c AS (
+            SELECT
+                ii.id,
+                ii.parent_id,
+                0::INTEGER AS depth
+            FROM inventory_items ii
+            WHERE ii.id = p_inventory_item_id
+
+            UNION ALL
+
+            SELECT
+                parent.id,
+                parent.parent_id,
+                c.depth + 1
+            FROM inventory_items parent
+            JOIN c
+              ON parent.id = c.parent_id
+        )
+        SELECT id, depth
+        FROM c
+    ),
+    applicable_aces AS (
+        SELECT
+            ace.effect,
+            ace.permissions
+        FROM chain ch
+        JOIN inventory_acl_entries ace
+          ON ace.inventory_item_id = ch.id
+        JOIN principal_set ps
+          ON ps.principal_id = ace.principal_id
+        WHERE
+            (
+                ch.depth = 0
+                AND ace.applies_to_self = true
+                AND ace.inherited_only = false
+            )
+            OR
+            (
+                ch.depth > 0
+                AND ace.applies_to_children = true
+            )
+    ),
+    agg AS (
+        SELECT
+            COALESCE(bit_or(permissions) FILTER (WHERE effect = 'allow'), 0::BIGINT) AS allow_bits,
+            COALESCE(bit_or(permissions) FILTER (WHERE effect = 'deny'),  0::BIGINT) AS deny_bits
+        FROM applicable_aces
+    )
+    SELECT
+        (allow_bits & ~deny_bits) AS allowed_mask,
+        deny_bits                 AS denied_mask
+    FROM agg;
+$$;
+
+-- ----------------------------------------------------------------------------
 -- Optional helper: boolean permission check for a specific bit mask
 -- Example:
 --   SELECT has_permission(user_id, item_id, 128); -- power_vm
@@ -1593,9 +1716,60 @@ AS $$
         JOIN chain
           ON parent.id = chain.parent_id
     )
-    SELECT string_agg(name, '/' ORDER BY depth DESC)
+    SELECT COALESCE(string_agg(name, '/' ORDER BY depth DESC), '')
     FROM chain;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- Direct action audit ledger
+-- Append-only log of high-risk direct VM and pod actions performed outside
+-- the request workflow (power, delete, clone, snapshot, template, pod ops).
+-- Actor and inventory IDs are historical references, not foreign keys: FK
+-- ON DELETE actions would mutate append-only rows when targets are deleted.
+-- ----------------------------------------------------------------------------
+CREATE TABLE action_events (
+    id                  BIGSERIAL PRIMARY KEY,
+    actor_principal_id  UUID NULL,
+    action_kind         TEXT NOT NULL,
+    target_kind         TEXT NOT NULL,
+    inventory_item_id   UUID NULL,
+    pod_id              UUID NULL,
+    status              TEXT NOT NULL,
+    error_message       TEXT NULL,
+    metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT action_events_action_kind_not_empty
+        CHECK (length(trim(action_kind)) > 0),
+    CONSTRAINT action_events_target_kind_not_empty
+        CHECK (length(trim(target_kind)) > 0),
+    CONSTRAINT action_events_status_valid
+        CHECK (status IN ('started', 'succeeded', 'failed'))
+);
+
+CREATE INDEX ix_action_events_created_at
+    ON action_events (created_at DESC, id DESC);
+
+CREATE INDEX ix_action_events_actor_created_at
+    ON action_events (actor_principal_id, created_at DESC, id DESC)
+    WHERE actor_principal_id IS NOT NULL;
+
+CREATE INDEX ix_action_events_inventory_item_created_at
+    ON action_events (inventory_item_id, created_at DESC, id DESC)
+    WHERE inventory_item_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION action_events_prevent_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'Action events are append-only';
+END;
+$$;
+
+CREATE TRIGGER trg_action_events_prevent_update
+BEFORE UPDATE OR DELETE ON action_events
+FOR EACH ROW
+EXECUTE FUNCTION action_events_prevent_mutation();
 
 -- ----------------------------------------------------------------------------
 -- Seed reserved system principals

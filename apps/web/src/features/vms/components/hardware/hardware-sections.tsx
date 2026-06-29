@@ -1,10 +1,11 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconCpu,
-  IconDatabase,
-  IconNetwork,
-  IconSettings,
-  IconTopologyBus,
-} from "@tabler/icons-react"
+  CpuIcon,
+  Globe02Icon,
+  HardDriveIcon,
+  RamMemoryIcon,
+  Settings01Icon,
+} from "@hugeicons/core-free-icons"
 import {
   FieldDescription,
   FieldGroup,
@@ -35,7 +36,9 @@ export function VmHardwareOperatingSystemSection({
   return (
     <FieldSet>
       <FieldLegend className="flex items-center gap-2">
-        {legendIcon ?? <IconSettings className="size-4" />}
+        {legendIcon ?? (
+          <HugeiconsIcon icon={Settings01Icon} className="size-4" />
+        )}
         {title}
       </FieldLegend>
       <FieldDescription>{description}</FieldDescription>
@@ -56,7 +59,7 @@ export function VmHardwareComputeSection({
       <FieldSeparator />
       <FieldSet>
         <FieldLegend className="flex items-center gap-2">
-          <IconCpu className="size-4" />
+          <HugeiconsIcon icon={CpuIcon} className="size-4" />
           Compute
         </FieldLegend>
         <FieldDescription>{description}</FieldDescription>
@@ -70,7 +73,7 @@ export function VmHardwareCpuBlock({ children }: { children: ReactNode }) {
   return (
     <Item variant="muted">
       <ItemMedia>
-        <IconCpu className="size-5" />
+        <HugeiconsIcon icon={CpuIcon} className="size-5" />
       </ItemMedia>
       <ItemContent>
         <ItemTitle className="pl-1">CPU</ItemTitle>
@@ -93,7 +96,7 @@ export function VmHardwareMemoryBlock({
   return (
     <Item variant="muted">
       <ItemMedia>
-        <IconTopologyBus className="size-5 rotate-180" />
+        <HugeiconsIcon icon={RamMemoryIcon} className="size-5" />
       </ItemMedia>
       <ItemContent>
         <ItemTitle className="pl-1">Memory</ItemTitle>
@@ -121,7 +124,7 @@ export function VmHardwareStorageSection({
   return (
     <Item variant="muted">
       <ItemMedia>
-        <IconDatabase className="size-5" />
+        <HugeiconsIcon icon={HardDriveIcon} className="size-5" />
       </ItemMedia>
       <ItemContent>
         <ItemTitle className="pl-1">Storage</ItemTitle>
@@ -144,7 +147,7 @@ export function VmHardwareNetworkSection({
       <FieldSeparator />
       <FieldSet>
         <FieldLegend className="flex items-center gap-2">
-          <IconNetwork className="size-4" />
+          <HugeiconsIcon icon={Globe02Icon} className="size-4" />
           Network
         </FieldLegend>
         <FieldDescription>

@@ -3,8 +3,8 @@ import { toast } from "sonner"
 import { getRouteApi, redirect } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PublishPodPage } from "@/features/pods/components/publish/publish-pod-page"
-import { PodPageSkeleton } from "@/features/pods/components/pod-page-skeleton"
 import { createInitialPublishPodValues } from "@/features/pods/components/publish/publish-pod-form"
+import { PublishPodFormSkeleton } from "@/features/pods/components/publish/publish-pod-skeleton"
 import {
   podCatalogQueryOptions,
   publishedPodQueryOptions,
@@ -33,7 +33,7 @@ export function PublishPodRoutePage() {
   )
 
   if (podId && isExistingPodLoading) {
-    return <PodPageSkeleton />
+    return <PublishPodFormSkeleton />
   }
 
   if (podId && isExistingPodError) {

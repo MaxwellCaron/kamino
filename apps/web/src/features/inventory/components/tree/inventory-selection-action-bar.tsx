@@ -1,4 +1,5 @@
-import { IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBar,
   ActionBarClose,
@@ -16,19 +17,14 @@ export function InventorySelectionActionBar() {
     canPower,
     canTemplate,
     clearSelection,
-    createPowerConfirmStatusItems,
-    createTemplateConfirmStatusItems,
-    deleteStatusItems,
-    getStatus,
+    deleteItems,
     open,
     openConfirm,
     powerSelectionLabel,
-    powerVmItems,
     runDeleteAction,
     runPowerAction,
     runTemplateAction,
     selectedItems,
-    selectedVmItems,
     templateSelectionLabel,
   } = useInventorySelectionActions()
 
@@ -55,28 +51,22 @@ export function InventorySelectionActionBar() {
             canTemplate={canTemplate}
             canDelete={canDelete}
             powerSelectionLabel={powerSelectionLabel}
-            powerVmItems={powerVmItems}
-            getStatus={getStatus}
             openConfirm={openConfirm}
-            createPowerConfirmStatusItems={createPowerConfirmStatusItems}
             runPowerAction={runPowerAction}
           />
         )}
         <InventorySelectionTemplateDeleteActions
           canTemplate={canTemplate}
           canDelete={canDelete}
+          deleteItems={deleteItems}
           templateSelectionLabel={templateSelectionLabel}
-          selectedVmItems={selectedVmItems}
-          deleteStatusItems={deleteStatusItems}
-          getStatus={getStatus}
           openConfirm={openConfirm}
-          createTemplateConfirmStatusItems={createTemplateConfirmStatusItems}
           runTemplateAction={runTemplateAction}
           runDeleteAction={runDeleteAction}
         />
       </ActionBarGroup>
       <ActionBarClose aria-label="Clear selection">
-        <IconX />
+        <HugeiconsIcon icon={Cancel01Icon} />
       </ActionBarClose>
     </ActionBar>
   )

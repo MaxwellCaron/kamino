@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { IconGauge } from "@tabler/icons-react"
-import { toast } from "sonner"
+import { GaugeIcon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
 
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -18,7 +17,7 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { isTouchedInvalid } from "@/components/forms/form-errors"
-import { formatToastError } from "@/features/shared/utils/format"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 type FolderLimitDialogProps = {
   directVmLimit?: number | null
@@ -81,14 +80,12 @@ export function FolderLimitDialog({
       }
 
       onOpenChange(false)
-      toast.promise(
-        updateLimit.mutateAsync({ id: folderId, vmLimit: parsed }),
-        {
-          loading: `Updating limit for "${folderName}"...`,
-          success: `Limit updated for "${folderName}"`,
-          error: formatToastError,
-        }
-      )
+      showSingleMutationToast({
+        title: `Updating limit for "${folderName}"`,
+        name: folderName,
+        promise: updateLimit.mutateAsync({ id: folderId, vmLimit: parsed }),
+        successDescription: "Limit updated",
+      })
     },
   })
 
@@ -102,7 +99,7 @@ export function FolderLimitDialog({
       open={open}
       onOpenChange={onOpenChange}
       onClosed={reset}
-      icon={IconGauge}
+      icon={GaugeIcon}
       title="Folder Limit"
       description={`Set the limit for "${folderName}".`}
     >

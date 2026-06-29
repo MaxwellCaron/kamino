@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { IconSettings } from "@tabler/icons-react"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { Dialog } from "@workspace/ui/components/dialog"
 import {
   AppDialogContent,
@@ -51,11 +51,11 @@ export function VmHardwareDialog({
     ...vmHardwareQueryOptions(itemId),
     enabled: isDialogOpen,
   })
-  const { data: storages } = useQuery({
+  const { data: storages, error: storagesError } = useQuery({
     ...storagesQueryOptions(node),
     enabled: isDialogOpen,
   })
-  const { data: networks } = useQuery({
+  const { data: networks, error: networksError } = useQuery({
     ...bridgesQueryOptions(node),
     enabled: isDialogOpen,
   })
@@ -63,21 +63,23 @@ export function VmHardwareDialog({
   const { bridgeOptions, vnetOptions, networkOptions } =
     buildVmHardwareNetworkOptions(networks ?? {})
   const storageOptions = (storages ?? []) as Array<StorageOption>
+  const loadError = hardwareError ?? storagesError ?? networksError
+  const isLoadError = isHardwareError || !!storagesError || !!networksError
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={open}
         initialFocus={false}
-        icon={IconSettings}
+        icon={Settings01Icon}
         title="Hardware"
         description={`Review and update the hardware profile for ${formatVmReference(
           initialVmid ?? vmid,
           vmName
         )}.`}
       >
-        {isHardwareError ? (
-          <InlineErrorAlert error={hardwareError} fallback="Failed to load VM hardware." />
+        {isLoadError ? (
+          <InlineErrorAlert error={loadError} fallback="Failed to load VM hardware." />
         ) : hardware ? (
           <VmHardwareDialogForm
             key={itemId}

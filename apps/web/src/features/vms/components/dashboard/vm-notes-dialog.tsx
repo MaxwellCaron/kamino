@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { IconEdit } from "@tabler/icons-react"
+import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { FieldGroup } from "@workspace/ui/components/field"
@@ -63,7 +63,7 @@ export function VmNotesDialog({
           notes: initialNotes ?? "",
         })
       }
-      icon={IconEdit}
+      icon={PencilEdit01Icon}
       title="Notes"
       description={`Update notes for ${formatVmReference(vmid, vmName)}.`}
     >

@@ -1,4 +1,5 @@
-import { IconCheckbox, IconClock } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { CheckmarkSquare01Icon, Clock01Icon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -7,10 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { RequestsSelectionActions } from "./requests-selection-actions"
 import type { UseMutationResult } from "@tanstack/react-query"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type {
   ApiRequestActionResponse,
   ApiRequestScope,
@@ -18,6 +19,7 @@ import type {
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { DataTableServerPagination } from "@/components/data-table/data-table"
 import { formatRequestScope } from "@/features/requests/utils/request-presenters"
 import { DataTable } from "@/components/data-table/data-table"
 
@@ -25,13 +27,12 @@ type RequestsPageQueueCardProps = {
   scope: ApiRequestScope
   onScopeChange: (scope: ApiRequestScope) => void
   pendingCount: number
-  completedCount: number
+  completedCount: number | null
   columns: Array<ColumnDef<ApiRequestSummary>>
   activeRequests: Array<ApiRequestSummary>
   isActiveLoading: boolean
   activeError: Error | null
   canReview: boolean
-  tree: Array<ApiTreeNode> | undefined
   approveMutation: UseMutationResult<
     ApiRequestActionResponse,
     Error,
@@ -45,6 +46,7 @@ type RequestsPageQueueCardProps = {
     unknown
   >
   onOpenConfirm: (config: ConfirmConfig) => void
+  serverPagination: DataTableServerPagination
 }
 
 export function RequestsPageQueueCard({
@@ -57,10 +59,10 @@ export function RequestsPageQueueCard({
   isActiveLoading,
   activeError,
   canReview,
-  tree,
   approveMutation,
   denyMutation,
   onOpenConfirm,
+  serverPagination,
 }: RequestsPageQueueCardProps) {
   return (
     <Card>
@@ -69,9 +71,15 @@ export function RequestsPageQueueCard({
           <div className="flex flex-col gap-1">
             <CardTitle className="flex items-center gap-2">
               {scope === "pending" ? (
-                <IconClock className="size-5 text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Clock01Icon}
+                  className="size-5 text-muted-foreground"
+                />
               ) : (
-                <IconCheckbox className="size-5 text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={CheckmarkSquare01Icon}
+                  className="size-5 text-muted-foreground"
+                />
               )}
               {formatRequestScope(scope)}
             </CardTitle>
@@ -93,7 +101,13 @@ export function RequestsPageQueueCard({
               </TabsTrigger>
               <TabsTrigger value="completed">
                 Completed
-                <Badge variant="outline">{completedCount}</Badge>
+                <Badge variant="outline">
+                  {completedCount === null ? (
+                    <Skeleton className="h-3 w-4 rounded-full" />
+                  ) : (
+                    completedCount
+                  )}
+                </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -106,6 +120,7 @@ export function RequestsPageQueueCard({
           isLoading={isActiveLoading}
           error={activeError}
           getRowId={(request: ApiRequestSummary) => request.id}
+          serverPagination={serverPagination}
           selectionActions={
             canReview && scope === "pending"
               ? ({
@@ -118,7 +133,6 @@ export function RequestsPageQueueCard({
                   <RequestsSelectionActions
                     selectedRows={selectedRows}
                     clearSelection={clearSelection}
-                    tree={tree}
                     approveMutation={approveMutation}
                     denyMutation={denyMutation}
                     onOpenConfirm={onOpenConfirm}

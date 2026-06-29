@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -20,8 +20,14 @@ var (
 	ErrUnknownManagementPermission = errors.New("unknown management permission")
 )
 
+// dbtx is the seam Service uses to talk to the database
+type dbtx interface {
+	database.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type Service struct {
-	db                          *pgxpool.Pool
+	db                          dbtx
 	protectedManagementGroupIDs map[uuid.UUID]struct{}
 }
 
@@ -32,7 +38,18 @@ type VMRecord struct {
 	UpstreamUUID    uuid.UUID
 }
 
-func NewService(db *pgxpool.Pool, protectedManagementGroupIDs []uuid.UUID) *Service {
+type VMItemAccess struct {
+	Allowed bool
+	HasVM   bool
+	Record  VMRecord
+}
+
+func hasVMFlag(value any) bool {
+	hasVM, ok := value.(bool)
+	return ok && hasVM
+}
+
+func NewService(db dbtx, protectedManagementGroupIDs []uuid.UUID) *Service {
 	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedManagementGroupIDs))
 	for _, principalID := range protectedManagementGroupIDs {
 		if principalID == uuid.Nil {
@@ -117,6 +134,52 @@ func (s *Service) Require(
 	required Mask,
 ) error {
 	allowed, err := s.Has(ctx, principalID, itemID, required)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+
+	return nil
+}
+
+// HasAny reports whether the principal holds the required mask on at least
+// one inventory folder anywhere in the tree. This backs metadata endpoints
+// that aren't scoped to a single inventory item but still shouldn't be
+// exposed to principals with no relevant access anywhere.
+func (s *Service) HasAny(
+	ctx context.Context,
+	principalID uuid.UUID,
+	required Mask,
+) (bool, error) {
+	isAdmin, err := s.HasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return false, err
+	}
+	if isAdmin {
+		return true, nil
+	}
+
+	allowed, err := database.New(s.db).HasAnyInventoryPermission(ctx, database.HasAnyInventoryPermissionParams{
+		PrincipalID:  principalID,
+		RequiredMask: int64(required),
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return allowed, nil
+}
+
+// RequireAny enforces HasAny and returns ErrForbidden when the principal
+// holds the required mask on no inventory folder.
+func (s *Service) RequireAny(
+	ctx context.Context,
+	principalID uuid.UUID,
+	required Mask,
+) error {
+	allowed, err := s.HasAny(ctx, principalID, required)
 	if err != nil {
 		return err
 	}
@@ -220,8 +283,125 @@ func (s *Service) GetVMRecord(ctx context.Context, itemID uuid.UUID) (VMRecord, 
 	}, nil
 }
 
-// GetVMRecordForUpdate uses SELECT ... FOR UPDATE for mutation paths. The row
-// lock only persists for the lifetime of the surrounding transaction.
+func (s *Service) ResolveVMItems(
+	ctx context.Context,
+	principalID uuid.UUID,
+	itemIDs []uuid.UUID,
+	required Mask,
+	lock bool,
+) (map[uuid.UUID]VMItemAccess, error) {
+	result := make(map[uuid.UUID]VMItemAccess, len(itemIDs))
+	if len(itemIDs) == 0 {
+		return result, nil
+	}
+
+	q := database.New(s.db)
+	isAdmin, err := s.HasProtectedAccess(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+
+	if isAdmin {
+		if lock {
+			rows, err := q.GetBulkVMItemsForUpdate(ctx, itemIDs)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, row := range rows {
+				access := VMItemAccess{Allowed: true}
+				if hasVMFlag(row.HasVm) {
+					access.HasVM = true
+					access.Record = VMRecord{
+						InventoryItemID: row.ID,
+						Node:            row.Node,
+						Vmid:            row.Vmid,
+						UpstreamUUID:    row.UpstreamUuid,
+					}
+				}
+				result[row.ID] = access
+			}
+		} else {
+			rows, err := q.GetBulkVMItems(ctx, itemIDs)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, row := range rows {
+				access := VMItemAccess{Allowed: true}
+				if hasVMFlag(row.HasVm) {
+					access.HasVM = true
+					access.Record = VMRecord{
+						InventoryItemID: row.ID,
+						Node:            row.Node,
+						Vmid:            row.Vmid,
+						UpstreamUUID:    row.UpstreamUuid,
+					}
+				}
+				result[row.ID] = access
+			}
+		}
+
+		return result, nil
+	}
+
+	if lock {
+		rows, err := q.GetBulkVMItemsWithPermissionsForUpdate(ctx, database.GetBulkVMItemsWithPermissionsForUpdateParams{
+			PrincipalID: principalID,
+			ItemIds:     itemIDs,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, row := range rows {
+			access := VMItemAccess{
+				Allowed: Mask(row.AllowedMask).Has(required),
+			}
+			if hasVMFlag(row.HasVm) {
+				access.HasVM = true
+				access.Record = VMRecord{
+					InventoryItemID: row.ID,
+					Node:            row.Node,
+					Vmid:            row.Vmid,
+					UpstreamUUID:    row.UpstreamUuid,
+				}
+			}
+			result[row.ID] = access
+		}
+	} else {
+		rows, err := q.GetBulkVMItemsWithPermissions(ctx, database.GetBulkVMItemsWithPermissionsParams{
+			PrincipalID: principalID,
+			ItemIds:     itemIDs,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, row := range rows {
+			access := VMItemAccess{
+				Allowed: Mask(row.AllowedMask).Has(required),
+			}
+			if hasVMFlag(row.HasVm) {
+				access.HasVM = true
+				access.Record = VMRecord{
+					InventoryItemID: row.ID,
+					Node:            row.Node,
+					Vmid:            row.Vmid,
+					UpstreamUUID:    row.UpstreamUuid,
+				}
+			}
+			result[row.ID] = access
+		}
+	}
+
+	return result, nil
+}
+
+// GetVMRecordForUpdate uses SELECT ... FOR UPDATE for mutation paths. With the
+// current pool-backed callers it does not serialize the full verify-then-act
+// window; vm_action_claims is the actual mutation boundary. The row lock only
+// persists for the lifetime of a surrounding transaction.
 func (s *Service) GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (VMRecord, error) {
 	row, err := database.New(s.db).GetProxmoxVMByInventoryItemIDForUpdate(ctx, itemID)
 	if err != nil {
@@ -496,9 +676,53 @@ func IsManagementACLRequiresGroup(err error) bool {
 	return errors.Is(err, ErrManagementACLRequiresGroup)
 }
 
+type principalCacheKey struct{}
+
+// principalCache memoizes ListEffectivePrincipalIDs results
+type principalCache struct {
+	mu   sync.Mutex
+	data map[uuid.UUID][]uuid.UUID
+}
+
+// WithPrincipalCache returns a context carrying a per-request cache
+func WithPrincipalCache(ctx context.Context) context.Context {
+	return context.WithValue(ctx, principalCacheKey{}, &principalCache{
+		data: make(map[uuid.UUID][]uuid.UUID),
+	})
+}
+
+func loadEffectivePrincipalIDs(
+	ctx context.Context,
+	db dbtx,
+	principalID uuid.UUID,
+) ([]uuid.UUID, error) {
+	cache, _ := ctx.Value(principalCacheKey{}).(*principalCache)
+	if cache != nil {
+		cache.mu.Lock()
+		ids, ok := cache.data[principalID]
+		cache.mu.Unlock()
+		if ok {
+			return ids, nil
+		}
+	}
+
+	ids, err := database.New(db).ListEffectivePrincipalIDs(ctx, principalID)
+	if err != nil {
+		return nil, err
+	}
+
+	if cache != nil {
+		cache.mu.Lock()
+		cache.data[principalID] = ids
+		cache.mu.Unlock()
+	}
+
+	return ids, nil
+}
+
 func HasProtectedPrincipalAccess(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	db dbtx,
 	principalID uuid.UUID,
 	protectedPrincipalIDs map[uuid.UUID]struct{},
 ) (bool, error) {
@@ -506,7 +730,7 @@ func HasProtectedPrincipalAccess(
 		return false, nil
 	}
 
-	effectivePrincipalIDs, err := database.New(db).ListEffectivePrincipalIDs(ctx, principalID)
+	effectivePrincipalIDs, err := loadEffectivePrincipalIDs(ctx, db, principalID)
 	if err != nil {
 		return false, err
 	}

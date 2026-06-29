@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { IconSettings } from "@tabler/icons-react"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -82,7 +82,7 @@ export function ChangePasswordDialog({
         mutation.reset()
       }}
       initialFocus={false}
-      icon={IconSettings}
+      icon={Settings01Icon}
       title="Settings"
       description="Change your password by confirming the current one first."
     >

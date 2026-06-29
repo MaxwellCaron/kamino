@@ -1,5 +1,6 @@
 import type {
   ClonedPod,
+  ClonedPodStatus,
   PodQuestionActivityAnswer,
 } from "@/features/pods/types/pod-types"
 import {
@@ -7,6 +8,27 @@ import {
   apiFetch,
   shouldRetryApiQuery,
 } from "@/features/auth/api/auth-api"
+
+export type CatalogCloneSummary = {
+  summary: {
+    id: string
+    pod_id: string
+    cloned_at: string
+    status: ClonedPodStatus
+    task_summary: {
+      total: number
+      completed: number
+      progress: number
+    }
+  }
+  pod: {
+    id: string
+    slug: string
+    title: string
+    description: string
+    image_url: string
+  }
+}
 
 export type ClonePodProgress = {
   type: "pod.clone.progress"
@@ -32,6 +54,25 @@ export function clonedPodQueryOptions(podSlug?: string) {
       return res.json()
     },
     enabled: !!podSlug,
+    retry: shouldRetryApiQuery,
+  }
+}
+
+export function catalogCloneSummariesQueryOptions() {
+  return {
+    queryKey: ["pods", "catalog", "clones", "summary"] as const,
+    queryFn: async (): Promise<Array<CatalogCloneSummary>> => {
+      const res = await apiFetch("/api/v1/pods/catalog/clones/summary")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new ApiError(
+          body.error ??
+            `Failed to fetch catalog clone summaries: ${res.status}`,
+          res.status
+        )
+      }
+      return res.json()
+    },
     retry: shouldRetryApiQuery,
   }
 }

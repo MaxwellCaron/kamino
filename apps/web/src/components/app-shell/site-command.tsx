@@ -1,5 +1,6 @@
 import * as React from "react"
-import { IconSearch } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Search01Icon } from "@hugeicons/core-free-icons"
 import { Kbd, KbdGroup } from "@workspace/ui/components/kbd"
 import { Button } from "@workspace/ui/components/button"
 
@@ -40,7 +41,7 @@ export function CommandManyItems() {
         size="sm"
       >
         <div className="flex items-center gap-2">
-          <IconSearch />
+          <HugeiconsIcon icon={Search01Icon} />
           <span className="hidden sm:inline">Search Kamino...</span>
         </div>
         <KbdGroup className="hidden sm:flex">

@@ -1,11 +1,12 @@
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconDeviceDesktop,
-  IconFolder,
-  IconReceipt,
-  IconTemplate,
-  IconUser,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  ComputerIcon,
+  Copy02Icon,
+  FolderIcon,
+  Invoice01Icon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -14,7 +15,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
-import type { ReactNode } from "@tabler/icons-react"
+import type { ReactNode } from "react"
 import type { AdminStats } from "../utils/admin-dashboard"
 
 type Stat = {
@@ -27,37 +28,67 @@ type Stat = {
 function buildStats(stats: AdminStats | null): Array<Stat> {
   return [
     {
-      icon: <IconUser className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={UserIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Users",
       value: stats ? String(stats.users) : "—",
       detail: "Principal accounts with direct login or identity mapping.",
     },
     {
-      icon: <IconUsersGroup className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={UserGroupIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Groups",
       value: stats ? String(stats.groups) : "—",
       detail: "Collections of principals sharing permissions and access.",
     },
     {
-      icon: <IconFolder className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={FolderIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Folders",
       value: stats ? String(stats.folders) : "—",
       detail: "Inventory folders organizing and scoping infrastructure.",
     },
     {
-      icon: <IconDeviceDesktop className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={ComputerIcon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "VMs",
       value: stats ? String(stats.vms) : "—",
       detail: "Virtual machines provisioned and managed in the cluster.",
     },
     {
-      icon: <IconTemplate className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={Copy02Icon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Templates",
       value: stats ? String(stats.templates) : "—",
       detail: "Reusable VM images available for cloning and deployment.",
     },
     {
-      icon: <IconReceipt className="size-5 text-muted-foreground" />,
+      icon: (
+        <HugeiconsIcon
+          icon={Invoice01Icon}
+          className="size-5 text-muted-foreground"
+        />
+      ),
       label: "Requests",
       value: stats ? String(stats.requests) : "—",
       detail: "Total requests for VM power and snapshot operations.",

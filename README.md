@@ -33,6 +33,7 @@ packages/ui/       Shared UI primitives exported as @workspace/ui
 
 - **Bun** 1.3.11 (`curl -fsSL https://bun.sh/install | bash`)
 - **Go** 1.26
+- **Air** (Go live-reload; `go install github.com/air-verse/air@latest`) — required for `bun run dev` API watch mode
 - **Postgres** instance reachable from the API
 - **Proxmox** cluster with an API token (`kamino@pve!<token-name>`)
 - **AD/LDAP** — optional; required only if AD auth/sync is enabled
@@ -55,7 +56,7 @@ bun run docker:up    # builds and starts api + web containers
 bun run docker:down  # stops and removes containers
 ```
 
-The compose file has no Postgres service — `DATABASE_URL` must point at an existing instance. Container configuration is read from `apps/api/.env.docker` (optional; same keys as `.env.example`).
+The compose file has no Postgres service — `DATABASE_URL` must point at an existing instance. Container configuration is read from `.env.docker` at the repo root (optional; same keys as `.env.example`).
 
 The API healthcheck endpoint is `GET /api/v1/health`.
 
@@ -114,10 +115,9 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_DEV_NETWORK_MAX` | no | `254` | Last create-pod developer network number |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
-| `POD_ROUTER_INTERNAL_IP_BASE` | no | `10.128.` | Internal subnet prefix used for cloned pod router addressing |
+| `POD_ROUTER_INTERNAL_SUBNET` | no | `10.128.1.0/24` | Fixed internal LAN every pod router uses; must match the `INTERNAL_SUBNET` used to generate router snippets (see below) |
 | `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
 | `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
-| `POD_ROUTER_CLOUD_INIT_META_FILE_PATTERN` | no | `kamino-router-{network}-meta-data.yaml` | Meta-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
 
 By default, published pod clones reserve network numbers `1-244` and create-pod
@@ -125,8 +125,65 @@ developer environments reserve `245-254`. These ranges must not overlap.
 Generated VNet IDs must also fit Proxmox's 8-character VNet limit; with the
 default prefix and ranges, the longest generated ID is `pod254`.
 
+Development and published pod routers clone directly from
+`POD_ROUTER_TEMPLATE_ITEM_ID`; publishing snapshots only non-router VMs.
+
+### Pod router networking
+
+Every pod VNet is isolated at Layer 2, so every pod router can safely reuse
+the same internal LAN (`POD_ROUTER_INTERNAL_SUBNET`, default `10.128.1.0/24`)
+— only the external (WAN) `/24` differs per allocated network number. The
+router NATs between the two, preserving the workload's host octet:
+
+| | Development (network `245`) | Published clone (network `24`) |
+|---|---|---|
+| WAN subnet | `172.16.245.0/24` | `172.16.24.0/24` |
+| LAN subnet (both) | `10.128.1.0/24` | `10.128.1.0/24` |
+| Workload at `10.128.1.50` | reachable at `172.16.245.50` | reachable at `172.16.24.50` |
+
+Configure workload guests once, as `10.128.1.<host>/24` with gateway
+`10.128.1.1` — Kamino does not rewrite addressing inside guests, so existing
+VMs must be readdressed to this LAN (then republished/recloned) before this
+networking model takes effect for them.
+
 ## Security notes
 
 - Keep real credentials only in untracked `.env*` files (`.env`, `.env.docker`). Never commit them.
 - Generate `JWT_SECRET` with `openssl rand -base64 32`.
 - Leave `PROXMOX_INSECURE` and `LDAP_INSECURE` as `false` outside isolated lab environments.
+
+## Operations
+
+### Source of truth
+
+Postgres is the source of truth for all Kamino state. Proxmox is treated as an external resource that Kamino mirrors and reconciles against. When a discrepancy is found, Kamino updates Proxmox to match the database, not the other way around.
+
+### Startup sequence
+
+On startup the API performs these steps in order:
+
+1. Connect to Postgres and initialize the query layer.
+2. Connect to Proxmox and verify API access.
+3. Run an initial inventory import from Proxmox into the database.
+4. Optionally run AD/LDAP sync if `LDAP_URL` is configured.
+5. Start event notifiers (inventory, VM status, requests).
+6. Reconcile Proxmox mirror state against the database.
+7. Bootstrap admin group ACLs from `LDAP_ADMIN_GROUP_DN` if configured.
+8. Normalize permission inheritance across the inventory tree.
+9. Register HTTP routes and begin serving.
+
+### Mirror reconcile and managed pool deletion
+
+During step 6, Kamino compares its database state with Proxmox. Pools that Kamino previously managed but are no longer present in the database may be deleted from Proxmox during reconcile. This is expected behavior when inventory items are removed from Kamino. Review Proxmox mirror logs before running destructive sync operations in production.
+
+### Pod router prerequisites
+
+Pod cloning requires the following to be configured and healthy:
+
+| Prerequisite | Env var | Check |
+|---|---|---|
+| Router template VM exists in inventory | `POD_ROUTER_TEMPLATE_ITEM_ID` | Must point to a valid template inventory item |
+| Cloud-init snippets exist on Proxmox storage | `POD_ROUTER_CLOUD_INIT_*` | Filenames must pass validation (no path separators, no `..`) |
+| VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_CLONE_NETWORK_MIN/MAX` | Each `{prefix}{number}` VNet must be present in Proxmox SDN |
+| WAN IP prefix is a valid dotted numeric value | `POD_ROUTER_WAN_IP_BASE` | Each segment must be 0-255 |
+| Internal subnet is a valid IPv4 `/24` network | `POD_ROUTER_INTERNAL_SUBNET` | Must be a canonical `/24` network address, not a host address |

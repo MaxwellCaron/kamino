@@ -54,32 +54,6 @@ export function PodPageSkeleton() {
       </div>
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Skeleton className="size-6 rounded-md" />
-              <Skeleton className="h-7 w-52 rounded-md" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }, (_, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3.5 rounded-2xl bg-muted/50 px-4 py-3.5"
-                >
-                  <Skeleton className="size-5 shrink-0 rounded-md" />
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <Skeleton className="h-4 w-3/4 rounded-md" />
-                    <Skeleton className="h-3.5 w-28 rounded-md" />
-                  </div>
-                  <Skeleton className="size-4 shrink-0 rounded-md" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="rounded-b-2xl! pb-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

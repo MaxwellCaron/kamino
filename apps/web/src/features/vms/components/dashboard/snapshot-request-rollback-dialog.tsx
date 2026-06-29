@@ -1,11 +1,11 @@
-import { IconHistory } from "@tabler/icons-react"
+import { HistoryIcon } from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
 import type { UseMutationResult } from "@tanstack/react-query"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
 
 type SnapshotRequestRollbackDialogProps = {
@@ -40,17 +40,13 @@ export function SnapshotRequestRollbackDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
-          if (submitRollbackRequest.isPending) {
-            return
-          }
-
           onClose()
         }
       }}
     >
       <AppAlertDialogContent
         open={open}
-        icon={IconHistory}
+        icon={HistoryIcon}
         title="Rollback"
         description={
           snapshotName ? (
@@ -63,11 +59,14 @@ export function SnapshotRequestRollbackDialog({
         }
       >
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={submitRollbackRequest.isPending}>
-            Cancel
+          <AlertDialogCancel>
+            Close
           </AlertDialogCancel>
-          <AlertDialogAction
-            disabled={submitRollbackRequest.isPending || snapshotName === null}
+          <AppActionButton
+            type="button"
+            disabled={snapshotName === null}
+            pending={submitRollbackRequest.isPending}
+            pendingLabel="Submitting..."
             onClick={async () => {
               if (snapshotName === null) return
 
@@ -86,8 +85,8 @@ export function SnapshotRequestRollbackDialog({
               }
             }}
           >
-            {submitRollbackRequest.isPending ? "Submitting..." : "Submit"}
-          </AlertDialogAction>
+            Submit
+          </AppActionButton>
         </AlertDialogFooter>
       </AppAlertDialogContent>
     </AlertDialog>

@@ -1,9 +1,8 @@
 "use client"
 
 import { useMemo } from "react"
-import { IconEdit, IconFolderPlus } from "@tabler/icons-react"
+import { FolderAddIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { useForm } from "@tanstack/react-form"
-import { toast } from "sonner"
 import { z } from "zod"
 
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -19,10 +18,8 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { isTouchedInvalid } from "@/components/forms/form-errors"
-import {
-  formatToastError,
-  formatVmReference,
-} from "@/features/shared/utils/format"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { formatVmReference } from "@/features/shared/utils/format"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
@@ -76,7 +73,7 @@ export function RenameDialog(props: RenameDialogProps) {
           submitLabel: "Create Folder",
           pendingLabel: "Creating...",
           placeholder: "Folder",
-          icon: IconFolderPlus,
+          icon: FolderAddIcon,
           schema: folderNameSchema,
         }
       case "rename-folder":
@@ -86,7 +83,7 @@ export function RenameDialog(props: RenameDialogProps) {
           submitLabel: "Rename Folder",
           pendingLabel: "Renaming...",
           placeholder: "Folder",
-          icon: IconEdit,
+          icon: PencilEdit01Icon,
           schema: folderNameSchema,
         }
       case "rename-item":
@@ -99,7 +96,7 @@ export function RenameDialog(props: RenameDialogProps) {
           submitLabel: "Rename",
           pendingLabel: "Renaming...",
           placeholder: "Name",
-          icon: IconEdit,
+          icon: PencilEdit01Icon,
           schema: vmNameSchema,
         }
     }
@@ -115,34 +112,32 @@ export function RenameDialog(props: RenameDialogProps) {
       props.onOpenChange(false)
 
       if (props.mode === "create-folder") {
-        toast.promise(
-          createFolder.mutateAsync({ name: parsed, parentId: props.parentId }),
-          {
-            loading: `Creating folder "${parsed}"...`,
-            success: `Folder "${parsed}" created`,
-            error: formatToastError,
-          }
-        )
+        showSingleMutationToast({
+          title: "Creating",
+          name: parsed,
+          promise: createFolder.mutateAsync({
+            name: parsed,
+            parentId: props.parentId,
+          }),
+          successDescription: "Created",
+        })
       } else if (props.mode === "rename-folder") {
-        toast.promise(
-          renameFolder.mutateAsync({ id: props.folderId, name: parsed }),
-          {
-            loading: `Renaming folder to "${parsed}"...`,
-            success: `Folder renamed to "${parsed}"`,
-            error: formatToastError,
-          }
-        )
+        showSingleMutationToast({
+          title: "Renaming",
+          name: parsed,
+          promise: renameFolder.mutateAsync({
+            id: props.folderId,
+            name: parsed,
+          }),
+          successDescription: "Renamed",
+        })
       } else {
-        toast.promise(
-          renameVm.mutateAsync({ itemId: props.itemId, name: parsed }),
-          {
-            loading: `Renaming ${props.currentVmid ? `VM ${props.currentVmid}` : "VM"} to "${parsed}"...`,
-            success: props.currentVmid
-              ? `VM ${props.currentVmid} renamed to "${parsed}"`
-              : `VM renamed to "${parsed}"`,
-            error: formatToastError,
-          }
-        )
+        showSingleMutationToast({
+          title: "Renaming",
+          name: parsed,
+          promise: renameVm.mutateAsync({ itemId: props.itemId, name: parsed }),
+          successDescription: "Renamed",
+        })
       }
     },
   })

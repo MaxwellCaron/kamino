@@ -1,5 +1,6 @@
 import { useMemo } from "react"
-import { IconPlus } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Add01Icon } from "@hugeicons/core-free-icons"
 import {
   Combobox,
   ComboboxContent,
@@ -62,7 +63,7 @@ export function AddPrincipalsDialog({
         render={<Button size="icon" disabled={disabled} />}
         className="[&>svg:last-child]:hidden"
       >
-        <IconPlus />
+        <HugeiconsIcon icon={Add01Icon} />
       </ComboboxTrigger>
       <ComboboxContent align="end" className="w-80">
         <ComboboxInput showTrigger={false} placeholder="Search principals..." />

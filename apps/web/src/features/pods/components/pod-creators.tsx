@@ -1,4 +1,5 @@
-import { IconUsersGroup } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { UserGroupIcon } from "@hugeicons/core-free-icons"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   HoverCard,
@@ -27,7 +28,7 @@ export function PodCreatorIcon({
   if (creator.type === "group") {
     return (
       <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <IconUsersGroup className="size-4.5" />
+        <HugeiconsIcon icon={UserGroupIcon} className="size-4.5" />
       </span>
     )
   }
@@ -61,7 +62,7 @@ export function FormatPodCreatorsShort(creators: Array<PodCreator>) {
             closeDelay={150}
           >
             <span className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <IconUsersGroup />
+              <HugeiconsIcon icon={UserGroupIcon} />
             </span>
             <span className="text-sm font-medium text-card-foreground">
               {creators.length} Creators

@@ -1,37 +1,26 @@
 import {
-  IconCamera,
-  IconCopy,
-  IconCubePlus,
-  IconCubeSend,
-  IconDeviceDesktop,
-  IconDeviceDesktopPlus,
-  IconEdit,
-  IconFolder,
-  IconFolderPlus,
-  IconGauge,
-  IconHome,
-  IconLayoutDashboard,
-  IconListDetails,
-  IconLock,
-  IconNetwork,
-  IconPackage,
-  IconPackages,
-  IconReceipt,
-  IconSettings,
-  IconTemplate,
-  IconTerminal2,
-  IconUser,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  ComputerIcon,
+  Copy02Icon,
+  DashboardSquare01Icon,
+  FolderIcon,
+  Globe02Icon,
+  Home03Icon,
+  Invoice01Icon,
+  PackageAddIcon,
+  PackageCheck,
+  PackageIcon,
+  PackageMovingIcon,
+  ReloadIcon,
+  Shield01Icon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
-import {
-  getFolderCapabilities,
-  getVmCapabilities,
-} from "@/features/inventory/utils/inventory-capabilities"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   formatRequestKind,
@@ -42,7 +31,6 @@ import {
 export type CommandGroupKey =
   | "pages"
   | "inventory"
-  | "actions"
   | "pods"
   | "principals"
   | "network"
@@ -51,7 +39,7 @@ export type CommandGroupKey =
 export type SiteCommandResult = {
   id: string
   group: CommandGroupKey
-  icon: typeof IconHome
+  icon: IconSvgElement
   label: string
   keywords: Array<string>
   onSelect: () => void
@@ -61,7 +49,7 @@ export type SiteCommandResult = {
 
 type StaticCommandConfig = {
   group: CommandGroupKey
-  icon: typeof IconHome
+  icon: IconSvgElement
   id: string
   keywords: Array<string>
   label: string
@@ -70,6 +58,8 @@ type StaticCommandConfig = {
   to:
     | "/"
     | "/admin"
+    | "/admin/audit"
+    | "/admin/proxmox-sync"
     | "/admin/principals/groups"
     | "/admin/principals/users"
     | "/admin/sdn"
@@ -92,44 +82,6 @@ export type BuildSiteCommandsActions = {
   navigateToSdn: () => void
   navigateToUsers: () => void
   navigateToGroups: () => void
-  openClone?: (config: {
-    currentName: string
-    currentVmid?: number
-    isTemplate?: boolean
-    itemId: string
-  }) => void
-  openCreateFolder?: (config: { parentId: string }) => void
-  openCreateVm?: (config: { initialFolderId: string }) => void
-  openEditVmHardware?: (config: {
-    currentName: string
-    currentVmid?: number
-    itemId: string
-  }) => void
-  openFolderLimit?: (config: {
-    directVmLimit?: number | null
-    effectiveVmLimit?: number | null
-    folderId: string
-    folderName: string
-    vmCount?: number | null
-  }) => void
-  openPermissions?: (config: {
-    itemId: string
-    itemKind: "folder" | "vm"
-    itemName: string
-    itemVmid?: number
-  }) => void
-  openRenameFolder?: (config: { currentName: string; folderId: string }) => void
-  openRenameVm?: (config: {
-    currentName: string
-    currentVmid?: number
-    itemId: string
-  }) => void
-  openSnapshot?: (config: {
-    currentName?: string
-    currentVmid?: number
-    itemId: string
-    mode?: "direct" | "request"
-  }) => void
 }
 
 export type BuildSiteCommandsParams = {
@@ -152,7 +104,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Home",
     subtitle: "Dashboard overview",
-    icon: IconHome,
+    icon: Home03Icon,
     to: "/",
     shortcut: "⌘H",
     visibility: "all",
@@ -163,7 +115,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Pods",
     subtitle: "Browse published pods",
-    icon: IconPackages,
+    icon: PackageIcon,
     to: "/pods",
     visibility: "all",
     keywords: ["catalog", "launch", "clone"],
@@ -173,7 +125,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Create Pod",
     subtitle: "Build a pod from templates",
-    icon: IconCubePlus,
+    icon: PackageAddIcon,
     to: "/pods/create",
     visibility: "manager",
     keywords: ["manager", "new pod", "templates"],
@@ -183,7 +135,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Publish Pod",
     subtitle: "Configure catalog access and tasks",
-    icon: IconCubeSend,
+    icon: PackageCheck,
     to: "/pods/publish",
     visibility: "manager",
     keywords: ["manager", "catalog", "tasks"],
@@ -193,7 +145,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Published Pods",
     subtitle: "Manage catalog entries",
-    icon: IconListDetails,
+    icon: PackageMovingIcon,
     to: "/pods/published",
     visibility: "manager",
     keywords: ["manager", "catalog", "visibility"],
@@ -203,7 +155,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Requests",
     subtitle: "Review request queue",
-    icon: IconReceipt,
+    icon: Invoice01Icon,
     to: "/manager/requests",
     visibility: "manager",
     keywords: ["approval", "pending", "manager"],
@@ -213,7 +165,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Admin",
     subtitle: "Cluster and platform overview",
-    icon: IconLayoutDashboard,
+    icon: DashboardSquare01Icon,
     to: "/admin",
     visibility: "admin",
     keywords: ["administrator", "metrics", "cluster"],
@@ -223,7 +175,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "SDN",
     subtitle: "Software-defined networking",
-    icon: IconNetwork,
+    icon: Globe02Icon,
     to: "/admin/sdn",
     visibility: "admin",
     keywords: ["administrator", "network", "vnet"],
@@ -233,7 +185,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Users",
     subtitle: "Manage user principals",
-    icon: IconUser,
+    icon: UserIcon,
     to: "/admin/principals/users",
     visibility: "admin",
     keywords: ["administrator", "principals", "accounts"],
@@ -243,17 +195,36 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Groups",
     subtitle: "Manage group principals",
-    icon: IconUsersGroup,
+    icon: UserGroupIcon,
     to: "/admin/principals/groups",
     visibility: "admin",
     keywords: ["administrator", "principals", "roles"],
+  },
+  {
+    id: "proxmox-sync",
+    group: "pages",
+    label: "Proxmox Sync",
+    subtitle: "Reconcile inventory drift against Proxmox",
+    icon: ReloadIcon,
+    to: "/admin/proxmox-sync",
+    visibility: "admin",
+    keywords: ["administrator", "reconcile", "drift", "sync"],
+  },
+  {
+    id: "audit",
+    group: "pages",
+    label: "Audit Logs",
+    subtitle: "Review direct VM and pod action history",
+    icon: Shield01Icon,
+    to: "/admin/audit",
+    visibility: "admin",
+    keywords: ["administrator", "audit", "history", "events"],
   },
 ]
 
 export const groupLabels = {
   pages: "Pages",
   inventory: "Inventory",
-  actions: "Actions",
   pods: "Pods",
   principals: "Principals",
   network: "Network",
@@ -264,7 +235,6 @@ export const groupOrder = [
   "pages",
   "principals",
   "inventory",
-  "actions",
   "pods",
   "network",
   "requests",
@@ -365,7 +335,6 @@ function appendVmCommands(
 
   const vm = node.vm
   const isTemplate = vm.is_template
-  const capabilities = getVmCapabilities(node.permissions, { isTemplate })
   const vmLabel = isTemplate ? "Template" : "VM"
   const vmKeywords = [
     path,
@@ -379,120 +348,12 @@ function appendVmCommands(
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: isTemplate ? IconTemplate : IconDeviceDesktop,
+    icon: isTemplate ? Copy02Icon : ComputerIcon,
     label: node.name,
     subtitle: `${vmLabel} ${vm.vmid} on ${vm.node}`,
     keywords: vmKeywords,
     onSelect: runCommand(actions, navigateToVm),
   })
-
-  if (capabilities.console.visible) {
-    results.push({
-      id: `vm-action:${node.id}:console`,
-      group: "actions",
-      icon: IconTerminal2,
-      label: `Open console for ${node.name}`,
-      subtitle: `${vmLabel} ${vm.vmid}`,
-      keywords: [...vmKeywords, "vnc", "console"],
-      onSelect: runCommand(actions, navigateToVm),
-    })
-  }
-
-  if (capabilities.clone.visible) {
-    results.push({
-      id: `vm-action:${node.id}:clone`,
-      group: "actions",
-      icon: IconCopy,
-      label: `Clone ${node.name}`,
-      subtitle: `${vmLabel} ${vm.vmid}`,
-      keywords: [...vmKeywords, "clone", "copy"],
-      onSelect: runCommand(actions, () => {
-        actions.openClone?.({
-          itemId: node.id,
-          currentName: node.name,
-          currentVmid: vm.vmid,
-          isTemplate,
-        }) ?? navigateToVm()
-      }),
-    })
-  }
-
-  if (capabilities.snapshot.visible) {
-    results.push({
-      id: `vm-action:${node.id}:snapshot`,
-      group: "actions",
-      icon: IconCamera,
-      label: `Snapshot ${node.name}`,
-      subtitle:
-        capabilities.snapshot.mode === "request"
-          ? "Submit a snapshot request"
-          : `VM ${vm.vmid}`,
-      keywords: [...vmKeywords, "snapshot", "rollback"],
-      onSelect: runCommand(actions, () => {
-        actions.openSnapshot?.({
-          itemId: node.id,
-          currentName: node.name,
-          currentVmid: vm.vmid,
-          mode: capabilities.snapshot.mode ?? "direct",
-        }) ?? navigateToVm()
-      }),
-    })
-  }
-
-  if (capabilities.editHardware.visible) {
-    results.push({
-      id: `vm-action:${node.id}:hardware`,
-      group: "actions",
-      icon: IconSettings,
-      label: `Edit hardware for ${node.name}`,
-      subtitle: `VM ${vm.vmid}`,
-      keywords: [...vmKeywords, "hardware", "cpu", "memory", "disk"],
-      onSelect: runCommand(actions, () => {
-        actions.openEditVmHardware?.({
-          itemId: node.id,
-          currentName: node.name,
-          currentVmid: vm.vmid,
-        }) ?? navigateToVm()
-      }),
-    })
-  }
-
-  if (capabilities.rename.visible) {
-    results.push({
-      id: `vm-action:${node.id}:rename`,
-      group: "actions",
-      icon: IconEdit,
-      label: `Rename ${node.name}`,
-      subtitle: `${vmLabel} ${vm.vmid}`,
-      keywords: [...vmKeywords, "rename", "edit"],
-      onSelect: runCommand(actions, () => {
-        actions.openRenameVm?.({
-          itemId: node.id,
-          currentName: node.name,
-          currentVmid: vm.vmid,
-        }) ?? navigateToVm()
-      }),
-    })
-  }
-
-  if (capabilities.managePermissions.visible) {
-    results.push({
-      id: `vm-action:${node.id}:permissions`,
-      group: "actions",
-      icon: IconLock,
-      label: `Edit permissions for ${node.name}`,
-      subtitle: `${vmLabel} ${vm.vmid}`,
-      keywords: [...vmKeywords, "acl", "permissions", "access"],
-      onSelect: runCommand(actions, () => {
-        actions.openPermissions?.({
-          itemId: node.id,
-          itemKind: node.kind,
-          itemName: node.name,
-          itemVmid: vm.vmid,
-        }) ?? navigateToVm()
-      }),
-    })
-  }
 }
 
 function appendFolderCommands(
@@ -501,100 +362,18 @@ function appendFolderCommands(
   path: string,
   actions: BuildSiteCommandsActions
 ) {
-  const capabilities = getFolderCapabilities(node.permissions)
   const folderKeywords = [path, "folder", "inventory"]
   const navigateHome = () => actions.navigateHome()
 
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: IconFolder,
+    icon: FolderIcon,
     label: node.name,
     subtitle: path,
     keywords: folderKeywords,
     onSelect: runCommand(actions, navigateHome),
   })
-
-  if (capabilities.createVm.visible) {
-    results.push({
-      id: `inventory-action:${node.id}:create-vm`,
-      group: "actions",
-      icon: IconDeviceDesktopPlus,
-      label: `Create VM in ${node.name}`,
-      subtitle: path,
-      keywords: [...folderKeywords, "new vm", "create virtual machine"],
-      onSelect: runCommand(actions, () => {
-        actions.openCreateVm?.({ initialFolderId: node.id }) ?? navigateHome()
-      }),
-    })
-  }
-
-  if (capabilities.createFolder.visible) {
-    results.push({
-      id: `inventory-action:${node.id}:create-folder`,
-      group: "actions",
-      icon: IconFolderPlus,
-      label: `Create folder in ${node.name}`,
-      subtitle: path,
-      keywords: [...folderKeywords, "new folder"],
-      onSelect: runCommand(actions, () => {
-        actions.openCreateFolder?.({ parentId: node.id }) ?? navigateHome()
-      }),
-    })
-  }
-
-  if (capabilities.rename.visible) {
-    results.push({
-      id: `inventory-action:${node.id}:rename-folder`,
-      group: "actions",
-      icon: IconEdit,
-      label: `Rename folder ${node.name}`,
-      subtitle: path,
-      keywords: [...folderKeywords, "rename", "edit"],
-      onSelect: runCommand(actions, () => {
-        actions.openRenameFolder?.({
-          folderId: node.id,
-          currentName: node.name,
-        }) ?? navigateHome()
-      }),
-    })
-  }
-
-  if (capabilities.managePermissions.visible) {
-    results.push({
-      id: `inventory-action:${node.id}:folder-limit`,
-      group: "actions",
-      icon: IconGauge,
-      label: `Set VM limit for ${node.name}`,
-      subtitle: path,
-      keywords: [...folderKeywords, "limit", "quota"],
-      onSelect: runCommand(actions, () => {
-        actions.openFolderLimit?.({
-          directVmLimit: node.direct_vm_limit,
-          effectiveVmLimit: node.effective_vm_limit,
-          folderId: node.id,
-          folderName: node.name,
-          vmCount: node.vm_count,
-        }) ?? navigateHome()
-      }),
-    })
-
-    results.push({
-      id: `inventory-action:${node.id}:permissions`,
-      group: "actions",
-      icon: IconLock,
-      label: `Edit permissions for ${node.name}`,
-      subtitle: path,
-      keywords: [...folderKeywords, "acl", "permissions", "access"],
-      onSelect: runCommand(actions, () => {
-        actions.openPermissions?.({
-          itemId: node.id,
-          itemKind: node.kind,
-          itemName: node.name,
-        }) ?? navigateHome()
-      }),
-    })
-  }
 }
 
 function buildPodCommands({
@@ -612,7 +391,7 @@ function buildPodCommands({
     results.push({
       id: `pod:${pod.id}`,
       group: "pods",
-      icon: IconPackage,
+      icon: PackageIcon,
       label: pod.title,
       subtitle: "Published pod catalog",
       keywords: [
@@ -630,7 +409,7 @@ function buildPodCommands({
       results.push({
         id: `published-pod:${pod.id}`,
         group: "pods",
-        icon: IconListDetails,
+        icon: PackageMovingIcon,
         label: `Edit ${pod.title}`,
         subtitle: `Published pod · ${pod.status}`,
         keywords: [pod.slug, pod.description, pod.source_folder, "manager"],
@@ -661,7 +440,7 @@ function buildAdminCommands({
     results.push({
       id: `user:${principal.id}`,
       group: "principals",
-      icon: IconUser,
+      icon: UserIcon,
       label,
       subtitle: principal.description ?? "User principal",
       keywords: [principal.external_id, principal.description ?? "", "user"],
@@ -673,7 +452,7 @@ function buildAdminCommands({
     results.push({
       id: `group:${principal.id}`,
       group: "principals",
-      icon: IconUsersGroup,
+      icon: UserGroupIcon,
       label,
       subtitle: principal.description ?? "Group principal",
       keywords: [
@@ -689,7 +468,7 @@ function buildAdminCommands({
     results.push({
       id: `vnet:${vnet.vnet}`,
       group: "network",
-      icon: IconNetwork,
+      icon: Globe02Icon,
       label: vnet.vnet,
       subtitle: `${vnet.zone}${vnet.tag ? ` · VLAN ${vnet.tag}` : ""}`,
       keywords: [vnet.alias ?? "", vnet.zone, String(vnet.tag ?? ""), "sdn"],
@@ -721,7 +500,7 @@ function buildRequestCommands({
     return {
       id: `request:${request.id}`,
       group: "requests",
-      icon: IconReceipt,
+      icon: Invoice01Icon,
       label: formatRequestLabel(request),
       subtitle: `${formatRequestStatus(request.status)} · ${request.requester_username}`,
       keywords: [

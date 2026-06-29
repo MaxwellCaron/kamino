@@ -29,7 +29,8 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { Input } from "@workspace/ui/components/input"
-import { IconSettings } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { toPodCreator } from "./publish-pod-form"
 import type { PublishPodFormApi } from "./publish-pod-form"
@@ -56,7 +57,10 @@ export function PublishPodPersonalizeStep({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <IconSettings className="size-5 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={Settings01Icon}
+              className="size-5 text-muted-foreground"
+            />
             Personalize
           </CardTitle>
           <CardDescription>

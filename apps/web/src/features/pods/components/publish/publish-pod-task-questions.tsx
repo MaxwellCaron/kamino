@@ -21,12 +21,13 @@ import {
   SortableItemHandle,
 } from "@workspace/ui/components/reui/sortable"
 import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconGripVertical,
-  IconPlus,
-  IconTrash,
-  IconZoomQuestion,
-} from "@tabler/icons-react"
+  Add01Icon,
+  Delete01Icon,
+  GripVerticalIcon,
+  SearchVisualIcon,
+} from "@hugeicons/core-free-icons"
 import {
   createEmptyQuestion,
   publishPodQuestionTextMaxLength,
@@ -50,7 +51,10 @@ export function PublishPodTaskQuestions({
         <Card className="bg-muted/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <IconZoomQuestion className="size-4.5 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={SearchVisualIcon}
+                className="size-4.5 text-muted-foreground"
+              />
               Questions
             </CardTitle>
             <CardDescription>
@@ -62,7 +66,7 @@ export function PublishPodTaskQuestions({
                 type="button"
                 onClick={() => questionsField.pushValue(createEmptyQuestion())}
               >
-                <IconPlus data-icon="inline-start" />
+                <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                 Add Question
               </Button>
             </CardAction>
@@ -87,7 +91,10 @@ export function PublishPodTaskQuestions({
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <SortableItemHandle>
-                            <IconGripVertical className="size-4 text-muted-foreground" />
+                            <HugeiconsIcon
+                              icon={GripVerticalIcon}
+                              className="size-4 text-muted-foreground"
+                            />
                           </SortableItemHandle>
                           Question {questionIndex + 1}
                         </CardTitle>
@@ -100,7 +107,7 @@ export function PublishPodTaskQuestions({
                               questionsField.removeValue(questionIndex)
                             }
                           >
-                            <IconTrash />
+                            <HugeiconsIcon icon={Delete01Icon} />
                           </Button>
                         </CardAction>
                       </CardHeader>

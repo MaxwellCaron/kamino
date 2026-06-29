@@ -296,6 +296,10 @@ func (h *SDNHandler) DeleteVNets(c *gin.Context) {
 	}
 
 	for _, vnet := range req.VNets {
+		if err := validateVNetID(vnet); err != nil {
+			writeInvalidRequest(c, err.Error())
+			return
+		}
 		if err := h.PX.DeleteVNet(ctx, vnet); err != nil {
 			logRequestError(c, "delete vnet "+vnet, err)
 			response.Failed = append(response.Failed, bulkDeleteVNetFailure{

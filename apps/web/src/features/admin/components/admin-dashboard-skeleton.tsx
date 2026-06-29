@@ -18,6 +18,8 @@ import {
 import {
   PageSkeleton,
   TableBlockSkeleton,
+  TableControlsSkeleton,
+  TableFooterSkeleton,
 } from "@/components/loading-skeletons"
 
 const overviewStatSkeletons = [
@@ -35,7 +37,6 @@ const clusterChartSkeletons = [
   { id: "storage", labelWidth: "w-14", usageWidth: "w-32" },
 ]
 
-const actionSkeletons = ["sync", "users", "groups", "requests"]
 const nodeRowSkeletons = ["node-1"]
 
 export function AdminDashboardSkeleton() {
@@ -67,11 +68,11 @@ function AdminOverviewSkeleton() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
           {overviewStatSkeletons.map((id) => (
             <div
               key={id}
-              className="flex min-h-30 flex-col justify-between rounded-2xl bg-muted/50 p-4"
+              className="flex min-h-28 flex-col justify-between rounded-2xl bg-muted/50 p-4"
             >
               <div className="flex items-center gap-3">
                 <Skeleton className="size-5 shrink-0 rounded-md" />
@@ -217,19 +218,13 @@ function NodeMetricSkeleton() {
 function AdminActionsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 xl:col-span-5">
-      {actionSkeletons.map((id) => (
-        <div
-          key={id}
-          className="flex min-h-18 items-center gap-4 rounded-3xl bg-card px-5 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
-        >
-          <Skeleton className="size-9 shrink-0 rounded-xl" />
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-36 rounded-md" />
-            <Skeleton className="h-3.5 w-full max-w-56 rounded-md" />
-          </div>
-          <Skeleton className="size-4 shrink-0 rounded-md" />
-        </div>
-      ))}
+      <Card className="h-full">
+        <CardContent className="grid h-full grid-cols-2 grid-rows-2 gap-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-full min-h-14 rounded-md" />
+          ))}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -255,7 +250,11 @@ function AdminTableSkeleton({
         </CardAction>
       </CardHeader>
       <CardContent className="px-0">
-        <TableBlockSkeleton rows={3} />
+        <TableControlsSkeleton />
+        <div className="overflow-hidden py-6">
+          <TableBlockSkeleton rows={3} />
+        </div>
+        <TableFooterSkeleton />
       </CardContent>
     </Card>
   )

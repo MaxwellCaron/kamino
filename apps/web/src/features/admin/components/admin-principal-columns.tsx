@@ -1,11 +1,12 @@
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import type { ComponentType } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ColumnDef } from "@tanstack/react-table"
 
 type PrincipalColumnsOptions = {
-  icon: ComponentType<{ className?: string }>
+  icon: IconSvgElement
   label: string
 }
 
@@ -25,8 +26,11 @@ export function getPrincipalColumns({
               size={32}
             />
           ) : (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-secondary-foreground">
-              <Icon className="size-5" />
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <HugeiconsIcon
+                icon={Icon}
+                className="size-5 text-muted-foreground"
+              />
             </div>
           )}
           <div className="flex min-w-0 flex-col gap-0.5">

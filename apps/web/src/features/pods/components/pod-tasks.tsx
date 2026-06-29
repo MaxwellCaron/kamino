@@ -13,11 +13,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Badge } from "@workspace/ui/components/badge"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconChecklist,
-  IconCircleCheckFilled,
-  IconCircleXFilled,
-} from "@tabler/icons-react"
+  CancelCircleIcon,
+  CheckListIcon,
+  CheckmarkCircle01Icon,
+} from "@hugeicons/core-free-icons"
 import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { cn } from "@workspace/ui/lib/utils"
 import { PodTaskQuestions } from "./pod-task-questions"
@@ -61,7 +62,10 @@ export function PodTasks({
     <Card className="rounded-b-2xl! pb-0">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconChecklist className="text-muted-foreground" />
+          <HugeiconsIcon
+            icon={CheckListIcon}
+            className="text-muted-foreground"
+          />
           <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
             Tasks
           </span>
@@ -107,10 +111,16 @@ export function PodTasks({
                         Task {index + 1}
                       </span>
                       {isCompleted === true && (
-                        <IconCircleCheckFilled className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <HugeiconsIcon
+                          icon={CheckmarkCircle01Icon}
+                          className="size-4 text-emerald-600 dark:text-emerald-400"
+                        />
                       )}
                       {isCompleted === false && (
-                        <IconCircleXFilled className="size-4 text-red-600 dark:text-red-400" />
+                        <HugeiconsIcon
+                          icon={CancelCircleIcon}
+                          className="size-4 text-red-600 dark:text-red-400"
+                        />
                       )}
                       <span className="font-semibold">{task.title}</span>
                     </div>

@@ -1,5 +1,10 @@
 import * as React from "react"
-import { IconNotes, IconRegex, IconUsersGroup } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  NotebookIcon,
+  RegexIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Field,
   FieldContent,
@@ -47,15 +52,15 @@ export function GroupDialogCreateForm({
     >
       <TabsList className="w-full border-b" variant="line">
         <TabsTrigger value="single">
-          <IconUsersGroup />
+          <HugeiconsIcon icon={UserGroupIcon} />
           Single
         </TabsTrigger>
         <TabsTrigger value="list">
-          <IconNotes />
+          <HugeiconsIcon icon={NotebookIcon} />
           List
         </TabsTrigger>
         <TabsTrigger value="prefix">
-          <IconRegex />
+          <HugeiconsIcon icon={RegexIcon} />
           Prefix
         </TabsTrigger>
       </TabsList>

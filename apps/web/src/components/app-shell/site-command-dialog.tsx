@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
   Command,
@@ -29,7 +30,6 @@ import {
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useOptionalInventoryDialogs } from "@/features/inventory/components/inventory-dialogs-provider"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -38,7 +38,7 @@ import {
   podCatalogQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
-import { requestsQueryOptions } from "@/features/requests/api/requests-api"
+import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
 import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 
 export function SiteCommandDialog({
@@ -49,7 +49,6 @@ export function SiteCommandDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
-  const inventoryDialogs = useOptionalInventoryDialogs()
   const [searchQuery, setSearchQuery] = useState("")
 
   const { data: sessionData, isLoading: isSessionLoading } = useQuery(
@@ -106,7 +105,7 @@ export function SiteCommandDialog({
     isError: isPendingRequestsError,
     isLoading: isPendingRequestsLoading,
   } = useQuery({
-    ...requestsQueryOptions("pending"),
+    ...requestSummariesQueryOptions("pending"),
     enabled: canManage,
   })
   const {
@@ -114,7 +113,7 @@ export function SiteCommandDialog({
     isError: isCompletedRequestsError,
     isLoading: isCompletedRequestsLoading,
   } = useQuery({
-    ...requestsQueryOptions("completed"),
+    ...requestSummariesQueryOptions("completed"),
     enabled: canManage,
   })
 
@@ -141,17 +140,8 @@ export function SiteCommandDialog({
       navigateToRequests: () => navigate({ to: "/manager/requests" }),
       navigateToSdn: () => navigate({ to: "/admin/sdn" }),
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
-      openClone: inventoryDialogs?.openClone,
-      openCreateFolder: inventoryDialogs?.openCreateFolder,
-      openCreateVm: inventoryDialogs?.openCreateVm,
-      openEditVmHardware: inventoryDialogs?.openEditVmHardware,
-      openFolderLimit: inventoryDialogs?.openFolderLimit,
-      openPermissions: inventoryDialogs?.openPermissions,
-      openRenameFolder: inventoryDialogs?.openRenameFolder,
-      openRenameVm: inventoryDialogs?.openRenameVm,
-      openSnapshot: inventoryDialogs?.openSnapshot,
     }),
-    [close, inventoryDialogs, navigate]
+    [close, navigate]
   )
 
   const commands = useMemo(() => {
@@ -256,7 +246,6 @@ export function SiteCommandDialog({
               {index > 0 && <CommandSeparator />}
               <CommandGroup heading={groupLabels[group]}>
                 {groupCommands.map((command) => {
-                  const Icon = command.icon
                   return (
                     <CommandItem
                       key={command.id}
@@ -264,7 +253,7 @@ export function SiteCommandDialog({
                       keywords={command.keywords}
                       onSelect={command.onSelect}
                     >
-                      <Icon />
+                      <HugeiconsIcon icon={command.icon} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{command.label}</span>
                         <span className="block truncate text-xs font-normal text-muted-foreground">

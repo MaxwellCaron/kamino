@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"slices"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"unicode"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -51,10 +53,9 @@ type PodRouterCloneConfig struct {
 	DevNetworkMax            int32
 	RouterWaitTimeout        time.Duration
 	WANIPBase                string
-	InternalIPBase           string
+	InternalSubnet           netip.Prefix
 	CloudInitStorage         string
 	CloudInitUserFilePattern string
-	CloudInitMetaFilePattern string
 	CloudInitNetworkFile     string
 }
 
@@ -68,6 +69,7 @@ type PodsHandler struct {
 	Actions              *vmactions.Executor
 	RouterTemplateItemID uuid.UUID
 	RouterCloneConfig    PodRouterCloneConfig
+	Audit                *audit.Service
 }
 
 type publishedPodPrincipalResponse struct {
@@ -206,12 +208,12 @@ type publishedPodCloneTaskSummaryResponse struct {
 }
 
 type clonedPodNetworkResponse struct {
-	Number          int32   `json:"number"`
-	VNet            string  `json:"vnet"`
-	ExternalSubnet  string  `json:"external_subnet"`
-	ExternalGateway string  `json:"external_gateway"`
-	InternalSubnet  *string `json:"internal_subnet,omitempty"`
-	InternalGateway *string `json:"internal_gateway,omitempty"`
+	Number          int32  `json:"number"`
+	VNet            string `json:"vnet"`
+	ExternalSubnet  string `json:"external_subnet"`
+	ExternalGateway string `json:"external_gateway"`
+	InternalSubnet  string `json:"internal_subnet"`
+	InternalGateway string `json:"internal_gateway"`
 }
 
 type publishedPodCloneResponse struct {
@@ -728,6 +730,11 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
 		}
 
+		network, err := h.clonedPodNetworkMetadata(s.NetworkNumber)
+		if err != nil {
+			return nil, fmt.Errorf("clone %s network metadata: %w", s.ID, err)
+		}
+
 		response = append(response, publishedPodCloneResponse{
 			ID:    s.ID,
 			PodID: s.PodID,
@@ -740,7 +747,7 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			ClonedAt:  s.CreatedAt.Time,
 			UpdatedAt: s.UpdatedAt.Time,
 			Status:    clonedPodRuntimeStatus(vmStatusList),
-			Network:   h.clonedPodNetworkMetadata(s.NetworkNumber),
+			Network:   network,
 			VMCount:   int32(s.VmCount),
 			TaskSummary: publishedPodCloneTaskSummaryResponse{
 				Total:     s.TaskTotal,
@@ -1009,11 +1016,15 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			h.cleanupFailedPodProvision(podFolderID, nil)
 			return
 		}
-		if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs))); err != nil {
+		reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs)), "pod_create_vms")
+		if err != nil {
 			progress.fail(inventoryRequestError(err).UserMessage)
 			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeInventoryError(c, err)
 			return
+		}
+		if reservation != nil {
+			defer reservation.Release(c.Request.Context())
 		}
 	}
 
@@ -2330,8 +2341,12 @@ func (h *PodsHandler) preparePublishedPodTemplates(
 	); reqErr != nil {
 		return nil, reqErr
 	}
-	if err := h.Service.EnsureFolderHasVMCapacity(ctx, templateFolderID, int32(len(req.VirtualMachines))); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, templateFolderID, int32(len(req.VirtualMachines)), "pod_template_vms")
+	if err != nil {
 		return nil, inventoryRequestError(err)
+	}
+	if reservation != nil {
+		defer reservation.Release(ctx)
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(ctx, templateFolderID)
@@ -2369,6 +2384,29 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 	progress *publishPodProgressReporter,
 ) ([]normalizedPublishPodVM, *requestError) {
 	prepared := make([]normalizedPublishPodVM, len(vms))
+	routerTemplateID := uuid.Nil
+	for _, vm := range vms {
+		if !isPodRouterName(vm.Name) {
+			continue
+		}
+
+		var err error
+		routerTemplateID, err = publishedPodVMTemplateItemID(
+			vm.Name,
+			vm.SourceInventoryItemID,
+			h.RouterTemplateItemID,
+		)
+		if err != nil {
+			return nil, &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: err.Error(),
+			}
+		}
+		if _, reqErr := h.resolvePublishedPodVMTemplate(ctx, routerTemplateID); reqErr != nil {
+			return nil, reqErr
+		}
+		break
+	}
 
 	// allocate serializes VMID allocation; created tracks clones for cleanup.
 	var allocate sync.Mutex
@@ -2379,6 +2417,13 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 	group.SetLimit(publishCloneConcurrency)
 
 	for i, vm := range vms {
+		if isPodRouterName(vm.Name) {
+			out := vm
+			out.SourceInventoryItemID = routerTemplateID
+			prepared[i] = out
+			continue
+		}
+
 		group.Go(func() error {
 			progress.set(publishProgressStepCloning, "Cloning Pod VM "+vm.Name)
 			clone, reqErr := h.cloneVMIntoFolder(gctx, principalID, vm.SourceInventoryItemID, placement, targetNode, vm.Name, true, cloneVMOptions{
@@ -2685,6 +2730,10 @@ func (h *PodsHandler) cleanupPublishedPodTemplates(templateItemIDs []uuid.UUID) 
 func (h *PodsHandler) deletePublishedPodTemplates(ctx context.Context, templateItemIDs []uuid.UUID) *requestError {
 	q := database.New(h.DB)
 	for _, id := range templateItemIDs {
+		if id == uuid.Nil || id == h.RouterTemplateItemID {
+			continue
+		}
+
 		row, err := q.GetProxmoxVMByInventoryItemID(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue

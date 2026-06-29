@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import { IconX } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
 import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
 import { clonePodProgressQueryOptions } from "@/features/pods/api/clone-pod-api"
@@ -91,7 +92,10 @@ export function PendingCloneStatusItem({
             aria-label={`Dismiss failed clone for ${row.principal.label}`}
             onClick={() => onDismiss(row.progressId)}
           >
-            <IconX className="text-muted-foreground" />
+            <HugeiconsIcon
+              icon={Cancel01Icon}
+              className="text-muted-foreground"
+            />
           </Button>
         </div>
       )}

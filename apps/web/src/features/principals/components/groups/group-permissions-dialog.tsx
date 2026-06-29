@@ -3,12 +3,13 @@ import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
 import { toast } from "sonner"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconAlertTriangle,
-  IconLockAccess,
-  IconShieldCheck,
-  IconUserCog,
-} from "@tabler/icons-react"
+  Alert01Icon,
+  LockPasswordIcon,
+  ShieldKeyIcon,
+  UserSettings01Icon,
+} from "@hugeicons/core-free-icons"
 import {
   Alert,
   AlertDescription,
@@ -169,7 +170,7 @@ function GroupPermissionsForm({
         <div className="flex flex-col">
           {immutable ? (
             <Alert className="mb-3">
-              <IconShieldCheck />
+              <HugeiconsIcon icon={ShieldKeyIcon} />
               <AlertTitle>Protected bootstrap group</AlertTitle>
               <AlertDescription>
                 This group stays administrator-owned and cannot be edited here.
@@ -177,7 +178,7 @@ function GroupPermissionsForm({
             </Alert>
           ) : !canEditBootstrapOnly ? (
             <Alert className="mb-3">
-              <IconUserCog />
+              <HugeiconsIcon icon={UserSettings01Icon} />
               <AlertTitle>Administrator role is restricted</AlertTitle>
               <AlertDescription>
                 You can assign the manager role here, but administrator remains
@@ -274,11 +275,11 @@ function GroupPermissionsForm({
 
       <DialogFooter>
         <AppDialogPrimaryButton
-          disabled={
-            controlsDisabled || immutable || !hasChanges || isSubmitting
-          }
+          disabled={controlsDisabled || immutable || !hasChanges}
+          pending={isSubmitting}
+          pendingLabel="Saving..."
         >
-          {isSubmitting ? "Saving..." : "Save"}
+          Save
         </AppDialogPrimaryButton>
       </DialogFooter>
     </form>
@@ -320,7 +321,7 @@ export function GroupPermissionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={open}
-        icon={IconLockAccess}
+        icon={LockPasswordIcon}
         title="Management Roles"
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
@@ -333,7 +334,10 @@ export function GroupPermissionsDialog({
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <IconAlertTriangle />
+                  <HugeiconsIcon
+                    icon={Alert01Icon}
+                    className="text-muted-foreground"
+                  />
                 </EmptyMedia>
                 <EmptyTitle>Could Not Load Roles</EmptyTitle>
                 <EmptyDescription>{accessError.message}</EmptyDescription>

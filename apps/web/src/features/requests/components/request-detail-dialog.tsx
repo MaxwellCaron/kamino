@@ -1,15 +1,16 @@
 import { Link } from "@tanstack/react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconAlertTriangle,
-  IconCheck,
-  IconCheckbox,
-  IconExternalLink,
-  IconTargetArrow,
-  IconUserQuestion,
-  IconUserSearch,
-  IconX,
-  IconZoom,
-} from "@tabler/icons-react"
+  Alert01Icon,
+  Cancel01Icon,
+  CheckmarkSquare01Icon,
+  ExternalLinkIcon,
+  Target01Icon,
+  Tick01Icon,
+  UserQuestion01Icon,
+  UserSearch01Icon,
+  ZoomIcon,
+} from "@hugeicons/core-free-icons"
 
 import {
   Alert,
@@ -101,7 +102,7 @@ export function RequestDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={open}
-        icon={IconZoom}
+        icon={ZoomIcon}
         title="Review"
         description="Review the request and determine the outcome."
       >
@@ -115,7 +116,7 @@ export function RequestDetailDialog({
                   variant="icon"
                   className="bg-destructive/10 text-destructive"
                 >
-                  <IconAlertTriangle />
+                  <HugeiconsIcon icon={Alert01Icon} />
                 </EmptyMedia>
                 <EmptyTitle>Error Loading Request</EmptyTitle>
                 <EmptyDescription>{error.message}</EmptyDescription>
@@ -125,7 +126,7 @@ export function RequestDetailDialog({
             <div className="flex flex-col gap-5">
               {request.execution_error && (
                 <Alert variant="destructive">
-                  <IconAlertTriangle />
+                  <HugeiconsIcon icon={Alert01Icon} />
                   <AlertTitle>Execution Failed</AlertTitle>
                   <AlertDescription>{request.execution_error}</AlertDescription>
                 </Alert>
@@ -137,7 +138,7 @@ export function RequestDetailDialog({
                 </div>
                 <Item variant="muted">
                   <ItemMedia variant="icon">
-                    <IconUserQuestion />
+                    <HugeiconsIcon icon={UserQuestion01Icon} />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle>{request.requester_username}</ItemTitle>
@@ -160,7 +161,9 @@ export function RequestDetailDialog({
                   </ItemActions>
                 </Item>
                 <Item variant="muted">
-                  <ItemMedia variant="icon">{Icon && <Icon />}</ItemMedia>
+                  <ItemMedia variant="icon">
+                    {Icon && <HugeiconsIcon icon={Icon} />}
+                  </ItemMedia>
                   <ItemContent>
                     <ItemTitle>Action</ItemTitle>
                     <ItemDescription>
@@ -188,7 +191,7 @@ export function RequestDetailDialog({
                       rel="noopener noreferrer"
                     >
                       <ItemMedia variant="icon">
-                        <IconTargetArrow />
+                        <HugeiconsIcon icon={Target01Icon} />
                       </ItemMedia>
                       <ItemContent>
                         <ItemTitle>Target</ItemTitle>
@@ -213,7 +216,10 @@ export function RequestDetailDialog({
                         </ItemDescription>
                       </ItemContent>
                       <ItemActions>
-                        <IconExternalLink className="size-4" />
+                        <HugeiconsIcon
+                          icon={ExternalLinkIcon}
+                          className="size-4"
+                        />
                       </ItemActions>
                     </Link>
                   }
@@ -227,7 +233,7 @@ export function RequestDetailDialog({
                   </div>
                   <Item variant="muted">
                     <ItemMedia variant="icon">
-                      <IconUserSearch />
+                      <HugeiconsIcon icon={UserSearch01Icon} />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>{request.reviewer_username}</ItemTitle>
@@ -251,7 +257,7 @@ export function RequestDetailDialog({
                   </Item>
                   <Item variant="muted">
                     <ItemMedia variant="icon">
-                      <IconCheckbox />
+                      <HugeiconsIcon icon={CheckmarkSquare01Icon} />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Status</ItemTitle>
@@ -261,7 +267,12 @@ export function RequestDetailDialog({
                         >
                           {(() => {
                             const StatusIcon = STATUS_ICONS[request.status]
-                            return <StatusIcon className="size-3.5!" />
+                            return (
+                              <HugeiconsIcon
+                                icon={StatusIcon}
+                                className="size-3.5!"
+                              />
+                            )
                           })()}
                           {formatRequestStatus(request.status)}
                         </Badge>
@@ -283,7 +294,7 @@ export function RequestDetailDialog({
                 className="w-[50%]"
                 disabled={isLoading || error !== null}
               >
-                <IconX data-icon="inline-start" />
+                <HugeiconsIcon icon={Cancel01Icon} data-icon="inline-start" />
                 Deny
               </Button>
               <Button
@@ -291,7 +302,7 @@ export function RequestDetailDialog({
                 className="w-[50%]"
                 disabled={isLoading || error !== null}
               >
-                <IconCheck data-icon="inline-start" />
+                <HugeiconsIcon icon={Tick01Icon} data-icon="inline-start" />
                 Approve
               </Button>
             </>

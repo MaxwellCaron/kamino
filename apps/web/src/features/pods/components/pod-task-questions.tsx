@@ -13,7 +13,8 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog"
-import { IconBulb, IconZoomQuestion } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { BulbIcon, SearchIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@workspace/ui/components/input"
 import { Button } from "@workspace/ui/components/button"
 import type {
@@ -22,6 +23,7 @@ import type {
   PodTaskQuestionAnswer,
   UUID,
 } from "@/features/pods/types/pod-types"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppDialogContent } from "@/components/dialogs/app-dialog"
 import { answerClonedPodQuestion } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
@@ -43,7 +45,10 @@ export function PodTaskQuestions({
     <Card className="bg-muted/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <IconZoomQuestion className="size-4.5 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={SearchIcon}
+            className="size-4.5 text-muted-foreground"
+          />
           Questions
         </CardTitle>
       </CardHeader>
@@ -109,7 +114,7 @@ function PodTaskQuestionField({
   const hint = question.hint?.trim()
   const controlsDisabled = disabled || answerIsCorrect || mutation.isPending
   const canSubmit =
-    !controlsDisabled && !!clonedPodId && value.trim().length > 0
+    !disabled && !answerIsCorrect && !!clonedPodId && value.trim().length > 0
 
   return (
     <Field
@@ -148,16 +153,19 @@ function PodTaskQuestionField({
                 />
               }
             >
-              <IconBulb />
+              <HugeiconsIcon icon={BulbIcon} />
               <span className="sr-only">Show hint</span>
             </DialogTrigger>
-            <AppDialogContent icon={IconBulb} title="Hint" description="">
+            <AppDialogContent icon={BulbIcon} title="Hint" description="">
               <p className="text-sm leading-6 whitespace-pre-wrap">{hint}</p>
             </AppDialogContent>
           </Dialog>
         )}
-        <Button
+        <AppActionButton
+          type="button"
           disabled={!canSubmit}
+          pending={mutation.isPending}
+          pendingLabel="Submitting..."
           onClick={() => {
             if (!clonedPodId) return
             mutation.mutate({
@@ -168,7 +176,7 @@ function PodTaskQuestionField({
           }}
         >
           {answerIsCorrect ? "Correct" : "Submit"}
-        </Button>
+        </AppActionButton>
       </div>
       {question.description && (
         <FieldDescription>{question.description}</FieldDescription>

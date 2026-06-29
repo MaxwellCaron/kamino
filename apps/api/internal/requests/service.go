@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -13,8 +14,19 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// TablePageResult is the page/rows/search response shape used by data
+// tables for audit/request lists: a bounded slice of items plus the
+// filtered total row count.
+type TablePageResult[T any] struct {
+	Items []T   `json:"items"`
+	Total int32 `json:"total"`
+	Page  int32 `json:"page"`
+	Rows  int32 `json:"rows"`
+}
 
 const (
 	RequestKindInventoryVMPower            = "inventory.vm.power"
@@ -22,6 +34,7 @@ const (
 	RequestKindInventoryVMSnapshotRollback = "inventory.vm.snapshot.rollback"
 
 	maxPendingRequestsPerUser = 3
+	StaleExecutingThreshold   = 15 * time.Minute
 )
 
 var (
@@ -105,72 +118,230 @@ func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, event Event) {
 	s.notify(ctx, tx, event)
 }
 
-func (s *Service) ListPendingRequests(
+func (s *Service) ListStaleExecutingRequests(
+	ctx context.Context,
+	threshold time.Duration,
+) ([]database.Requests, error) {
+	cutoff := pgtype.Timestamptz{
+		Time:  time.Now().Add(-threshold),
+		Valid: true,
+	}
+
+	return database.New(s.db).ListStaleExecutingRequests(ctx, cutoff)
+}
+
+func (s *Service) FailStaleExecutingRequests(ctx context.Context) ([]uuid.UUID, error) {
+	stale, err := s.ListStaleExecutingRequests(ctx, StaleExecutingThreshold)
+	if err != nil {
+		return nil, err
+	}
+
+	failed := make([]uuid.UUID, 0, len(stale))
+	for _, request := range stale {
+		errorMessage := "request was stranded in executing state (likely a prior process died mid-execution)"
+		if err := s.markExecutionFailedRecord(
+			ctx,
+			request.ID,
+			request.RequesterPrincipalID,
+			request.Kind,
+			nil,
+			errorMessage,
+		); err != nil {
+			log.Printf("failed to fence stale executing request %s: %v", request.ID, err)
+			continue
+		}
+		failed = append(failed, request.ID)
+	}
+
+	return failed, nil
+}
+
+// TablePageParams is page/rows/search input shared by request table
+// endpoints (manager pending, manager completed, requester pending,
+// requester history).
+type TablePageParams struct {
+	Page   int32
+	Rows   int32
+	Search string
+}
+
+func normalizeTablePage(params TablePageParams) (page int32, rows int32, offset int32) {
+	page = params.Page
+	if page <= 0 {
+		page = 1
+	}
+	rows = params.Rows
+	if rows <= 0 {
+		rows = 25
+	}
+	offset = (page - 1) * rows
+	return page, rows, offset
+}
+
+// ListPendingRequestsTable returns the manager pending-requests table page,
+// scoped to request kinds the actor may review.
+func (s *Service) ListPendingRequestsTable(
 	ctx context.Context,
 	actorPrincipalID uuid.UUID,
-) ([]database.ListPendingRequestsRow, error) {
+	params TablePageParams,
+) (TablePageResult[database.ListPendingRequestsFilteredRow], error) {
 	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
 	if err != nil {
-		return nil, err
+		return TablePageResult[database.ListPendingRequestsFilteredRow]{}, err
 	}
 
-	rows, err := database.New(s.db).ListPendingRequests(ctx)
+	page, rows, offset := normalizeTablePage(params)
+	kinds := reviewableRequestKinds(reviewerPermissions)
+
+	items, err := database.New(s.db).ListPendingRequestsFiltered(ctx, database.ListPendingRequestsFilteredParams{
+		Kinds:     kinds,
+		Search:    params.Search,
+		Rows:      rows,
+		RowOffset: offset,
+	})
 	if err != nil {
-		return nil, err
+		return TablePageResult[database.ListPendingRequestsFilteredRow]{}, err
 	}
 
-	filtered := make([]database.ListPendingRequestsRow, 0, len(rows))
-	for _, row := range rows {
-		if canReviewRequestKind(reviewerPermissions, row.Kind) {
-			filtered = append(filtered, row)
-		}
+	total, err := database.New(s.db).CountPendingRequestsFiltered(ctx, database.CountPendingRequestsFilteredParams{
+		Kinds:  kinds,
+		Search: params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListPendingRequestsFilteredRow]{}, err
 	}
 
-	return filtered, nil
+	return TablePageResult[database.ListPendingRequestsFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
 }
 
-func (s *Service) ListCompletedRequests(
+// ListCompletedRequestsTable returns the manager completed-requests table
+// page, scoped to request kinds the actor may review.
+func (s *Service) ListCompletedRequestsTable(
 	ctx context.Context,
 	actorPrincipalID uuid.UUID,
-) ([]database.ListCompletedRequestsRow, error) {
+	params TablePageParams,
+) (TablePageResult[database.ListCompletedRequestsForKindsFilteredRow], error) {
 	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
 	if err != nil {
-		return nil, err
+		return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{}, err
 	}
 
-	rows, err := database.New(s.db).ListCompletedRequests(ctx)
+	page, rows, offset := normalizeTablePage(params)
+	kinds := reviewableRequestKinds(reviewerPermissions)
+
+	items, err := database.New(s.db).ListCompletedRequestsForKindsFiltered(ctx, database.ListCompletedRequestsForKindsFilteredParams{
+		Kinds:     kinds,
+		Search:    params.Search,
+		Rows:      rows,
+		RowOffset: offset,
+	})
 	if err != nil {
-		return nil, err
+		return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{}, err
 	}
 
-	filtered := make([]database.ListCompletedRequestsRow, 0, len(rows))
-	for _, row := range rows {
-		if canReviewRequestKind(reviewerPermissions, row.Kind) {
-			filtered = append(filtered, row)
-		}
+	total, err := database.New(s.db).CountCompletedRequestsForKindsFiltered(ctx, database.CountCompletedRequestsForKindsFilteredParams{
+		Kinds:  kinds,
+		Search: params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{}, err
 	}
 
-	return filtered, nil
+	return TablePageResult[database.ListCompletedRequestsForKindsFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
 }
 
-func (s *Service) ListPendingRequestsByRequester(
+// ListPendingRequestsByRequesterTable returns the requester's own pending
+// requests table page.
+func (s *Service) ListPendingRequestsByRequesterTable(
 	ctx context.Context,
 	requesterPrincipalID uuid.UUID,
-) ([]database.ListPendingRequestsByRequesterRow, error) {
-	return database.New(s.db).ListPendingRequestsByRequester(
-		ctx,
-		requesterPrincipalID,
-	)
+	params TablePageParams,
+) (TablePageResult[database.ListPendingRequestsByRequesterFilteredRow], error) {
+	page, rows, offset := normalizeTablePage(params)
+
+	items, err := database.New(s.db).ListPendingRequestsByRequesterFiltered(ctx, database.ListPendingRequestsByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+		Rows:                 rows,
+		RowOffset:            offset,
+	})
+	if err != nil {
+		return TablePageResult[database.ListPendingRequestsByRequesterFilteredRow]{}, err
+	}
+
+	total, err := database.New(s.db).CountPendingRequestsByRequesterFiltered(ctx, database.CountPendingRequestsByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListPendingRequestsByRequesterFilteredRow]{}, err
+	}
+
+	return TablePageResult[database.ListPendingRequestsByRequesterFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
 }
 
-func (s *Service) ListRequestHistoryByRequester(
+// ListRequestHistoryByRequesterTable returns the requester's own request
+// history table page.
+func (s *Service) ListRequestHistoryByRequesterTable(
 	ctx context.Context,
 	requesterPrincipalID uuid.UUID,
-) ([]database.ListRequestHistoryByRequesterRow, error) {
-	return database.New(s.db).ListRequestHistoryByRequester(
-		ctx,
-		requesterPrincipalID,
-	)
+	params TablePageParams,
+) (TablePageResult[database.ListRequestHistoryByRequesterFilteredRow], error) {
+	page, rows, offset := normalizeTablePage(params)
+
+	items, err := database.New(s.db).ListRequestHistoryByRequesterFiltered(ctx, database.ListRequestHistoryByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+		Rows:                 rows,
+		RowOffset:            offset,
+	})
+	if err != nil {
+		return TablePageResult[database.ListRequestHistoryByRequesterFilteredRow]{}, err
+	}
+
+	total, err := database.New(s.db).CountRequestHistoryByRequesterFiltered(ctx, database.CountRequestHistoryByRequesterFilteredParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Search:               params.Search,
+	})
+	if err != nil {
+		return TablePageResult[database.ListRequestHistoryByRequesterFilteredRow]{}, err
+	}
+
+	return TablePageResult[database.ListRequestHistoryByRequesterFilteredRow]{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Rows:  rows,
+	}, nil
+}
+
+func reviewableRequestKinds(
+	perms authorization.EffectiveManagementPermissions,
+) []string {
+	if !perms.Has(authorization.ManagementPermissionManager) {
+		return nil
+	}
+
+	return []string{
+		RequestKindInventoryVMPower,
+		RequestKindInventoryVMSnapshotCreate,
+		RequestKindInventoryVMSnapshotRollback,
+	}
 }
 
 func (s *Service) GetRequest(
@@ -298,6 +469,9 @@ func (s *Service) ApproveRequest(
 	if locked.Status != database.RequestStatusPending {
 		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
 	}
+	if reviewerPrincipalID == locked.RequesterPrincipalID {
+		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
+	}
 	if !canReviewRequestKind(reviewerPermissions, locked.Kind) {
 		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
 	}
@@ -324,6 +498,17 @@ func (s *Service) ApproveRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestID,
+		EventKind:        database.RequestEventKindExecutionStarted,
+		ActorPrincipalID: &reviewerPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		ToStatus:         database.RequestStatusExecuting,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, nil, err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, nil, err
 	}
@@ -334,12 +519,13 @@ func (s *Service) ApproveRequest(
 		locked.Kind,
 	))
 
-	if executeErr := s.executeApprovedRequest(ctx, locked); executeErr != nil {
-		if err := s.markExecutionFailed(ctx, locked, reviewerPrincipalID, executeErr.Error()); err != nil {
+	execCtx := context.WithoutCancel(ctx)
+	if executeErr := s.executeApprovedRequest(execCtx, locked); executeErr != nil {
+		if err := s.markExecutionFailed(execCtx, locked, reviewerPrincipalID, executeErr.Error()); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
 		}
 	} else {
-		if err := s.markExecuted(ctx, locked, reviewerPrincipalID); err != nil {
+		if err := s.markExecuted(execCtx, locked, reviewerPrincipalID); err != nil {
 			return database.GetRequestByIDRow{}, nil, err
 		}
 	}
@@ -373,6 +559,9 @@ func (s *Service) DenyRequest(
 	}
 	if locked.Status != database.RequestStatusPending {
 		return database.GetRequestByIDRow{}, nil, ErrRequestNotPending
+	}
+	if reviewerPrincipalID == locked.RequesterPrincipalID {
+		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
 	}
 	if !canReviewRequestKind(reviewerPermissions, locked.Kind) {
 		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
@@ -788,7 +977,7 @@ func (s *Service) markExecuted(
 		RequestID:        requestRow.ID,
 		EventKind:        database.RequestEventKindExecuted,
 		ActorPrincipalID: &actorPrincipalID,
-		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		FromStatus:       validRequestStatus(database.RequestStatusExecuting),
 		ToStatus:         database.RequestStatusExecuted,
 		ErrorMessage:     nil,
 	}); err != nil {
@@ -814,6 +1003,24 @@ func (s *Service) markExecutionFailed(
 	actorPrincipalID uuid.UUID,
 	errorMessage string,
 ) error {
+	return s.markExecutionFailedRecord(
+		ctx,
+		requestRow.ID,
+		requestRow.RequesterPrincipalID,
+		requestRow.Kind,
+		&actorPrincipalID,
+		errorMessage,
+	)
+}
+
+func (s *Service) markExecutionFailedRecord(
+	ctx context.Context,
+	requestID uuid.UUID,
+	requesterPrincipalID uuid.UUID,
+	kind string,
+	actorPrincipalID *uuid.UUID,
+	errorMessage string,
+) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -822,16 +1029,16 @@ func (s *Service) markExecutionFailed(
 
 	q := database.New(tx)
 	if _, err := q.MarkRequestExecutionFailed(ctx, database.MarkRequestExecutionFailedParams{
-		ID:             requestRow.ID,
+		ID:             requestID,
 		ExecutionError: &errorMessage,
 	}); err != nil {
 		return err
 	}
 	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
-		RequestID:        requestRow.ID,
+		RequestID:        requestID,
 		EventKind:        database.RequestEventKindExecutionFailed,
-		ActorPrincipalID: &actorPrincipalID,
-		FromStatus:       validRequestStatus(database.RequestStatusApproved),
+		ActorPrincipalID: actorPrincipalID,
+		FromStatus:       validRequestStatus(database.RequestStatusExecuting),
 		ToStatus:         database.RequestStatusExecutionFailed,
 		ErrorMessage:     &errorMessage,
 	}); err != nil {
@@ -843,9 +1050,9 @@ func (s *Service) markExecutionFailed(
 	}
 
 	s.notify(ctx, nil, requestChangedEvent(
-		requestRow.ID,
-		requestRow.RequesterPrincipalID,
-		requestRow.Kind,
+		requestID,
+		requesterPrincipalID,
+		kind,
 	))
 
 	return nil

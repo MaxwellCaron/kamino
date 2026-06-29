@@ -1,5 +1,6 @@
 import React from "react"
-import { IconSearch, IconSettings } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Search01Icon, Settings01Icon } from "@hugeicons/core-free-icons"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -85,7 +86,7 @@ export function CustomizePermissionsDialog({
     <Dialog open={editingPrincipal !== null} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={editingPrincipal !== null}
-        icon={IconSettings}
+        icon={Settings01Icon}
         title="Customize Permissions"
         description={`Update permissions for ${editingPrincipal?.principalName || "this principal"}.`}
         showOverlay={showOverlay}
@@ -111,7 +112,10 @@ export function CustomizePermissionsDialog({
                 <Empty className="border">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <IconSearch />
+                      <HugeiconsIcon
+                        icon={Search01Icon}
+                        className="text-muted-foreground"
+                      />
                     </EmptyMedia>
                     <EmptyTitle>No Matching Permissions</EmptyTitle>
                     <EmptyDescription>

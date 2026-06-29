@@ -105,7 +105,6 @@ func TestSetVMCloudInitCustomSendsExpectedPayload(t *testing.T) {
 		101,
 		"local",
 		"kamino-router-24-user-data.yaml",
-		"kamino-router-24-meta-data.yaml",
 		"kamino-router-network-config.yaml",
 	); err != nil {
 		t.Fatalf("SetVMCloudInitCustom() error = %v", err)
@@ -117,7 +116,7 @@ func TestSetVMCloudInitCustomSendsExpectedPayload(t *testing.T) {
 	if got := putForm.Get("citype"); got != "nocloud" {
 		t.Fatalf("citype payload = %q", got)
 	}
-	if got := putForm.Get("cicustom"); got != "user=local:snippets/kamino-router-24-user-data.yaml,meta=local:snippets/kamino-router-24-meta-data.yaml,network=local:snippets/kamino-router-network-config.yaml" {
+	if got := putForm.Get("cicustom"); got != "user=local:snippets/kamino-router-24-user-data.yaml,network=local:snippets/kamino-router-network-config.yaml" {
 		t.Fatalf("cicustom payload = %q", got)
 	}
 }

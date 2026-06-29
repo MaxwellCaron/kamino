@@ -1,8 +1,7 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { IconEdit, IconPlus } from "@tabler/icons-react"
-import { toast } from "sonner"
+import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import type {
   ApiBulkCreateResponse,
@@ -15,6 +14,10 @@ import {
   AppDialogPrimaryButton,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
+import {
+  showMutationToast,
+  showSingleMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
 import {
   createUser,
@@ -30,7 +33,6 @@ import {
   normalizeDescription,
   userSchema,
 } from "@/features/principals/components/users/user-dialog-utils"
-import { formatToastError } from "@/features/shared/utils/format"
 
 export function UserDialog({
   user,
@@ -105,24 +107,66 @@ export function UserDialog({
 
       if (isEdit) {
         const parsed = userSchema.parse(value)
-        toast.promise(mutation.mutateAsync(parsed), {
-          loading: "Updating user...",
-          success: "User updated",
-          error: formatToastError,
+        showSingleMutationToast({
+          title: "Updating user",
+          name: parsed.username,
+          promise: mutation.mutateAsync(parsed),
+          successDescription: "Updated",
         })
         return
       }
 
       const payload = buildCreateUsers(mode, value, selectedGroupIds)
-      toast.promise(mutation.mutateAsync(payload), {
-        loading: "Creating users...",
-        success: (result) => {
-          if (result && result.failures.length > 0) {
-            return `Created ${result.successful} user${result.successful === 1 ? "" : "s"} with some failures`
+      const createUsers = async (inputs: Array<CreateUserInput>) => {
+        const result = await mutation.mutateAsync(inputs)
+        if (result === null) {
+          throw new Error("User creation returned no result")
+        }
+        return result
+      }
+      const userItems = payload.map((input, index) => ({
+        id: `${index}:${input.username}`,
+        input,
+      }))
+
+      showMutationToast({
+        title: "Creating users",
+        items: userItems.map(({ id, input }) => ({
+          id,
+          name: input.username,
+          successDescription: "Created",
+          retry: async () => {
+            const result = await createUsers([input])
+            const failure = result.failures.at(0)
+            if (failure !== undefined) throw new Error(failure.error)
+          },
+        })),
+        runMutation: async () => {
+          const result = await createUsers(payload)
+          const errorsByUsername = new Map<string, Array<string>>()
+
+          for (const failure of result.failures) {
+            const errors = errorsByUsername.get(failure.name) ?? []
+            errors.push(failure.error)
+            errorsByUsername.set(failure.name, errors)
           }
-          return "Users created successfully"
+
+          const succeeded: Array<string> = []
+          const failed: Array<{ id: string; error: string }> = []
+
+          for (const { id, input } of userItems) {
+            const errors = errorsByUsername.get(input.username)
+            const error = errors?.shift()
+
+            if (error) {
+              failed.push({ id, error })
+            } else {
+              succeeded.push(id)
+            }
+          }
+
+          return { succeeded, failed }
         },
-        error: formatToastError,
       })
     },
   })
@@ -145,7 +189,7 @@ export function UserDialog({
       onClosed={resetDialog}
       initialFocus={false}
       className={nestedDialogAnimationClassName}
-      icon={isEdit ? IconEdit : IconPlus}
+      icon={isEdit ? PencilEdit01Icon : Add01Icon}
       title={isEdit ? "Edit User" : "Create Users"}
       description={
         isEdit
@@ -175,14 +219,11 @@ export function UserDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton disabled={isSubmitting}>
-                {isSubmitting
-                  ? isEdit
-                    ? "Saving..."
-                    : "Creating..."
-                  : isEdit
-                    ? "Save"
-                    : "Create"}
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                pendingLabel={isEdit ? "Saving..." : "Creating..."}
+              >
+                {isEdit ? "Save" : "Create"}
               </AppDialogPrimaryButton>
             )}
           </form.Subscribe>

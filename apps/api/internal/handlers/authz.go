@@ -50,7 +50,7 @@ func toManagementPermissionEnvelope(
 
 func requireInventoryPermission(
 	c *gin.Context,
-	authzService *authorization.Service,
+	authzService vmAuthz,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
 	required authorization.Mask,
@@ -147,8 +147,8 @@ func writeRequestError(c *gin.Context, reqErr *requestError) {
 
 func resolveVerifiedVMItemPermission(
 	ctx context.Context,
-	authzService *authorization.Service,
-	px *proxmox.Client,
+	authzService vmAuthz,
+	px vmProxmox,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
 	required authorization.Mask,
@@ -199,6 +199,14 @@ func resolveVerifiedVMItemPermission(
 		}
 	}
 
+	return verifyVMRecordIdentity(ctx, px, record)
+}
+
+func verifyVMRecordIdentity(
+	ctx context.Context,
+	px vmProxmox,
+	record authorization.VMRecord,
+) (verifiedVMTarget, *requestError) {
 	identity, err := px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
 	switch {
 	case err == nil:
@@ -236,15 +244,19 @@ func resolveVerifiedVMItemPermission(
 //
 // Before any sensitive action:
 //  1. Load the VM row by inventory_item_id.
-//  2. For mutating paths, use the FOR UPDATE lookup variant.
+//  2. For mutating paths, the lock=true path uses the FOR UPDATE lookup
+//     variant, but with the current pool-backed callers it does not hold a
+//     lock across the full verify-then-act window.
 //  3. Fetch current Proxmox config for the resolved node/vmid.
 //  4. Extract the current upstream UUID from Proxmox.
 //  5. Compare it to the stored upstream_uuid.
 //  6. Only execute the action if they match.
+//
+// VM mutations are serialized by vm_action_claims around the actual action.
 func requireVerifiedVMItemPermission(
 	c *gin.Context,
-	authzService *authorization.Service,
-	px *proxmox.Client,
+	authzService vmAuthz,
+	px vmProxmox,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
 	required authorization.Mask,
@@ -265,6 +277,34 @@ func requireVerifiedVMItemPermission(
 	}
 
 	return target, true
+}
+
+// requireVMCreateMetadataAccess gates Proxmox VM-create metadata endpoints
+func requireVMCreateMetadataAccess(
+	c *gin.Context,
+	authzService *authorization.Service,
+	principalID uuid.UUID,
+) bool {
+	hasCreateVM, err := authzService.HasAny(c.Request.Context(), principalID, authorization.CreateVM)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize vm create metadata", err)
+		return false
+	}
+	if hasCreateVM {
+		return true
+	}
+
+	isManager, err := authzService.HasManagement(c.Request.Context(), principalID, authorization.ManagementPermissionManager)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize vm create metadata", err)
+		return false
+	}
+	if !isManager {
+		writeForbidden(c)
+		return false
+	}
+
+	return true
 }
 
 func requireManagementPermission(

@@ -7,13 +7,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconDots,
-  IconEdit,
-  IconLockAccess,
-  IconTrash,
-  IconUsersGroup,
-} from "@tabler/icons-react"
+  Delete01Icon,
+  LockPasswordIcon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
@@ -111,26 +112,35 @@ export function getGroupColumns({
           <DropdownMenuTrigger
             render={
               <Button variant="ghost" size="icon-xs">
-                <IconDots className="size-4" />
+                <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
               </Button>
             }
           />
           <DropdownMenuContent align="end">
             {canManageGroups && (
               <DropdownMenuItem onClick={() => onEditClick(group)}>
-                <IconEdit className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={PencilEdit01Icon}
+                  className="text-muted-foreground"
+                />
                 Edit
               </DropdownMenuItem>
             )}
             {canManageAccess && (
               <DropdownMenuItem onClick={() => onEditAccess(group)}>
-                <IconLockAccess className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={LockPasswordIcon}
+                  className="text-muted-foreground"
+                />
                 Permissions
               </DropdownMenuItem>
             )}
             {canManageGroups && (
               <DropdownMenuItem onClick={() => onEditGroups(group)}>
-                <IconUsersGroup className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={UserGroupIcon}
+                  className="text-muted-foreground"
+                />
                 Members
               </DropdownMenuItem>
             )}
@@ -140,7 +150,7 @@ export function getGroupColumns({
                 variant="destructive"
                 onClick={() => onDeleteClick(group)}
               >
-                <IconTrash />
+                <HugeiconsIcon icon={Delete01Icon} />
                 Delete
               </DropdownMenuItem>
             )}

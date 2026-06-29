@@ -64,9 +64,7 @@ export interface ClonedPodNetwork {
   number: number
   vnet: string
   external_subnet: string
-  external_gateway: string
-  internal_subnet?: string
-  internal_gateway?: string
+  internal_subnet: string
 }
 
 // User-owned runtime instance of a pod.

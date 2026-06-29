@@ -1,17 +1,18 @@
 import {
-  IconAlertCircle,
-  IconCamera,
-  IconCheck,
-  IconCircleCheck,
-  IconClock,
-  IconHistory,
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconPower,
-  IconRefresh,
-  IconSettings,
-  IconX,
-} from "@tabler/icons-react"
+  AlertCircleIcon,
+  Camera01Icon,
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  Clock01Icon,
+  HistoryIcon,
+  PlayIcon,
+  PowerIcon,
+  Refresh03Icon,
+  Settings01Icon,
+  StopIcon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons"
+import type { IconSvgElement } from "@hugeicons/react"
 import type {
   ApiRequestScope,
   ApiRequestStatus,
@@ -31,25 +32,25 @@ const requestStatusLabels: Record<ApiRequestStatus, string> = {
   execution_failed: "Execution failed",
 }
 
-export const STATUS_ICONS: Record<ApiRequestStatus, typeof IconClock> = {
-  pending: IconClock,
-  approved: IconCheck,
-  denied: IconX,
-  executed: IconCircleCheck,
-  execution_failed: IconAlertCircle,
+export const STATUS_ICONS: Record<ApiRequestStatus, IconSvgElement> = {
+  pending: Clock01Icon,
+  approved: Tick01Icon,
+  denied: Cancel01Icon,
+  executed: CheckmarkCircle01Icon,
+  execution_failed: AlertCircleIcon,
 }
 
-const POWER_ICONS: Record<string, typeof IconClock> = {
-  power_on: IconPlayerPlay,
-  shutdown: IconPower,
-  reboot: IconRefresh,
-  stop: IconPlayerStop,
+const POWER_ICONS: Record<string, IconSvgElement> = {
+  power_on: PlayIcon,
+  shutdown: PowerIcon,
+  reboot: Refresh03Icon,
+  stop: StopIcon,
 }
 
-const REQUEST_ICONS: Record<string, typeof IconClock> = {
-  "inventory.vm.power": IconPower,
-  "inventory.vm.snapshot.create": IconCamera,
-  "inventory.vm.snapshot.rollback": IconHistory,
+const REQUEST_ICONS: Record<string, IconSvgElement> = {
+  "inventory.vm.power": PowerIcon,
+  "inventory.vm.snapshot.create": Camera01Icon,
+  "inventory.vm.snapshot.rollback": HistoryIcon,
 }
 
 function startCase(value: string) {
@@ -63,7 +64,7 @@ export function getRequestIcon(kind: string, powerAction?: string | null) {
   if (kind === "inventory.vm.power" && powerAction) {
     return POWER_ICONS[powerAction] ?? REQUEST_ICONS[kind]
   }
-  return REQUEST_ICONS[kind] ?? IconSettings
+  return REQUEST_ICONS[kind] ?? Settings01Icon
 }
 
 export function formatRequestKind(kind: string) {

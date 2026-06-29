@@ -24,6 +24,15 @@ type VMCreateHandler struct {
 // GetNodes returns all cluster nodes.
 // GET /api/v1/proxmox/nodes
 func (h *VMCreateHandler) GetNodes(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	nodes, err := h.PX.GetNodes(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch proxmox nodes", err)
@@ -44,6 +53,15 @@ type createOptionsResponse struct {
 // metadata node plus cluster-level VNets.
 // GET /api/v1/proxmox/create/options
 func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	nodes, err := h.PX.GetNodes(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch create options nodes", err)
@@ -86,6 +104,15 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 // GetStorages returns storages for a node.
 // GET /api/v1/proxmox/nodes/:node/storages
 func (h *VMCreateHandler) GetStorages(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	node := c.Param("node")
 	storages, err := h.PX.GetStorages(c.Request.Context(), node)
 	if err != nil {
@@ -98,6 +125,15 @@ func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 // GetISOs returns ISO files available on a storage.
 // GET /api/v1/proxmox/nodes/:node/storages/:storage/isos
 func (h *VMCreateHandler) GetISOs(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	node := c.Param("node")
 	storage := c.Param("storage")
 	isos, err := h.PX.GetISOs(c.Request.Context(), node, storage)
@@ -111,6 +147,15 @@ func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 // GetCreateISOs returns ISO files for a storage from the configured metadata node.
 // GET /api/v1/proxmox/create/isos/:storage
 func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	storage := c.Param("storage")
 
 	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
@@ -134,6 +179,15 @@ func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 // GetNextVMID returns the next available VMID.
 // GET /api/v1/proxmox/nextid
 func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	id, err := h.PX.GetNextVMID(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
@@ -145,6 +199,15 @@ func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
 // ValidateVMID reports whether a VMID is available.
 // GET /api/v1/proxmox/vmid/:vmid/validate
 func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	vmid, err := parseIntParam(c, "vmid")
 	if err != nil {
 		return
@@ -162,6 +225,15 @@ func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
 // GetBridges returns network bridges for a node.
 // GET /api/v1/proxmox/nodes/:node/bridges
 func (h *VMCreateHandler) GetBridges(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
+		return
+	}
+
 	node := c.Param("node")
 	bridges, err := h.PX.GetBridges(c.Request.Context(), node)
 	if err != nil {
@@ -246,9 +318,13 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
-	if err := h.Service.EnsureFolderHasVMCapacity(c.Request.Context(), targetFolderID, 1); err != nil {
+	reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), targetFolderID, 1, "vm_create")
+	if err != nil {
 		writeInventoryError(c, err)
 		return
+	}
+	if reservation != nil {
+		defer reservation.Release(c.Request.Context())
 	}
 
 	params := map[string]string{
@@ -256,28 +332,6 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	}
 	upstreamUUID := uuid.New()
 	params["smbios1"] = fmt.Sprintf("uuid=%s", upstreamUUID.String())
-
-	vmid := req.VMID
-	if vmid <= 0 {
-		nextID, err := h.PX.GetNextVMID(c.Request.Context())
-		if err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
-			return
-		}
-		vmid = nextID
-	}
-
-	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), vmid)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
-		return
-	}
-	if !available {
-		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
-		return
-	}
-
-	params["vmid"] = fmt.Sprintf("%d", vmid)
 
 	if req.OSType != "" {
 		params["ostype"] = req.OSType
@@ -344,7 +398,16 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		targetNode = optimalNode.Node
 	}
 
-	if err := h.PX.CreateVM(c.Request.Context(), targetNode, params); err != nil {
+	vmid, err := runWithAvailableVMID(c.Request.Context(), h.PX, req.VMID, func(vmid int) error {
+		params["vmid"] = fmt.Sprintf("%d", vmid)
+		return h.PX.CreateVM(c.Request.Context(), targetNode, params)
+	})
+	switch {
+	case err == nil:
+	case isVMIDUnavailable(err):
+		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+		return
+	default:
 		writeLoggedError(c, http.StatusBadGateway, "failed to create VM", "create proxmox vm", err)
 		return
 	}

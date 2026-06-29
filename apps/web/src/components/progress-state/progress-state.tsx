@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import { Loader } from "@dot-loaders/react"
 import { Link } from "@tanstack/react-router"
-import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  CancelCircleIcon,
+  CheckmarkCircle01Icon,
+} from "@hugeicons/core-free-icons"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import {
   Empty,
@@ -19,7 +23,8 @@ import {
   FAILED_PROGRESS_COLORS,
   getProgressStepColors,
 } from "./progress-state-colors"
-import type { ComponentType, MouseEventHandler, ReactNode } from "react"
+import type { MouseEventHandler, ReactNode } from "react"
+import type { IconSvgElement } from "@hugeicons/react"
 
 export type ProgressStateStep<TStepId extends number = number> = {
   id: TStepId
@@ -33,7 +38,7 @@ export type ProgressStateSteps<TStepId extends number = number> = readonly [
 ]
 
 type ProgressStateActionBase = {
-  icon: ComponentType<{ className?: string; "data-icon"?: string }>
+  icon: IconSvgElement
   label: string
   variant?: "default" | "secondary" | "outline"
 }
@@ -239,7 +244,7 @@ function ProgressStateActions({
               variant={action.variant ?? "default"}
               onClick={action.onClick}
             >
-              <Icon data-icon="inline-start" />
+              <HugeiconsIcon icon={Icon} data-icon="inline-start" />
               {action.label}
             </Button>
           )
@@ -254,7 +259,7 @@ function ProgressStateActions({
               onClick={action.onClick}
               className={className}
             >
-              <Icon data-icon="inline-start" />
+              <HugeiconsIcon icon={Icon} data-icon="inline-start" />
               {action.label}
             </Link>
           )
@@ -269,7 +274,7 @@ function ProgressStateActions({
               onClick={action.onClick}
               className={className}
             >
-              <Icon data-icon="inline-start" />
+              <HugeiconsIcon icon={Icon} data-icon="inline-start" />
               {action.label}
             </Link>
           )
@@ -282,7 +287,7 @@ function ProgressStateActions({
             onClick={action.onClick}
             className={className}
           >
-            <Icon data-icon="inline-start" />
+            <HugeiconsIcon icon={Icon} data-icon="inline-start" />
             {action.label}
           </Link>
         )
@@ -304,7 +309,8 @@ export function ProgressSuccessState({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
-          <IconCircleCheckFilled
+          <HugeiconsIcon
+            icon={CheckmarkCircle01Icon}
             className={cn("size-7", COMPLETE_PROGRESS_COLORS.text)}
           />
         </EmptyMedia>
@@ -329,7 +335,8 @@ export function ProgressErrorState({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
-          <IconCircleXFilled
+          <HugeiconsIcon
+            icon={CancelCircleIcon}
             className={cn("size-7", FAILED_PROGRESS_COLORS.text)}
           />
         </EmptyMedia>

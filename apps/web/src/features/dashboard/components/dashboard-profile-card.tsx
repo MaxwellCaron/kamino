@@ -1,4 +1,5 @@
-import { IconSettings } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -41,7 +42,7 @@ export function DashboardProfileCard({
         </div>
         <CardAction className="shrink-0 self-end pb-2">
           <Button type="button" onClick={onSettingsClick}>
-            <IconSettings data-icon="inline-start" />
+            <HugeiconsIcon icon={Settings01Icon} data-icon="inline-start" />
             Settings
           </Button>
         </CardAction>

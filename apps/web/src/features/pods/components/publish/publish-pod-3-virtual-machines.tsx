@@ -42,14 +42,15 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
+import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  IconChevronDown,
-  IconChevronRight,
-  IconDeviceDesktop,
-  IconFolderOpen,
-  IconInfoCircle,
-  IconRefresh,
-} from "@tabler/icons-react"
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ComputerIcon,
+  FolderOpenIcon,
+  InformationCircleIcon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Table,
   TableBody,
@@ -74,6 +75,7 @@ import type {
   DraftPrincipal,
   PermissionState,
 } from "@/features/inventory/types/inventory-types"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
 import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
 import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
@@ -173,7 +175,10 @@ function PublishPodVirtualMachinesTable({
         header: "Name",
         cell: ({ row }) => (
           <div className="flex min-w-40 items-center gap-2">
-            <IconDeviceDesktop className="size-4 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={ComputerIcon}
+              className="size-4 text-muted-foreground"
+            />
             <span className="truncate font-medium">{row.original.vm.name}</span>
           </div>
         ),
@@ -219,12 +224,18 @@ function PublishPodVirtualMachinesTable({
               {row.getIsExpanded() ? (
                 <>
                   Hide
-                  <IconChevronDown data-icon="inline-end" />
+                  <HugeiconsIcon
+                    icon={ChevronDownIcon}
+                    data-icon="inline-end"
+                  />
                 </>
               ) : (
                 <>
                   Edit
-                  <IconChevronRight data-icon="inline-end" />
+                  <HugeiconsIcon
+                    icon={ChevronRightIcon}
+                    data-icon="inline-end"
+                  />
                 </>
               )}
             </Button>
@@ -319,7 +330,10 @@ function PublishPodVirtualMachinesTable({
                               )
                             }
                           >
-                            <IconRefresh data-icon="inline-start" />
+                            <HugeiconsIcon
+                              icon={ReloadIcon}
+                              data-icon="inline-start"
+                            />
                             Reset to defaults
                           </Button>
                         </div>
@@ -408,7 +422,10 @@ export function PublishPodVirtualMachinesStep({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <IconDeviceDesktop className="size-5 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={ComputerIcon}
+              className="size-5 text-muted-foreground"
+            />
             Pod VMs
           </CardTitle>
           <CardDescription>
@@ -498,9 +515,11 @@ export function PublishPodVirtualMachinesStep({
                         errors={showValidation ? field.state.meta.errors : []}
                       />
                       {podFoldersError ? (
-                        <FieldDescription className="text-destructive">
-                          Failed to load Pod Folders.
-                        </FieldDescription>
+                        <InlineErrorAlert
+                          error={podFoldersError}
+                          fallback="Failed to load Pod Folders."
+                          className="mt-3"
+                        />
                       ) : null}
                       <div className="flex flex-col gap-1 pt-4">
                         <p className="font-medium">Pod VMs</p>
@@ -520,7 +539,9 @@ export function PublishPodVirtualMachinesStep({
                               <>
                                 {canUpdatePodTemplates ? (
                                   <Alert className="mb-3">
-                                    <IconInfoCircle />
+                                    <HugeiconsIcon
+                                      icon={InformationCircleIcon}
+                                    />
                                     <AlertTitle>
                                       Update Pod Template Folder
                                     </AlertTitle>
@@ -550,7 +571,10 @@ export function PublishPodVirtualMachinesStep({
                           <Empty className="border border-dashed">
                             <EmptyHeader>
                               <EmptyMedia variant="icon">
-                                <IconFolderOpen />
+                                <HugeiconsIcon
+                                  icon={FolderOpenIcon}
+                                  className="text-muted-foreground"
+                                />
                               </EmptyMedia>
                               <EmptyTitle>No Pod Folder selected</EmptyTitle>
                               <EmptyDescription>

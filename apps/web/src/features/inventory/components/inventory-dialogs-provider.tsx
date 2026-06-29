@@ -228,10 +228,6 @@ export function useInventoryDialogs() {
   return context
 }
 
-export function useOptionalInventoryDialogs() {
-  return use(InventoryDialogsContext)
-}
-
 export function InventoryDialogsProvider({
   children,
 }: {

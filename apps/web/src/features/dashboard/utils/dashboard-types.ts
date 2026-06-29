@@ -1,4 +1,4 @@
-import type { Icon } from "@tabler/icons-react"
+import type { IconSvgElement } from "@hugeicons/react"
 import type {
   ClonedPod,
   PublishedPodCatalogEntry,
@@ -10,7 +10,7 @@ export type ClonedPodEntry = {
 }
 
 export type DashboardStat = {
-  icon: Icon
+  icon: IconSvgElement
   label: string
   value: string
 }

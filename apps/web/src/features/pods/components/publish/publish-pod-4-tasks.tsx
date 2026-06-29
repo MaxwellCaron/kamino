@@ -22,7 +22,12 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
-import { IconChecklist, IconPlus, IconTrash } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Add01Icon,
+  CheckListIcon,
+  Delete01Icon,
+} from "@hugeicons/core-free-icons"
 import { createEmptyTask } from "./publish-pod-form"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { PublishPodTaskItem } from "./publish-pod-task-item"
@@ -80,7 +85,10 @@ export function PublishPodTasksStep({
               >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <IconChecklist className="text-muted-foreground" />
+                    <HugeiconsIcon
+                      icon={CheckListIcon}
+                      className="text-muted-foreground"
+                    />
                     <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
                       Tasks
                     </span>
@@ -93,7 +101,10 @@ export function PublishPodTasksStep({
                       type="button"
                       onClick={() => tasksField.pushValue(createEmptyTask())}
                     >
-                      <IconPlus data-icon="inline-start" />
+                      <HugeiconsIcon
+                        icon={Add01Icon}
+                        data-icon="inline-start"
+                      />
                       Add Task
                     </Button>
                   </CardAction>
@@ -153,13 +164,13 @@ export function PublishPodTasksStep({
       >
         <AppAlertDialogContent
           open={pendingTaskDelete !== null}
-          icon={IconTrash}
+          icon={Delete01Icon}
           title="Delete Task?"
           description={taskDeleteDescription}
         >
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPendingTaskDelete(null)}>
-              Cancel
+              Close
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"

@@ -1,9 +1,13 @@
 import { useMemo } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { IconEdit, IconNetwork, IconPlus } from "@tabler/icons-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Add01Icon,
+  Globe02Icon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons"
 import { z } from "zod"
-import { toast } from "sonner"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -39,7 +43,7 @@ import {
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
-import { formatToastError } from "@/features/shared/utils/format"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   formatFieldError,
   isTouchedInvalid,
@@ -197,7 +201,7 @@ function VNetZonesUnavailableState() {
     <Empty className="border">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <IconNetwork />
+          <HugeiconsIcon icon={Globe02Icon} className="text-muted-foreground" />
         </EmptyMedia>
         <EmptyTitle>No SDN zones available</EmptyTitle>
         <EmptyDescription>
@@ -340,15 +344,13 @@ function VNetBooleanFields({
               <Checkbox
                 id={field.name}
                 checked={field.state.value}
-                onCheckedChange={(checked) =>
-                  field.handleChange(!!checked)
-                }
+                onCheckedChange={(checked) => field.handleChange(!!checked)}
               />
               <FieldContent>
                 <FieldTitle>Isolate Ports</FieldTitle>
                 <FieldDescription>
-                  Prevent guests on this VNet from communicating with each
-                  other directly through the bridge.
+                  Prevent guests on this VNet from communicating with each other
+                  directly through the bridge.
                 </FieldDescription>
               </FieldContent>
             </Field>
@@ -368,9 +370,7 @@ function VNetBooleanFields({
                 id={field.name}
                 checked={field.state.value}
                 disabled={vlanAwareDisabled}
-                onCheckedChange={(checked) =>
-                  field.handleChange(!!checked)
-                }
+                onCheckedChange={(checked) => field.handleChange(!!checked)}
               />
               <FieldContent>
                 <FieldTitle>VLAN Aware</FieldTitle>
@@ -556,10 +556,11 @@ export function VNetDialog({
     },
     onSubmit: ({ value }) => {
       onOpenChange(false)
-      toast.promise(mutation.mutateAsync(value), {
-        loading: isEdit ? "Updating VNet..." : "Creating VNet...",
-        success: isEdit ? "VNet updated" : "VNet created",
-        error: formatToastError,
+      showSingleMutationToast({
+        title: isEdit ? "Updating VNet" : "Creating VNet",
+        name: value.vnet,
+        promise: () => mutation.mutateAsync(value),
+        successDescription: isEdit ? "Updated" : "Created",
       })
     },
   })
@@ -580,7 +581,7 @@ export function VNetDialog({
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
       initialFocus={false}
-      icon={isEdit ? IconEdit : IconPlus}
+      icon={isEdit ? PencilEdit01Icon : Add01Icon}
       title={isEdit ? "Edit VNet" : "Create VNet"}
       description={
         isEdit

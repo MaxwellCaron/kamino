@@ -5,12 +5,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { IconUser, IconUsersGroup } from "@tabler/icons-react"
-import { toast } from "sonner"
+import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
 import {
   buildStorageByNode,
   countInventoryStats,
-  formatMutationError,
   getRecentPrincipals,
   getRecentRequests,
 } from "../utils/admin-dashboard"
@@ -23,6 +21,7 @@ import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-req
 import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -36,7 +35,7 @@ import {
   approveRequest,
   denyRequest,
   requestDetailQueryOptions,
-  requestsQueryOptions,
+  requestSummariesQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
@@ -74,9 +73,9 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     data: pendingRequestsData,
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
-  } = useQuery(requestsQueryOptions("pending"))
+  } = useQuery(requestSummariesQueryOptions("pending"))
   const { data: completedRequestsData, isLoading: isCompletedRequestsLoading } =
-    useQuery(requestsQueryOptions("completed"))
+    useQuery(requestSummariesQueryOptions("completed"))
   const { data: nodesData } = useQuery(nodesQueryOptions)
   const {
     data: requestDetail,
@@ -106,11 +105,11 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     [inventoryTree]
   )
   const userColumns = useMemo(
-    () => getPrincipalColumns({ icon: IconUser, label: "User" }),
+    () => getPrincipalColumns({ icon: UserIcon, label: "User" }),
     []
   )
   const groupColumns = useMemo(
-    () => getPrincipalColumns({ icon: IconUsersGroup, label: "Group" }),
+    () => getPrincipalColumns({ icon: UserGroupIcon, label: "Group" }),
     []
   )
 
@@ -178,15 +177,16 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     }
     const id = selectedRequestId
     setSelectedRequestId(null)
-    toast.promise(approveMutation.mutateAsync([id]), {
-      loading: "Approving request...",
-      success: (result) => {
+    showSingleMutationToast({
+      title: "Approving request",
+      name: "Request",
+      promise: approveMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request approved"
-      },
-      error: formatMutationError,
+        return result
+      }),
+      successDescription: "Approved",
     })
   }, [approveMutation, selectedRequestId])
   const handleDenyRequest = useCallback(() => {
@@ -195,15 +195,16 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     }
     const id = selectedRequestId
     setSelectedRequestId(null)
-    toast.promise(denyMutation.mutateAsync([id]), {
-      loading: "Denying request...",
-      success: (result) => {
+    showSingleMutationToast({
+      title: "Denying request",
+      name: "Request",
+      promise: denyMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request denied"
-      },
-      error: formatMutationError,
+        return result
+      }),
+      successDescription: "Denied",
     })
   }, [denyMutation, selectedRequestId])
 
