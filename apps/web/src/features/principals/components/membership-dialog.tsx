@@ -3,7 +3,6 @@ import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
 import { UserGroupIcon } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Combobox,
@@ -22,6 +21,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import {
@@ -32,7 +32,6 @@ import {
   userGroupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
-import { formatToastError } from "@/features/shared/utils/format"
 
 type MembershipDialogProps = {
   open: boolean
@@ -149,7 +148,10 @@ function MembershipEditor({
 
   if (loadError) {
     return (
-      <InlineErrorAlert error={loadError} fallback="Failed to load memberships." />
+      <InlineErrorAlert
+        error={loadError}
+        fallback="Failed to load memberships."
+      />
     )
   }
 
@@ -260,10 +262,11 @@ function MembershipForm({
     <form
       action={() => {
         onOpenChange(false)
-        toast.promise(form.handleSubmit(), {
-          loading: "Updating memberships...",
-          success: "Memberships updated",
-          error: formatToastError,
+        showSingleMutationToast({
+          title: "Updating memberships",
+          name: principal.name ?? principal.external_id,
+          promise: form.handleSubmit(),
+          successDescription: "Memberships updated",
         })
       }}
     >

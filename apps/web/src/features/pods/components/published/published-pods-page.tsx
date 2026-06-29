@@ -2,14 +2,21 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Delete01Icon } from "@hugeicons/core-free-icons"
 import { PublishedPodsCatalogCard } from "./published-pods-catalog-card"
 import { PublishedPodsHeaderCard } from "./published-pods-header-card"
 import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { getPublishedPodsColumns } from "./published-pods-columns"
-import { PublishedPodsPageDialogs } from "./published-pods-page-dialogs"
+import { ManagerCloneDialog } from "./manager-clone-dialog"
 import type { PendingCloneBulkAction } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import {
+  showMutationToast,
+  showSingleMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-published-pods-manager-clones"
 import {
   bulkActionPublishedPodClones,
@@ -20,6 +27,39 @@ import {
   setPublishedPodStatus,
 } from "@/features/pods/api/publish-pod-api"
 import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+
+const BULK_CLONE_DIALOG_CONFIG: Record<
+  PodCloneAction,
+  {
+    title: string
+    description: (pod: PublishedPodCatalogEntry) => string
+    variant: "default" | "destructive"
+  }
+> = {
+  start: {
+    title: "Start All Clones?",
+    description: (pod) => `Start every cloned instance of "${pod.title}".`,
+    variant: "default",
+  },
+  shutdown: {
+    title: "Shutdown All Clones?",
+    description: (pod) =>
+      `Send a shutdown signal to every cloned instance of "${pod.title}".`,
+    variant: "destructive",
+  },
+  reclone: {
+    title: "Re-clone All Clones?",
+    description: (pod) =>
+      `Delete and recreate VMs for every cloned instance of "${pod.title}". Task progress and question answers stay.`,
+    variant: "destructive",
+  },
+  delete: {
+    title: "Delete All Clones?",
+    description: (pod) =>
+      `Permanently delete every cloned instance of "${pod.title}", including their VMs, inventory folders, and saved task progress.`,
+    variant: "destructive",
+  },
+}
 
 export function PublishedPodsPage() {
   const navigate = useNavigate()
@@ -80,14 +120,9 @@ export function PublishedPodsPage() {
         queryKey: podCatalogQueryOptions.queryKey,
       })
       setPendingDeletePod(null)
-      toast.success("Published Pod catalog entry deleted.")
     },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to delete published Pod catalog entry."
-      )
+    onError: () => {
+      setPendingDeletePod(null)
     },
   })
 
@@ -100,7 +135,7 @@ export function PublishedPodsPage() {
         podId: params.pod.id,
         action: params.action,
       }),
-    onSuccess: (result, { pod, action }) => {
+    onSuccess: (_, { pod, action }) => {
       void queryClient.invalidateQueries({
         queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
       })
@@ -113,30 +148,9 @@ export function PublishedPodsPage() {
         })
       }
       setPendingCloneBulkAction(null)
-
-      const actionConfig = POD_CLONE_ACTION_CONFIG[action]
-      const succeeded = result.succeeded.length
-      const failed = result.failed.length
-
-      if (succeeded === 0 && failed === 0) {
-        toast.success("No cloned instances to update.")
-      } else if (failed === 0) {
-        toast.success(
-          `${actionConfig.label} applied to ${succeeded} cloned instance${succeeded === 1 ? "" : "s"}.`
-        )
-      } else {
-        toast.warning(
-          `${actionConfig.label} applied to ${succeeded} cloned instance${succeeded === 1 ? "" : "s"}; ${failed} failed.`
-        )
-      }
     },
-    onError: (error) => {
+    onError: () => {
       setPendingCloneBulkAction(null)
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to apply bulk clone action."
-      )
     },
   })
 
@@ -179,8 +193,118 @@ export function PublishedPodsPage() {
         cloneBulkActionPending: bulkCloneActionMutation.isPending,
         onManagerClone: setPendingManagerClonePod,
       }),
-    [navigate, statusMutation, bulkCloneActionMutation.isPending, setPendingManagerClonePod]
+    [
+      navigate,
+      statusMutation,
+      bulkCloneActionMutation.isPending,
+      setPendingManagerClonePod,
+    ]
   )
+
+  const deleteConfirm: ConfirmConfig | null = pendingDeletePod
+    ? {
+        title: "Delete Catalog Entry?",
+        description: `This deletes "${pendingDeletePod.title}" from the published catalog database only. The Pod Folder, Pod Template Folder, and Proxmox VMs are not deleted.`,
+        actionLabel: "Delete",
+        icon: Delete01Icon,
+        variant: "destructive",
+        onConfirm: () => {
+          showSingleMutationToast({
+            title: "Deleting",
+            name: pendingDeletePod.title,
+            promise: () => deleteMutation.mutateAsync(pendingDeletePod.id),
+            successDescription: "Deleted",
+          })
+        },
+      }
+    : null
+
+  const bulkConfirm: ConfirmConfig | null = pendingCloneBulkAction
+    ? {
+        title: BULK_CLONE_DIALOG_CONFIG[pendingCloneBulkAction.action].title,
+        description: BULK_CLONE_DIALOG_CONFIG[
+          pendingCloneBulkAction.action
+        ].description(pendingCloneBulkAction.pod),
+        actionLabel:
+          POD_CLONE_ACTION_CONFIG[pendingCloneBulkAction.action].label,
+        icon: POD_CLONE_ACTION_CONFIG[pendingCloneBulkAction.action].icon,
+        variant:
+          BULK_CLONE_DIALOG_CONFIG[pendingCloneBulkAction.action].variant,
+        onConfirm: () => {
+          const action = pendingCloneBulkAction.action
+          const pod = pendingCloneBulkAction.pod
+          const actionConfig = POD_CLONE_ACTION_CONFIG[action]
+
+          showMutationToast({
+            title: actionConfig.pendingLabel,
+            items: [
+              {
+                id: "bulk",
+                name: pod.title,
+                retry: async () => {
+                  const result = await bulkCloneActionMutation.mutateAsync({
+                    pod,
+                    action,
+                  })
+                  if (result.failed.length === 0) return
+                  if (result.succeeded.length === 0) {
+                    throw new Error("All clones failed")
+                  }
+                  throw new Error(
+                    `${result.failed.length} of ${result.succeeded.length + result.failed.length} clones failed`
+                  )
+                },
+              },
+            ],
+            runMutation: async () => {
+              try {
+                const result = await bulkCloneActionMutation.mutateAsync({
+                  pod,
+                  action,
+                })
+                if (
+                  result.succeeded.length === 0 &&
+                  result.failed.length === 0
+                ) {
+                  return { succeeded: ["bulk"], failed: [] }
+                }
+                if (result.failed.length === 0) {
+                  return { succeeded: ["bulk"], failed: [] }
+                }
+                if (result.succeeded.length === 0) {
+                  return {
+                    succeeded: [],
+                    failed: [{ id: "bulk", error: "All clones failed" }],
+                  }
+                }
+                return {
+                  succeeded: ["bulk"],
+                  failed: [
+                    {
+                      id: "bulk",
+                      error: `${result.failed.length} of ${result.succeeded.length + result.failed.length} clones failed`,
+                    },
+                  ],
+                }
+              } catch (error) {
+                return {
+                  succeeded: [],
+                  failed: [
+                    {
+                      id: "bulk",
+                      error:
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to apply bulk clone action",
+                    },
+                  ],
+                }
+              }
+            },
+          })
+        },
+      }
+    : null
 
   if (isPodsLoading) {
     return <PublishedPodsPageSkeleton />
@@ -200,25 +324,26 @@ export function PublishedPodsPage() {
         />
       </div>
 
-      <PublishedPodsPageDialogs
-        pendingDeletePod={pendingDeletePod}
-        isDeletePending={deleteMutation.isPending}
-        onDeleteConfirm={(pod) => deleteMutation.mutate(pod.id)}
-        onDeleteOpenChange={(open) => {
-          if (!open) setPendingDeletePod(null)
-        }}
-        pendingCloneBulkAction={pendingCloneBulkAction}
-        isBulkClonePending={bulkCloneActionMutation.isPending}
-        onBulkCloneConfirm={(action) => bulkCloneActionMutation.mutate(action)}
-        onBulkCloneOpenChange={(open) => {
-          if (!open) setPendingCloneBulkAction(null)
-        }}
-        pendingManagerClonePod={pendingManagerClonePod}
-        pendingCloneRowsByPodId={pendingCloneRowsByPodId}
-        onManagerCloneOpenChange={(open) => {
+      {deleteConfirm && (
+        <ConfirmDialog
+          config={deleteConfirm}
+          onClose={() => setPendingDeletePod(null)}
+        />
+      )}
+      {bulkConfirm && (
+        <ConfirmDialog
+          config={bulkConfirm}
+          onClose={() => setPendingCloneBulkAction(null)}
+        />
+      )}
+      <ManagerCloneDialog
+        pod={pendingManagerClonePod}
+        open={pendingManagerClonePod !== null}
+        onOpenChange={(open) => {
           if (!open) setPendingManagerClonePod(null)
         }}
-        onManagerCloneConfirm={(pod, principals) => {
+        pendingRowsByPodId={pendingCloneRowsByPodId}
+        onConfirm={(pod, principals) => {
           void handleManagerClone(pod, principals)
         }}
       />

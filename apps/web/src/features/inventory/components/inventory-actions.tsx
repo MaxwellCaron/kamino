@@ -38,10 +38,7 @@ import {
 } from "../utils/inventory-capabilities"
 import { findInventoryTreeNode } from "../utils/inventory-tree"
 import { useDeleteFolder } from "../hooks/use-inventory-actions"
-import {
-  createInventoryDeleteStatusItems,
-  markStatusItems,
-} from "../utils/inventory-status-items"
+import { InventoryDeleteConfirmItems } from "./inventory-delete-confirm-items"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import type {
   ApiTreeNode,
@@ -50,10 +47,7 @@ import type {
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
-import {
-  formatToastError,
-  formatVmReference,
-} from "@/features/shared/utils/format"
+import { formatVmReference } from "@/features/shared/utils/format"
 import {
   useConvertToTemplate,
   useDeleteVM,
@@ -63,6 +57,12 @@ import {
   toastDeleteVm,
   toastTemplatizeVm,
 } from "@/features/vms/utils/vm-toasts"
+import { VmIcon } from "@/components/status/vm-icon"
+import { createInventoryDeleteItems } from "@/features/inventory/utils/inventory-delete-items"
+import {
+  showMutationToast,
+  showSingleMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 
 function assertSingleItemMutationSucceeded(
   result: ApiBulkVmMutationResponse,
@@ -428,6 +428,17 @@ function VmMenuItems({
               title: "Delete",
               icon: Delete01Icon,
               description: `This will permanently delete ${formatVmReference(vmid, name)}.`,
+              body: (
+                <InventoryDeleteConfirmItems
+                  items={[
+                    {
+                      id: itemId,
+                      name: formatVmReference(vmid, name),
+                      icon: <VmIcon status={powerStatus} />,
+                    },
+                  ]}
+                />
+              ),
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -549,6 +560,17 @@ function TemplateMenuItems({
               title: "Delete Template?",
               icon: Delete01Icon,
               description: `This will permanently delete template ${vmIdentifier}.`,
+              body: (
+                <InventoryDeleteConfirmItems
+                  items={[
+                    {
+                      id: itemId,
+                      name: vmIdentifier,
+                      icon: <VmIcon status={undefined} isTemplate />,
+                    },
+                  ]}
+                />
+              ),
               actionLabel: "Delete",
               variant: "destructive",
               onConfirm: () => {
@@ -561,10 +583,11 @@ function TemplateMenuItems({
                     )
                   )
 
-                toast.promise(promise, {
-                  loading: `Deleting template ${vmIdentifier}…`,
-                  success: `Template ${vmIdentifier} deleted`,
-                  error: formatToastError,
+                showSingleMutationToast({
+                  title: `Deleting template ${vmIdentifier}`,
+                  name: vmIdentifier,
+                  promise,
+                  successDescription: "Deleted",
                 })
               },
             })
@@ -628,40 +651,49 @@ export function InventoryNodeMenu({
       return
     }
 
-    const statusItems = createInventoryDeleteStatusItems({
+    const deleteItems = createInventoryDeleteItems({
       folderTargets: [folder as ApiTreeNode & { kind: "folder" }],
       vmTargets: [],
-      getVmStatus: (node) => vmStatuses?.[node.vm.vmid],
+      getVmStatus: (id) => {
+        const node = findInventoryTreeNode(tree, id)
+        return node?.vm ? vmStatuses?.[node.vm.vmid] : undefined
+      },
     })
-    const statusItemIds = statusItems.map((item) => item.id)
+    const deleteItemIds = deleteItems.map((item) => item.id)
 
     openConfirm({
       title: `Delete folder "${data.name}"?`,
       icon: Delete01Icon,
       description: null,
+      body: <InventoryDeleteConfirmItems items={deleteItems} />,
       actionLabel: "Delete",
-      pendingLabel: "Deleting...",
-      closeOnSuccess: false,
-      statusItems,
       variant: "destructive",
-      onConfirm: async (controls) => {
-        controls.setStatusItems((items) =>
-          markStatusItems(items, statusItemIds, "pending")
-        )
-
-        try {
-          await deleteFolderMutation.mutateAsync({ id: itemId })
-          controls.setStatusItems((items) =>
-            markStatusItems(items, statusItemIds, "success")
-          )
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Failed to delete folder"
-          controls.setStatusItems((items) =>
-            markStatusItems(items, statusItemIds, "error", message)
-          )
-          throw error
-        }
+      onConfirm: () => {
+        showMutationToast({
+          title: `Deleting folder "${data.name}"`,
+          items: deleteItems.map(({ id, name, successDescription }) => ({
+            id,
+            name,
+            successDescription,
+          })),
+          runMutation: async () => {
+            try {
+              await deleteFolderMutation.mutateAsync({ id: itemId })
+              return { succeeded: deleteItemIds, failed: [] }
+            } catch (error) {
+              return {
+                succeeded: [],
+                failed: deleteItemIds.map((id) => ({
+                  id,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to delete folder",
+                })),
+              }
+            }
+          },
+        })
       },
     })
   }

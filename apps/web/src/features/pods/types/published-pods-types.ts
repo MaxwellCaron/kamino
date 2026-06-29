@@ -1,11 +1,20 @@
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type {
+  PublishedPodCatalogEntry,
+  PublishedPodCloneSummary,
+} from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 
 export type PendingCloneBulkAction = {
   pod: PublishedPodCatalogEntry
   action: PodCloneAction
 } | null
+
+export type PublishedPodClonePendingAction =
+  | { type: "start" | "shutdown"; clone: PublishedPodCloneSummary }
+  | { type: "reclone"; clone: PublishedPodCloneSummary }
+  | { type: "delete"; clone: PublishedPodCloneSummary }
+  | null
 
 export type CloneBulkAction = Exclude<PendingCloneBulkAction, null>
 

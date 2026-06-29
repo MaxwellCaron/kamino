@@ -9,38 +9,21 @@ import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import type {
-  ConfirmConfig,
-  ConfirmDialogControls,
-} from "@/components/dialogs/confirm-dialog"
-import type { SelectedVmItem } from "../../types/inventory-types"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 
 type InventorySelectionPowerActionsProps = {
   canTemplate: boolean
   canDelete: boolean
   powerSelectionLabel: string
-  powerVmItems: Array<SelectedVmItem>
-  getStatus: (itemId: string) => string | undefined
   openConfirm: (config: ConfirmConfig) => void
-  createPowerConfirmStatusItems: (
-    items: Array<SelectedVmItem>,
-    action: "start" | "shutdown" | "reboot" | "stop",
-    getStatus: (itemId: string) => string | undefined
-  ) => ConfirmConfig["statusItems"]
-  runPowerAction: (
-    action: "start" | "shutdown" | "reboot" | "stop",
-    controls: ConfirmDialogControls
-  ) => Promise<void>
+  runPowerAction: (action: "start" | "shutdown" | "reboot" | "stop") => void
 }
 
 export function InventorySelectionPowerActions({
   canTemplate,
   canDelete,
   powerSelectionLabel,
-  powerVmItems,
-  getStatus,
   openConfirm,
-  createPowerConfirmStatusItems,
   runPowerAction,
 }: InventorySelectionPowerActionsProps) {
   return (
@@ -53,13 +36,7 @@ export function InventorySelectionPowerActions({
             icon: PlayIcon,
             description: <p>This will power on {powerSelectionLabel}.</p>,
             actionLabel: "Start",
-            closeOnSuccess: false,
-            statusItems: createPowerConfirmStatusItems(
-              powerVmItems,
-              "start",
-              getStatus
-            ),
-            onConfirm: (controls) => runPowerAction("start", controls),
+            onConfirm: () => runPowerAction("start"),
           })
         }
         aria-label="Start selected VMs"
@@ -78,14 +55,8 @@ export function InventorySelectionPowerActions({
               <p>This will send a shutdown signal to {powerSelectionLabel}.</p>
             ),
             actionLabel: "Shutdown",
-            closeOnSuccess: false,
-            statusItems: createPowerConfirmStatusItems(
-              powerVmItems,
-              "shutdown",
-              getStatus
-            ),
             variant: "destructive",
-            onConfirm: (controls) => runPowerAction("shutdown", controls),
+            onConfirm: () => runPowerAction("shutdown"),
           })
         }
         aria-label="Shut down selected VMs"
@@ -103,14 +74,8 @@ export function InventorySelectionPowerActions({
               <p>This will send a reboot signal to {powerSelectionLabel}.</p>
             ),
             actionLabel: "Reboot",
-            closeOnSuccess: false,
-            statusItems: createPowerConfirmStatusItems(
-              powerVmItems,
-              "reboot",
-              getStatus
-            ),
             variant: "destructive",
-            onConfirm: (controls) => runPowerAction("reboot", controls),
+            onConfirm: () => runPowerAction("reboot"),
           })
         }
         aria-label="Reboot selected VMs"
@@ -128,14 +93,8 @@ export function InventorySelectionPowerActions({
               <p>This will immediately stop {powerSelectionLabel}.</p>
             ),
             actionLabel: "Stop",
-            closeOnSuccess: false,
-            statusItems: createPowerConfirmStatusItems(
-              powerVmItems,
-              "stop",
-              getStatus
-            ),
             variant: "destructive",
-            onConfirm: (controls) => runPowerAction("stop", controls),
+            onConfirm: () => runPowerAction("stop"),
           })
         }
         aria-label="Stop selected VMs"

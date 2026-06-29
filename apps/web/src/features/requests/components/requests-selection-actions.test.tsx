@@ -5,18 +5,18 @@ import type * as ActionBarModule from "@workspace/ui/components/action-bar"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { renderWithQueryClient } from "@/test/test-utils"
 
-vi.mock("@/features/inventory/utils/inventory-tree", () => ({
-  findTreePath: () => null,
-}))
-
 vi.mock("@/features/requests/utils/request-presenters", () => ({
   formatRequestKind: () => "Create",
   formatRequestPowerAction: () => null,
   getRequestIcon: () => null,
 }))
 
-vi.mock("@/features/shared/utils/format", () => ({
-  formatVmReference: () => "vm-100",
+vi.mock("@/components/feedback/mutation-progress-toast", () => ({
+  showMutationToast: ({
+    runMutation,
+  }: {
+    runMutation: () => Promise<unknown>
+  }) => runMutation(),
 }))
 
 vi.mock("@workspace/ui/components/action-bar", async (importOriginal) => {
@@ -57,14 +57,7 @@ describe("RequestsSelectionActions", () => {
       mutateAsync: vi.fn().mockRejectedValue(new Error("Server error")),
     }
     const approveMutation = { mutateAsync: vi.fn() }
-    let capturedOnConfirm:
-      | ((controls: {
-          getStatusItems: () => Array<unknown>
-          setStatusItems: (
-            fn: (prev: Array<unknown>) => Array<unknown>
-          ) => void
-        }) => Promise<void>)
-      | null = null
+    let capturedOnConfirm: (() => void) | null = null
     const onOpenConfirm = vi.fn((config) => {
       capturedOnConfirm = config.onConfirm
     })
@@ -77,7 +70,6 @@ describe("RequestsSelectionActions", () => {
       <RequestsSelectionActions
         selectedRows={[mockRequest]}
         clearSelection={clearSelection}
-        tree={[]}
         approveMutation={approveMutation as never}
         denyMutation={denyMutation as never}
         onOpenConfirm={onOpenConfirm}
@@ -90,10 +82,8 @@ describe("RequestsSelectionActions", () => {
     expect(capturedOnConfirm).not.toBeNull()
 
     await act(async () => {
-      await capturedOnConfirm!({
-        getStatusItems: () => [],
-        setStatusItems: vi.fn(),
-      })
+      capturedOnConfirm!()
+      await Promise.resolve()
     })
 
     expect(denyMutation.mutateAsync).toHaveBeenCalledWith(["req-1"])
@@ -109,14 +99,7 @@ describe("RequestsSelectionActions", () => {
       }),
     }
     const approveMutation = { mutateAsync: vi.fn() }
-    let capturedOnConfirm:
-      | ((controls: {
-          getStatusItems: () => Array<unknown>
-          setStatusItems: (
-            fn: (prev: Array<unknown>) => Array<unknown>
-          ) => void
-        }) => Promise<void>)
-      | null = null
+    let capturedOnConfirm: (() => void) | null = null
     const onOpenConfirm = vi.fn((config) => {
       capturedOnConfirm = config.onConfirm
     })
@@ -129,7 +112,6 @@ describe("RequestsSelectionActions", () => {
       <RequestsSelectionActions
         selectedRows={[mockRequest]}
         clearSelection={clearSelection}
-        tree={[]}
         approveMutation={approveMutation as never}
         denyMutation={denyMutation as never}
         onOpenConfirm={onOpenConfirm}
@@ -139,10 +121,8 @@ describe("RequestsSelectionActions", () => {
     screen.getByLabelText("Deny selected requests").click()
 
     await act(async () => {
-      await capturedOnConfirm!({
-        getStatusItems: () => [],
-        setStatusItems: vi.fn(),
-      })
+      capturedOnConfirm!()
+      await Promise.resolve()
     })
 
     expect(clearSelection).toHaveBeenCalled()

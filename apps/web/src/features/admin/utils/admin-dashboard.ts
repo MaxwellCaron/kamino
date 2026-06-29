@@ -202,7 +202,3 @@ export function countInventoryStats(
   walk(nodes)
   return counts
 }
-
-export function formatMutationError(error: unknown) {
-  return error instanceof Error ? error.message : "Request action failed"
-}

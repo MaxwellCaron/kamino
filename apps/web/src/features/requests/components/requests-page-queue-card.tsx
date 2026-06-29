@@ -12,7 +12,6 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { RequestsSelectionActions } from "./requests-selection-actions"
 import type { UseMutationResult } from "@tanstack/react-query"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type {
   ApiRequestActionResponse,
   ApiRequestScope,
@@ -34,7 +33,6 @@ type RequestsPageQueueCardProps = {
   isActiveLoading: boolean
   activeError: Error | null
   canReview: boolean
-  tree: Array<ApiTreeNode> | undefined
   approveMutation: UseMutationResult<
     ApiRequestActionResponse,
     Error,
@@ -61,7 +59,6 @@ export function RequestsPageQueueCard({
   isActiveLoading,
   activeError,
   canReview,
-  tree,
   approveMutation,
   denyMutation,
   onOpenConfirm,
@@ -136,7 +133,6 @@ export function RequestsPageQueueCard({
                   <RequestsSelectionActions
                     selectedRows={selectedRows}
                     clearSelection={clearSelection}
-                    tree={tree}
                     approveMutation={approveMutation}
                     denyMutation={denyMutation}
                     onOpenConfirm={onOpenConfirm}

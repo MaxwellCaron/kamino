@@ -5,7 +5,6 @@ import {
   Refresh03Icon,
   StopIcon,
 } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import {
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
@@ -14,11 +13,9 @@ import type { IconSvgElement } from "@hugeicons/react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 import type { ApiBulkVmMutationResponse } from "../types/vm-types"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { getInventoryPermissionMode } from "@/features/inventory/utils/inventory-capabilities"
-import {
-  formatToastError,
-  formatVmReference,
-} from "@/features/shared/utils/format"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 export type VmPowerAction = "start" | "shutdown" | "reboot" | "stop"
 export type VmPowerMode = "direct" | "request"
@@ -170,16 +167,17 @@ function toastVmPowerAction(
   const definition = getVmPowerActionDefinition(action)
   const vmIdentifier = formatVmReference(vmid, vmName)
 
-  return toast.promise(promise, {
-    loading:
+  showSingleMutationToast({
+    title:
       powerMode === "direct"
-        ? `${definition.directLoading} ${vmIdentifier}…`
-        : `Submitting ${definition.requestLoading} request for ${vmIdentifier}…`,
-    success:
+        ? `${definition.directLoading} ${vmIdentifier}`
+        : `Submitting ${definition.requestLoading} request for ${vmIdentifier}`,
+    name: vmIdentifier,
+    promise,
+    successDescription:
       powerMode === "direct"
-        ? `${vmIdentifier} ${definition.directSuccess}`
-        : `${definition.label} request for ${vmIdentifier} submitted`,
-    error: formatToastError,
+        ? definition.directSuccess
+        : `${definition.label} request submitted`,
   })
 }
 

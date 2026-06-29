@@ -7,7 +7,6 @@ import {
   CheckmarkCircle01Icon,
   ReloadIcon,
 } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
@@ -27,12 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type {
-  ConfirmConfig,
-  ConfirmStatusItem,
-} from "@/components/dialogs/confirm-dialog"
-import type {
-  SyncApplyResult,
   SyncChange,
   SyncSelection,
 } from "@/features/proxmox-sync/api/proxmox-sync-api"
@@ -50,6 +45,7 @@ import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff
 import { DataTable } from "@/components/data-table/data-table"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
 const ConfirmDialog = lazy(() =>
@@ -64,18 +60,6 @@ function allChanges(
   updates: Array<SyncChange>
 ): Array<SyncChange> {
   return [...adds, ...removes, ...updates]
-}
-
-function buildStatusItems(
-  selected: Array<SyncChange>
-): Array<ConfirmStatusItem> {
-  return selected.map((c) => ({
-    id: c.id,
-    kind: "vm" as const,
-    label: c.name,
-    description: `${c.node}/${c.vmid} — ${c.kind}`,
-    status: "idle" as const,
-  }))
 }
 
 function buildSyncSelection(selected: Array<SyncChange>): SyncSelection {
@@ -96,23 +80,6 @@ function buildSyncSelection(selected: Array<SyncChange>): SyncSelection {
   }
 
   return selection
-}
-
-function applyResultToStatus(
-  item: ConfirmStatusItem,
-  result: SyncApplyResult
-): ConfirmStatusItem {
-  if (result.status === "success") {
-    return {
-      ...item,
-      status: "success",
-      successDisplay: result.kind === "remove" ? "deleted" : "vm",
-    }
-  }
-  if (result.status === "error") {
-    return { ...item, status: "error", error: result.error }
-  }
-  return { ...item, status: "error", error: result.error ?? "skipped" }
 }
 
 export function ProxmoxSyncPage() {
@@ -264,80 +231,66 @@ export function ProxmoxSyncPage() {
                     <ActionBarItem
                       onSelect={(e) => e.preventDefault()}
                       onClick={() => {
-                        const statusItems = buildStatusItems(selectableRows)
                         setConfirm({
                           title: "Apply Sync Changes",
                           icon: ReloadIcon,
                           description: `Apply ${selectableRows.length} selected change${selectableRows.length === 1 ? "" : "s"} to the inventory.`,
                           actionLabel: "Apply",
                           variant: "default",
-                          closeOnSuccess: false,
-                          statusItems,
-                          onConfirm: async ({ setStatusItems }) => {
-                            setStatusItems((prev) =>
-                              prev.map((item) => ({
-                                ...item,
-                                status: "pending",
-                              }))
-                            )
+                          onConfirm: () => {
+                            showMutationToast({
+                              title: `Applying ${selectableRows.length} sync change${selectableRows.length === 1 ? "" : "s"}`,
+                              items: selectableRows.map((c) => ({
+                                id: c.id,
+                                name: c.name,
+                              })),
+                              runMutation: async () => {
+                                const selection =
+                                  buildSyncSelection(selectableRows)
 
-                            const selection = buildSyncSelection(selectableRows)
+                                try {
+                                  const response =
+                                    await applyProxmoxSync(selection)
 
-                            try {
-                              const response = await applyProxmoxSync(selection)
-                              const resultsByID = new Map(
-                                response.results.map((r) => [r.id, r])
-                              )
+                                  await queryClient.invalidateQueries({
+                                    queryKey:
+                                      proxmoxSyncPreviewQueryOptions.queryKey,
+                                  })
+                                  await queryClient.invalidateQueries({
+                                    queryKey:
+                                      inventoryTreeQueryOptions.queryKey,
+                                  })
 
-                              setStatusItems((prev) =>
-                                prev.map((item) => {
-                                  const result = resultsByID.get(item.id)
-                                  return result
-                                    ? applyResultToStatus(item, result)
-                                    : {
-                                        ...item,
-                                        status: "error",
-                                        error: "no result",
-                                      }
-                                })
-                              )
+                                  const succeeded = response.results
+                                    .filter((r) => r.status === "success")
+                                    .map((r) => r.id)
+                                  const failed = response.results
+                                    .filter((r) => r.status !== "success")
+                                    .map((r) => ({
+                                      id: r.id,
+                                      error: r.error ?? "skipped",
+                                    }))
 
-                              const { applied, failed, skipped } = response
-                              if (failed === 0 && skipped === 0) {
-                                toast.success(
-                                  `Synced ${applied} change${applied === 1 ? "" : "s"}`
-                                )
-                              } else {
-                                toast.warning(
-                                  `Applied ${applied}, failed ${failed}, skipped ${skipped}`
-                                )
-                              }
+                                  if (failed.length === 0) {
+                                    clearSelection()
+                                  }
 
-                              await queryClient.invalidateQueries({
-                                queryKey:
-                                  proxmoxSyncPreviewQueryOptions.queryKey,
-                              })
-                              await queryClient.invalidateQueries({
-                                queryKey: inventoryTreeQueryOptions.queryKey,
-                              })
-                              clearSelection()
-                            } catch (err) {
-                              setStatusItems((prev) =>
-                                prev.map((item) => ({
-                                  ...item,
-                                  status: "error",
-                                  error:
+                                  return { succeeded, failed }
+                                } catch (err) {
+                                  const message =
                                     err instanceof Error
                                       ? err.message
-                                      : "Unknown error",
-                                }))
-                              )
-                              toast.error(
-                                err instanceof Error
-                                  ? err.message
-                                  : "Sync failed"
-                              )
-                            }
+                                      : "Sync failed"
+                                  return {
+                                    succeeded: [],
+                                    failed: selectableRows.map((c) => ({
+                                      id: c.id,
+                                      error: message,
+                                    })),
+                                  }
+                                }
+                              },
+                            })
                           },
                         })
                       }}

@@ -71,6 +71,7 @@ export function PodHeader({
                 </Button>
               ) : (
                 <PodHeaderActions
+                  podTitle={pod.title}
                   clonedPod={clonedPod}
                   onReclone={onReclone}
                   onClonedPodChange={onClonedPodChange}

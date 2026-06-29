@@ -8,7 +8,6 @@ import {
   PencilEdit01Icon,
 } from "@hugeicons/core-free-icons"
 import { z } from "zod"
-import { toast } from "sonner"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -44,7 +43,7 @@ import {
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
-import { formatToastError } from "@/features/shared/utils/format"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   formatFieldError,
   isTouchedInvalid,
@@ -557,10 +556,11 @@ export function VNetDialog({
     },
     onSubmit: ({ value }) => {
       onOpenChange(false)
-      toast.promise(mutation.mutateAsync(value), {
-        loading: isEdit ? "Updating VNet..." : "Creating VNet...",
-        success: isEdit ? "VNet updated" : "VNet created",
-        error: formatToastError,
+      showSingleMutationToast({
+        title: isEdit ? "Updating VNet" : "Creating VNet",
+        name: value.vnet,
+        promise: () => mutation.mutateAsync(value),
+        successDescription: isEdit ? "Updated" : "Created",
       })
     },
   })

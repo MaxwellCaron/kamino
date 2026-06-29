@@ -6,7 +6,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
-import { toast } from "sonner"
 
 import { RequestsPageSkeleton } from "./requests-page-skeleton"
 import { RequestsPageOverviewCard } from "./requests-page-overview-card"
@@ -14,12 +13,12 @@ import { RequestsPageQueueCard } from "./requests-page-queue-card"
 import { RequestsPageDialogs } from "./requests-page-dialogs"
 
 import type {
-  ApiRequestActionResponse,
   ApiRequestScope,
   ApiRequestStatus,
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -33,7 +32,6 @@ import {
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
-import { formatToastError } from "@/features/shared/utils/format"
 
 const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")
 
@@ -274,15 +272,16 @@ export function RequestsPage() {
     }
     const id = selectedRequestId
     dispatch({ type: "setSelectedRequestId", requestId: null })
-    toast.promise(approveMutation.mutateAsync([id]), {
-      loading: "Approving request...",
-      success: (result: ApiRequestActionResponse) => {
+    showSingleMutationToast({
+      title: "Approving request",
+      name: "Request",
+      promise: approveMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request approved"
-      },
-      error: formatToastError,
+        return result
+      }),
+      successDescription: "Approved",
     })
   }, [approveMutation, selectedRequestId])
   const handleDenyRequest = useCallback(() => {
@@ -291,15 +290,16 @@ export function RequestsPage() {
     }
     const id = selectedRequestId
     dispatch({ type: "setSelectedRequestId", requestId: null })
-    toast.promise(denyMutation.mutateAsync([id]), {
-      loading: "Denying request...",
-      success: (result: ApiRequestActionResponse) => {
+    showSingleMutationToast({
+      title: "Denying request",
+      name: "Request",
+      promise: denyMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request denied"
-      },
-      error: formatToastError,
+        return result
+      }),
+      successDescription: "Denied",
     })
   }, [denyMutation, selectedRequestId])
 
@@ -354,7 +354,6 @@ export function RequestsPage() {
           isActiveLoading={isActiveLoading}
           activeError={activeError}
           canReview={canReview}
-          tree={tree}
           approveMutation={approveMutation}
           denyMutation={denyMutation}
           onOpenConfirm={handleOpenConfirm}

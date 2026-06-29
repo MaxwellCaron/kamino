@@ -6,11 +6,9 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import {
   buildStorageByNode,
   countInventoryStats,
-  formatMutationError,
   getRecentPrincipals,
   getRecentRequests,
 } from "../utils/admin-dashboard"
@@ -23,6 +21,7 @@ import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-req
 import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
@@ -178,15 +177,16 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     }
     const id = selectedRequestId
     setSelectedRequestId(null)
-    toast.promise(approveMutation.mutateAsync([id]), {
-      loading: "Approving request...",
-      success: (result) => {
+    showSingleMutationToast({
+      title: "Approving request",
+      name: "Request",
+      promise: approveMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request approved"
-      },
-      error: formatMutationError,
+        return result
+      }),
+      successDescription: "Approved",
     })
   }, [approveMutation, selectedRequestId])
   const handleDenyRequest = useCallback(() => {
@@ -195,15 +195,16 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     }
     const id = selectedRequestId
     setSelectedRequestId(null)
-    toast.promise(denyMutation.mutateAsync([id]), {
-      loading: "Denying request...",
-      success: (result) => {
+    showSingleMutationToast({
+      title: "Denying request",
+      name: "Request",
+      promise: denyMutation.mutateAsync([id]).then((result) => {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
-        return "Request denied"
-      },
-      error: formatMutationError,
+        return result
+      }),
+      successDescription: "Denied",
     })
   }, [denyMutation, selectedRequestId])
 

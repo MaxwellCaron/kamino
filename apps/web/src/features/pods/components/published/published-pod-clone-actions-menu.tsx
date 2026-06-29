@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import type { PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
-import type { PublishedPodClonePendingAction } from "./published-pod-clone-action-dialogs"
+import type { PublishedPodClonePendingAction } from "../../types/published-pods-types"
 import {
   POD_CLONE_ACTION_CONFIG,
   canRunPodCloneAction,

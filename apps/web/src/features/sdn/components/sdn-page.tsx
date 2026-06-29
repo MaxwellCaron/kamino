@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -7,7 +7,6 @@ import {
   Delete01Icon,
   Globe02Icon,
 } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -35,11 +34,8 @@ import {
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
-import {
-  capitalizeFirstLetter,
-  formatToastError,
-} from "@/features/shared/utils/format"
 
 const sdnRouteApi = getRouteApi("/_dashboard/admin/sdn")
 const ConfirmDialog = lazy(() =>
@@ -80,30 +76,36 @@ export function SdnPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteVNet,
-    onSuccess: (result) => {
-      const deletedCount = result.deleted.length
-      const failedCount = result.failed.length
-
-      if (deletedCount > 0) {
-        toast.success(
-          deletedCount === 1 ? "VNet deleted" : `${deletedCount} VNets deleted`
-        )
-      }
-
-      if (failedCount === 1) {
-        toast.error(
-          `Failed to delete ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
-        )
-      } else if (failedCount > 1) {
-        toast.error(`Failed to delete ${failedCount} VNets`)
-      }
-
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
+
+  const showDeleteToast = useCallback(
+    (targets: Array<ApiVNet>, onAllSucceeded?: () => void) => {
+      const targetIds = targets.map((vnet) => vnet.vnet)
+
+      showMutationToast({
+        title: "Deleting",
+        items: targets.map((vnet) => ({
+          id: vnet.vnet,
+          name: vnet.vnet,
+          successDescription: "Deleted",
+          retry: async () => {
+            const result = await deleteMutation.mutateAsync([vnet.vnet])
+            const failure = result.failed.find((item) => item.id === vnet.vnet)
+            if (failure) throw new Error(failure.error)
+          },
+        })),
+        runMutation: async () => {
+          const result = await deleteMutation.mutateAsync(targetIds)
+          if (result.failed.length === 0) onAllSucceeded?.()
+          return { succeeded: result.deleted, failed: result.failed }
+        },
+      })
+    },
+    [deleteMutation]
+  )
 
   const columns = useMemo(
     () =>
@@ -117,12 +119,10 @@ export function SdnPage() {
             description: `Are you sure you want to delete ${v.vnet}? This will apply the SDN configuration immediately.`,
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: async () => {
-              await deleteMutation.mutateAsync([v.vnet])
-            },
+            onConfirm: () => showDeleteToast([v]),
           }),
       }),
-    [canAdminister, deleteMutation, editDialog.openWith]
+    [canAdminister, editDialog.openWith, showDeleteToast]
   )
 
   if (!canAccessAdmin(user.management_permissions)) {
@@ -189,16 +189,11 @@ export function SdnPage() {
                                 : `Are you sure you want to delete ${selectedRows.length} VNets? This will apply the SDN configuration immediately.`,
                             actionLabel: "Delete",
                             variant: "destructive",
-                            onConfirm: async () => {
-                              const result = await deleteMutation.mutateAsync(
-                                selectedRows.map(
-                                  (selectedVNet) => selectedVNet.vnet
-                                )
-                              )
-                              if (result.failed.length === 0) {
-                                clearTableSelection()
-                              }
-                            },
+                            onConfirm: () =>
+                              showDeleteToast(
+                                selectedRows,
+                                clearTableSelection
+                              ),
                           })
                         }
                       >

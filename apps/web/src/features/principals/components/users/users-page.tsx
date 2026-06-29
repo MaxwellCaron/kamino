@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -38,14 +38,12 @@ import {
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
-import {
-  capitalizeFirstLetter,
-  formatToastError,
-} from "@/features/shared/utils/format"
+import { formatToastError } from "@/features/shared/utils/format"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
 const ConfirmDialog = lazy(() =>
@@ -104,40 +102,38 @@ export function UsersPage() {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const queryClient = useQueryClient()
-  const userLabelsByID = useMemo(() => {
-    return new Map(
-      (users ?? []).map((principal) => [principal.id, getUserLabel(principal)])
-    )
-  }, [users])
-
   const deleteMutation = useMutation({
     mutationFn: deleteUser,
-    onSuccess: (result) => {
-      const deletedCount = result.deleted.length
-      const failedCount = result.failed.length
-
-      if (deletedCount > 0) {
-        toast.success(
-          deletedCount === 1 ? "User deleted" : `${deletedCount} users deleted`
-        )
-      }
-
-      if (failedCount === 1) {
-        const failure = result.failed[0]
-        const userLabel = userLabelsByID.get(failure.id) ?? failure.id
-        toast.error(
-          `Failed to delete ${userLabel}: ${capitalizeFirstLetter(failure.error)}`
-        )
-      } else if (failedCount > 1) {
-        toast.error(`Failed to delete ${failedCount} users`)
-      }
-
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
+
+  const showDeleteToast = useCallback(
+    (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
+      const targetIds = targets.map((target) => target.id)
+
+      showMutationToast({
+        title: "Deleting",
+        items: targets.map((target) => ({
+          id: target.id,
+          name: getUserLabel(target),
+          successDescription: "Deleted",
+          retry: async () => {
+            const result = await deleteMutation.mutateAsync([target.id])
+            const failure = result.failed.find((item) => item.id === target.id)
+            if (failure) throw new Error(failure.error)
+          },
+        })),
+        runMutation: async () => {
+          const result = await deleteMutation.mutateAsync(targetIds)
+          if (result.failed.length === 0) onAllSucceeded?.()
+          return { succeeded: result.deleted, failed: result.failed }
+        },
+      })
+    },
+    [deleteMutation]
+  )
 
   const columns = useMemo(
     () =>
@@ -152,16 +148,14 @@ export function UsersPage() {
             description: `Are you sure you want to delete ${getUserLabel(targetUser)}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
-            onConfirm: async () => {
-              await deleteMutation.mutateAsync([targetUser.id])
-            },
+            onConfirm: () => showDeleteToast([targetUser]),
           }),
       }),
     [
       canAdminister,
-      deleteMutation,
       editDialog.openWith,
       membershipDialog.openWith,
+      showDeleteToast,
     ]
   )
 
@@ -294,17 +288,8 @@ export function UsersPage() {
                                   : `Are you sure you want to delete ${selectedRows.length} users? This will permanently remove the selected users.`,
                               actionLabel: "Delete",
                               variant: "destructive",
-                              onConfirm: async () => {
-                                const result = await deleteMutation.mutateAsync(
-                                  selectedRows.map(
-                                    (selectedUser: ApiPrincipal) =>
-                                      selectedUser.id
-                                  )
-                                )
-                                if (result.failed.length === 0) {
-                                  clearSelection()
-                                }
-                              },
+                              onConfirm: () =>
+                                showDeleteToast(selectedRows, clearSelection),
                             })
                           }
                         >

@@ -1,8 +1,13 @@
 import { useState } from "react"
-import { toast } from "sonner"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
+import {
+  Delete01Icon,
+  PackageRemoveIcon,
+  PlayIcon,
+  ReloadIcon,
+  StopIcon,
+} from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Empty,
@@ -24,15 +29,20 @@ import {
 import { ClonesTableSkeleton } from "./clones-table-skeleton"
 import { PendingCloneStatusItem } from "./pending-clone-status-item"
 import { PublishedPodCloneActionsMenu } from "./published-pod-clone-actions-menu"
-import { PublishedPodCloneActionDialogs } from "./published-pod-clone-action-dialogs"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
 import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
-import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
-import type { PublishedPodClonePendingAction } from "./published-pod-clone-action-dialogs"
+import type {
+  PendingCloneRow,
+  PublishedPodClonePendingAction,
+} from "@/features/pods/types/published-pods-types"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -42,6 +52,51 @@ import {
   reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
+import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+
+const CLONE_ACTION_DIALOG_CONFIG: Record<
+  Exclude<PublishedPodClonePendingAction, null>["type"],
+  {
+    title: string
+    description: (clone: PublishedPodCloneSummary) => string
+    actionLabel: string
+    icon: IconSvgElement
+    variant: "default" | "destructive"
+  }
+> = {
+  start: {
+    title: "Start Clone?",
+    description: (clone) =>
+      `Start all VMs in the clone owned by ${clone.owner.label}.`,
+    actionLabel: "Start",
+    icon: PlayIcon,
+    variant: "default",
+  },
+  shutdown: {
+    title: "Shut Down Clone?",
+    description: (clone) =>
+      `Shut down all VMs in the clone owned by ${clone.owner.label}.`,
+    actionLabel: "Shut Down",
+    icon: StopIcon,
+    variant: "destructive",
+  },
+  reclone: {
+    title: "Re-clone Clone?",
+    description: (clone) =>
+      `Delete and recreate the VMs in the clone owned by ${clone.owner.label}. Task progress and question answers stay.`,
+    actionLabel: "Re-clone",
+    icon: ReloadIcon,
+    variant: "destructive",
+  },
+  delete: {
+    title: "Delete Clone?",
+    description: (clone) =>
+      `Delete the clone owned by ${clone.owner.label}. This removes the Proxmox VMs and inventory folder.`,
+    actionLabel: "Delete",
+    icon: Delete01Icon,
+    variant: "destructive",
+  },
+}
 
 export function PublishedPodClonesTable({
   pod,
@@ -76,17 +131,9 @@ export function PublishedPodClonesTable({
           current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
       )
       setPendingAction(null)
-      toast.success(
-        pendingAction?.type === "start" ? "Clone started." : "Clone shut down."
-      )
     },
-    onError: (err) => {
+    onError: () => {
       setPendingAction(null)
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to update clone power state."
-      )
     },
   })
 
@@ -100,13 +147,9 @@ export function PublishedPodClonesTable({
           current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
       )
       setPendingAction(null)
-      toast.success("Clone re-cloned.")
     },
-    onError: (err) => {
+    onError: () => {
       setPendingAction(null)
-      toast.error(
-        err instanceof Error ? err.message : "Failed to re-clone clone."
-      )
     },
   })
 
@@ -126,13 +169,9 @@ export function PublishedPodClonesTable({
         queryKey: podCatalogQueryOptions.queryKey,
       })
       setPendingAction(null)
-      toast.success("Clone deleted.")
     },
-    onError: (err) => {
+    onError: () => {
       setPendingAction(null)
-      toast.error(
-        err instanceof Error ? err.message : "Failed to delete clone."
-      )
     },
   })
 
@@ -140,6 +179,56 @@ export function PublishedPodClonesTable({
     powerMutation.isPending ||
     recloneMutation.isPending ||
     deleteMutation.isPending
+
+  const confirm: ConfirmConfig | null = pendingAction
+    ? (() => {
+        const cfg = CLONE_ACTION_DIALOG_CONFIG[pendingAction.type]
+        const clone = pendingAction.clone
+        const onConfirm = () => {
+          const actionConfig = POD_CLONE_ACTION_CONFIG[pendingAction.type]
+          const cloneName = clone.owner.label
+
+          if (
+            pendingAction.type === "start" ||
+            pendingAction.type === "shutdown"
+          ) {
+            showSingleMutationToast({
+              title: actionConfig.pendingLabel,
+              name: cloneName,
+              promise: () =>
+                powerMutation.mutateAsync({
+                  clonedPodId: clone.id,
+                  action: pendingAction.type,
+                }),
+              successDescription:
+                pendingAction.type === "start" ? "Started" : "Shut down",
+            })
+          } else if (pendingAction.type === "reclone") {
+            showSingleMutationToast({
+              title: "Re-cloning",
+              name: cloneName,
+              promise: () => recloneMutation.mutateAsync(clone.id),
+              successDescription: "Re-cloned",
+            })
+          } else {
+            showSingleMutationToast({
+              title: "Deleting",
+              name: cloneName,
+              promise: () => deleteMutation.mutateAsync(clone.id),
+              successDescription: "Deleted",
+            })
+          }
+        }
+        return {
+          title: cfg.title,
+          description: cfg.description(clone),
+          actionLabel: cfg.actionLabel,
+          icon: cfg.icon,
+          variant: cfg.variant,
+          onConfirm,
+        }
+      })()
+    : null
 
   return (
     <div>
@@ -251,18 +340,12 @@ export function PublishedPodClonesTable({
         </>
       )}
 
-      <PublishedPodCloneActionDialogs
-        pendingAction={pendingAction}
-        isMutating={isMutating}
-        onPowerConfirm={(clone, action) =>
-          powerMutation.mutate({ clonedPodId: clone.id, action })
-        }
-        onRecloneConfirm={(clone) => recloneMutation.mutate(clone.id)}
-        onDeleteConfirm={(clone) => deleteMutation.mutate(clone.id)}
-        onOpenChange={(open) => {
-          if (!open) setPendingAction(null)
-        }}
-      />
+      {confirm && (
+        <ConfirmDialog
+          config={confirm}
+          onClose={() => setPendingAction(null)}
+        />
+      )}
     </div>
   )
 }
