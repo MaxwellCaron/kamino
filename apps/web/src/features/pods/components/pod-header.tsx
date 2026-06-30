@@ -52,6 +52,7 @@ export function PodHeader({
                 alt={pod.title}
                 width={192}
                 height={192}
+                loading="eager"
                 className="block h-auto max-h-40 w-auto max-w-56 sm:max-h-48 sm:max-w-64 md:max-h-56 md:max-w-72"
               />
             </div>

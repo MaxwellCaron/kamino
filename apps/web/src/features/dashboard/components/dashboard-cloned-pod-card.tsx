@@ -98,6 +98,7 @@ export function DashboardCurrentClonedPodCard({
                           width={256}
                           height={256}
                           className="rounded-3xl"
+                          loading="eager"
                         />
                       </ItemMedia>
 
