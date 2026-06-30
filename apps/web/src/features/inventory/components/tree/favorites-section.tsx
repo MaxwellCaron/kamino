@@ -1,4 +1,4 @@
-import { m, useAnimationControls } from "motion/react"
+import { m } from "motion/react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -12,7 +12,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Link } from "@tanstack/react-router"
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react"
+import { useCallback, useMemo, useSyncExternalStore } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
