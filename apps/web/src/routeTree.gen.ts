@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PodsRouteImport } from './routes/_pods'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
+import { Route as DashboardChangelogRouteImport } from './routes/_dashboard/changelog'
 import { Route as DashboardAdminRouteImport } from './routes/_dashboard/admin'
 import { Route as PodsPodsIndexRouteImport } from './routes/_pods/pods/index'
 import { Route as DashboardAdminIndexRouteImport } from './routes/_dashboard/admin/index'
@@ -44,6 +45,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardChangelogRoute = DashboardChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardAdminRoute = DashboardAdminRouteImport.update({
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/login': typeof LoginRoute
   '/admin': typeof DashboardAdminRouteWithChildren
+  '/changelog': typeof DashboardChangelogRoute
   '/admin/audit': typeof DashboardAdminAuditRoute
   '/admin/proxmox-sync': typeof DashboardAdminProxmoxSyncRoute
   '/admin/sdn': typeof DashboardAdminSdnRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof DashboardIndexRoute
   '/login': typeof LoginRoute
+  '/changelog': typeof DashboardChangelogRoute
   '/admin/audit': typeof DashboardAdminAuditRoute
   '/admin/proxmox-sync': typeof DashboardAdminProxmoxSyncRoute
   '/admin/sdn': typeof DashboardAdminSdnRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/_pods': typeof PodsRouteWithChildren
   '/login': typeof LoginRoute
   '/_dashboard/admin': typeof DashboardAdminRouteWithChildren
+  '/_dashboard/changelog': typeof DashboardChangelogRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/admin/audit': typeof DashboardAdminAuditRoute
   '/_dashboard/admin/proxmox-sync': typeof DashboardAdminProxmoxSyncRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/admin'
+    | '/changelog'
     | '/admin/audit'
     | '/admin/proxmox-sync'
     | '/admin/sdn'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/changelog'
     | '/admin/audit'
     | '/admin/proxmox-sync'
     | '/admin/sdn'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/_pods'
     | '/login'
     | '/_dashboard/admin'
+    | '/_dashboard/changelog'
     | '/_dashboard/'
     | '/_dashboard/admin/audit'
     | '/_dashboard/admin/proxmox-sync'
@@ -270,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/changelog': {
+      id: '/_dashboard/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof DashboardChangelogRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/admin': {
@@ -397,6 +416,7 @@ const DashboardAdminRouteWithChildren = DashboardAdminRoute._addFileChildren(
 
 interface DashboardRouteChildren {
   DashboardAdminRoute: typeof DashboardAdminRouteWithChildren
+  DashboardChangelogRoute: typeof DashboardChangelogRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardManagerRequestsRoute: typeof DashboardManagerRequestsRoute
   DashboardInventoryItemsItemIdRoute: typeof DashboardInventoryItemsItemIdRoute
@@ -404,6 +424,7 @@ interface DashboardRouteChildren {
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAdminRoute: DashboardAdminRouteWithChildren,
+  DashboardChangelogRoute: DashboardChangelogRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardManagerRequestsRoute: DashboardManagerRequestsRoute,
   DashboardInventoryItemsItemIdRoute: DashboardInventoryItemsItemIdRoute,

@@ -13,6 +13,7 @@ import {
   PackageMovingIcon,
   ReloadIcon,
   Shield01Icon,
+  SparklesIcon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
@@ -58,6 +59,14 @@ const navItems = [
     description: "Browse and launch published pods.",
     url: "/pods",
     icon: PackageIcon,
+    group: "home",
+    visibility: "all",
+  },
+  {
+    title: "Changelog",
+    description: "View the changelog for the latest updates.",
+    url: "/changelog",
+    icon: SparklesIcon,
     group: "home",
     visibility: "all",
   },
