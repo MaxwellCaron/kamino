@@ -10,7 +10,7 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
-    date: "Jul 30, 2026",
+    date: "Jun 30, 2026",
     highlight: true,
     groups: [
       {
