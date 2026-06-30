@@ -59,7 +59,6 @@ export function AdminDashboardPrincipalsCards({
             error={groupsError}
             getRowId={(principal: ApiPrincipal) => principal.id}
             isLoading={isGroupsLoading}
-            skeletonRows={3}
           />
         </CardContent>
       </Card>
@@ -86,7 +85,6 @@ export function AdminDashboardPrincipalsCards({
             error={usersError}
             getRowId={(principal: ApiPrincipal) => principal.id}
             isLoading={isUsersLoading}
-            skeletonRows={3}
           />
         </CardContent>
       </Card>

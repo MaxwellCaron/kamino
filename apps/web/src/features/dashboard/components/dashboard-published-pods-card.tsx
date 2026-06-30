@@ -1,3 +1,4 @@
+import { m } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -23,6 +24,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
+import { animateChild, animateContainer } from "@/components/animate"
 
 export function DashboardRecentPodsCard({
   className,
@@ -60,11 +62,18 @@ export function DashboardRecentPodsCard({
             </EmptyHeader>
           </Empty>
         ) : pods.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <m.div
+            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+            initial="hidden"
+            animate="show"
+            variants={animateContainer}
+          >
             {pods.map((pod) => (
-              <BrowsePodsCard key={pod.id} pod={pod} />
+              <m.div key={pod.id} variants={animateChild}>
+                <BrowsePodsCard key={pod.id} pod={pod} />
+              </m.div>
             ))}
-          </div>
+          </m.div>
         ) : (
           <Empty className="h-full min-h-52">
             <EmptyHeader>

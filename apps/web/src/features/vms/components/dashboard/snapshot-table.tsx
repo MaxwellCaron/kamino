@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Camera01Icon } from "@hugeicons/core-free-icons"
@@ -12,14 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import {
-  Table,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table"
-import { SnapshotTableBody } from "./snapshot-table-body"
 import { SnapshotRequestRollbackDialog } from "./snapshot-request-rollback-dialog"
+import { getSnapshotTableColumns } from "./snapshot-table-columns"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ApiSnapshot } from "@/features/vms/types/vm-types"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
@@ -36,6 +30,7 @@ import {
   toastSubmitRollbackRequest,
 } from "@/features/vms/utils/vm-toasts"
 import { formatVmReference } from "@/features/shared/utils/format"
+import { SimpleDataTable } from "@/components/data-table/simple-data-table"
 
 export type SnapshotTablePermissions = {
   canView: boolean
@@ -69,8 +64,6 @@ export function SnapshotsTable({
     error: Error | null
   }
   const isLoading = isSnapshotsLoading
-  const hasBeenLoading = useRef(isLoading)
-  if (isLoading) hasBeenLoading.current = true
   const rollback = useRollbackSnapshot(itemId)
   const submitRollbackRequest = useSubmitInventorySnapshotRollbackRequest()
   const remove = useDeleteSnapshot(itemId)
@@ -93,6 +86,17 @@ export function SnapshotsTable({
     setRequestRollbackOpen(false)
     setRequestRollbackSnapshot(null)
   }
+  const columns = getSnapshotTableColumns({
+    itemId,
+    permissions,
+    onOpenConfirm: setConfirm,
+    onOpenRequestRollback: openRequestRollbackDialog,
+    rollback,
+    remove,
+    submitRollbackRequest,
+    toastRollbackSnapshot,
+    toastDeleteSnapshot,
+  })
 
   if (!permissions.canView) {
     return null
@@ -128,31 +132,14 @@ export function SnapshotsTable({
         )}
       </CardHeader>
       <CardContent className="flex-1 border-b px-0">
-        <Table className="min-w-180 table-fixed">
-          <TableHeader className="bg-muted hover:bg-muted">
-            <TableRow>
-              <TableHead className="w-[40%] pl-4">Snapshot</TableHead>
-              <TableHead className="w-[25%]">Created</TableHead>
-              <TableHead className="w-[10%] text-center">RAM</TableHead>
-              <TableHead className="w-[25%] pr-6 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <SnapshotTableBody
-            isLoading={isLoading}
-            hasBeenLoading={hasBeenLoading.current}
-            filtered={filtered}
-            error={snapshotsError}
-            itemId={itemId}
-            permissions={permissions}
-            onOpenConfirm={setConfirm}
-            onOpenRequestRollback={openRequestRollbackDialog}
-            rollback={rollback}
-            remove={remove}
-            submitRollbackRequest={submitRollbackRequest}
-            toastRollbackSnapshot={toastRollbackSnapshot}
-            toastDeleteSnapshot={toastDeleteSnapshot}
-          />
-        </Table>
+        <SimpleDataTable
+          animationKey={itemId}
+          columns={columns}
+          data={filtered}
+          error={snapshotsError}
+          getRowId={(snapshot) => snapshot.name}
+          isLoading={isLoading}
+        />
       </CardContent>
       <CardFooter className="justify-end text-muted-foreground">
         {filtered.length} result{filtered.length !== 1 && "s"}

@@ -1,3 +1,4 @@
+import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerIcon,
@@ -17,6 +18,7 @@ import {
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
 import type { ReactNode } from "react"
 import type { AdminStats } from "../utils/admin-dashboard"
+import { animateChild, animateContainer } from "@/components/animate"
 
 type Stat = {
   icon: ReactNode
@@ -111,36 +113,43 @@ export function AdminDashboardHeader({ stats }: { stats: AdminStats | null }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
+        <m.div
+          className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1"
+          initial="hidden"
+          animate="show"
+          variants={animateContainer}
+        >
           {statCards.map((stat) => {
             return (
-              <Item
-                key={stat.label}
-                variant="muted"
-                className="relative flex-col items-start overflow-hidden"
-              >
-                <div className="flex items-center gap-3.5">
-                  <ItemMedia>{stat.icon}</ItemMedia>
-                  <ItemTitle className="text-muted-foreground">
-                    {stat.label}
-                  </ItemTitle>
-                </div>
-                <div className="flex min-h-15 flex-col items-start gap-1">
-                  <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
-                    {stat.value}
-                  </h3>
-                  <div className="min-h-5">
-                    {stat.detail && (
-                      <p className="text-sm text-muted-foreground">
-                        {stat.detail}
-                      </p>
-                    )}
+              <m.div key={stat.label} variants={animateChild}>
+                <Item
+                  key={stat.label}
+                  variant="muted"
+                  className="relative flex-col items-start overflow-hidden"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <ItemMedia>{stat.icon}</ItemMedia>
+                    <ItemTitle className="text-muted-foreground">
+                      {stat.label}
+                    </ItemTitle>
                   </div>
-                </div>
-              </Item>
+                  <div className="flex min-h-15 flex-col items-start gap-1">
+                    <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+                      {stat.value}
+                    </h3>
+                    <div className="min-h-5">
+                      {stat.detail && (
+                        <p className="text-sm text-muted-foreground">
+                          {stat.detail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Item>
+              </m.div>
             )
           })}
-        </div>
+        </m.div>
       </CardContent>
     </Card>
   )

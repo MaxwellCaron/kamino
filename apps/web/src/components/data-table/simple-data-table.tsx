@@ -1,10 +1,9 @@
-import { useRef, useState } from "react"
 import { AnimatePresence, m } from "motion/react"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Table,
   TableCell,
   TableHead,
+  TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
 import {
@@ -13,57 +12,45 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 
+import { animateContainer, animateTableRow } from "../animate"
 import { DataTableStateRow } from "./data-table-state-row"
-import type {
-  ColumnDef,
-  RowSelectionState,
-  TableOptions,
-} from "@tanstack/react-table"
-import { loadingTransition } from "@/components/loading-transition"
+import type { ColumnDef, TableOptions } from "@tanstack/react-table"
+import type { Key } from "react"
 
-interface SimpleDataTableProps<TData, TValue> {
+const MotionTableRow = m.create(TableRow)
+
+export type SimpleDataTableProps<TData, TValue> = {
+  animationKey?: Key
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
   error: Error | null
   getRowId?: TableOptions<TData>["getRowId"]
   isLoading: boolean
-  skeletonRows?: number
 }
 
 export function SimpleDataTable<TData, TValue>({
+  animationKey,
   columns,
   data,
   error,
   getRowId,
   isLoading,
-  skeletonRows = 3,
 }: SimpleDataTableProps<TData, TValue>) {
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const hasBeenLoading = useRef(isLoading)
-  if (isLoading) hasBeenLoading.current = true
-
   const table = useReactTable({
     data,
     columns,
-    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId,
-    onRowSelectionChange: setRowSelection,
-    state: {
-      rowSelection,
-    },
   })
+  const dataAnimationKey = JSON.stringify(
+    table.getCoreRowModel().rows.map((row) => row.id)
+  )
+  const resolvedAnimationKey = animationKey ?? dataAnimationKey
 
   return (
-    <div className="overflow-hidden">
+    <div className="overflow-hidden **:no-scrollbar">
       <Table className="border-y">
-        <m.thead
-          data-slot="table-header"
-          className="bg-muted hover:bg-muted [&_tr]:border-b"
-          initial={hasBeenLoading.current ? { opacity: 0 } : false}
-          animate={{ opacity: 1 }}
-          transition={loadingTransition}
-        >
+        <TableHeader className="bg-muted hover:bg-muted [&_tr]:border-b">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
@@ -81,52 +68,36 @@ export function SimpleDataTable<TData, TValue>({
               ))}
             </TableRow>
           ))}
-        </m.thead>
-        <AnimatePresence initial={false} mode="wait">
+        </TableHeader>
+        <AnimatePresence>
           <m.tbody
-            key={isLoading ? "loading" : "loaded"}
-            data-slot="table-body"
-            initial={hasBeenLoading.current ? { opacity: 0, y: 4 } : false}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -2 }}
-            transition={loadingTransition}
+            key={`${String(resolvedAnimationKey)}-${isLoading ? "loading" : "loaded"}`}
             className="overflow-hidden [&_tr:last-child]:border-0"
+            initial="hidden"
+            animate="show"
+            variants={animateContainer}
           >
-            {isLoading ? (
-              Array.from({ length: skeletonRows }, (_row, index) => (
-                <TableRow key={index}>
-                  <TableCell className="pl-6">
-                    <Skeleton className="size-5 rounded" />
-                  </TableCell>
-                  {columns.slice(1).map((__, columnIndex) => (
-                    <TableCell key={columnIndex}>
-                      <Skeleton className="h-6 w-3/4 rounded" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cell.column.columnDef.meta?.className}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <DataTableStateRow colSpan={columns.length} error={error} />
-            )}
+            <AnimatePresence mode="popLayout">
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <MotionTableRow key={row.id} variants={animateTableRow}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cell.column.columnDef.meta?.className}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </MotionTableRow>
+                ))
+              ) : (
+                <DataTableStateRow colSpan={columns.length} error={error} />
+              )}
+            </AnimatePresence>
           </m.tbody>
         </AnimatePresence>
       </Table>

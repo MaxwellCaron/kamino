@@ -51,11 +51,14 @@ import type {
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
+import { animateChild, animateContainer } from "@/components/animate"
 import { loadingTransition } from "@/components/loading-transition"
 
 const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 50]
+
+const MotionTableRow = m.create(TableRow)
 
 /**
  * Server-pagination mode for DataTable. When provided, the table no longer
@@ -155,6 +158,9 @@ export function DataTable<TData, TValue>({
           }
         : undefined,
   })
+  const dataAnimationKey = JSON.stringify(
+    table.getCoreRowModel().rows.map((row) => row.id)
+  )
   const selectedRows = table
     .getSelectedRowModel()
     .rows.map((row) => row.original)
@@ -254,17 +260,18 @@ export function DataTable<TData, TValue>({
           </m.thead>
           <AnimatePresence initial={false} mode="wait">
             <m.tbody
-              key={isLoading ? "loading" : "loaded"}
+              key={isLoading ? "loading" : `loaded-${dataAnimationKey}`}
               data-slot="table-body"
-              initial={hasBeenLoading.current ? { opacity: 0, y: 4 } : false}
-              animate={{ opacity: 1, y: 0 }}
+              variants={animateContainer}
+              initial="hidden"
+              animate="show"
               exit={{ opacity: 0, y: -2 }}
               transition={loadingTransition}
               className="overflow-hidden [&_tr:last-child]:border-0"
             >
               {isLoading ? (
                 LOADING_ROW_IDS.map((rowID) => (
-                  <TableRow key={rowID}>
+                  <MotionTableRow key={rowID} variants={animateChild}>
                     <TableCell className="pl-6">
                       <Skeleton className="size-5 rounded" />
                     </TableCell>
@@ -276,12 +283,15 @@ export function DataTable<TData, TValue>({
                           <Skeleton className="h-6 w-3/4 rounded" />
                         </TableCell>
                       ))}
-                  </TableRow>
+                  </MotionTableRow>
                 ))
               ) : table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
                   <Fragment key={row.id}>
-                    <TableRow data-state={row.getIsSelected() && "selected"}>
+                    <MotionTableRow
+                      variants={animateChild}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell
                           key={cell.id}
@@ -293,16 +303,19 @@ export function DataTable<TData, TValue>({
                           )}
                         </TableCell>
                       ))}
-                    </TableRow>
+                    </MotionTableRow>
                     {row.getIsExpanded() && ExpandedRowComponent && (
-                      <TableRow className="hover:bg-transparent">
+                      <MotionTableRow
+                        variants={animateChild}
+                        className="hover:bg-transparent"
+                      >
                         <TableCell
                           colSpan={row.getVisibleCells().length}
                           className="p-0"
                         >
                           <ExpandedRowComponent row={row.original} />
                         </TableCell>
-                      </TableRow>
+                      </MotionTableRow>
                     )}
                   </Fragment>
                 ))

@@ -6,7 +6,7 @@ import type { ApiSnapshot } from "@/features/vms/types/vm-types"
 import type { SnapshotTablePermissions } from "./snapshot-table"
 import type { UseMutationResult } from "@tanstack/react-query"
 
-type SnapshotTableRowActionsProps = {
+export type SnapshotTableRowActionsProps = {
   snapshot: ApiSnapshot
   itemId: string
   permissions: SnapshotTablePermissions

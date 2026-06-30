@@ -1,3 +1,4 @@
+import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerIcon,
@@ -46,6 +47,7 @@ import {
   getVmPowerStatusSurfaceClassName,
   getVmPowerStatusTextClassName,
 } from "@/components/status/vm-icon"
+import { animateChild, animateContainer } from "@/components/animate"
 
 type Stat = {
   icon: ReactNode
@@ -329,51 +331,60 @@ export function VmHeader({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
+        <m.div
+          key={itemId}
+          initial="hidden"
+          animate="show"
+          variants={animateContainer}
+          className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1"
+        >
           {stats.map((stat) => {
             const hasUsage = stat.usage != null
             return (
-              <Item
-                key={stat.label}
-                variant="muted"
-                className={`${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
-              >
-                <ItemMedia>{stat.icon}</ItemMedia>
-                <ItemContent className={hasUsage ? "w-full gap-3" : undefined}>
-                  <ItemTitle className="text-muted-foreground">
-                    {stat.label}
-                  </ItemTitle>
-                </ItemContent>
-                <ItemFooter>
-                  {stat.content ?? (
-                    <div className="flex min-h-15 flex-col items-start gap-1">
-                      <h3
-                        className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
-                      >
-                        {stat.value}
-                      </h3>
-                      <div className="min-h-5">
-                        {stat.detail && (
-                          <p className="text-sm text-muted-foreground">
-                            {stat.detail}
-                          </p>
-                        )}
+              <m.div key={stat.label} variants={animateChild}>
+                <Item
+                  variant="muted"
+                  className={`${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
+                >
+                  <ItemMedia>{stat.icon}</ItemMedia>
+                  <ItemContent
+                    className={hasUsage ? "w-full gap-3" : undefined}
+                  >
+                    <ItemTitle className="text-muted-foreground">
+                      {stat.label}
+                    </ItemTitle>
+                  </ItemContent>
+                  <ItemFooter>
+                    {stat.content ?? (
+                      <div className="flex min-h-15 flex-col items-start gap-1">
+                        <h3
+                          className={`scroll-m-20 text-2xl font-semibold tracking-tight ${stat.textStyle}`}
+                        >
+                          {stat.value}
+                        </h3>
+                        <div className="min-h-5">
+                          {stat.detail && (
+                            <p className="text-sm text-muted-foreground">
+                              {stat.detail}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                    )}
+                  </ItemFooter>
+                  {stat.usage && (
+                    <div className="absolute right-4 flex w-2 items-center justify-center">
+                      <Progress
+                        className="mt-4 w-16 shrink-0 rotate-270"
+                        value={stat.usage.value}
+                      />
                     </div>
                   )}
-                </ItemFooter>
-                {stat.usage && (
-                  <div className="absolute right-4 flex w-2 items-center justify-center">
-                    <Progress
-                      className="mt-4 w-16 shrink-0 rotate-270"
-                      value={stat.usage.value}
-                    />
-                  </div>
-                )}
-              </Item>
+                </Item>
+              </m.div>
             )
           })}
-        </div>
+        </m.div>
       </CardContent>
     </Card>
   )
