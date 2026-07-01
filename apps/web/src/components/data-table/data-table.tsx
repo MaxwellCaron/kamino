@@ -7,11 +7,12 @@ import {
 } from "@workspace/ui/components/action-bar"
 import {
   Table,
+  TableBody,
   TableCell,
   TableHead,
+  TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { AnimatePresence, m } from "motion/react"
 import {
   InputGroup,
   InputGroupAddon,
@@ -29,7 +30,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-
 import {
   flexRender,
   getCoreRowModel,
@@ -51,14 +51,10 @@ import type {
   RowSelectionState,
   TableOptions,
 } from "@tanstack/react-table"
-import { animateChild, animateContainer } from "@/components/animate"
-import { loadingTransition } from "@/components/loading-transition"
 
 const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 50]
-
-const MotionTableRow = m.create(TableRow)
 
 /**
  * Server-pagination mode for DataTable. When provided, the table no longer
@@ -158,9 +154,6 @@ export function DataTable<TData, TValue>({
           }
         : undefined,
   })
-  const dataAnimationKey = JSON.stringify(
-    table.getCoreRowModel().rows.map((row) => row.id)
-  )
   const selectedRows = table
     .getSelectedRowModel()
     .rows.map((row) => row.original)
@@ -231,13 +224,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="overflow-hidden py-6">
         <Table className="border-y">
-          <m.thead
-            data-slot="table-header"
-            className="bg-muted hover:bg-muted [&_tr]:border-b"
-            initial={hasBeenLoading.current ? { opacity: 0 } : false}
-            animate={{ opacity: 1 }}
-            transition={loadingTransition}
-          >
+          <TableHeader className="bg-muted hover:bg-muted [&_tr]:border-b">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -257,73 +244,56 @@ export function DataTable<TData, TValue>({
                 })}
               </TableRow>
             ))}
-          </m.thead>
-          <AnimatePresence initial={false} mode="wait">
-            <m.tbody
-              key={isLoading ? "loading" : `loaded-${dataAnimationKey}`}
-              data-slot="table-body"
-              variants={animateContainer}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, y: -2 }}
-              transition={loadingTransition}
-              className="overflow-hidden [&_tr:last-child]:border-0"
-            >
-              {isLoading ? (
-                LOADING_ROW_IDS.map((rowID) => (
-                  <MotionTableRow key={rowID} variants={animateChild}>
-                    <TableCell className="pl-6">
-                      <Skeleton className="size-5 rounded" />
-                    </TableCell>
-                    {table
-                      .getAllLeafColumns()
-                      .slice(1)
-                      .map((column) => (
-                        <TableCell key={column.id}>
-                          <Skeleton className="h-6 w-3/4 rounded" />
-                        </TableCell>
-                      ))}
-                  </MotionTableRow>
-                ))
-              ) : table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <Fragment key={row.id}>
-                    <MotionTableRow
-                      variants={animateChild}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className={cell.column.columnDef.meta?.className}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </MotionTableRow>
-                    {row.getIsExpanded() && ExpandedRowComponent && (
-                      <MotionTableRow
-                        variants={animateChild}
-                        className="hover:bg-transparent"
+          </TableHeader>
+          <TableBody className="overflow-hidden [&_tr:last-child]:border-0">
+            {isLoading ? (
+              LOADING_ROW_IDS.map((rowID) => (
+                <TableRow key={rowID}>
+                  <TableCell className="pl-6">
+                    <Skeleton className="size-5 rounded" />
+                  </TableCell>
+                  {table
+                    .getAllLeafColumns()
+                    .slice(1)
+                    .map((column) => (
+                      <TableCell key={column.id}>
+                        <Skeleton className="h-6 w-3/4 rounded" />
+                      </TableCell>
+                    ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <Fragment key={row.id}>
+                  <TableRow data-state={row.getIsSelected() && "selected"}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cell.column.columnDef.meta?.className}
                       >
-                        <TableCell
-                          colSpan={row.getVisibleCells().length}
-                          className="p-0"
-                        >
-                          <ExpandedRowComponent row={row.original} />
-                        </TableCell>
-                      </MotionTableRow>
-                    )}
-                  </Fragment>
-                ))
-              ) : (
-                <DataTableStateRow colSpan={columns.length} error={error} />
-              )}
-            </m.tbody>
-          </AnimatePresence>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {row.getIsExpanded() && ExpandedRowComponent && (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell
+                        colSpan={row.getVisibleCells().length}
+                        className="p-0"
+                      >
+                        <ExpandedRowComponent row={row.original} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              ))
+            ) : (
+              <DataTableStateRow colSpan={columns.length} error={error} />
+            )}
+          </TableBody>
         </Table>
       </div>
       {enablePagination ? (
