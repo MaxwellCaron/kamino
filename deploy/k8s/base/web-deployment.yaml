@@ -27,7 +27,7 @@ spec:
       containers:
         - name: web
           image: ghcr.io/maxwellcaron/kamino-web:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - nginx
             - -g

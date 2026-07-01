@@ -31,7 +31,7 @@ spec:
       containers:
         - name: api
           image: ghcr.io/maxwellcaron/kamino-api:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

@@ -111,5 +111,6 @@ handoffs are process-local. The web tier uses two replicas with normal rolling
 updates.
 
 Argo CD Image Updater follows the digest behind each public `latest` tag. The
-workloads use `IfNotPresent`; a digest change still changes the pod template and
-causes a rollout.
+workloads use `Always`, so every newly created or restarted pod checks GHCR for
+the current image. Pull policy alone does not restart running pods; Image
+Updater's digest change updates the pod template and causes the rollout.
