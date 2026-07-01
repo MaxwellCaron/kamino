@@ -6,13 +6,15 @@ import remarkGfm from "remark-gfm"
 
 import { ImageZoom } from "@workspace/ui/components/kibo-ui/image-zoom"
 import { Separator } from "@workspace/ui/components/separator"
-import { cn } from "@workspace/ui/lib/utils"
+import { cn, slugify } from "@workspace/ui/lib/utils"
 import type { Components } from "react-markdown"
 
 type MarkdownAstNode = {
   type?: string
   value?: string
   children?: Array<MarkdownAstNode>
+  tagName?: string
+  properties?: Record<string, unknown>
 }
 
 function isImageOnlyParagraph(node: MarkdownAstNode) {
@@ -51,6 +53,28 @@ function remarkUnwrapImageParagraphs() {
 
 const remarkPlugins = [remarkGfm, remarkUnwrapImageParagraphs]
 
+function getHeadingText(node: MarkdownAstNode): string {
+  if (typeof node.value === "string") return node.value
+  return (node.children ?? []).map(getHeadingText).join("")
+}
+
+function rehypeSlugHeadings() {
+  return (tree: MarkdownAstNode) => {
+    const visit = (node: MarkdownAstNode) => {
+      if (node.type === "element" && /^h[1-6]$/.test(String(node.tagName ?? ""))) {
+        const text = getHeadingText(node).trim()
+        if (text) {
+          node.properties = { ...(node.properties ?? {}), id: slugify(text) }
+        }
+      }
+      ;(node.children ?? []).forEach(visit)
+    }
+    visit(tree)
+  }
+}
+
+const rehypePlugins = [rehypeSlugHeadings]
+
 const MarkdownCodeBlock = React.lazy(() =>
   import("./markdown-code-block").then((module) => ({
     default: module.MarkdownCodeBlock,
@@ -88,7 +112,7 @@ export const markdownComponents: Components = {
   h1: ({ className, node: _node, ...props }) => (
     <h1
       className={cn(
-        "mt-10 scroll-m-20 text-4xl font-extrabold tracking-tight text-balance first:mt-0",
+        "mt-10 scroll-m-20 font-heading text-4xl font-extrabold tracking-tight text-balance first:mt-0",
         className
       )}
       {...props}
@@ -286,6 +310,7 @@ function MarkdownContent({
             : markdownComponents
         }
         remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
         skipHtml
       >
         {children}

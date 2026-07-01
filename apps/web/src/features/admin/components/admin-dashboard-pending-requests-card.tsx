@@ -50,7 +50,6 @@ export function AdminDashboardPendingRequestsCard({
           error={error}
           getRowId={(request: ApiRequestSummary) => request.id}
           isLoading={isLoading}
-          skeletonRows={3}
         />
       </CardContent>
     </Card>

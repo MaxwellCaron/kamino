@@ -1,3 +1,4 @@
+import { m } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -5,6 +6,7 @@ import {
   PackageRemoveIcon,
 } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
+import { ScrollArea, ScrollBar } from "@workspace/ui/components/scroll-area"
 import {
   Card,
   CardAction,
@@ -23,17 +25,16 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
+import { animateChild, animateContainer } from "@/components/animate"
 
 export function DashboardRecentPodsCard({
   className,
   error,
   pods,
-  totalPods,
 }: {
   className?: string
   error: Error | null
   pods: Array<PublishedPodCatalogEntry>
-  totalPods: number
 }) {
   return (
     <Card className={cn(className)}>
@@ -60,11 +61,25 @@ export function DashboardRecentPodsCard({
             </EmptyHeader>
           </Empty>
         ) : pods.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {pods.map((pod) => (
-              <BrowsePodsCard key={pod.id} pod={pod} />
-            ))}
-          </div>
+          <ScrollArea className="w-full **:scroll-fade-x">
+            <m.div
+              className="flex w-max space-x-4 p-4"
+              initial="hidden"
+              animate="show"
+              variants={animateContainer}
+            >
+              {pods.map((pod) => (
+                <m.div
+                  key={pod.id}
+                  variants={animateChild}
+                  className="max-w-100"
+                >
+                  <BrowsePodsCard pod={pod} />
+                </m.div>
+              ))}
+            </m.div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         ) : (
           <Empty className="h-full min-h-52">
             <EmptyHeader>
@@ -80,11 +95,6 @@ export function DashboardRecentPodsCard({
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
-        )}
-        {totalPods > pods.length && (
-          <p className="mt-3 text-center text-xs text-muted-foreground">
-            Showing {pods.length} of {totalPods} visible pods.
-          </p>
         )}
       </CardContent>
     </Card>

@@ -1,3 +1,4 @@
+import { m } from "motion/react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -7,7 +8,6 @@ import {
   Item,
   ItemActions,
   ItemContent,
-  ItemGroup,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
@@ -20,6 +20,7 @@ import { InventoryNodeMenu } from "../inventory-actions"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { animateContainer, animateTableRow } from "@/components/animate"
 
 const FAVORITES_OPEN_STORAGE_KEY = "kamino-favorite-inventory-open"
 const favoritesOpenListeners = new Set<() => void>()
@@ -151,15 +152,22 @@ export function InventoryFavoritesSection() {
 
         {favoritesOpen && favoriteItems.length > 0 && (
           <CollapsibleContent>
-            <ItemGroup className="flex flex-col gap-1.5 py-3 pl-1">
+            <m.div
+              className="flex flex-col gap-1.5 py-3 pl-1"
+              initial="hidden"
+              animate="show"
+              variants={animateContainer}
+            >
               {favoriteItems.map((item) => (
-                <FavoriteItemCard
-                  key={item.id}
-                  item={item}
-                  status={getStatus(item.id)}
-                />
+                <m.div key={item.id} variants={animateTableRow}>
+                  <FavoriteItemCard
+                    key={item.id}
+                    item={item}
+                    status={getStatus(item.id)}
+                  />
+                </m.div>
               ))}
-            </ItemGroup>
+            </m.div>
           </CollapsibleContent>
         )}
       </div>

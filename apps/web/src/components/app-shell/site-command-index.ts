@@ -6,12 +6,17 @@ import {
   Globe02Icon,
   Home03Icon,
   Invoice01Icon,
+  Logout01Icon,
+  Moon02Icon,
+  NotebookIcon,
   PackageAddIcon,
   PackageCheck,
   PackageIcon,
   PackageMovingIcon,
   ReloadIcon,
   Shield01Icon,
+  SparklesIcon,
+  Sun01Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
@@ -21,6 +26,7 @@ import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import { searchDocs } from "@/features/documentation/utils/docs-search"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   formatRequestKind,
@@ -29,12 +35,16 @@ import {
 } from "@/features/requests/utils/request-presenters"
 
 export type CommandGroupKey =
+  | "account"
   | "pages"
+  | "docs"
   | "inventory"
   | "pods"
   | "principals"
   | "network"
   | "requests"
+
+export type CommandTheme = "light" | "dark" | "system"
 
 export type SiteCommandResult = {
   id: string
@@ -43,8 +53,10 @@ export type SiteCommandResult = {
   label: string
   keywords: Array<string>
   onSelect: () => void
+  preview?: string
   shortcut?: string
   subtitle: string
+  variant?: "default" | "destructive"
 }
 
 type StaticCommandConfig = {
@@ -59,10 +71,14 @@ type StaticCommandConfig = {
     | "/"
     | "/admin"
     | "/admin/audit"
+    | "/admin/docs"
     | "/admin/proxmox-sync"
     | "/admin/principals/groups"
     | "/admin/principals/users"
     | "/admin/sdn"
+    | "/changelog"
+    | "/docs"
+    | "/manager/docs"
     | "/manager/requests"
     | "/pods"
     | "/pods/create"
@@ -73,7 +89,12 @@ type StaticCommandConfig = {
 
 export type BuildSiteCommandsActions = {
   close: () => void
+  logout: () => void
   navigateHome: () => void
+  navigateToDocsSection: (
+    to: "/docs" | "/manager/docs" | "/admin/docs",
+    hash: string
+  ) => void
   navigateToInventoryItem: (itemId: string) => void
   navigateToPage: (to: StaticCommandConfig["to"]) => void
   navigateToPod: (podSlug: string) => void
@@ -82,6 +103,7 @@ export type BuildSiteCommandsActions = {
   navigateToSdn: () => void
   navigateToUsers: () => void
   navigateToGroups: () => void
+  setTheme: (theme: CommandTheme) => void
 }
 
 export type BuildSiteCommandsParams = {
@@ -93,6 +115,7 @@ export type BuildSiteCommandsParams = {
   inventoryTree?: Array<ApiTreeNode>
   podCatalog?: Array<PublishedPodCatalogEntry>
   publishedPods?: Array<PublishedPodCatalogEntry>
+  query: string
   users?: Array<ApiPrincipal>
   vnets?: Array<ApiVNet>
   pendingRequests?: Array<ApiRequestSummary>
@@ -106,7 +129,6 @@ const staticCommands: Array<StaticCommandConfig> = [
     subtitle: "Dashboard overview",
     icon: Home03Icon,
     to: "/",
-    shortcut: "⌘H",
     visibility: "all",
     keywords: ["dashboard", "overview", "activity"],
   },
@@ -119,6 +141,26 @@ const staticCommands: Array<StaticCommandConfig> = [
     to: "/pods",
     visibility: "all",
     keywords: ["catalog", "launch", "clone"],
+  },
+  {
+    id: "changelog",
+    group: "pages",
+    label: "Changelog",
+    subtitle: "Latest updates and releases",
+    icon: SparklesIcon,
+    to: "/changelog",
+    visibility: "all",
+    keywords: ["changelog", "updates", "releases", "new", "what's new"],
+  },
+  {
+    id: "docs-user",
+    group: "pages",
+    label: "User Guide",
+    subtitle: "Learn how to clone and operate pods",
+    icon: NotebookIcon,
+    to: "/docs",
+    visibility: "all",
+    keywords: ["guide", "docs", "help", "pods"],
   },
   {
     id: "pods-create",
@@ -159,6 +201,16 @@ const staticCommands: Array<StaticCommandConfig> = [
     to: "/manager/requests",
     visibility: "manager",
     keywords: ["approval", "pending", "manager"],
+  },
+  {
+    id: "docs-manager",
+    group: "pages",
+    label: "Manager Guide",
+    subtitle: "Learn how to publish pods and review requests",
+    icon: NotebookIcon,
+    to: "/manager/docs",
+    visibility: "manager",
+    keywords: ["guide", "docs", "help", "pods", "requests"],
   },
   {
     id: "admin",
@@ -220,10 +272,30 @@ const staticCommands: Array<StaticCommandConfig> = [
     visibility: "admin",
     keywords: ["administrator", "audit", "history", "events"],
   },
+  {
+    id: "docs-admin",
+    group: "pages",
+    label: "Admin Guide",
+    subtitle: "Learn how to manage permissions, sync, and audit",
+    icon: NotebookIcon,
+    to: "/admin/docs",
+    visibility: "admin",
+    keywords: [
+      "administrator",
+      "guide",
+      "docs",
+      "help",
+      "permissions",
+      "sync",
+      "audit",
+    ],
+  },
 ]
 
 export const groupLabels = {
+  account: "Account",
   pages: "Pages",
+  docs: "Documentation",
   inventory: "Inventory",
   pods: "Pods",
   principals: "Principals",
@@ -232,10 +304,12 @@ export const groupLabels = {
 } as const satisfies Record<CommandGroupKey, string>
 
 export const groupOrder = [
+  "account",
+  "pods",
   "pages",
+  "docs",
   "principals",
   "inventory",
-  "pods",
   "network",
   "requests",
 ] as const satisfies Array<CommandGroupKey>
@@ -279,6 +353,43 @@ function runCommand(actions: BuildSiteCommandsActions, action: () => void) {
   }
 }
 
+function buildAccountCommands(actions: BuildSiteCommandsActions) {
+  const themes: Array<{
+    theme: CommandTheme
+    icon: IconSvgElement
+    label: string
+  }> = [
+    { theme: "light", icon: Sun01Icon, label: "Light" },
+    { theme: "dark", icon: Moon02Icon, label: "Dark" },
+    { theme: "system", icon: ComputerIcon, label: "System" },
+  ]
+
+  const commands: Array<SiteCommandResult> = themes.map(
+    ({ theme, icon, label }) => ({
+      id: `account:theme-${theme}`,
+      group: "account",
+      icon,
+      label: `${label} theme`,
+      subtitle: "Change appearance",
+      keywords: ["theme", "appearance", theme],
+      onSelect: runCommand(actions, () => actions.setTheme(theme)),
+    })
+  )
+
+  commands.push({
+    id: "account:logout",
+    group: "account",
+    icon: Logout01Icon,
+    label: "Log out",
+    subtitle: "Sign out of Kamino",
+    keywords: ["logout", "sign out", "exit"],
+    onSelect: runCommand(actions, actions.logout),
+    variant: "destructive",
+  })
+
+  return commands
+}
+
 function buildPageCommands({
   actions,
   canAdminister,
@@ -303,6 +414,31 @@ function buildPageCommands({
   }
 
   return commands
+}
+
+function buildDocsCommands({
+  actions,
+  canAdminister,
+  canManage,
+  query,
+}: Pick<BuildSiteCommandsParams, "actions" | "canAdminister" | "canManage"> & {
+  query: string
+}) {
+  const matches = searchDocs(query, { canAdminister, canManage })
+  return matches.map(
+    (match): SiteCommandResult => ({
+      id: `docs:${match.docKey}:${match.anchor}`,
+      group: "docs",
+      icon: NotebookIcon,
+      label: match.heading,
+      subtitle: match.docTitle,
+      preview: match.preview,
+      keywords: [match.docTitle, match.heading, match.anchor],
+      onSelect: runCommand(actions, () =>
+        actions.navigateToDocsSection(match.route, match.anchor)
+      ),
+    })
+  )
 }
 
 function buildInventoryCommands(
@@ -378,9 +514,7 @@ function appendFolderCommands(
 
 function buildPodCommands({
   actions,
-  canManage,
   podCatalog,
-  publishedPods,
 }: Pick<
   BuildSiteCommandsParams,
   "actions" | "canManage" | "podCatalog" | "publishedPods"
@@ -393,7 +527,7 @@ function buildPodCommands({
       group: "pods",
       icon: PackageIcon,
       label: pod.title,
-      subtitle: "Published pod catalog",
+      subtitle: "Pod",
       keywords: [
         pod.slug,
         pod.description,
@@ -402,22 +536,6 @@ function buildPodCommands({
       ],
       onSelect: runCommand(actions, () => actions.navigateToPod(pod.slug)),
     })
-  }
-
-  if (canManage) {
-    for (const pod of publishedPods ?? []) {
-      results.push({
-        id: `published-pod:${pod.id}`,
-        group: "pods",
-        icon: PackageMovingIcon,
-        label: `Edit ${pod.title}`,
-        subtitle: `Published pod · ${pod.status}`,
-        keywords: [pod.slug, pod.description, pod.source_folder, "manager"],
-        onSelect: runCommand(actions, () =>
-          actions.navigateToPublishedPod(pod.id)
-        ),
-      })
-    }
   }
 
   return results
@@ -519,7 +637,9 @@ function buildRequestCommands({
 
 export function buildSiteCommands(params: BuildSiteCommandsParams) {
   return [
+    ...buildAccountCommands(params.actions),
     ...buildPageCommands(params),
+    ...buildDocsCommands(params),
     ...buildInventoryCommands(params.inventoryTree ?? [], params.actions),
     ...buildPodCommands(params),
     ...buildAdminCommands(params),

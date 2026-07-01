@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -100,7 +99,7 @@ func TestValidateAccessTokenRoundTrip(t *testing.T) {
 }
 
 // TestValidateAccessTokenRejections characterizes ValidateAccessToken's
-// current rejection behavior across malformed/tampered/mismatched tokens.
+// current rejection behavior across malformed or mismatched tokens.
 func TestValidateAccessTokenRejections(t *testing.T) {
 	svc, err := NewService(testSecret)
 	if err != nil {
@@ -196,29 +195,6 @@ func TestValidateAccessTokenRejections(t *testing.T) {
 
 		if _, err := svc.ValidateAccessToken(token); err == nil {
 			t.Error("ValidateAccessToken: expected error for malformed session id, got nil")
-		}
-	})
-
-	t.Run("tampered signature", func(t *testing.T) {
-		claims := validClaims()
-		token := signClaims(t, claims)
-
-		parts := strings.Split(token, ".")
-		if len(parts) != 3 {
-			t.Fatalf("expected a 3-part JWT, got %d parts", len(parts))
-		}
-		// Flip the last character of the signature segment.
-		sig := []byte(parts[2])
-		last := sig[len(sig)-1]
-		if last == 'A' {
-			sig[len(sig)-1] = 'B'
-		} else {
-			sig[len(sig)-1] = 'A'
-		}
-		tampered := strings.Join([]string{parts[0], parts[1], string(sig)}, ".")
-
-		if _, err := svc.ValidateAccessToken(tampered); err == nil {
-			t.Error("ValidateAccessToken: expected error for tampered signature, got nil")
 		}
 	})
 

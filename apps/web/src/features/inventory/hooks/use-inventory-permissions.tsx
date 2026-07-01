@@ -320,7 +320,7 @@ export function useInventoryPermissions({
     const updatePromise = updateAcl.mutateAsync({ itemId, entries })
 
     showSingleMutationToast({
-      title: `Updating permissions for ${itemName}`,
+      title: "Updating permissions",
       name: itemName,
       promise: updatePromise,
       successDescription: "Permissions updated",

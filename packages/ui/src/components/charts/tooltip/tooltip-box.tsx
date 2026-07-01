@@ -4,8 +4,8 @@ import { m, useSpring } from "motion/react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@workspace/ui/lib/utils"
-import {  useChartConfig } from "../chart-config-context"
-import type {SpringConfig} from "../chart-config-context";
+import { useChartConfig } from "../chart-config-context"
+import type { SpringConfig } from "../chart-config-context"
 import type { RefObject } from "react"
 
 export interface TooltipBoxProps {
@@ -178,7 +178,7 @@ function TooltipBoxInner({
     >
       <m.div
         animate={{ scale: 1, opacity: 1, x: 0 }}
-        className="min-w-[140px] overflow-hidden rounded-lg bg-chart-tooltip-background text-chart-tooltip-foreground shadow-lg backdrop-blur-md"
+        className="min-w-[140px] overflow-hidden rounded-lg text-chart-tooltip-foreground shadow-lg backdrop-blur-md"
         initial={{ scale: 0.85, opacity: 0, x: isFlipped ? 20 : -20 }}
         key={flipKey}
         style={{ transformOrigin, ...panelStyle }}

@@ -195,8 +195,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         .slice()
         .sort(
           (left, right) => toTime(right.created_at) - toTime(left.created_at)
-        )
-        .slice(0, 3),
+        ),
     [visiblePods]
   )
   const questionActivityHeatmapData = useMemo(
@@ -278,7 +277,6 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           className="xl:col-span-7"
           error={catalogError}
           pods={recentPods}
-          totalPods={visiblePods.length}
         />
         <DashboardFavoritesCard
           className="xl:col-span-5"

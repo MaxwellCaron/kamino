@@ -126,9 +126,11 @@ function PublishedPodsSkeleton({ className }: { className?: string }) {
         descriptionWidth="w-56"
       />
       <CardContent className="mx-6 h-full rounded-4xl bg-muted/50 p-6">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="flex gap-4">
           {Array.from({ length: 3 }, (_, index) => (
-            <BrowsePodsCardSkeleton key={index} />
+            <div key={index} className="min-w-0 flex-1">
+              <BrowsePodsCardSkeleton />
+            </div>
           ))}
         </div>
       </CardContent>

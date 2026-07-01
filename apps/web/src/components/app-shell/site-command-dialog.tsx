@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
@@ -16,6 +16,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@workspace/ui/components/command"
+import { useTheme } from "@workspace/ui/components/theme-provider"
 
 import {
   buildSiteCommands,
@@ -24,7 +25,7 @@ import {
 } from "./site-command-index"
 import { commandMatchesQuery } from "./site-command-search"
 import type { BuildSiteCommandsActions } from "./site-command-index"
-import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
+import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
   canAccessAdmin,
   canAccessRequestQueue,
@@ -49,7 +50,18 @@ export function SiteCommandDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
+
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear()
+      router.navigate({ to: "/login" })
+    },
+  })
 
   const { data: sessionData, isLoading: isSessionLoading } = useQuery(
     authSessionQueryOptions
@@ -122,8 +134,13 @@ export function SiteCommandDialog({
   const commandActions = useMemo<BuildSiteCommandsActions>(
     () => ({
       close,
+      logout: () => logoutMutation.mutate(),
       navigateHome: () => navigate({ to: "/" }),
       navigateToGroups: () => navigate({ to: "/admin/principals/groups" }),
+      navigateToDocsSection: (to, hash) => {
+        close()
+        navigate({ to, hash })
+      },
       navigateToInventoryItem: (itemId: string) =>
         navigate({
           to: "/inventory/items/$itemId",
@@ -140,8 +157,9 @@ export function SiteCommandDialog({
       navigateToRequests: () => navigate({ to: "/manager/requests" }),
       navigateToSdn: () => navigate({ to: "/admin/sdn" }),
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
+      setTheme,
     }),
-    [close, navigate]
+    [close, logoutMutation, navigate, setTheme]
   )
 
   const commands = useMemo(() => {
@@ -159,6 +177,7 @@ export function SiteCommandDialog({
       publishedPods,
       users,
       vnets,
+      query: searchQuery,
     })
   }, [
     canAdminister,
@@ -173,6 +192,7 @@ export function SiteCommandDialog({
     user,
     users,
     vnets,
+    searchQuery,
   ])
 
   const filteredCommands = useMemo(() => {
@@ -181,7 +201,9 @@ export function SiteCommandDialog({
       return commands
     }
 
-    return commands.filter((command) => commandMatchesQuery(command, query))
+    return commands.filter((command) =>
+      command.group === "docs" ? true : commandMatchesQuery(command, query)
+    )
   }, [commands, searchQuery])
 
   const groupedCommands = useMemo(() => {
@@ -252,13 +274,25 @@ export function SiteCommandDialog({
                       value={`${command.label} ${command.subtitle} ${command.id}`}
                       keywords={command.keywords}
                       onSelect={command.onSelect}
+                      variant={command.variant}
                     >
                       <HugeiconsIcon icon={command.icon} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{command.label}</span>
-                        <span className="block truncate text-xs font-normal text-muted-foreground">
-                          {command.subtitle}
-                        </span>
+                        {command.preview ? (
+                          <>
+                            <span className="block truncate text-xs font-normal text-muted-foreground">
+                              {command.subtitle}
+                            </span>
+                            <span className="mt-1 block line-clamp-5 whitespace-pre-line text-xs font-normal text-muted-foreground/80">
+                              {command.preview}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="block truncate text-xs font-normal text-muted-foreground">
+                            {command.subtitle}
+                          </span>
+                        )}
                       </span>
                       {command.shortcut && (
                         <CommandShortcut>{command.shortcut}</CommandShortcut>

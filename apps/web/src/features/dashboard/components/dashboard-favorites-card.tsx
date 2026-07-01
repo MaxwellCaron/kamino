@@ -1,3 +1,4 @@
+import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import {
@@ -19,6 +20,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
+import { animateContainer, animateTableRow } from "@/components/animate"
 
 export function DashboardFavoritesCard({
   className,
@@ -44,22 +46,27 @@ export function DashboardFavoritesCard({
       </CardHeader>
       <CardContent className="h-full">
         {visibleFavorites.length > 0 ? (
-          <ItemGroup>
-            {visibleFavorites.map((favorite) => {
-              const vmid = favorite.vm?.vmid
-              const status = vmid !== undefined ? vmStatuses?.[vmid] : undefined
+          <m.div initial="hidden" animate="show" variants={animateContainer}>
+            <ItemGroup>
+              {visibleFavorites.map((favorite) => {
+                const vmid = favorite.vm?.vmid
+                const status =
+                  vmid !== undefined ? vmStatuses?.[vmid] : undefined
 
-              return (
-                <InventoryFolderItem
-                  key={favorite.id}
-                  node={favorite}
-                  status={status}
-                  isFavorite
-                  onToggleFavorite={() => toggleFavorite(favorite.id)}
-                />
-              )
-            })}
-          </ItemGroup>
+                return (
+                  <m.div key={favorite.id} variants={animateTableRow}>
+                    <InventoryFolderItem
+                      key={favorite.id}
+                      node={favorite}
+                      status={status}
+                      isFavorite
+                      onToggleFavorite={() => toggleFavorite(favorite.id)}
+                    />
+                  </m.div>
+                )
+              })}
+            </ItemGroup>
+          </m.div>
         ) : (
           <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { z } from "zod"
-import { PublishPodRoutePage } from "@/features/pods/components/publish/publish-pod-route-page"
+import { PublishPodPage } from "@/features/pods/components/publish/publish-pod-page"
 import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
 import { pageTitle } from "@/features/shared/utils/page-title"
 
@@ -17,5 +17,5 @@ export const Route = createFileRoute("/_pods/pods/publish")({
     }
   },
   head: () => pageTitle("Publish Pod"),
-  component: PublishPodRoutePage,
+  component: PublishPodPage,
 })

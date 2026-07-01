@@ -584,7 +584,7 @@ function TemplateMenuItems({
                   )
 
                 showSingleMutationToast({
-                  title: `Deleting template ${vmIdentifier}`,
+                  title: "Deleting",
                   name: vmIdentifier,
                   promise,
                   successDescription: "Deleted",

@@ -9,7 +9,7 @@ export function toastCloneVm(
   const vmIdentifier = formatVmReference(vmid, vmName)
 
   showSingleMutationToast({
-    title: `Cloning ${vmIdentifier}`,
+    title: "Cloning",
     name: vmIdentifier,
     promise,
     successDescription: "Cloned",
@@ -115,7 +115,7 @@ export function toastDeleteSnapshot(
 
 export function toastUpdateNotes(promise: Promise<unknown>) {
   showSingleMutationToast({
-    title: "Updating VM notes",
+    title: "Updating notes",
     name: "VM notes",
     promise,
     successDescription: "Updated",
@@ -130,7 +130,7 @@ export function toastDeleteVm(
   const vmIdentifier = formatVmReference(vmid, vmName)
 
   showSingleMutationToast({
-    title: `Deleting ${vmIdentifier}`,
+    title: "Deleting",
     name: vmIdentifier,
     promise,
     successDescription: "Deleted",
@@ -145,7 +145,7 @@ export function toastTemplatizeVm(
   const vmIdentifier = formatVmReference(vmid, vmName)
 
   showSingleMutationToast({
-    title: `Templatizing ${vmIdentifier}`,
+    title: "Templatizing",
     name: vmIdentifier,
     promise,
     successDescription: "Templatized",

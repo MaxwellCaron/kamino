@@ -2,15 +2,14 @@
 
 import { m, useSpring } from "motion/react"
 import { useEffect } from "react"
-import {  useChartConfig } from "../chart-config-context"
+import { useChartConfig } from "../chart-config-context"
 import { chartCssVars } from "../chart-context"
 import {
-  
   indicatorFadeGradientStops,
-  resolveVerticalFadeSides
+  resolveVerticalFadeSides,
 } from "../indicator-fade"
-import type {SpringConfig} from "../chart-config-context";
-import type {IndicatorFadeEdges} from "../indicator-fade";
+import type { SpringConfig } from "../chart-config-context"
+import type { IndicatorFadeEdges } from "../indicator-fade"
 
 export type IndicatorWidth =
   | number // Pixel width
