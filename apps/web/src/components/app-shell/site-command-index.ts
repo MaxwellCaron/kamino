@@ -90,7 +90,6 @@ type StaticCommandConfig = {
 export type BuildSiteCommandsActions = {
   close: () => void
   logout: () => void
-  navigateHome: () => void
   navigateToDocsSection: (
     to: "/docs" | "/manager/docs" | "/admin/docs",
     hash: string
@@ -499,7 +498,7 @@ function appendFolderCommands(
   actions: BuildSiteCommandsActions
 ) {
   const folderKeywords = [path, "folder", "inventory"]
-  const navigateHome = () => actions.navigateHome()
+  const navigateToFolder = () => actions.navigateToInventoryItem(node.id)
 
   results.push({
     id: `inventory:${node.id}`,
@@ -508,7 +507,7 @@ function appendFolderCommands(
     label: node.name,
     subtitle: path,
     keywords: folderKeywords,
-    onSelect: runCommand(actions, navigateHome),
+    onSelect: runCommand(actions, navigateToFolder),
   })
 }
 

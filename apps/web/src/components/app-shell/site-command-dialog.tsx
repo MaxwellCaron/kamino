@@ -135,7 +135,6 @@ export function SiteCommandDialog({
     () => ({
       close,
       logout: () => logoutMutation.mutate(),
-      navigateHome: () => navigate({ to: "/" }),
       navigateToGroups: () => navigate({ to: "/admin/principals/groups" }),
       navigateToDocsSection: (to, hash) => {
         close()
