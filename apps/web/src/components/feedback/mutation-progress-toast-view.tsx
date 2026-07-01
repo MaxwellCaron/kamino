@@ -133,7 +133,11 @@ export function MutationProgressToast({
   }
 
   const attachments = items.map((item) => (
-    <Attachment key={item.id} state={itemStates[item.id]} className="w-full">
+    <Attachment
+      key={item.id}
+      state={itemStates[item.id]}
+      className="w-full rounded-none border-0 border-b border-border! px-6! last:border-b-0"
+    >
       <AttachmentMedia>
         {itemStates[item.id] === "processing" ? (
           <HugeiconsIcon icon={LoaderCircle} className="animate-spin" />
@@ -179,21 +183,17 @@ export function MutationProgressToast({
         <span className="text-sm font-medium">{title}</span>
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
           aria-label="Dismiss"
           className="text-muted-foreground"
           onClick={() => toast.dismiss(toastId)}
         >
-          <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+          <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
       </div>
-      {items.length === 1 ? (
-        attachments
-      ) : (
-        <AttachmentGroup className="-mx-4 flex max-h-100 scroll-fade flex-col overflow-y-auto">
-          {attachments}
-        </AttachmentGroup>
-      )}
+      <AttachmentGroup className="-mx-6 flex max-h-100 scroll-fade flex-col gap-0 overflow-y-auto py-0">
+        {attachments}
+      </AttachmentGroup>
     </div>
   )
 }
