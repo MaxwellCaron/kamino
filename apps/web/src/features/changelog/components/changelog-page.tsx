@@ -27,9 +27,9 @@ export function ChangelogPage() {
         </div>
 
         <div className="mt-10 flex flex-col">
-          {RELEASES.map((r, i) => (
+          {RELEASES.map((r) => (
             <article
-              key={i}
+              key={r.date}
               className="grid grid-cols-[140px_1fr] gap-8 border-b border-border py-10 last:border-b-0"
             >
               <aside className="sticky top-8 self-start">
