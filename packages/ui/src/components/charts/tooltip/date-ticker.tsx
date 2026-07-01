@@ -44,7 +44,8 @@ const DateTickerInner = memo(function DateTickerInnerView({
 
   // Month segments: one entry per consecutive run (Jan → Feb → …), keyed by start index
   const monthSegments = useMemo(() => {
-    const segments: Array<{ month: string; key: string; startIndex: number }> = []
+    const segments: Array<{ month: string; key: string; startIndex: number }> =
+      []
 
     parsedLabels.forEach((label, index) => {
       const prev = segments.at(-1)
