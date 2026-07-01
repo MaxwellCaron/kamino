@@ -137,6 +137,10 @@ export function SiteCommandDialog({
       logout: () => logoutMutation.mutate(),
       navigateHome: () => navigate({ to: "/" }),
       navigateToGroups: () => navigate({ to: "/admin/principals/groups" }),
+      navigateToDocsSection: (to, hash) => {
+        close()
+        navigate({ to, hash })
+      },
       navigateToInventoryItem: (itemId: string) =>
         navigate({
           to: "/inventory/items/$itemId",
@@ -173,6 +177,7 @@ export function SiteCommandDialog({
       publishedPods,
       users,
       vnets,
+      query: searchQuery,
     })
   }, [
     canAdminister,
@@ -187,6 +192,7 @@ export function SiteCommandDialog({
     user,
     users,
     vnets,
+    searchQuery,
   ])
 
   const filteredCommands = useMemo(() => {
@@ -195,7 +201,9 @@ export function SiteCommandDialog({
       return commands
     }
 
-    return commands.filter((command) => commandMatchesQuery(command, query))
+    return commands.filter((command) =>
+      command.group === "docs" ? true : commandMatchesQuery(command, query)
+    )
   }, [commands, searchQuery])
 
   const groupedCommands = useMemo(() => {
@@ -271,9 +279,20 @@ export function SiteCommandDialog({
                       <HugeiconsIcon icon={command.icon} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{command.label}</span>
-                        <span className="block truncate text-xs font-normal text-muted-foreground">
-                          {command.subtitle}
-                        </span>
+                        {command.preview ? (
+                          <>
+                            <span className="block truncate text-xs font-normal text-muted-foreground">
+                              {command.subtitle}
+                            </span>
+                            <span className="mt-1 block line-clamp-5 whitespace-pre-line text-xs font-normal text-muted-foreground/80">
+                              {command.preview}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="block truncate text-xs font-normal text-muted-foreground">
+                            {command.subtitle}
+                          </span>
+                        )}
                       </span>
                       {command.shortcut && (
                         <CommandShortcut>{command.shortcut}</CommandShortcut>

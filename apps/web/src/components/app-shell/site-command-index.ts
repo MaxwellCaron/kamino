@@ -15,6 +15,7 @@ import {
   PackageMovingIcon,
   ReloadIcon,
   Shield01Icon,
+  SparklesIcon,
   Sun01Icon,
   UserGroupIcon,
   UserIcon,
@@ -25,6 +26,7 @@ import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import { searchDocs } from "@/features/documentation/utils/docs-search"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   formatRequestKind,
@@ -35,6 +37,7 @@ import {
 export type CommandGroupKey =
   | "account"
   | "pages"
+  | "docs"
   | "inventory"
   | "pods"
   | "principals"
@@ -50,6 +53,7 @@ export type SiteCommandResult = {
   label: string
   keywords: Array<string>
   onSelect: () => void
+  preview?: string
   shortcut?: string
   subtitle: string
   variant?: "default" | "destructive"
@@ -72,6 +76,7 @@ type StaticCommandConfig = {
     | "/admin/principals/groups"
     | "/admin/principals/users"
     | "/admin/sdn"
+    | "/changelog"
     | "/docs"
     | "/manager/docs"
     | "/manager/requests"
@@ -86,6 +91,10 @@ export type BuildSiteCommandsActions = {
   close: () => void
   logout: () => void
   navigateHome: () => void
+  navigateToDocsSection: (
+    to: "/docs" | "/manager/docs" | "/admin/docs",
+    hash: string
+  ) => void
   navigateToInventoryItem: (itemId: string) => void
   navigateToPage: (to: StaticCommandConfig["to"]) => void
   navigateToPod: (podSlug: string) => void
@@ -106,6 +115,7 @@ export type BuildSiteCommandsParams = {
   inventoryTree?: Array<ApiTreeNode>
   podCatalog?: Array<PublishedPodCatalogEntry>
   publishedPods?: Array<PublishedPodCatalogEntry>
+  query: string
   users?: Array<ApiPrincipal>
   vnets?: Array<ApiVNet>
   pendingRequests?: Array<ApiRequestSummary>
@@ -131,6 +141,16 @@ const staticCommands: Array<StaticCommandConfig> = [
     to: "/pods",
     visibility: "all",
     keywords: ["catalog", "launch", "clone"],
+  },
+  {
+    id: "changelog",
+    group: "pages",
+    label: "Changelog",
+    subtitle: "Latest updates and releases",
+    icon: SparklesIcon,
+    to: "/changelog",
+    visibility: "all",
+    keywords: ["changelog", "updates", "releases", "new", "what's new"],
   },
   {
     id: "docs-user",
@@ -260,13 +280,22 @@ const staticCommands: Array<StaticCommandConfig> = [
     icon: NotebookIcon,
     to: "/admin/docs",
     visibility: "admin",
-    keywords: ["administrator", "guide", "docs", "help", "permissions", "sync", "audit"],
+    keywords: [
+      "administrator",
+      "guide",
+      "docs",
+      "help",
+      "permissions",
+      "sync",
+      "audit",
+    ],
   },
 ]
 
 export const groupLabels = {
   account: "Account",
   pages: "Pages",
+  docs: "Documentation",
   inventory: "Inventory",
   pods: "Pods",
   principals: "Principals",
@@ -278,6 +307,7 @@ export const groupOrder = [
   "account",
   "pods",
   "pages",
+  "docs",
   "principals",
   "inventory",
   "network",
@@ -384,6 +414,31 @@ function buildPageCommands({
   }
 
   return commands
+}
+
+function buildDocsCommands({
+  actions,
+  canAdminister,
+  canManage,
+  query,
+}: Pick<BuildSiteCommandsParams, "actions" | "canAdminister" | "canManage"> & {
+  query: string
+}) {
+  const matches = searchDocs(query, { canAdminister, canManage })
+  return matches.map(
+    (match): SiteCommandResult => ({
+      id: `docs:${match.docKey}:${match.anchor}`,
+      group: "docs",
+      icon: NotebookIcon,
+      label: match.heading,
+      subtitle: match.docTitle,
+      preview: match.preview,
+      keywords: [match.docTitle, match.heading, match.anchor],
+      onSelect: runCommand(actions, () =>
+        actions.navigateToDocsSection(match.route, match.anchor)
+      ),
+    })
+  )
 }
 
 function buildInventoryCommands(
@@ -584,6 +639,7 @@ export function buildSiteCommands(params: BuildSiteCommandsParams) {
   return [
     ...buildAccountCommands(params.actions),
     ...buildPageCommands(params),
+    ...buildDocsCommands(params),
     ...buildInventoryCommands(params.inventoryTree ?? [], params.actions),
     ...buildPodCommands(params),
     ...buildAdminCommands(params),
