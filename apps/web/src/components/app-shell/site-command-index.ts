@@ -8,6 +8,7 @@ import {
   Invoice01Icon,
   Logout01Icon,
   Moon02Icon,
+  NotebookIcon,
   PackageAddIcon,
   PackageCheck,
   PackageIcon,
@@ -66,10 +67,13 @@ type StaticCommandConfig = {
     | "/"
     | "/admin"
     | "/admin/audit"
+    | "/admin/docs"
     | "/admin/proxmox-sync"
     | "/admin/principals/groups"
     | "/admin/principals/users"
     | "/admin/sdn"
+    | "/docs"
+    | "/manager/docs"
     | "/manager/requests"
     | "/pods"
     | "/pods/create"
@@ -129,6 +133,16 @@ const staticCommands: Array<StaticCommandConfig> = [
     keywords: ["catalog", "launch", "clone"],
   },
   {
+    id: "docs-user",
+    group: "pages",
+    label: "User Guide",
+    subtitle: "Learn how to clone and operate pods",
+    icon: NotebookIcon,
+    to: "/docs",
+    visibility: "all",
+    keywords: ["guide", "docs", "help", "pods"],
+  },
+  {
     id: "pods-create",
     group: "pages",
     label: "Create Pod",
@@ -167,6 +181,16 @@ const staticCommands: Array<StaticCommandConfig> = [
     to: "/manager/requests",
     visibility: "manager",
     keywords: ["approval", "pending", "manager"],
+  },
+  {
+    id: "docs-manager",
+    group: "pages",
+    label: "Manager Guide",
+    subtitle: "Learn how to publish pods and review requests",
+    icon: NotebookIcon,
+    to: "/manager/docs",
+    visibility: "manager",
+    keywords: ["guide", "docs", "help", "pods", "requests"],
   },
   {
     id: "admin",
@@ -227,6 +251,16 @@ const staticCommands: Array<StaticCommandConfig> = [
     to: "/admin/audit",
     visibility: "admin",
     keywords: ["administrator", "audit", "history", "events"],
+  },
+  {
+    id: "docs-admin",
+    group: "pages",
+    label: "Admin Guide",
+    subtitle: "Learn how to manage permissions, sync, and audit",
+    icon: NotebookIcon,
+    to: "/admin/docs",
+    visibility: "admin",
+    keywords: ["administrator", "guide", "docs", "help", "permissions", "sync", "audit"],
   },
 ]
 

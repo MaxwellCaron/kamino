@@ -88,7 +88,7 @@ export const markdownComponents: Components = {
   h1: ({ className, node: _node, ...props }) => (
     <h1
       className={cn(
-        "mt-10 scroll-m-20 text-4xl font-extrabold tracking-tight text-balance first:mt-0",
+        "mt-10 scroll-m-20 font-heading text-4xl font-extrabold tracking-tight text-balance first:mt-0",
         className
       )}
       {...props}
