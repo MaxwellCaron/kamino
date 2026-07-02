@@ -101,7 +101,7 @@ export function RequestDetailDialog({
     ? formatVmReference(request.inventory.vmid, request.inventory.item_name)
     : request?.kind === "personal_pod.create"
       ? "Personal pod"
-      : request?.inventory?.item_name ?? "Inventory item"
+      : (request?.inventory?.item_name ?? "Inventory item")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,7 +187,9 @@ export function RequestDetailDialog({
                 </Item>
                 <Item
                   variant="muted"
-                  className={request.inventory?.item_id ? "cursor-pointer" : undefined}
+                  className={
+                    request.inventory?.item_id ? "cursor-pointer" : undefined
+                  }
                   render={
                     request.inventory?.item_id ? (
                       <Link
@@ -224,7 +226,7 @@ export function RequestDetailDialog({
                         </ItemActions>
                       </Link>
                     ) : (
-                      <>
+                      <Item>
                         <ItemMedia variant="icon">
                           <HugeiconsIcon icon={Target01Icon} />
                         </ItemMedia>
@@ -241,7 +243,7 @@ export function RequestDetailDialog({
                               )}
                           </ItemDescription>
                         </ItemContent>
-                      </>
+                      </Item>
                     )
                   }
                 />
