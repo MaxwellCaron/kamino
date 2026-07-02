@@ -10,8 +10,47 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
-    date: "Jun 30, 2026",
+    date: "Jul 2, 2026",
     highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added personal pods.",
+          "Added personal pod permission scoping.",
+          "Added templates and pod folder lookup by item ID.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Improved audit log coverage and preserved item information after deletion.",
+          "Improved mutation toast visuals.",
+          "Removed animations from main data tables.",
+          "Moved personal pod to its own cutout card.",
+          "Improved vnet scoping.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "rose",
+        items: [
+          "Fixed array index used as a React key.",
+          "Fixed imagePullPolicy configuration.",
+          "Fixed site command folders routing directly to inventory pages.",
+          "Fixed default internal pod subnet to 192.168.1.0/24.",
+          "Fixed independent awaits running sequentially.",
+          "Fixed missing Item component.",
+          "Fixed personal pod overlay colors.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Jun 30, 2026",
+    highlight: false,
     groups: [
       {
         tag: "New",
@@ -105,9 +144,7 @@ export const RELEASES: Array<Release> = [
       {
         tag: "Improved",
         tone: "indigo",
-        items: [
-          "Reordered pod actions.",
-        ],
+        items: ["Reordered pod actions."],
       },
       {
         tag: "Fixed",
@@ -128,16 +165,12 @@ export const RELEASES: Array<Release> = [
       {
         tag: "Improved",
         tone: "indigo",
-        items: [
-          "Migrated VNC console from noVNC to react-vnc.",
-        ],
+        items: ["Migrated VNC console from noVNC to react-vnc."],
       },
       {
         tag: "Fixed",
         tone: "rose",
-        items: [
-          "Fixed VNC console hang.",
-        ],
+        items: ["Fixed VNC console hang."],
       },
     ],
   },
@@ -217,9 +250,7 @@ export const RELEASES: Array<Release> = [
       {
         tag: "Improved",
         tone: "indigo",
-        items: [
-          "Rebuilt inventory tree with drag-and-drop.",
-        ],
+        items: ["Rebuilt inventory tree with drag-and-drop."],
       },
       {
         tag: "Fixed",
