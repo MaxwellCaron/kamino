@@ -3145,6 +3145,9 @@ func sanitizeFolderNameString(input string) string {
 
 func cloneFolderName(username string) (string, error) {
 	name := names.Normalize(username)
+	if len(name) > 0 && name[0] >= '0' && name[0] <= '9' {
+		name = "User-" + name
+	}
 	if err := names.ValidateFolder(name); err == nil {
 		return name, nil
 	}
