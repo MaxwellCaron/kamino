@@ -11,7 +11,6 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
-	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -153,7 +152,7 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 				RouterCloneConfig: PodRouterCloneConfig{
 					VNetPrefix:     "pod",
 					WANIPBase:      "172.16.",
-					InternalSubnet: netip.MustParsePrefix("10.128.1.0/24"),
+					InternalSubnet: netip.MustParsePrefix("192.168.1.0/24"),
 				},
 			}
 
@@ -167,11 +166,11 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 			if got.ExternalSubnet != tt.wantExtSubnet || got.ExternalGateway != tt.wantExtGateway {
 				t.Fatalf("external metadata = %#v", got)
 			}
-			if got.InternalSubnet != "10.128.1.0/24" {
-				t.Fatalf("internal subnet = %q, want 10.128.1.0/24", got.InternalSubnet)
+			if got.InternalSubnet != "192.168.1.0/24" {
+				t.Fatalf("internal subnet = %q, want 192.168.1.0/24", got.InternalSubnet)
 			}
-			if got.InternalGateway != "10.128.1.1" {
-				t.Fatalf("internal gateway = %q, want 10.128.1.1", got.InternalGateway)
+			if got.InternalGateway != "192.168.1.1" {
+				t.Fatalf("internal gateway = %q, want 192.168.1.1", got.InternalGateway)
 			}
 		})
 	}
@@ -432,78 +431,6 @@ func TestBuildPrincipalPodQuestionAnswerParamsCopiesLiveAnsweredAt(t *testing.T)
 
 	if params.AnsweredAt != answeredAt {
 		t.Fatalf("AnsweredAt = %#v, want %#v", params.AnsweredAt, answeredAt)
-	}
-}
-
-func TestNormalizeDottedPrefix(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		want    string
-		wantErr bool
-	}{
-		{"empty returns empty", "", "", false},
-		{"whitespace returns empty", "   ", "", false},
-		{"single octet", "172", "172.", false},
-		{"two octets", "172.16", "172.16.", false},
-		{"three octets", "172.16.0", "172.16.0.", false},
-		{"trailing dot stripped", "172.16.", "172.16.", false},
-		{"double trailing dot", "172.16..", "", true},
-		{"empty parts", "172..16", "", true},
-		{"non-numeric octet", "abc.def", "", true},
-		{"octet out of range", "256.0.0.1", "", true},
-		{"negative octet", "-1.0.0.1", "", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := routerconfig.NormalizeDottedPrefix(tt.input)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got %q", got)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("got %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestValidateCloudInitSnippetFilename(t *testing.T) {
-	tests := []struct {
-		name     string
-		filename string
-		wantErr  bool
-		errMsg   string
-	}{
-		{"valid filename", "user-data.yaml", false, ""},
-		{"empty filename", "", true, "required"},
-		{"whitespace only", "   ", true, "required"},
-		{"path separator forward slash", "dir/file.yaml", true, "path separators"},
-		{"path separator backslash", "dir\\file.yaml", true, "path separators"},
-		{"double dot", "dir..file.yaml", true, "'..'"},
-		{"contains space", "user data.yaml", true, "whitespace"},
-		{"contains tab", "user\tdata.yaml", true, "whitespace"},
-		{"contains newline", "user\ndata.yaml", true, "whitespace"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := routerconfig.ValidateCloudInitSnippetFilename(tt.filename)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("error %q does not contain %q", err.Error(), tt.errMsg)
-				}
-			} else if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		})
 	}
 }
 

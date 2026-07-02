@@ -126,6 +126,10 @@ export function CreateVmDialog({
     form.store,
     (state) => state.values.iso_storage ?? ""
   )
+  const selectedTargetFolderId = useSelector(
+    form.store,
+    (state) => state.values.target_folder_id
+  )
 
   function resetDialog() {
     form.reset()
@@ -148,7 +152,7 @@ export function CreateVmDialog({
     error: createOptionsError,
     isLoading: isCreateOptionsLoading,
   } = useQuery({
-    ...createVmOptionsQueryOptions,
+    ...createVmOptionsQueryOptions(selectedTargetFolderId || undefined),
     enabled: open,
   })
   const { data: isos } = useQuery({

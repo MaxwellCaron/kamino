@@ -317,7 +317,8 @@ func (ns NullRequestEventKind) Value() (driver.Value, error) {
 type RequestFamily string
 
 const (
-	RequestFamilyInventory RequestFamily = "inventory"
+	RequestFamilyInventory   RequestFamily = "inventory"
+	RequestFamilyPersonalPod RequestFamily = "personal_pod"
 )
 
 func (e *RequestFamily) Scan(src interface{}) error {
@@ -453,6 +454,15 @@ type InventoryRequests struct {
 	PowerAction     NullInventoryRequestPowerAction `json:"power_action"`
 	SnapshotName    *string                         `json:"snapshot_name"`
 	CreatedAt       pgtype.Timestamptz              `json:"created_at"`
+}
+
+type PersonalPods struct {
+	ID              uuid.UUID          `json:"id"`
+	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
+	FolderID        uuid.UUID          `json:"folder_id"`
+	NetworkNumber   int32              `json:"network_number"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PodDevNetworkAllocations struct {

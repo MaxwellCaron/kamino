@@ -24,6 +24,7 @@ type fakeVMAuthz struct {
 	vmRecordErr       error
 	filterStatuses    map[int]string
 	filterStatusesErr error
+	isManager         bool
 }
 
 func (f *fakeVMAuthz) Require(ctx context.Context, principalID uuid.UUID, itemID uuid.UUID, required authorization.Mask) error {
@@ -91,6 +92,10 @@ func (f *fakeVMAuthz) ResolveVMItems(
 
 func (f *fakeVMAuthz) FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error) {
 	return f.filterStatuses, f.filterStatusesErr
+}
+
+func (f *fakeVMAuthz) IsManager(ctx context.Context, principalID uuid.UUID) (bool, error) {
+	return f.isManager, nil
 }
 
 var _ vmAuthz = (*fakeVMAuthz)(nil)
@@ -594,4 +599,24 @@ func TestRequestErrorWrapsUnderlyingError(t *testing.T) {
 	if got := reqErr.Error(); got != "boom" {
 		t.Fatalf("expected wrapped error message, got %q", got)
 	}
+}
+
+// --- UpdateHardware -------------------------------------------------------
+
+// TestUpdateHardware_PermissionDenied characterizes that the permission-
+// denial path still returns 403 after HasManagement moved onto the vmAuthz
+// interface directly (removing the managementAuthorizer type assertion).
+func TestUpdateHardware_PermissionDenied(t *testing.T) {
+	principalID := uuid.New()
+	itemID := uuid.New()
+
+	authz := &fakeVMAuthz{requireErr: authorization.ErrForbidden}
+	px := &fakeVMProxmox{}
+	h := newVMTestHandler(authz, px)
+
+	r := mountVMItemRoute(http.MethodPut, "/inventory/items/:id/vm/hardware", principalID, h.UpdateHardware)
+	w := doJSONRequest(r, http.MethodPut, "/inventory/items/"+itemID.String()+"/vm/hardware", `{"sockets":1,"cores":1,"memory":1}`)
+
+	assertStatus(t, w, http.StatusForbidden)
+	assertBodyContains(t, w, "forbidden")
 }

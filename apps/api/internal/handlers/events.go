@@ -97,11 +97,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 
 	var publishProgressEvents <-chan publishPodProgressSnapshot
 	if h.Authz != nil {
-		canManagePods, err := h.Authz.HasManagement(
-			c.Request.Context(),
-			principalID,
-			authorization.ManagementPermissionManager,
-		)
+		canManagePods, err := h.Authz.IsManager(c.Request.Context(), principalID)
 		if err != nil {
 			writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize publish progress event stream", err)
 			return

@@ -116,7 +116,8 @@ const navItems = [
   },
   {
     title: "Manager Guide",
-    description: "Learn how to publish pods, manage clones, and review requests.",
+    description:
+      "Learn how to publish pods, manage clones, and review requests.",
     url: "/manager/docs",
     icon: NotebookIcon,
     group: "manager",
@@ -431,7 +432,7 @@ export function AppSidebar({
           <SidebarHeader>
             <InventoryTreeHeader />
           </SidebarHeader>
-          <SidebarContent className="scroll-fade px-1">
+          <SidebarContent className="scroll-fade px-1 firefox:scroll-fade-none">
             <InventoryTreeBody />
           </SidebarContent>
         </Sidebar>

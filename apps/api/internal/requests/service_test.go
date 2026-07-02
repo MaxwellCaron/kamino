@@ -2,6 +2,8 @@ package requests
 
 import (
 	"testing"
+
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 )
 
 func TestNormalizeTablePageDefaults(t *testing.T) {
@@ -44,6 +46,48 @@ func TestNormalizeTablePageComputesOffset(t *testing.T) {
 			}
 			if offset != tt.wantOffset {
 				t.Errorf("offset = %d, want %d", offset, tt.wantOffset)
+			}
+		})
+	}
+}
+
+func TestCanReviewRequestKind(t *testing.T) {
+	managerPerms := authorization.EffectiveManagementPermissions{
+		Grants: []authorization.ManagementPermission{
+			authorization.ManagementPermissionManager,
+		},
+	}
+
+	tests := []struct {
+		name        string
+		perms       authorization.EffectiveManagementPermissions
+		requestKind string
+		want        bool
+	}{
+		{
+			name:        "manager can review personal pod requests",
+			perms:       managerPerms,
+			requestKind: RequestKindPersonalPodCreate,
+			want:        true,
+		},
+		{
+			name:        "manager can review inventory requests",
+			perms:       managerPerms,
+			requestKind: RequestKindInventoryVMPower,
+			want:        true,
+		},
+		{
+			name:        "non-manager cannot review personal pod requests",
+			perms:       authorization.EffectiveManagementPermissions{},
+			requestKind: RequestKindPersonalPodCreate,
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := canReviewRequestKind(tt.perms, tt.requestKind); got != tt.want {
+				t.Fatalf("canReviewRequestKind() = %v, want %v", got, tt.want)
 			}
 		})
 	}

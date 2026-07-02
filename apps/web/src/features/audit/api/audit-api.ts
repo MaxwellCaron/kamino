@@ -14,6 +14,9 @@ export type ApiActionEvent = {
   inventory_vm_node?: string
   inventory_vm_vmid?: number
   pod_id?: string
+  pod_title?: string
+  pod_slug?: string
+  pod_folder_path?: string
   status: string
   error_message?: string
   created_at: string

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { m } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -25,17 +26,28 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
+import { BrowsePodsCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
+import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
+import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 import { animateChild, animateContainer } from "@/components/animate"
 
 export function DashboardRecentPodsCard({
   className,
   error,
   pods,
+  username,
 }: {
   className?: string
   error: Error | null
   pods: Array<PublishedPodCatalogEntry>
+  username: string
 }) {
+  const { data: personalPodStatus, isLoading: isPersonalPodLoading } = useQuery(
+    personalPodQueryOptions
+  )
+  const showPersonalPodCard = personalPodStatus?.configured ?? false
+  const showPublishedPodCards = pods.length > 0 || showPersonalPodCard
+
   return (
     <Card className={cn(className)}>
       <CardHeader>
@@ -60,14 +72,27 @@ export function DashboardRecentPodsCard({
               <EmptyDescription>{error.message}</EmptyDescription>
             </EmptyHeader>
           </Empty>
-        ) : pods.length > 0 ? (
-          <ScrollArea className="w-full **:scroll-fade-x">
+        ) : showPublishedPodCards || isPersonalPodLoading ? (
+          <ScrollArea className="w-full **:scroll-fade-x firefox:**:scroll-fade-none">
             <m.div
-              className="flex w-max space-x-4 p-4"
+              className="flex w-max gap-4 p-4"
               initial="hidden"
               animate="show"
               variants={animateContainer}
             >
+              {isPersonalPodLoading ? (
+                <m.div variants={animateChild} className="max-w-100">
+                  <BrowsePodsCardSkeleton />
+                </m.div>
+              ) : null}
+              {personalPodStatus?.configured ? (
+                <m.div variants={animateChild} className="max-w-100">
+                  <PersonalPodCard
+                    status={personalPodStatus}
+                    username={username}
+                  />
+                </m.div>
+              ) : null}
               {pods.map((pod) => (
                 <m.div
                   key={pod.id}

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
 import {
   Empty,
   EmptyDescription,
@@ -9,21 +10,41 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { BrowsePodsCard } from "./browse-pods-card"
+import { PersonalPodCard } from "./personal-pod-card"
 import {
+  BrowsePodsCardSkeleton,
   BrowsePodsGridSkeleton,
   browsePodsGridClassName,
 } from "./browse-pods-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { GrainientBackground } from "@/components/grainient-background"
+import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
+  const router = useRouter({ warn: false }) as ReturnType<
+    typeof useRouter
+  > | null
   const {
     data: catalog,
     isLoading: isCatalogLoading,
     error,
   } = useQuery(podCatalogQueryOptions)
+  const {
+    data: personalPodStatus,
+    error: personalPodError,
+    isLoading: isPersonalPodLoading,
+  } = useQuery({
+    ...personalPodQueryOptions,
+    enabled: router !== null,
+  })
   const visiblePods = catalog ?? []
+  const username = router
+    ?.state.matches.find((match) => match.routeId === "/_pods")
+    ?.context.user.username
+  const showPersonalPodCard = personalPodStatus?.configured ?? false
+  const showPersonalPodSlot = showPersonalPodCard || isPersonalPodLoading
+  const showPodsEmptyState = visiblePods.length === 0 && !showPersonalPodSlot
 
   return (
     <div className="@container/main flex flex-1 flex-col">
@@ -54,7 +75,7 @@ export function BrowsePodsPage() {
             title="Pods Error"
             className="mx-auto max-w-lg"
           />
-        ) : visiblePods.length === 0 ? (
+        ) : showPodsEmptyState ? (
           <Empty className="min-h-[45vh] border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -71,10 +92,27 @@ export function BrowsePodsPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className={browsePodsGridClassName}>
-            {visiblePods.map((pod) => (
-              <BrowsePodsCard key={pod.id} pod={pod} />
-            ))}
+          <div className="space-y-6">
+            {personalPodError ? (
+              <InlineErrorAlert
+                error={personalPodError}
+                fallback="Failed to load personal pod status."
+                title="Personal Pod Error"
+                className="mx-auto max-w-lg"
+              />
+            ) : null}
+            <div className={browsePodsGridClassName}>
+              {isPersonalPodLoading ? <BrowsePodsCardSkeleton /> : null}
+              {personalPodStatus?.configured ? (
+                <PersonalPodCard
+                  status={personalPodStatus}
+                  username={username}
+                />
+              ) : null}
+              {visiblePods.map((pod) => (
+                <BrowsePodsCard key={pod.id} pod={pod} />
+              ))}
+            </div>
           </div>
         )}
       </div>

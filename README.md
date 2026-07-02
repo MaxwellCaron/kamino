@@ -122,7 +122,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_DEV_NETWORK_MAX` | no | `254` | Last create-pod developer network number |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
-| `POD_ROUTER_INTERNAL_SUBNET` | no | `10.128.1.0/24` | Fixed internal LAN every pod router uses; must match the `INTERNAL_SUBNET` used to generate router snippets (see below) |
+| `POD_ROUTER_INTERNAL_SUBNET` | no | `192.168.1.0/24` | Fixed internal LAN every pod router uses; must match the `INTERNAL_SUBNET` used to generate router snippets (see below) |
 | `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
 | `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
@@ -138,18 +138,18 @@ Development and published pod routers clone directly from
 ### Pod router networking
 
 Every pod VNet is isolated at Layer 2, so every pod router can safely reuse
-the same internal LAN (`POD_ROUTER_INTERNAL_SUBNET`, default `10.128.1.0/24`)
+the same internal LAN (`POD_ROUTER_INTERNAL_SUBNET`, default `192.168.1.0/24`)
 — only the external (WAN) `/24` differs per allocated network number. The
 router NATs between the two, preserving the workload's host octet:
 
 | | Development (network `245`) | Published clone (network `24`) |
 |---|---|---|
 | WAN subnet | `172.16.245.0/24` | `172.16.24.0/24` |
-| LAN subnet (both) | `10.128.1.0/24` | `10.128.1.0/24` |
-| Workload at `10.128.1.50` | reachable at `172.16.245.50` | reachable at `172.16.24.50` |
+| LAN subnet (both) | `192.168.1.0/24` | `192.168.1.0/24` |
+| Workload at `192.168.1.50` | reachable at `172.16.245.50` | reachable at `172.16.24.50` |
 
-Configure workload guests once, as `10.128.1.<host>/24` with gateway
-`10.128.1.1` — Kamino does not rewrite addressing inside guests, so existing
+Configure workload guests once, as `192.168.1.<host>/24` with gateway
+`192.168.1.1` — Kamino does not rewrite addressing inside guests, so existing
 VMs must be readdressed to this LAN (then republished/recloned) before this
 networking model takes effect for them.
 

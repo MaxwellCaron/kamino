@@ -13,30 +13,85 @@ import (
 )
 
 const countActionEventsFiltered = `-- name: CountActionEventsFiltered :one
+WITH action_event_display AS (
+    SELECT
+        ae.id,
+        ae.actor_principal_id,
+        ae.action_kind,
+        ae.target_kind,
+        ae.inventory_item_id,
+        ae.pod_id,
+        ae.status,
+        ae.error_message,
+        ae.metadata,
+        ae.created_at,
+        COALESCE(actor.name, actor.external_id, '') AS actor_username,
+        COALESCE(ii.name, NULLIF(target_tomb.snapshot->>'name', ''), '') AS inventory_item_name,
+        COALESCE(ii.parent_id, NULLIF(target_tomb.snapshot->>'parent_id', '')::UUID) AS inventory_item_parent_id,
+        COALESCE(parent.name, NULLIF(target_tomb.snapshot->>'parent_name', ''), '') AS inventory_item_parent_name,
+        COALESCE(NULLIF(get_inventory_item_path(ii.id), ''), NULLIF(target_tomb.snapshot->>'path', ''), '')::TEXT AS inventory_item_path,
+        COALESCE(pv.node, NULLIF(target_tomb.snapshot->>'node', ''), '') AS inventory_vm_node,
+        COALESCE(pv.vmid, NULLIF(target_tomb.snapshot->>'vmid', '')::INTEGER, 0) AS inventory_vm_vmid,
+        COALESCE(pp.title, NULLIF(target_tomb.snapshot->>'title', ''), '') AS pod_title,
+        COALESCE(pp.slug, NULLIF(target_tomb.snapshot->>'slug', ''), '') AS pod_slug,
+        COALESCE(
+            NULLIF(get_inventory_item_path(cp.folder_id), ''),
+            NULLIF(clone_tomb.snapshot->>'folder_path', ''),
+            NULLIF(get_inventory_item_path(pp.source_folder_id), ''),
+            NULLIF(target_tomb.snapshot->>'folder_path', ''),
+            ''
+        )::TEXT AS pod_folder_path
+    FROM action_events ae
+    LEFT JOIN principals actor
+      ON actor.id = ae.actor_principal_id
+    LEFT JOIN inventory_items ii
+      ON ii.id = ae.inventory_item_id
+    LEFT JOIN inventory_items parent
+      ON parent.id = ii.parent_id
+    LEFT JOIN proxmox_vms pv
+      ON pv.inventory_item_id = ae.inventory_item_id
+    LEFT JOIN published_pods pp
+      ON pp.id = ae.pod_id
+    LEFT JOIN LATERAL (
+        SELECT CASE
+            WHEN COALESCE(ae.metadata->>'clone_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                THEN (ae.metadata->>'clone_id')::UUID
+        END AS clone_id
+    ) clone_ref ON TRUE
+    LEFT JOIN cloned_pods cp
+      ON cp.id = clone_ref.clone_id
+    LEFT JOIN action_target_tombstones clone_tomb
+      ON clone_tomb.target_kind = 'pod_clone'
+     AND clone_tomb.target_id = clone_ref.clone_id
+    LEFT JOIN action_target_tombstones target_tomb
+      ON target_tomb.target_kind = ae.target_kind
+     AND target_tomb.target_id = CASE
+         WHEN ae.target_kind = 'vm' THEN ae.inventory_item_id
+         WHEN ae.target_kind = 'folder' THEN ae.inventory_item_id
+         WHEN ae.target_kind = 'pod' THEN ae.pod_id
+         ELSE NULL
+     END
+)
 SELECT count(*)::int
-FROM action_events ae
-LEFT JOIN principals actor
-  ON actor.id = ae.actor_principal_id
-LEFT JOIN inventory_items ii
-  ON ii.id = ae.inventory_item_id
-LEFT JOIN inventory_items parent
-  ON parent.id = ii.parent_id
-LEFT JOIN proxmox_vms pv
-  ON pv.inventory_item_id = ae.inventory_item_id
+FROM action_event_display
 WHERE (
     $1::TEXT = ''
-    OR COALESCE(actor.name, actor.external_id, '') ILIKE '%' || $1::TEXT || '%'
-    OR ae.action_kind ILIKE '%' || $1::TEXT || '%'
-    OR ae.target_kind ILIKE '%' || $1::TEXT || '%'
-    OR ae.status ILIKE '%' || $1::TEXT || '%'
-    OR ae.error_message ILIKE '%' || $1::TEXT || '%'
-    OR ii.name ILIKE '%' || $1::TEXT || '%'
-    OR ae.inventory_item_id::TEXT ILIKE '%' || $1::TEXT || '%'
-    OR parent.name ILIKE '%' || $1::TEXT || '%'
-    OR get_inventory_item_path(ii.id) ILIKE '%' || $1::TEXT || '%'
-    OR pv.node ILIKE '%' || $1::TEXT || '%'
-    OR pv.vmid::TEXT ILIKE '%' || $1::TEXT || '%'
-    OR ae.pod_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR actor_username ILIKE '%' || $1::TEXT || '%'
+    OR action_kind ILIKE '%' || $1::TEXT || '%'
+    OR target_kind ILIKE '%' || $1::TEXT || '%'
+    OR status ILIKE '%' || $1::TEXT || '%'
+    OR error_message ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_name ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_parent_name ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_path ILIKE '%' || $1::TEXT || '%'
+    OR inventory_vm_node ILIKE '%' || $1::TEXT || '%'
+    OR inventory_vm_vmid::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR pod_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR pod_title ILIKE '%' || $1::TEXT || '%'
+    OR pod_slug ILIKE '%' || $1::TEXT || '%'
+    OR pod_folder_path ILIKE '%' || $1::TEXT || '%'
+    OR metadata->>'clone_id' ILIKE '%' || $1::TEXT || '%'
 )
 `
 
@@ -45,6 +100,19 @@ func (q *Queries) CountActionEventsFiltered(ctx context.Context, search string) 
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const deleteActionEventsOlderThanRetention = `-- name: DeleteActionEventsOlderThanRetention :execrows
+DELETE FROM action_events
+WHERE created_at < now() - INTERVAL '30 days'
+`
+
+func (q *Queries) DeleteActionEventsOlderThanRetention(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteActionEventsOlderThanRetention)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const insertActionEvent = `-- name: InsertActionEvent :one
@@ -123,49 +191,87 @@ func (q *Queries) InsertActionEvent(ctx context.Context, arg InsertActionEventPa
 }
 
 const listActionEventsPaginated = `-- name: ListActionEventsPaginated :many
-SELECT
-    ae.id,
-    ae.actor_principal_id,
-    ae.action_kind,
-    ae.target_kind,
-    ae.inventory_item_id,
-    ae.pod_id,
-    ae.status,
-    ae.error_message,
-    ae.metadata,
-    ae.created_at,
-    COALESCE(actor.name, actor.external_id, '') AS actor_username,
-    ii.name AS inventory_item_name,
-    ii.parent_id AS inventory_item_parent_id,
-    parent.name AS inventory_item_parent_name,
-    get_inventory_item_path(ii.id) AS inventory_item_path,
-    pv.node AS inventory_vm_node,
-    pv.vmid AS inventory_vm_vmid
-FROM action_events ae
-LEFT JOIN principals actor
-  ON actor.id = ae.actor_principal_id
-LEFT JOIN inventory_items ii
-  ON ii.id = ae.inventory_item_id
-LEFT JOIN inventory_items parent
-  ON parent.id = ii.parent_id
-LEFT JOIN proxmox_vms pv
-  ON pv.inventory_item_id = ae.inventory_item_id
+WITH action_event_display AS (
+    SELECT
+        ae.id,
+        ae.actor_principal_id,
+        ae.action_kind,
+        ae.target_kind,
+        ae.inventory_item_id,
+        ae.pod_id,
+        ae.status,
+        ae.error_message,
+        ae.metadata,
+        ae.created_at,
+        COALESCE(actor.name, actor.external_id, '') AS actor_username,
+        COALESCE(ii.name, NULLIF(target_tomb.snapshot->>'name', ''), '') AS inventory_item_name,
+        COALESCE(ii.parent_id, NULLIF(target_tomb.snapshot->>'parent_id', '')::UUID) AS inventory_item_parent_id,
+        COALESCE(parent.name, NULLIF(target_tomb.snapshot->>'parent_name', ''), '') AS inventory_item_parent_name,
+        COALESCE(NULLIF(get_inventory_item_path(ii.id), ''), NULLIF(target_tomb.snapshot->>'path', ''), '')::TEXT AS inventory_item_path,
+        COALESCE(pv.node, NULLIF(target_tomb.snapshot->>'node', ''), '') AS inventory_vm_node,
+        COALESCE(pv.vmid, NULLIF(target_tomb.snapshot->>'vmid', '')::INTEGER, 0) AS inventory_vm_vmid,
+        COALESCE(pp.title, NULLIF(target_tomb.snapshot->>'title', ''), '') AS pod_title,
+        COALESCE(pp.slug, NULLIF(target_tomb.snapshot->>'slug', ''), '') AS pod_slug,
+        COALESCE(
+            NULLIF(get_inventory_item_path(cp.folder_id), ''),
+            NULLIF(clone_tomb.snapshot->>'folder_path', ''),
+            NULLIF(get_inventory_item_path(pp.source_folder_id), ''),
+            NULLIF(target_tomb.snapshot->>'folder_path', ''),
+            ''
+        )::TEXT AS pod_folder_path
+    FROM action_events ae
+    LEFT JOIN principals actor
+      ON actor.id = ae.actor_principal_id
+    LEFT JOIN inventory_items ii
+      ON ii.id = ae.inventory_item_id
+    LEFT JOIN inventory_items parent
+      ON parent.id = ii.parent_id
+    LEFT JOIN proxmox_vms pv
+      ON pv.inventory_item_id = ae.inventory_item_id
+    LEFT JOIN published_pods pp
+      ON pp.id = ae.pod_id
+    LEFT JOIN LATERAL (
+        SELECT CASE
+            WHEN COALESCE(ae.metadata->>'clone_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                THEN (ae.metadata->>'clone_id')::UUID
+        END AS clone_id
+    ) clone_ref ON TRUE
+    LEFT JOIN cloned_pods cp
+      ON cp.id = clone_ref.clone_id
+    LEFT JOIN action_target_tombstones clone_tomb
+      ON clone_tomb.target_kind = 'pod_clone'
+     AND clone_tomb.target_id = clone_ref.clone_id
+    LEFT JOIN action_target_tombstones target_tomb
+      ON target_tomb.target_kind = ae.target_kind
+     AND target_tomb.target_id = CASE
+         WHEN ae.target_kind = 'vm' THEN ae.inventory_item_id
+         WHEN ae.target_kind = 'folder' THEN ae.inventory_item_id
+         WHEN ae.target_kind = 'pod' THEN ae.pod_id
+         ELSE NULL
+     END
+)
+SELECT id, actor_principal_id, action_kind, target_kind, inventory_item_id, pod_id, status, error_message, metadata, created_at, actor_username, inventory_item_name, inventory_item_parent_id, inventory_item_parent_name, inventory_item_path, inventory_vm_node, inventory_vm_vmid, pod_title, pod_slug, pod_folder_path
+FROM action_event_display
 WHERE (
     $1::TEXT = ''
-    OR COALESCE(actor.name, actor.external_id, '') ILIKE '%' || $1::TEXT || '%'
-    OR ae.action_kind ILIKE '%' || $1::TEXT || '%'
-    OR ae.target_kind ILIKE '%' || $1::TEXT || '%'
-    OR ae.status ILIKE '%' || $1::TEXT || '%'
-    OR ae.error_message ILIKE '%' || $1::TEXT || '%'
-    OR ii.name ILIKE '%' || $1::TEXT || '%'
-    OR ae.inventory_item_id::TEXT ILIKE '%' || $1::TEXT || '%'
-    OR parent.name ILIKE '%' || $1::TEXT || '%'
-    OR get_inventory_item_path(ii.id) ILIKE '%' || $1::TEXT || '%'
-    OR pv.node ILIKE '%' || $1::TEXT || '%'
-    OR pv.vmid::TEXT ILIKE '%' || $1::TEXT || '%'
-    OR ae.pod_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR actor_username ILIKE '%' || $1::TEXT || '%'
+    OR action_kind ILIKE '%' || $1::TEXT || '%'
+    OR target_kind ILIKE '%' || $1::TEXT || '%'
+    OR status ILIKE '%' || $1::TEXT || '%'
+    OR error_message ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_name ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_parent_name ILIKE '%' || $1::TEXT || '%'
+    OR inventory_item_path ILIKE '%' || $1::TEXT || '%'
+    OR inventory_vm_node ILIKE '%' || $1::TEXT || '%'
+    OR inventory_vm_vmid::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR pod_id::TEXT ILIKE '%' || $1::TEXT || '%'
+    OR pod_title ILIKE '%' || $1::TEXT || '%'
+    OR pod_slug ILIKE '%' || $1::TEXT || '%'
+    OR pod_folder_path ILIKE '%' || $1::TEXT || '%'
+    OR metadata->>'clone_id' ILIKE '%' || $1::TEXT || '%'
 )
-ORDER BY ae.created_at DESC, ae.id DESC
+ORDER BY created_at DESC, id DESC
 LIMIT $3
 OFFSET $2
 `
@@ -188,12 +294,15 @@ type ListActionEventsPaginatedRow struct {
 	Metadata                []byte             `json:"metadata"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	ActorUsername           string             `json:"actor_username"`
-	InventoryItemName       *string            `json:"inventory_item_name"`
+	InventoryItemName       string             `json:"inventory_item_name"`
 	InventoryItemParentID   *uuid.UUID         `json:"inventory_item_parent_id"`
-	InventoryItemParentName *string            `json:"inventory_item_parent_name"`
+	InventoryItemParentName string             `json:"inventory_item_parent_name"`
 	InventoryItemPath       string             `json:"inventory_item_path"`
-	InventoryVmNode         *string            `json:"inventory_vm_node"`
-	InventoryVmVmid         *int32             `json:"inventory_vm_vmid"`
+	InventoryVmNode         string             `json:"inventory_vm_node"`
+	InventoryVmVmid         int32              `json:"inventory_vm_vmid"`
+	PodTitle                string             `json:"pod_title"`
+	PodSlug                 string             `json:"pod_slug"`
+	PodFolderPath           string             `json:"pod_folder_path"`
 }
 
 func (q *Queries) ListActionEventsPaginated(ctx context.Context, arg ListActionEventsPaginatedParams) ([]ListActionEventsPaginatedRow, error) {
@@ -223,6 +332,9 @@ func (q *Queries) ListActionEventsPaginated(ctx context.Context, arg ListActionE
 			&i.InventoryItemPath,
 			&i.InventoryVmNode,
 			&i.InventoryVmVmid,
+			&i.PodTitle,
+			&i.PodSlug,
+			&i.PodFolderPath,
 		); err != nil {
 			return nil, err
 		}

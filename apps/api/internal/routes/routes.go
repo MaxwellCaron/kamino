@@ -103,6 +103,8 @@ func RegisterRoutes(
 		protected.GET("/pods/create/options", pods.GetCreateOptions)
 		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
 		protected.GET("/pods/create/progress/:id", pods.GetCreateProgress)
+		protected.GET("/pods/personal", pods.GetPersonalPod)
+		protected.POST("/pods/personal", pods.CreatePersonalPod)
 		protected.GET("/pods/publish/options", pods.GetPublishOptions)
 		protected.GET("/pods/published", pods.ListPublished)
 		protected.POST("/pods/published", pods.SavePublished)
@@ -147,6 +149,7 @@ func RegisterRoutes(
 	if requests != nil {
 		protected.GET("/requests", requests.List)
 		protected.GET("/requests/mine", requests.ListMine)
+		protected.POST("/requests/personal-pod", requests.SubmitPersonalPod)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots", requests.SubmitInventorySnapshotCreate)
 		protected.POST("/requests/inventory/items/:id/vm/snapshots/rollback", requests.SubmitInventorySnapshotRollback)

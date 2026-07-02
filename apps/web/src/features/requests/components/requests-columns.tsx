@@ -86,6 +86,14 @@ export function getRequestColumns({
               .map((n) => n.name)
               .join(" / ")
           : null
+        const targetLabel = request.inventory?.vmid
+          ? formatVmReference(
+              request.inventory.vmid,
+              request.inventory.item_name
+            )
+          : request.kind === "personal_pod.create"
+            ? "Personal pod"
+            : request.inventory?.item_name ?? "Inventory item"
 
         return (
           <div className="flex items-center gap-3 pl-4">
@@ -107,13 +115,8 @@ export function getRequestColumns({
                 </div>
               </div>
               <p className="truncate text-xs text-muted-foreground">
-                {pathLabel}
-                {" / "}
-                {request.inventory?.vmid &&
-                  formatVmReference(
-                    request.inventory.vmid,
-                    request.inventory.item_name
-                  )}
+                {pathLabel ? `${pathLabel} / ` : ""}
+                {targetLabel}
               </p>
             </div>
           </div>

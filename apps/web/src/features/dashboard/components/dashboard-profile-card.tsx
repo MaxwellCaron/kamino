@@ -40,7 +40,7 @@ export function DashboardProfileCard({
             <CardDescription>{roleLabel}</CardDescription>
           </div>
         </div>
-        <CardAction className="shrink-0 self-end pb-2">
+        <CardAction className="flex shrink-0 flex-wrap justify-end gap-2 self-end pb-2">
           <Button type="button" onClick={onSettingsClick}>
             <HugeiconsIcon icon={Settings01Icon} data-icon="inline-start" />
             Settings

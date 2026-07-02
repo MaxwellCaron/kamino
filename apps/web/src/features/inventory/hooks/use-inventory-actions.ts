@@ -11,6 +11,7 @@ import {
 } from "../api/inventory-api"
 import { moveInventoryTreeNodes } from "../utils/inventory-tree"
 import type { ApiTreeNode } from "../types/inventory-types"
+import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 
 function useInvalidateInventoryTreeMutation<TVariables>(
   mutationFn: (variables: TVariables) => Promise<void>
@@ -90,7 +91,21 @@ export function useUpdateFolderVmLimit() {
 }
 
 export function useDeleteFolder() {
-  return useInvalidateInventoryTreeMutation(deleteFolder)
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deleteFolder,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: inventoryTreeQueryOptions.queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: personalPodQueryOptions.queryKey,
+        }),
+      ])
+    },
+  })
 }
 
 export function useUpdateInventoryAcl() {

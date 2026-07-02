@@ -46,30 +46,110 @@ const (
 )
 
 type PodRouterCloneConfig struct {
-	VNetPrefix               string
-	NetworkMin               int32
-	NetworkMax               int32
-	DevNetworkMin            int32
-	DevNetworkMax            int32
-	RouterWaitTimeout        time.Duration
-	WANIPBase                string
-	InternalSubnet           netip.Prefix
-	CloudInitStorage         string
-	CloudInitUserFilePattern string
-	CloudInitNetworkFile     string
+	VNetPrefix                       string
+	NetworkMin                       int32
+	NetworkMax                       int32
+	DevNetworkMin                    int32
+	DevNetworkMax                    int32
+	RouterWaitTimeout                time.Duration
+	WANIPBase                        string
+	InternalSubnet                   netip.Prefix
+	CloudInitStorage                 string
+	CloudInitUserFilePattern         string
+	CloudInitNetworkFile             string
+	PersonalVNetPrefix               string
+	PersonalNetworkMin               int32
+	PersonalNetworkMax               int32
+	PersonalWANIPBase                string
+	PersonalCloudInitUserFilePattern string
 }
 
 type PodsHandler struct {
-	PX                   *proxmox.Client
-	Importer             *proxmox.InventoryImporter
-	Service              *inventory.Service
-	Authz                *authorization.Service
-	DB                   *pgxpool.Pool
-	Notifier             *vmstatus.Notifier
-	Actions              *vmactions.Executor
-	RouterTemplateItemID uuid.UUID
-	RouterCloneConfig    PodRouterCloneConfig
-	Audit                *audit.Service
+	PX                              *proxmox.Client
+	Importer                        *proxmox.InventoryImporter
+	Service                         *inventory.Service
+	Authz                           *authorization.Service
+	DB                              *pgxpool.Pool
+	Notifier                        *vmstatus.Notifier
+	Actions                         *vmactions.Executor
+	RouterTemplateItemID            uuid.UUID
+	PersonalPodRouterTemplateItemID uuid.UUID
+	RouterCloneConfig               PodRouterCloneConfig
+	Audit                           *audit.Service
+	TemplatesFolderItemID           uuid.UUID
+	PodsFolderItemID                uuid.UUID
+	PersonalPodsFolderItemID        uuid.UUID
+}
+
+var errConfiguredPodsFolderMissing = errors.New("configured PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
+var errConfiguredPersonalPodsFolderMissing = errors.New("configured PERSONAL_PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
+
+// resolveTemplatesFolderID prefers the configured TEMPLATES_FOLDER_ITEM_ID and
+// falls back to matching the "Templates" folder by name under the root.
+func (h *PodsHandler) resolveTemplatesFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return h.resolveConfiguredFolderID(ctx, h.TemplatesFolderItemID, templatesFolderName)
+}
+
+func (h *PodsHandler) resolvePodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return h.resolveConfiguredFolderID(ctx, h.PodsFolderItemID, podsFolderName)
+}
+
+func (h *PodsHandler) resolvePersonalPodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return h.resolveConfiguredFolderID(ctx, h.PersonalPodsFolderItemID, personalPodsFolderName)
+}
+
+func (h *PodsHandler) resolveConfiguredFolderID(
+	ctx context.Context,
+	configuredID uuid.UUID,
+	fallbackName string,
+) (uuid.UUID, bool, error) {
+	if configuredID == uuid.Nil {
+		return h.Service.FindFolderPath(ctx, []string{fallbackName})
+	}
+
+	item, err := h.Service.GetInventoryItemByID(ctx, configuredID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return uuid.Nil, false, nil
+	}
+	return item.ID, true, nil
+}
+
+// ensurePodsFolderID is used by pod creation, which must end up with a
+// concrete Pods folder. With a configured ID the folder must already exist.
+func (h *PodsHandler) ensurePodsFolderID(ctx context.Context) (uuid.UUID, error) {
+	if h.PodsFolderItemID == uuid.Nil {
+		return h.Service.EnsureFolderPath(ctx, []string{podsFolderName})
+	}
+
+	id, found, err := h.resolvePodsFolderID(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if !found {
+		return uuid.Nil, errConfiguredPodsFolderMissing
+	}
+	return id, nil
+}
+
+func (h *PodsHandler) ensurePersonalPodsFolderID(ctx context.Context) (uuid.UUID, error) {
+	if h.PersonalPodsFolderItemID == uuid.Nil {
+		return h.Service.EnsureFolderPath(ctx, []string{personalPodsFolderName})
+	}
+
+	id, found, err := h.resolvePersonalPodsFolderID(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if !found {
+		return uuid.Nil, errConfiguredPersonalPodsFolderMissing
+	}
+	return id, nil
 }
 
 type publishedPodPrincipalResponse struct {
@@ -542,6 +622,13 @@ func (h *PodsHandler) SavePublished(c *gin.Context) {
 	}
 
 	progress.succeed("Published Pod saved to the catalog.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.publish.save",
+		TargetKind:       "pod",
+		PodID:            &pod.ID,
+		Metadata:         map[string]any{"is_update": pathID != uuid.Nil},
+	})
 	c.JSON(http.StatusOK, pod)
 }
 
@@ -602,6 +689,13 @@ func (h *PodsHandler) UpdatePublishedStatus(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.publish.status_update",
+		TargetKind:       "pod",
+		PodID:            &podID,
+		Metadata:         map[string]any{"status": req.Status},
+	})
 	c.JSON(http.StatusOK, pods[0])
 }
 
@@ -632,6 +726,12 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.publish.delete",
+		TargetKind:       "pod",
+		PodID:            &podID,
+	})
 	c.Status(http.StatusNoContent)
 }
 
@@ -839,7 +939,7 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
-	templatesFolderID, found, err := h.Service.FindFolderPath(c.Request.Context(), []string{templatesFolderName})
+	templatesFolderID, found, err := h.resolveTemplatesFolderID(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load templates", "find pod template folder", err)
 		return
@@ -918,7 +1018,7 @@ func (h *PodsHandler) ValidateCreateName(c *gin.Context) {
 		return
 	}
 
-	podsFolderID, found, err := h.Service.FindFolderPath(c.Request.Context(), []string{podsFolderName})
+	podsFolderID, found, err := h.resolvePodsFolderID(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to validate pod name", "find pods folder for name validation", err)
 		return
@@ -975,8 +1075,13 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	progress.set(createProgressStepFolders, "Creating Pod inventory folders.")
-	podsFolderID, err := h.Service.EnsureFolderPath(c.Request.Context(), []string{podsFolderName})
+	podsFolderID, err := h.ensurePodsFolderID(c.Request.Context())
 	if err != nil {
+		if errors.Is(err, errConfiguredPodsFolderMissing) {
+			progress.fail(err.Error())
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		progress.fail(inventoryRequestError(err).UserMessage)
 		writeInventoryError(c, err)
 		return
@@ -1125,16 +1230,25 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			return
 		}
 		if req.IncludeRouter {
+			devVNetName := h.podVNetName(devNetworkNumber)
 			progress.set(createProgressStepConfiguring, "Configuring dev VNet bridges.")
-			if reqErr := h.configurePodVNetBridges(c.Request.Context(), devNetworkNumber, createdTargets); reqErr != nil {
+			if reqErr := h.configurePodVNetBridges(c.Request.Context(), devVNetName, createdTargets); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
 				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
 
+			cloudInitConfig, err := buildClonedRouterCloudInitConfig(devNetworkNumber, h.RouterCloneConfig)
+			if err != nil {
+				progress.fail("failed to build router cloud-init configuration")
+				h.cleanupFailedPodProvision(podFolderID, created)
+				writeLoggedError(c, http.StatusInternalServerError, "failed to build router cloud-init configuration", "build cloned router cloud-init configuration", err)
+				return
+			}
+
 			progress.set(createProgressStepRouter, "Starting router.")
-			if reqErr := h.configurePodRouterCloudInit(c.Request.Context(), devNetworkNumber, createdTargets); reqErr != nil {
+			if reqErr := h.configurePodRouterCloudInit(c.Request.Context(), cloudInitConfig, createdTargets); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
 				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
@@ -1144,6 +1258,13 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	progress.succeed("Pod created successfully.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.create",
+		TargetKind:       "folder",
+		InventoryItemID:  &podFolderID,
+		Metadata:         map[string]any{"name": req.Name},
+	})
 	c.JSON(http.StatusOK, createPodResponse{
 		OK:       true,
 		FolderID: podFolderID,
@@ -1156,7 +1277,7 @@ func (h *PodsHandler) publishPodFolders(
 	principalID uuid.UUID,
 	publishedPodID uuid.UUID,
 ) ([]publishPodFolderOption, error) {
-	podsFolderID, found, err := h.Service.FindFolderPath(ctx, []string{podsFolderName})
+	podsFolderID, found, err := h.resolvePodsFolderID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -3365,7 +3486,7 @@ func inventoryRequestError(err error) *requestError {
 		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
-		errors.Is(err, names.ErrMustStartWithLetter),
+		errors.Is(err, names.ErrMustStartWithAlnum),
 		errors.Is(err, names.ErrInvalidCharacters):
 		status = http.StatusUnprocessableEntity
 		message = err.Error()

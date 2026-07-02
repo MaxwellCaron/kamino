@@ -5,6 +5,7 @@ import {
   CheckmarkCircle01Icon,
   Clock01Icon,
   HistoryIcon,
+  PackageAddIcon,
   PlayIcon,
   PowerIcon,
   Refresh03Icon,
@@ -22,6 +23,7 @@ const requestKindLabels: Record<string, string> = {
   "inventory.vm.power": "Power change",
   "inventory.vm.snapshot.create": "Create snapshot",
   "inventory.vm.snapshot.rollback": "Rollback snapshot",
+  "personal_pod.create": "Personal pod",
 }
 
 const requestStatusLabels: Record<ApiRequestStatus, string> = {
@@ -51,6 +53,7 @@ const REQUEST_ICONS: Record<string, IconSvgElement> = {
   "inventory.vm.power": PowerIcon,
   "inventory.vm.snapshot.create": Camera01Icon,
   "inventory.vm.snapshot.rollback": HistoryIcon,
+  "personal_pod.create": PackageAddIcon,
 }
 
 function startCase(value: string) {

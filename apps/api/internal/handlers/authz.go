@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
@@ -294,7 +295,7 @@ func requireVMCreateMetadataAccess(
 		return true
 	}
 
-	isManager, err := authzService.HasManagement(c.Request.Context(), principalID, authorization.ManagementPermissionManager)
+	isManager, err := authzService.IsManager(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize vm create metadata", err)
 		return false
@@ -328,6 +329,7 @@ func requireManagementPermission(
 
 type AuthorizationHandler struct {
 	Authz *authorization.Service
+	Audit *audit.Service
 }
 
 type updateManagementACLRequest struct {
@@ -447,6 +449,19 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 		return
 	}
 
+	grantKeys := make([]string, 0, len(req.Grants))
+	for _, g := range req.Grants {
+		grantKeys = append(grantKeys, string(g))
+	}
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "management_acl.update",
+		TargetKind:       "principal",
+		Metadata: map[string]any{
+			"group_id": groupID.String(),
+			"grants":   grantKeys,
+		},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

@@ -11,14 +11,14 @@ func TestParseIPv4Subnet24(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{"canonical", "10.128.1.0/24", "10.128.1.0/24", false},
-		{"padded with whitespace", "  10.128.1.0/24  ", "10.128.1.0/24", false},
+		{"canonical", "192.168.1.0/24", "192.168.1.0/24", false},
+		{"padded with whitespace", "  192.168.1.0/24  ", "192.168.1.0/24", false},
 		{"empty", "", "", true},
 		{"malformed", "not-a-cidr", "", true},
 		{"ipv6", "fd00::/24", "", true},
-		{"slash16", "10.128.0.0/16", "", true},
-		{"slash25", "10.128.1.0/25", "", true},
-		{"host address", "10.128.1.7/24", "", true},
+		{"slash16", "192.168.0.0/16", "", true},
+		{"slash25", "192.168.1.0/25", "", true},
+		{"host address", "192.168.1.7/24", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -50,7 +50,7 @@ func TestNormalizeDottedPrefix(t *testing.T) {
 		{"whitespace only", "  \t  ", "", false},
 		{"single octet", "10", "10.", false},
 		{"two octets", "172.16", "172.16.", false},
-		{"three octets", "10.128.0", "10.128.0.", false},
+		{"three octets", "192.168.0", "192.168.0.", false},
 		{"four octets", "192.168.1.0", "192.168.1.0.", false},
 		{"trailing dot stripped", "172.16.", "172.16.", false},
 		{"leading whitespace", "  10.0", "10.0.", false},

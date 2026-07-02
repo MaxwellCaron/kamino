@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -32,6 +33,7 @@ const (
 	RequestKindInventoryVMPower            = "inventory.vm.power"
 	RequestKindInventoryVMSnapshotCreate   = "inventory.vm.snapshot.create"
 	RequestKindInventoryVMSnapshotRollback = "inventory.vm.snapshot.rollback"
+	RequestKindPersonalPodCreate           = "personal_pod.create"
 
 	maxPendingRequestsPerUser = 3
 	StaleExecutingThreshold   = 15 * time.Minute
@@ -49,15 +51,24 @@ var (
 	ErrRequestStale              = errors.New("request target is stale")
 	ErrRequestServiceUnavailable = errors.New("request execution service unavailable")
 	ErrRequestLimitExceeded      = errors.New("maximum pending request limit reached")
+	ErrRequestPersonalPodExists  = errors.New("personal pod already exists")
+	ErrRequestDuplicatePending   = errors.New("a pending personal pod request already exists")
 )
 
+type PersonalPodProvisioner interface {
+	PersonalPodsEnabled() bool
+	ProvisionPersonalPod(ctx context.Context, userPrincipalID uuid.UUID) error
+}
+
 type Service struct {
-	db        *pgxpool.Pool
-	authz     *authorization.Service
-	inventory *inventory.Service
-	px        *proxmox.Client
-	actions   *vmactions.Executor
-	notifier  *Notifier
+	db           *pgxpool.Pool
+	authz        *authorization.Service
+	inventory    *inventory.Service
+	px           *proxmox.Client
+	actions      *vmactions.Executor
+	notifier     *Notifier
+	audit        *audit.Service
+	personalPods PersonalPodProvisioner
 }
 
 type vmTarget struct {
@@ -74,14 +85,18 @@ func NewService(
 	px *proxmox.Client,
 	actions *vmactions.Executor,
 	notifier *Notifier,
+	auditService *audit.Service,
+	personalPods PersonalPodProvisioner,
 ) *Service {
 	return &Service{
-		db:        db,
-		authz:     authz,
-		inventory: inventoryService,
-		px:        px,
-		actions:   actions,
-		notifier:  notifier,
+		db:           db,
+		authz:        authz,
+		inventory:    inventoryService,
+		px:           px,
+		actions:      actions,
+		notifier:     notifier,
+		audit:        auditService,
+		personalPods: personalPods,
 	}
 }
 
@@ -114,8 +129,27 @@ func (s *Service) notify(ctx context.Context, exec database.DBTX, events ...Even
 	}
 }
 
-func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, event Event) {
-	s.notify(ctx, tx, event)
+func (s *Service) recordAuditEvent(
+	ctx context.Context,
+	actorID *uuid.UUID,
+	actionKind string,
+	inventoryItemID *uuid.UUID,
+	status string,
+	errMsg *string,
+	metadata map[string]any,
+) {
+	if s.audit == nil {
+		return
+	}
+	s.audit.Record(ctx, audit.EventParams{
+		ActorPrincipalID: actorID,
+		ActionKind:       actionKind,
+		TargetKind:       "request",
+		InventoryItemID:  inventoryItemID,
+		Status:           status,
+		ErrorMessage:     errMsg,
+		Metadata:         metadata,
+	})
 }
 
 func (s *Service) ListStaleExecutingRequests(
@@ -341,6 +375,7 @@ func reviewableRequestKinds(
 		RequestKindInventoryVMPower,
 		RequestKindInventoryVMSnapshotCreate,
 		RequestKindInventoryVMSnapshotRollback,
+		RequestKindPersonalPodCreate,
 	}
 }
 
@@ -442,6 +477,105 @@ func (s *Service) SubmitInventorySnapshotRollbackRequest(
 	)
 }
 
+func (s *Service) SubmitPersonalPodRequest(
+	ctx context.Context,
+	requesterPrincipalID uuid.UUID,
+) (database.GetRequestByIDRow, error) {
+	if s.personalPods == nil || !s.personalPods.PersonalPodsEnabled() {
+		return database.GetRequestByIDRow{}, ErrRequestUnsupportedKind
+	}
+
+	q := database.New(s.db)
+	if _, err := q.GetPersonalPodByUser(ctx, requesterPrincipalID); err == nil {
+		return database.GetRequestByIDRow{}, ErrRequestPersonalPodExists
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return database.GetRequestByIDRow{}, err
+	}
+	if _, err := q.GetPendingRequestByRequesterAndKind(ctx, database.GetPendingRequestByRequesterAndKindParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Kind:                 RequestKindPersonalPodCreate,
+	}); err == nil {
+		return database.GetRequestByIDRow{}, ErrRequestDuplicatePending
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	q = database.New(tx)
+	if _, err := q.LockRequestRequester(ctx, requesterPrincipalID); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	if _, err := q.GetPersonalPodByUser(ctx, requesterPrincipalID); err == nil {
+		return database.GetRequestByIDRow{}, ErrRequestPersonalPodExists
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return database.GetRequestByIDRow{}, err
+	}
+	if _, err := q.GetPendingRequestByRequesterAndKind(ctx, database.GetPendingRequestByRequesterAndKindParams{
+		RequesterPrincipalID: requesterPrincipalID,
+		Kind:                 RequestKindPersonalPodCreate,
+	}); err == nil {
+		return database.GetRequestByIDRow{}, ErrRequestDuplicatePending
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	pendingCount, err := q.CountPendingRequestsByRequester(ctx, requesterPrincipalID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	if pendingCount >= maxPendingRequestsPerUser {
+		return database.GetRequestByIDRow{}, ErrRequestLimitExceeded
+	}
+
+	requestRow, err := q.CreateRequest(ctx, database.CreateRequestParams{
+		Family:               database.RequestFamilyPersonalPod,
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: requesterPrincipalID,
+	})
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+	if _, err := q.CreateRequestEvent(ctx, database.CreateRequestEventParams{
+		RequestID:        requestRow.ID,
+		EventKind:        database.RequestEventKindSubmitted,
+		ActorPrincipalID: &requesterPrincipalID,
+		FromStatus:       invalidRequestStatus(),
+		ToStatus:         database.RequestStatusPending,
+		ErrorMessage:     nil,
+	}); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	s.recordAuditEvent(ctx, &requesterPrincipalID, "request.submit",
+		nil, "succeeded", nil,
+		map[string]any{
+			"request_id":   requestRow.ID.String(),
+			"request_kind": RequestKindPersonalPodCreate,
+		})
+
+	s.notify(ctx, nil, requestChangedEvent(
+		requestRow.ID,
+		requesterPrincipalID,
+		RequestKindPersonalPodCreate,
+	))
+
+	row, err := database.New(s.db).GetRequestByID(ctx, requestRow.ID)
+	if err != nil {
+		return database.GetRequestByIDRow{}, err
+	}
+
+	return row, nil
+}
+
 func (s *Service) ApproveRequest(
 	ctx context.Context,
 	reviewerPrincipalID uuid.UUID,
@@ -512,6 +646,13 @@ func (s *Service) ApproveRequest(
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, nil, err
 	}
+
+	s.recordAuditEvent(ctx, &reviewerPrincipalID, "request.approve",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
+	s.recordAuditEvent(ctx, &reviewerPrincipalID, "request.execution_started",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
@@ -593,6 +734,10 @@ func (s *Service) DenyRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	s.recordAuditEvent(ctx, &reviewerPrincipalID, "request.deny",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
+
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
 		locked.RequesterPrincipalID,
@@ -651,6 +796,10 @@ func (s *Service) CancelRequest(
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, nil, err
 	}
+
+	s.recordAuditEvent(ctx, &actorPrincipalID, "request.cancel",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
@@ -719,6 +868,10 @@ func (s *Service) createInventoryRequest(
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, err
 	}
+
+	s.recordAuditEvent(ctx, &requesterPrincipalID, "request.submit",
+		&itemID, "succeeded", nil,
+		map[string]any{"request_id": requestRow.ID.String(), "request_kind": kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestRow.ID,
@@ -816,7 +969,8 @@ func canReviewRequestKind(
 	switch requestKind {
 	case RequestKindInventoryVMPower,
 		RequestKindInventoryVMSnapshotCreate,
-		RequestKindInventoryVMSnapshotRollback:
+		RequestKindInventoryVMSnapshotRollback,
+		RequestKindPersonalPodCreate:
 		return true
 	default:
 		return false
@@ -832,6 +986,12 @@ func (s *Service) executeApprovedRequest(
 	}
 	if s.actions == nil {
 		return ErrRequestServiceUnavailable
+	}
+	if requestRow.Kind == RequestKindPersonalPodCreate {
+		if s.personalPods == nil || !s.personalPods.PersonalPodsEnabled() {
+			return ErrRequestServiceUnavailable
+		}
+		return s.personalPods.ProvisionPersonalPod(ctx, requestRow.RequesterPrincipalID)
 	}
 	if requestRow.InventoryItemID == nil {
 		return ErrRequestMissingPayload
@@ -988,6 +1148,10 @@ func (s *Service) markExecuted(
 		return err
 	}
 
+	s.recordAuditEvent(ctx, &actorPrincipalID, "request.executed",
+		requestRow.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestRow.ID.String(), "request_kind": requestRow.Kind})
+
 	s.notify(ctx, nil, requestChangedEvent(
 		requestRow.ID,
 		requestRow.RequesterPrincipalID,
@@ -1048,6 +1212,10 @@ func (s *Service) markExecutionFailedRecord(
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
+
+	s.recordAuditEvent(ctx, actorPrincipalID, "request.execution_failed",
+		nil, "failed", &errorMessage,
+		map[string]any{"request_id": requestID.String(), "request_kind": kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,

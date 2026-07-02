@@ -18,6 +18,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -58,18 +59,21 @@ type vmAuthz interface {
 	GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
 	ResolveVMItems(ctx context.Context, principalID uuid.UUID, itemIDs []uuid.UUID, required authorization.Mask, lock bool) (map[uuid.UUID]authorization.VMItemAccess, error)
 	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
+	IsManager(ctx context.Context, principalID uuid.UUID) (bool, error)
 }
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX       vmProxmox
-	Importer *proxmox.InventoryImporter
-	Service  *inventory.Service
-	Notifier *vmstatus.Notifier
-	Authz    vmAuthz
-	Actions  *vmactions.Executor
-	Claims   *vmactions.Claims
-	Audit    *audit.Service
+	PX                    vmProxmox
+	DB                    *pgxpool.Pool
+	Importer              *proxmox.InventoryImporter
+	Service               *inventory.Service
+	Notifier              *vmstatus.Notifier
+	Authz                 vmAuthz
+	Actions               *vmactions.Executor
+	Claims                *vmactions.Claims
+	Audit                 *audit.Service
+	PersonalPodVNetPrefix string
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a
@@ -612,6 +616,13 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 			return false
 		}
 
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.rename",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"name": req.Name},
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})
@@ -656,6 +667,12 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.notes.update",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		if h.PX == nil {
 			c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
 			return true
@@ -774,6 +791,34 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		return
 	}
 
+	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm hardware management permission", err)
+		return
+	}
+	if !isManager {
+		scopedVNetName, scoped, err := personalPodNetworkScope(
+			c.Request.Context(),
+			h.DB,
+			h.PersonalPodVNetPrefix,
+			itemID,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm hardware network scope", err)
+			return
+		}
+		if scoped {
+			for _, network := range req.Networks {
+				if strings.TrimSpace(network.Bridge) != scopedVNetName {
+					c.JSON(http.StatusUnprocessableEntity, gin.H{
+						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s", scopedVNetName),
+					})
+					return
+				}
+			}
+		}
+	}
+
 	config := proxmox.VMHardwareConfig{
 		OSType:   strings.TrimSpace(req.OSType),
 		BIOS:     strings.TrimSpace(req.BIOS),
@@ -825,6 +870,12 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.hardware.update",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})

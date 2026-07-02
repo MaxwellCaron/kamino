@@ -7,14 +7,19 @@ import type {
 } from "../types/vm-types"
 import { apiFetch } from "@/features/auth/api/auth-api"
 
-export function bridgesQueryOptions(node: string) {
+export function bridgesQueryOptions(node: string, scopeItemId?: string) {
   return {
-    queryKey: ["proxmox", "bridges", node] as const,
+    queryKey: ["proxmox", "bridges", node, scopeItemId ?? ""] as const,
     queryFn: async (): Promise<{
       bridges: Array<ApiNetworkBridge>
       vnets: Array<ApiVNet>
     }> => {
-      const res = await apiFetch(`/api/v1/proxmox/nodes/${node}/bridges`)
+      const params = new URLSearchParams()
+      if (scopeItemId) {
+        params.set("scope_item_id", scopeItemId)
+      }
+      const suffix = params.size > 0 ? `?${params.toString()}` : ""
+      const res = await apiFetch(`/api/v1/proxmox/nodes/${node}/bridges${suffix}`)
       if (!res.ok) throw new Error(`Failed to fetch bridges: ${res.status}`)
       return res.json()
     },
@@ -22,20 +27,27 @@ export function bridgesQueryOptions(node: string) {
   }
 }
 
-export const createVmOptionsQueryOptions = {
-  queryKey: ["proxmox", "create", "options"] as const,
-  queryFn: async (): Promise<{
-    nodes: Array<ApiNode>
-    disk_storages: Array<ApiStorage>
-    iso_storages: Array<ApiStorage>
-    bridges: Array<ApiNetworkBridge>
-    vnets: Array<ApiVNet>
-  }> => {
-    const res = await apiFetch("/api/v1/proxmox/create/options")
-    if (!res.ok)
-      throw new Error(`Failed to fetch create options: ${res.status}`)
-    return res.json()
-  },
+export function createVmOptionsQueryOptions(scopeItemId?: string) {
+  return {
+    queryKey: ["proxmox", "create", "options", scopeItemId ?? ""] as const,
+    queryFn: async (): Promise<{
+      nodes: Array<ApiNode>
+      disk_storages: Array<ApiStorage>
+      iso_storages: Array<ApiStorage>
+      bridges: Array<ApiNetworkBridge>
+      vnets: Array<ApiVNet>
+    }> => {
+      const params = new URLSearchParams()
+      if (scopeItemId) {
+        params.set("scope_item_id", scopeItemId)
+      }
+      const suffix = params.size > 0 ? `?${params.toString()}` : ""
+      const res = await apiFetch(`/api/v1/proxmox/create/options${suffix}`)
+      if (!res.ok)
+        throw new Error(`Failed to fetch create options: ${res.status}`)
+      return res.json()
+    },
+  }
 }
 
 export const nodesQueryOptions = {

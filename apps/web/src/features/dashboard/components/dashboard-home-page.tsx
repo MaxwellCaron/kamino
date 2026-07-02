@@ -18,8 +18,8 @@ import { DashboardStatsGrid } from "./dashboard-stat-cards"
 import type { ClonedPodEntry } from "../utils/dashboard-types"
 import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
 import type { AuthUser } from "@/features/auth/types/auth-types"
-import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
@@ -277,6 +277,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           className="xl:col-span-7"
           error={catalogError}
           pods={recentPods}
+          username={user.username}
         />
         <DashboardFavoritesCard
           className="xl:col-span-5"

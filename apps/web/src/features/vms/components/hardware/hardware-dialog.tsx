@@ -56,7 +56,7 @@ export function VmHardwareDialog({
     enabled: isDialogOpen,
   })
   const { data: networks, error: networksError } = useQuery({
-    ...bridgesQueryOptions(node),
+    ...bridgesQueryOptions(node, itemId),
     enabled: isDialogOpen,
   })
 

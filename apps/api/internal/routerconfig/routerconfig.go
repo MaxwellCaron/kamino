@@ -10,7 +10,7 @@ import (
 
 // ParseIPv4Subnet24 parses value as a canonical IPv4 /24 network address,
 // rejecting IPv6, other prefix lengths, and host addresses (e.g.
-// 10.128.1.7/24 has a non-zero host part and is rejected).
+// 192.168.1.7/24 has a non-zero host part and is rejected).
 func ParseIPv4Subnet24(value string) (netip.Prefix, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {

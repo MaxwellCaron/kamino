@@ -909,7 +909,7 @@ func (h *PodsHandler) loadClonedPodForMutation(
 	principalID uuid.UUID,
 	cloneID uuid.UUID,
 ) (database.ClonedPods, *requestError) {
-	isManager, err := h.Authz.HasManagement(ctx, principalID, authorization.ManagementPermissionManager)
+	isManager, err := h.Authz.IsManager(ctx, principalID)
 	if err != nil {
 		return database.ClonedPods{}, &requestError{
 			Status:      http.StatusInternalServerError,
@@ -1813,7 +1813,7 @@ func (h *PodsHandler) waitForClonedVMsReady(
 
 func (h *PodsHandler) configurePodVNetBridges(
 	ctx context.Context,
-	networkNumber int32,
+	vnetName string,
 	targets []podNetworkVMTarget,
 ) *requestError {
 	router, reqErr := findPodNetworkRouterTarget(targets)
@@ -1821,7 +1821,6 @@ func (h *PodsHandler) configurePodVNetBridges(
 		return reqErr
 	}
 
-	vnetName := h.podVNetName(networkNumber)
 	if reqErr := h.ensurePodVNetExists(ctx, vnetName); reqErr != nil {
 		return reqErr
 	}
@@ -1864,12 +1863,12 @@ func (h *PodsHandler) configureClonedPodNetwork(
 	networkNumber int32,
 	results []clonePublishedVMResult,
 ) *requestError {
-	return h.configurePodVNetBridges(ctx, networkNumber, podNetworkTargetsFromCloneResults(results))
+	return h.configurePodVNetBridges(ctx, h.podVNetName(networkNumber), podNetworkTargetsFromCloneResults(results))
 }
 
 func (h *PodsHandler) configurePodRouterCloudInit(
 	ctx context.Context,
-	networkNumber int32,
+	cloudInitConfig *clonedRouterCloudInitConfig,
 	targets []podNetworkVMTarget,
 ) *requestError {
 	router, reqErr := findPodNetworkRouterTarget(targets)
@@ -1900,16 +1899,6 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 			UserMessage: "router must be stopped before cloud-init configuration",
 			Operation:   "verify cloned router stopped",
 			Err:         fmt.Errorf("cloned router VM %d is in %q state", router.clone.VMID, status),
-		}
-	}
-
-	cloudInitConfig, err := buildClonedRouterCloudInitConfig(networkNumber, h.RouterCloneConfig)
-	if err != nil {
-		return &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to build router cloud-init configuration",
-			Operation:   "build cloned router cloud-init configuration",
-			Err:         err,
 		}
 	}
 
@@ -1974,7 +1963,17 @@ func (h *PodsHandler) configureClonedRouter(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	return h.configurePodRouterCloudInit(ctx, clone.NetworkNumber, podNetworkTargetsFromCloneResults(results))
+	cloudInitConfig, err := buildClonedRouterCloudInitConfig(clone.NetworkNumber, h.RouterCloneConfig)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to build router cloud-init configuration",
+			Operation:   "build cloned router cloud-init configuration",
+			Err:         err,
+		}
+	}
+
+	return h.configurePodRouterCloudInit(ctx, cloudInitConfig, podNetworkTargetsFromCloneResults(results))
 }
 
 func (h *PodsHandler) recordReclonedPodVMs(
@@ -2608,6 +2607,13 @@ func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.delete",
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata:         map[string]any{"clone_id": clone.ID.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -2932,21 +2938,25 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 				ID:    clone.ID,
 				Error: reqErr.UserMessage,
 			})
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "pod." + req.Action,
+				TargetKind:       "pod",
+				PodID:            &podID,
+				Metadata:         map[string]any{"clone_id": clone.ID.String()},
+			}, reqErr.UserMessage)
 			continue
 		}
 		resp.Succeeded = append(resp.Succeeded, clone.ID)
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "pod." + req.Action,
+			TargetKind:       "pod",
+			PodID:            &podID,
+			Metadata:         map[string]any{"clone_id": clone.ID.String()},
+		})
 	}
 
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "pod.bulk." + req.Action,
-		TargetKind:       "pod",
-		PodID:            &podID,
-		Metadata: map[string]any{
-			"succeeded": len(resp.Succeeded),
-			"failed":    len(resp.Failed),
-		},
-	})
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -3135,6 +3145,9 @@ func sanitizeFolderNameString(input string) string {
 
 func cloneFolderName(username string) (string, error) {
 	name := names.Normalize(username)
+	if len(name) > 0 && name[0] >= '0' && name[0] <= '9' {
+		name = "User-" + name
+	}
 	if err := names.ValidateFolder(name); err == nil {
 		return name, nil
 	}
