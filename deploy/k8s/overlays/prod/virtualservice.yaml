@@ -1,0 +1,25 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: kamino
+  labels:
+    app.kubernetes.io/part-of: kamino
+spec:
+  hosts:
+    - placeholder.invalid
+  gateways:
+    - kamino
+  http:
+    - match:
+        - uri:
+            prefix: /api
+      route:
+        - destination:
+            host: api.kamino.svc.cluster.local
+            port:
+              number: 8080
+    - route:
+        - destination:
+            host: web.kamino.svc.cluster.local
+            port:
+              number: 3000

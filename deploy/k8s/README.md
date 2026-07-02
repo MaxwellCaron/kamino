@@ -1,15 +1,19 @@
 # Kamino on Argo CD and k3s
 
-This deployment uses the default k3s Traefik ingress controller and public
-GHCR images. The API connects directly to PostgreSQL, Proxmox, and AD; no
-Istio egress resources or image pull secrets are required.
+This deployment uses an Istio ingress gateway and public GHCR images. The API
+connects directly to PostgreSQL, Proxmox, and AD; no Istio egress resources,
+sidecar injection, or image pull secrets are required.
 
 ## Prerequisites
 
-- Traefik is enabled and an `IngressClass` named `traefik` exists.
+- Istio is installed and the default ingress gateway (pods labeled
+  `istio: ingressgateway`, normally in `istio-system`) is running.
+- The bundled k3s Traefik is disabled (`--disable traefik`) so the Istio
+  ingress gateway can own the load balancer's ports 80 and 443.
 - Argo CD Image Updater is installed if automatic image digest updates are
   wanted.
-- DNS for the production hostname points to the Traefik load balancer.
+- DNS for the production hostname points to the `istio-ingressgateway`
+  load balancer.
 - PostgreSQL is reachable from the cluster and the Kamino schema has been
   initialized.
 - Proxmox is reachable on TCP 8006 and AD is reachable on TCP 636.
@@ -33,7 +37,8 @@ cp deploy/argocd/kamino-application.example.yaml \
 `kamino-application.yaml` is ignored by Git. It can contain a different hostname
 for every installation without modifying the shared repository. Its Kustomize
 patch sets `PUBLIC_HOST`, and the production overlay propagates that single
-value to the Ingress rule, TLS host, and the API's HTTPS `FRONTEND_URL`.
+value to the Gateway server hosts, the VirtualService host, and the API's
+HTTPS `FRONTEND_URL`.
 
 `FRONTEND_URL` must be the exact HTTPS origin because it controls CORS, secure
 authentication cookies, and VNC WebSocket origin validation.
@@ -77,14 +82,16 @@ installation and do not force-add it.
 Production authentication requires the LDAP settings. If `LDAP_URL` is not
 configured, the API does not install authentication middleware.
 
-Create or copy the TLS certificate into the same namespace as the Ingress:
+The Gateway references the certificate through Istio SDS (`credentialName`),
+which requires the Secret to live in the same namespace as the ingress
+gateway pods — `istio-system` by default, not `kamino`:
 
 ```bash
 cp /secure/path/tls.crt deploy/k8s/kamino-tls.crt
 cp /secure/path/tls.key deploy/k8s/kamino-tls.key
 chmod 600 deploy/k8s/kamino-tls.key
 
-kubectl -n kamino create secret tls kamino-tls \
+kubectl -n istio-system create secret tls kamino-tls \
   --cert=deploy/k8s/kamino-tls.crt \
   --key=deploy/k8s/kamino-tls.key \
   --dry-run=client -o yaml | kubectl apply -f -
