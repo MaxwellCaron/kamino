@@ -51,6 +51,8 @@ type Config struct {
 	LDAPAdminGroupDN                  string `envconfig:"LDAP_ADMIN_GROUP_DN"`
 	LDAPInsecure                      bool   `envconfig:"LDAP_INSECURE" default:"false"`
 	PodRouterTemplate                 string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+	TemplatesFolderItemID             string `envconfig:"TEMPLATES_FOLDER_ITEM_ID"`
+	PodsFolderItemID                  string `envconfig:"PODS_FOLDER_ITEM_ID"`
 	PodCloneVNetPrefix                string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
 	PodCloneNetworkMin                int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
 	PodCloneNetworkMax                int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"244"`
@@ -464,17 +466,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid POD_ROUTER_TEMPLATE_ITEM_ID: %v", err)
 	}
+	templatesFolderItemID, err := parseOptionalUUID(server.Config.TemplatesFolderItemID)
+	if err != nil {
+		log.Fatalf("Invalid TEMPLATES_FOLDER_ITEM_ID: %v", err)
+	}
+	podsFolderItemID, err := parseOptionalUUID(server.Config.PodsFolderItemID)
+	if err != nil {
+		log.Fatalf("Invalid PODS_FOLDER_ITEM_ID: %v", err)
+	}
 	podsHandler := &handlers.PodsHandler{
-		PX:                   server.ProxmoxClient,
-		Importer:             server.ProxmoxImport,
-		Service:              inventoryService,
-		Authz:                authzService,
-		DB:                   server.DBPool,
-		Notifier:             vmStatusNotifier,
-		Actions:              vmActionExecutor,
-		RouterTemplateItemID: routerTemplateItemID,
-		RouterCloneConfig:    routerCloneConfig,
-		Audit:                auditService,
+		PX:                    server.ProxmoxClient,
+		Importer:              server.ProxmoxImport,
+		Service:               inventoryService,
+		Authz:                 authzService,
+		DB:                    server.DBPool,
+		Notifier:              vmStatusNotifier,
+		Actions:               vmActionExecutor,
+		RouterTemplateItemID:  routerTemplateItemID,
+		RouterCloneConfig:     routerCloneConfig,
+		Audit:                 auditService,
+		TemplatesFolderItemID: templatesFolderItemID,
+		PodsFolderItemID:      podsFolderItemID,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
