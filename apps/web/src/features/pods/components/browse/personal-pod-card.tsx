@@ -177,7 +177,7 @@ export function PersonalPodCard({
     <>
       <CutoutCard className={cutoutCardSurfaceClassName}>
         <CutoutCardMedia className="h-72 overflow-hidden bg-muted/40">
-          <CutoutCardOverlay className="from-background/55 via-background/15 to-transparent dark:from-background/70" />
+          <CutoutCardOverlay className="bg-amber-600/20 dark:bg-emerald-400/50" />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex size-20 items-center justify-center rounded-full border border-border/60 bg-card/90 shadow-sm backdrop-blur-sm">
               <HugeiconsIcon icon={PackageIcon} className="text-foreground" />
