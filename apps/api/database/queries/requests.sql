@@ -14,6 +14,14 @@ FROM requests
 WHERE requester_principal_id = $1
   AND status = 'pending';
 
+-- name: GetPendingRequestByRequesterAndKind :one
+SELECT id
+FROM requests
+WHERE requester_principal_id = $1
+  AND kind = $2
+  AND status = 'pending'
+LIMIT 1;
+
 -- name: CreateRequest :one
 INSERT INTO requests (
     family,

@@ -46,35 +46,43 @@ const (
 )
 
 type PodRouterCloneConfig struct {
-	VNetPrefix               string
-	NetworkMin               int32
-	NetworkMax               int32
-	DevNetworkMin            int32
-	DevNetworkMax            int32
-	RouterWaitTimeout        time.Duration
-	WANIPBase                string
-	InternalSubnet           netip.Prefix
-	CloudInitStorage         string
-	CloudInitUserFilePattern string
-	CloudInitNetworkFile     string
+	VNetPrefix                       string
+	NetworkMin                       int32
+	NetworkMax                       int32
+	DevNetworkMin                    int32
+	DevNetworkMax                    int32
+	RouterWaitTimeout                time.Duration
+	WANIPBase                        string
+	InternalSubnet                   netip.Prefix
+	CloudInitStorage                 string
+	CloudInitUserFilePattern         string
+	CloudInitNetworkFile             string
+	PersonalVNetPrefix               string
+	PersonalNetworkMin               int32
+	PersonalNetworkMax               int32
+	PersonalWANIPBase                string
+	PersonalCloudInitUserFilePattern string
 }
 
 type PodsHandler struct {
-	PX                    *proxmox.Client
-	Importer              *proxmox.InventoryImporter
-	Service               *inventory.Service
-	Authz                 *authorization.Service
-	DB                    *pgxpool.Pool
-	Notifier              *vmstatus.Notifier
-	Actions               *vmactions.Executor
-	RouterTemplateItemID  uuid.UUID
-	RouterCloneConfig     PodRouterCloneConfig
-	Audit                 *audit.Service
-	TemplatesFolderItemID uuid.UUID
-	PodsFolderItemID      uuid.UUID
+	PX                              *proxmox.Client
+	Importer                        *proxmox.InventoryImporter
+	Service                         *inventory.Service
+	Authz                           *authorization.Service
+	DB                              *pgxpool.Pool
+	Notifier                        *vmstatus.Notifier
+	Actions                         *vmactions.Executor
+	RouterTemplateItemID            uuid.UUID
+	PersonalPodRouterTemplateItemID uuid.UUID
+	RouterCloneConfig               PodRouterCloneConfig
+	Audit                           *audit.Service
+	TemplatesFolderItemID           uuid.UUID
+	PodsFolderItemID                uuid.UUID
+	PersonalPodsFolderItemID        uuid.UUID
 }
 
 var errConfiguredPodsFolderMissing = errors.New("configured PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
+var errConfiguredPersonalPodsFolderMissing = errors.New("configured PERSONAL_PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
 
 // resolveTemplatesFolderID prefers the configured TEMPLATES_FOLDER_ITEM_ID and
 // falls back to matching the "Templates" folder by name under the root.
@@ -84,6 +92,10 @@ func (h *PodsHandler) resolveTemplatesFolderID(ctx context.Context) (uuid.UUID, 
 
 func (h *PodsHandler) resolvePodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
 	return h.resolveConfiguredFolderID(ctx, h.PodsFolderItemID, podsFolderName)
+}
+
+func (h *PodsHandler) resolvePersonalPodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return h.resolveConfiguredFolderID(ctx, h.PersonalPodsFolderItemID, personalPodsFolderName)
 }
 
 func (h *PodsHandler) resolveConfiguredFolderID(
@@ -121,6 +133,21 @@ func (h *PodsHandler) ensurePodsFolderID(ctx context.Context) (uuid.UUID, error)
 	}
 	if !found {
 		return uuid.Nil, errConfiguredPodsFolderMissing
+	}
+	return id, nil
+}
+
+func (h *PodsHandler) ensurePersonalPodsFolderID(ctx context.Context) (uuid.UUID, error) {
+	if h.PersonalPodsFolderItemID == uuid.Nil {
+		return h.Service.EnsureFolderPath(ctx, []string{personalPodsFolderName})
+	}
+
+	id, found, err := h.resolvePersonalPodsFolderID(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if !found {
+		return uuid.Nil, errConfiguredPersonalPodsFolderMissing
 	}
 	return id, nil
 }
@@ -1203,16 +1230,25 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			return
 		}
 		if req.IncludeRouter {
+			devVNetName := h.podVNetName(devNetworkNumber)
 			progress.set(createProgressStepConfiguring, "Configuring dev VNet bridges.")
-			if reqErr := h.configurePodVNetBridges(c.Request.Context(), devNetworkNumber, createdTargets); reqErr != nil {
+			if reqErr := h.configurePodVNetBridges(c.Request.Context(), devVNetName, createdTargets); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
 				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
 
+			cloudInitConfig, err := buildClonedRouterCloudInitConfig(devNetworkNumber, h.RouterCloneConfig)
+			if err != nil {
+				progress.fail("failed to build router cloud-init configuration")
+				h.cleanupFailedPodProvision(podFolderID, created)
+				writeLoggedError(c, http.StatusInternalServerError, "failed to build router cloud-init configuration", "build cloned router cloud-init configuration", err)
+				return
+			}
+
 			progress.set(createProgressStepRouter, "Starting router.")
-			if reqErr := h.configurePodRouterCloudInit(c.Request.Context(), devNetworkNumber, createdTargets); reqErr != nil {
+			if reqErr := h.configurePodRouterCloudInit(c.Request.Context(), cloudInitConfig, createdTargets); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
 				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)

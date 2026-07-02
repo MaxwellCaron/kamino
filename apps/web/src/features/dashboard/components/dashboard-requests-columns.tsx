@@ -139,5 +139,9 @@ function getRequestTargetLabel(request: ApiRequestSummary) {
     )
   }
 
+  if (request.kind === "personal_pod.create") {
+    return "Personal pod"
+  }
+
   return request.inventory?.item_name ?? "Inventory item"
 }

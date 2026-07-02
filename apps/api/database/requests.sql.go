@@ -622,6 +622,27 @@ func (q *Queries) GetInventoryRequestByRequestID(ctx context.Context, requestID 
 	return i, err
 }
 
+const getPendingRequestByRequesterAndKind = `-- name: GetPendingRequestByRequesterAndKind :one
+SELECT id
+FROM requests
+WHERE requester_principal_id = $1
+  AND kind = $2
+  AND status = 'pending'
+LIMIT 1
+`
+
+type GetPendingRequestByRequesterAndKindParams struct {
+	RequesterPrincipalID uuid.UUID `json:"requester_principal_id"`
+	Kind                 string    `json:"kind"`
+}
+
+func (q *Queries) GetPendingRequestByRequesterAndKind(ctx context.Context, arg GetPendingRequestByRequesterAndKindParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getPendingRequestByRequesterAndKind, arg.RequesterPrincipalID, arg.Kind)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getRequestByID = `-- name: GetRequestByID :one
 SELECT
     r.id,

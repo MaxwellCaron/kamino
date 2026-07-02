@@ -52,9 +52,9 @@ export const columns: Array<ColumnDef<ApiActionEvent>> = [
 
       return (
         <div className="flex flex-col gap-0.5">
-          <span className="break-words">{item.primary}</span>
+          <span className="wrap-break-word">{item.primary}</span>
           {item.secondary && (
-            <span className="break-words text-xs text-muted-foreground">
+            <span className="text-xs wrap-break-word text-muted-foreground">
               {item.secondary}
             </span>
           )}

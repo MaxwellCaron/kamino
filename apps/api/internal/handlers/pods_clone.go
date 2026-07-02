@@ -1813,7 +1813,7 @@ func (h *PodsHandler) waitForClonedVMsReady(
 
 func (h *PodsHandler) configurePodVNetBridges(
 	ctx context.Context,
-	networkNumber int32,
+	vnetName string,
 	targets []podNetworkVMTarget,
 ) *requestError {
 	router, reqErr := findPodNetworkRouterTarget(targets)
@@ -1821,7 +1821,6 @@ func (h *PodsHandler) configurePodVNetBridges(
 		return reqErr
 	}
 
-	vnetName := h.podVNetName(networkNumber)
 	if reqErr := h.ensurePodVNetExists(ctx, vnetName); reqErr != nil {
 		return reqErr
 	}
@@ -1864,12 +1863,12 @@ func (h *PodsHandler) configureClonedPodNetwork(
 	networkNumber int32,
 	results []clonePublishedVMResult,
 ) *requestError {
-	return h.configurePodVNetBridges(ctx, networkNumber, podNetworkTargetsFromCloneResults(results))
+	return h.configurePodVNetBridges(ctx, h.podVNetName(networkNumber), podNetworkTargetsFromCloneResults(results))
 }
 
 func (h *PodsHandler) configurePodRouterCloudInit(
 	ctx context.Context,
-	networkNumber int32,
+	cloudInitConfig *clonedRouterCloudInitConfig,
 	targets []podNetworkVMTarget,
 ) *requestError {
 	router, reqErr := findPodNetworkRouterTarget(targets)
@@ -1900,16 +1899,6 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 			UserMessage: "router must be stopped before cloud-init configuration",
 			Operation:   "verify cloned router stopped",
 			Err:         fmt.Errorf("cloned router VM %d is in %q state", router.clone.VMID, status),
-		}
-	}
-
-	cloudInitConfig, err := buildClonedRouterCloudInitConfig(networkNumber, h.RouterCloneConfig)
-	if err != nil {
-		return &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to build router cloud-init configuration",
-			Operation:   "build cloned router cloud-init configuration",
-			Err:         err,
 		}
 	}
 
@@ -1974,7 +1963,17 @@ func (h *PodsHandler) configureClonedRouter(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	return h.configurePodRouterCloudInit(ctx, clone.NetworkNumber, podNetworkTargetsFromCloneResults(results))
+	cloudInitConfig, err := buildClonedRouterCloudInitConfig(clone.NetworkNumber, h.RouterCloneConfig)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to build router cloud-init configuration",
+			Operation:   "build cloned router cloud-init configuration",
+			Err:         err,
+		}
+	}
+
+	return h.configurePodRouterCloudInit(ctx, cloudInitConfig, podNetworkTargetsFromCloneResults(results))
 }
 
 func (h *PodsHandler) recordReclonedPodVMs(

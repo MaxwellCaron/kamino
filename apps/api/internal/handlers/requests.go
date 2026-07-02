@@ -469,6 +469,25 @@ func (h *RequestsHandler) SubmitInventorySnapshotRollback(c *gin.Context) {
 	})
 }
 
+func (h *RequestsHandler) SubmitPersonalPod(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	row, err := h.Service.SubmitPersonalPodRequest(c.Request.Context(), principalID)
+	if err != nil {
+		writeRequestServiceError(c, err, "submit personal pod request")
+		return
+	}
+
+	c.JSON(http.StatusCreated, requestDetailResponse{
+		requestSummaryResponse: requestDetailRowToResponse(row),
+		Events:                 []requestEventResponse{},
+	})
+}
+
 func writeRequestServiceError(c *gin.Context, err error, operation string) {
 	switch {
 	case errors.Is(err, requestqueue.ErrRequestNotFound):
@@ -481,6 +500,12 @@ func writeRequestServiceError(c *gin.Context, err error, operation string) {
 		c.JSON(http.StatusConflict, gin.H{"error": "request is not pending"})
 	case errors.Is(err, requestqueue.ErrRequestLimitExceeded):
 		c.JSON(http.StatusConflict, gin.H{"error": "users may only have 3 pending requests at a time"})
+	case errors.Is(err, requestqueue.ErrRequestPersonalPodExists):
+		c.JSON(http.StatusConflict, gin.H{"error": "personal pod already exists"})
+	case errors.Is(err, requestqueue.ErrRequestDuplicatePending):
+		c.JSON(http.StatusConflict, gin.H{"error": "a pending personal pod request already exists"})
+	case errors.Is(err, requestqueue.ErrRequestUnsupportedKind):
+		c.JSON(http.StatusConflict, gin.H{"error": "personal pods are not configured"})
 	case errors.Is(err, requestqueue.ErrRequestInvalidPowerAction),
 		errors.Is(err, requestqueue.ErrRequestInvalidSnapshot):
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})

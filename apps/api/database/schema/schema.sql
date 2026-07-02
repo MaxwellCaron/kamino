@@ -18,7 +18,7 @@ CREATE TYPE inventory_ace_effect AS ENUM ('allow', 'deny');
 CREATE TYPE principal_type AS ENUM ('user', 'group');
 CREATE TYPE principal_provider_type AS ENUM ('active_directory', 'proxmox', 'system');
 CREATE TYPE reserved_principal_key AS ENUM ('all-users');
-CREATE TYPE request_family AS ENUM ('inventory');
+CREATE TYPE request_family AS ENUM ('inventory', 'personal_pod');
 CREATE TYPE request_status AS ENUM (
     'pending',
     'approved',
@@ -354,6 +354,11 @@ CREATE TABLE requests (
                 'inventory.vm.snapshot.rollback'
             )
         ),
+    CONSTRAINT requests_personal_pod_kind_known
+        CHECK (
+            family <> 'personal_pod'
+            OR kind = 'personal_pod.create'
+        ),
     CONSTRAINT requests_reviewer_required_when_reviewed
         CHECK (reviewed_at IS NULL OR reviewer_principal_id IS NOT NULL),
     CONSTRAINT requests_canceled_at_requires_canceled
@@ -558,6 +563,18 @@ CREATE TABLE pod_dev_network_allocations (
     network_number INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (network_number)
+);
+
+CREATE TABLE personal_pods (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    folder_id          UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    network_number     INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_principal_id),
+    UNIQUE (folder_id),
     UNIQUE (network_number)
 );
 

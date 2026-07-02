@@ -97,6 +97,11 @@ export function RequestDetailDialog({
         .map((n) => n.name)
         .join(" / ")
     : null
+  const targetLabel = request?.inventory?.vmid
+    ? formatVmReference(request.inventory.vmid, request.inventory.item_name)
+    : request?.kind === "personal_pod.create"
+      ? "Personal pod"
+      : request?.inventory?.item_name ?? "Inventory item"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,46 +187,62 @@ export function RequestDetailDialog({
                 </Item>
                 <Item
                   variant="muted"
-                  className="cursor-pointer"
+                  className={request.inventory?.item_id ? "cursor-pointer" : undefined}
                   render={
-                    <Link
-                      to="/inventory/items/$itemId"
-                      params={{ itemId: request.inventory?.item_id || "" }}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ItemMedia variant="icon">
-                        <HugeiconsIcon icon={Target01Icon} />
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle>Target</ItemTitle>
-                        <ItemDescription>
-                          {pathLabel}
-                          {" / "}
-                          {request.inventory?.vmid &&
-                            formatVmReference(
-                              request.inventory.vmid,
-                              request.inventory.item_name
+                    request.inventory?.item_id ? (
+                      <Link
+                        to="/inventory/items/$itemId"
+                        params={{ itemId: request.inventory.item_id }}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ItemMedia variant="icon">
+                          <HugeiconsIcon icon={Target01Icon} />
+                        </ItemMedia>
+                        <ItemContent>
+                          <ItemTitle>Target</ItemTitle>
+                          <ItemDescription>
+                            {pathLabel ? `${pathLabel} / ` : ""}
+                            {targetLabel}
+                            {request.inventory.is_template && (
+                              <div>Template target</div>
                             )}
-                          {request.inventory?.is_template && (
-                            <div>Template target</div>
-                          )}
-                          {!powerAction &&
-                            !request.inventory?.snapshot_name &&
-                            !request.inventory?.vm_node && (
-                              <div className="text-muted-foreground">
-                                No extra variables.
-                              </div>
-                            )}
-                        </ItemDescription>
-                      </ItemContent>
-                      <ItemActions>
-                        <HugeiconsIcon
-                          icon={ExternalLinkIcon}
-                          className="size-4"
-                        />
-                      </ItemActions>
-                    </Link>
+                            {!powerAction &&
+                              !request.inventory.snapshot_name &&
+                              !request.inventory.vm_node && (
+                                <div className="text-muted-foreground">
+                                  No extra variables.
+                                </div>
+                              )}
+                          </ItemDescription>
+                        </ItemContent>
+                        <ItemActions>
+                          <HugeiconsIcon
+                            icon={ExternalLinkIcon}
+                            className="size-4"
+                          />
+                        </ItemActions>
+                      </Link>
+                    ) : (
+                      <>
+                        <ItemMedia variant="icon">
+                          <HugeiconsIcon icon={Target01Icon} />
+                        </ItemMedia>
+                        <ItemContent>
+                          <ItemTitle>Target</ItemTitle>
+                          <ItemDescription>
+                            {targetLabel}
+                            {!powerAction &&
+                              !request.inventory?.snapshot_name &&
+                              !request.inventory?.vm_node && (
+                                <div className="text-muted-foreground">
+                                  No extra variables.
+                                </div>
+                              )}
+                          </ItemDescription>
+                        </ItemContent>
+                      </>
+                    )
                   }
                 />
               </div>
