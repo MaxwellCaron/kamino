@@ -295,7 +295,7 @@ func requireVMCreateMetadataAccess(
 		return true
 	}
 
-	isManager, err := authzService.HasManagement(c.Request.Context(), principalID, authorization.ManagementPermissionManager)
+	isManager, err := authzService.IsManager(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize vm create metadata", err)
 		return false

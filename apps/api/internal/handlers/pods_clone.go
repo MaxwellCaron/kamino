@@ -909,7 +909,7 @@ func (h *PodsHandler) loadClonedPodForMutation(
 	principalID uuid.UUID,
 	cloneID uuid.UUID,
 ) (database.ClonedPods, *requestError) {
-	isManager, err := h.Authz.HasManagement(ctx, principalID, authorization.ManagementPermissionManager)
+	isManager, err := h.Authz.IsManager(ctx, principalID)
 	if err != nil {
 		return database.ClonedPods{}, &requestError{
 			Status:      http.StatusInternalServerError,

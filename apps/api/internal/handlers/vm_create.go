@@ -120,11 +120,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	}
 
 	if scopeItemID != uuid.Nil {
-		isManager, err := h.Authz.HasManagement(
-			c.Request.Context(),
-			principalID,
-			authorization.ManagementPermissionManager,
-		)
+		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 		if err != nil {
 			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create options management permission", err)
 			return
@@ -313,11 +309,7 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 	}
 
 	if scopeItemID != uuid.Nil {
-		isManager, err := h.Authz.HasManagement(
-			c.Request.Context(),
-			principalID,
-			authorization.ManagementPermissionManager,
-		)
+		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 		if err != nil {
 			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm bridge options management permission", err)
 			return
@@ -411,11 +403,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		return
 	}
 
-	isManager, err := h.Authz.HasManagement(
-		c.Request.Context(),
-		principalID,
-		authorization.ManagementPermissionManager,
-	)
+	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create management permission", err)
 		return

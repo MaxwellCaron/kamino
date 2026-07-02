@@ -242,6 +242,10 @@ func (s *Service) HasManagement(
 	return effective.Has(required), nil
 }
 
+func (s *Service) IsManager(ctx context.Context, principalID uuid.UUID) (bool, error) {
+	return s.HasManagement(ctx, principalID, ManagementPermissionManager)
+}
+
 func (s *Service) RequireManagement(
 	ctx context.Context,
 	principalID uuid.UUID,

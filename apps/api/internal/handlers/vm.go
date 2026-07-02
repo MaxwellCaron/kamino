@@ -59,6 +59,7 @@ type vmAuthz interface {
 	GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
 	ResolveVMItems(ctx context.Context, principalID uuid.UUID, itemIDs []uuid.UUID, required authorization.Mask, lock bool) (map[uuid.UUID]authorization.VMItemAccess, error)
 	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
+	IsManager(ctx context.Context, principalID uuid.UUID) (bool, error)
 }
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
@@ -73,10 +74,6 @@ type VMHandler struct {
 	Claims                *vmactions.Claims
 	Audit                 *audit.Service
 	PersonalPodVNetPrefix string
-}
-
-type managementAuthorizer interface {
-	HasManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) (bool, error)
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a
@@ -794,17 +791,7 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		return
 	}
 
-	authz, ok := h.Authz.(managementAuthorizer)
-	if !ok {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "vm authz missing management support", fmt.Errorf("vm authz does not implement managementAuthorizer"))
-		return
-	}
-
-	isManager, err := authz.HasManagement(
-		c.Request.Context(),
-		principalID,
-		authorization.ManagementPermissionManager,
-	)
+	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm hardware management permission", err)
 		return

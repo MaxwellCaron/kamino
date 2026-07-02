@@ -385,7 +385,7 @@ func (h *PodsHandler) GetPersonalPod(c *gin.Context) {
 		return
 	}
 
-	canCreate, err := h.Authz.HasManagement(c.Request.Context(), principalID, authorization.ManagementPermissionManager)
+	canCreate, err := h.Authz.IsManager(c.Request.Context(), principalID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load personal pod", "load management permissions", err)
 		return
