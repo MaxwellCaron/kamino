@@ -1772,6 +1772,185 @@ FOR EACH ROW
 EXECUTE FUNCTION action_events_prevent_mutation();
 
 -- ----------------------------------------------------------------------------
+-- Deleted audit target tombstones
+-- One row per deleted audit target UUID. Live rows win while they exist; after
+-- deletion, audit queries fall back to this final deletion-time snapshot.
+-- VM snapshot keys: name, parent_id, parent_name, path, node, vmid.
+-- Published Pod snapshot keys: title, slug, folder_path.
+-- Pod clone snapshot keys: folder_path.
+-- ----------------------------------------------------------------------------
+CREATE TABLE action_target_tombstones (
+    target_kind  TEXT NOT NULL CHECK (target_kind IN ('vm', 'pod', 'pod_clone')),
+    target_id    UUID NOT NULL,
+    snapshot     JSONB NOT NULL,
+    deleted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (target_kind, target_id)
+);
+
+CREATE OR REPLACE FUNCTION action_target_tombstones_snapshot_inventory_item_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF OLD.kind = 'vm' THEN
+        INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
+        SELECT
+            'vm',
+            vm.id,
+            jsonb_strip_nulls(
+                jsonb_build_object(
+                    'name', vm.name,
+                    'parent_id', vm.parent_id::TEXT,
+                    'parent_name', parent.name,
+                    'path', get_inventory_item_path(vm.id),
+                    'node', pv.node,
+                    'vmid', pv.vmid
+                )
+            )
+        FROM (
+            SELECT OLD.id, OLD.parent_id, OLD.name
+        ) AS vm(id, parent_id, name)
+        LEFT JOIN inventory_items parent
+          ON parent.id = vm.parent_id
+        LEFT JOIN proxmox_vms pv
+          ON pv.inventory_item_id = vm.id
+        ON CONFLICT (target_kind, target_id) DO NOTHING;
+
+        RETURN OLD;
+    END IF;
+
+    IF OLD.kind = 'folder' THEN
+        INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
+        WITH RECURSIVE subtree AS (
+            SELECT
+                OLD.id AS id,
+                OLD.parent_id AS parent_id,
+                OLD.kind AS kind,
+                OLD.name AS name
+
+            UNION ALL
+
+            SELECT
+                child.id,
+                child.parent_id,
+                child.kind,
+                child.name
+            FROM inventory_items child
+            JOIN subtree parent_tree
+              ON child.parent_id = parent_tree.id
+        )
+        SELECT
+            'vm',
+            vm.id,
+            jsonb_strip_nulls(
+                jsonb_build_object(
+                    'name', vm.name,
+                    'parent_id', vm.parent_id::TEXT,
+                    'parent_name', parent.name,
+                    'path', get_inventory_item_path(vm.id),
+                    'node', pv.node,
+                    'vmid', pv.vmid
+                )
+            )
+        FROM subtree vm
+        LEFT JOIN inventory_items parent
+          ON parent.id = vm.parent_id
+        LEFT JOIN proxmox_vms pv
+          ON pv.inventory_item_id = vm.id
+        WHERE vm.kind = 'vm'
+        ON CONFLICT (target_kind, target_id) DO NOTHING;
+
+        INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
+        WITH RECURSIVE subtree AS (
+            SELECT
+                OLD.id AS id
+
+            UNION ALL
+
+            SELECT
+                child.id
+            FROM inventory_items child
+            JOIN subtree parent_tree
+              ON child.parent_id = parent_tree.id
+        )
+        SELECT
+            'pod_clone',
+            cp.id,
+            jsonb_strip_nulls(
+                jsonb_build_object(
+                    'folder_path', get_inventory_item_path(tree.id)
+                )
+            )
+        FROM subtree tree
+        JOIN cloned_pods cp
+          ON cp.folder_id = tree.id
+        ON CONFLICT (target_kind, target_id) DO NOTHING;
+    END IF;
+
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER trg_action_target_tombstones_snapshot_inventory_item_delete
+BEFORE DELETE ON inventory_items
+FOR EACH ROW
+EXECUTE FUNCTION action_target_tombstones_snapshot_inventory_item_delete();
+
+CREATE OR REPLACE FUNCTION action_target_tombstones_snapshot_published_pod_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
+    VALUES (
+        'pod',
+        OLD.id,
+        jsonb_strip_nulls(
+            jsonb_build_object(
+                'title', OLD.title,
+                'slug', OLD.slug,
+                'folder_path', get_inventory_item_path(OLD.source_folder_id)
+            )
+        )
+    )
+    ON CONFLICT (target_kind, target_id) DO NOTHING;
+
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER trg_action_target_tombstones_snapshot_published_pod_delete
+BEFORE DELETE ON published_pods
+FOR EACH ROW
+EXECUTE FUNCTION action_target_tombstones_snapshot_published_pod_delete();
+
+CREATE OR REPLACE FUNCTION action_target_tombstones_snapshot_cloned_pod_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
+    VALUES (
+        'pod_clone',
+        OLD.id,
+        jsonb_strip_nulls(
+            jsonb_build_object(
+                'folder_path', get_inventory_item_path(OLD.folder_id)
+            )
+        )
+    )
+    ON CONFLICT (target_kind, target_id) DO NOTHING;
+
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER trg_action_target_tombstones_snapshot_cloned_pod_delete
+BEFORE DELETE ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION action_target_tombstones_snapshot_cloned_pod_delete();
+
+-- ----------------------------------------------------------------------------
 -- Seed reserved system principals
 -- ----------------------------------------------------------------------------
 INSERT INTO principal_providers (provider_type, name)

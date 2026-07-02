@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/gin-gonic/gin"
@@ -77,6 +78,9 @@ type actionEventResponse struct {
 	InventoryVmNode         *string `json:"inventory_vm_node,omitempty"`
 	InventoryVmVmid         *int32  `json:"inventory_vm_vmid,omitempty"`
 	PodID                   *string `json:"pod_id,omitempty"`
+	PodTitle                *string `json:"pod_title,omitempty"`
+	PodSlug                 *string `json:"pod_slug,omitempty"`
+	PodFolderPath           *string `json:"pod_folder_path,omitempty"`
 	Status                  string  `json:"status"`
 	ErrorMessage            *string `json:"error_message,omitempty"`
 	CreatedAt               string  `json:"created_at"`
@@ -87,6 +91,65 @@ type actionEventsListResponse struct {
 	Total int32                 `json:"total"`
 	Page  int32                 `json:"page"`
 	Rows  int32                 `json:"rows"`
+}
+
+func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionEventResponse {
+	item := actionEventResponse{
+		ID:         row.ID,
+		ActionKind: row.ActionKind,
+		TargetKind: row.TargetKind,
+		Status:     row.Status,
+
+		ActorUsername: row.ActorUsername,
+	}
+	if row.ActorPrincipalID != nil {
+		s := row.ActorPrincipalID.String()
+		item.ActorPrincipalID = &s
+	}
+	if row.InventoryItemID != nil {
+		s := row.InventoryItemID.String()
+		item.InventoryItemID = &s
+	}
+	if row.InventoryItemName != "" {
+		item.InventoryItemName = &row.InventoryItemName
+	}
+	if row.InventoryItemParentID != nil {
+		s := row.InventoryItemParentID.String()
+		item.InventoryItemParentID = &s
+	}
+	if row.InventoryItemParentName != "" {
+		item.InventoryItemParentName = &row.InventoryItemParentName
+	}
+	if row.InventoryItemPath != "" {
+		item.InventoryItemPath = &row.InventoryItemPath
+	}
+	if row.InventoryVmNode != "" {
+		item.InventoryVmNode = &row.InventoryVmNode
+	}
+	if row.InventoryVmVmid > 0 {
+		vmid := row.InventoryVmVmid
+		item.InventoryVmVmid = &vmid
+	}
+	if row.PodID != nil {
+		s := row.PodID.String()
+		item.PodID = &s
+	}
+	if row.PodTitle != "" {
+		item.PodTitle = &row.PodTitle
+	}
+	if row.PodSlug != "" {
+		item.PodSlug = &row.PodSlug
+	}
+	if row.PodFolderPath != "" {
+		item.PodFolderPath = &row.PodFolderPath
+	}
+	if row.ErrorMessage != nil {
+		item.ErrorMessage = row.ErrorMessage
+	}
+	if row.CreatedAt.Valid {
+		item.CreatedAt = row.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z")
+	}
+	return item
 }
 
 // List returns paginated action events.
@@ -122,43 +185,7 @@ func (h *AuditHandler) List(c *gin.Context) {
 
 	items := make([]actionEventResponse, 0, len(result.Items))
 	for _, row := range result.Items {
-		item := actionEventResponse{
-			ID:                      row.ID,
-			ActionKind:              row.ActionKind,
-			TargetKind:              row.TargetKind,
-			Status:                  row.Status,
-			ActorUsername:           row.ActorUsername,
-			InventoryItemName:       row.InventoryItemName,
-			InventoryItemParentName: row.InventoryItemParentName,
-			InventoryVmNode:         row.InventoryVmNode,
-			InventoryVmVmid:         row.InventoryVmVmid,
-		}
-		if row.ActorPrincipalID != nil {
-			s := row.ActorPrincipalID.String()
-			item.ActorPrincipalID = &s
-		}
-		if row.InventoryItemID != nil {
-			s := row.InventoryItemID.String()
-			item.InventoryItemID = &s
-		}
-		if row.InventoryItemParentID != nil {
-			s := row.InventoryItemParentID.String()
-			item.InventoryItemParentID = &s
-		}
-		if row.InventoryItemPath != "" {
-			item.InventoryItemPath = &row.InventoryItemPath
-		}
-		if row.PodID != nil {
-			s := row.PodID.String()
-			item.PodID = &s
-		}
-		if row.ErrorMessage != nil {
-			item.ErrorMessage = row.ErrorMessage
-		}
-		if row.CreatedAt.Valid {
-			item.CreatedAt = row.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z")
-		}
-		items = append(items, item)
+		items = append(items, buildActionEventResponse(row))
 	}
 
 	c.JSON(http.StatusOK, actionEventsListResponse{

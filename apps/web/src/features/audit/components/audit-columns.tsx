@@ -4,10 +4,10 @@ import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   formatAuditStatus,
   getAuditStatusClassName,
+  presentAuditItemIdentity,
 } from "../utils/audit-presenters"
 import type { ApiActionEvent } from "../api/audit-api"
 import type { ColumnDef } from "@tanstack/react-table"
-import { formatVmReference } from "@/features/shared/utils/format"
 
 export const columns: Array<ColumnDef<ApiActionEvent>> = [
   {
@@ -48,17 +48,15 @@ export const columns: Array<ColumnDef<ApiActionEvent>> = [
     accessorKey: "inventory_item_name",
     header: "Item",
     cell: ({ row }) => {
-      const item = row.original
-      const primary = item.inventory_vm_vmid
-        ? formatVmReference(item.inventory_vm_vmid, item.inventory_item_name)
-        : item.inventory_item_name || "—"
-      const secondary = item.inventory_item_path || item.inventory_item_parent_name
+      const item = presentAuditItemIdentity(row.original)
 
       return (
-        <div className="flex flex-col">
-          <span>{primary}</span>
-          {secondary && (
-            <span className="text-xs text-muted-foreground">{secondary}</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="break-words">{item.primary}</span>
+          {item.secondary && (
+            <span className="break-words text-xs text-muted-foreground">
+              {item.secondary}
+            </span>
           )}
         </div>
       )

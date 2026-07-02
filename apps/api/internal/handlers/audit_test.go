@@ -4,10 +4,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func setupAuditTestRouter(handler *AuditHandler, withUser bool) *gin.Engine {
@@ -113,5 +116,94 @@ func TestParseRowsParam(t *testing.T) {
 				t.Errorf("parseRowsParam(%q) = %d, want %d", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildActionEventResponseMapsPodFields(t *testing.T) {
+	actorID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	podID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	createdAt := time.Date(2026, 7, 1, 18, 45, 0, 0, time.UTC)
+
+	item := buildActionEventResponse(database.ListActionEventsPaginatedRow{
+		ID:               42,
+		ActorPrincipalID: &actorID,
+		ActionKind:       "pod.publish",
+		TargetKind:       "pod",
+		PodID:            &podID,
+		PodTitle:         "Pod Alpha",
+		PodSlug:          "pod-alpha",
+		PodFolderPath:    "Pods/POD_NAME",
+		Status:           "succeeded",
+		ActorUsername:    "operator",
+		CreatedAt: pgtype.Timestamptz{
+			Time:  createdAt,
+			Valid: true,
+		},
+	})
+
+	if item.PodTitle == nil || *item.PodTitle != "Pod Alpha" {
+		t.Fatalf("expected pod title to be mapped, got %#v", item.PodTitle)
+	}
+	if item.PodSlug == nil || *item.PodSlug != "pod-alpha" {
+		t.Fatalf("expected pod slug to be mapped, got %#v", item.PodSlug)
+	}
+	if item.PodFolderPath == nil || *item.PodFolderPath != "Pods/POD_NAME" {
+		t.Fatalf("expected pod folder path to be mapped, got %#v", item.PodFolderPath)
+	}
+	if item.PodID == nil || *item.PodID != podID.String() {
+		t.Fatalf("expected pod id to be mapped, got %#v", item.PodID)
+	}
+	if item.ActorPrincipalID == nil || *item.ActorPrincipalID != actorID.String() {
+		t.Fatalf("expected actor principal id to be mapped, got %#v", item.ActorPrincipalID)
+	}
+	if item.CreatedAt != "2026-07-01T18:45:00Z" {
+		t.Fatalf("expected created_at to be formatted in UTC, got %q", item.CreatedAt)
+	}
+}
+
+func TestBuildActionEventResponseLeavesOptionalFieldsEmptyWhenUnavailable(t *testing.T) {
+	item := buildActionEventResponse(database.ListActionEventsPaginatedRow{
+		ID:            7,
+		ActionKind:    "vm.delete",
+		TargetKind:    "vm",
+		Status:        "failed",
+		ActorUsername: "operator",
+	})
+
+	if item.InventoryItemName != nil {
+		t.Fatalf("expected inventory item name to be omitted, got %#v", item.InventoryItemName)
+	}
+	if item.InventoryItemParentID != nil {
+		t.Fatalf("expected inventory item parent id to be omitted, got %#v", item.InventoryItemParentID)
+	}
+	if item.InventoryItemParentName != nil {
+		t.Fatalf("expected inventory item parent name to be omitted, got %#v", item.InventoryItemParentName)
+	}
+	if item.InventoryItemPath != nil {
+		t.Fatalf("expected inventory item path to be omitted, got %#v", item.InventoryItemPath)
+	}
+	if item.InventoryVmNode != nil {
+		t.Fatalf("expected inventory vm node to be omitted, got %#v", item.InventoryVmNode)
+	}
+	if item.InventoryVmVmid != nil {
+		t.Fatalf("expected inventory vmid to be omitted, got %#v", item.InventoryVmVmid)
+	}
+	if item.PodID != nil {
+		t.Fatalf("expected pod id to be omitted, got %#v", item.PodID)
+	}
+	if item.PodTitle != nil {
+		t.Fatalf("expected pod title to be omitted, got %#v", item.PodTitle)
+	}
+	if item.PodSlug != nil {
+		t.Fatalf("expected pod slug to be omitted, got %#v", item.PodSlug)
+	}
+	if item.PodFolderPath != nil {
+		t.Fatalf("expected pod folder path to be omitted, got %#v", item.PodFolderPath)
+	}
+	if item.ErrorMessage != nil {
+		t.Fatalf("expected error message to be omitted, got %#v", item.ErrorMessage)
+	}
+	if item.CreatedAt != "" {
+		t.Fatalf("expected created_at to be empty when unavailable, got %q", item.CreatedAt)
 	}
 }
