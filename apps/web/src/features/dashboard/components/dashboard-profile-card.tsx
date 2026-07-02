@@ -72,12 +72,14 @@ export function DashboardProfileCard({
                   name: user.username,
                   promise: async () => {
                     const result = await createPersonalPod()
-                    await queryClient.invalidateQueries({
-                      queryKey: personalPodQueryOptions.queryKey,
-                    })
-                    await queryClient.invalidateQueries({
-                      queryKey: inventoryTreeQueryOptions.queryKey,
-                    })
+                    await Promise.all([
+                      queryClient.invalidateQueries({
+                        queryKey: personalPodQueryOptions.queryKey,
+                      }),
+                      queryClient.invalidateQueries({
+                        queryKey: inventoryTreeQueryOptions.queryKey,
+                      }),
+                    ])
                     navigate({
                       to: "/inventory/items/$itemId",
                       params: { itemId: result.folder_id },
@@ -103,14 +105,16 @@ export function DashboardProfileCard({
                   name: user.username,
                   promise: async () => {
                     const result = await requestPersonalPod()
-                    await queryClient.invalidateQueries({
-                      queryKey: personalPodQueryOptions.queryKey,
-                    })
-                    await queryClient.invalidateQueries({
-                      queryKey:
-                        requesterRequestSummariesQueryOptions("pending")
-                          .queryKey,
-                    })
+                    await Promise.all([
+                      queryClient.invalidateQueries({
+                        queryKey: personalPodQueryOptions.queryKey,
+                      }),
+                      queryClient.invalidateQueries({
+                        queryKey:
+                          requesterRequestSummariesQueryOptions("pending")
+                            .queryKey,
+                      }),
+                    ])
                     return result
                   },
                   successDescription: "Requested",
