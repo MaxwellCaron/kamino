@@ -1762,6 +1762,9 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF TG_OP = 'DELETE' AND OLD.created_at < now() - INTERVAL '30 days' THEN
+        RETURN OLD;
+    END IF;
     RAISE EXCEPTION 'Action events are append-only';
 END;
 $$;
@@ -1776,11 +1779,12 @@ EXECUTE FUNCTION action_events_prevent_mutation();
 -- One row per deleted audit target UUID. Live rows win while they exist; after
 -- deletion, audit queries fall back to this final deletion-time snapshot.
 -- VM snapshot keys: name, parent_id, parent_name, path, node, vmid.
+-- Folder snapshot keys: name, parent_id, parent_name, path.
 -- Published Pod snapshot keys: title, slug, folder_path.
 -- Pod clone snapshot keys: folder_path.
 -- ----------------------------------------------------------------------------
 CREATE TABLE action_target_tombstones (
-    target_kind  TEXT NOT NULL CHECK (target_kind IN ('vm', 'pod', 'pod_clone')),
+    target_kind  TEXT NOT NULL CHECK (target_kind IN ('vm', 'folder', 'pod', 'pod_clone')),
     target_id    UUID NOT NULL,
     snapshot     JSONB NOT NULL,
     deleted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1820,6 +1824,25 @@ BEGIN
     END IF;
 
     IF OLD.kind = 'folder' THEN
+        INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
+        SELECT
+            'folder',
+            folder.id,
+            jsonb_strip_nulls(
+                jsonb_build_object(
+                    'name', folder.name,
+                    'parent_id', folder.parent_id::TEXT,
+                    'parent_name', parent.name,
+                    'path', get_inventory_item_path(folder.id)
+                )
+            )
+        FROM (
+            SELECT OLD.id, OLD.parent_id, OLD.name
+        ) AS folder(id, parent_id, name)
+        LEFT JOIN inventory_items parent
+          ON parent.id = folder.parent_id
+        ON CONFLICT (target_kind, target_id) DO NOTHING;
+
         INSERT INTO action_target_tombstones (target_kind, target_id, snapshot)
         WITH RECURSIVE subtree AS (
             SELECT

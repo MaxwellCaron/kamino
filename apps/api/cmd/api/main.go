@@ -426,11 +426,14 @@ func main() {
 	if err := inventoryService.NormalizeInheritance(context.Background()); err != nil {
 		log.Printf("Inventory inheritance normalization failed: %v", err)
 	}
+	auditService := audit.NewService(server.DBPool)
+	go auditService.StartRetention(context.Background())
 	inventoryHandler := &handlers.InventoryHandler{
 		Service:  inventoryService,
 		Notifier: inventoryNotifier,
 		PX:       server.ProxmoxClient,
 		Authz:    authzService,
+		Audit:    auditService,
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
 	vncHandler.Authz = authzService
@@ -440,7 +443,6 @@ func main() {
 		vmStatusNotifier,
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
-	auditService := audit.NewService(server.DBPool)
 	vmHandler := &handlers.VMHandler{
 		PX:       server.ProxmoxClient,
 		Importer: server.ProxmoxImport,
@@ -456,6 +458,7 @@ func main() {
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Authz:    authzService,
+		Audit:    auditService,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {
@@ -476,17 +479,19 @@ func main() {
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
 		Authz: authzService,
+		Audit: auditService,
 	}
 	proxmoxSyncHandler := &handlers.ProxmoxSyncHandler{
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Authz:    authzService,
+		Audit:    auditService,
 	}
 	auditHandler := &handlers.AuditHandler{
 		Audit: auditService,
 		Authz: authzService,
 	}
-	authzHandler := &handlers.AuthorizationHandler{Authz: authzService}
+	authzHandler := &handlers.AuthorizationHandler{Authz: authzService, Audit: auditService}
 	requestService := requestqueue.NewService(
 		server.DBPool,
 		authzService,
@@ -494,6 +499,7 @@ func main() {
 		server.ProxmoxClient,
 		vmActionExecutor,
 		requestsNotifier,
+		auditService,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 
@@ -532,6 +538,7 @@ func main() {
 		principalsHandler = &handlers.PrincipalsHandler{
 			Provider: adService,
 			Authz:    authzService,
+			Audit:    auditService,
 		}
 	}
 

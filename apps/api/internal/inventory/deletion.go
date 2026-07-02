@@ -11,10 +11,11 @@ import (
 )
 
 type FolderDeletionVM struct {
-	Node       string
-	VMID       int32
-	Name       string
-	IsTemplate bool
+	InventoryItemID uuid.UUID
+	Node            string
+	VMID            int32
+	Name            string
+	IsTemplate      bool
 }
 
 type FolderDeletionPlan struct {
@@ -68,10 +69,11 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 		isTemplate := current.IsTemplate != nil && *current.IsTemplate
 		if current.Node != nil && current.Vmid != nil {
 			plan.ProxmoxVMs = append(plan.ProxmoxVMs, FolderDeletionVM{
-				Node:       *current.Node,
-				VMID:       *current.Vmid,
-				Name:       current.Name,
-				IsTemplate: isTemplate,
+				InventoryItemID: current.ID,
+				Node:            *current.Node,
+				VMID:            *current.Vmid,
+				Name:            current.Name,
+				IsTemplate:      isTemplate,
 			})
 		}
 	}

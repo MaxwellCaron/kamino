@@ -89,6 +89,7 @@ WITH action_event_display AS (
       ON target_tomb.target_kind = ae.target_kind
      AND target_tomb.target_id = CASE
          WHEN ae.target_kind = 'vm' THEN ae.inventory_item_id
+         WHEN ae.target_kind = 'folder' THEN ae.inventory_item_id
          WHEN ae.target_kind = 'pod' THEN ae.pod_id
          ELSE NULL
      END
@@ -173,6 +174,7 @@ WITH action_event_display AS (
       ON target_tomb.target_kind = ae.target_kind
      AND target_tomb.target_id = CASE
          WHEN ae.target_kind = 'vm' THEN ae.inventory_item_id
+         WHEN ae.target_kind = 'folder' THEN ae.inventory_item_id
          WHEN ae.target_kind = 'pod' THEN ae.pod_id
          ELSE NULL
      END
@@ -198,3 +200,7 @@ WHERE (
     OR pod_folder_path ILIKE '%' || @search::TEXT || '%'
     OR metadata->>'clone_id' ILIKE '%' || @search::TEXT || '%'
 );
+
+-- name: DeleteActionEventsOlderThanRetention :execrows
+DELETE FROM action_events
+WHERE created_at < now() - INTERVAL '30 days';

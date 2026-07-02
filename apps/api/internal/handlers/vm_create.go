@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -19,6 +20,7 @@ type VMCreateHandler struct {
 	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service
 	Authz    *authorization.Service
+	Audit    *audit.Service
 }
 
 // GetNodes returns all cluster nodes.
@@ -442,6 +444,13 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "vm.create",
+		TargetKind:       "vm",
+		InventoryItemID:  &itemID,
+		Metadata:         map[string]any{"vmid": vmid, "node": targetNode},
+	})
 	c.JSON(http.StatusOK, vmMutationResponse{
 		OK:     true,
 		VMID:   vmid,

@@ -612,6 +612,13 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 			return false
 		}
 
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.rename",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+			Metadata:         map[string]any{"name": req.Name},
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})
@@ -656,6 +663,12 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.notes.update",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		if h.PX == nil {
 			c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
 			return true
@@ -825,6 +838,12 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 			return false
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.hardware.update",
+			TargetKind:       "vm",
+			InventoryItemID:  &target.ItemID,
+		})
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})

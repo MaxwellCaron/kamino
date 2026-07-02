@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -20,6 +21,7 @@ type InventoryHandler struct {
 	Notifier *inventory.Notifier
 	PX       *proxmox.Client
 	Authz    *authorization.Service
+	Audit    *audit.Service
 }
 
 // JSON response types
@@ -276,6 +278,17 @@ func (h *InventoryHandler) UpdateACL(c *gin.Context) {
 		return
 	}
 
+	targetKind := "vm"
+	if item.Kind == database.InventoryItemKindFolder {
+		targetKind = "folder"
+	}
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "acl.update",
+		TargetKind:       targetKind,
+		InventoryItemID:  &id,
+		Metadata:         map[string]any{"entries_count": len(entries)},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -342,6 +355,17 @@ func (h *InventoryHandler) MoveItem(c *gin.Context) {
 		return
 	}
 
+	moveTargetKind := "vm"
+	if item.Kind == database.InventoryItemKindFolder {
+		moveTargetKind = "folder"
+	}
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "item.move",
+		TargetKind:       moveTargetKind,
+		InventoryItemID:  &req.ItemID,
+		Metadata:         map[string]any{"to_parent_id": req.ParentID.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -406,6 +430,20 @@ func (h *InventoryHandler) MoveItems(c *gin.Context) {
 		return
 	}
 
+	for _, itemID := range req.ItemIDs {
+		movedItem := itemMap[itemID]
+		movedTargetKind := "vm"
+		if movedItem.Kind == database.InventoryItemKindFolder {
+			movedTargetKind = "folder"
+		}
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "item.move",
+			TargetKind:       movedTargetKind,
+			InventoryItemID:  &itemID,
+			Metadata:         map[string]any{"to_parent_id": req.ParentID.String()},
+		})
+	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -449,6 +487,13 @@ func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "folder.create",
+		TargetKind:       "folder",
+		InventoryItemID:  &id,
+		Metadata:         map[string]any{"name": req.Name},
+	})
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
@@ -500,6 +545,13 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "folder.rename",
+		TargetKind:       "folder",
+		InventoryItemID:  &id,
+		Metadata:         map[string]any{"name": req.Name},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -543,6 +595,13 @@ func (h *InventoryHandler) UpdateFolderVMLimit(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "folder.vm_limit.update",
+		TargetKind:       "folder",
+		InventoryItemID:  &id,
+		Metadata:         map[string]any{"vm_limit": req.VMLimit},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -600,6 +659,12 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 			})
 			return
 		}
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "vm.delete",
+			TargetKind:       "vm",
+			InventoryItemID:  &vm.InventoryItemID,
+		})
 	}
 
 	if err := h.Service.DeleteFolder(c.Request.Context(), id); err != nil {
@@ -607,6 +672,13 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "folder.delete",
+		TargetKind:       "folder",
+		InventoryItemID:  &id,
+		Metadata:         map[string]any{"vm_count": len(plan.ProxmoxVMs)},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

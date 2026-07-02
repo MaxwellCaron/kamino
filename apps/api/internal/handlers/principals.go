@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
@@ -20,6 +21,7 @@ import (
 type PrincipalsHandler struct {
 	Provider principals.Provider
 	Authz    *authorization.Service
+	Audit    *audit.Service
 }
 
 func (h *PrincipalsHandler) requirePrincipalPermission(
@@ -275,6 +277,8 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 		username         string
 	}
 
+	principalID, _ := currentPrincipalID(c)
+
 	outcomes := make([]userCreateOutcome, len(reqs))
 	groupAssignments := make(map[uuid.UUID][]int)
 
@@ -291,9 +295,21 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 		if err != nil {
 			logRequestError(c, "create user username="+req.Username, err)
 			outcomes[index].createErr = err
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "principal.user.create",
+				TargetKind:       "principal",
+				Metadata:         map[string]any{"username": req.Username},
+			}, err.Error())
 			continue
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.user.create",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"principal_id": createdID.String(), "username": req.Username},
+		})
 		outcomes[index].createdID = createdID
 		for _, groupID := range outcomes[index].groupIDs {
 			groupAssignments[groupID] = append(groupAssignments[groupID], index)
@@ -372,6 +388,7 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -390,6 +407,12 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.user.update",
+		TargetKind:       "principal",
+		Metadata:         map[string]any{"principal_id": id.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -408,6 +431,7 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var req setPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -426,6 +450,12 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.user.password.set",
+		TargetKind:       "principal",
+		Metadata:         map[string]any{"principal_id": id.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -463,6 +493,11 @@ func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.user.password.change",
+		TargetKind:       "principal",
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -472,6 +507,7 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -484,6 +520,12 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.user.enable",
+		TargetKind:       "principal",
+		Metadata:         map[string]any{"principal_id": id.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -493,6 +535,7 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -505,6 +548,12 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.user.disable",
+		TargetKind:       "principal",
+		Metadata:         map[string]any{"principal_id": id.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -514,6 +563,7 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	rawIDs, ok := parseBulkDeleteIDs(c)
 	if !ok {
@@ -521,7 +571,23 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 	}
 
 	writeBulkDeleteResponse(c, rawIDs, func(id uuid.UUID) error {
-		return h.Provider.DeleteUser(c.Request.Context(), id)
+		err := h.Provider.DeleteUser(c.Request.Context(), id)
+		if err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "principal.user.delete",
+				TargetKind:       "principal",
+				Metadata:         map[string]any{"principal_id": id.String()},
+			}, err.Error())
+			return err
+		}
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.user.delete",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"principal_id": id.String()},
+		})
+		return nil
 	})
 }
 
@@ -557,6 +623,7 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var reqs []createGroupRequest
 	if err := c.ShouldBindJSON(&reqs); err != nil {
@@ -587,9 +654,21 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 				Name:  req.Name,
 				Error: err.Error(),
 			})
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "principal.group.create",
+				TargetKind:       "principal",
+				Metadata:         map[string]any{"name": req.Name},
+			}, err.Error())
 			continue
 		}
 
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.group.create",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"name": req.Name},
+		})
 		response.Successful++
 	}
 
@@ -607,6 +686,7 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var req updateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -625,6 +705,12 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.group.update",
+		TargetKind:       "principal",
+		Metadata:         map[string]any{"principal_id": id.String()},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -634,6 +720,7 @@ func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	rawIDs, ok := parseBulkDeleteIDs(c)
 	if !ok {
@@ -641,7 +728,23 @@ func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
 	}
 
 	writeBulkDeleteResponse(c, rawIDs, func(id uuid.UUID) error {
-		return h.Provider.DeleteGroup(c.Request.Context(), id)
+		err := h.Provider.DeleteGroup(c.Request.Context(), id)
+		if err != nil {
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "principal.group.delete",
+				TargetKind:       "principal",
+				Metadata:         map[string]any{"principal_id": id.String()},
+			}, err.Error())
+			return err
+		}
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.group.delete",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"principal_id": id.String()},
+		})
+		return nil
 	})
 }
 
@@ -678,6 +781,7 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -708,10 +812,22 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 				ID:    rawIDs[index],
 				Error: "add failed",
 			})
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "principal.group.member.add",
+				TargetKind:       "principal",
+				Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
+			}, memberErr.Error())
 			continue
 		}
 
 		response.Succeeded = append(response.Succeeded, rawIDs[index])
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.group.member.add",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
+		})
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -723,6 +839,7 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -753,10 +870,22 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 				ID:    rawIDs[index],
 				Error: "remove failed",
 			})
+			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "principal.group.member.remove",
+				TargetKind:       "principal",
+				Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
+			}, memberErr.Error())
 			continue
 		}
 
 		response.Succeeded = append(response.Succeeded, rawIDs[index])
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.group.member.remove",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
+		})
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -795,10 +924,16 @@ func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	if err := h.Provider.TriggerSync(c.Request.Context()); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "sync failed", "trigger principals sync", err)
 		return
 	}
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.sync",
+		TargetKind:       "principal",
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

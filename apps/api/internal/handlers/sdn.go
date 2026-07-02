@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,7 @@ func validateVNetTag(tag int) error {
 type SDNHandler struct {
 	PX    *proxmox.Client
 	Authz *authorization.Service
+	Audit *audit.Service
 }
 
 func (h *SDNHandler) requireSDNPermission(
@@ -141,6 +143,7 @@ func (h *SDNHandler) CreateVNet(c *gin.Context) {
 	if !h.requireSDNPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var req createVNetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -188,6 +191,12 @@ func (h *SDNHandler) CreateVNet(c *gin.Context) {
 		log.Printf("SDN apply after create VNet failed: %v", err)
 	}
 
+	h.Audit.RecordSuccess(ctx, audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "sdn.vnet.create",
+		TargetKind:       "sdn_vnet",
+		Metadata:         map[string]any{"vnet": vnetID, "zone": req.Zone},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -205,6 +214,7 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 	if !h.requireSDNPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	vnet := c.Param("vnet")
 	if err := validateVNetID(vnet); err != nil {
@@ -273,6 +283,12 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 		log.Printf("SDN apply after update VNet failed: %v", err)
 	}
 
+	h.Audit.RecordSuccess(ctx, audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "sdn.vnet.update",
+		TargetKind:       "sdn_vnet",
+		Metadata:         map[string]any{"vnet": vnet},
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -282,6 +298,7 @@ func (h *SDNHandler) DeleteVNets(c *gin.Context) {
 	if !h.requireSDNPermission(c, authorization.ManagementPermissionAdministrator) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var req bulkDeleteVNetsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -306,10 +323,22 @@ func (h *SDNHandler) DeleteVNets(c *gin.Context) {
 				ID:    vnet,
 				Error: "delete failed",
 			})
+			h.Audit.RecordFailure(ctx, audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "sdn.vnet.delete",
+				TargetKind:       "sdn_vnet",
+				Metadata:         map[string]any{"vnet": vnet},
+			}, "delete failed")
 			continue
 		}
 
 		response.Deleted = append(response.Deleted, vnet)
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "sdn.vnet.delete",
+			TargetKind:       "sdn_vnet",
+			Metadata:         map[string]any{"vnet": vnet},
+		})
 	}
 
 	if len(response.Deleted) > 0 {

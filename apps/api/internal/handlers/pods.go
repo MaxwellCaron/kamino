@@ -542,6 +542,13 @@ func (h *PodsHandler) SavePublished(c *gin.Context) {
 	}
 
 	progress.succeed("Published Pod saved to the catalog.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.publish.save",
+		TargetKind:       "pod",
+		PodID:            &pod.ID,
+		Metadata:         map[string]any{"is_update": pathID != uuid.Nil},
+	})
 	c.JSON(http.StatusOK, pod)
 }
 
@@ -602,6 +609,13 @@ func (h *PodsHandler) UpdatePublishedStatus(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.publish.status_update",
+		TargetKind:       "pod",
+		PodID:            &podID,
+		Metadata:         map[string]any{"status": req.Status},
+	})
 	c.JSON(http.StatusOK, pods[0])
 }
 
@@ -632,6 +646,12 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 		return
 	}
 
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.publish.delete",
+		TargetKind:       "pod",
+		PodID:            &podID,
+	})
 	c.Status(http.StatusNoContent)
 }
 
@@ -1144,6 +1164,13 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	progress.succeed("Pod created successfully.")
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.create",
+		TargetKind:       "folder",
+		InventoryItemID:  &podFolderID,
+		Metadata:         map[string]any{"name": req.Name},
+	})
 	c.JSON(http.StatusOK, createPodResponse{
 		OK:       true,
 		FolderID: podFolderID,

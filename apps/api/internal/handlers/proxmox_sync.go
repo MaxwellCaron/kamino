@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -14,6 +15,7 @@ type ProxmoxSyncHandler struct {
 	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service
 	Authz    *authorization.Service
+	Audit    *audit.Service
 }
 
 func (h *ProxmoxSyncHandler) requireAdmin(c *gin.Context) bool {
@@ -55,6 +57,7 @@ func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return
 	}
+	principalID, _ := currentPrincipalID(c)
 
 	var sel proxmox.SyncSelection
 	if err := c.ShouldBindJSON(&sel); err != nil {
@@ -65,6 +68,11 @@ func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
 	ctx := c.Request.Context()
 	results, err := h.Importer.ApplySync(ctx, sel)
 	if err != nil {
+		h.Audit.RecordFailure(ctx, audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "proxmox.sync.apply",
+			TargetKind:       "proxmox_sync",
+		}, err.Error())
 		writeLoggedError(c, http.StatusInternalServerError, "sync apply failed", "apply proxmox sync", err)
 		return
 	}
@@ -86,5 +94,15 @@ func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
 		resp.Results = []proxmox.SyncApplyResult{}
 	}
 
+	h.Audit.RecordSuccess(ctx, audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "proxmox.sync.apply",
+		TargetKind:       "proxmox_sync",
+		Metadata: map[string]any{
+			"applied": resp.Applied,
+			"failed":  resp.Failed,
+			"skipped": resp.Skipped,
+		},
+	})
 	c.JSON(http.StatusOK, resp)
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -58,6 +59,7 @@ type Service struct {
 	px        *proxmox.Client
 	actions   *vmactions.Executor
 	notifier  *Notifier
+	audit     *audit.Service
 }
 
 type vmTarget struct {
@@ -74,6 +76,7 @@ func NewService(
 	px *proxmox.Client,
 	actions *vmactions.Executor,
 	notifier *Notifier,
+	auditService *audit.Service,
 ) *Service {
 	return &Service{
 		db:        db,
@@ -82,6 +85,7 @@ func NewService(
 		px:        px,
 		actions:   actions,
 		notifier:  notifier,
+		audit:     auditService,
 	}
 }
 
@@ -114,8 +118,27 @@ func (s *Service) notify(ctx context.Context, exec database.DBTX, events ...Even
 	}
 }
 
-func (s *Service) notifyTx(ctx context.Context, tx pgx.Tx, event Event) {
-	s.notify(ctx, tx, event)
+func (s *Service) recordAuditEvent(
+	ctx context.Context,
+	actorID *uuid.UUID,
+	actionKind string,
+	inventoryItemID *uuid.UUID,
+	status string,
+	errMsg *string,
+	metadata map[string]any,
+) {
+	if s.audit == nil {
+		return
+	}
+	s.audit.Record(ctx, audit.EventParams{
+		ActorPrincipalID: actorID,
+		ActionKind:       actionKind,
+		TargetKind:       "request",
+		InventoryItemID:  inventoryItemID,
+		Status:           status,
+		ErrorMessage:     errMsg,
+		Metadata:         metadata,
+	})
 }
 
 func (s *Service) ListStaleExecutingRequests(
@@ -513,6 +536,13 @@ func (s *Service) ApproveRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	s.recordAuditEvent(ctx, &reviewerPrincipalID, "request.approve",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
+	s.recordAuditEvent(ctx, &reviewerPrincipalID, "request.execution_started",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
+
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
 		locked.RequesterPrincipalID,
@@ -593,6 +623,10 @@ func (s *Service) DenyRequest(
 		return database.GetRequestByIDRow{}, nil, err
 	}
 
+	s.recordAuditEvent(ctx, &reviewerPrincipalID, "request.deny",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
+
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
 		locked.RequesterPrincipalID,
@@ -651,6 +685,10 @@ func (s *Service) CancelRequest(
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, nil, err
 	}
+
+	s.recordAuditEvent(ctx, &actorPrincipalID, "request.cancel",
+		locked.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestID.String(), "request_kind": locked.Kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
@@ -719,6 +757,10 @@ func (s *Service) createInventoryRequest(
 	if err := tx.Commit(ctx); err != nil {
 		return database.GetRequestByIDRow{}, err
 	}
+
+	s.recordAuditEvent(ctx, &requesterPrincipalID, "request.submit",
+		&itemID, "succeeded", nil,
+		map[string]any{"request_id": requestRow.ID.String(), "request_kind": kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestRow.ID,
@@ -988,6 +1030,10 @@ func (s *Service) markExecuted(
 		return err
 	}
 
+	s.recordAuditEvent(ctx, &actorPrincipalID, "request.executed",
+		requestRow.InventoryItemID, "succeeded", nil,
+		map[string]any{"request_id": requestRow.ID.String(), "request_kind": requestRow.Kind})
+
 	s.notify(ctx, nil, requestChangedEvent(
 		requestRow.ID,
 		requestRow.RequesterPrincipalID,
@@ -1048,6 +1094,10 @@ func (s *Service) markExecutionFailedRecord(
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
+
+	s.recordAuditEvent(ctx, actorPrincipalID, "request.execution_failed",
+		nil, "failed", &errorMessage,
+		map[string]any{"request_id": requestID.String(), "request_kind": kind})
 
 	s.notify(ctx, nil, requestChangedEvent(
 		requestID,
