@@ -277,6 +277,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           className="xl:col-span-7"
           error={catalogError}
           pods={recentPods}
+          username={user.username}
         />
         <DashboardFavoritesCard
           className="xl:col-span-5"

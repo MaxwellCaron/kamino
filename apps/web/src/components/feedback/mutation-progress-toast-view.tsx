@@ -191,7 +191,7 @@ export function MutationProgressToast({
           <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
       </div>
-      <AttachmentGroup className="-mx-6 flex max-h-100 scroll-fade flex-col gap-0 overflow-y-auto py-0">
+      <AttachmentGroup className="-mx-6 flex max-h-100 scroll-fade flex-col gap-0 overflow-y-auto py-0 firefox:scroll-fade-none">
         {attachments}
       </AttachmentGroup>
     </div>

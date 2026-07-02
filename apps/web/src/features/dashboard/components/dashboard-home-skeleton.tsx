@@ -61,7 +61,6 @@ function ProfileCardSkeleton({ className }: { className?: string }) {
           </div>
         </div>
         <CardAction className="flex shrink-0 flex-wrap justify-end gap-2 self-end pb-2">
-          <Skeleton className="h-10 w-36 rounded-md" />
           <Skeleton className="h-10 w-28 rounded-md" />
         </CardAction>
       </CardHeader>
