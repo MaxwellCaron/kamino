@@ -827,7 +827,7 @@ func writeInventoryError(c *gin.Context, err error) {
 		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
-		errors.Is(err, names.ErrMustStartWithLetter),
+		errors.Is(err, names.ErrMustStartWithAlnum),
 		errors.Is(err, names.ErrInvalidCharacters):
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 	case errors.Is(err, inventory.ErrInventoryInvalidMove),

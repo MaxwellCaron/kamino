@@ -3486,7 +3486,7 @@ func inventoryRequestError(err error) *requestError {
 		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
-		errors.Is(err, names.ErrMustStartWithLetter),
+		errors.Is(err, names.ErrMustStartWithAlnum),
 		errors.Is(err, names.ErrInvalidCharacters):
 		status = http.StatusUnprocessableEntity
 		message = err.Error()
