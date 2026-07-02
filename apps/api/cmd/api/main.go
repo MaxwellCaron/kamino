@@ -33,38 +33,49 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port                                string `envconfig:"PORT" default:":8080"`
-	FrontendURL                         string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL                         string `envconfig:"DATABASE_URL" required:"true"`
-	ProxmoxURL                          string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID                      string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret                  string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure                     bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes                        string `envconfig:"PROXMOX_NODES" required:"true"`
-	JWTSecret                           string `envconfig:"JWT_SECRET" required:"true"`
-	LDAPUrl                             string `envconfig:"LDAP_URL"`
-	LDAPBindDN                          string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword                    string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN                    string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU                          string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU                         string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN                    string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure                        bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	PodRouterTemplate                   string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
-	TemplatesFolderItemID               string `envconfig:"TEMPLATES_FOLDER_ITEM_ID"`
-	PodsFolderItemID                    string `envconfig:"PODS_FOLDER_ITEM_ID"`
-	PersonalPodsFolderItemID            string `envconfig:"PERSONAL_PODS_FOLDER_ITEM_ID"`
-	PodCloneVNetPrefix                  string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
-	PodCloneNetworkMin                  int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
-	PodCloneNetworkMax                  int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"174"`
-	PodDevNetworkMin                    int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
-	PodDevNetworkMax                    int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"199"`
-	PodRouterWait                       string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
-	PodRouterWANIPBase                  string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
-	PodRouterInternalSubnet             string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"192.168.1.0/24"`
-	PodRouterCloudInitStorage           string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
-	PodRouterCloudInitUserFilePattern   string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
-	PodRouterCloudInitNetworkFile       string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
+	// --- Core (required) ---
+	Port        string `envconfig:"PORT" default:":8080"`
+	FrontendURL string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
+	JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
+
+	// --- Proxmox (required) ---
+	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
+
+	// --- Active Directory / LDAP (optional; all required if AD auth/sync is enabled) ---
+	LDAPUrl          string `envconfig:"LDAP_URL"`
+	LDAPBindDN       string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU       string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU      string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN string `envconfig:"LDAP_ADMIN_GROUP_DN"`
+	LDAPInsecure     bool   `envconfig:"LDAP_INSECURE" default:"false"`
+
+	// --- Inventory folder item IDs (optional) ---
+	TemplatesFolderItemID    string `envconfig:"TEMPLATES_FOLDER_ITEM_ID"`
+	PodsFolderItemID         string `envconfig:"PODS_FOLDER_ITEM_ID"`
+	PersonalPodsFolderItemID string `envconfig:"PERSONAL_PODS_FOLDER_ITEM_ID"`
+	PodRouterTemplate        string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
+
+	// --- Pod clone networking (optional defaults shown) ---
+	PodCloneVNetPrefix                string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
+	PodCloneNetworkMin                int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
+	PodCloneNetworkMax                int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"174"`
+	PodDevNetworkMin                  int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
+	PodDevNetworkMax                  int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"199"`
+	PodRouterWait                     string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
+	PodRouterWANIPBase                string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
+	PodRouterInternalSubnet           string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"192.168.1.0/24"`
+	PodRouterCloudInitStorage         string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
+	PodRouterCloudInitUserFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
+	PodRouterCloudInitNetworkFile     string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
+
+	// --- Personal pods (optional; PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID gates the feature) ---
 	PersonalPodRouterTemplateItemID     string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
 	PersonalPodVNetPrefix               string `envconfig:"PERSONAL_POD_VNET_PREFIX" default:"pod"`
 	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"200"`
