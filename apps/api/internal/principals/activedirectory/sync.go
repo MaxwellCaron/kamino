@@ -113,6 +113,10 @@ func (s *Sync) Run(ctx context.Context) error {
 				// Member is outside the search base OU — skip
 				continue
 			}
+			if memberID == groupID {
+				log.Printf("Warning: skipping self-membership for AD group %q", g.Name)
+				continue
+			}
 			if err := q.InsertGroupMembership(ctx, database.InsertGroupMembershipParams{
 				GroupID:  groupID,
 				MemberID: memberID,

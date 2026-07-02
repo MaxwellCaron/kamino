@@ -197,7 +197,7 @@ CREATE TABLE inventory_items (
     CONSTRAINT inventory_items_name_no_slash
         CHECK (name !~ '/'),
     CONSTRAINT inventory_folder_name_frontend_compatible
-        CHECK (kind <> 'folder' OR name ~ '^[A-Za-z][A-Za-z0-9-]{0,62}$'),
+        CHECK (kind <> 'folder' OR name ~ '^[A-Za-z0-9_][A-Za-z0-9_-]{0,62}$'),
     CONSTRAINT inventory_root_must_be_folder
         CHECK (parent_id IS NOT NULL OR kind = 'folder'),
     CONSTRAINT inventory_folder_vm_limit_positive
