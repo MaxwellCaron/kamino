@@ -539,21 +539,25 @@ func main() {
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
 	vmHandler := &handlers.VMHandler{
-		PX:       server.ProxmoxClient,
-		Importer: server.ProxmoxImport,
-		Service:  inventoryService,
-		Notifier: vmStatusNotifier,
-		Authz:    authzService,
-		Actions:  vmActionExecutor,
-		Claims:   vmActionClaims,
-		Audit:    auditService,
+		PX:                    server.ProxmoxClient,
+		DB:                    server.DBPool,
+		Importer:              server.ProxmoxImport,
+		Service:               inventoryService,
+		Notifier:              vmStatusNotifier,
+		Authz:                 authzService,
+		Actions:               vmActionExecutor,
+		Claims:                vmActionClaims,
+		Audit:                 auditService,
+		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
 	}
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:       server.ProxmoxClient,
-		Importer: server.ProxmoxImport,
-		Service:  inventoryService,
-		Authz:    authzService,
-		Audit:    auditService,
+		PX:                    server.ProxmoxClient,
+		DB:                    server.DBPool,
+		Importer:              server.ProxmoxImport,
+		Service:               inventoryService,
+		Authz:                 authzService,
+		Audit:                 auditService,
+		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {

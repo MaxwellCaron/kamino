@@ -18,6 +18,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -62,14 +63,20 @@ type vmAuthz interface {
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX       vmProxmox
-	Importer *proxmox.InventoryImporter
-	Service  *inventory.Service
-	Notifier *vmstatus.Notifier
-	Authz    vmAuthz
-	Actions  *vmactions.Executor
-	Claims   *vmactions.Claims
-	Audit    *audit.Service
+	PX                    vmProxmox
+	DB                    *pgxpool.Pool
+	Importer              *proxmox.InventoryImporter
+	Service               *inventory.Service
+	Notifier              *vmstatus.Notifier
+	Authz                 vmAuthz
+	Actions               *vmactions.Executor
+	Claims                *vmactions.Claims
+	Audit                 *audit.Service
+	PersonalPodVNetPrefix string
+}
+
+type managementAuthorizer interface {
+	HasManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) (bool, error)
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a
@@ -785,6 +792,44 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 	if err := validateVMHardwareRequest(req); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
+	}
+
+	authz, ok := h.Authz.(managementAuthorizer)
+	if !ok {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "vm authz missing management support", fmt.Errorf("vm authz does not implement managementAuthorizer"))
+		return
+	}
+
+	isManager, err := authz.HasManagement(
+		c.Request.Context(),
+		principalID,
+		authorization.ManagementPermissionManager,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm hardware management permission", err)
+		return
+	}
+	if !isManager {
+		scopedVNetName, scoped, err := personalPodNetworkScope(
+			c.Request.Context(),
+			h.DB,
+			h.PersonalPodVNetPrefix,
+			itemID,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm hardware network scope", err)
+			return
+		}
+		if scoped {
+			for _, network := range req.Networks {
+				if strings.TrimSpace(network.Bridge) != scopedVNetName {
+					c.JSON(http.StatusUnprocessableEntity, gin.H{
+						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s", scopedVNetName),
+					})
+					return
+				}
+			}
+		}
 	}
 
 	config := proxmox.VMHardwareConfig{

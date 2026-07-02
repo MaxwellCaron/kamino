@@ -12,15 +12,18 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX       *proxmox.Client
-	Importer *proxmox.InventoryImporter
-	Service  *inventory.Service
-	Authz    *authorization.Service
-	Audit    *audit.Service
+	PX                    *proxmox.Client
+	DB                    *pgxpool.Pool
+	Importer              *proxmox.InventoryImporter
+	Service               *inventory.Service
+	Authz                 *authorization.Service
+	Audit                 *audit.Service
+	PersonalPodVNetPrefix string
 }
 
 // GetNodes returns all cluster nodes.
@@ -51,6 +54,17 @@ type createOptionsResponse struct {
 	VNets        []proxmox.VNet          `json:"vnets"`
 }
 
+func filterVNetsByName(vnets []proxmox.VNet, scopedVNetName string) []proxmox.VNet {
+	scopedVNets := make([]proxmox.VNet, 0, 1)
+	for _, vnet := range vnets {
+		if vnet.VNet == scopedVNetName {
+			scopedVNets = append(scopedVNets, vnet)
+		}
+	}
+
+	return scopedVNets
+}
+
 // GetCreateOptions returns VM create options sourced from the configured
 // metadata node plus cluster-level VNets.
 // GET /api/v1/proxmox/create/options
@@ -62,6 +76,17 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
 		return
+	}
+
+	scopeItemIDValue := strings.TrimSpace(c.Query("scope_item_id"))
+	scopeItemID := uuid.Nil
+	if scopeItemIDValue != "" {
+		parsedItemID, err := uuid.Parse(scopeItemIDValue)
+		if err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid scope_item_id"})
+			return
+		}
+		scopeItemID = parsedItemID
 	}
 
 	nodes, err := h.PX.GetNodes(c.Request.Context())
@@ -92,6 +117,34 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch networks", "fetch create option networks", err)
 		return
+	}
+
+	if scopeItemID != uuid.Nil {
+		isManager, err := h.Authz.HasManagement(
+			c.Request.Context(),
+			principalID,
+			authorization.ManagementPermissionManager,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create options management permission", err)
+			return
+		}
+		if !isManager {
+			scopedVNetName, scoped, err := personalPodNetworkScope(
+				c.Request.Context(),
+				h.DB,
+				h.PersonalPodVNetPrefix,
+				scopeItemID,
+			)
+			if err != nil {
+				writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm create options network scope", err)
+				return
+			}
+			if scoped {
+				bridges = []proxmox.NetworkBridge{}
+				vnets = filterVNetsByName(vnets, scopedVNetName)
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, createOptionsResponse{
@@ -236,6 +289,17 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 		return
 	}
 
+	scopeItemIDValue := strings.TrimSpace(c.Query("scope_item_id"))
+	scopeItemID := uuid.Nil
+	if scopeItemIDValue != "" {
+		parsedItemID, err := uuid.Parse(scopeItemIDValue)
+		if err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid scope_item_id"})
+			return
+		}
+		scopeItemID = parsedItemID
+	}
+
 	node := c.Param("node")
 	bridges, err := h.PX.GetBridges(c.Request.Context(), node)
 	if err != nil {
@@ -247,6 +311,38 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VNets", "fetch vnets", err)
 		return
 	}
+
+	if scopeItemID != uuid.Nil {
+		isManager, err := h.Authz.HasManagement(
+			c.Request.Context(),
+			principalID,
+			authorization.ManagementPermissionManager,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm bridge options management permission", err)
+			return
+		}
+		if !isManager {
+			scopedVNetName, scoped, err := personalPodNetworkScope(
+				c.Request.Context(),
+				h.DB,
+				h.PersonalPodVNetPrefix,
+				scopeItemID,
+			)
+			if err != nil {
+				writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm bridge options network scope", err)
+				return
+			}
+			if scoped {
+				c.JSON(http.StatusOK, gin.H{
+					"bridges": []proxmox.NetworkBridge{},
+					"vnets":   filterVNetsByName(vnets, scopedVNetName),
+				})
+				return
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"bridges": bridges, "vnets": vnets})
 }
 
@@ -313,6 +409,38 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	}
 	if !requireInventoryPermission(c, h.Authz, principalID, targetFolderID, authorization.CreateVM) {
 		return
+	}
+
+	isManager, err := h.Authz.HasManagement(
+		c.Request.Context(),
+		principalID,
+		authorization.ManagementPermissionManager,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create management permission", err)
+		return
+	}
+	if !isManager {
+		scopedVNetName, scoped, err := personalPodNetworkScope(
+			c.Request.Context(),
+			h.DB,
+			h.PersonalPodVNetPrefix,
+			targetFolderID,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm create network scope", err)
+			return
+		}
+		if scoped {
+			for _, network := range req.Networks {
+				if strings.TrimSpace(network.Bridge) != scopedVNetName {
+					c.JSON(http.StatusUnprocessableEntity, gin.H{
+						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s", scopedVNetName),
+					})
+					return
+				}
+			}
+		}
 	}
 
 	placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), targetFolderID)

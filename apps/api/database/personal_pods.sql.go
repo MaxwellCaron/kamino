@@ -37,6 +37,41 @@ func (q *Queries) GetPersonalPodByUser(ctx context.Context, userPrincipalID uuid
 	return i, err
 }
 
+const getPersonalPodForInventoryItem = `-- name: GetPersonalPodForInventoryItem :one
+WITH RECURSIVE ancestors AS (
+    SELECT inventory_items.id, inventory_items.parent_id
+    FROM inventory_items
+    WHERE inventory_items.id = $1
+    UNION ALL
+    SELECT ii.id, ii.parent_id
+    FROM inventory_items ii
+    JOIN ancestors a ON ii.id = a.parent_id
+)
+SELECT pp.id, pp.user_principal_id, pp.folder_id, pp.network_number
+FROM personal_pods pp
+JOIN ancestors a ON pp.folder_id = a.id
+LIMIT 1
+`
+
+type GetPersonalPodForInventoryItemRow struct {
+	ID              uuid.UUID `json:"id"`
+	UserPrincipalID uuid.UUID `json:"user_principal_id"`
+	FolderID        uuid.UUID `json:"folder_id"`
+	NetworkNumber   int32     `json:"network_number"`
+}
+
+func (q *Queries) GetPersonalPodForInventoryItem(ctx context.Context, id uuid.UUID) (GetPersonalPodForInventoryItemRow, error) {
+	row := q.db.QueryRow(ctx, getPersonalPodForInventoryItem, id)
+	var i GetPersonalPodForInventoryItemRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserPrincipalID,
+		&i.FolderID,
+		&i.NetworkNumber,
+	)
+	return i, err
+}
+
 const insertPersonalPod = `-- name: InsertPersonalPod :one
 WITH allocation_lock AS (
     SELECT pg_advisory_xact_lock(740020003)
