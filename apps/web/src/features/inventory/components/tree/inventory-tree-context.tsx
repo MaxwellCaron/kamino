@@ -1,4 +1,5 @@
 import { createContext, use } from "react"
+import type { RefObject } from "react"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
 
@@ -18,6 +19,7 @@ export interface InventoryTreeContextValue {
   selectedItemIds: Array<string>
   replaceSelection: (itemIds: Array<string>) => void
   clearSelection: () => void
+  scrollToItemHandlerRef: RefObject<((itemId: string) => void) | null>
 }
 
 export const InventoryTreeContext =

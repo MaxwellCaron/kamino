@@ -126,18 +126,22 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [navigate]
   )
 
-  const { tree, expandAll, collapseAll, revealItem } = useInventoryHeadlessTree(
-    {
-      children: treeChildren,
-      items,
-      folderIds,
-      parentIds,
-      onMove: handleMove,
-      onPrimaryAction: handlePrimaryAction,
-      selectedItemIds,
-      setSelectedItemIds,
-    }
-  )
+  const {
+    tree,
+    expandAll,
+    collapseAll,
+    revealItem,
+    scrollToItemHandlerRef,
+  } = useInventoryHeadlessTree({
+    children: treeChildren,
+    items,
+    folderIds,
+    parentIds,
+    onMove: handleMove,
+    onPrimaryAction: handlePrimaryAction,
+    selectedItemIds,
+    setSelectedItemIds,
+  })
 
   const handleFavoritePrimaryAction = useCallback(
     (itemId: string) => {
@@ -184,6 +188,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     selectedItemIds,
     replaceSelection,
     clearSelection,
+    scrollToItemHandlerRef,
   }
 
   return <InventoryTreeContext value={value}>{children}</InventoryTreeContext>

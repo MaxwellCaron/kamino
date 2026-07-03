@@ -79,6 +79,7 @@ export function useInventoryHeadlessTree({
 }: UseInventoryHeadlessTreeOptions) {
   const itemsRef = useRef(items)
   const childrenRef = useRef(children)
+  const scrollToItemHandlerRef = useRef<((itemId: string) => void) | null>(null)
   itemsRef.current = items
   childrenRef.current = children
 
@@ -156,6 +157,9 @@ export function useInventoryHeadlessTree({
     onPrimaryAction: (item) => {
       const data = item.getItemData()
       onPrimaryAction(item.getId(), data)
+    },
+    scrollToItem: (item) => {
+      scrollToItemHandlerRef.current?.(item.getId())
     },
     state: {
       expandedItems,
@@ -241,6 +245,19 @@ export function useInventoryHeadlessTree({
         }
       }
 
+      for (let attempt = 0; attempt < 20; attempt++) {
+        if (tree.getItems().some((item) => item.getId() === itemId)) {
+          break
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 25))
+      }
+
+      if (scrollToItemHandlerRef.current) {
+        scrollToItemHandlerRef.current(itemId)
+        return
+      }
+
       await tree
         .getItemInstance(itemId)
         .scrollTo({ block: "center", inline: "nearest" })
@@ -248,5 +265,5 @@ export function useInventoryHeadlessTree({
     [items, parentIds, tree]
   )
 
-  return { tree, expandAll, collapseAll, revealItem }
+  return { tree, expandAll, collapseAll, revealItem, scrollToItemHandlerRef }
 }
