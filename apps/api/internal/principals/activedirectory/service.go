@@ -115,7 +115,7 @@ func (s *Service) CreateUser(ctx context.Context, username, password, descriptio
 		return uuid.Nil, err
 	}
 
-	createdUser, err := s.client.CreateUser(username, password)
+	createdUser, err := s.client.CreateUser(username, password, description)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -124,7 +124,7 @@ func (s *Service) CreateUser(ctx context.Context, username, password, descriptio
 		ctx,
 		database.PrincipalTypeUser,
 		createdUser.SID,
-		createdUser.Name,
+		createdUser.Username,
 		description,
 	)
 }
@@ -141,7 +141,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, descri
 		return err
 	}
 
-	if err := s.client.UpdateUser(dn, username); err != nil {
+	if err := s.client.UpdateUser(dn, username, description); err != nil {
 		return err
 	}
 

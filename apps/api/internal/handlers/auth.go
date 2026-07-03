@@ -76,7 +76,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	username := result.Name
+	username := result.Username
 	if username == "" && principal.Name != nil {
 		username = *principal.Name
 	}

@@ -78,10 +78,21 @@ func (s *Sync) Run(ctx context.Context) error {
 			ProviderID:    providerID,
 			PrincipalType: database.PrincipalTypeUser,
 			ExternalID:    u.SID,
-			Name:          &u.Name,
+			Name:          &u.Username,
 		})
 		if err != nil {
-			return fmt.Errorf("upserting user %q: %w", u.Name, err)
+			return fmt.Errorf("upserting user %q: %w", u.Username, err)
+		}
+
+		var description *string
+		if u.Description != "" {
+			description = &u.Description
+		}
+		if err := q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+			Description: description,
+			ID:          id,
+		}); err != nil {
+			return fmt.Errorf("updating user description %q: %w", u.Username, err)
 		}
 		dnToID[u.DN] = id
 		keptSIDs = append(keptSIDs, u.SID)
