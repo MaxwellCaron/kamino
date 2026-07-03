@@ -39,12 +39,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   const fullTree = useMemo(() => flattenApiTree(apiTree), [apiTree])
 
-  const {
-    items,
-    children: treeChildren,
-    folderIds,
-    parentIds,
-  } = fullTree
+  const { items, children: treeChildren, folderIds, parentIds } = fullTree
 
   const selectedItemIds = useMemo(() => {
     const itemIdsForActiveRoute =
@@ -119,29 +114,27 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [moveItems]
   )
 
+  const lastAutoRevealedItemIdRef = useRef<string | null>(null)
+
   const handlePrimaryAction = useCallback(
     (itemId: string) => {
+      lastAutoRevealedItemIdRef.current = itemId
       navigate({ to: "/inventory/items/$itemId", params: { itemId } })
     },
     [navigate]
   )
 
-  const {
-    tree,
-    expandAll,
-    collapseAll,
-    revealItem,
-    scrollToItemHandlerRef,
-  } = useInventoryHeadlessTree({
-    children: treeChildren,
-    items,
-    folderIds,
-    parentIds,
-    onMove: handleMove,
-    onPrimaryAction: handlePrimaryAction,
-    selectedItemIds,
-    setSelectedItemIds,
-  })
+  const { tree, expandAll, collapseAll, revealItem, scrollToItemHandlerRef } =
+    useInventoryHeadlessTree({
+      children: treeChildren,
+      items,
+      folderIds,
+      parentIds,
+      onMove: handleMove,
+      onPrimaryAction: handlePrimaryAction,
+      selectedItemIds,
+      setSelectedItemIds,
+    })
 
   const revealAndNavigateToItem = useCallback(
     (itemId: string) => {
@@ -150,8 +143,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     },
     [handlePrimaryAction, revealItem]
   )
-
-  const lastAutoRevealedItemIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!activeItemId || !items.has(activeItemId)) {
