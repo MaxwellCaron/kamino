@@ -18,7 +18,7 @@ var (
 type Provider interface {
 	ListUsers(ctx context.Context) ([]database.GetAllUsersRow, error)
 	CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error)
-	UpdateUser(ctx context.Context, id uuid.UUID, username, description string) error
+	UpdateUser(ctx context.Context, id uuid.UUID, username, fullName, description string) error
 	SetPassword(ctx context.Context, id uuid.UUID, password string) error
 	ChangePassword(ctx context.Context, id uuid.UUID, oldPassword, newPassword string) error
 	EnableUser(ctx context.Context, id uuid.UUID) error

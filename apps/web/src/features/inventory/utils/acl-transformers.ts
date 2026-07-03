@@ -11,6 +11,7 @@ import type {
   PrincipalListSectionKey,
   PrincipalOption,
 } from "../types/inventory-types"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
 
 function createEmptyScope(): DraftScope {
   return { allowMask: 0, denyMask: 0 }
@@ -129,7 +130,7 @@ export function buildPrincipalOptions(
       (p): PrincipalOption => ({
         id: p.id,
         type: userIds.has(p.id) ? "user" : "group",
-        label: p.name ?? p.external_id,
+        label: formatPrincipalReference(p),
         description: p.external_id,
       })
     )

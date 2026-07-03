@@ -29,6 +29,10 @@ import {
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
+  formatPrincipalReference,
+  getPrincipalBaseName,
+} from "@/components/principals/principal-label"
+import {
   AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
@@ -72,6 +76,10 @@ export function UserGroupBulkDialog({
 }: UserGroupBulkDialogProps) {
   const queryClient = useQueryClient()
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
+  const selectedUsersLabel =
+    users.length === 1
+      ? formatPrincipalReference(users[0])
+      : `${users.length} selected users`
 
   const form = useForm({
     defaultValues: {
@@ -95,7 +103,7 @@ export function UserGroupBulkDialog({
 
         const succeededCount = result.succeeded.length
         const failedCount = result.failed.length
-        const groupLabel = group.name ?? group.external_id
+        const groupLabel = formatPrincipalReference(group)
 
         if (succeededCount > 0) {
           toast.success(
@@ -137,8 +145,8 @@ export function UserGroupBulkDialog({
       title={mode === "add" ? "Add Users" : "Remove Users"}
       description={
         mode === "add"
-          ? `Add ${users.length} selected user${users.length === 1 ? "" : "s"} to an existing group.`
-          : `Remove ${users.length} selected user${users.length === 1 ? "" : "s"} from an existing group.`
+          ? `Add ${selectedUsersLabel} to an existing group.`
+          : `Remove ${selectedUsersLabel} from an existing group.`
       }
       descriptionProps={{ render: <div /> }}
     >
@@ -172,7 +180,7 @@ export function UserGroupBulkDialog({
                       <Combobox
                         items={groups ?? []}
                         itemToStringLabel={(group) =>
-                          group.name ?? group.external_id
+                          formatPrincipalReference(group)
                         }
                         value={field.state.value}
                         onValueChange={(group) => field.handleChange(group)}
@@ -187,7 +195,7 @@ export function UserGroupBulkDialog({
                           <ComboboxList>
                             {(group) => (
                               <ComboboxItem key={group.id} value={group}>
-                                {group.name ?? group.external_id}
+                                {formatPrincipalReference(group)}
                               </ComboboxItem>
                             )}
                           </ComboboxList>
@@ -209,12 +217,12 @@ export function UserGroupBulkDialog({
                 <Item key={user.id} variant="muted">
                   <ItemMedia variant="icon">
                     <FacehashIcon
-                      name={user.name || user.external_id}
+                      name={getPrincipalBaseName(user)}
                       size={28}
                     />
                   </ItemMedia>
                   <ItemContent>
-                    <ItemTitle>{user.name || user.external_id}</ItemTitle>
+                    <ItemTitle>{formatPrincipalReference(user)}</ItemTitle>
                   </ItemContent>
                 </Item>
               ))}

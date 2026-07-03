@@ -4,6 +4,7 @@ export type ApiPrincipal = {
   id: string
   external_id: string
   name: string | null
+  full_name: string | null
   description: string | null
   created_at?: string | null
 }
@@ -13,6 +14,7 @@ export type ApiGroupMember = {
   principal_type: "user" | "group"
   external_id: string
   name: string | null
+  full_name: string | null
   description: string | null
 }
 

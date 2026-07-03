@@ -109,7 +109,7 @@ export async function createUser(
 
 export async function updateUser(
   id: string,
-  params: { username: string; description?: string }
+  params: { username: string; full_name?: string; description?: string }
 ): Promise<void> {
   const res = await apiFetch(`/api/v1/principals/users/${id}`, {
     method: "PUT",

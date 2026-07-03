@@ -2,8 +2,12 @@ import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import {
+  formatPrincipalReference,
+  getPrincipalBaseName,
+} from "@/components/principals/principal-label"
 
 type PrincipalColumnsOptions = {
   icon: IconSvgElement
@@ -22,7 +26,7 @@ export function getPrincipalColumns({
         <div className="flex items-center gap-3 pl-4">
           {label === "User" ? (
             <FacehashIcon
-              name={principal.name ?? principal.external_id}
+              name={getPrincipalBaseName(principal)}
               size={32}
             />
           ) : (
@@ -35,7 +39,7 @@ export function getPrincipalColumns({
           )}
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="truncate font-medium">
-              {principal.name ?? principal.external_id}
+              {formatPrincipalReference(principal)}
             </div>
           </div>
         </div>

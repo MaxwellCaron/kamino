@@ -80,6 +80,7 @@ type principalResponse struct {
 	ID          uuid.UUID  `json:"id"`
 	ExternalID  string     `json:"external_id"`
 	Name        *string    `json:"name"`
+	FullName    *string    `json:"full_name"`
 	Description *string    `json:"description"`
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
 }
@@ -99,6 +100,7 @@ func userPrincipalResponses(rows []database.GetAllUsersRow) []principalResponse 
 			ID:          row.ID,
 			ExternalID:  row.ExternalID,
 			Name:        row.Name,
+			FullName:    row.FullName,
 			Description: row.Description,
 			CreatedAt:   timestamptzPtr(row.CreatedAt),
 		})
@@ -113,6 +115,7 @@ func groupPrincipalResponses(rows []database.GetAllGroupsRow) []principalRespons
 			ID:          row.ID,
 			ExternalID:  row.ExternalID,
 			Name:        row.Name,
+			FullName:    row.FullName,
 			Description: row.Description,
 			CreatedAt:   timestamptzPtr(row.CreatedAt),
 		})
@@ -379,6 +382,7 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 
 type updateUserRequest struct {
 	Username    string `json:"username" binding:"required"`
+	FullName    string `json:"full_name"`
 	Description string `json:"description"`
 }
 
@@ -402,7 +406,19 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.Provider.UpdateUser(c.Request.Context(), id, req.Username, req.Description); err != nil {
+	normalizedFullName, err := principals.NormalizeFullName(req.FullName)
+	if err != nil {
+		writeInvalidRequest(c, err.Error())
+		return
+	}
+
+	if err := h.Provider.UpdateUser(
+		c.Request.Context(),
+		id,
+		req.Username,
+		normalizedFullName,
+		req.Description,
+	); err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to update user", "update user", err)
 		return
 	}

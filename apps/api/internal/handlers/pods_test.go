@@ -528,33 +528,49 @@ func TestPublishedPrincipal(t *testing.T) {
 
 	t.Run("uses name over external ID for label", func(t *testing.T) {
 		name := "Alice"
-		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", &name, nil)
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", &name, nil, nil)
 		if got.Label != "Alice" {
 			t.Errorf("Label = %q, want %q", got.Label, "Alice")
 		}
 	})
 	t.Run("falls back to external ID for label", func(t *testing.T) {
-		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", nil, nil)
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", nil, nil, nil)
 		if got.Label != "alice@ad" {
 			t.Errorf("Label = %q, want %q", got.Label, "alice@ad")
 		}
 	})
 	t.Run("empty name falls back to external ID", func(t *testing.T) {
 		empty := "  "
-		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", &empty, nil)
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", &empty, nil, nil)
 		if got.Label != "alice@ad" {
 			t.Errorf("Label = %q, want %q", got.Label, "alice@ad")
 		}
 	})
+	t.Run("formats combined full name label", func(t *testing.T) {
+		name := "mcaron"
+		fullName := "Maxwell Caron"
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "mcaron@ad", &name, &fullName, nil)
+		if got.Label != "mcaron (Maxwell Caron)" {
+			t.Errorf("Label = %q, want %q", got.Label, "mcaron (Maxwell Caron)")
+		}
+	})
+	t.Run("suppresses duplicate full name label", func(t *testing.T) {
+		name := "mcaron"
+		fullName := "MCARON"
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "mcaron@ad", &name, &fullName, nil)
+		if got.Label != "mcaron" {
+			t.Errorf("Label = %q, want %q", got.Label, "mcaron")
+		}
+	})
 	t.Run("uses description over external ID", func(t *testing.T) {
 		desc := "Lab admin"
-		got := publishedPrincipal(id, database.PrincipalTypeGroup, "grp-001", nil, &desc)
+		got := publishedPrincipal(id, database.PrincipalTypeGroup, "grp-001", nil, nil, &desc)
 		if got.Description != "Lab admin" {
 			t.Errorf("Description = %q, want %q", got.Description, "Lab admin")
 		}
 	})
 	t.Run("falls back to external ID for description", func(t *testing.T) {
-		got := publishedPrincipal(id, database.PrincipalTypeGroup, "grp-001", nil, nil)
+		got := publishedPrincipal(id, database.PrincipalTypeGroup, "grp-001", nil, nil, nil)
 		if got.Description != "grp-001" {
 			t.Errorf("Description = %q, want %q", got.Description, "grp-001")
 		}

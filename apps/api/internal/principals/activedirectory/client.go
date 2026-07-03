@@ -16,6 +16,7 @@ type User struct {
 	DN          string
 	SID         string
 	Username    string
+	FullName    string
 	Description string
 }
 
@@ -99,6 +100,7 @@ func userFromEntry(entry *ldap.Entry) (User, error) {
 		DN:          entry.GetAttributeValue("distinguishedName"),
 		SID:         sid,
 		Username:    entry.GetAttributeValue("sAMAccountName"),
+		FullName:    entry.GetAttributeValue("displayName"),
 		Description: entry.GetAttributeValue("description"),
 	}, nil
 }
@@ -146,7 +148,7 @@ func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 1, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "description", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
 		nil,
 	))
 	if err != nil {
@@ -190,7 +192,7 @@ func (c *Client) FetchUsers() ([]User, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "description", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
 		nil,
 	), 1000)
 	if err != nil {
@@ -231,7 +233,7 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 		ldap.ScopeBaseObject,
 		ldap.NeverDerefAliases, 1, 0, false,
 		"(objectClass=user)",
-		[]string{"objectSid", "sAMAccountName", "description", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
 		nil,
 	))
 	if err != nil {
@@ -413,7 +415,6 @@ func (c *Client) CreateUser(username, password, description string) (User, error
 	addReq := ldap.NewAddRequest(dn, nil)
 	addReq.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
 	addReq.Attribute("sAMAccountName", []string{username})
-	addReq.Attribute("displayName", []string{username})
 	addReq.Attribute("userPrincipalName", []string{username + "@" + c.domainFromBaseDN()})
 	addReq.Attribute("unicodePwd", []string{string(encodePassword(password))})
 	// 512 = NORMAL_ACCOUNT (enabled)
@@ -437,8 +438,8 @@ func (c *Client) CreateUser(username, password, description string) (User, error
 	return *user, nil
 }
 
-// UpdateUser modifies the logon name and description of an existing user.
-func (c *Client) UpdateUser(dn, username, description string) error {
+// UpdateUser modifies the logon name and profile metadata of an existing user.
+func (c *Client) UpdateUser(dn, username, fullName, description string) error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
@@ -448,6 +449,11 @@ func (c *Client) UpdateUser(dn, username, description string) error {
 	modReq := ldap.NewModifyRequest(dn, nil)
 	modReq.Replace("sAMAccountName", []string{username})
 	modReq.Replace("userPrincipalName", []string{username + "@" + c.domainFromBaseDN()})
+	if fullName != "" {
+		modReq.Replace("displayName", []string{fullName})
+	} else {
+		modReq.Delete("displayName", nil)
+	}
 	if description != "" {
 		modReq.Replace("description", []string{description})
 	} else {

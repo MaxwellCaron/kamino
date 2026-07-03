@@ -21,6 +21,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
@@ -3191,11 +3192,11 @@ func publishedQuestionFromRow(row database.ListPublishedPodQuestionsByTaskIDsRow
 }
 
 func publishedPrincipalFromCreator(row database.ListPublishedPodCreatorsByPodIDsRow) publishedPodPrincipalResponse {
-	return publishedPrincipal(row.ID, row.PrincipalType, row.ExternalID, row.Name, row.Description)
+	return publishedPrincipal(row.ID, row.PrincipalType, row.ExternalID, row.Name, row.FullName, row.Description)
 }
 
 func publishedPrincipalFromAudience(row database.ListPublishedPodAudienceByPodIDsRow) publishedPodPrincipalResponse {
-	return publishedPrincipal(row.ID, row.PrincipalType, row.ExternalID, row.Name, row.Description)
+	return publishedPrincipal(row.ID, row.PrincipalType, row.ExternalID, row.Name, row.FullName, row.Description)
 }
 
 func publishedPrincipal(
@@ -3203,12 +3204,10 @@ func publishedPrincipal(
 	principalType database.PrincipalType,
 	externalID string,
 	name *string,
+	fullName *string,
 	description *string,
 ) publishedPodPrincipalResponse {
-	label := externalID
-	if name != nil && strings.TrimSpace(*name) != "" {
-		label = *name
-	}
+	label := principals.FormatReference(name, fullName, externalID)
 	descriptionValue := externalID
 	if description != nil && strings.TrimSpace(*description) != "" {
 		descriptionValue = *description

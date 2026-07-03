@@ -9,6 +9,7 @@ import { Input } from "@workspace/ui/components/input"
 import type { UserFormApi } from "@/features/principals/components/users/user-dialog-utils"
 import {
   descriptionFieldSchema,
+  fullNameSchema,
   optionalPasswordSchema,
   usernameSchema,
 } from "@/features/principals/components/users/user-dialog-utils"
@@ -42,6 +43,35 @@ export function UserDialogEditForm({ form }: UserDialogEditFormProps) {
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="jdoe"
+                  aria-invalid={isInvalid}
+                />
+              </FieldContent>
+              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+            </Field>
+          )
+        }}
+      </form.Field>
+
+      <form.Field
+        name="fullName"
+        validators={{
+          onSubmit: fullNameSchema,
+        }}
+      >
+        {(field) => {
+          const isInvalid =
+            field.state.meta.isTouched && !field.state.meta.isValid
+
+          return (
+            <Field data-invalid={isInvalid}>
+              <FieldLabel htmlFor="full-name">Full Name</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="full-name"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Maxwell Caron"
                   aria-invalid={isInvalid}
                 />
               </FieldContent>

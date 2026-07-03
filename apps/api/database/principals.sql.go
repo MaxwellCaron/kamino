@@ -91,7 +91,7 @@ func (q *Queries) DeleteStalePrincipals(ctx context.Context, arg DeleteStalePrin
 }
 
 const getAllGroups = `-- name: GetAllGroups :many
-SELECT id, external_id, name, description, created_at
+SELECT id, external_id, name, full_name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'group'
 ORDER BY name
@@ -101,6 +101,7 @@ type GetAllGroupsRow struct {
 	ID          uuid.UUID          `json:"id"`
 	ExternalID  string             `json:"external_id"`
 	Name        *string            `json:"name"`
+	FullName    *string            `json:"full_name"`
 	Description *string            `json:"description"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
@@ -118,6 +119,7 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 			&i.ID,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 			&i.CreatedAt,
 		); err != nil {
@@ -133,7 +135,7 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 
 const getAllUsers = `-- name: GetAllUsers :many
 
-SELECT id, external_id, name, description, created_at
+SELECT id, external_id, name, full_name, description, created_at
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name
@@ -143,6 +145,7 @@ type GetAllUsersRow struct {
 	ID          uuid.UUID          `json:"id"`
 	ExternalID  string             `json:"external_id"`
 	Name        *string            `json:"name"`
+	FullName    *string            `json:"full_name"`
 	Description *string            `json:"description"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
@@ -163,6 +166,7 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 			&i.ID,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 			&i.CreatedAt,
 		); err != nil {
@@ -177,7 +181,7 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 }
 
 const getGroupMembers = `-- name: GetGroupMembers :many
-SELECT p.id, p.principal_type, p.external_id, p.name, p.description
+SELECT p.id, p.principal_type, p.external_id, p.name, p.full_name, p.description
 FROM group_memberships gm
 JOIN principals p ON p.id = gm.member_id
 WHERE gm.group_id = $1
@@ -189,6 +193,7 @@ type GetGroupMembersRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 }
 
@@ -206,6 +211,7 @@ func (q *Queries) GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]Get
 			&i.PrincipalType,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 		); err != nil {
 			return nil, err
@@ -219,7 +225,7 @@ func (q *Queries) GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]Get
 }
 
 const getPrincipalByExternalID = `-- name: GetPrincipalByExternalID :one
-SELECT id, provider_id, principal_type, external_id, name, description
+SELECT id, provider_id, principal_type, external_id, name, full_name, description
 FROM principals
 WHERE provider_id = $1 AND external_id = $2
 `
@@ -235,6 +241,7 @@ type GetPrincipalByExternalIDRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 }
 
@@ -247,13 +254,14 @@ func (q *Queries) GetPrincipalByExternalID(ctx context.Context, arg GetPrincipal
 		&i.PrincipalType,
 		&i.ExternalID,
 		&i.Name,
+		&i.FullName,
 		&i.Description,
 	)
 	return i, err
 }
 
 const getPrincipalByID = `-- name: GetPrincipalByID :one
-SELECT id, provider_id, principal_type, external_id, name, description
+SELECT id, provider_id, principal_type, external_id, name, full_name, description
 FROM principals
 WHERE id = $1
 `
@@ -264,6 +272,7 @@ type GetPrincipalByIDRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 }
 
@@ -276,6 +285,7 @@ func (q *Queries) GetPrincipalByID(ctx context.Context, id uuid.UUID) (GetPrinci
 		&i.PrincipalType,
 		&i.ExternalID,
 		&i.Name,
+		&i.FullName,
 		&i.Description,
 	)
 	return i, err
@@ -331,7 +341,7 @@ func (q *Queries) GetPrincipalsByIDs(ctx context.Context, ids []uuid.UUID) ([]Ge
 }
 
 const getUserGroups = `-- name: GetUserGroups :many
-SELECT p.id, p.principal_type, p.external_id, p.name, p.description
+SELECT p.id, p.principal_type, p.external_id, p.name, p.full_name, p.description
 FROM group_memberships gm
 JOIN principals p ON p.id = gm.group_id
 WHERE gm.member_id = $1
@@ -343,6 +353,7 @@ type GetUserGroupsRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 }
 
@@ -360,6 +371,7 @@ func (q *Queries) GetUserGroups(ctx context.Context, memberID uuid.UUID) ([]GetU
 			&i.PrincipalType,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 		); err != nil {
 			return nil, err
@@ -484,7 +496,7 @@ func (q *Queries) ListPrincipalDeletionBlockers(ctx context.Context, principalID
 }
 
 const listPrincipalDetailsByIDs = `-- name: ListPrincipalDetailsByIDs :many
-SELECT id, provider_id, principal_type, external_id, name, description
+SELECT id, provider_id, principal_type, external_id, name, full_name, description
 FROM principals
 WHERE id = ANY($1::UUID[])
 `
@@ -495,6 +507,7 @@ type ListPrincipalDetailsByIDsRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 }
 
@@ -513,6 +526,7 @@ func (q *Queries) ListPrincipalDetailsByIDs(ctx context.Context, ids []uuid.UUID
 			&i.PrincipalType,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 		); err != nil {
 			return nil, err
@@ -536,6 +550,20 @@ type UpdatePrincipalDescriptionParams struct {
 
 func (q *Queries) UpdatePrincipalDescription(ctx context.Context, arg UpdatePrincipalDescriptionParams) error {
 	_, err := q.db.Exec(ctx, updatePrincipalDescription, arg.Description, arg.ID)
+	return err
+}
+
+const updatePrincipalFullName = `-- name: UpdatePrincipalFullName :exec
+UPDATE principals SET full_name = $1 WHERE id = $2
+`
+
+type UpdatePrincipalFullNameParams struct {
+	FullName *string   `json:"full_name"`
+	ID       uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdatePrincipalFullName(ctx context.Context, arg UpdatePrincipalFullNameParams) error {
+	_, err := q.db.Exec(ctx, updatePrincipalFullName, arg.FullName, arg.ID)
 	return err
 }
 

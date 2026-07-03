@@ -26,6 +26,7 @@ import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
 import { searchDocs } from "@/features/documentation/utils/docs-search"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
@@ -314,7 +315,7 @@ export const groupOrder = [
 ] as const satisfies Array<CommandGroupKey>
 
 function principalLabel(principal: ApiPrincipal) {
-  return principal.name ?? principal.external_id
+  return formatPrincipalReference(principal)
 }
 
 function collectTreeNodes(tree: Array<ApiTreeNode>) {
@@ -560,7 +561,12 @@ function buildAdminCommands({
       icon: UserIcon,
       label,
       subtitle: principal.description ?? "User principal",
-      keywords: [principal.external_id, principal.description ?? "", "user"],
+      keywords: [
+        principal.external_id,
+        principal.full_name ?? "",
+        principal.description ?? "",
+        "user",
+      ],
       onSelect: runCommand(actions, actions.navigateToUsers),
     })
   })

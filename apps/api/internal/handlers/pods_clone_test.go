@@ -642,20 +642,22 @@ func TestPodNetworkTargetsFromCloneResults(t *testing.T) {
 func TestCloneOwnerFromPrincipal(t *testing.T) {
 	id := uuid.New()
 
-	t.Run("uses name over external ID", func(t *testing.T) {
-		name := "Alice Smith"
+	t.Run("uses combined full name when present", func(t *testing.T) {
+		name := "mcaron"
+		fullName := "Maxwell Caron"
 		row := database.ListPrincipalDetailsByIDsRow{
 			ID:            id,
 			PrincipalType: database.PrincipalTypeUser,
-			ExternalID:    "alice@ad",
+			ExternalID:    "mcaron@ad",
 			Name:          &name,
+			FullName:      &fullName,
 		}
 		got := cloneOwnerFromPrincipal(row)
-		if got.Label != "Alice Smith" {
-			t.Errorf("Label = %q, want %q", got.Label, "Alice Smith")
+		if got.Label != "mcaron (Maxwell Caron)" {
+			t.Errorf("Label = %q, want %q", got.Label, "mcaron (Maxwell Caron)")
 		}
-		if got.Description != "alice@ad" {
-			t.Errorf("Description = %q, want %q", got.Description, "alice@ad")
+		if got.Description != "mcaron@ad" {
+			t.Errorf("Description = %q, want %q", got.Description, "mcaron@ad")
 		}
 	})
 	t.Run("falls back to external ID for label", func(t *testing.T) {
@@ -667,6 +669,21 @@ func TestCloneOwnerFromPrincipal(t *testing.T) {
 		got := cloneOwnerFromPrincipal(row)
 		if got.Label != "alice@ad" {
 			t.Errorf("Label = %q, want %q", got.Label, "alice@ad")
+		}
+	})
+	t.Run("suppresses duplicate full name label", func(t *testing.T) {
+		name := "mcaron"
+		fullName := "MCARON"
+		row := database.ListPrincipalDetailsByIDsRow{
+			ID:            id,
+			PrincipalType: database.PrincipalTypeUser,
+			ExternalID:    "mcaron@ad",
+			Name:          &name,
+			FullName:      &fullName,
+		}
+		got := cloneOwnerFromPrincipal(row)
+		if got.Label != "mcaron" {
+			t.Errorf("Label = %q, want %q", got.Label, "mcaron")
 		}
 	})
 	t.Run("uses description when present", func(t *testing.T) {

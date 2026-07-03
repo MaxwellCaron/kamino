@@ -37,15 +37,24 @@ export const optionalPasswordSchema = z.union([
   z.literal(""),
   requiredPasswordSchema,
 ])
+export const fullNameSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => Array.from(value).length <= 128,
+    "Full name must be 128 characters or fewer"
+  )
 
 export const userSchema = z.object({
   username: usernameSchema,
+  fullName: fullNameSchema,
   description: descriptionSchema,
   password: z.string().optional(),
 })
 
 export type UserFormValues = {
   description: string
+  fullName: string
   listInput: string
   password: string
   prefix: string
@@ -74,6 +83,7 @@ export type UserFormApi = ReactFormExtendedApi<
 export function getDefaultUserFormValues(user?: ApiPrincipal): UserFormValues {
   return {
     username: user?.name ?? "",
+    fullName: user?.full_name ?? "",
     description: user?.description ?? "",
     password: "",
     listInput: "",
