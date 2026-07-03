@@ -96,7 +96,9 @@ export function InventoryTreeContent({
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current
     const scroller =
-      wrapper?.closest<HTMLElement>('[data-slot="sidebar-content"]') ?? null
+      wrapper?.closest<HTMLElement>(
+        '[data-slot="scroll-area-viewport"], [data-slot="sidebar-content"]'
+      ) ?? null
 
     setScrollElement(scroller)
 
