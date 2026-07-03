@@ -131,9 +131,9 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: isServerMode ? undefined : getFilteredRowModel(),
     manualPagination: isServerMode,
     rowCount: isServerMode ? serverPagination.rowCount : undefined,
-    onPaginationChange: isServerMode
-      ? serverPagination.onPaginationChange
-      : undefined,
+    ...(isServerMode
+      ? { onPaginationChange: serverPagination.onPaginationChange }
+      : {}),
     onGlobalFilterChange: isServerMode ? undefined : setGlobalFilter,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
