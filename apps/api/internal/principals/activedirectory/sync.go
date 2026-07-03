@@ -54,6 +54,7 @@ func (s *Sync) Run(ctx context.Context) error {
 
 	// Upsert groups and build DN → principal ID map
 	dnToID := make(map[string]uuid.UUID, len(groups)+len(users))
+	groupIDs := make(map[uuid.UUID]bool, len(groups))
 	keptSIDs := make([]string, 0, len(groups)+len(users))
 
 	for _, g := range groups {
@@ -67,6 +68,7 @@ func (s *Sync) Run(ctx context.Context) error {
 			return fmt.Errorf("upserting group %q: %w", g.Name, err)
 		}
 		dnToID[g.DN] = id
+		groupIDs[id] = true
 		keptSIDs = append(keptSIDs, g.SID)
 	}
 
@@ -102,6 +104,7 @@ func (s *Sync) Run(ctx context.Context) error {
 		return fmt.Errorf("clearing group memberships: %w", err)
 	}
 
+	groupEdges := make(map[uuid.UUID][]uuid.UUID)
 	for _, g := range groups {
 		groupID, ok := dnToID[g.DN]
 		if !ok {
@@ -117,11 +120,18 @@ func (s *Sync) Run(ctx context.Context) error {
 				log.Printf("Warning: skipping self-membership for AD group %q", g.Name)
 				continue
 			}
+			if groupIDs[memberID] && createsCycle(groupEdges, groupID, memberID) {
+				log.Printf("Warning: skipping AD membership %q -> %q: would create a nested-group cycle", g.Name, memberDN)
+				continue
+			}
 			if err := q.InsertGroupMembership(ctx, database.InsertGroupMembershipParams{
 				GroupID:  groupID,
 				MemberID: memberID,
 			}); err != nil {
 				return fmt.Errorf("inserting membership: %w", err)
+			}
+			if groupIDs[memberID] {
+				groupEdges[groupID] = append(groupEdges[groupID], memberID)
 			}
 		}
 	}
@@ -132,6 +142,26 @@ func (s *Sync) Run(ctx context.Context) error {
 
 	log.Printf("AD sync complete: %d groups, %d users", len(groups), len(users))
 	return nil
+}
+
+// createsCycle reports whether adding edge groupID -> memberID to the
+// group-membership graph would let memberID reach groupID.
+func createsCycle(children map[uuid.UUID][]uuid.UUID, groupID, memberID uuid.UUID) bool {
+	stack := []uuid.UUID{memberID}
+	seen := map[uuid.UUID]bool{}
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if current == groupID {
+			return true
+		}
+		if seen[current] {
+			continue
+		}
+		seen[current] = true
+		stack = append(stack, children[current]...)
+	}
+	return false
 }
 
 func ensureProvider(ctx context.Context, q *database.Queries) (uuid.UUID, error) {
