@@ -1,3 +1,5 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import {
@@ -17,6 +19,8 @@ import { useInventoryTreeContext } from "./inventory-tree-context"
 import type { MouseEvent as ReactMouseEvent } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
+
+const ESTIMATED_ROW_HEIGHT = 34
 
 interface SelectionDataRef {
   selectUpToAnchorId?: string | null
@@ -79,28 +83,113 @@ export function InventoryTreeContent({
   getStatus: (itemId: string) => string | undefined
   tree: TreeInstance<ApiTreeNode>
 }) {
-  const { favoriteIds, toggleFavorite, handlePrimaryAction } =
-    useInventoryTreeContext()
+  const {
+    favoriteIds,
+    toggleFavorite,
+    handlePrimaryAction,
+    scrollToItemHandlerRef,
+  } = useInventoryTreeContext()
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
+  const [scrollMargin, setScrollMargin] = useState(0)
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    const scroller =
+      wrapper?.closest<HTMLElement>('[data-slot="sidebar-content"]') ?? null
+
+    setScrollElement(scroller)
+
+    if (wrapper && scroller) {
+      setScrollMargin(
+        wrapper.getBoundingClientRect().top -
+          scroller.getBoundingClientRect().top +
+          scroller.scrollTop
+      )
+    }
+  }, [])
+
+  const items = tree.getItems()
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollElement,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 12,
+    getItemKey: (index) => items[index]?.getId() ?? index,
+    scrollMargin,
+  })
+
+  useEffect(() => {
+    scrollToItemHandlerRef.current = (itemId: string) => {
+      const scrollToItem = (attempt: number) => {
+        if (attempt > 30) {
+          return
+        }
+
+        if (!virtualizer.scrollElement) {
+          requestAnimationFrame(() => scrollToItem(attempt + 1))
+          return
+        }
+
+        const index = tree
+          .getItems()
+          .findIndex((item) => item.getId() === itemId)
+        if (index >= 0) {
+          virtualizer.scrollToIndex(index, { align: "center" })
+        }
+      }
+
+      scrollToItem(0)
+    }
+
+    return () => {
+      scrollToItemHandlerRef.current = null
+    }
+  }, [scrollToItemHandlerRef, tree, virtualizer])
 
   return (
-    <Tree tree={tree} indent={TREE_INDENT}>
-      {tree.getItems().map((item) => {
-        const id = item.getId()
+    <div ref={wrapperRef}>
+      <Tree
+        tree={tree}
+        indent={TREE_INDENT}
+        className="relative"
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const item = items.at(virtualRow.index)
+          if (!item) {
+            return null
+          }
 
-        return (
-          <InventoryTreeRow
-            key={id}
-            item={item}
-            tree={tree}
-            getStatus={getStatus}
-            isFavorite={favoriteIds.has(id)}
-            onPrimaryAction={handlePrimaryAction}
-            onToggleFavorite={toggleFavorite}
-          />
-        )
-      })}
-      <TreeDragLine />
-    </Tree>
+          const id = item.getId()
+
+          return (
+            <div
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              className="absolute top-0 left-0 flex w-full flex-col pb-0.5"
+              style={{
+                transform: `translateY(${
+                  virtualRow.start - virtualizer.options.scrollMargin
+                }px)`,
+              }}
+            >
+              <InventoryTreeRow
+                item={item}
+                tree={tree}
+                getStatus={getStatus}
+                isFavorite={favoriteIds.has(id)}
+                onPrimaryAction={handlePrimaryAction}
+                onToggleFavorite={toggleFavorite}
+              />
+            </div>
+          )
+        })}
+        <TreeDragLine />
+      </Tree>
+    </div>
   )
 }
 

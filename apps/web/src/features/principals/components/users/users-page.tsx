@@ -27,6 +27,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
@@ -74,7 +75,7 @@ const UserGroupBulkDialog = lazy(() =>
 )
 
 function getUserLabel(user: ApiPrincipal) {
-  return user.name ?? user.external_id
+  return formatPrincipalReference(user)
 }
 
 export function UsersPage() {

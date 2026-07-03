@@ -13,9 +13,11 @@ import (
 
 // User represents an Active Directory user account.
 type User struct {
-	DN   string
-	SID  string
-	Name string
+	DN          string
+	SID         string
+	Username    string
+	FullName    string
+	Description string
 }
 
 // Group represents an Active Directory group with its member DNs.
@@ -83,9 +85,24 @@ func (c *Client) connect() (*ldap.Conn, error) {
 
 // AuthResult holds the identity of a successfully authenticated AD user.
 type AuthResult struct {
-	DN   string
-	SID  string
-	Name string
+	DN       string
+	SID      string
+	Username string
+}
+
+func userFromEntry(entry *ldap.Entry) (User, error) {
+	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
+	if sid == "" {
+		return User{}, fmt.Errorf("ad: could not decode user SID")
+	}
+
+	return User{
+		DN:          entry.GetAttributeValue("distinguishedName"),
+		SID:         sid,
+		Username:    entry.GetAttributeValue("sAMAccountName"),
+		FullName:    entry.GetAttributeValue("displayName"),
+		Description: entry.GetAttributeValue("description"),
+	}, nil
 }
 
 func (c *Client) bindUser(userDN, password string) error {
@@ -131,7 +148,7 @@ func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 1, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
 		nil,
 	))
 	if err != nil {
@@ -142,23 +159,17 @@ func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 	}
 
 	entry := result.Entries[0]
-	userDN := entry.GetAttributeValue("distinguishedName")
-	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
-	if sid == "" {
-		return nil, fmt.Errorf("ad: could not decode user SID")
-	}
-
-	name := entry.GetAttributeValue("displayName")
-	if name == "" {
-		name = entry.GetAttributeValue("sAMAccountName")
-	}
-
-	// Now attempt a fresh bind as the user to verify their password.
-	if err := c.bindUser(userDN, password); err != nil {
+	user, err := userFromEntry(entry)
+	if err != nil {
 		return nil, err
 	}
 
-	return &AuthResult{DN: userDN, SID: sid, Name: name}, nil
+	// Now attempt a fresh bind as the user to verify their password.
+	if err := c.bindUser(user.DN, password); err != nil {
+		return nil, err
+	}
+
+	return &AuthResult{DN: user.DN, SID: user.SID, Username: user.Username}, nil
 }
 
 func (c *Client) AuthenticateDN(userDN, password string) error {
@@ -181,7 +192,7 @@ func (c *Client) FetchUsers() ([]User, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
 		nil,
 	), 1000)
 	if err != nil {
@@ -190,21 +201,11 @@ func (c *Client) FetchUsers() ([]User, error) {
 
 	users := make([]User, 0, len(result.Entries))
 	for _, entry := range result.Entries {
-		sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
-		if sid == "" {
+		user, err := userFromEntry(entry)
+		if err != nil {
 			continue
 		}
-
-		name := entry.GetAttributeValue("displayName")
-		if name == "" {
-			name = entry.GetAttributeValue("sAMAccountName")
-		}
-
-		users = append(users, User{
-			DN:   entry.GetAttributeValue("distinguishedName"),
-			SID:  sid,
-			Name: name,
-		})
+		users = append(users, user)
 	}
 
 	return users, nil
@@ -232,7 +233,7 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 		ldap.ScopeBaseObject,
 		ldap.NeverDerefAliases, 1, 0, false,
 		"(objectClass=user)",
-		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
 		nil,
 	))
 	if err != nil {
@@ -242,22 +243,12 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 		return nil, nil
 	}
 
-	entry := result.Entries[0]
-	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
-	if sid == "" {
-		return nil, fmt.Errorf("ad: could not decode user SID")
+	user, err := userFromEntry(result.Entries[0])
+	if err != nil {
+		return nil, err
 	}
 
-	name := entry.GetAttributeValue("displayName")
-	if name == "" {
-		name = entry.GetAttributeValue("sAMAccountName")
-	}
-
-	return &User{
-		DN:   entry.GetAttributeValue("distinguishedName"),
-		SID:  sid,
-		Name: name,
-	}, nil
+	return &user, nil
 }
 
 // FetchGroups returns all groups under the configured base DN.
@@ -412,7 +403,7 @@ func encodePassword(password string) []byte {
 }
 
 // CreateUser creates a new user account in Active Directory.
-func (c *Client) CreateUser(username, password string) (User, error) {
+func (c *Client) CreateUser(username, password, description string) (User, error) {
 	conn, err := c.connect()
 	if err != nil {
 		return User{}, err
@@ -424,11 +415,13 @@ func (c *Client) CreateUser(username, password string) (User, error) {
 	addReq := ldap.NewAddRequest(dn, nil)
 	addReq.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
 	addReq.Attribute("sAMAccountName", []string{username})
-	addReq.Attribute("displayName", []string{username})
 	addReq.Attribute("userPrincipalName", []string{username + "@" + c.domainFromBaseDN()})
 	addReq.Attribute("unicodePwd", []string{string(encodePassword(password))})
 	// 512 = NORMAL_ACCOUNT (enabled)
 	addReq.Attribute("userAccountControl", []string{"512"})
+	if description != "" {
+		addReq.Attribute("description", []string{description})
+	}
 
 	if err := conn.Add(addReq); err != nil {
 		return User{}, fmt.Errorf("ldap create user: %w", err)
@@ -445,8 +438,8 @@ func (c *Client) CreateUser(username, password string) (User, error) {
 	return *user, nil
 }
 
-// UpdateUser modifies the display name of an existing user.
-func (c *Client) UpdateUser(dn, username string) error {
+// UpdateUser modifies the logon name and profile metadata of an existing user.
+func (c *Client) UpdateUser(dn, username, fullName, description string) error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
@@ -454,7 +447,18 @@ func (c *Client) UpdateUser(dn, username string) error {
 	defer conn.Close()
 
 	modReq := ldap.NewModifyRequest(dn, nil)
-	modReq.Replace("displayName", []string{username})
+	modReq.Replace("sAMAccountName", []string{username})
+	modReq.Replace("userPrincipalName", []string{username + "@" + c.domainFromBaseDN()})
+	if fullName != "" {
+		modReq.Replace("displayName", []string{fullName})
+	} else {
+		modReq.Delete("displayName", nil)
+	}
+	if description != "" {
+		modReq.Replace("description", []string{description})
+	} else {
+		modReq.Delete("description", nil)
+	}
 
 	if err := conn.Modify(modReq); err != nil {
 		return fmt.Errorf("ldap update user: %w", err)

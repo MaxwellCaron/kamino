@@ -115,7 +115,7 @@ func (s *Service) CreateUser(ctx context.Context, username, password, descriptio
 		return uuid.Nil, err
 	}
 
-	createdUser, err := s.client.CreateUser(username, password)
+	createdUser, err := s.client.CreateUser(username, password, description)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -124,12 +124,17 @@ func (s *Service) CreateUser(ctx context.Context, username, password, descriptio
 		ctx,
 		database.PrincipalTypeUser,
 		createdUser.SID,
-		createdUser.Name,
+		createdUser.Username,
 		description,
 	)
 }
 
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, description string) error {
+func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, fullName, description string) error {
+	normalizedFullName, err := principals.NormalizeFullName(fullName)
+	if err != nil {
+		return err
+	}
+
 	q := database.New(s.db)
 	p, err := q.GetPrincipalByID(ctx, id)
 	if err != nil {
@@ -141,7 +146,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, descri
 		return err
 	}
 
-	if err := s.client.UpdateUser(dn, username); err != nil {
+	if err := s.client.UpdateUser(dn, username, normalizedFullName, description); err != nil {
 		return err
 	}
 
@@ -160,9 +165,21 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, descri
 		return err
 	}
 
-	return q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
+	if err := q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
 		Description: &description,
 		ID:          id,
+	}); err != nil {
+		return err
+	}
+
+	var fullNameValue *string
+	if normalizedFullName != "" {
+		fullNameValue = &normalizedFullName
+	}
+
+	return q.UpdatePrincipalFullName(ctx, database.UpdatePrincipalFullNameParams{
+		FullName: fullNameValue,
+		ID:       id,
 	})
 }
 

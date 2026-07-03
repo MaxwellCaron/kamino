@@ -40,21 +40,23 @@ type Config struct {
 	JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
 
 	// --- Proxmox (required) ---
-	ProxmoxURL         string `envconfig:"PROXMOX_URL" required:"true"`
-	ProxmoxTokenID     string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
-	ProxmoxTokenSecret string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
-	ProxmoxInsecure    bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
-	ProxmoxNodes       string `envconfig:"PROXMOX_NODES" required:"true"`
+	ProxmoxURL                string `envconfig:"PROXMOX_URL" required:"true"`
+	ProxmoxTokenID            string `envconfig:"PROXMOX_TOKEN_ID" required:"true"`
+	ProxmoxTokenSecret        string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
+	ProxmoxInsecure           bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
+	ProxmoxNodes              string `envconfig:"PROXMOX_NODES" required:"true"`
+	ProxmoxInitialSyncEnabled bool   `envconfig:"PROXMOX_INITIAL_SYNC_ENABLED" default:"true"`
 
 	// --- Active Directory / LDAP (optional; all required if AD auth/sync is enabled) ---
-	LDAPUrl          string `envconfig:"LDAP_URL"`
-	LDAPBindDN       string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU       string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU      string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure     bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	LDAPUrl              string `envconfig:"LDAP_URL"`
+	LDAPBindDN           string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword     string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN     string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU           string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU          string `envconfig:"LDAP_GROUP_OU"`
+	LDAPAdminGroupDN     string `envconfig:"LDAP_ADMIN_GROUP_DN"`
+	LDAPInsecure         bool   `envconfig:"LDAP_INSECURE" default:"false"`
+	ADInitialSyncEnabled bool   `envconfig:"AD_INITIAL_SYNC_ENABLED" default:"true"`
 
 	// --- Inventory folder item IDs (optional) ---
 	TemplatesFolderItemID    string `envconfig:"TEMPLATES_FOLDER_ITEM_ID"`
@@ -447,6 +449,29 @@ func newServer(config *Config) (*Server, error) {
 	return server, nil
 }
 
+func runInitialSyncs(
+	ctx context.Context,
+	config *Config,
+	proxmoxSync func(context.Context) error,
+	adSync func(context.Context) error,
+) {
+	if config.ProxmoxInitialSyncEnabled {
+		if err := proxmoxSync(ctx); err != nil {
+			log.Printf("Initial Proxmox sync failed: %v", err)
+		}
+	} else {
+		log.Printf("Initial Proxmox sync disabled by PROXMOX_INITIAL_SYNC_ENABLED")
+	}
+
+	if adSync != nil && config.ADInitialSyncEnabled {
+		if err := adSync(ctx); err != nil {
+			log.Printf("Initial AD sync failed: %v", err)
+		}
+	} else if adSync != nil {
+		log.Printf("Initial AD sync disabled by AD_INITIAL_SYNC_ENABLED")
+	}
+}
+
 func main() {
 	var config Config
 	if err := envconfig.Process("", &config); err != nil {
@@ -464,17 +489,16 @@ func main() {
 	}
 	defer server.DBPool.Close()
 
-	// Run initial Proxmox inventory sync
-	if err := server.ProxmoxImport.Run(context.Background()); err != nil {
-		log.Printf("Initial Proxmox sync failed: %v", err)
-	}
-
-	// Run initial AD sync if configured
+	var adSync func(context.Context) error
 	if server.ADSync != nil {
-		if err := server.ADSync.Run(context.Background()); err != nil {
-			log.Printf("Initial AD sync failed: %v", err)
-		}
+		adSync = server.ADSync.Run
 	}
+	runInitialSyncs(
+		context.Background(),
+		&config,
+		server.ProxmoxImport.Run,
+		adSync,
+	)
 
 	inventoryNotifier := inventory.NewNotifier(server.DBPool)
 	go inventoryNotifier.Start(context.Background())

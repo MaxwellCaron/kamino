@@ -111,14 +111,43 @@ CREATE TABLE principals (
     principal_type      principal_type NOT NULL,
     external_id         TEXT NOT NULL,
     name                TEXT NULL,
+    full_name           TEXT NULL,
     description         TEXT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT principals_user_full_name_valid
+        CHECK (
+            full_name IS NULL OR (
+                principal_type = 'user'
+                AND length(trim(full_name)) BETWEEN 1 AND 128
+            )
+        )
 );
 
 -- Prevent duplicate principals within the same provider
 CREATE UNIQUE INDEX ux_principals_provider_external_id
     ON principals (provider_id, external_id);
+
+-- Migration: add optional full names for user principals. Run once against
+-- existing databases before deploying API code that selects full_name:
+--   ALTER TABLE principals ADD COLUMN IF NOT EXISTS full_name TEXT NULL;
+--   DO $$
+--   BEGIN
+--     IF NOT EXISTS (
+--       SELECT 1 FROM pg_constraint
+--       WHERE conname = 'principals_user_full_name_valid'
+--         AND conrelid = 'principals'::regclass
+--     ) THEN
+--       ALTER TABLE principals
+--         ADD CONSTRAINT principals_user_full_name_valid
+--         CHECK (
+--           full_name IS NULL OR (
+--             principal_type = 'user'
+--             AND length(trim(full_name)) BETWEEN 1 AND 128
+--           )
+--         );
+--     END IF;
+--   END $$;
 
 -- ----------------------------------------------------------------------------
 -- Reserved / system principals

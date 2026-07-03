@@ -9,6 +9,7 @@ import type {
   CreateUserInput,
 } from "@/features/principals/types/principals-types"
 import type { CreateMode } from "@/features/principals/components/users/user-dialog-utils"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -56,7 +57,7 @@ export function UserDialog({
   const groupOptionMap = React.useMemo(() => {
     const map = new Map<string, string>()
     for (const group of groups ?? []) {
-      map.set(group.id, group.name ?? group.external_id)
+      map.set(group.id, formatPrincipalReference(group))
     }
     return map
   }, [groups])
@@ -73,6 +74,7 @@ export function UserDialog({
         const parsed = values as ReturnType<typeof userSchema.parse>
         await updateUser(user.id, {
           username: parsed.username,
+          full_name: parsed.fullName,
           description: normalizeDescription(parsed.description ?? ""),
         })
         if (parsed.password) {
@@ -193,7 +195,7 @@ export function UserDialog({
       title={isEdit ? "Edit User" : "Create Users"}
       description={
         isEdit
-          ? `Update the user account details for ${user.name ?? user.external_id}.`
+          ? `Update the user account details for ${formatPrincipalReference(user)}.`
           : "Create one or more user accounts in Kamino."
       }
     >

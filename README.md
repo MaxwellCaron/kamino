@@ -104,6 +104,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_TOKEN_SECRET` | yes | — | Proxmox API token secret |
 | `PROXMOX_NODES` | yes | — | Comma-separated Proxmox node names |
 | `PROXMOX_INSECURE` | no | `false` | Skip TLS verification (lab only) |
+| `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup Proxmox-to-database inventory import |
 | `PORT` | no | `:8080` | API listen address |
 | `FRONTEND_URL` | no | `http://localhost:3000` | Allowed CORS origin |
 | `LDAP_URL` | no | — | LDAP server URL (enables AD auth/sync) |
@@ -114,6 +115,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_GROUP_OU` | no | — | OU containing groups |
 | `LDAP_ADMIN_GROUP_DN` | no | — | DN of the Kamino admins group |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
+| `AD_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup AD-to-database principal sync |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
 | `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
 | `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
@@ -171,10 +173,10 @@ On startup the API performs these steps in order:
 
 1. Connect to Postgres and initialize the query layer.
 2. Connect to Proxmox and verify API access.
-3. Run an initial inventory import from Proxmox into the database.
-4. Optionally run AD/LDAP sync if `LDAP_URL` is configured.
+3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`.
+4. Optionally run AD/LDAP sync if `LDAP_URL` is configured, unless `AD_INITIAL_SYNC_ENABLED` is `false`.
 5. Start event notifiers (inventory, VM status, requests).
-6. Reconcile Proxmox mirror state against the database.
+6. Reconcile Proxmox mirror state against the database. This step is not controlled by `PROXMOX_INITIAL_SYNC_ENABLED`.
 7. Bootstrap admin group ACLs from `LDAP_ADMIN_GROUP_DN` if configured.
 8. Normalize permission inheritance across the inventory tree.
 9. Register HTTP routes and begin serving.

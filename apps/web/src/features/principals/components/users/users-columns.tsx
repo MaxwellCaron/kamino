@@ -18,6 +18,7 @@ import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { getPrincipalBaseName } from "@/components/principals/principal-label"
 
 type UserColumnsOptions = {
   canManage: boolean
@@ -35,16 +36,27 @@ export function getUserColumns({
   const columns: Array<ColumnDef<ApiPrincipal>> = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: "Username",
       cell: ({ row: { original: user } }) => (
         <div className="flex items-center gap-3">
-          <FacehashIcon name={user.name ?? user.external_id} size={32} />
+          <FacehashIcon name={getPrincipalBaseName(user)} size={32} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="truncate font-medium">
-              {user.name ?? user.external_id}
+              {getPrincipalBaseName(user)}
             </div>
           </div>
         </div>
+      ),
+    },
+    {
+      accessorKey: "full_name",
+      header: "Full Name",
+      cell: ({ row: { original: user } }) => (
+        <p className="text-wrap text-foreground">
+          {user.full_name?.trim() ? user.full_name : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </p>
       ),
     },
     {

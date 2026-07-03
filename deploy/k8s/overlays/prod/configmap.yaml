@@ -10,4 +10,6 @@ data:
   PORT: :8080
   FRONTEND_URL: https://placeholder.invalid
   PROXMOX_INSECURE: "false"
+  PROXMOX_INITIAL_SYNC_ENABLED: "true"
   LDAP_INSECURE: "false"
+  AD_INITIAL_SYNC_ENABLED: "true"

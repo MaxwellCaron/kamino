@@ -15,6 +15,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/routerconfig"
@@ -3068,10 +3069,7 @@ func currentUsername(c *gin.Context) (string, bool) {
 }
 
 func cloneOwnerFromPrincipal(row database.ListPrincipalDetailsByIDsRow) publishedPodCloneOwnerResponse {
-	label := row.ExternalID
-	if row.Name != nil && strings.TrimSpace(*row.Name) != "" {
-		label = *row.Name
-	}
+	label := principals.FormatReference(row.Name, row.FullName, row.ExternalID)
 	description := row.ExternalID
 	if row.Description != nil && strings.TrimSpace(*row.Description) != "" {
 		description = *row.Description

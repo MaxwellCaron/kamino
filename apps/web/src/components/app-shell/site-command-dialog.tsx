@@ -31,6 +31,7 @@ import {
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { useOptionalInventoryTreeContext } from "@/features/inventory/components/tree/inventory-tree-context"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -52,6 +53,7 @@ export function SiteCommandDialog({
   const navigate = useNavigate()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const inventoryTreeContext = useOptionalInventoryTreeContext()
   const { setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -140,11 +142,16 @@ export function SiteCommandDialog({
         close()
         navigate({ to, hash })
       },
-      navigateToInventoryItem: (itemId: string) =>
+      navigateToInventoryItem: (itemId: string) => {
+        if (inventoryTreeContext) {
+          inventoryTreeContext.revealAndNavigateToItem(itemId)
+          return
+        }
         navigate({
           to: "/inventory/items/$itemId",
           params: { itemId },
-        }),
+        })
+      },
       navigateToPage: (to) => navigate({ to }),
       navigateToPod: (podSlug: string) =>
         navigate({ to: "/pods/$podSlug", params: { podSlug } }),
@@ -158,7 +165,7 @@ export function SiteCommandDialog({
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
       setTheme,
     }),
-    [close, logoutMutation, navigate, setTheme]
+    [close, inventoryTreeContext, logoutMutation, navigate, setTheme]
   )
 
   const commands = useMemo(() => {
@@ -283,7 +290,7 @@ export function SiteCommandDialog({
                             <span className="block truncate text-xs font-normal text-muted-foreground">
                               {command.subtitle}
                             </span>
-                            <span className="mt-1 block line-clamp-5 whitespace-pre-line text-xs font-normal text-muted-foreground/80">
+                            <span className="mt-1 line-clamp-5 block text-xs font-normal whitespace-pre-line text-muted-foreground/80">
                               {command.preview}
                             </span>
                           </>

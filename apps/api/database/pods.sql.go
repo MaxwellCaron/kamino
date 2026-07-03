@@ -1081,7 +1081,13 @@ SELECT
     cp.pod_id,
     cp.user_principal_id,
     p.principal_type,
-    COALESCE(NULLIF(p.name, ''), p.external_id) AS user_label,
+    (
+    CASE
+        WHEN p.full_name IS NULL OR lower(trim(p.full_name)) = lower(COALESCE(NULLIF(trim(p.name), ''), p.external_id))
+            THEN COALESCE(NULLIF(trim(p.name), ''), p.external_id)
+        ELSE COALESCE(NULLIF(trim(p.name), ''), p.external_id) || ' (' || trim(p.full_name) || ')'
+    END
+    )::TEXT AS user_label,
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
     cp.network_number,
@@ -1107,6 +1113,7 @@ GROUP BY
     cp.user_principal_id,
     p.principal_type,
     p.name,
+    p.full_name,
     p.external_id,
     p.description,
     cp.folder_id,
@@ -1343,6 +1350,7 @@ SELECT
     p.principal_type,
     p.external_id,
     p.name,
+    p.full_name,
     p.description,
     audience.sort_order
 FROM published_pod_audience audience
@@ -1358,6 +1366,7 @@ type ListPublishedPodAudienceByPodIDsRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 	SortOrder     int32         `json:"sort_order"`
 }
@@ -1377,6 +1386,7 @@ func (q *Queries) ListPublishedPodAudienceByPodIDs(ctx context.Context, podIds [
 			&i.PrincipalType,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 			&i.SortOrder,
 		); err != nil {
@@ -1397,6 +1407,7 @@ SELECT
     p.principal_type,
     p.external_id,
     p.name,
+    p.full_name,
     p.description,
     creator.sort_order
 FROM published_pod_creators creator
@@ -1412,6 +1423,7 @@ type ListPublishedPodCreatorsByPodIDsRow struct {
 	PrincipalType PrincipalType `json:"principal_type"`
 	ExternalID    string        `json:"external_id"`
 	Name          *string       `json:"name"`
+	FullName      *string       `json:"full_name"`
 	Description   *string       `json:"description"`
 	SortOrder     int32         `json:"sort_order"`
 }
@@ -1431,6 +1443,7 @@ func (q *Queries) ListPublishedPodCreatorsByPodIDs(ctx context.Context, podIds [
 			&i.PrincipalType,
 			&i.ExternalID,
 			&i.Name,
+			&i.FullName,
 			&i.Description,
 			&i.SortOrder,
 		); err != nil {

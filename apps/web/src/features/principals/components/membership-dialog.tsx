@@ -17,6 +17,7 @@ import {
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -60,8 +61,8 @@ export function MembershipDialog(props: MembershipDialogProps) {
       title={mode === "user-groups" ? "Groups" : "Members"}
       description={
         mode === "user-groups"
-          ? `Manage group memberships for ${principal.name ?? principal.external_id}.`
-          : `Manage members of ${principal.name ?? principal.external_id}.`
+          ? `Manage group memberships for ${formatPrincipalReference(principal)}.`
+          : `Manage members of ${formatPrincipalReference(principal)}.`
       }
     >
       <MembershipEditor
@@ -141,7 +142,7 @@ function MembershipEditor({
     () =>
       (mode === "user-groups" ? allGroups : allUsers)?.map((option) => ({
         id: option.id,
-        label: option.name ?? option.external_id,
+        label: formatPrincipalReference(option),
       })) ?? [],
     [allGroups, allUsers, mode]
   )
@@ -264,7 +265,7 @@ function MembershipForm({
         onOpenChange(false)
         showSingleMutationToast({
           title: "Updating memberships",
-          name: principal.name ?? principal.external_id,
+          name: formatPrincipalReference(principal),
           promise: form.handleSubmit(),
           successDescription: "Memberships updated",
         })
