@@ -47,6 +47,30 @@ function updateExpandedItems(
   tree.rebuildTree()
 }
 
+function waitForTreeItem(
+  tree: TreeInstance<ApiTreeNode>,
+  itemId: string
+): Promise<void> {
+  return new Promise((resolve) => {
+    let attempts = 0
+
+    const checkForItem = () => {
+      if (
+        tree.getItems().some((item) => item.getId() === itemId) ||
+        attempts >= 20
+      ) {
+        resolve()
+        return
+      }
+
+      attempts++
+      setTimeout(checkForItem, 25)
+    }
+
+    checkForItem()
+  })
+}
+
 function getTopLevelDraggedItemIds(
   draggedItems: Array<ItemInstance<ApiTreeNode>>
 ): Array<string> {
@@ -245,13 +269,7 @@ export function useInventoryHeadlessTree({
         }
       }
 
-      for (let attempt = 0; attempt < 20; attempt++) {
-        if (tree.getItems().some((item) => item.getId() === itemId)) {
-          break
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 25))
-      }
+      await waitForTreeItem(tree, itemId)
 
       if (scrollToItemHandlerRef.current) {
         scrollToItemHandlerRef.current(itemId)
