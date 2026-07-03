@@ -93,6 +93,10 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 	// Sync VMs
 	syncedCount := 0
 	for _, vm := range vms {
+		if vm.Type != "qemu" {
+			continue
+		}
+
 		parentID := rootID
 		if vm.Pool != "" {
 			if id, ok := poolFolders[vm.Pool]; ok {

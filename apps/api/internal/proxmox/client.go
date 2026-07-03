@@ -1360,6 +1360,10 @@ func parseSizeToGB(raw string) (int, error) {
 	case 'T':
 		multiplier = 1024
 		valueString = trimmed[:len(trimmed)-1]
+	default:
+		// Proxmox writes size= in raw bytes when the value is not an even
+		// multiple of K/M/G/T.
+		multiplier = 1.0 / (1024 * 1024 * 1024)
 	}
 
 	value, err := strconv.ParseFloat(valueString, 64)
