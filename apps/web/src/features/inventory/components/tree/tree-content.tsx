@@ -132,7 +132,9 @@ export function InventoryTreeContent({
           return
         }
 
-        const index = tree.getItems().findIndex((item) => item.getId() === itemId)
+        const index = tree
+          .getItems()
+          .findIndex((item) => item.getId() === itemId)
         if (index >= 0) {
           virtualizer.scrollToIndex(index, { align: "center" })
         }

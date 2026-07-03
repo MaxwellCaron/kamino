@@ -35,6 +35,7 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 import { Separator } from "@workspace/ui/components/separator"
+import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import { cn } from "@workspace/ui/lib/utils"
 import { Image } from "@unpic/react"
 import { NavUser } from "./nav-user"
@@ -432,8 +433,12 @@ export function AppSidebar({
           <SidebarHeader>
             <InventoryTreeHeader />
           </SidebarHeader>
-          <SidebarContent className="scroll-fade px-1 firefox:scroll-fade-none">
-            <InventoryTreeBody />
+          <SidebarContent className="overflow-hidden">
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="px-3">
+                <InventoryTreeBody />
+              </div>
+            </ScrollArea>
           </SidebarContent>
         </Sidebar>
       </div>
