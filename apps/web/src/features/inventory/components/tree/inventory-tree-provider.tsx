@@ -143,7 +143,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     setSelectedItemIds,
   })
 
-  const handleFavoritePrimaryAction = useCallback(
+  const revealAndNavigateToItem = useCallback(
     (itemId: string) => {
       void revealItem(itemId)
       handlePrimaryAction(itemId)
@@ -159,18 +159,13 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const activeItem = fullTree.items.get(activeItemId)
-    if (activeItem?.kind !== "vm") {
-      return
-    }
-
     if (lastAutoRevealedItemIdRef.current === activeItemId) {
       return
     }
 
     lastAutoRevealedItemIdRef.current = activeItemId
     void revealItem(activeItemId)
-  }, [activeItemId, fullTree.items, items, revealItem])
+  }, [activeItemId, items, revealItem])
 
   const value: InventoryTreeContextValue = {
     tree,
@@ -184,7 +179,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     toggleFavorite,
     getItemData,
     handlePrimaryAction,
-    handleFavoritePrimaryAction,
+    revealAndNavigateToItem,
     selectedItemIds,
     replaceSelection,
     clearSelection,

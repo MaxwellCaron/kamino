@@ -15,7 +15,7 @@ export interface InventoryTreeContextValue {
   toggleFavorite: (itemId: string) => void
   getItemData: (itemId: string) => ApiTreeNode | undefined
   handlePrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  handleFavoritePrimaryAction: (itemId: string, data: ApiTreeNode) => void
+  revealAndNavigateToItem: (itemId: string) => void
   selectedItemIds: Array<string>
   replaceSelection: (itemIds: Array<string>) => void
   clearSelection: () => void
@@ -33,4 +33,8 @@ export function useInventoryTreeContext() {
     )
   }
   return ctx
+}
+
+export function useOptionalInventoryTreeContext() {
+  return use(InventoryTreeContext)
 }
