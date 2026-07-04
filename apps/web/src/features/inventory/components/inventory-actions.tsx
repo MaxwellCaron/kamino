@@ -601,18 +601,13 @@ function TemplateMenuItems({
   )
 }
 
-export function InventoryNodeMenu({
+function InventoryNodeMenuBody({
   itemId,
   data,
-  className,
-  iconSize = "icon-xs",
 }: {
   itemId: string
   data: ApiTreeNode
-  className?: string
-  iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
 }) {
-  const { isMobile } = useSidebar()
   const queryClient = useQueryClient()
   const { favoriteIds, toggleFavorite } = useInventoryFavorites()
   const deleteFolderMutation = useDeleteFolder()
@@ -635,8 +630,6 @@ export function InventoryNodeMenu({
   const isFavorite = !isFolder && favoriteIds.has(itemId)
   const powerStatus =
     data.kind === "vm" && data.vm ? vmStatuses?.[data.vm.vmid] : undefined
-
-  if (!hasNodeActions(data)) return null
 
   function handleDeleteFolder() {
     const tree =
@@ -699,6 +692,152 @@ export function InventoryNodeMenu({
   }
 
   return (
+    <>
+      {isFolder ? (
+        <FolderMenuItems
+          permissions={data.permissions}
+          onCreateFolder={() => openCreateFolder({ parentId: itemId })}
+          onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
+          onManagePermissions={() =>
+            openPermissions({
+              itemId,
+              itemKind: "folder",
+              itemName: data.name,
+              itemVmid: data.vm?.vmid,
+            })
+          }
+          onEditLimit={() =>
+            openFolderLimit({
+              directVmLimit: data.direct_vm_limit,
+              effectiveVmLimit: data.effective_vm_limit,
+              folderId: itemId,
+              folderName: data.name,
+              vmCount: data.vm_count,
+            })
+          }
+          onRename={() =>
+            openRenameFolder({ folderId: itemId, currentName: data.name })
+          }
+          onDelete={handleDeleteFolder}
+          isLoading={false}
+        />
+      ) : isTemplate ? (
+        <TemplateMenuItems
+          permissions={data.permissions}
+          isFavorite={isFavorite}
+          onToggleFavorite={() => toggleFavorite(itemId)}
+          itemId={itemId}
+          vmid={data.vm?.vmid ?? 0}
+          name={data.name}
+          onAction={openConfirm}
+          onManagePermissions={() =>
+            openPermissions({
+              itemId,
+              itemKind: "vm",
+              itemName: data.name,
+              itemVmid: data.vm?.vmid,
+            })
+          }
+          onClone={() => {
+            if (!data.vm?.node) return
+
+            openClone({
+              itemId,
+              currentName: data.name,
+              currentVmid: data.vm.vmid,
+              isTemplate: data.vm.is_template,
+            })
+          }}
+          onRename={() => {
+            if (data.vm?.node) {
+              openRenameVm({
+                itemId,
+                currentName: data.name,
+                currentVmid: data.vm.vmid,
+              })
+            }
+          }}
+          isLoading={false}
+        />
+      ) : (
+        <VmMenuItems
+          permissions={data.permissions}
+          isFavorite={isFavorite}
+          onToggleFavorite={() => toggleFavorite(itemId)}
+          itemId={itemId}
+          vmid={data.vm?.vmid ?? 0}
+          name={data.name}
+          onAction={openConfirm}
+          onManagePermissions={() =>
+            openPermissions({
+              itemId,
+              itemKind: "vm",
+              itemName: data.name,
+              itemVmid: data.vm?.vmid,
+            })
+          }
+          onSnapshot={(mode) => {
+            if (data.vm?.vmid == null) return
+
+            openSnapshot({
+              itemId,
+              currentName: data.name,
+              currentVmid: data.vm.vmid,
+              mode,
+            })
+          }}
+          onClone={() => {
+            if (!data.vm?.node) return
+
+            openClone({
+              itemId,
+              currentName: data.name,
+              currentVmid: data.vm.vmid,
+              isTemplate: data.vm.is_template,
+            })
+          }}
+          onRename={() => {
+            if (data.vm?.node) {
+              openRenameVm({
+                itemId,
+                currentName: data.name,
+                currentVmid: data.vm.vmid,
+              })
+            }
+          }}
+          onEditHardware={() => {
+            if (data.vm?.node) {
+              openEditVmHardware({
+                itemId,
+                currentName: data.name,
+                currentVmid: data.vm.vmid,
+              })
+            }
+          }}
+          isLoading={false}
+          powerStatus={powerStatus}
+        />
+      )}
+    </>
+  )
+}
+
+export function InventoryNodeMenu({
+  itemId,
+  data,
+  className,
+  iconSize = "icon-xs",
+}: {
+  itemId: string
+  data: ApiTreeNode
+  className?: string
+  iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
+}) {
+  const { isMobile } = useSidebar()
+
+  if (!hasNodeActions(data)) return null
+
+  return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
@@ -719,131 +858,9 @@ export function InventoryNodeMenu({
         onPointerDown={stopTreeItemEvent}
         onKeyDown={stopTreeItemEvent}
       >
-        {isFolder ? (
-          <FolderMenuItems
-            permissions={data.permissions}
-            onCreateFolder={() => openCreateFolder({ parentId: itemId })}
-            onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
-            onManagePermissions={() =>
-              openPermissions({
-                itemId,
-                itemKind: "folder",
-                itemName: data.name,
-                itemVmid: data.vm?.vmid,
-              })
-            }
-            onEditLimit={() =>
-              openFolderLimit({
-                directVmLimit: data.direct_vm_limit,
-                effectiveVmLimit: data.effective_vm_limit,
-                folderId: itemId,
-                folderName: data.name,
-                vmCount: data.vm_count,
-              })
-            }
-            onRename={() =>
-              openRenameFolder({ folderId: itemId, currentName: data.name })
-            }
-            onDelete={handleDeleteFolder}
-            isLoading={false}
-          />
-        ) : isTemplate ? (
-          <TemplateMenuItems
-            permissions={data.permissions}
-            isFavorite={isFavorite}
-            onToggleFavorite={() => toggleFavorite(itemId)}
-            itemId={itemId}
-            vmid={data.vm?.vmid ?? 0}
-            name={data.name}
-            onAction={openConfirm}
-            onManagePermissions={() =>
-              openPermissions({
-                itemId,
-                itemKind: "vm",
-                itemName: data.name,
-                itemVmid: data.vm?.vmid,
-              })
-            }
-            onClone={() => {
-              if (!data.vm?.node) return
-
-              openClone({
-                itemId,
-                currentName: data.name,
-                currentVmid: data.vm.vmid,
-                isTemplate: data.vm.is_template,
-              })
-            }}
-            onRename={() => {
-              if (data.vm?.node) {
-                openRenameVm({
-                  itemId,
-                  currentName: data.name,
-                  currentVmid: data.vm.vmid,
-                })
-              }
-            }}
-            isLoading={false}
-          />
-        ) : (
-          <VmMenuItems
-            permissions={data.permissions}
-            isFavorite={isFavorite}
-            onToggleFavorite={() => toggleFavorite(itemId)}
-            itemId={itemId}
-            vmid={data.vm?.vmid ?? 0}
-            name={data.name}
-            onAction={openConfirm}
-            onManagePermissions={() =>
-              openPermissions({
-                itemId,
-                itemKind: "vm",
-                itemName: data.name,
-                itemVmid: data.vm?.vmid,
-              })
-            }
-            onSnapshot={(mode) => {
-              if (data.vm?.vmid == null) return
-
-              openSnapshot({
-                itemId,
-                currentName: data.name,
-                currentVmid: data.vm.vmid,
-                mode,
-              })
-            }}
-            onClone={() => {
-              if (!data.vm?.node) return
-
-              openClone({
-                itemId,
-                currentName: data.name,
-                currentVmid: data.vm.vmid,
-                isTemplate: data.vm.is_template,
-              })
-            }}
-            onRename={() => {
-              if (data.vm?.node) {
-                openRenameVm({
-                  itemId,
-                  currentName: data.name,
-                  currentVmid: data.vm.vmid,
-                })
-              }
-            }}
-            onEditHardware={() => {
-              if (data.vm?.node) {
-                openEditVmHardware({
-                  itemId,
-                  currentName: data.name,
-                  currentVmid: data.vm.vmid,
-                })
-              }
-            }}
-            isLoading={false}
-            powerStatus={powerStatus}
-          />
-        )}
+        {/* Body renders inside the portal, so its hooks (favorites, dialogs,
+            vm-status query) only run once the menu is actually opened. */}
+        <InventoryNodeMenuBody itemId={itemId} data={data} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
