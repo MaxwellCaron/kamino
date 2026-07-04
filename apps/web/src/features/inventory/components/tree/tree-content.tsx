@@ -97,7 +97,7 @@ export function InventoryTreeContent({
     const wrapper = wrapperRef.current
     const scroller =
       wrapper?.closest<HTMLElement>(
-        '[data-slot="scroll-area-viewport"], [data-slot="sidebar-content"]'
+        '[data-slot="tree-scroll-container"], [data-slot="scroll-area-viewport"], [data-slot="sidebar-content"]'
       ) ?? null
 
     setScrollElement(scroller)
