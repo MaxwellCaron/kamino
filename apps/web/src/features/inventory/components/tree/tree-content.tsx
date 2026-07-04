@@ -38,12 +38,9 @@ function preventBaseTreeHandler(event: TreeRowMouseEvent) {
   event.preventBaseUIHandler?.()
 }
 
-function focusTreeItem(
-  item: ItemInstance<ApiTreeNode>,
-  tree: TreeInstance<ApiTreeNode>
-) {
+function focusTreeItem(item: ItemInstance<ApiTreeNode>) {
   item.setFocused()
-  tree.updateDomFocus()
+  item.getElement()?.focus({ preventScroll: true })
 }
 
 function toggleFolder(item: ItemInstance<ApiTreeNode>) {
@@ -73,7 +70,7 @@ function applySelectionFromClick(
       item.getId()
   }
 
-  focusTreeItem(item, tree)
+  focusTreeItem(item)
 }
 
 export function InventoryTreeContent({
@@ -235,7 +232,7 @@ function InventoryTreeRow({
           return
         }
 
-        focusTreeItem(item, tree)
+        focusTreeItem(item)
         onPrimaryAction(id, data)
         preventBaseTreeHandler(rowEvent)
       }}
@@ -246,7 +243,7 @@ function InventoryTreeRow({
           return
         }
 
-        focusTreeItem(item, tree)
+        focusTreeItem(item)
         toggleFolder(item)
       }}
     >
