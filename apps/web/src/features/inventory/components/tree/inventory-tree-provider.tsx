@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -114,11 +114,8 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [moveItems]
   )
 
-  const lastAutoRevealedItemIdRef = useRef<string | null>(null)
-
   const handlePrimaryAction = useCallback(
     (itemId: string) => {
-      lastAutoRevealedItemIdRef.current = itemId
       navigate({ to: "/inventory/items/$itemId", params: { itemId } })
     },
     [navigate]
@@ -143,20 +140,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     },
     [handlePrimaryAction, revealItem]
   )
-
-  useEffect(() => {
-    if (!activeItemId || !items.has(activeItemId)) {
-      lastAutoRevealedItemIdRef.current = null
-      return
-    }
-
-    if (lastAutoRevealedItemIdRef.current === activeItemId) {
-      return
-    }
-
-    lastAutoRevealedItemIdRef.current = activeItemId
-    void revealItem(activeItemId)
-  }, [activeItemId, items, revealItem])
 
   const value: InventoryTreeContextValue = {
     tree,
