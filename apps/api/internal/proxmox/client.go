@@ -1641,6 +1641,19 @@ func (c *Client) GetCreateNetworks(
 	return bridges, vnets, nil
 }
 
+// UsedVMIDs returns all VMIDs in the cluster without filtering to configured nodes.
+func (c *Client) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
+	var resp apiResponse[[]VM]
+	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
+		return nil, fmt.Errorf("fetching cluster VMIDs: %w", err)
+	}
+	used := make(map[int]struct{}, len(resp.Data))
+	for _, vm := range resp.Data {
+		used[vm.VMID] = struct{}{}
+	}
+	return used, nil
+}
+
 // GetNextVMID returns the next available VMID from the cluster.
 func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	var resp apiResponse[json.Number]
@@ -1654,56 +1667,14 @@ func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	return int(id), nil
 }
 
-// IsVMIDAvailable returns true if no existing guest currently uses the VMID.
+// clusterNextIDErrors is the error map returned by Proxmox when a VMID is already in use.
+type clusterNextIDErrors struct {
+	Errors map[string]string `json:"errors"`
+}
+
+// IsVMIDAvailable returns true when the Proxmox cluster asserts the VMID is free.
 func (c *Client) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
-	vms, err := c.GetVMs(ctx)
-	if err != nil {
-		return false, fmt.Errorf("fetching VMs: %w", err)
-	}
-	for _, vm := range vms {
-		if vm.VMID == vmid {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-// UsedVMIDs returns VMIDs currently present in the Proxmox cluster resource list.
-func (c *Client) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
-	var resp apiResponse[[]VM]
-	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
-		return nil, fmt.Errorf("fetching cluster VM resources: %w", err)
-	}
-
-	used := make(map[int]struct{}, len(resp.Data))
-	for _, vm := range resp.Data {
-		used[vm.VMID] = struct{}{}
-	}
-	return used, nil
-}
-
-// QEMUConfigExistsForVMID checks managed nodes for a QEMU config file. Proxmox
-// can leave one behind even when /cluster/nextid returns that VMID.
-func (c *Client) QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error) {
-	for _, node := range c.nodes {
-		exists, err := c.qemuConfigExists(ctx, node, vmid)
-		if err != nil {
-			return false, fmt.Errorf("checking VMID %d config on %s: %w", vmid, node, err)
-		}
-		if exists {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (c *Client) qemuConfigExists(ctx context.Context, node string, vmid int) (bool, error) {
-	if err := c.requireAllowedNode(node); err != nil {
-		return false, err
-	}
-
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	path := fmt.Sprintf("/api2/json/cluster/nextid?vmid=%d", vmid)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return false, fmt.Errorf("creating request: %w", err)
@@ -1716,29 +1687,33 @@ func (c *Client) qemuConfigExists(ctx context.Context, node string, vmid int) (b
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return false, fmt.Errorf("reading VMID availability response: %w", err)
+	}
+
 	if resp.StatusCode == http.StatusOK {
+		var envelope apiResponse[json.Number]
+		if err := json.Unmarshal(body, &envelope); err != nil {
+			return false, fmt.Errorf("decoding VMID availability response: %w", err)
+		}
+		id, err := envelope.Data.Int64()
+		if err != nil || int(id) != vmid {
+			return false, fmt.Errorf("unexpected VMID in cluster assertion response: got %s, want %d", envelope.Data, vmid)
+		}
 		return true, nil
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	if err != nil {
-		return false, fmt.Errorf("reading VM config response body: %w", err)
+	if resp.StatusCode == http.StatusBadRequest {
+		var errResp clusterNextIDErrors
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			if msg, ok := errResp.Errors["vmid"]; ok && strings.Contains(strings.ToLower(msg), "already exists") {
+				return false, nil
+			}
+		}
 	}
-	if isMissingVMIDConfigResponse(resp.StatusCode, string(body)) {
-		return false, nil
-	}
+
 	return false, unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
-}
-
-func isMissingVMIDConfigResponse(statusCode int, body string) bool {
-	if statusCode == http.StatusNotFound {
-		return true
-	}
-
-	message := strings.ToLower(body)
-	return strings.Contains(message, "does not exist") ||
-		strings.Contains(message, "not found") ||
-		strings.Contains(message, "no such vm")
 }
 
 func IsVMIDCreateConflict(err error) bool {

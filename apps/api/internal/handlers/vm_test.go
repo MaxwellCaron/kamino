@@ -148,14 +148,6 @@ func (f *fakeVMProxmox) IsVMIDAvailable(ctx context.Context, vmid int) (bool, er
 	panic("fakeVMProxmox: IsVMIDAvailable not configured for this test")
 }
 
-func (f *fakeVMProxmox) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
-	panic("fakeVMProxmox: UsedVMIDs not configured for this test")
-}
-
-func (f *fakeVMProxmox) QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error) {
-	panic("fakeVMProxmox: QEMUConfigExistsForVMID not configured for this test")
-}
-
 func (f *fakeVMProxmox) CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error {
 	panic("fakeVMProxmox: CloneVM not configured for this test")
 }

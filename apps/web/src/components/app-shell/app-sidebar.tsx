@@ -435,7 +435,7 @@ export function AppSidebar({
           <SidebarContent className="overflow-hidden">
             <div
               data-slot="tree-scroll-container"
-              className="min-h-0 flex-1 overflow-y-auto px-3"
+              className="min-h-0 flex-1 overflow-y-auto px-3 [overflow-anchor:none]"
             >
               <InventoryTreeBody />
             </div>

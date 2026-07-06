@@ -1378,10 +1378,19 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	publishedVMs []database.ListPublishedPodVMsForCloneRow,
 	progress *clonePodProgressReporter,
 ) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
+	batch, batchErr := h.Allocator.NewBatch(ctx, h.CloneVMIDRange, len(publishedVMs))
+	if batchErr != nil {
+		return nil, nil, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: fmt.Sprintf("insufficient VMID capacity in clone range (%d–%d) for %d VMs", h.CloneVMIDRange.Min, h.CloneVMIDRange.Max, len(publishedVMs)),
+			Operation:   "allocate clone VMID batch",
+			Err:         batchErr,
+		}
+	}
+
 	results := make([]clonePublishedVMResult, len(publishedVMs))
 	created := make(map[int]clonedVM, len(publishedVMs))
 	var createdMu sync.Mutex
-	var allocate sync.Mutex
 
 	group, gctx := errgroup.WithContext(ctx)
 	group.SetLimit(publishCloneConcurrency)
@@ -1416,7 +1425,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 				publishedVM.Name,
 				false,
 				cloneVMOptions{
-					allocate: &allocate,
+					batch: batch,
 					onStarted: func(node string, vmid int) {
 						createdMu.Lock()
 						created[vmid] = clonedVM{TargetNode: node, VMID: vmid}

@@ -25,6 +25,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -40,10 +41,6 @@ const (
 
 	// publishCloneConcurrency bounds how many Pod VMs are cloned at once.
 	publishCloneConcurrency = 2
-
-	// cloneVMIDAllocationAttempts bounds how far Kamino will scan past
-	// Proxmox's nextid response when stale config files reserve older IDs.
-	cloneVMIDAllocationAttempts = 25
 )
 
 type PodRouterCloneConfig struct {
@@ -80,6 +77,11 @@ type PodsHandler struct {
 	TemplatesFolderItemID           uuid.UUID
 	PodsFolderItemID                uuid.UUID
 	PersonalPodsFolderItemID        uuid.UUID
+	Allocator                       *vmidalloc.Allocator
+	PublishVMIDRange                vmidalloc.Range
+	CloneVMIDRange                  vmidalloc.Range
+	DevVMIDRange                    vmidalloc.Range
+	PersonalVMIDRange               vmidalloc.Range
 }
 
 var errConfiguredPodsFolderMissing = errors.New("configured PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
@@ -1173,6 +1175,14 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	createdTargets := make([]podNetworkVMTarget, 0, len(specs))
 	created := make(map[int]clonedVM, len(specs))
 	if len(specs) > 0 {
+		devBatch, batchErr := h.Allocator.NewBatch(c.Request.Context(), h.DevVMIDRange, len(specs))
+		if batchErr != nil {
+			progress.fail("insufficient VMID capacity in the dev range")
+			h.cleanupFailedPodProvision(podFolderID, created)
+			writeLoggedError(c, http.StatusBadGateway, fmt.Sprintf("insufficient VMID capacity in dev range (%d–%d) for %d VMs", h.DevVMIDRange.Min, h.DevVMIDRange.Max, len(specs)), "allocate dev VMID batch", batchErr)
+			return
+		}
+
 		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), vmFolderID)
 		if err != nil {
 			progress.fail(inventoryRequestError(err).UserMessage)
@@ -1202,6 +1212,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				targetNode,
 				spec,
 				cloneVMOptions{
+					batch: devBatch,
 					onStarted: func(node string, vmid int) {
 						created[vmid] = clonedVM{
 							TargetNode: node,
@@ -2530,8 +2541,27 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 		break
 	}
 
-	// allocate serializes VMID allocation; created tracks clones for cleanup.
-	var allocate sync.Mutex
+	// Count non-router VMs; only those are cloned and need VMID allocation.
+	nonRouterCount := 0
+	for _, vm := range vms {
+		if !isPodRouterName(vm.Name) {
+			nonRouterCount++
+		}
+	}
+	var batch *vmidalloc.Batch
+	if nonRouterCount > 0 {
+		var batchErr error
+		batch, batchErr = h.Allocator.NewBatch(ctx, h.PublishVMIDRange, nonRouterCount)
+		if batchErr != nil {
+			return nil, &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: fmt.Sprintf("insufficient VMID capacity in publish range (%d–%d) for %d VMs", h.PublishVMIDRange.Min, h.PublishVMIDRange.Max, nonRouterCount),
+				Operation:   "allocate publish VMID batch",
+				Err:         batchErr,
+			}
+		}
+	}
+
 	created := make(map[int]clonedVM, len(vms))
 	var createdMu sync.Mutex
 
@@ -2549,7 +2579,7 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 		group.Go(func() error {
 			progress.set(publishProgressStepCloning, "Cloning Pod VM "+vm.Name)
 			clone, reqErr := h.cloneVMIntoFolder(gctx, principalID, vm.SourceInventoryItemID, placement, targetNode, vm.Name, true, cloneVMOptions{
-				allocate: &allocate,
+				batch: batch,
 				onStarted: func(node string, vmid int) {
 					createdMu.Lock()
 					created[vmid] = clonedVM{TargetNode: node, VMID: vmid}
@@ -2599,10 +2629,9 @@ type clonedVM struct {
 	VMID            int
 }
 
-// cloneVMOptions holds optional concurrency/cleanup hooks; the zero value is the
-// sequential, untracked case.
+// cloneVMOptions holds concurrency/cleanup hooks for VM cloning.
 type cloneVMOptions struct {
-	allocate  *sync.Mutex
+	batch     *vmidalloc.Batch
 	onStarted func(node string, vmid int)
 	onSynced  func(clonedVM)
 }
@@ -2645,7 +2674,7 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	full bool,
 	opts cloneVMOptions,
 ) (clonedVM, *requestError) {
-	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts.allocate)
+	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts.batch)
 	if reqErr != nil {
 		return clonedVM{}, reqErr
 	}
@@ -2701,70 +2730,30 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	return clone, nil
 }
 
-// startVMClone allocates a VMID and starts the clone; holding allocate (when set)
-// across both keeps concurrent callers from grabbing the same nextid.
+// startVMClone claims a VMID via batch and starts the clone task.
 func (h *PodsHandler) startVMClone(
 	ctx context.Context,
 	source verifiedVMTarget,
 	targetNode string,
 	name string,
 	full bool,
-	allocate *sync.Mutex,
+	batch *vmidalloc.Batch,
 ) (proxmox.CloneTask, int, *requestError) {
-	if allocate != nil {
-		allocate.Lock()
-		defer allocate.Unlock()
-	}
-
-	firstID, err := h.PX.GetNextVMID(ctx)
+	var task proxmox.CloneTask
+	newID, err := batch.Claim(ctx, func(vmid int) error {
+		var cloneErr error
+		task, cloneErr = h.PX.StartCloneVM(ctx, source.Node, source.VMID, vmid, name, full, targetNode)
+		return cloneErr
+	})
 	if err != nil {
-		return proxmox.CloneTask{}, 0, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to fetch next VMID",
-			Operation:   "fetch pod clone vmid",
-			Err:         err,
-		}
-	}
-
-	usedVMIDs, err := h.PX.UsedVMIDs(ctx)
-	if err != nil {
-		return proxmox.CloneTask{}, 0, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to verify VMID availability",
-			Operation:   "load used VMIDs for pod clone",
-			Err:         err,
-		}
-	}
-
-	var lastErr error
-	for offset := range cloneVMIDAllocationAttempts {
-		newID := firstID + offset
-		if _, used := usedVMIDs[newID]; used {
-			continue
-		}
-
-		configExists, err := h.PX.QEMUConfigExistsForVMID(ctx, newID)
-		if err != nil {
+		if vmidalloc.IsRangeExhausted(err) {
 			return proxmox.CloneTask{}, 0, &requestError{
 				Status:      http.StatusBadGateway,
-				UserMessage: "failed to verify VMID availability",
-				Operation:   "verify pod clone vmid availability",
+				UserMessage: "no available VMID in the configured workflow range",
+				Operation:   "allocate pod clone vmid",
 				Err:         err,
 			}
 		}
-		if configExists {
-			continue
-		}
-
-		task, err := h.PX.StartCloneVM(ctx, source.Node, source.VMID, newID, name, full, targetNode)
-		if err == nil {
-			return task, newID, nil
-		}
-		lastErr = err
-		if proxmox.IsVMIDCreateConflict(err) {
-			continue
-		}
-
 		return proxmox.CloneTask{}, 0, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to clone VM",
@@ -2772,22 +2761,7 @@ func (h *PodsHandler) startVMClone(
 			Err:         err,
 		}
 	}
-
-	if lastErr != nil {
-		return proxmox.CloneTask{}, 0, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to allocate an available VMID",
-			Operation:   "allocate pod clone vmid",
-			Err:         lastErr,
-		}
-	}
-
-	return proxmox.CloneTask{}, 0, &requestError{
-		Status:      http.StatusBadGateway,
-		UserMessage: "failed to allocate an available VMID",
-		Operation:   "allocate pod clone vmid",
-		Err:         fmt.Errorf("no available VMID found from %d to %d", firstID, firstID+cloneVMIDAllocationAttempts-1),
-	}
+	return task, newID, nil
 }
 
 func (h *PodsHandler) convertCloneToTemplate(ctx context.Context, clone clonedVM) *requestError {
