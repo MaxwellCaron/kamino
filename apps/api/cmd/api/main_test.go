@@ -71,15 +71,6 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 				return cfg
 			}(),
 		},
-		{
-			name: "personal prefix too long",
-			config: func() Config {
-				cfg := baseConfig()
-				cfg.PersonalPodVNetPrefix = "personal"
-				return cfg
-			}(),
-			wantErr: "PERSONAL_POD_VNET_PREFIX plus configured network number must fit Proxmox VNet 8-character limit",
-		},
 	}
 
 	for _, tt := range tests {

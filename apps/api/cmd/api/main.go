@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -136,20 +135,6 @@ func parseOptionalUUID(value string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func validatePodVNetPrefix(prefix string, maxNetworkNumber int32, envVar string) error {
-	trimmed := strings.TrimSpace(prefix)
-	if trimmed == "" {
-		return fmt.Errorf("%s must not be empty", envVar)
-	}
-
-	vnetName := trimmed + strconv.Itoa(int(maxNetworkNumber))
-	if len(vnetName) > proxmoxVNetIDMaxLength {
-		return fmt.Errorf("%s plus configured network number must fit Proxmox VNet 8-character limit", envVar)
-	}
-
-	return nil
-}
-
 func rangesOverlap(leftMin, leftMax, rightMin, rightMax int32) bool {
 	return leftMin <= rightMax && rightMin <= leftMax
 }
@@ -186,9 +171,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if config.PodDevNetworkMax > maxNetworkNumber {
 		maxNetworkNumber = config.PodDevNetworkMax
 	}
-	if err := validatePodVNetPrefix(vnetPrefix, maxNetworkNumber, "POD_CLONE_VNET_PREFIX"); err != nil {
-		return handlers.PodRouterCloneConfig{}, err
-	}
 	if config.PersonalPodNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN must be at least 1")
 	}
@@ -210,10 +192,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	personalPattern := strings.TrimSpace(config.PersonalPodCloudInitUserFilePattern)
 	if personalPattern == "" {
 		personalPattern = config.PodRouterCloudInitUserFilePattern
-	}
-
-	if err := validatePodVNetPrefix(personalPrefix, config.PersonalPodNetworkMax, "PERSONAL_POD_VNET_PREFIX"); err != nil {
-		return handlers.PodRouterCloneConfig{}, err
 	}
 
 	waitTimeout, err := time.ParseDuration(strings.TrimSpace(config.PodRouterWait))
