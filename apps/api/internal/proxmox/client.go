@@ -1425,19 +1425,17 @@ func (c *Client) StartCloneVM(
 	if full {
 		form["full"] = "1"
 	}
-	taskNode := node
 	if target != "" {
 		if err := c.requireAllowedNode(target); err != nil {
 			return CloneTask{}, err
 		}
 		form["target"] = target
-		taskNode = target
 	}
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, form, &resp); err != nil {
 		return CloneTask{}, fmt.Errorf("cloning VM: %w", err)
 	}
-	return CloneTask{Node: taskNode, UPID: resp.Data}, nil
+	return CloneTask{Node: node, UPID: resp.Data}, nil
 }
 
 // WaitForTask polls a previously started task until it completes.
