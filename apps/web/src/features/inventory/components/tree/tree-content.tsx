@@ -114,9 +114,12 @@ export function InventoryTreeContent({
     count: items.length,
     getScrollElement: () => scrollElement,
     estimateSize: () => ESTIMATED_ROW_HEIGHT,
-    overscan: 12,
+    measureElement: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 6,
     getItemKey: (index) => items[index]?.getId() ?? index,
     scrollMargin,
+    directDomUpdates: true,
+    useFlushSync: false,
   })
 
   useEffect(() => {
@@ -150,10 +153,10 @@ export function InventoryTreeContent({
   return (
     <div ref={wrapperRef}>
       <Tree
+        ref={virtualizer.containerRef}
         tree={tree}
         indent={TREE_INDENT}
         className="relative"
-        style={{ height: virtualizer.getTotalSize() }}
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const item = items.at(virtualRow.index)
@@ -169,11 +172,6 @@ export function InventoryTreeContent({
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
               className="absolute top-0 left-0 flex w-full flex-col pb-0.5"
-              style={{
-                transform: `translateY(${
-                  virtualRow.start - virtualizer.options.scrollMargin
-                }px)`,
-              }}
             >
               <InventoryTreeRow
                 item={item}

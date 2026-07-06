@@ -8,6 +8,7 @@ import {
   MinusSignIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
+import { useComposedRefs } from "@workspace/ui/lib/compose-refs"
 import type { ItemInstance } from "@headless-tree/core"
 
 type ToggleIconType = "chevron" | "plus-minus"
@@ -57,6 +58,7 @@ function renderToggleIcon(isExpanded: boolean, toggleIconType: ToggleIconType) {
 
 interface TreeProps extends React.HTMLAttributes<HTMLDivElement> {
   indent?: number
+  ref?: React.Ref<HTMLDivElement>
   tree?: any
   toggleIconType?: ToggleIconType
 }
@@ -65,6 +67,7 @@ function Tree({
   indent = 20,
   tree,
   className,
+  ref,
   toggleIconType = "chevron",
   ...props
 }: TreeProps) {
@@ -75,7 +78,8 @@ function Tree({
   const mergedProps = { ...props, ...containerProps }
 
   // Extract style from mergedProps to merge with our custom styles
-  const { style: propStyle, ...otherProps } = mergedProps
+  const { style: propStyle, ref: treeRef, ...otherProps } = mergedProps
+  const composedRef = useComposedRefs(ref, treeRef)
 
   // Merge styles
   const mergedStyle = {
@@ -91,6 +95,7 @@ function Tree({
   return (
     <TreeContext.Provider value={contextValue}>
       <div
+        ref={composedRef}
         data-slot="tree"
         style={mergedStyle}
         className={cn("flex flex-col", className)}
