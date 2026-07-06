@@ -10,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,6 +24,7 @@ type VMCreateHandler struct {
 	Service               *inventory.Service
 	Authz                 *authorization.Service
 	Audit                 *audit.Service
+	Allocator             *vmidalloc.Allocator
 	PersonalPodVNetPrefix string
 }
 
@@ -516,7 +518,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		targetNode = optimalNode.Node
 	}
 
-	vmid, err := runWithAvailableVMID(c.Request.Context(), h.PX, req.VMID, func(vmid int) error {
+	vmid, err := runWithAvailableVMID(c.Request.Context(), h.Allocator, req.VMID, func(vmid int) error {
 		params["vmid"] = fmt.Sprintf("%d", vmid)
 		return h.PX.CreateVM(c.Request.Context(), targetNode, params)
 	})

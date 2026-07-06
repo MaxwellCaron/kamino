@@ -23,6 +23,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/routes"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -84,6 +85,16 @@ type Config struct {
 	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"254"`
 	PersonalPodWANIPBase                string `envconfig:"PERSONAL_POD_WAN_IP_BASE" default:"172.16."`
 	PersonalPodCloudInitUserFilePattern string `envconfig:"PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
+
+	// --- VMID allocation ranges (optional defaults shown) ---
+	PodPublishVMIDMin  int `envconfig:"POD_PUBLISH_VMID_MIN" default:"1000"`
+	PodPublishVMIDMax  int `envconfig:"POD_PUBLISH_VMID_MAX" default:"1999"`
+	PodCloneVMIDMin    int `envconfig:"POD_CLONE_VMID_MIN" default:"2000"`
+	PodCloneVMIDMax    int `envconfig:"POD_CLONE_VMID_MAX" default:"9999"`
+	PodDevVMIDMin      int `envconfig:"POD_DEV_VMID_MIN" default:"10000"`
+	PodDevVMIDMax      int `envconfig:"POD_DEV_VMID_MAX" default:"19999"`
+	PersonalPodVMIDMin int `envconfig:"PERSONAL_POD_VMID_MIN" default:"20000"`
+	PersonalPodVMIDMax int `envconfig:"PERSONAL_POD_VMID_MAX" default:"20999"`
 }
 
 // Server holds all application dependencies
@@ -324,6 +335,81 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	return routerConfig, nil
 }
 
+type vmidRanges struct {
+	Publish  vmidalloc.Range
+	Clone    vmidalloc.Range
+	Dev      vmidalloc.Range
+	Personal vmidalloc.Range
+}
+
+const (
+	proxmoxVMIDLowerBound = 100
+	proxmoxVMIDUpperBound = 999999999
+)
+
+func buildVMIDRangeConfig(config *Config) (vmidRanges, error) {
+	ranges := vmidRanges{
+		Publish:  vmidalloc.Range{Min: config.PodPublishVMIDMin, Max: config.PodPublishVMIDMax},
+		Clone:    vmidalloc.Range{Min: config.PodCloneVMIDMin, Max: config.PodCloneVMIDMax},
+		Dev:      vmidalloc.Range{Min: config.PodDevVMIDMin, Max: config.PodDevVMIDMax},
+		Personal: vmidalloc.Range{Min: config.PersonalPodVMIDMin, Max: config.PersonalPodVMIDMax},
+	}
+
+	type namedRange struct {
+		name   string
+		minVar string
+		maxVar string
+		r      vmidalloc.Range
+	}
+	named := []namedRange{
+		{"publish", "POD_PUBLISH_VMID_MIN", "POD_PUBLISH_VMID_MAX", ranges.Publish},
+		{"clone", "POD_CLONE_VMID_MIN", "POD_CLONE_VMID_MAX", ranges.Clone},
+		{"dev", "POD_DEV_VMID_MIN", "POD_DEV_VMID_MAX", ranges.Dev},
+		{"personal", "PERSONAL_POD_VMID_MIN", "PERSONAL_POD_VMID_MAX", ranges.Personal},
+	}
+
+	for _, nr := range named {
+		if nr.r.Min < proxmoxVMIDLowerBound {
+			return vmidRanges{}, fmt.Errorf("%s must be at least %d", nr.minVar, proxmoxVMIDLowerBound)
+		}
+		if nr.r.Max > proxmoxVMIDUpperBound {
+			return vmidRanges{}, fmt.Errorf("%s must be at most %d", nr.maxVar, proxmoxVMIDUpperBound)
+		}
+		if nr.r.Min > nr.r.Max {
+			return vmidRanges{}, fmt.Errorf("%s must be less than or equal to %s", nr.minVar, nr.maxVar)
+		}
+	}
+
+	pairs := [][2]namedRange{
+		{named[0], named[1]},
+		{named[0], named[2]},
+		{named[0], named[3]},
+		{named[1], named[2]},
+		{named[1], named[3]},
+		{named[2], named[3]},
+	}
+	for _, pair := range pairs {
+		a, b := pair[0], pair[1]
+		if a.r.Min <= b.r.Max && b.r.Min <= a.r.Max {
+			return vmidRanges{}, fmt.Errorf(
+				"%s..%s (%d–%d) must not overlap %s..%s (%d–%d)",
+				a.minVar, a.maxVar, a.r.Min, a.r.Max,
+				b.minVar, b.maxVar, b.r.Min, b.r.Max,
+			)
+		}
+	}
+
+	log.Printf(
+		"VMID ranges configured: publish=%d-%d clone=%d-%d dev=%d-%d personal=%d-%d",
+		ranges.Publish.Min, ranges.Publish.Max,
+		ranges.Clone.Min, ranges.Clone.Max,
+		ranges.Dev.Min, ranges.Dev.Max,
+		ranges.Personal.Min, ranges.Personal.Max,
+	)
+
+	return ranges, nil
+}
+
 func resolveConfiguredAdminGroup(
 	config *Config,
 	adClient *activedirectory.Client,
@@ -481,6 +567,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid pod router clone configuration: %v", err)
 	}
+	vmidRangeConfig, err := buildVMIDRangeConfig(&config)
+	if err != nil {
+		log.Fatalf("Invalid VMID range configuration: %v", err)
+	}
 
 	// Initialize server with all dependencies
 	server, err := newServer(&config)
@@ -585,6 +675,8 @@ func main() {
 		Audit:                 auditService,
 		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
 	}
+	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
+	vmHandler.Allocator = vmidAllocator
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:                    server.ProxmoxClient,
 		DB:                    server.DBPool,
@@ -592,6 +684,7 @@ func main() {
 		Service:               inventoryService,
 		Authz:                 authzService,
 		Audit:                 auditService,
+		Allocator:             vmidAllocator,
 		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
@@ -629,6 +722,11 @@ func main() {
 		TemplatesFolderItemID:           templatesFolderItemID,
 		PodsFolderItemID:                podsFolderItemID,
 		PersonalPodsFolderItemID:        personalPodsFolderItemID,
+		Allocator:                       vmidAllocator,
+		PublishVMIDRange:                vmidRangeConfig.Publish,
+		CloneVMIDRange:                  vmidRangeConfig.Clone,
+		DevVMIDRange:                    vmidRangeConfig.Dev,
+		PersonalVMIDRange:               vmidRangeConfig.Personal,
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,

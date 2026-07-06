@@ -16,6 +16,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -71,6 +72,7 @@ type VMHandler struct {
 	Actions               *vmactions.Executor
 	Claims                *vmactions.Claims
 	Audit                 *audit.Service
+	Allocator             *vmidalloc.Allocator
 	PersonalPodVNetPrefix string
 }
 
@@ -1015,7 +1017,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	// the clone (Proxmox reads its disks/config); claim it so a concurrent
 	// rename/delete/power action on the source cannot interleave.
 	h.runClaimedVMAction(c, source.ItemID, "clone_vm", principalID, func() bool {
-		newID, err := runWithAvailableVMID(c.Request.Context(), h.PX, req.NewID, func(vmid int) error {
+		newID, err := runWithAvailableVMID(c.Request.Context(), h.Allocator, req.NewID, func(vmid int) error {
 			return h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, vmid, req.Name, req.Full, targetNode)
 		})
 		switch {

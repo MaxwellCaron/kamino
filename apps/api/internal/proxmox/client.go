@@ -1641,6 +1641,19 @@ func (c *Client) GetCreateNetworks(
 	return bridges, vnets, nil
 }
 
+// UsedVMIDs returns all VMIDs in the cluster without filtering to configured nodes.
+func (c *Client) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
+	var resp apiResponse[[]VM]
+	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
+		return nil, fmt.Errorf("fetching cluster VMIDs: %w", err)
+	}
+	used := make(map[int]struct{}, len(resp.Data))
+	for _, vm := range resp.Data {
+		used[vm.VMID] = struct{}{}
+	}
+	return used, nil
+}
+
 // GetNextVMID returns the next available VMID from the cluster.
 func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	var resp apiResponse[json.Number]

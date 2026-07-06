@@ -128,6 +128,35 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
 | `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
+| `POD_PUBLISH_VMID_MIN` | no | `1000` | First VMID available for publish/template-preparation clones (inclusive) |
+| `POD_PUBLISH_VMID_MAX` | no | `1999` | Last VMID available for publish/template-preparation clones (inclusive) |
+| `POD_CLONE_VMID_MIN` | no | `2000` | First VMID available for catalog clone/reclone operations (inclusive) |
+| `POD_CLONE_VMID_MAX` | no | `9999` | Last VMID available for catalog clone/reclone operations (inclusive) |
+| `POD_DEV_VMID_MIN` | no | `10000` | First VMID available for development pod creation (inclusive) |
+| `POD_DEV_VMID_MAX` | no | `19999` | Last VMID available for development pod creation (inclusive) |
+| `PERSONAL_POD_VMID_MIN` | no | `20000` | First VMID available for personal pod router clones (inclusive) |
+| `PERSONAL_POD_VMID_MAX` | no | `20999` | Last VMID available for personal pod router clones (inclusive) |
+
+### VMID allocation ranges
+
+Each pod workflow draws VMIDs from its own configured inclusive range. All four
+ranges must be pairwise non-overlapping and within the Proxmox VMID bounds
+(100–999999999). Kamino validates this at startup.
+
+- Bounds are **inclusive**.
+- Ranges must **not overlap** each other.
+- Existing VMs inside a configured range are **skipped**, not rejected.
+- Free IDs within one bulk operation **need not be contiguous**.
+- Ordinary VM create/clone (not pod workflows) continues using Proxmox
+  `nextid` and is not constrained to these ranges.
+- An **in-process mutex** serialises VMID selection; this design assumes one
+  Kamino API replica. Before increasing replicas, replace the mutex with a
+  cross-process coordination mechanism.
+- **Direct Proxmox activity is safe**: if a VM is created directly in Proxmox
+  after Kamino's snapshot is taken, the resulting create-conflict is detected
+  and Kamino retries with the next candidate automatically.
+- Inventory current VMIDs before adopting custom ranges to avoid accidental
+  overlap with existing machines.
 
 By default, published pod clones reserve network numbers `1-244` and create-pod
 developer environments reserve `245-254`. These ranges must not overlap.

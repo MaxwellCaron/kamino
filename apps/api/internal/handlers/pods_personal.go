@@ -278,6 +278,19 @@ func (h *PodsHandler) provisionPersonalPod(
 		return database.PersonalPods{}, reqErr
 	}
 
+	personalBatch, batchErr := h.Allocator.NewBatch(ctx, h.PersonalVMIDRange, 1)
+	if batchErr != nil {
+		reqErr := &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: fmt.Sprintf("no available VMID in personal pod range (%d–%d)", h.PersonalVMIDRange.Min, h.PersonalVMIDRange.Max),
+			Operation:   "allocate personal pod VMID",
+			Err:         batchErr,
+		}
+		recordFailure(reqErr)
+		h.cleanupFailedPodProvision(folderID, nil)
+		return database.PersonalPods{}, reqErr
+	}
+
 	created := make(map[int]clonedVM, 1)
 	clone, reqErr := h.cloneVerifiedVMIntoFolder(
 		ctx,
@@ -288,6 +301,7 @@ func (h *PodsHandler) provisionPersonalPod(
 		"router",
 		false,
 		cloneVMOptions{
+			batch: personalBatch,
 			onStarted: func(node string, vmid int) {
 				created[vmid] = clonedVM{
 					TargetNode: node,
