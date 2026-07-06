@@ -41,8 +41,6 @@ type vmProxmox interface {
 	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
 	GetNextVMID(ctx context.Context) (int, error)
 	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
-	UsedVMIDs(ctx context.Context) (map[int]struct{}, error)
-	QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error)
 	CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error
 	SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error
 	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error

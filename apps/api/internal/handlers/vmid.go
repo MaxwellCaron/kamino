@@ -12,8 +12,7 @@ var errVMIDUnavailable = errors.New("vm id is already in use")
 
 type vmidAllocator interface {
 	GetNextVMID(ctx context.Context) (int, error)
-	UsedVMIDs(ctx context.Context) (map[int]struct{}, error)
-	QEMUConfigExistsForVMID(ctx context.Context, vmid int) (bool, error)
+	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
 }
 
 func isVMIDUnavailable(err error) bool {
@@ -46,17 +45,12 @@ func runWithAvailableVMID(
 		return 0, fmt.Errorf("fetch next VMID: %w", err)
 	}
 
-	usedVMIDs, err := px.UsedVMIDs(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("load used VMIDs: %w", err)
-	}
-
 	var lastErr error
 	for offset := range cloneVMIDAllocationAttempts {
 		vmid := firstID + offset
-		available, err := vmidAvailable(ctx, px, usedVMIDs, vmid)
+		available, err := px.IsVMIDAvailable(ctx, vmid)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("verify VMID %d availability: %w", vmid, err)
 		}
 		if !available {
 			continue
@@ -65,7 +59,6 @@ func runWithAvailableVMID(
 		if err := run(vmid); err != nil {
 			lastErr = err
 			if proxmox.IsVMIDCreateConflict(err) {
-				usedVMIDs[vmid] = struct{}{}
 				continue
 			}
 			return 0, err
@@ -91,40 +84,12 @@ func runWithAvailableVMID(
 }
 
 func ensureVMIDAvailable(ctx context.Context, px vmidAllocator, vmid int) error {
-	usedVMIDs, err := px.UsedVMIDs(ctx)
+	available, err := px.IsVMIDAvailable(ctx, vmid)
 	if err != nil {
-		return fmt.Errorf("load used VMIDs: %w", err)
-	}
-
-	available, err := vmidAvailable(ctx, px, usedVMIDs, vmid)
-	if err != nil {
-		return err
+		return fmt.Errorf("verify VMID %d availability: %w", vmid, err)
 	}
 	if !available {
 		return errVMIDUnavailable
 	}
-
 	return nil
-}
-
-func vmidAvailable(
-	ctx context.Context,
-	px vmidAllocator,
-	usedVMIDs map[int]struct{},
-	vmid int,
-) (bool, error) {
-	if _, used := usedVMIDs[vmid]; used {
-		return false, nil
-	}
-
-	configExists, err := px.QEMUConfigExistsForVMID(ctx, vmid)
-	if err != nil {
-		return false, fmt.Errorf("verify VMID %d availability: %w", vmid, err)
-	}
-	if configExists {
-		usedVMIDs[vmid] = struct{}{}
-		return false, nil
-	}
-
-	return true, nil
 }

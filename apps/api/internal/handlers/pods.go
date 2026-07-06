@@ -41,8 +41,8 @@ const (
 	// publishCloneConcurrency bounds how many Pod VMs are cloned at once.
 	publishCloneConcurrency = 2
 
-	// cloneVMIDAllocationAttempts bounds how far Kamino will scan past
-	// Proxmox's nextid response when stale config files reserve older IDs.
+	// cloneVMIDAllocationAttempts bounds the number of candidates and
+	// create-conflict retries past Proxmox's nextid response.
 	cloneVMIDAllocationAttempts = 25
 )
 
@@ -2726,24 +2726,10 @@ func (h *PodsHandler) startVMClone(
 		}
 	}
 
-	usedVMIDs, err := h.PX.UsedVMIDs(ctx)
-	if err != nil {
-		return proxmox.CloneTask{}, 0, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to verify VMID availability",
-			Operation:   "load used VMIDs for pod clone",
-			Err:         err,
-		}
-	}
-
 	var lastErr error
 	for offset := range cloneVMIDAllocationAttempts {
 		newID := firstID + offset
-		if _, used := usedVMIDs[newID]; used {
-			continue
-		}
-
-		configExists, err := h.PX.QEMUConfigExistsForVMID(ctx, newID)
+		available, err := h.PX.IsVMIDAvailable(ctx, newID)
 		if err != nil {
 			return proxmox.CloneTask{}, 0, &requestError{
 				Status:      http.StatusBadGateway,
@@ -2752,7 +2738,7 @@ func (h *PodsHandler) startVMClone(
 				Err:         err,
 			}
 		}
-		if configExists {
+		if !available {
 			continue
 		}
 
