@@ -35,8 +35,13 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   const [searchQuery, setSearchQuery] = useState("")
   const pendingRevealItemIdRef = useRef<string | null>(null)
+  const pendingRouteRevealRef = useRef<string | null>(null)
   const treeNavigationItemIdRef = useRef<string | null>(null)
   const revealedRouteItemIdRef = useRef<string | null>(null)
+  const [routeRevealSync, setRouteRevealSync] = useState<{
+    activeItemId: string | undefined
+    treeLoaded: boolean
+  }>({ activeItemId: undefined, treeLoaded: false })
   const normalizedSearchQuery = searchQuery.trim()
   const isSearchActive =
     normalizedSearchQuery.length >= INVENTORY_SEARCH_MIN_LENGTH
@@ -175,19 +180,61 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       setSelectedItemIds,
     })
 
+  const clearSearchAndQueueReveal = useCallback((itemId: string) => {
+    pendingRevealItemIdRef.current = itemId
+    setSearchQuery("")
+  }, [])
+
   const revealAndNavigateToItem = useCallback(
     (itemId: string) => {
       if (isSearchActive && !displayItems.has(itemId)) {
-        pendingRevealItemIdRef.current = itemId
-        setSearchQuery("")
+        clearSearchAndQueueReveal(itemId)
         return
       }
 
       void revealItem(itemId)
       handlePrimaryAction(itemId)
     },
-    [displayItems, handlePrimaryAction, isSearchActive, revealItem]
+    [
+      clearSearchAndQueueReveal,
+      displayItems,
+      handlePrimaryAction,
+      isSearchActive,
+      revealItem,
+    ]
   )
+
+  const treeHasActiveItem =
+    activeItemId !== undefined && sourceItems.has(activeItemId)
+
+  if (
+    activeItemId !== routeRevealSync.activeItemId ||
+    (treeHasActiveItem && !routeRevealSync.treeLoaded)
+  ) {
+    setRouteRevealSync({
+      activeItemId,
+      treeLoaded: treeHasActiveItem,
+    })
+
+    if (!activeItemId) {
+      revealedRouteItemIdRef.current = null
+    } else if (
+      treeHasActiveItem &&
+      revealedRouteItemIdRef.current !== activeItemId
+    ) {
+      revealedRouteItemIdRef.current = activeItemId
+      const skipReveal = treeNavigationItemIdRef.current === activeItemId
+      treeNavigationItemIdRef.current = null
+
+      if (!skipReveal) {
+        if (isSearchActive) {
+          clearSearchAndQueueReveal(activeItemId)
+        } else {
+          pendingRouteRevealRef.current = activeItemId
+        }
+      }
+    }
+  }
 
   useEffect(() => {
     const pendingItemId = pendingRevealItemIdRef.current
@@ -201,33 +248,14 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   }, [handlePrimaryAction, isSearchActive, revealItem, searchQuery])
 
   useEffect(() => {
-    if (!activeItemId) {
-      revealedRouteItemIdRef.current = null
-      return
-    }
-    if (revealedRouteItemIdRef.current === activeItemId) {
-      return
-    }
-    if (!sourceItems.has(activeItemId)) {
+    const itemId = pendingRouteRevealRef.current
+    if (!itemId) {
       return
     }
 
-    revealedRouteItemIdRef.current = activeItemId
-
-    if (treeNavigationItemIdRef.current === activeItemId) {
-      treeNavigationItemIdRef.current = null
-      return
-    }
-    treeNavigationItemIdRef.current = null
-
-    if (isSearchActive) {
-      pendingRevealItemIdRef.current = activeItemId
-      setSearchQuery("")
-      return
-    }
-
-    void revealItem(activeItemId)
-  }, [activeItemId, isSearchActive, revealItem, sourceItems])
+    pendingRouteRevealRef.current = null
+    void revealItem(itemId)
+  }, [activeItemId, revealItem, routeRevealSync])
 
   const searchResultCount =
     !isLoading && !error ? filterResult.matchCount : 0
