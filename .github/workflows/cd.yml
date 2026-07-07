@@ -2,28 +2,39 @@ name: Build and publish
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
+  validate:
+    name: Validate
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+
   build:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: api
-            image: ghcr.io/maxwellcaron/kamino-api
+            production_image: ghcr.io/maxwellcaron/kamino-api
+            development_image: ghcr.io/maxwellcaron/kamino-dev-api
           - target: web
-            image: ghcr.io/maxwellcaron/kamino-web
+            production_image: ghcr.io/maxwellcaron/kamino-web
+            development_image: ghcr.io/maxwellcaron/kamino-dev-web
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +49,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.image }}
+          images: ${{ github.ref_name == 'development' && matrix.development_image || matrix.production_image }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
@@ -50,5 +61,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,ref=${{ matrix.target }}
-          cache-to: type=gha,ref=${{ matrix.target }},mode=max
+          cache-from: type=gha,ref=${{ github.ref_name }}-${{ matrix.target }}
+          cache-to: type=gha,ref=${{ github.ref_name }}-${{ matrix.target }},mode=max

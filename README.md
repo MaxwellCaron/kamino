@@ -60,12 +60,47 @@ The compose file has no Postgres service — `DATABASE_URL` must point at an exi
 
 The API healthcheck endpoint is `GET /api/v1/health`.
 
+## Development workflow
+
+The intended fast loop is `bun run dev` on a **dedicated internal dev
+VM/workstation** — not a Kubernetes control-plane or worker node. Use the
+existing Bun 1.3.11, Go 1.26, and Air prerequisites above.
+
+```
+dedicated dev VM/workstation (bun run dev, hot reload)
+  -> commit/push development
+  -> reusable API/web CI
+  -> dev GHCR images (kamino-dev-api, kamino-dev-web)
+  -> Argo CD kamino-dev integration environment
+  -> merge development to main
+  -> production images and Argo rollout
+```
+
+- Checkout `development`. The web dev server runs on **:3000** and proxies
+  `/api` to the API at **:8080** as documented under Quick start.
+- `apps/api/.env` must point to **isolated** development dependencies: a
+  separate Postgres database, a non-production Proxmox scope, a distinct
+  `JWT_SECRET`, and test LDAP OUs/credentials when AD is enabled. Never copy
+  the production environment file.
+- Raw Bun/Vite/Air ports must remain internal (VPN/LAN/firewall). If a stable
+  HTTPS origin is needed for secure cookies, CORS, or VNC WebSockets, put an
+  operator-managed internal TLS reverse proxy in front of the dev processes.
+- `bun run dev` is for rapid single-developer iteration. The Argo CD
+  `kamino-dev` environment is where built container images, nginx, Istio
+  routing, TLS, namespace configuration, and rollout behavior are validated
+  before production.
+- Routine work may be committed directly to `development`. The CD workflow
+  calls the reusable API and web validation first and publishes dev images only
+  when both pass. Larger changes may use pull requests into `development`.
+- Do not run the hot-reload API and the Kubernetes dev API concurrently against
+  the same Proxmox scope; the startup mirror reconciliation runs in both.
+
 ## Kubernetes / Argo CD
 
-Production Kustomize manifests for k3s with Istio, plus the Argo CD
-Application definition, live under `deploy/`. See
-[`deploy/k8s/README.md`](deploy/k8s/README.md) for database, cluster-only
-Secret, TLS, and deployment prerequisites.
+Kustomize manifests for k3s with Istio, plus Argo CD Application definitions
+for both production (`kamino`) and development (`kamino-dev`), live under
+`deploy/`. See [`deploy/k8s/README.md`](deploy/k8s/README.md) for database,
+cluster-only Secret, TLS, and deployment prerequisites for each environment.
 
 ## Commands
 
