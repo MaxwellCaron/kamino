@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kamino-dev
+resources:
+  - ../../base
+  - configmap.yaml
+  - gateway.yaml
+  - virtualservice.yaml
+images:
+  - name: ghcr.io/maxwellcaron/kamino-api
+    newName: ghcr.io/maxwellcaron/kamino-dev-api
+    newTag: latest
+  - name: ghcr.io/maxwellcaron/kamino-web
+    newName: ghcr.io/maxwellcaron/kamino-dev-web
+    newTag: latest
+replacements:
+  - source:
+      kind: ConfigMap
+      name: kamino-config
+      fieldPath: data.PUBLIC_HOST
+    targets:
+      - select:
+          kind: Gateway
+          name: kamino
+        fieldPaths:
+          - spec.servers.0.hosts.0
+          - spec.servers.1.hosts.0
+      - select:
+          kind: VirtualService
+          name: kamino
+        fieldPaths:
+          - spec.hosts.0
+      - select:
+          kind: ConfigMap
+          name: kamino-config
+        fieldPaths:
+          - data.FRONTEND_URL
+        options:
+          delimiter: /
+          index: 2

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kamino-config
+  labels:
+    app.kubernetes.io/part-of: kamino
+data:
+  PUBLIC_HOST: dev.placeholder.invalid
+  GIN_MODE: release
+  PORT: :8080
+  FRONTEND_URL: https://dev.placeholder.invalid
+  PROXMOX_INSECURE: "false"
+  PROXMOX_INITIAL_SYNC_ENABLED: "true"
+  LDAP_INSECURE: "false"
+  AD_INITIAL_SYNC_ENABLED: "true"

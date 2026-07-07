@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kamino-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: kaminoapi=ghcr.io/maxwellcaron/kamino-dev-api:latest,kaminoweb=ghcr.io/maxwellcaron/kamino-dev-web:latest
+    argocd-image-updater.argoproj.io/kaminoapi.update-strategy: digest
+    argocd-image-updater.argoproj.io/kaminoweb.update-strategy: digest
+    argocd-image-updater.argoproj.io/kaminoapi.kustomize.image-name: ghcr.io/maxwellcaron/kamino-api
+    argocd-image-updater.argoproj.io/kaminoweb.kustomize.image-name: ghcr.io/maxwellcaron/kamino-web
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/MaxwellCaron/kamino.git
+    targetRevision: development
+    path: deploy/k8s/overlays/dev
+    kustomize:
+      patches:
+        - target:
+            kind: ConfigMap
+            name: kamino-config
+          patch: |-
+            - op: replace
+              path: /data/PUBLIC_HOST
+              value: dev.placeholder.invalid
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kamino-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
