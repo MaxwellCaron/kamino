@@ -1,10 +1,16 @@
 import { Outlet, getRouteApi } from "@tanstack/react-router"
 import { SidebarProvider } from "@workspace/ui/components/sidebar"
+import { cn } from "@workspace/ui/lib/utils"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
+import { InventorySidebarResizeHandle } from "@/features/inventory/components/tree/inventory-sidebar-resize-handle"
+import {
+  INVENTORY_SIDEBAR_MIN_WIDTH,
+  useInventorySidebarResize,
+} from "@/features/inventory/hooks/use-inventory-sidebar-resize"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 
@@ -14,12 +20,25 @@ const commandManyItemsElement = <CommandManyItems />
 
 export function DashboardLayout() {
   const { user } = dashboardRouteApi.useRouteContext()
+  const {
+    width,
+    effectiveMax,
+    isResizing,
+    updateWidthLive,
+    commitWidth,
+    onResizeStart,
+    onResizeEnd,
+  } = useInventorySidebarResize()
 
   return (
     <SidebarProvider
+      className={cn(
+        isResizing &&
+          "[&_[data-slot=sidebar-gap]]:duration-0 [&_[data-slot=sidebar-container]]:duration-0"
+      )}
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 96)",
+          "--sidebar-width": `${width}px`,
           "--sidebar-width-icon": "calc(var(--spacing) * 12)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties
@@ -29,6 +48,15 @@ export function DashboardLayout() {
       <InventoryDialogsProvider>
         <InventoryTreeProvider>
           <AppSidebar user={user} variant="inset" />
+          <InventorySidebarResizeHandle
+            width={width}
+            minWidth={INVENTORY_SIDEBAR_MIN_WIDTH}
+            maxWidth={effectiveMax}
+            onLiveUpdate={updateWidthLive}
+            onCommit={commitWidth}
+            onResizeStart={onResizeStart}
+            onResizeEnd={onResizeEnd}
+          />
           <SiteLayoutInset header={<SiteHeader command={commandManyItemsElement} />}>
             <Outlet />
           </SiteLayoutInset>
