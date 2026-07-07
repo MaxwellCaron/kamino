@@ -10,9 +10,12 @@ export function InventoryFolderSkeleton() {
       className="@container/main flex flex-1 flex-col"
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
-        <div className="flex items-center gap-3 pt-12">
-          <Skeleton className="size-8 rounded-lg" />
-          <Skeleton className="h-9 w-64" />
+        <div className="flex items-center justify-between gap-4 pt-12">
+          <div className="flex min-w-0 items-center gap-2">
+            <Skeleton className="size-8 shrink-0 rounded-lg" />
+            <Skeleton className="h-9 w-64 max-w-full" />
+          </div>
+          <Skeleton className="size-9 shrink-0 rounded-md" />
         </div>
         <Skeleton className="h-px w-full" />
         <div className="flex flex-col gap-4">

@@ -816,11 +816,13 @@ export function InventoryNodeMenu({
   data,
   className,
   iconSize = "icon-xs",
+  contentAlign,
 }: {
   itemId: string
   data: ApiTreeNode
   className?: string
   iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
+  contentAlign?: "start" | "center" | "end"
 }) {
   const { isMobile } = useSidebar()
 
@@ -834,6 +836,7 @@ export function InventoryNodeMenu({
             variant="ghost"
             size={iconSize}
             className={className}
+            aria-label={`Actions for ${data.name}`}
             onClick={stopTreeItemEvent}
             onPointerDown={stopTreeItemEvent}
           >
@@ -842,7 +845,7 @@ export function InventoryNodeMenu({
         }
       />
       <DropdownMenuContent
-        align={isMobile ? "end" : "start"}
+        align={contentAlign ?? (isMobile ? "end" : "start")}
         onClick={stopTreeItemEvent}
         onPointerDown={stopTreeItemEvent}
         onKeyDown={stopTreeItemEvent}

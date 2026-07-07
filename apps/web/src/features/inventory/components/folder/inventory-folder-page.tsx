@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Separator } from "@workspace/ui/components/separator"
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { findInventoryTreeNode } from "../../utils/inventory-tree"
+import { InventoryNodeMenu } from "../inventory-actions"
 import { InventoryFolderContents } from "./inventory-folder-contents"
 import { InventoryFolderSkeleton } from "./inventory-folder-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -40,11 +41,19 @@ export function InventoryFolderPage() {
   return (
     <div className="@container/main flex flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
-        <div className="flex items-center gap-2 pt-12">
-          <FolderIcon className="size-8" />
-          <h1 className="font-heading text-4xl font-extrabold tracking-tight text-balance">
-            {folder.name}
-          </h1>
+        <div className="flex items-center justify-between gap-4 pt-12">
+          <div className="flex min-w-0 items-center gap-2">
+            <FolderIcon className="size-8 shrink-0" />
+            <h1 className="min-w-0 wrap-break-word font-heading text-4xl font-extrabold tracking-tight text-balance">
+              {folder.name}
+            </h1>
+          </div>
+          <InventoryNodeMenu
+            itemId={folder.id}
+            data={folder}
+            iconSize="icon"
+            contentAlign="end"
+          />
         </div>
         <Separator />
         <InventoryFolderContents folder={folder} />
