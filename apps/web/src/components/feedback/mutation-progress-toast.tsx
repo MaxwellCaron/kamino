@@ -13,10 +13,14 @@ export type MutationResult = {
   failed: Array<{ id: string; error: string }>
 }
 
+export type MutationItemUpdate =
+  | { id: string; status: "done" }
+  | { id: string; status: "error"; error: string }
+
 export function showMutationToast(params: {
   title: string
   items: Array<MutationToastItem>
-  runMutation: () => Promise<MutationResult>
+  runMutation: (report: (update: MutationItemUpdate) => void) => Promise<MutationResult>
 }): string | number {
   return toast.custom(
     (id) => (
@@ -56,7 +60,7 @@ export function showSingleMutationToast(params: {
         retry: typeof promise === "function" ? runSingleMutation : undefined,
       },
     ],
-    runMutation: async () => {
+    runMutation: async (_report) => {
       try {
         await runSingleMutation()
         return { succeeded: ["single"], failed: [] }

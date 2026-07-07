@@ -4,7 +4,6 @@ import {
   Cancel01Icon,
   CancelIcon,
   CheckmarkCircleIcon,
-  LoaderCircle,
   Refresh03Icon,
 } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
@@ -18,8 +17,10 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@workspace/ui/components/attachment"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "sonner"
 import type {
+  MutationItemUpdate,
   MutationResult,
   MutationToastItem,
 } from "@/components/feedback/mutation-progress-toast"
@@ -37,6 +38,25 @@ function dismissWhenComplete(
   }
 }
 
+function applyItemUpdate(
+  prev: {
+    itemStates: Record<string, ItemState>
+    itemErrors: Record<string, string>
+  },
+  update: MutationItemUpdate,
+  toastId: string | number
+) {
+  const nextStates: Record<string, ItemState> = {
+    ...prev.itemStates,
+    [update.id]: update.status,
+  }
+  const nextErrors = { ...prev.itemErrors }
+  if (update.status === "error") nextErrors[update.id] = update.error
+  else delete nextErrors[update.id]
+  dismissWhenComplete(toastId, nextStates)
+  return { itemStates: nextStates, itemErrors: nextErrors }
+}
+
 export function MutationProgressToast({
   toastId,
   title,
@@ -46,7 +66,9 @@ export function MutationProgressToast({
   toastId: string | number
   title: string
   items: Array<MutationToastItem>
-  runMutation: () => Promise<MutationResult>
+  runMutation: (
+    report: (update: MutationItemUpdate) => void
+  ) => Promise<MutationResult>
 }) {
   const [toastState, setToastState] = useState(() => ({
     itemStates: Object.fromEntries(
@@ -62,7 +84,11 @@ export function MutationProgressToast({
   useEffect(() => {
     let cancelled = false
     const mutationItems = initialItemsRef.current
-    mutationPromiseRef.current ??= runMutationRef.current()
+    const report = (update: MutationItemUpdate) => {
+      if (cancelled) return
+      setToastState((prev) => applyItemUpdate(prev, update, toastId))
+    }
+    mutationPromiseRef.current ??= runMutationRef.current(report)
 
     mutationPromiseRef.current
       .then(({ succeeded, failed }) => {
@@ -140,7 +166,7 @@ export function MutationProgressToast({
     >
       <AttachmentMedia>
         {itemStates[item.id] === "processing" ? (
-          <HugeiconsIcon icon={LoaderCircle} className="animate-spin" />
+          <Spinner className="motion-reduce:animate-none" />
         ) : itemStates[item.id] === "done" ? (
           <HugeiconsIcon
             icon={CheckmarkCircleIcon}
@@ -152,15 +178,17 @@ export function MutationProgressToast({
       </AttachmentMedia>
       <AttachmentContent>
         <AttachmentTitle>{item.name}</AttachmentTitle>
-        {itemStates[item.id] === "error" ? (
-          <AttachmentDescription className="text-destructive">
+        {itemStates[item.id] === "processing" ? (
+          <AttachmentDescription>Processing</AttachmentDescription>
+        ) : itemStates[item.id] === "error" ? (
+          <AttachmentDescription className="first-letter:uppercase">
             {itemErrors[item.id] ?? "Failed"}
           </AttachmentDescription>
-        ) : itemStates[item.id] === "done" && item.successDescription ? (
-          <AttachmentDescription>
-            {item.successDescription}
+        ) : (
+          <AttachmentDescription className="first-letter:uppercase">
+            {item.successDescription ?? "Done"}
           </AttachmentDescription>
-        ) : null}
+        )}
       </AttachmentContent>
       <AttachmentActions>
         {itemStates[item.id] === "error" && item.retry && (
@@ -179,19 +207,21 @@ export function MutationProgressToast({
 
   return (
     <div className="flex w-full flex-col gap-3 rounded-4xl bg-card px-6 py-4 shadow ring-1 ring-border">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{title}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          {title}
+        </span>
         <Button
           variant="ghost"
           size="icon-xs"
           aria-label="Dismiss"
-          className="text-muted-foreground"
+          className="shrink-0 text-muted-foreground"
           onClick={() => toast.dismiss(toastId)}
         >
           <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
       </div>
-      <AttachmentGroup className="-mx-6 flex max-h-100 scroll-fade flex-col gap-0 overflow-y-auto py-0 firefox:scroll-fade-none">
+      <AttachmentGroup className="-mx-6 flex max-h-100 scroll-fade flex-col gap-0 overflow-y-auto rounded-md py-0 firefox:scroll-fade-none">
         {attachments}
       </AttachmentGroup>
     </div>

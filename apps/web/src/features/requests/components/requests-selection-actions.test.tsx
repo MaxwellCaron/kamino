@@ -15,8 +15,8 @@ vi.mock("@/components/feedback/mutation-progress-toast", () => ({
   showMutationToast: ({
     runMutation,
   }: {
-    runMutation: () => Promise<unknown>
-  }) => runMutation(),
+    runMutation: (report: () => void) => Promise<unknown>
+  }) => runMutation(() => {}),
 }))
 
 vi.mock("@workspace/ui/components/action-bar", async (importOriginal) => {

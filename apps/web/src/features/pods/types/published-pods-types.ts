@@ -1,4 +1,3 @@
-import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
@@ -17,15 +16,6 @@ export type PublishedPodClonePendingAction =
   | null
 
 export type CloneBulkAction = Exclude<PendingCloneBulkAction, null>
-
-export type PendingCloneRowState = "queued" | "running" | "success" | "error"
-
-export type PendingCloneRow = {
-  progressId: string
-  principal: PrincipalOption
-  state: PendingCloneRowState
-  message?: string
-}
 
 export type PublishedPodsStats = {
   total: number

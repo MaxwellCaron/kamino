@@ -62,34 +62,32 @@ export function RequestsSelectionActions({
             name: formatRequestKind(r.kind),
             successDescription: isApprove ? "Approved" : "Denied",
           })),
-          runMutation: async () => {
-            const results = await Promise.allSettled(
-              ids.map((id) => mutation.mutateAsync([id]))
-            )
+          runMutation: async (report) => {
             const succeeded: Array<string> = []
             const failed: Array<{ id: string; error: string }> = []
 
-            results.forEach((result, index) => {
-              const id = ids[index]
-              if (result.status === "fulfilled") {
-                const requestFailure:
-                  | ApiRequestActionResponse["failed"][number]
-                  | undefined = result.value.failed.find((f) => f.id === id)
-                if (requestFailure) {
-                  failed.push({ id, error: requestFailure.error })
-                } else {
-                  succeeded.push(id)
+            await Promise.all(
+              ids.map(async (id) => {
+                try {
+                  const result = await mutation.mutateAsync([id])
+                  const requestFailure:
+                    | ApiRequestActionResponse["failed"][number]
+                    | undefined = result.failed.find((f) => f.id === id)
+                  if (requestFailure) {
+                    failed.push({ id, error: requestFailure.error })
+                    report({ id, status: "error", error: requestFailure.error })
+                  } else {
+                    succeeded.push(id)
+                    report({ id, status: "done" })
+                  }
+                } catch (error) {
+                  const message =
+                    error instanceof Error ? error.message : "Action failed"
+                  failed.push({ id, error: message })
+                  report({ id, status: "error", error: message })
                 }
-              } else {
-                failed.push({
-                  id,
-                  error:
-                    result.reason instanceof Error
-                      ? result.reason.message
-                      : "Action failed",
-                })
-              }
-            })
+              })
+            )
 
             if (failed.length === 0) {
               clearSelection()

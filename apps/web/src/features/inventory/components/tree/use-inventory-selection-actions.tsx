@@ -231,7 +231,7 @@ export function useInventorySelectionActions() {
         name,
         successDescription,
       })),
-      runMutation: async (): Promise<MutationResult> => {
+      runMutation: async (report): Promise<MutationResult> => {
         const succeeded: Array<string> = []
         const failed: Array<{ id: string; error: string }> = []
         const failedSelectionIds: Array<string> = []
@@ -243,17 +243,21 @@ export function useInventorySelectionActions() {
             try {
               await deleteFolder.mutateAsync({ id: folder.id })
               succeeded.push(...folderItemIds)
+              for (const id of folderItemIds) {
+                report({ id, status: "done" })
+              }
             } catch (error) {
               failedSelectionIds.push(folder.id)
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to delete folder"
               failed.push(
-                ...folderItemIds.map((id) => ({
-                  id,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Failed to delete folder",
-                }))
+                ...folderItemIds.map((id) => ({ id, error: message }))
               )
+              for (const id of folderItemIds) {
+                report({ id, status: "error", error: message })
+              }
             }
           })
         )
@@ -270,11 +274,20 @@ export function useInventorySelectionActions() {
             failedSelectionIds.push(
               ...result.failed.map((failure) => failure.id)
             )
+            for (const id of result.succeeded) {
+              report({ id, status: "done" })
+            }
+            for (const { id, error } of result.failed) {
+              report({ id, status: "error", error })
+            }
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Failed to delete VMs"
             vmIds.forEach((id) => failed.push({ id, error: message }))
             failedSelectionIds.push(...vmIds)
+            for (const id of vmIds) {
+              report({ id, status: "error", error: message })
+            }
           }
         }
 

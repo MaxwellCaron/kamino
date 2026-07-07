@@ -16,7 +16,6 @@ import {
 } from "@workspace/ui/components/combobox"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { useQuery } from "@tanstack/react-query"
-import type { PendingCloneRow } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
@@ -31,13 +30,13 @@ export function ManagerCloneDialog({
   pod,
   open,
   onOpenChange,
-  pendingRowsByPodId,
+  pendingPrincipalIdsByPodId,
   onConfirm,
 }: {
   pod: PublishedPodCatalogEntry | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  pendingRowsByPodId: Record<string, Array<PendingCloneRow>>
+  pendingPrincipalIdsByPodId: Record<string, Array<string>>
   onConfirm: (
     pod: PublishedPodCatalogEntry,
     principals: Array<PrincipalOption>
@@ -58,7 +57,7 @@ export function ManagerCloneDialog({
   const allOptions = buildPrincipalOptions(users ?? [], groups ?? [])
   const existingOwnerIds = new Set(existingClones?.map((c) => c.owner.id) ?? [])
   const pendingPrincipalIds = new Set(
-    (pod ? (pendingRowsByPodId[pod.id] ?? []) : []).map((r) => r.principal.id)
+    pod ? (pendingPrincipalIdsByPodId[pod.id] ?? []) : []
   )
   const availableOptions = allOptions.filter(
     (o) => !existingOwnerIds.has(o.id) && !pendingPrincipalIds.has(o.id)

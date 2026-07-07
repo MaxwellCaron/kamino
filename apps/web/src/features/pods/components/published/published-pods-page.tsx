@@ -76,10 +76,9 @@ export function PublishedPodsPage() {
     useState<PendingCloneBulkAction>(null)
 
   const {
-    pendingCloneRowsByPodId,
+    pendingPrincipalIdsByPodId,
     pendingManagerClonePod,
     setPendingManagerClonePod,
-    handleDismissCloneRow,
     handleManagerClone,
   } = usePublishedPodsManagerClones()
 
@@ -319,8 +318,6 @@ export function PublishedPodsPage() {
           error={podsError}
           isLoading={isPodsLoading}
           pods={pods}
-          pendingCloneRowsByPodId={pendingCloneRowsByPodId}
-          onDismissCloneRow={handleDismissCloneRow}
         />
       </div>
 
@@ -342,10 +339,8 @@ export function PublishedPodsPage() {
         onOpenChange={(open) => {
           if (!open) setPendingManagerClonePod(null)
         }}
-        pendingRowsByPodId={pendingCloneRowsByPodId}
-        onConfirm={(pod, principals) => {
-          void handleManagerClone(pod, principals)
-        }}
+        pendingPrincipalIdsByPodId={pendingPrincipalIdsByPodId}
+        onConfirm={(pod, principals) => handleManagerClone(pod, principals)}
       />
     </div>
   )

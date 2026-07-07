@@ -16,7 +16,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { ItemGroup } from "@workspace/ui/components/item"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import {
   Table,
@@ -27,7 +26,6 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { ClonesTableSkeleton } from "./clones-table-skeleton"
-import { PendingCloneStatusItem } from "./pending-clone-status-item"
 import { PublishedPodCloneActionsMenu } from "./published-pod-clone-actions-menu"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
@@ -35,10 +33,7 @@ import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
-import type {
-  PendingCloneRow,
-  PublishedPodClonePendingAction,
-} from "@/features/pods/types/published-pods-types"
+import type { PublishedPodClonePendingAction } from "@/features/pods/types/published-pods-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -98,15 +93,7 @@ const CLONE_ACTION_DIALOG_CONFIG: Record<
   },
 }
 
-export function PublishedPodClonesTable({
-  pod,
-  pendingRows,
-  onDismissPendingRow,
-}: {
-  pod: PublishedPodCatalogEntry
-  pendingRows: Array<PendingCloneRow>
-  onDismissPendingRow: (progressId: string) => void
-}) {
+export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry }) {
   const queryClient = useQueryClient()
   const [pendingAction, setPendingAction] =
     useState<PublishedPodClonePendingAction>(null)
@@ -242,20 +229,6 @@ export function PublishedPodClonesTable({
         />
       ) : (
         <>
-          {pendingRows.length > 0 && (
-            <ItemGroup
-              role="list"
-              className="grid p-6 md:grid-cols-2 xl:grid-cols-3"
-            >
-              {pendingRows.map((row) => (
-                <PendingCloneStatusItem
-                  key={row.progressId}
-                  row={row}
-                  onDismiss={onDismissPendingRow}
-                />
-              ))}
-            </ItemGroup>
-          )}
           {clones && clones.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
@@ -321,7 +294,7 @@ export function PublishedPodClonesTable({
                 </TableBody>
               </Table>
             </div>
-          ) : pendingRows.length === 0 ? (
+          ) : (
             <Empty className="py-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -336,7 +309,7 @@ export function PublishedPodClonesTable({
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          ) : null}
+          )}
         </>
       )}
 

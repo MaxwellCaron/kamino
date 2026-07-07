@@ -341,7 +341,9 @@ export function ProgressErrorState({
           />
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
+        <EmptyDescription className="first-letter:uppercase">
+          {description}
+        </EmptyDescription>
       </EmptyHeader>
       <ProgressStateActions actions={actions} />
     </Empty>

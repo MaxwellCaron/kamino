@@ -238,65 +238,65 @@ export function ProxmoxSyncPage() {
                           actionLabel: "Apply",
                           variant: "default",
                           onConfirm: () => {
+                            const kindRank = { add: 0, update: 1, remove: 2 } as const
+                            const ordered = [...selectableRows].sort(
+                              (a, b) => kindRank[a.kind] - kindRank[b.kind]
+                            )
                             showMutationToast({
                               title: `Applying ${selectableRows.length} sync change${selectableRows.length === 1 ? "" : "s"}`,
-                              items: selectableRows.map((c) => ({
+                              items: ordered.map((c) => ({
                                 id: c.id,
                                 name: c.name,
                               })),
-                              runMutation: async () => {
-                                const selection =
-                                  buildSyncSelection(selectableRows)
+                              runMutation: async (report) => {
+                                const succeeded: Array<string> = []
+                                const failed: Array<{
+                                  id: string
+                                  error: string
+                                }> = []
 
-                                try {
-                                  const response =
-                                    await applyProxmoxSync(selection)
-
-                                  await Promise.all([
-                                    queryClient.invalidateQueries({
-                                      queryKey:
-                                        proxmoxSyncPreviewQueryOptions.queryKey,
-                                    }),
-                                    queryClient.invalidateQueries({
-                                      queryKey:
-                                        inventoryTreeQueryOptions.queryKey,
-                                    }),
-                                  ])
-
-                                  const succeeded: Array<string> = []
-                                  const failed: Array<{
-                                    id: string
-                                    error: string
-                                  }> = []
-                                  for (const r of response.results) {
-                                    if (r.status === "success") {
-                                      succeeded.push(r.id)
+                                for (const row of ordered) {
+                                  try {
+                                    const response = await applyProxmoxSync(
+                                      buildSyncSelection([row])
+                                    )
+                                    const result = response.results.find(
+                                      (r) => r.id === row.id
+                                    )
+                                    if (result?.status === "success") {
+                                      succeeded.push(row.id)
+                                      report({ id: row.id, status: "done" })
                                     } else {
-                                      failed.push({
-                                        id: r.id,
-                                        error: r.error ?? "skipped",
-                                      })
+                                      const errorMsg = result?.error ?? "skipped"
+                                      failed.push({ id: row.id, error: errorMsg })
+                                      report({ id: row.id, status: "error", error: errorMsg })
                                     }
-                                  }
-
-                                  if (failed.length === 0) {
-                                    clearSelection()
-                                  }
-
-                                  return { succeeded, failed }
-                                } catch (err) {
-                                  const message =
-                                    err instanceof Error
-                                      ? err.message
-                                      : "Sync failed"
-                                  return {
-                                    succeeded: [],
-                                    failed: selectableRows.map((c) => ({
-                                      id: c.id,
-                                      error: message,
-                                    })),
+                                  } catch (err) {
+                                    const errorMsg =
+                                      err instanceof Error
+                                        ? err.message
+                                        : "Sync failed"
+                                    failed.push({ id: row.id, error: errorMsg })
+                                    report({ id: row.id, status: "error", error: errorMsg })
                                   }
                                 }
+
+                                await Promise.all([
+                                  queryClient.invalidateQueries({
+                                    queryKey:
+                                      proxmoxSyncPreviewQueryOptions.queryKey,
+                                  }),
+                                  queryClient.invalidateQueries({
+                                    queryKey:
+                                      inventoryTreeQueryOptions.queryKey,
+                                  }),
+                                ])
+
+                                if (failed.length === 0) {
+                                  clearSelection()
+                                }
+
+                                return { succeeded, failed }
                               },
                             })
                           },
