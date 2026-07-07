@@ -124,25 +124,47 @@ export function InventoryTreeContent({
 
   useEffect(() => {
     scrollToItemHandlerRef.current = (itemId: string) => {
-      const scrollToItem = (attempt: number) => {
-        if (attempt > 30) {
-          return
-        }
+      let settledOffset: number | null = null
+      let stableFrames = 0
+
+      const tick = (attempt: number) => {
+        if (attempt > 30) return
 
         if (!virtualizer.scrollElement) {
-          requestAnimationFrame(() => scrollToItem(attempt + 1))
+          requestAnimationFrame(() => tick(attempt + 1))
           return
         }
 
         const index = tree
           .getItems()
           .findIndex((item) => item.getId() === itemId)
-        if (index >= 0) {
-          virtualizer.scrollToIndex(index, { align: "center" })
+        const offsetInfo =
+          index >= 0 ? virtualizer.getOffsetForIndex(index, "auto") : undefined
+
+        if (!offsetInfo) {
+          requestAnimationFrame(() => tick(attempt + 1))
+          return
         }
+
+        const [targetOffset] = offsetInfo
+        if (targetOffset === (virtualizer.scrollOffset ?? 0)) return
+
+        if (targetOffset === settledOffset) {
+          stableFrames += 1
+        } else {
+          settledOffset = targetOffset
+          stableFrames = 0
+        }
+
+        if (stableFrames < 2) {
+          requestAnimationFrame(() => tick(attempt + 1))
+          return
+        }
+
+        virtualizer.scrollToOffset(targetOffset, { behavior: "auto" })
       }
 
-      scrollToItem(0)
+      tick(0)
     }
 
     return () => {

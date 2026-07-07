@@ -32,10 +32,7 @@ export function DashboardLayout() {
 
   return (
     <SidebarProvider
-      className={cn(
-        isResizing &&
-          "[&_[data-slot=sidebar-gap]]:duration-0 [&_[data-slot=sidebar-container]]:duration-0"
-      )}
+      className={cn(isResizing && "**:duration-0")}
       style={
         {
           "--sidebar-width": `${width}px`,
@@ -57,7 +54,9 @@ export function DashboardLayout() {
             onResizeStart={onResizeStart}
             onResizeEnd={onResizeEnd}
           />
-          <SiteLayoutInset header={<SiteHeader command={commandManyItemsElement} />}>
+          <SiteLayoutInset
+            header={<SiteHeader command={commandManyItemsElement} />}
+          >
             <Outlet />
           </SiteLayoutInset>
         </InventoryTreeProvider>

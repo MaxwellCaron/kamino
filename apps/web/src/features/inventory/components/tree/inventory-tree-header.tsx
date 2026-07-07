@@ -70,7 +70,7 @@ export function InventoryTreeHeader() {
         <SearchInputGroup
           value={searchQuery}
           onValueChange={setSearchQuery}
-          placeholder="Search inventory..."
+          placeholder="Search..."
           aria-label="Search inventory"
           resultCount={!isLoading && !error ? searchResultCount : null}
         />
