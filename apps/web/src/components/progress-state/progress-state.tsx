@@ -70,6 +70,12 @@ export type ProgressStateAction =
   | ProgressStateInventoryItemAction
   | ProgressStateButtonAction
 
+function useScrollToTopOnMount() {
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+  }, [])
+}
+
 type ProgressStateProps<TStepId extends number> = {
   children?: ReactNode
   detail?: string
@@ -91,6 +97,7 @@ export function ProgressState<TStepId extends number>({
   steps,
   title,
 }: ProgressStateProps<TStepId>) {
+  useScrollToTopOnMount()
   const [simulatedStepIndex, setSimulatedStepIndex] = useState(0)
   const hasCompletedRef = useRef(false)
   const externalStepIndex =
@@ -187,6 +194,8 @@ export function ProgressLoadingState({
   onComplete?: () => void
   title: string
 }) {
+  useScrollToTopOnMount()
+
   useEffect(() => {
     if (intervalMs === undefined) return
 

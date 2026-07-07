@@ -54,6 +54,7 @@ type CreatePodPageAction =
   | { type: "creationSucceeded"; result: CreatePodResult }
   | { type: "creationFailed"; message: string }
   | { type: "validationCrashed" }
+  | { type: "returnToForm" }
   | { type: "reset" }
 
 function createPodPageReducer(
@@ -91,6 +92,14 @@ function createPodPageReducer(
       }
     case "validationCrashed":
       return { ...state, submitState: "error" }
+    case "returnToForm":
+      return {
+        ...state,
+        submitState: "form",
+        progressId: null,
+        submitErrorMessage: null,
+        createdPod: null,
+      }
     case "reset":
       return initialCreatePodPageState
     default:
@@ -167,7 +176,12 @@ export function CreatePodPage() {
       ? createProgress.message
       : state.submitErrorMessage
 
-  const handleReset = React.useCallback(() => {
+  const handleRetry = React.useCallback(() => {
+    createPodMutation.reset()
+    dispatch({ type: "returnToForm" })
+  }, [createPodMutation])
+
+  const handleCreateAnother = React.useCallback(() => {
     submittedValuesRef.current = null
     createPodMutation.reset()
     form.reset()
@@ -206,7 +220,8 @@ export function CreatePodPage() {
             errorMessage={resolvedSubmitErrorMessage}
             hasVirtualMachines={hasSubmittedVirtualMachines}
             includeRouter={includeRouter}
-            onReset={handleReset}
+            onCreateAnother={handleCreateAnother}
+            onRetry={handleRetry}
             progress={
               state.submitState === "creating" ? createProgress : undefined
             }

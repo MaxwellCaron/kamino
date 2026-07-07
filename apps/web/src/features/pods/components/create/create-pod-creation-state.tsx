@@ -111,8 +111,9 @@ export function CreatePodSubmitState({
   errorMessage,
   hasVirtualMachines,
   includeRouter,
+  onCreateAnother,
   onCreatingComplete,
-  onReset,
+  onRetry,
   progress,
   state,
 }: {
@@ -120,8 +121,9 @@ export function CreatePodSubmitState({
   errorMessage?: string | null
   hasVirtualMachines: boolean
   includeRouter: boolean
+  onCreateAnother: () => void
   onCreatingComplete?: () => void
-  onReset: () => void
+  onRetry: () => void
   progress?: CreatePodProgress
   state: CreatePodSubmitStatus
 }) {
@@ -148,7 +150,7 @@ export function CreatePodSubmitState({
             {
               icon: PackageAddIcon,
               label: "Create Another",
-              onClick: onReset,
+              onClick: onCreateAnother,
               to: "/pods/create",
               variant: "secondary",
             },
@@ -179,8 +181,7 @@ export function CreatePodSubmitState({
             {
               icon: ReloadIcon,
               label: "Try Again",
-              onClick: onReset,
-              to: "/pods/create",
+              onClick: onRetry,
               variant: "secondary",
             },
           ]}
