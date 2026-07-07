@@ -9,7 +9,7 @@ import {
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 export function usePublishedPodsManagerClones() {
   const queryClient = useQueryClient()
@@ -59,35 +59,26 @@ export function usePublishedPodsManagerClones() {
         )
       }
 
-      showMutationToast({
+      showUnitMutationToast({
         title: `Cloning "${pod.title}"`,
-        items: principals.map((p) => ({
-          id: p.id,
-          name: p.label,
-          successDescription: "Cloned",
-          retry: () => cloneOne(p),
+        units: principals.map((principal) => ({
+          items: [
+            {
+              id: principal.id,
+              name: principal.label,
+              successDescription: "Cloned",
+            },
+          ],
+          run: async () => {
+            try {
+              await cloneOne(principal)
+            } finally {
+              removePendingPrincipal(pod.id, principal.id)
+            }
+          },
         })),
-        runMutation: async (report) => {
-          const succeeded: Array<string> = []
-          const failed: Array<{ id: string; error: string }> = []
-
-          await Promise.all(
-            principals.map(async (p) => {
-              try {
-                await cloneOne(p)
-                succeeded.push(p.id)
-                report({ id: p.id, status: "done" })
-              } catch (err) {
-                const error = err instanceof Error ? err.message : "Clone failed."
-                failed.push({ id: p.id, error })
-                report({ id: p.id, status: "error", error })
-              } finally {
-                removePendingPrincipal(pod.id, p.id)
-              }
-            })
-          )
-
-          if (succeeded.length > 0) {
+        onSettled: (result) => {
+          if (result.succeeded.length > 0) {
             void queryClient.invalidateQueries({
               queryKey: publishedPodsQueryOptions.queryKey,
             })
@@ -95,8 +86,6 @@ export function usePublishedPodsManagerClones() {
               queryKey: podCatalogQueryOptions.queryKey,
             })
           }
-
-          return { succeeded, failed }
         },
       })
     },

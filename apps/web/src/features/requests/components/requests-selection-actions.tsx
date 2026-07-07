@@ -10,7 +10,7 @@ import type {
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { UseMutationResult } from "@tanstack/react-query"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { formatRequestKind } from "@/features/requests/utils/request-presenters"
 
 type RequestsSelectionActionsProps = {
@@ -55,45 +55,28 @@ export function RequestsSelectionActions({
       onConfirm: () => {
         const ids = selectedRows.map((r) => r.id)
 
-        showMutationToast({
+        showUnitMutationToast({
           title: `${isApprove ? "Approving" : "Denying"} ${ids.length} request${ids.length === 1 ? "" : "s"}`,
-          items: selectedRows.map((r) => ({
-            id: r.id,
-            name: formatRequestKind(r.kind),
-            successDescription: isApprove ? "Approved" : "Denied",
+          units: selectedRows.map((row) => ({
+            items: [
+              {
+                id: row.id,
+                name: formatRequestKind(row.kind),
+                successDescription: isApprove ? "Approved" : "Denied",
+              },
+            ],
+            run: async () => {
+              const result = await mutation.mutateAsync([row.id])
+              const failure = result.failed.find((entry) => entry.id === row.id)
+              if (failure) {
+                return { failed: [failure] }
+              }
+            },
           })),
-          runMutation: async (report) => {
-            const succeeded: Array<string> = []
-            const failed: Array<{ id: string; error: string }> = []
-
-            await Promise.all(
-              ids.map(async (id) => {
-                try {
-                  const result = await mutation.mutateAsync([id])
-                  const requestFailure:
-                    | ApiRequestActionResponse["failed"][number]
-                    | undefined = result.failed.find((f) => f.id === id)
-                  if (requestFailure) {
-                    failed.push({ id, error: requestFailure.error })
-                    report({ id, status: "error", error: requestFailure.error })
-                  } else {
-                    succeeded.push(id)
-                    report({ id, status: "done" })
-                  }
-                } catch (error) {
-                  const message =
-                    error instanceof Error ? error.message : "Action failed"
-                  failed.push({ id, error: message })
-                  report({ id, status: "error", error: message })
-                }
-              })
-            )
-
-            if (failed.length === 0) {
+          onSettled: (result) => {
+            if (result.failed.length === 0) {
               clearSelection()
             }
-
-            return { succeeded, failed }
           },
         })
       },

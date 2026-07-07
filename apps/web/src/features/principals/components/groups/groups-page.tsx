@@ -38,7 +38,7 @@ import { formatToastError } from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const groupsRouteApi = getRouteApi("/_dashboard/admin/principals/groups")
 const ConfirmDialog = lazy(() =>
@@ -102,24 +102,23 @@ export function GroupsPage() {
 
   const showDeleteToast = useCallback(
     (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
-      const targetIds = targets.map((target) => target.id)
-
-      showMutationToast({
+      showUnitMutationToast({
         title: "Deleting",
-        items: targets.map((target) => ({
-          id: target.id,
-          name: getGroupLabel(target),
-          successDescription: "Deleted",
-          retry: async () => {
+        units: targets.map((target) => ({
+          items: [
+            {
+              id: target.id,
+              name: getGroupLabel(target),
+              successDescription: "Deleted",
+            },
+          ],
+          run: async () => {
             const result = await deleteMutation.mutateAsync([target.id])
-            const failure = result.failed.find((item) => item.id === target.id)
-            if (failure) throw new Error(failure.error)
+            return { failed: result.failed }
           },
         })),
-        runMutation: async () => {
-          const result = await deleteMutation.mutateAsync(targetIds)
+        onSettled: (result) => {
           if (result.failed.length === 0) onAllSucceeded?.()
-          return { succeeded: result.deleted, failed: result.failed }
         },
       })
     },

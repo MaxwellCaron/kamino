@@ -16,8 +16,8 @@ import {
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
-  showMutationToast,
   showSingleMutationToast,
+  showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
 import {
@@ -131,44 +131,24 @@ export function UserDialog({
         input,
       }))
 
-      showMutationToast({
+      showUnitMutationToast({
         title: "Creating users",
-        items: userItems.map(({ id, input }) => ({
-          id,
-          name: input.username,
-          successDescription: "Created",
-          retry: async () => {
+        units: userItems.map(({ id, input }) => ({
+          items: [
+            {
+              id,
+              name: input.username,
+              successDescription: "Created",
+            },
+          ],
+          run: async () => {
             const result = await createUsers([input])
             const failure = result.failures.at(0)
-            if (failure !== undefined) throw new Error(failure.error)
+            if (failure) {
+              return { failed: [{ id, error: failure.error }] }
+            }
           },
         })),
-        runMutation: async () => {
-          const result = await createUsers(payload)
-          const errorsByUsername = new Map<string, Array<string>>()
-
-          for (const failure of result.failures) {
-            const errors = errorsByUsername.get(failure.name) ?? []
-            errors.push(failure.error)
-            errorsByUsername.set(failure.name, errors)
-          }
-
-          const succeeded: Array<string> = []
-          const failed: Array<{ id: string; error: string }> = []
-
-          for (const { id, input } of userItems) {
-            const errors = errorsByUsername.get(input.username)
-            const error = errors?.shift()
-
-            if (error) {
-              failed.push({ id, error })
-            } else {
-              succeeded.push(id)
-            }
-          }
-
-          return { succeeded, failed }
-        },
       })
     },
   })

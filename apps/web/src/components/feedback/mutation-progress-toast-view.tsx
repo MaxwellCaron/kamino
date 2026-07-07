@@ -27,6 +27,12 @@ import type {
 
 type ItemState = "processing" | "done" | "error"
 
+const mutationSessions = new Map<string | number, Promise<MutationResult>>()
+const liveReporters = new Map<
+  string | number,
+  (update: MutationItemUpdate) => void
+>()
+
 function dismissWhenComplete(
   toastId: string | number,
   nextStates: Record<string, ItemState>
@@ -79,18 +85,35 @@ export function MutationProgressToast({
   const { itemStates, itemErrors } = toastState
   const initialItemsRef = useRef(items)
   const runMutationRef = useRef(runMutation)
-  const mutationPromiseRef = useRef<Promise<MutationResult> | null>(null)
+  runMutationRef.current = runMutation
+
+  useEffect(() => {
+    liveReporters.set(toastId, (update) => {
+      setToastState((prev) => applyItemUpdate(prev, update, toastId))
+    })
+
+    return () => {
+      liveReporters.delete(toastId)
+    }
+  }, [toastId])
 
   useEffect(() => {
     let cancelled = false
     const mutationItems = initialItemsRef.current
     const report = (update: MutationItemUpdate) => {
-      if (cancelled) return
-      setToastState((prev) => applyItemUpdate(prev, update, toastId))
+      liveReporters.get(toastId)?.(update)
     }
-    mutationPromiseRef.current ??= runMutationRef.current(report)
 
-    mutationPromiseRef.current
+    let promise = mutationSessions.get(toastId)
+    if (!promise) {
+      promise = runMutationRef.current(report)
+      mutationSessions.set(toastId, promise)
+      void promise.finally(() => {
+        mutationSessions.delete(toastId)
+      })
+    }
+
+    promise
       .then(({ succeeded, failed }) => {
         if (cancelled) return
         setToastState((prev) => {

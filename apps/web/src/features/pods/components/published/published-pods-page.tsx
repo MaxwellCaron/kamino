@@ -14,8 +14,8 @@ import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
-  showMutationToast,
   showSingleMutationToast,
+  showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-published-pods-manager-clones"
 import {
@@ -234,18 +234,24 @@ export function PublishedPodsPage() {
           const pod = pendingCloneBulkAction.pod
           const actionConfig = POD_CLONE_ACTION_CONFIG[action]
 
-          showMutationToast({
+          showUnitMutationToast({
             title: actionConfig.pendingLabel,
-            items: [
+            units: [
               {
-                id: "bulk",
-                name: pod.title,
-                retry: async () => {
+                items: [
+                  {
+                    id: "bulk",
+                    name: pod.title,
+                  },
+                ],
+                run: async () => {
                   const result = await bulkCloneActionMutation.mutateAsync({
                     pod,
                     action,
                   })
-                  if (result.failed.length === 0) return
+                  if (result.failed.length === 0) {
+                    return
+                  }
                   if (result.succeeded.length === 0) {
                     throw new Error("All clones failed")
                   }
@@ -255,51 +261,6 @@ export function PublishedPodsPage() {
                 },
               },
             ],
-            runMutation: async () => {
-              try {
-                const result = await bulkCloneActionMutation.mutateAsync({
-                  pod,
-                  action,
-                })
-                if (
-                  result.succeeded.length === 0 &&
-                  result.failed.length === 0
-                ) {
-                  return { succeeded: ["bulk"], failed: [] }
-                }
-                if (result.failed.length === 0) {
-                  return { succeeded: ["bulk"], failed: [] }
-                }
-                if (result.succeeded.length === 0) {
-                  return {
-                    succeeded: [],
-                    failed: [{ id: "bulk", error: "All clones failed" }],
-                  }
-                }
-                return {
-                  succeeded: ["bulk"],
-                  failed: [
-                    {
-                      id: "bulk",
-                      error: `${result.failed.length} of ${result.succeeded.length + result.failed.length} clones failed`,
-                    },
-                  ],
-                }
-              } catch (error) {
-                return {
-                  succeeded: [],
-                  failed: [
-                    {
-                      id: "bulk",
-                      error:
-                        error instanceof Error
-                          ? error.message
-                          : "Failed to apply bulk clone action",
-                    },
-                  ],
-                }
-              }
-            },
           })
         },
       }

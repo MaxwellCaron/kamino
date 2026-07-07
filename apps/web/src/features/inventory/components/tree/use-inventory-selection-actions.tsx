@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query"
 import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
 import { useInventoryDialogs } from "../inventory-dialogs-provider"
@@ -7,24 +8,35 @@ import {
   collectPowerVmTargets,
   getVmSelectionLabel,
 } from "./inventory-selection-action-bar-utils"
+import type { QueryClient } from "@tanstack/react-query"
 import type {
   ApiTreeNode,
   SelectedFolderItem,
   SelectedVmItem,
 } from "../../types/inventory-types"
-import type { ApiBulkVmMutationResponse } from "@/features/vms/types/vm-types"
-import type { MutationResult } from "@/components/feedback/mutation-progress-toast"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   collectInventoryDeleteItemIds,
   createInventoryDeleteItems,
 } from "@/features/inventory/utils/inventory-delete-items"
 import { formatVmReference } from "@/features/shared/utils/format"
+import { vmPowerAction, vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import {
   useConvertToTemplate,
   useDeleteVM,
-  useVmPowerAction,
 } from "@/features/vms/hooks/use-vm-actions"
+
+const VM_STATUS_POLL_INTERVAL_MS = 2_000
+
+function startVmStatusPolling(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: vmStatusQueryOptions.queryKey })
+  const handle = window.setInterval(() => {
+    void queryClient.invalidateQueries({
+      queryKey: vmStatusQueryOptions.queryKey,
+    })
+  }, VM_STATUS_POLL_INTERVAL_MS)
+  return () => window.clearInterval(handle)
+}
 
 export function useInventorySelectionActions() {
   const {
@@ -35,7 +47,7 @@ export function useInventorySelectionActions() {
     selectedItemIds,
   } = useInventoryTreeContext()
   const { openConfirm } = useInventoryDialogs()
-  const powerAction = useVmPowerAction()
+  const queryClient = useQueryClient()
   const deleteVm = useDeleteVM()
   const deleteFolder = useDeleteFolder()
   const convertToTemplate = useConvertToTemplate()
@@ -112,14 +124,6 @@ export function useInventorySelectionActions() {
     selectedItemIds.length > 1 &&
     selectedItems.length === selectedItemIds.length
 
-  function handleVmMutationSelection(result: ApiBulkVmMutationResponse) {
-    if (result.failed.length === 0) {
-      clearSelection()
-    } else {
-      replaceSelection(result.failed.map((failure) => failure.id))
-    }
-  }
-
   function runPowerAction(action: "start" | "shutdown" | "reboot" | "stop") {
     const targetItemIds = powerVmItems.map((item) => item.id)
 
@@ -140,31 +144,53 @@ export function useInventorySelectionActions() {
       stop: { loading: "Stopping", failure: "Failed to stop selected VMs" },
     }[action]
 
-    showMutationToast({
+    const stopPolling = startVmStatusPolling(queryClient)
+
+    showUnitMutationToast({
       title: `${actionLabels.loading} ${targetItemIds.length} VM${targetItemIds.length === 1 ? "" : "s"}`,
-      items: powerVmItems.map((item) => ({
-        id: item.id,
-        name: formatVmReference(item.vm.vmid, item.name),
+      units: powerVmItems.map((item) => ({
+        items: [
+          {
+            id: item.id,
+            name: formatVmReference(item.vm.vmid, item.name),
+          },
+        ],
+        run: async () => {
+          try {
+            const result = await vmPowerAction({
+              action,
+              itemIds: [item.id],
+            })
+            if (result.succeeded.length > 0) {
+              void queryClient.invalidateQueries({
+                queryKey: vmStatusQueryOptions.queryKey,
+              })
+            }
+            return { failed: result.failed }
+          } catch (error) {
+            return {
+              failed: [
+                {
+                  id: item.id,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : actionLabels.failure,
+                },
+              ],
+            }
+          }
+        },
       })),
-      runMutation: async (): Promise<MutationResult> => {
-        try {
-          const result = await powerAction.mutateAsync({
-            action,
-            itemIds: targetItemIds,
-          })
-          handleVmMutationSelection(result)
-          return {
-            succeeded: result.succeeded,
-            failed: result.failed.map((f) => ({ id: f.id, error: f.error })),
-          }
-        } catch (error) {
-          replaceSelection(targetItemIds)
-          const message =
-            error instanceof Error ? error.message : actionLabels.failure
-          return {
-            succeeded: [],
-            failed: targetItemIds.map((id) => ({ id, error: message })),
-          }
+      onSettled: (result) => {
+        stopPolling()
+        void queryClient.invalidateQueries({
+          queryKey: vmStatusQueryOptions.queryKey,
+        })
+        if (result.failed.length === 0) {
+          clearSelection()
+        } else {
+          replaceSelection(result.failed.map((failure) => failure.id))
         }
       },
     })
@@ -191,29 +217,22 @@ export function useInventorySelectionActions() {
       return
     }
 
-    showMutationToast({
+    showUnitMutationToast({
       title: `Converting ${targetItemIds.length} VM${targetItemIds.length === 1 ? "" : "s"} to templates`,
-      items: targetItems,
-      runMutation: async (): Promise<MutationResult> => {
-        try {
+      units: targetItems.map((item) => ({
+        items: [item],
+        run: async () => {
           const result = await convertToTemplate.mutateAsync({
-            itemIds: targetItemIds,
+            itemIds: [item.id],
           })
-          handleVmMutationSelection(result)
-          return {
-            succeeded: result.succeeded,
-            failed: result.failed.map((f) => ({ id: f.id, error: f.error })),
-          }
-        } catch (error) {
-          replaceSelection(targetItemIds)
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Failed to templatize selected VMs"
-          return {
-            succeeded: [],
-            failed: targetItemIds.map((id) => ({ id, error: message })),
-          }
+          return { failed: result.failed }
+        },
+      })),
+      onSettled: (result) => {
+        if (result.failed.length === 0) {
+          clearSelection()
+        } else {
+          replaceSelection(result.failed.map((failure) => failure.id))
         }
       },
     })
@@ -224,80 +243,62 @@ export function useInventorySelectionActions() {
       return
     }
 
-    showMutationToast({
+    const folderItemIdToFolderId = new Map<string, string>()
+    for (const folder of deleteFolderTargets) {
+      for (const itemId of collectInventoryDeleteItemIds(folder)) {
+        folderItemIdToFolderId.set(itemId, folder.id)
+      }
+    }
+    const deleteVmTargetIds = new Set(deleteVmTargets.map((vm) => vm.id))
+
+    showUnitMutationToast({
       title: `Deleting ${deleteItems.length} item${deleteItems.length === 1 ? "" : "s"}`,
-      items: deleteItems.map(({ id, name, successDescription }) => ({
-        id,
-        name,
-        successDescription,
-      })),
-      runMutation: async (report): Promise<MutationResult> => {
-        const succeeded: Array<string> = []
-        const failed: Array<{ id: string; error: string }> = []
-        const failedSelectionIds: Array<string> = []
+      units: [
+        ...deleteFolderTargets.map((folder) => ({
+          items: createInventoryDeleteItems({
+            folderTargets: [folder],
+            vmTargets: [],
+            getVmStatus: getStatus,
+          }).map(({ id, name, successDescription }) => ({
+            id,
+            name,
+            successDescription,
+          })),
+          run: async () => {
+            await deleteFolder.mutateAsync({ id: folder.id })
+          },
+        })),
+        ...deleteVmTargets.map((item) => ({
+          items: [
+            {
+              id: item.id,
+              name: formatVmReference(item.vm.vmid, item.name),
+              successDescription: "Deleted",
+            },
+          ],
+          run: async () => {
+            const result = await deleteVm.mutateAsync({ itemIds: [item.id] })
+            return { failed: result.failed }
+          },
+        })),
+      ],
+      onSettled: (result) => {
+        const failedSelectionIds = new Set<string>()
 
-        await Promise.all(
-          deleteFolderTargets.map(async (folder) => {
-            const folderItemIds = collectInventoryDeleteItemIds(folder)
-
-            try {
-              await deleteFolder.mutateAsync({ id: folder.id })
-              succeeded.push(...folderItemIds)
-              for (const id of folderItemIds) {
-                report({ id, status: "done" })
-              }
-            } catch (error) {
-              failedSelectionIds.push(folder.id)
-              const message =
-                error instanceof Error
-                  ? error.message
-                  : "Failed to delete folder"
-              failed.push(
-                ...folderItemIds.map((id) => ({ id, error: message }))
-              )
-              for (const id of folderItemIds) {
-                report({ id, status: "error", error: message })
-              }
-            }
-          })
-        )
-
-        const vmIds = deleteVmTargets.map((item) => item.id)
-        if (vmIds.length > 0) {
-          try {
-            const result: ApiBulkVmMutationResponse =
-              await deleteVm.mutateAsync({ itemIds: vmIds })
-            succeeded.push(...result.succeeded)
-            failed.push(
-              ...result.failed.map((f) => ({ id: f.id, error: f.error }))
-            )
-            failedSelectionIds.push(
-              ...result.failed.map((failure) => failure.id)
-            )
-            for (const id of result.succeeded) {
-              report({ id, status: "done" })
-            }
-            for (const { id, error } of result.failed) {
-              report({ id, status: "error", error })
-            }
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Failed to delete VMs"
-            vmIds.forEach((id) => failed.push({ id, error: message }))
-            failedSelectionIds.push(...vmIds)
-            for (const id of vmIds) {
-              report({ id, status: "error", error: message })
-            }
+        for (const failure of result.failed) {
+          const folderId = folderItemIdToFolderId.get(failure.id)
+          if (folderId !== undefined) {
+            failedSelectionIds.add(folderId)
+          } else if (deleteVmTargetIds.has(failure.id)) {
+            failedSelectionIds.add(failure.id)
           }
         }
 
-        if (failedSelectionIds.length === 0) {
+        if (failedSelectionIds.size === 0) {
           clearSelection()
         } else {
-          replaceSelection(failedSelectionIds)
+          replaceSelection([...failedSelectionIds])
         }
-
-        return { succeeded, failed }
       },
     })
   }

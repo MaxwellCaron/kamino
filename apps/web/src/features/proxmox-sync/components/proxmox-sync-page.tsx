@@ -45,7 +45,7 @@ import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff
 import { DataTable } from "@/components/data-table/data-table"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
 const ConfirmDialog = lazy(() =>
@@ -239,48 +239,35 @@ export function ProxmoxSyncPage() {
                           variant: "default",
                           onConfirm: () => {
                             const kindRank = { add: 0, update: 1, remove: 2 } as const
-                            const ordered = [...selectableRows].sort(
+                            const ordered = selectableRows.toSorted(
                               (a, b) => kindRank[a.kind] - kindRank[b.kind]
                             )
-                            showMutationToast({
+                            showUnitMutationToast({
                               title: `Applying ${selectableRows.length} sync change${selectableRows.length === 1 ? "" : "s"}`,
-                              items: ordered.map((c) => ({
-                                id: c.id,
-                                name: c.name,
-                              })),
-                              runMutation: async (report) => {
-                                const succeeded: Array<string> = []
-                                const failed: Array<{
-                                  id: string
-                                  error: string
-                                }> = []
-
-                                for (const row of ordered) {
-                                  try {
-                                    const response = await applyProxmoxSync(
-                                      buildSyncSelection([row])
-                                    )
-                                    const result = response.results.find(
-                                      (r) => r.id === row.id
-                                    )
-                                    if (result?.status === "success") {
-                                      succeeded.push(row.id)
-                                      report({ id: row.id, status: "done" })
-                                    } else {
-                                      const errorMsg = result?.error ?? "skipped"
-                                      failed.push({ id: row.id, error: errorMsg })
-                                      report({ id: row.id, status: "error", error: errorMsg })
-                                    }
-                                  } catch (err) {
-                                    const errorMsg =
-                                      err instanceof Error
-                                        ? err.message
-                                        : "Sync failed"
-                                    failed.push({ id: row.id, error: errorMsg })
-                                    report({ id: row.id, status: "error", error: errorMsg })
+                              concurrency: 1,
+                              units: ordered.map((row) => ({
+                                items: [{ id: row.id, name: row.name }],
+                                run: async () => {
+                                  const response = await applyProxmoxSync(
+                                    buildSyncSelection([row])
+                                  )
+                                  const result = response.results.find(
+                                    (entry) => entry.id === row.id
+                                  )
+                                  if (result?.status === "success") {
+                                    return
                                   }
-                                }
-
+                                  return {
+                                    failed: [
+                                      {
+                                        id: row.id,
+                                        error: result?.error ?? "skipped",
+                                      },
+                                    ],
+                                  }
+                                },
+                              })),
+                              onSettled: async (result) => {
                                 await Promise.all([
                                   queryClient.invalidateQueries({
                                     queryKey:
@@ -292,11 +279,9 @@ export function ProxmoxSyncPage() {
                                   }),
                                 ])
 
-                                if (failed.length === 0) {
+                                if (result.failed.length === 0) {
                                   clearSelection()
                                 }
-
-                                return { succeeded, failed }
                               },
                             })
                           },

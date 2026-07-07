@@ -34,7 +34,7 @@ import {
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const sdnRouteApi = getRouteApi("/_dashboard/admin/sdn")
@@ -85,22 +85,29 @@ export function SdnPage() {
     (targets: Array<ApiVNet>, onAllSucceeded?: () => void) => {
       const targetIds = targets.map((vnet) => vnet.vnet)
 
-      showMutationToast({
+      showUnitMutationToast({
         title: "Deleting",
-        items: targets.map((vnet) => ({
-          id: vnet.vnet,
-          name: vnet.vnet,
-          successDescription: "Deleted",
-          retry: async () => {
-            const result = await deleteMutation.mutateAsync([vnet.vnet])
-            const failure = result.failed.find((item) => item.id === vnet.vnet)
-            if (failure) throw new Error(failure.error)
+        units: [
+          {
+            // One batched request: the backend runs a single cluster-wide ApplySDN after the batch.
+            items: targets.map((vnet) => ({
+              id: vnet.vnet,
+              name: vnet.vnet,
+              successDescription: "Deleted",
+              retry: async () => {
+                const result = await deleteMutation.mutateAsync([vnet.vnet])
+                const failure = result.failed.find((item) => item.id === vnet.vnet)
+                if (failure) throw new Error(failure.error)
+              },
+            })),
+            run: async () => {
+              const result = await deleteMutation.mutateAsync(targetIds)
+              return { failed: result.failed }
+            },
           },
-        })),
-        runMutation: async () => {
-          const result = await deleteMutation.mutateAsync(targetIds)
+        ],
+        onSettled: (result) => {
           if (result.failed.length === 0) onAllSucceeded?.()
-          return { succeeded: result.deleted, failed: result.failed }
         },
       })
     },

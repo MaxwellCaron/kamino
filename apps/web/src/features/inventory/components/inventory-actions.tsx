@@ -29,6 +29,7 @@ import { toast } from "sonner"
 import { useSidebar } from "@workspace/ui/components/sidebar"
 import { Button } from "@workspace/ui/components/button"
 import { useInventoryFavorites } from "../hooks/use-inventory-favorites"
+import { useDeleteFolder } from "../hooks/use-inventory-actions"
 import { inventoryTreeQueryOptions } from "../api/inventory-api"
 import {
   getFolderCapabilities,
@@ -37,7 +38,6 @@ import {
   hasNodeActions,
 } from "../utils/inventory-capabilities"
 import { findInventoryTreeNode } from "../utils/inventory-tree"
-import { useDeleteFolder } from "../hooks/use-inventory-actions"
 import { InventoryDeleteConfirmItems } from "./inventory-delete-confirm-items"
 import { useInventoryDialogs } from "./inventory-dialogs-provider"
 import type {
@@ -60,8 +60,8 @@ import {
 import { VmIcon } from "@/components/status/vm-icon"
 import { createInventoryDeleteItems } from "@/features/inventory/utils/inventory-delete-items"
 import {
-  showMutationToast,
   showSingleMutationToast,
+  showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 
 function assertSingleItemMutationSucceeded(
@@ -652,7 +652,6 @@ function InventoryNodeMenuBody({
         return node?.vm ? vmStatuses?.[node.vm.vmid] : undefined
       },
     })
-    const deleteItemIds = deleteItems.map((item) => item.id)
 
     openConfirm({
       title: `Delete folder "${data.name}"?`,
@@ -662,30 +661,20 @@ function InventoryNodeMenuBody({
       actionLabel: "Delete",
       variant: "destructive",
       onConfirm: () => {
-        showMutationToast({
+        showUnitMutationToast({
           title: `Deleting folder "${data.name}"`,
-          items: deleteItems.map(({ id, name, successDescription }) => ({
-            id,
-            name,
-            successDescription,
-          })),
-          runMutation: async () => {
-            try {
-              await deleteFolderMutation.mutateAsync({ id: itemId })
-              return { succeeded: deleteItemIds, failed: [] }
-            } catch (error) {
-              return {
-                succeeded: [],
-                failed: deleteItemIds.map((id) => ({
-                  id,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Failed to delete folder",
-                })),
-              }
-            }
-          },
+          units: [
+            {
+              items: deleteItems.map(({ id, name, successDescription }) => ({
+                id,
+                name,
+                successDescription,
+              })),
+              run: async () => {
+                await deleteFolderMutation.mutateAsync({ id: itemId })
+              },
+            },
+          ],
         })
       },
     })

@@ -12,11 +12,42 @@ vi.mock("@/features/requests/utils/request-presenters", () => ({
 }))
 
 vi.mock("@/components/feedback/mutation-progress-toast", () => ({
-  showMutationToast: ({
-    runMutation,
+  showUnitMutationToast: ({
+    units,
+    onSettled,
   }: {
-    runMutation: (report: () => void) => Promise<unknown>
-  }) => runMutation(() => {}),
+    units: Array<{
+      items: Array<{ id: string }>
+      run: () => Promise<{ failed: Array<{ id: string; error: string }> } | void>
+    }>
+    onSettled?: (result: {
+      succeeded: Array<string>
+      failed: Array<{ id: string; error: string }>
+    }) => void
+  }) =>
+    Promise.all(
+      units.map(async (unit) => {
+        try {
+          const result = await unit.run()
+          return result && result.failed.length > 0
+            ? { failed: result.failed, succeeded: [] }
+            : { failed: [], succeeded: unit.items.map((item) => item.id) }
+        } catch (error) {
+          return {
+            failed: unit.items.map((item) => ({
+              id: item.id,
+              error: error instanceof Error ? error.message : "Failed",
+            })),
+            succeeded: [],
+          }
+        }
+      })
+    ).then((results) => {
+      onSettled?.({
+        succeeded: results.flatMap((result) => result.succeeded),
+        failed: results.flatMap((result) => result.failed),
+      })
+    }),
 }))
 
 vi.mock("@workspace/ui/components/action-bar", async (importOriginal) => {
