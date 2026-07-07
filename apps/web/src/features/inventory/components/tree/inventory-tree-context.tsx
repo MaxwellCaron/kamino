@@ -11,6 +11,10 @@ export interface InventoryTreeContextValue {
   isLoading: boolean
   error: Error | null
   isEmpty: boolean
+  searchQuery: string
+  setSearchQuery: (query: string) => void
+  isSearchActive: boolean
+  searchResultCount: number
   favoriteIds: Set<string>
   toggleFavorite: (itemId: string) => void
   getItemData: (itemId: string) => ApiTreeNode | undefined

@@ -5,8 +5,15 @@ import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { SidebarListSkeleton } from "@/components/loading-skeletons"
 
 export function InventoryTreeBody() {
-  const { tree, getStatus, isLoading, error, isEmpty } =
-    useInventoryTreeContext()
+  const {
+    tree,
+    getStatus,
+    isLoading,
+    error,
+    isEmpty,
+    isSearchActive,
+    searchResultCount,
+  } = useInventoryTreeContext()
 
   if (error) {
     return (
@@ -28,6 +35,14 @@ export function InventoryTreeBody() {
 
   if (isLoading) {
     return <SidebarListSkeleton />
+  }
+
+  if (isSearchActive && searchResultCount === 0) {
+    return (
+      <div className="px-4 py-2 text-sm text-muted-foreground">
+        No matching inventory items
+      </div>
+    )
   }
 
   return (

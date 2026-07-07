@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   dragAndDropFeature,
   expandAllFeature,
@@ -20,6 +20,8 @@ interface UseInventoryHeadlessTreeOptions {
   children: Map<string, Array<string>>
   items: Map<string, ApiTreeNode>
   folderIds: Array<string>
+  isSearchActive?: boolean
+  searchExpandedItemIds?: Array<string>
   parentIds: Map<string, string>
   onMove: (itemIds: Array<string>, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
@@ -34,9 +36,20 @@ interface SelectionDataRef {
 }
 
 const STORAGE_KEY = "kamino-inventory-expanded"
+const NO_SEARCH_EXPANDED_ITEMS: Array<string> = []
 
 function folderIdsKey(folderIds: Array<string>) {
   return folderIds.join("\0")
+}
+
+function expandedItemsEqual(
+  left: Array<string>,
+  right: Array<string>
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((itemId, index) => itemId === right[index])
+  )
 }
 
 function updateExpandedItems(
@@ -95,6 +108,8 @@ export function useInventoryHeadlessTree({
   children,
   items,
   folderIds,
+  isSearchActive = false,
+  searchExpandedItemIds = NO_SEARCH_EXPANDED_ITEMS,
   parentIds,
   onMove,
   onPrimaryAction,
@@ -120,16 +135,64 @@ export function useInventoryHeadlessTree({
     return folderIds
   })
 
+  const preSearchExpandedRef = useRef<Array<string> | null>(null)
+  const effectiveExpandedItemsRef = useRef<Array<string>>(NO_SEARCH_EXPANDED_ITEMS)
+  const effectiveExpandedItems = useMemo(() => {
+    const nextExpandedItems = isSearchActive
+      ? searchExpandedItemIds
+      : expandedItems
+
+    if (expandedItemsEqual(nextExpandedItems, effectiveExpandedItemsRef.current)) {
+      return effectiveExpandedItemsRef.current
+    }
+
+    effectiveExpandedItemsRef.current = nextExpandedItems
+    return nextExpandedItems
+  }, [expandedItems, isSearchActive, searchExpandedItemIds])
+
   const handleExpandedChange = useCallback(
     (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
+      if (isSearchActive) {
+        return
+      }
+
       setExpandedItems((prev) => {
-        const next = typeof updater === "function" ? updater(prev) : updater
+        const next =
+          typeof updater === "function" ? updater(prev) : updater
+
+        if (expandedItemsEqual(next, prev)) {
+          return prev
+        }
+
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
         return next
       })
     },
-    []
+    [isSearchActive]
   )
+
+  useLayoutEffect(() => {
+    if (isSearchActive) {
+      if (preSearchExpandedRef.current === null) {
+        preSearchExpandedRef.current = expandedItems
+      }
+      return
+    }
+
+    if (preSearchExpandedRef.current === null) {
+      return
+    }
+
+    const snapshot = preSearchExpandedRef.current
+    preSearchExpandedRef.current = null
+
+    if (expandedItemsEqual(snapshot, expandedItems)) {
+      return
+    }
+
+    setExpandedItems(snapshot)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+  }, [expandedItems, isSearchActive])
 
   const handleDrop = useCallback(
     (
@@ -186,7 +249,7 @@ export function useInventoryHeadlessTree({
       scrollToItemHandlerRef.current?.(item.getId())
     },
     state: {
-      expandedItems,
+      expandedItems: effectiveExpandedItems,
       selectedItems: selectedItemIds,
     },
     setExpandedItems: (updater) => {
@@ -243,12 +306,20 @@ export function useInventoryHeadlessTree({
   }
 
   const expandAll = useCallback(() => {
-    updateExpandedItems(tree, folderIds)
-  }, [folderIds, tree])
+    if (isSearchActive) {
+      return
+    }
+
+    handleExpandedChange(folderIds)
+  }, [folderIds, handleExpandedChange, isSearchActive])
 
   const collapseAll = useCallback(() => {
-    updateExpandedItems(tree, [])
-  }, [tree])
+    if (isSearchActive) {
+      return
+    }
+
+    handleExpandedChange([])
+  }, [handleExpandedChange, isSearchActive])
 
   const revealItem = useCallback(
     async (itemId: string) => {

@@ -245,3 +245,109 @@ export function getSelectedFolder(
 ) {
   return folderOptions.find((folder) => folder.id === folderId)
 }
+
+export type FilterInventoryTreeByNameResult = {
+  filteredTree: Array<ApiTreeNode>
+  matchCount: number
+  ancestorFolderIds: Array<string>
+}
+
+function countInventoryTreeNodes(nodes: Array<ApiTreeNode>): number {
+  let count = 0
+
+  function walk(entries: Array<ApiTreeNode>) {
+    for (const entry of entries) {
+      count++
+      if (entry.children?.length) {
+        walk(entry.children)
+      }
+    }
+  }
+
+  walk(nodes)
+  return count
+}
+
+export function filterInventoryTreeByName(
+  nodes: Array<ApiTreeNode>,
+  query: string
+): FilterInventoryTreeByNameResult {
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+
+  if (!normalizedQuery) {
+    return {
+      filteredTree: nodes,
+      matchCount: countInventoryTreeNodes(nodes),
+      ancestorFolderIds: [],
+    }
+  }
+
+  const ancestorFolderIds: Array<string> = []
+  let matchCount = 0
+
+  type NodeFilterResult = {
+    node: ApiTreeNode | null
+    directMatchesInSubtree: number
+  }
+
+  function filterNode(node: ApiTreeNode): NodeFilterResult {
+    const selfMatches = node.name.toLocaleLowerCase().includes(normalizedQuery)
+    if (selfMatches) {
+      matchCount++
+    }
+
+    const childResults = (node.children ?? []).map(filterNode)
+    const filteredChildren = childResults
+      .map((result) => result.node)
+      .filter((child): child is ApiTreeNode => child !== null)
+    const descendantDirectMatches = childResults.reduce(
+      (sum, result) => sum + result.directMatchesInSubtree,
+      0
+    )
+    const hasRetainedDescendant = filteredChildren.length > 0
+
+    if (!selfMatches && !hasRetainedDescendant) {
+      return { node: null, directMatchesInSubtree: 0 }
+    }
+
+    if (node.kind === "folder" && descendantDirectMatches > 0) {
+      ancestorFolderIds.push(node.id)
+    }
+
+    let resultNode: ApiTreeNode
+
+    if (
+      selfMatches &&
+      node.kind === "folder" &&
+      descendantDirectMatches === 0
+    ) {
+      resultNode = node.children?.length ? { ...node, children: [] } : node
+    } else if (node.children?.length) {
+      const childrenChanged =
+        filteredChildren.length !== node.children.length ||
+        filteredChildren.some((child, index) => child !== node.children![index])
+
+      resultNode = childrenChanged
+        ? { ...node, children: filteredChildren }
+        : node
+    } else {
+      resultNode = node
+    }
+
+    return {
+      node: resultNode,
+      directMatchesInSubtree:
+        (selfMatches ? 1 : 0) + descendantDirectMatches,
+    }
+  }
+
+  const filteredTree = nodes
+    .map((node) => filterNode(node).node)
+    .filter((node): node is ApiTreeNode => node !== null)
+
+  return {
+    filteredTree,
+    matchCount,
+    ancestorFolderIds,
+  }
+}

@@ -10,9 +10,18 @@ import {
 import { Separator } from "@workspace/ui/components/separator"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import { InventoryFavoritesSection } from "./favorites-section"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 
 export function InventoryTreeHeader() {
-  const { expandAll, collapseAll, isLoading } = useInventoryTreeContext()
+  const {
+    expandAll,
+    collapseAll,
+    error,
+    isLoading,
+    searchQuery,
+    searchResultCount,
+    setSearchQuery,
+  } = useInventoryTreeContext()
 
   return (
     <div>
@@ -56,6 +65,15 @@ export function InventoryTreeHeader() {
             </TooltipContent>
           </Tooltip>
         </div>
+      </div>
+      <div className="mx-2 py-2">
+        <SearchInputGroup
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search inventory..."
+          aria-label="Search inventory"
+          resultCount={!isLoading && !error ? searchResultCount : null}
+        />
       </div>
       <Separator className="my-2" />
       <InventoryFavoritesSection />
