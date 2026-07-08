@@ -137,16 +137,3 @@ export function DialogBodySkeleton({ rows = 4 }: { rows?: number }) {
     </div>
   )
 }
-
-export function SidebarListSkeleton({ rows = 8 }: { rows?: number }) {
-  return (
-    <div className="flex flex-col gap-2 px-2 py-1">
-      {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="flex items-center gap-2 px-2 py-1.5">
-          <Skeleton className="size-4 shrink-0 rounded-md" />
-          <Skeleton className="h-4 flex-1 rounded-md" />
-        </div>
-      ))}
-    </div>
-  )
-}
