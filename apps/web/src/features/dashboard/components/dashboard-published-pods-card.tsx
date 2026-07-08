@@ -26,7 +26,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
-import { BrowsePodsCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
+import { PersonalPodCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
 import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
 import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 import { animateChild, animateContainer } from "@/components/animate"
@@ -46,13 +46,13 @@ export function DashboardRecentPodsCard({
     personalPodQueryOptions
   )
   const showPersonalPodCard = personalPodStatus?.configured ?? false
-  const showPublishedPodCards = pods.length > 0 || showPersonalPodCard
+  const showPublishedPodCards = pods.length > 0
 
   return (
     <Card className={cn(className)}>
       <CardHeader>
         <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-          Published Pods
+          Pods
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
           Newest catalog entries visible to you.
@@ -64,7 +64,12 @@ export function DashboardRecentPodsCard({
           </Link>
         </CardAction>
       </CardHeader>
-      <CardContent className="mx-6 h-full rounded-4xl bg-muted/50 p-6">
+      <CardContent className="flex flex-col gap-4">
+        {isPersonalPodLoading ? (
+          <PersonalPodCardSkeleton />
+        ) : personalPodStatus?.configured ? (
+          <PersonalPodCard status={personalPodStatus} username={username} />
+        ) : null}
         {error ? (
           <Empty className="h-full min-h-52">
             <EmptyHeader>
@@ -72,27 +77,14 @@ export function DashboardRecentPodsCard({
               <EmptyDescription>{error.message}</EmptyDescription>
             </EmptyHeader>
           </Empty>
-        ) : showPublishedPodCards || isPersonalPodLoading ? (
+        ) : showPublishedPodCards ? (
           <ScrollArea className="w-full **:scroll-fade-x firefox:**:scroll-fade-none">
             <m.div
-              className="flex w-max gap-4 p-4"
+              className="flex w-max gap-4 pb-4"
               initial="hidden"
               animate="show"
               variants={animateContainer}
             >
-              {isPersonalPodLoading ? (
-                <m.div variants={animateChild} className="max-w-100">
-                  <BrowsePodsCardSkeleton />
-                </m.div>
-              ) : null}
-              {personalPodStatus?.configured ? (
-                <m.div variants={animateChild} className="max-w-100">
-                  <PersonalPodCard
-                    status={personalPodStatus}
-                    username={username}
-                  />
-                </m.div>
-              ) : null}
               {pods.map((pod) => (
                 <m.div
                   key={pod.id}
@@ -105,7 +97,7 @@ export function DashboardRecentPodsCard({
             </m.div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
-        ) : (
+        ) : !showPersonalPodCard && !isPersonalPodLoading ? (
           <Empty className="h-full min-h-52">
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -120,7 +112,7 @@ export function DashboardRecentPodsCard({
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   )

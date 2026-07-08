@@ -10,8 +10,53 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
-    date: "Jul 2, 2026",
+    date: "Jul 7, 2026",
     highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added configurable startup syncs for Proxmox inventory and Active Directory principals.",
+          "Added separate full-name fields and columns while preserving principal logon names.",
+          "Added an action dropdown to inventory folder pages.",
+          "Added a development deployment build and Kubernetes overlay.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Rebuilt the inventory tree with virtualization, lazy mounting, native scrolling, search, and horizontal resizing.",
+          "Improved inventory routing, selection, and automatic scrolling to the active item.",
+          "Improved VMID allocation with configurable ranges, centralized reservations, and concurrency protection.",
+          "Improved mutation toasts for bulk inventory, pod, request, principal, SDN, and Proxmox sync actions.",
+          "Migrated Kubernetes ingress from Traefik to Istio.",
+          "Standardized fixed changelog entries on the amber status tone.",
+          "Improved personal pod component visuals",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed initial inventory and principal sync failures caused by schema, pool, and disk edge cases.",
+          "Fixed Active Directory users syncing display names instead of logon names.",
+          "Fixed generated pod clone names when a user's name begins with a number.",
+          "Fixed pagination across data tables.",
+          "Fixed inventory tree double-click jumps, bounce, folder visuals, virtualized content sizing, and scrollbar sizing.",
+          "Fixed VMID reservation 595 errors and polling through the wrong Proxmox node.",
+          "Fixed overly restrictive pod VNet prefix validation.",
+          "Fixed the create-pod form resetting after selecting Try Again.",
+          "Fixed asynchronous bulk mutation toast updates.",
+          "Updated quic-go to address GO-2026-5676.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Jul 2, 2026",
+    highlight: false,
     groups: [
       {
         tag: "New",

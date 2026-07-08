@@ -12,8 +12,8 @@ import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { BrowsePodsCard } from "./browse-pods-card"
 import { PersonalPodCard } from "./personal-pod-card"
 import {
-  BrowsePodsCardSkeleton,
   BrowsePodsGridSkeleton,
+  PersonalPodCardSkeleton,
   browsePodsGridClassName,
 } from "./browse-pods-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -39,12 +39,13 @@ export function BrowsePodsPage() {
     enabled: router !== null,
   })
   const visiblePods = catalog ?? []
-  const username = router
-    ?.state.matches.find((match) => match.routeId === "/_pods")
-    ?.context.user.username
+  const username = router?.state.matches.find(
+    (match) => match.routeId === "/_pods"
+  )?.context.user.username
   const showPersonalPodCard = personalPodStatus?.configured ?? false
   const showPersonalPodSlot = showPersonalPodCard || isPersonalPodLoading
-  const showPodsEmptyState = visiblePods.length === 0 && !showPersonalPodSlot
+  const showPodsEmptyState =
+    visiblePods.length === 0 && !showPersonalPodSlot && !personalPodError
 
   return (
     <div className="@container/main flex flex-1 flex-col">
@@ -92,7 +93,7 @@ export function BrowsePodsPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             {personalPodError ? (
               <InlineErrorAlert
                 error={personalPodError}
@@ -101,18 +102,18 @@ export function BrowsePodsPage() {
                 className="mx-auto max-w-lg"
               />
             ) : null}
-            <div className={browsePodsGridClassName}>
-              {isPersonalPodLoading ? <BrowsePodsCardSkeleton /> : null}
-              {personalPodStatus?.configured ? (
-                <PersonalPodCard
-                  status={personalPodStatus}
-                  username={username}
-                />
-              ) : null}
-              {visiblePods.map((pod) => (
-                <BrowsePodsCard key={pod.id} pod={pod} />
-              ))}
-            </div>
+            {isPersonalPodLoading ? (
+              <PersonalPodCardSkeleton />
+            ) : personalPodStatus?.configured ? (
+              <PersonalPodCard status={personalPodStatus} username={username} />
+            ) : null}
+            {visiblePods.length > 0 ? (
+              <div className={browsePodsGridClassName}>
+                {visiblePods.map((pod) => (
+                  <BrowsePodsCard key={pod.id} pod={pod} />
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

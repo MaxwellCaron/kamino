@@ -1,23 +1,18 @@
 import { useState } from "react"
-import { m } from "motion/react"
-import { PackageIcon, PinIcon } from "@hugeicons/core-free-icons"
+import { ArrowUpRightIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
-  CutoutCard,
-  CutoutCardContent,
-  CutoutCardFooter,
-  CutoutCardInsetLabel,
-  CutoutCardMedia,
-  CutoutCardOverlay,
-  CutoutCardPin,
-  CutoutCorner,
-  cutoutCardSurfaceClassName,
-  useCutoutContentStaggerVariants,
-} from "@workspace/ui/components/cutout-card"
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { PersonalPodStatus } from "@/features/pods/api/personal-pod-api"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
@@ -29,6 +24,7 @@ import {
   requestPersonalPod,
 } from "@/features/pods/api/personal-pod-api"
 import { requesterRequestSummariesQueryOptions } from "@/features/requests/api/requests-api"
+import { KaminoGrainient } from "@/components/grainient-background"
 
 export function PersonalPodCard({
   status,
@@ -39,7 +35,6 @@ export function PersonalPodCard({
 }) {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const stagger = useCutoutContentStaggerVariants()
   const [confirmConfig, setConfirmConfig] = useState<ConfirmConfig | null>(null)
 
   if (!status.configured) {
@@ -52,11 +47,9 @@ export function PersonalPodCard({
 
   const cardMeta = existingPersonalPod
     ? {
-        label: "Ready",
         description:
           "Open your personal pod folder and continue where you left off.",
-        footerLabel: `Pod ${existingPersonalPod.network.number}`,
-        footerDetail: existingPersonalPod.network.vnet,
+        footerLabel: existingPersonalPod.network.vnet,
         action: (
           <Button
             type="button"
@@ -69,25 +62,26 @@ export function PersonalPodCard({
               })
             }
           >
-            Open Pod
+            Open
+            <HugeiconsIcon icon={ArrowUpRightIcon} data-icon="inline-end" />
           </Button>
         ),
       }
     : isPending
       ? {
-          label: "Pending",
           description: "Your personal pod request is pending approval.",
           footerLabel: "Request submitted",
-          footerDetail: "Awaiting review",
-          action: <Badge variant="secondary">Pending</Badge>,
+          action: (
+            <Button size="sm" disabled>
+              Open
+              <HugeiconsIcon icon={ArrowUpRightIcon} data-icon="inline-end" />
+            </Button>
+          ),
         }
       : canCreate
         ? {
-            label: "Create",
             description:
               "Provision a personal folder with a router and a reserved network.",
-            footerLabel: "Self-service",
-            footerDetail: "Instant setup",
             action: (
               <Button
                 type="button"
@@ -124,16 +118,14 @@ export function PersonalPodCard({
                   })
                 }
               >
-                Create Pod
+                <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+                Create
               </Button>
             ),
           }
         : {
-            label: "Request",
             description:
               "Request a personal folder with a router and a reserved network.",
-            footerLabel: "Approval required",
-            footerDetail: "Managed workflow",
             action: (
               <Button
                 type="button"
@@ -168,80 +160,27 @@ export function PersonalPodCard({
                   })
                 }
               >
-                Request Pod
+                <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" />
+                Request
               </Button>
             ),
           }
 
   return (
     <>
-      <CutoutCard className={cutoutCardSurfaceClassName}>
-        <CutoutCardMedia className="h-72 overflow-hidden bg-muted/40">
-          <CutoutCardOverlay className="bg-amber-600/20 dark:bg-emerald-400/50" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex size-20 items-center justify-center rounded-full border border-border/60 bg-card/90 shadow-sm backdrop-blur-sm">
-              <HugeiconsIcon icon={PackageIcon} className="text-foreground" />
-            </div>
-          </div>
-          <CutoutCardInsetLabel className="bottom-0 left-0 rounded-tr-[20px] bg-card px-5 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-                {cardMeta.label}
-              </span>
-            </div>
-            <CutoutCorner className="absolute -right-7.75 -bottom-px rotate-90 text-card" />
-            <CutoutCorner className="absolute -top-7.75 -left-px rotate-90 text-card" />
-          </CutoutCardInsetLabel>
-          <CutoutCardPin className="top-0 right-0 rounded-bl-[16px] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md ring-1 shadow-foreground/10 ring-border/30">
-            <div className="flex items-center gap-2">
-              <HugeiconsIcon icon={PinIcon} className="size-4" />
-              Pinned
-            </div>
-            <CutoutCorner
-              className="-left-5.7 absolute top-0 -rotate-90 text-primary"
-              size={24}
-            />
-            <CutoutCorner
-              className="absolute right-0 -bottom-5.75 -rotate-90 text-primary"
-              size={24}
-            />
-          </CutoutCardPin>
-        </CutoutCardMedia>
-        <CutoutCardContent>
-          <m.div
-            animate="show"
-            className="contents"
-            initial="hidden"
-            variants={stagger.container}
-          >
-            <m.h2
-              className="mb-2 text-xl leading-snug font-semibold text-balance text-card-foreground"
-              variants={stagger.item}
-            >
-              Personal Pod
-            </m.h2>
-            <m.p
-              className="mb-4 text-sm leading-relaxed text-pretty text-muted-foreground"
-              variants={stagger.item}
-            >
-              {cardMeta.description}
-            </m.p>
-            <m.div variants={stagger.item}>
-              <CutoutCardFooter className="border-t border-border/80 pt-4">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-card-foreground">
-                    {cardMeta.footerLabel}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {cardMeta.footerDetail}
-                  </div>
-                </div>
-                {cardMeta.action}
-              </CutoutCardFooter>
-            </m.div>
-          </m.div>
-        </CutoutCardContent>
-      </CutoutCard>
+      <Item variant="muted">
+        <ItemMedia variant="image" className="size-15">
+          <KaminoGrainient />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>Personal Pod</ItemTitle>
+          <ItemDescription>{cardMeta.description}</ItemDescription>
+          {cardMeta.footerLabel && (
+            <Badge variant="outline">{cardMeta.footerLabel}</Badge>
+          )}
+        </ItemContent>
+        <ItemActions>{cardMeta.action}</ItemActions>
+      </Item>
       <ConfirmDialog
         config={confirmConfig}
         onClose={() => setConfirmConfig(null)}

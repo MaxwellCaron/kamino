@@ -12,7 +12,10 @@ import {
   PageSkeleton,
   TableBlockSkeleton,
 } from "@/components/loading-skeletons"
-import { BrowsePodsCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
+import {
+  BrowsePodsCardSkeleton,
+  PersonalPodCardSkeleton,
+} from "@/features/pods/components/browse/browse-pods-skeleton"
 
 export function DashboardHomeSkeleton() {
   return (
@@ -122,16 +125,19 @@ function PublishedPodsSkeleton({ className }: { className?: string }) {
     <Card className={className}>
       <DashboardSkeletonHeader
         action
-        titleWidth="w-40"
+        titleWidth="w-16"
         descriptionWidth="w-56"
       />
-      <CardContent className="mx-6 h-full rounded-4xl bg-muted/50 p-6">
-        <div className="flex gap-4">
-          {Array.from({ length: 3 }, (_, index) => (
-            <div key={index} className="min-w-0 flex-1">
-              <BrowsePodsCardSkeleton />
-            </div>
-          ))}
+      <CardContent className="flex h-full flex-col gap-4">
+        <PersonalPodCardSkeleton />
+        <div className="overflow-hidden">
+          <div className="flex w-max gap-4 pb-4">
+            {Array.from({ length: 2 }, (_, index) => (
+              <div key={index} className="w-100">
+                <BrowsePodsCardSkeleton />
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
