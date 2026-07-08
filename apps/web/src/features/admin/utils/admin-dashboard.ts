@@ -134,24 +134,27 @@ const SHARED_STORAGE_TYPES = new Set([
 ])
 
 function sharedStorageKey(storage: ApiStorage) {
-  return `${storage.type}:${storage.storage}`
+  return `${storage.type.toLowerCase()}:${storage.storage}`
 }
 
 export function sharedStorageHistoryKey(storage: {
   type: string
   storage: string
 }) {
-  return `${storage.type}:${storage.storage}`
+  return `${storage.type.toLowerCase()}:${storage.storage}`
 }
 
 export function isSharedStorage(
   storage: ApiStorage,
   sharedStorageNames: ReadonlySet<string> = new Set()
 ) {
-  if (storage.shared === 1) {
-    return true
+  if (storage.kamino_shared !== undefined) {
+    return storage.kamino_shared
   }
-  if (sharedStorageNames.has(storage.storage)) {
+  if (sharedStorageNames.size > 0) {
+    return sharedStorageNames.has(storage.storage)
+  }
+  if (storage.shared === 1) {
     return true
   }
   return SHARED_STORAGE_TYPES.has(storage.type.toLowerCase())

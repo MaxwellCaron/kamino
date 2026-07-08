@@ -172,7 +172,14 @@ func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch node storages", err)
 		return
 	}
-	c.JSON(http.StatusOK, storages)
+	response := make([]proxmox.StorageWithClassification, len(storages))
+	for index, storage := range storages {
+		response[index] = proxmox.StorageWithClassification{
+			Storage:      storage,
+			KaminoShared: h.PX.IsSharedStorage(storage),
+		}
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 // GetISOs returns ISO files available on a storage.

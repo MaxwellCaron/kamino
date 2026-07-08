@@ -67,6 +67,11 @@ type Storage struct {
 	Shared  *int   `json:"shared,omitempty"`
 }
 
+type StorageWithClassification struct {
+	Storage
+	KaminoShared bool `json:"kamino_shared"`
+}
+
 // ISOContent represents an ISO file in a storage.
 type ISOContent struct {
 	Volid  string `json:"volid"`

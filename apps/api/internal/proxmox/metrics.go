@@ -121,14 +121,23 @@ func storageGroupKey(storage Storage) string {
 }
 
 func isSharedStorage(storage Storage, overrideNames map[string]struct{}) bool {
-	if storage.Shared != nil && *storage.Shared == 1 {
-		return true
+	if len(overrideNames) > 0 {
+		_, ok := overrideNames[storage.Storage]
+		return ok
 	}
-	if _, ok := overrideNames[storage.Storage]; ok {
+	if storage.Shared != nil && *storage.Shared == 1 {
 		return true
 	}
 	_, ok := sharedStorageTypes[strings.ToLower(storage.Type)]
 	return ok
+}
+
+func (c *Client) IsSharedStorage(storage Storage) bool {
+	names := c.sharedStorageNames
+	if names == nil {
+		names = map[string]struct{}{}
+	}
+	return isSharedStorage(storage, names)
 }
 
 func percent(used, total float64) float64 {

@@ -45,9 +45,6 @@ export function AdminSharedStorageTable({
 
   return (
     <div className="overflow-x-auto border-t">
-      <div className="px-6 py-3">
-        <h3 className="text-sm font-medium">Shared storage</h3>
-      </div>
       <Table className="min-w-4xl table-fixed">
         <colgroup>
           <col className={nameColumnClassName} />
@@ -82,7 +79,7 @@ export function AdminSharedStorageTable({
                 <TableCell className="truncate px-4" title={storage.type}>
                   {storage.type}
                 </TableCell>
-                <TableCell className={`${resourceColumnClassName} pr-6`}>
+                <TableCell className="w-full whitespace-normal px-3 pr-6">
                   <NodeUsageAreaChart
                     color="var(--chart-3)"
                     formatValue={formatUsageBytes}
