@@ -39,7 +39,7 @@ export function InventorySidebarResizeHandle({
     }
   }, [])
 
-  if (isMobile || state === "collapsed") {
+  if (isMobile) {
     return null
   }
 
@@ -127,9 +127,11 @@ export function InventorySidebarResizeHandle({
       aria-valuemin={minWidth}
       aria-valuemax={maxWidth}
       aria-valuenow={width}
-      tabIndex={0}
+      aria-hidden={state === "collapsed"}
+      tabIndex={state === "collapsed" ? -1 : 0}
       className={cn(
-        "fixed inset-y-0 z-20 my-7 hidden w-4 -translate-x-1/2 cursor-col-resize touch-none md:flex",
+        "invisible fixed inset-y-0 z-20 my-7 hidden w-4 -translate-x-1/2 cursor-col-resize touch-none opacity-0 transition-[opacity,visibility] delay-0 duration-0 md:flex",
+        "peer-data-[state=expanded]:visible peer-data-[state=expanded]:opacity-100 peer-data-[state=expanded]:delay-200",
         "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-sidebar-border",
         "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
       )}
