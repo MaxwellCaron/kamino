@@ -63,14 +63,15 @@ export function AdminNodeTable({
   }
 
   return (
-    <Table className="table-fixed">
-      <colgroup>
-        <col style={{ width: "4.5rem" }} />
-        <col style={{ width: "6rem" }} />
-        <col />
-        <col />
-        <col />
-      </colgroup>
+    <div className="overflow-x-auto">
+      <Table className="min-w-[56rem] table-fixed">
+        <colgroup>
+          <col className="w-[min(12rem,28vw)] max-w-[12rem]" />
+          <col className="w-[min(7rem,16vw)] max-w-[7rem]" />
+          <col />
+          <col />
+          <col />
+        </colgroup>
       <TableHeader>
         <TableRow className="bg-muted hover:bg-muted">
           <TableHead className="pl-6 font-medium">Node</TableHead>
@@ -90,9 +91,17 @@ export function AdminNodeTable({
 
           return (
             <TableRow key={node.node}>
-              <TableCell className="pl-6 font-medium">{node.node}</TableCell>
+              <TableCell
+                className="truncate pl-6 font-medium"
+                title={node.node}
+              >
+                {node.node}
+              </TableCell>
               <TableCell className="px-4">
-                <Badge variant={statusBadgeVariant(node.status)}>
+                <Badge
+                  className="whitespace-nowrap"
+                  variant={statusBadgeVariant(node.status)}
+                >
                   {node.status.charAt(0).toUpperCase() + node.status.slice(1)}
                 </Badge>
               </TableCell>
@@ -140,5 +149,6 @@ export function AdminNodeTable({
         })}
       </TableBody>
     </Table>
+    </div>
   )
 }

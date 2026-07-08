@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-query"
 import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
 import {
-  buildStorageByNode,
+  buildStorageSummary,
   countInventoryStats,
   getRecentPrincipals,
   getRecentRequests,
@@ -160,8 +160,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     }
   }, [users, groups, inventoryTree, pendingRequestsData, completedRequestsData])
 
-  const storageByNode = useMemo(() => {
-    return buildStorageByNode(
+  const storageSummary = useMemo(() => {
+    return buildStorageSummary(
       nodesData ?? [],
       storageQueries.map((query) => query.data)
     )
@@ -238,7 +238,7 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           <AdminDashboardActionButtons />
         </div>
 
-        <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
+        <AdminClusterCard nodes={nodes} storageSummary={storageSummary} />
 
         <AdminDashboardPrincipalsCards
           groupColumns={groupColumns}

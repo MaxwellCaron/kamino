@@ -45,6 +45,7 @@ type Config struct {
 	ProxmoxTokenSecret        string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
 	ProxmoxInsecure           bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
 	ProxmoxNodes              string `envconfig:"PROXMOX_NODES" required:"true"`
+	ProxmoxSharedStorageNames string `envconfig:"PROXMOX_SHARED_STORAGE_NAMES"`
 	ProxmoxInitialSyncEnabled bool   `envconfig:"PROXMOX_INITIAL_SYNC_ENABLED" default:"true"`
 
 	// --- Active Directory / LDAP (optional; all required if AD auth/sync is enabled) ---
@@ -484,6 +485,7 @@ func newServer(config *Config) (*Server, error) {
 		config.ProxmoxInsecure,
 		proxmoxNodes,
 	)
+	pxClient.SetSharedStorageNames(splitCSV(config.ProxmoxSharedStorageNames))
 
 	// Initialize sync service
 	pxImport := proxmox.NewInventoryImporter(dbPool, pxClient)

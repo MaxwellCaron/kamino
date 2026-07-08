@@ -64,6 +64,7 @@ type Storage struct {
 	Avail   int64  `json:"avail"`
 	Total   int64  `json:"total"`
 	Used    int64  `json:"used"`
+	Shared  *int   `json:"shared,omitempty"`
 }
 
 // ISOContent represents an ISO file in a storage.

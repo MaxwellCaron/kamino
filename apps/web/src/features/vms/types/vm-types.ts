@@ -86,6 +86,7 @@ export type ApiStorage = {
   avail: number
   total: number
   used: number
+  shared?: number
 }
 
 export type ApiISO = {

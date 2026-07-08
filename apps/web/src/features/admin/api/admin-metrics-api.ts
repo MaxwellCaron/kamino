@@ -20,9 +20,17 @@ export type ApiNodeUsageHistory = {
   points: Array<ApiUsageHistoryPoint>
 }
 
+export type ApiSharedStorageUsageHistory = {
+  storage: string
+  type: string
+  nodes: Array<string>
+  points: Array<ApiUsageHistoryPoint>
+}
+
 export type ApiClusterUsageHistoryResponse = {
   points: Array<ApiUsageHistoryPoint>
   nodes: Array<ApiNodeUsageHistory>
+  shared_storages: Array<ApiSharedStorageUsageHistory>
 }
 
 export function clusterUsageHistoryQueryOptions(

@@ -19,7 +19,8 @@ import {
 } from "../utils/admin-dashboard"
 import { UsageAreaChart } from "./usage-charts"
 import { AdminNodeTable } from "./admin-node-table"
-import type { Capacity } from "../utils/admin-dashboard"
+import { AdminSharedStorageTable } from "./admin-shared-storage-table"
+import type { DashboardStorageSummary } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
 
@@ -40,10 +41,10 @@ function normalizeTimeframe(value: string): UsageHistoryTimeframe {
 
 export function AdminClusterCard({
   nodes,
-  storageByNode,
+  storageSummary,
 }: {
   nodes: Array<ApiNode>
-  storageByNode: Map<string, Capacity>
+  storageSummary: DashboardStorageSummary
 }) {
   const [timeframe, setTimeframe] = useState<UsageHistoryTimeframe>("hour")
   const {
@@ -51,7 +52,7 @@ export function AdminClusterCard({
     error: historyError,
     isLoading: isHistoryLoading,
   } = useQuery(clusterUsageHistoryQueryOptions(timeframe))
-  const clusterCapacity = getClusterCapacitySummary(nodes, storageByNode)
+  const clusterCapacity = getClusterCapacitySummary(nodes, storageSummary)
   const clusterHistory = buildUsageHistorySeries(historyData?.points ?? [])
   const nodeHistoryByNode = useMemo(() => {
     const historyMap = new Map<
@@ -154,10 +155,11 @@ export function AdminClusterCard({
             isHistoryLoading={isHistoryLoading}
             nodeHistoryByNode={nodeHistoryByNode}
             nodes={nodes}
-            storageByNode={storageByNode}
+            storageByNode={storageSummary.localByNode}
             timeframe={timeframe}
             unavailableMessage="No history"
           />
+          <AdminSharedStorageTable sharedStorages={storageSummary.shared} />
         </div>
       </CardContent>
     </Card>

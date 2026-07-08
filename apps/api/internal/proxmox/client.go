@@ -26,13 +26,14 @@ var (
 
 // Client talks to the Proxmox VE API.
 type Client struct {
-	baseURL    string
-	tokenID    string
-	secret     string
-	insecure   bool
-	nodes      []string
-	nodeIndex  map[string]int
-	httpClient *http.Client
+	baseURL            string
+	tokenID            string
+	secret             string
+	insecure           bool
+	nodes              []string
+	nodeIndex          map[string]int
+	httpClient         *http.Client
+	sharedStorageNames map[string]struct{}
 }
 
 // NewClient creates a Proxmox API client.
@@ -60,14 +61,19 @@ func NewClient(
 	}
 
 	return &Client{
-		baseURL:    baseURL,
-		tokenID:    tokenID,
-		secret:     secret,
-		insecure:   insecure,
-		nodes:      allowedNodes,
-		nodeIndex:  nodeIndex,
-		httpClient: &http.Client{Transport: transport},
+		baseURL:            baseURL,
+		tokenID:            tokenID,
+		secret:             secret,
+		insecure:           insecure,
+		nodes:              allowedNodes,
+		nodeIndex:          nodeIndex,
+		httpClient:         &http.Client{Transport: transport},
+		sharedStorageNames: map[string]struct{}{},
 	}
+}
+
+func (c *Client) SetSharedStorageNames(names []string) {
+	c.sharedStorageNames = parseSharedStorageNames(names)
 }
 
 // BaseURL returns the Proxmox API base URL.

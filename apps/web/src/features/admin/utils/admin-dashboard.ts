@@ -101,12 +101,61 @@ export function statusBadgeVariant(status: string): "default" | "destructive" {
   return status === "online" ? "default" : "destructive"
 }
 
-function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
+export type SharedStorageCapacity = Capacity & {
+  storage: string
+  type: string
+  nodes: Array<string>
+}
+
+export type DashboardStorageSummary = {
+  localByNode: Map<string, Capacity>
+  shared: Array<SharedStorageCapacity>
+  localTotal: Capacity
+  sharedTotal: Capacity
+  clusterTotal: Capacity
+}
+
+const SHARED_STORAGE_TYPES = new Set([
+  "nfs",
+  "cifs",
+  "cephfs",
+  "rbd",
+  "iscsi",
+  "iscsidirect",
+  "glusterfs",
+])
+
+function sharedStorageKey(storage: ApiStorage) {
+  return `${storage.type}:${storage.storage}`
+}
+
+export function isSharedStorage(
+  storage: ApiStorage,
+  sharedStorageNames: ReadonlySet<string> = new Set()
+) {
+  if (storage.shared === 1) {
+    return true
+  }
+  if (sharedStorageNames.has(storage.storage)) {
+    return true
+  }
+  return SHARED_STORAGE_TYPES.has(storage.type.toLowerCase())
+}
+
+function sumLocalStorage(
+  storages: Array<ApiStorage> | undefined,
+  sharedStorageNames: ReadonlySet<string>
+): Capacity {
   return (storages ?? []).reduce<Capacity>(
-    (capacity, storage) => ({
-      total: capacity.total + storage.total,
-      used: capacity.used + storage.used,
-    }),
+    (capacity, storage) => {
+      if (isSharedStorage(storage, sharedStorageNames)) {
+        return capacity
+      }
+      return {
+        total: capacity.total + storage.total,
+        used: capacity.used + storage.used,
+      }
+    },
     { total: 0, used: 0 }
   )
 }
@@ -123,29 +172,75 @@ function sumCapacities(capacities: Iterable<Capacity>): Capacity {
   return { total, used }
 }
 
-export function buildStorageByNode(
+export function buildStorageSummary(
   nodes: Array<ApiNode>,
-  storagesByNode: Array<Array<ApiStorage> | undefined>
-) {
-  const result = new Map<string, Capacity>()
+  storagesByNode: Array<Array<ApiStorage> | undefined>,
+  sharedStorageNames: ReadonlySet<string> = new Set()
+): DashboardStorageSummary {
+  const localByNode = new Map<string, Capacity>()
+  const sharedByKey = new Map<string, SharedStorageCapacity>()
 
   nodes.forEach((node, index) => {
-    result.set(node.node, sumStorage(storagesByNode[index]))
+    localByNode.set(
+      node.node,
+      sumLocalStorage(storagesByNode[index], sharedStorageNames)
+    )
+
+    for (const storage of storagesByNode[index] ?? []) {
+      if (!isSharedStorage(storage, sharedStorageNames)) {
+        continue
+      }
+
+      const key = sharedStorageKey(storage)
+      const existing = sharedByKey.get(key)
+      if (!existing) {
+        sharedByKey.set(key, {
+          storage: storage.storage,
+          type: storage.type,
+          nodes: [node.node],
+          total: storage.total,
+          used: storage.used,
+        })
+        continue
+      }
+
+      if (!existing.nodes.includes(node.node)) {
+        existing.nodes.push(node.node)
+      }
+      existing.total = Math.max(existing.total, storage.total)
+      existing.used = Math.max(existing.used, storage.used)
+    }
   })
 
-  return result
+  const shared = [...sharedByKey.values()].toSorted((left, right) =>
+    left.storage.localeCompare(right.storage)
+  )
+  const localTotal = sumCapacities(localByNode.values())
+  const sharedTotal = sumCapacities(shared)
+  const clusterTotal = {
+    total: localTotal.total + sharedTotal.total,
+    used: localTotal.used + sharedTotal.used,
+  }
+
+  return {
+    localByNode,
+    shared,
+    localTotal,
+    sharedTotal,
+    clusterTotal,
+  }
 }
 
 export function getClusterCapacitySummary(
   nodes: Array<ApiNode>,
-  storageByNode: Map<string, Capacity>
+  storageSummary: DashboardStorageSummary
 ) {
   return {
     cpuTotal: nodes.reduce((total, node) => total + node.maxcpu, 0),
     cpuUsed: nodes.reduce((total, node) => total + node.cpu * node.maxcpu, 0),
     memoryTotal: nodes.reduce((total, node) => total + node.maxmem, 0),
     memoryUsed: nodes.reduce((total, node) => total + node.mem, 0),
-    storage: sumCapacities(storageByNode.values()),
+    storage: storageSummary.clusterTotal,
   }
 }
 
