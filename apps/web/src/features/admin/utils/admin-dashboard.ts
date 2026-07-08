@@ -107,6 +107,14 @@ export type SharedStorageCapacity = Capacity & {
   nodes: Array<string>
 }
 
+type SharedStorageAccumulator = {
+  storage: string
+  type: string
+  nodes: Set<string>
+  total: number
+  used: number
+}
+
 export type DashboardStorageSummary = {
   localByNode: Map<string, Capacity>
   shared: Array<SharedStorageCapacity>
@@ -178,7 +186,7 @@ export function buildStorageSummary(
   sharedStorageNames: ReadonlySet<string> = new Set()
 ): DashboardStorageSummary {
   const localByNode = new Map<string, Capacity>()
-  const sharedByKey = new Map<string, SharedStorageCapacity>()
+  const sharedByKey = new Map<string, SharedStorageAccumulator>()
 
   nodes.forEach((node, index) => {
     localByNode.set(
@@ -197,22 +205,27 @@ export function buildStorageSummary(
         sharedByKey.set(key, {
           storage: storage.storage,
           type: storage.type,
-          nodes: [node.node],
+          nodes: new Set([node.node]),
           total: storage.total,
           used: storage.used,
         })
         continue
       }
 
-      if (!existing.nodes.includes(node.node)) {
-        existing.nodes.push(node.node)
-      }
+      existing.nodes.add(node.node)
       existing.total = Math.max(existing.total, storage.total)
       existing.used = Math.max(existing.used, storage.used)
     }
   })
 
-  const shared = [...sharedByKey.values()].toSorted((left, right) =>
+  const shared = [...sharedByKey.values()]
+    .map((entry) => ({
+      storage: entry.storage,
+      type: entry.type,
+      nodes: [...entry.nodes],
+      total: entry.total,
+      used: entry.used,
+    })).toSorted((left, right) =>
     left.storage.localeCompare(right.storage)
   )
   const localTotal = sumCapacities(localByNode.values())
