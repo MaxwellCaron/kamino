@@ -19,7 +19,7 @@ COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=web-build /repo/apps/web/dist/client /usr/share/nginx/html
 EXPOSE 3000
 
-FROM golang:1.26-bookworm AS api-build
+FROM golang:1.26.5-bookworm AS api-build
 WORKDIR /src/apps/api
 
 COPY apps/api/go.mod apps/api/go.sum ./
