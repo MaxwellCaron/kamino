@@ -137,6 +137,13 @@ function sharedStorageKey(storage: ApiStorage) {
   return `${storage.type}:${storage.storage}`
 }
 
+export function sharedStorageHistoryKey(storage: {
+  type: string
+  storage: string
+}) {
+  return `${storage.type}:${storage.storage}`
+}
+
 export function isSharedStorage(
   storage: ApiStorage,
   sharedStorageNames: ReadonlySet<string> = new Set()
@@ -225,9 +232,8 @@ export function buildStorageSummary(
       nodes: [...entry.nodes],
       total: entry.total,
       used: entry.used,
-    })).toSorted((left, right) =>
-    left.storage.localeCompare(right.storage)
-  )
+    }))
+    .toSorted((left, right) => left.storage.localeCompare(right.storage))
   const localTotal = sumCapacities(localByNode.values())
   const sharedTotal = sumCapacities(shared)
   const clusterTotal = {

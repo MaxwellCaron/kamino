@@ -61,10 +61,10 @@ type NodeUsageHistory struct {
 }
 
 type SharedStorageUsageHistory struct {
-	Storage string              `json:"storage"`
-	Type    string              `json:"type"`
-	Nodes   []string            `json:"nodes"`
-	Points  []UsageHistoryPoint `json:"points"`
+	Storage    string              `json:"storage"`
+	Type       string              `json:"type"`
+	SourceNode string              `json:"source_node"`
+	Points     []UsageHistoryPoint `json:"points"`
 }
 
 type ClusterUsageHistory struct {
@@ -83,8 +83,19 @@ type usageBucket struct {
 }
 
 type storageWithHistory struct {
-	storage Storage
-	points  []rrdDataPoint
+	storage  Storage
+	points   []rrdDataPoint
+	fetchErr error
+}
+
+type sharedStorageSelection struct {
+	storage    Storage
+	sourceNode string
+	points     []rrdDataPoint
+}
+
+func (entry storageWithHistory) historyAvailable() bool {
+	return entry.fetchErr == nil
 }
 
 type nodeHistoryResult struct {
@@ -209,6 +220,53 @@ func bucketsToUsageHistoryPoints(buckets map[int64]*usageBucket) []UsageHistoryP
 	return points
 }
 
+func selectSharedStorageHistories(
+	results []nodeHistoryResult,
+	configuredNodeOrder []string,
+	sharedStorageNames map[string]struct{},
+) map[string]sharedStorageSelection {
+	exposures := make(map[string]map[string]storageWithHistory)
+
+	for _, result := range results {
+		for _, entry := range result.storageHistories {
+			if !isSharedStorage(entry.storage, sharedStorageNames) {
+				continue
+			}
+
+			key := storageGroupKey(entry.storage)
+			if exposures[key] == nil {
+				exposures[key] = make(map[string]storageWithHistory)
+			}
+			exposures[key][result.node.Node] = entry
+		}
+	}
+
+	selections := make(map[string]sharedStorageSelection, len(exposures))
+	for key, byNode := range exposures {
+		var storage Storage
+		for _, entry := range byNode {
+			storage = entry.storage
+			break
+		}
+
+		for _, nodeName := range configuredNodeOrder {
+			entry, ok := byNode[nodeName]
+			if !ok || !entry.historyAvailable() {
+				continue
+			}
+
+			selections[key] = sharedStorageSelection{
+				storage:    storage,
+				sourceNode: nodeName,
+				points:     entry.points,
+			}
+			break
+		}
+	}
+
+	return selections
+}
+
 func buildNodeUsageHistoryPoints(
 	result nodeHistoryResult,
 	sharedStorageNames map[string]struct{},
@@ -235,6 +293,9 @@ func buildNodeUsageHistoryPoints(
 		if isSharedStorage(entry.storage, sharedStorageNames) {
 			continue
 		}
+		if !entry.historyAvailable() {
+			continue
+		}
 
 		for _, point := range entry.points {
 			if point.Time <= 0 {
@@ -257,9 +318,14 @@ func buildNodeUsageHistoryPoints(
 func buildClusterUsageHistoryPoints(
 	results []nodeHistoryResult,
 	sharedStorageNames map[string]struct{},
+	configuredNodeOrder []string,
 ) []UsageHistoryPoint {
 	buckets := make(map[int64]*usageBucket)
-	sharedSeen := make(map[string]struct{})
+	sharedSelections := selectSharedStorageHistories(
+		results,
+		configuredNodeOrder,
+		sharedStorageNames,
+	)
 
 	for _, result := range results {
 		defaultCPUTotal := float64(result.node.MaxCPU)
@@ -281,25 +347,9 @@ func buildClusterUsageHistoryPoints(
 
 		for _, entry := range result.storageHistories {
 			if isSharedStorage(entry.storage, sharedStorageNames) {
-				key := storageGroupKey(entry.storage)
-				if _, seen := sharedSeen[key]; seen {
-					continue
-				}
-				sharedSeen[key] = struct{}{}
-
-				for _, point := range entry.points {
-					if point.Time <= 0 {
-						continue
-					}
-
-					bucket := buckets[point.Time]
-					if bucket == nil {
-						bucket = &usageBucket{}
-						buckets[point.Time] = bucket
-					}
-
-					accumulateStorageMetrics(bucket, point)
-				}
+				continue
+			}
+			if !entry.historyAvailable() {
 				continue
 			}
 
@@ -316,6 +366,22 @@ func buildClusterUsageHistoryPoints(
 
 				accumulateStorageMetrics(bucket, point)
 			}
+		}
+	}
+
+	for _, selection := range sharedSelections {
+		for _, point := range selection.points {
+			if point.Time <= 0 {
+				continue
+			}
+
+			bucket := buckets[point.Time]
+			if bucket == nil {
+				bucket = &usageBucket{}
+				buckets[point.Time] = bucket
+			}
+
+			accumulateStorageMetrics(bucket, point)
 		}
 	}
 
@@ -345,49 +411,28 @@ func buildStorageOnlyUsageHistoryPoints(points []rrdDataPoint) []UsageHistoryPoi
 func buildSharedStorageUsageHistories(
 	results []nodeHistoryResult,
 	sharedStorageNames map[string]struct{},
+	configuredNodeOrder []string,
 ) []SharedStorageUsageHistory {
-	type sharedAccumulator struct {
-		storage Storage
-		nodes   []string
-		points  []rrdDataPoint
-	}
+	selections := selectSharedStorageHistories(
+		results,
+		configuredNodeOrder,
+		sharedStorageNames,
+	)
 
-	sharedGroups := make(map[string]*sharedAccumulator)
-
-	for _, result := range results {
-		for _, entry := range result.storageHistories {
-			if !isSharedStorage(entry.storage, sharedStorageNames) {
-				continue
-			}
-
-			key := storageGroupKey(entry.storage)
-			accumulator := sharedGroups[key]
-			if accumulator == nil {
-				accumulator = &sharedAccumulator{
-					storage: entry.storage,
-					points:  entry.points,
-				}
-				sharedGroups[key] = accumulator
-			}
-
-			accumulator.nodes = append(accumulator.nodes, result.node.Node)
-		}
-	}
-
-	keys := make([]string, 0, len(sharedGroups))
-	for key := range sharedGroups {
+	keys := make([]string, 0, len(selections))
+	for key := range selections {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
 	histories := make([]SharedStorageUsageHistory, 0, len(keys))
 	for _, key := range keys {
-		accumulator := sharedGroups[key]
+		selection := selections[key]
 		histories = append(histories, SharedStorageUsageHistory{
-			Storage: accumulator.storage.Storage,
-			Type:    accumulator.storage.Type,
-			Nodes:   accumulator.nodes,
-			Points:  buildStorageOnlyUsageHistoryPoints(accumulator.points),
+			Storage:    selection.storage.Storage,
+			Type:       selection.storage.Type,
+			SourceNode: selection.sourceNode,
+			Points:     buildStorageOnlyUsageHistoryPoints(selection.points),
 		})
 	}
 
@@ -505,14 +550,12 @@ func (c *Client) GetClusterUsageHistory(
 						normalizedTimeframe,
 						"AVERAGE",
 					)
-					if err != nil {
-						return err
-					}
 
 					storageMu.Lock()
 					storageHistories = append(storageHistories, storageWithHistory{
-						storage: storage,
-						points:  points,
+						storage:  storage,
+						points:   points,
+						fetchErr: err,
 					})
 					storageMu.Unlock()
 					return nil
@@ -545,8 +588,16 @@ func (c *Client) GetClusterUsageHistory(
 	}
 
 	return ClusterUsageHistory{
-		Points:         buildClusterUsageHistoryPoints(results, sharedStorageNames),
-		Nodes:          nodeHistories,
-		SharedStorages: buildSharedStorageUsageHistories(results, sharedStorageNames),
+		Points: buildClusterUsageHistoryPoints(
+			results,
+			sharedStorageNames,
+			c.nodes,
+		),
+		Nodes: nodeHistories,
+		SharedStorages: buildSharedStorageUsageHistories(
+			results,
+			sharedStorageNames,
+			c.nodes,
+		),
 	}, nil
 }

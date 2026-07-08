@@ -16,6 +16,7 @@ import {
   formatCores,
   formatUsageBytes,
   getClusterCapacitySummary,
+  sharedStorageHistoryKey,
 } from "../utils/admin-dashboard"
 import { UsageAreaChart } from "./usage-charts"
 import { AdminNodeTable } from "./admin-node-table"
@@ -69,6 +70,20 @@ export function AdminClusterCard({
 
     return historyMap
   }, [historyData?.nodes])
+  const sharedStorageHistoryByKey = useMemo(() => {
+    const historyMap = new Map<
+      string,
+      ReturnType<typeof buildUsageHistorySeries>
+    >()
+
+    for (const sharedHistory of historyData?.shared_storages ?? []) {
+      historyMap.set(sharedStorageHistoryKey(sharedHistory), {
+        ...buildUsageHistorySeries(sharedHistory.points),
+      })
+    }
+
+    return historyMap
+  }, [historyData?.shared_storages])
   const historyUnavailableMessage = useMemo(() => {
     if (historyError instanceof Error) {
       return historyError.message
@@ -159,7 +174,13 @@ export function AdminClusterCard({
             timeframe={timeframe}
             unavailableMessage="No history"
           />
-          <AdminSharedStorageTable sharedStorages={storageSummary.shared} />
+          <AdminSharedStorageTable
+            isHistoryLoading={isHistoryLoading}
+            sharedStorageHistoryByKey={sharedStorageHistoryByKey}
+            sharedStorages={storageSummary.shared}
+            timeframe={timeframe}
+            unavailableMessage="No history"
+          />
         </div>
       </CardContent>
     </Card>

@@ -245,6 +245,7 @@ export function NodeUsageAreaChart({
   isLoading = false,
   unavailableMessage = "No history",
   formatValue = formatUsageBytes,
+  showUsageHeader = true,
 }: {
   label: string
   used: number
@@ -255,6 +256,7 @@ export function NodeUsageAreaChart({
   isLoading?: boolean
   unavailableMessage?: string
   formatValue?: (value: number) => string
+  showUsageHeader?: boolean
 }) {
   const percent = percentage(used, total)
   const chartData = useMemo(
@@ -273,14 +275,16 @@ export function NodeUsageAreaChart({
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-2">
-      <div className="grid min-h-4 grid-cols-[minmax(0,1fr)_3.5rem] items-center gap-2 text-xs leading-none">
-        <span className="truncate text-muted-foreground" title={usageLabel}>
-          {usageLabel}
-        </span>
-        <span className="text-right tabular-nums">
-          {formatPercent(percent)}
-        </span>
-      </div>
+      {showUsageHeader ? (
+        <div className="grid min-h-4 grid-cols-[minmax(0,1fr)_3.5rem] items-center gap-2 text-xs leading-none">
+          <span className="truncate text-muted-foreground" title={usageLabel}>
+            {usageLabel}
+          </span>
+          <span className="text-right tabular-nums">
+            {formatPercent(percent)}
+          </span>
+        </div>
+      ) : null}
       <div className="w-full overflow-hidden">
         {isLoading ? (
           <Skeleton className="w-full rounded-md" style={{ aspectRatio }} />

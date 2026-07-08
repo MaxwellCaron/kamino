@@ -23,7 +23,7 @@ export type ApiNodeUsageHistory = {
 export type ApiSharedStorageUsageHistory = {
   storage: string
   type: string
-  nodes: Array<string>
+  source_node: string
   points: Array<ApiUsageHistoryPoint>
 }
 
