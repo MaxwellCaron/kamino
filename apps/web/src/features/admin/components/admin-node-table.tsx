@@ -63,7 +63,7 @@ export function AdminNodeTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overflow-y-hidden">
       <Table className="min-w-4xl table-fixed">
         <colgroup>
           <col className="w-[min(12rem,28vw)] max-w-48" />
@@ -93,7 +93,7 @@ export function AdminNodeTable({
             const nodeHistory = nodeHistoryByNode.get(node.node)
 
             return (
-              <TableRow key={node.node}>
+              <TableRow className="relative hover:z-10" key={node.node}>
                 <TableCell
                   className="truncate pl-6 font-medium"
                   title={node.node}

@@ -44,7 +44,7 @@ export function AdminSharedStorageTable({
   }
 
   return (
-    <div className="overflow-x-auto border-t">
+    <div className="overflow-x-auto overflow-y-hidden border-t">
       <Table className="min-w-4xl table-fixed">
         <colgroup>
           <col className={nameColumnClassName} />
@@ -69,7 +69,10 @@ export function AdminSharedStorageTable({
                 ?.storage ?? []
 
             return (
-              <TableRow key={sharedStorageHistoryKey(storage)}>
+              <TableRow
+                className="relative hover:z-10"
+                key={sharedStorageHistoryKey(storage)}
+              >
                 <TableCell
                   className="truncate pl-6 font-medium"
                   title={storage.storage}

@@ -90,6 +90,7 @@ function UsageChartBody({
   aspectRatio,
   compact = false,
   showXAxis = true,
+  showCapacitySeries = false,
 }: {
   chartData: Array<CapacityHistoryPoint>
   color: string
@@ -99,6 +100,7 @@ function UsageChartBody({
   aspectRatio: string
   compact?: boolean
   showXAxis?: boolean
+  showCapacitySeries?: boolean
 }) {
   const xAxisConfig = useMemo(() => getXAxisConfig(timeframe), [timeframe])
   const margin = compact
@@ -110,7 +112,6 @@ function UsageChartBody({
   return (
     <AreaChart
       aspectRatio={aspectRatio}
-      className={compact ? "overflow-hidden" : undefined}
       data={chartData}
       margin={margin}
     >
@@ -120,6 +121,18 @@ function UsageChartBody({
         strokeDasharray="3,3"
         strokeOpacity={0.5}
       />
+      {showCapacitySeries ? (
+        <Area
+          dataKey="total"
+          fadeEdges
+          fill="var(--color-primary)"
+          fillOpacity={0.08}
+          gradientToOpacity={0.01}
+          showHighlight={false}
+          stroke="var(--color-primary)"
+          strokeWidth={compact ? 1 : 1.5}
+        />
+      ) : null}
       <Area
         dataKey="value"
         fadeEdges
@@ -138,18 +151,40 @@ function UsageChartBody({
         />
       ) : null}
       <ChartTooltip
-        content={({ point }) => (
-          <TooltipContent
-            rows={[
-              {
-                color,
-                label,
-                value: `${formatPercent(Number(point.value ?? 0))} · ${formatValue(Number(point.used ?? 0))} / ${formatValue(Number(point.total ?? 0))}`,
-              },
-            ]}
-            title={formatTooltipTitle(point.date)}
-          />
-        )}
+        className={
+          compact ? "-translate-y-[calc(20%+0.5rem)]" : undefined
+        }
+        content={({ point }) => {
+          const used = Number(point.used ?? 0)
+          const total = Number(point.total ?? 0)
+          const rows = showCapacitySeries
+            ? [
+                {
+                  color: "var(--color-primary)",
+                  label: "Total",
+                  value: formatValue(total),
+                },
+                {
+                  color,
+                  label,
+                  value: `${formatPercent(percentage(used, total))} · ${formatValue(used)}`,
+                },
+              ]
+            : [
+                {
+                  color,
+                  label,
+                  value: `${formatPercent(percentage(used, total))} · ${formatValue(used)} / ${formatValue(total)}`,
+                },
+              ]
+
+          return (
+            <TooltipContent
+              rows={rows}
+              title={formatTooltipTitle(point.date)}
+            />
+          )
+        }}
         showDatePill={false}
       />
     </AreaChart>
@@ -182,7 +217,7 @@ export function UsageAreaChart({
     () =>
       history.map((point) => ({
         date: point.date,
-        value: point.value,
+        value: point.used,
         used: point.used,
         total: point.total,
       })),
@@ -223,6 +258,7 @@ export function UsageAreaChart({
             color={color}
             formatValue={formatValue}
             label={label}
+            showCapacitySeries
             timeframe={timeframe}
           />
         ) : (
@@ -263,7 +299,7 @@ export function NodeUsageAreaChart({
     () =>
       history.map((point) => ({
         date: point.date,
-        value: point.value,
+        value: point.used,
         used: point.used,
         total: point.total,
       })),
@@ -285,7 +321,7 @@ export function NodeUsageAreaChart({
           </span>
         </div>
       ) : null}
-      <div className="w-full overflow-hidden">
+      <div className="w-full">
         {isLoading ? (
           <Skeleton className="w-full rounded-md" style={{ aspectRatio }} />
         ) : chartData.length > 0 ? (
@@ -296,6 +332,7 @@ export function NodeUsageAreaChart({
             compact
             formatValue={formatValue}
             label={label}
+            showCapacitySeries
             showXAxis={false}
             timeframe={timeframe}
           />
