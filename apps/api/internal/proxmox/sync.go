@@ -87,6 +87,9 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("ensuring folder for pool %q: %w", pool.PoolID, err)
 		}
+		if err := applyImportedPoolDescription(ctx, q, pool.PoolID, pool.Comment, folderID); err != nil {
+			return fmt.Errorf("importing pool %q comment: %w", pool.PoolID, err)
+		}
 		poolFolders[pool.PoolID] = folderID
 	}
 
@@ -127,11 +130,24 @@ func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, erro
 		return uuid.Nil, err
 	}
 
-	if rootID := findManagedRootFolderID(rows); rootID != nil {
+	if rootID := FindManagedRootFolderID(rows); rootID != nil {
 		return *rootID, nil
 	}
 
-	return q.CreateRootFolder(ctx, proxmoxRootFolderName)
+	id, err := q.CreateRootFolder(ctx, proxmoxRootFolderName)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	description := RootFolderDescription
+	if err := q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+		Description: &description,
+		ID:          id,
+	}); err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
 
 func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.UUID, name string) (uuid.UUID, error) {
@@ -329,4 +345,33 @@ func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID
 
 func decodePoolPath(poolID string) []string {
 	return strings.Split(poolID, "/")
+}
+
+const maxImportedPoolCommentLength = 256
+
+func applyImportedPoolDescription(
+	ctx context.Context,
+	q *database.Queries,
+	poolID string,
+	comment string,
+	folderID uuid.UUID,
+) error {
+	value := strings.TrimSpace(comment)
+	if value == "" {
+		return nil
+	}
+	if len(value) > maxImportedPoolCommentLength {
+		log.Printf(
+			"Warning: skipping pool %q comment import (%d characters exceeds %d limit)",
+			poolID,
+			len(value),
+			maxImportedPoolCommentLength,
+		)
+		return nil
+	}
+
+	return q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+		Description: &value,
+		ID:          folderID,
+	})
 }

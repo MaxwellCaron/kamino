@@ -186,7 +186,7 @@ function FolderMenuItems({
                   icon={PencilEdit01Icon}
                   className="text-muted-foreground"
                 />
-                Rename
+                Edit
               </DropdownMenuItem>
             )}
             {capabilities.managePermissions.visible && (
@@ -391,7 +391,7 @@ function VmMenuItems({
                   icon={PencilEdit01Icon}
                   className="text-muted-foreground"
                 />
-                Rename
+                Edit
               </DropdownMenuItem>
             )}
             {capabilities.editHardware.visible && (
@@ -534,7 +534,7 @@ function TemplateMenuItems({
                   icon={PencilEdit01Icon}
                   className="text-muted-foreground"
                 />
-                Rename
+                Edit
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
@@ -705,7 +705,11 @@ function InventoryNodeMenuBody({
             })
           }
           onRename={() =>
-            openRenameFolder({ folderId: itemId, currentName: data.name })
+            openRenameFolder({
+              folderId: itemId,
+              currentName: data.name,
+              currentDescription: data.description,
+            })
           }
           onDelete={handleDeleteFolder}
           isLoading={false}

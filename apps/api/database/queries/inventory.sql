@@ -199,8 +199,21 @@ WHERE inventory_item_id = $4;
 -- Read queries for API endpoints
 -- ---------------------------------------------------------------------------
 
+-- name: UpdateInventoryFolderDetails :exec
+UPDATE inventory_items
+SET name = $1,
+    description = $2
+WHERE id = $3
+  AND kind = 'folder';
+
+-- name: UpdateInventoryFolderDescription :exec
+UPDATE inventory_items
+SET description = $1
+WHERE id = $2
+  AND kind = 'folder';
+
 -- name: GetAllInventoryItems :many
-SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -219,7 +232,7 @@ ORDER BY
   ii.name ASC;
 
 -- name: GetInventoryItemByID :one
-SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description, ii.inherit_permissions,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)

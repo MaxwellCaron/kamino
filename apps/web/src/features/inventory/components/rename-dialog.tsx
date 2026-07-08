@@ -6,7 +6,12 @@ import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
 
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import { Field, FieldError, FieldGroup } from "@workspace/ui/components/field"
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
 import {
@@ -17,6 +22,7 @@ import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { formatVmReference } from "@/features/shared/utils/format"
@@ -35,6 +41,11 @@ const folderNameSchema = z
     "Name can only contain letters, numbers, and hyphens"
   )
 
+const folderDescriptionSchema = z
+  .string()
+  .trim()
+  .max(256, "Max 256 characters")
+
 type RenameDialogProps =
   | {
       mode: "create-folder"
@@ -48,6 +59,7 @@ type RenameDialogProps =
       onOpenChange: (open: boolean) => void
       folderId: string
       currentName: string
+      currentDescription?: string | null
     }
   | {
       mode: "rename-item"
@@ -63,6 +75,8 @@ export function RenameDialog(props: RenameDialogProps) {
   const renameFolder = useRenameFolder()
   const renameVm = useRenameVM()
   const currentName = props.mode === "create-folder" ? "" : props.currentName
+  const currentDescription =
+    props.mode === "rename-folder" ? (props.currentDescription ?? "") : ""
 
   const ui = useMemo(() => {
     switch (props.mode) {
@@ -78,10 +92,10 @@ export function RenameDialog(props: RenameDialogProps) {
         }
       case "rename-folder":
         return {
-          title: "Rename Folder",
-          description: `Enter a new name for folder "${props.currentName}".`,
-          submitLabel: "Rename Folder",
-          pendingLabel: "Renaming...",
+          title: "Edit Folder",
+          description: `Update the name and description for folder "${props.currentName}".`,
+          submitLabel: "Save Folder",
+          pendingLabel: "Saving...",
           placeholder: "Folder",
           icon: PencilEdit01Icon,
           schema: folderNameSchema,
@@ -103,39 +117,44 @@ export function RenameDialog(props: RenameDialogProps) {
   }, [props])
 
   const form = useForm({
-    defaultValues: { name: currentName },
+    defaultValues: { name: currentName, description: currentDescription },
     validators: {
-      onSubmit: z.object({ name: ui.schema }),
+      onSubmit: z.object({
+        name: ui.schema,
+        description: folderDescriptionSchema,
+      }),
     },
     onSubmit: ({ value }) => {
-      const parsed = ui.schema.parse(value.name)
+      const parsedName = ui.schema.parse(value.name)
+      const parsedDescription = folderDescriptionSchema.parse(value.description)
       props.onOpenChange(false)
 
       if (props.mode === "create-folder") {
         showSingleMutationToast({
           title: "Creating",
-          name: parsed,
+          name: parsedName,
           promise: createFolder.mutateAsync({
-            name: parsed,
+            name: parsedName,
             parentId: props.parentId,
           }),
           successDescription: "Created",
         })
       } else if (props.mode === "rename-folder") {
         showSingleMutationToast({
-          title: "Renaming",
-          name: parsed,
+          title: "Saving",
+          name: parsedName,
           promise: renameFolder.mutateAsync({
             id: props.folderId,
-            name: parsed,
+            name: parsedName,
+            description: parsedDescription,
           }),
-          successDescription: "Renamed",
+          successDescription: "Saved",
         })
       } else {
         showSingleMutationToast({
           title: "Renaming",
-          name: parsed,
-          promise: renameVm.mutateAsync({ itemId: props.itemId, name: parsed }),
+          name: parsedName,
+          promise: renameVm.mutateAsync({ itemId: props.itemId, name: parsedName }),
           successDescription: "Renamed",
         })
       }
@@ -166,6 +185,7 @@ export function RenameDialog(props: RenameDialogProps) {
 
               return (
                 <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="name">Name</FieldLabel>
                   <Input
                     id="name"
                     placeholder={ui.placeholder}
@@ -183,6 +203,27 @@ export function RenameDialog(props: RenameDialogProps) {
               )
             }}
           </form.Field>
+          {props.mode === "rename-folder" && (
+            <form.Field name="description">
+              {(field) => {
+                const isInvalid = isTouchedInvalid(field.state.meta)
+
+                return (
+                  <CountedTextareaField
+                    id="description"
+                    label="Description"
+                    placeholder="Optional folder purpose"
+                    isInvalid={isInvalid}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    onBlur={field.handleBlur}
+                    maxLength={256}
+                    errors={isInvalid ? field.state.meta.errors : []}
+                  />
+                )
+              }}
+            </form.Field>
+          )}
         </FieldGroup>
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>

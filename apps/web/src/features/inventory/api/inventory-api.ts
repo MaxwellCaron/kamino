@@ -126,11 +126,15 @@ export async function createFolder(params: {
 export async function renameFolder(params: {
   id: string
   name: string
+  description?: string
 }): Promise<void> {
   const res = await apiFetch(`/api/v1/inventory/folders/${params.id}/rename`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: params.name }),
+    body: JSON.stringify({
+      name: params.name,
+      description: params.description ?? "",
+    }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

@@ -217,6 +217,7 @@ CREATE TABLE inventory_items (
     parent_id            UUID NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     kind                 inventory_item_kind NOT NULL,
     name                 TEXT NOT NULL,
+    description          TEXT NULL,
     inherit_permissions  BOOLEAN NOT NULL DEFAULT true,
     vm_limit             INTEGER NULL,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -232,7 +233,15 @@ CREATE TABLE inventory_items (
     CONSTRAINT inventory_folder_vm_limit_positive
         CHECK (vm_limit IS NULL OR vm_limit > 0),
     CONSTRAINT inventory_vm_limit_folders_only
-        CHECK (kind = 'folder' OR vm_limit IS NULL)
+        CHECK (kind = 'folder' OR vm_limit IS NULL),
+    CONSTRAINT inventory_items_folder_description_valid
+        CHECK (
+            description IS NULL
+            OR (
+                kind = 'folder'
+                AND length(description) <= 256
+            )
+        )
 );
 
 CREATE UNIQUE INDEX ux_inventory_items_root_folder_name

@@ -410,6 +410,7 @@ SELECT
     ii.parent_id,
     ii.kind,
     ii.name,
+    ii.description,
     ii.inherit_permissions,
     ii.vm_limit AS direct_vm_limit,
     (CASE
@@ -451,6 +452,7 @@ type GetInventoryItemWithPermissionsRow struct {
 	ParentID           *uuid.UUID        `json:"parent_id"`
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
 	InheritPermissions bool              `json:"inherit_permissions"`
 	DirectVmLimit      *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
@@ -474,6 +476,7 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 		&i.ParentID,
 		&i.Kind,
 		&i.Name,
+		&i.Description,
 		&i.InheritPermissions,
 		&i.DirectVmLimit,
 		&i.EffectiveVmLimit,
@@ -501,6 +504,7 @@ SELECT
     ii.parent_id,
     ii.kind,
     ii.name,
+    ii.description,
     ii.inherit_permissions,
     ii.vm_limit AS direct_vm_limit,
     (CASE
@@ -546,6 +550,7 @@ type GetInventoryItemsWithPermissionsRow struct {
 	ParentID           *uuid.UUID        `json:"parent_id"`
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
 	InheritPermissions bool              `json:"inherit_permissions"`
 	DirectVmLimit      *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
@@ -575,6 +580,7 @@ func (q *Queries) GetInventoryItemsWithPermissions(ctx context.Context, arg GetI
 			&i.ParentID,
 			&i.Kind,
 			&i.Name,
+			&i.Description,
 			&i.InheritPermissions,
 			&i.DirectVmLimit,
 			&i.EffectiveVmLimit,
@@ -644,6 +650,7 @@ SELECT
     ii.parent_id,
     ii.kind,
     ii.name,
+    ii.description,
     ii.inherit_permissions,
     ii.vm_limit AS direct_vm_limit,
     (CASE
@@ -688,6 +695,7 @@ type GetVisibleInventoryItemsForPrincipalRow struct {
 	ParentID           *uuid.UUID        `json:"parent_id"`
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
 	InheritPermissions bool              `json:"inherit_permissions"`
 	DirectVmLimit      *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
@@ -717,6 +725,7 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 			&i.ParentID,
 			&i.Kind,
 			&i.Name,
+			&i.Description,
 			&i.InheritPermissions,
 			&i.DirectVmLimit,
 			&i.EffectiveVmLimit,
@@ -752,6 +761,7 @@ visible_items AS (
         ii.parent_id,
         ii.kind,
         ii.name,
+        ii.description,
         ii.inherit_permissions,
         ii.vm_limit AS direct_vm_limit,
         (CASE
@@ -805,6 +815,7 @@ ancestor_rows AS (
         ii.parent_id,
         ii.kind,
         ii.name,
+        ii.description,
         true AS inherit_permissions,
         ii.vm_limit AS direct_vm_limit,
         COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)::INTEGER AS effective_vm_limit,
@@ -824,12 +835,12 @@ ancestor_rows AS (
       AND ii.kind = 'folder'
 ),
 combined AS (
-    SELECT id, parent_id, kind, name, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM visible_items
+    SELECT id, parent_id, kind, name, description, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM visible_items
     UNION ALL
-    SELECT id, parent_id, kind, name, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM ancestor_rows
+    SELECT id, parent_id, kind, name, description, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM ancestor_rows
 )
 SELECT DISTINCT ON (id)
-    id, parent_id, kind, name, inherit_permissions,
+    id, parent_id, kind, name, description, inherit_permissions,
     direct_vm_limit, effective_vm_limit, vm_count,
     node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb,
     allowed_mask, denied_mask
@@ -842,6 +853,7 @@ type GetVisibleInventoryTreeForPrincipalRow struct {
 	ParentID           *uuid.UUID        `json:"parent_id"`
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
 	InheritPermissions bool              `json:"inherit_permissions"`
 	DirectVmLimit      *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
@@ -871,6 +883,7 @@ func (q *Queries) GetVisibleInventoryTreeForPrincipal(ctx context.Context, princ
 			&i.ParentID,
 			&i.Kind,
 			&i.Name,
+			&i.Description,
 			&i.InheritPermissions,
 			&i.DirectVmLimit,
 			&i.EffectiveVmLimit,

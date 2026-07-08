@@ -62,6 +62,7 @@ type CreateFolderDialogConfig = {
 type RenameFolderDialogConfig = {
   folderId: string
   currentName: string
+  currentDescription?: string | null
 }
 
 type FolderLimitDialogConfig = {
@@ -283,6 +284,7 @@ export function InventoryDialogsProvider({
           <RenameDialog
             mode="rename-folder"
             currentName={state.renameFolder.currentName}
+            currentDescription={state.renameFolder.currentDescription}
             folderId={state.renameFolder.folderId}
             open={true}
             onOpenChange={(open) => {

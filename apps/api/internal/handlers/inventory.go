@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
@@ -30,6 +31,7 @@ type TreeNode struct {
 	ID               uuid.UUID          `json:"id"`
 	Name             string             `json:"name"`
 	Kind             string             `json:"kind"`
+	Description      *string            `json:"description,omitempty"`
 	DirectVMLimit    *int32             `json:"direct_vm_limit"`
 	EffectiveVMLimit *int32             `json:"effective_vm_limit"`
 	VMCount          *int32             `json:"vm_count"`
@@ -53,6 +55,7 @@ type InventoryItem struct {
 	ParentID           *uuid.UUID         `json:"parent_id"`
 	Kind               string             `json:"kind"`
 	Name               string             `json:"name"`
+	Description        *string            `json:"description,omitempty"`
 	InheritPermissions bool               `json:"inherit_permissions"`
 	DirectVMLimit      *int32             `json:"direct_vm_limit"`
 	EffectiveVMLimit   *int32             `json:"effective_vm_limit"`
@@ -497,8 +500,9 @@ func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
-type renameFolderRequest struct {
-	Name string `json:"name" binding:"required"`
+type updateFolderDetailsRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	Description *string `json:"description"`
 }
 
 type updateFolderVMLimitRequest struct {
@@ -520,7 +524,7 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 		return
 	}
 
-	var req renameFolderRequest
+	var req updateFolderDetailsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeInvalidRequest(c, "invalid request body")
 		return
@@ -540,17 +544,21 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 		return
 	}
 
-	if err := h.Service.RenameFolder(c.Request.Context(), id, req.Name); err != nil {
+	if err := h.Service.UpdateFolderDetails(c.Request.Context(), id, req.Name, req.Description); err != nil {
 		writeInventoryError(c, err)
 		return
 	}
 
+	descriptionPresent := req.Description != nil && strings.TrimSpace(*req.Description) != ""
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "folder.rename",
 		TargetKind:       "folder",
 		InventoryItemID:  &id,
-		Metadata:         map[string]any{"name": req.Name},
+		Metadata: map[string]any{
+			"name":                req.Name,
+			"description_present": descriptionPresent,
+		},
 	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -692,6 +700,7 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 			ID:               row.ID,
 			Name:             row.Name,
 			Kind:             string(row.Kind),
+			Description:      row.Description,
 			DirectVMLimit:    row.DirectVmLimit,
 			EffectiveVMLimit: positiveInt32Ptr(row.EffectiveVmLimit),
 			VMCount:          folderCountPtr(row.Kind, row.VmCount),
@@ -741,6 +750,7 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 		ParentID:           row.ParentID,
 		Kind:               string(row.Kind),
 		Name:               row.Name,
+		Description:        row.Description,
 		InheritPermissions: row.InheritPermissions,
 		DirectVMLimit:      row.DirectVmLimit,
 		EffectiveVMLimit:   positiveInt32Ptr(row.EffectiveVmLimit),
@@ -825,6 +835,7 @@ func writeInventoryError(c *gin.Context, err error) {
 		errors.Is(err, inventory.ErrInventoryItemNotFolder),
 		errors.Is(err, inventory.ErrInventoryFolderDepthExceeded),
 		errors.Is(err, inventory.ErrInventoryInvalidFolderLimit),
+		errors.Is(err, inventory.ErrInventoryDescriptionTooLong),
 		errors.Is(err, names.ErrRequired),
 		errors.Is(err, names.ErrTooLong),
 		errors.Is(err, names.ErrMustStartWithAlnum),

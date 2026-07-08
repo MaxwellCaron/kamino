@@ -127,7 +127,8 @@ func (h *PodsHandler) resolveConfiguredFolderID(
 // concrete Pods folder. With a configured ID the folder must already exist.
 func (h *PodsHandler) ensurePodsFolderID(ctx context.Context) (uuid.UUID, error) {
 	if h.PodsFolderItemID == uuid.Nil {
-		return h.Service.EnsureFolderPath(ctx, []string{podsFolderName})
+		description := inventory.PurposePodsFolderDescription
+		return h.Service.EnsureFolderPathWithDescription(ctx, []string{podsFolderName}, &description)
 	}
 
 	id, found, err := h.resolvePodsFolderID(ctx)
@@ -137,12 +138,16 @@ func (h *PodsHandler) ensurePodsFolderID(ctx context.Context) (uuid.UUID, error)
 	if !found {
 		return uuid.Nil, errConfiguredPodsFolderMissing
 	}
+	if err := h.Service.SetFolderDescription(ctx, id, inventory.PurposePodsFolderDescription); err != nil {
+		return uuid.Nil, err
+	}
 	return id, nil
 }
 
 func (h *PodsHandler) ensurePersonalPodsFolderID(ctx context.Context) (uuid.UUID, error) {
 	if h.PersonalPodsFolderItemID == uuid.Nil {
-		return h.Service.EnsureFolderPath(ctx, []string{personalPodsFolderName})
+		description := inventory.PurposePersonalPodsFolderDescription
+		return h.Service.EnsureFolderPathWithDescription(ctx, []string{personalPodsFolderName}, &description)
 	}
 
 	id, found, err := h.resolvePersonalPodsFolderID(ctx)
@@ -152,7 +157,68 @@ func (h *PodsHandler) ensurePersonalPodsFolderID(ctx context.Context) (uuid.UUID
 	if !found {
 		return uuid.Nil, errConfiguredPersonalPodsFolderMissing
 	}
+	if err := h.Service.SetFolderDescription(ctx, id, inventory.PurposePersonalPodsFolderDescription); err != nil {
+		return uuid.Nil, err
+	}
 	return id, nil
+}
+
+func (h *PodsHandler) EnsurePurposeFolderDescriptions(ctx context.Context) error {
+	syncDescription := func(label string, sync func() error) {
+		if err := sync(); err != nil {
+			log.Printf("Purpose folder description sync for %q failed: %v", label, err)
+		}
+	}
+
+	rows, err := database.New(h.DB).GetAllInventoryItems(ctx)
+	if err != nil {
+		return err
+	}
+	if rootID := proxmox.FindManagedRootFolderID(rows); rootID != nil {
+		syncDescription(proxmox.RootFolderName, func() error {
+			return h.Service.SetFolderDescription(ctx, *rootID, inventory.PurposeProxmoxRootFolderDescription)
+		})
+	}
+
+	syncDescription(podsFolderName, func() error {
+		if h.PodsFolderItemID != uuid.Nil {
+			id, found, err := h.resolvePodsFolderID(ctx)
+			if err != nil || !found {
+				return err
+			}
+			return h.Service.SetFolderDescription(ctx, id, inventory.PurposePodsFolderDescription)
+		}
+		id, found, err := h.Service.FindFolderPath(ctx, []string{podsFolderName})
+		if err != nil || !found {
+			return err
+		}
+		return h.Service.SetFolderDescription(ctx, id, inventory.PurposePodsFolderDescription)
+	})
+
+	syncDescription(personalPodsFolderName, func() error {
+		if h.PersonalPodsFolderItemID != uuid.Nil {
+			id, found, err := h.resolvePersonalPodsFolderID(ctx)
+			if err != nil || !found {
+				return err
+			}
+			return h.Service.SetFolderDescription(ctx, id, inventory.PurposePersonalPodsFolderDescription)
+		}
+		id, found, err := h.Service.FindFolderPath(ctx, []string{personalPodsFolderName})
+		if err != nil || !found {
+			return err
+		}
+		return h.Service.SetFolderDescription(ctx, id, inventory.PurposePersonalPodsFolderDescription)
+	})
+
+	syncDescription(templatesFolderName, func() error {
+		id, found, err := h.resolveTemplatesFolderID(ctx)
+		if err != nil || !found {
+			return err
+		}
+		return h.Service.SetFolderDescription(ctx, id, inventory.PurposeTemplatesFolderDescription)
+	})
+
+	return nil
 }
 
 type publishedPodPrincipalResponse struct {
@@ -1110,7 +1176,13 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	vmFolderID, err := h.Service.CreateFolder(c.Request.Context(), podFolderID, podVirtualMachinesFolderName)
+	vmDescription := inventory.PurposePodVirtualMachinesFolderDescription
+	vmFolderID, err := h.Service.EnsureChildFolderWithDescription(
+		c.Request.Context(),
+		podFolderID,
+		podVirtualMachinesFolderName,
+		&vmDescription,
+	)
 	if err != nil {
 		progress.fail(inventoryRequestError(err).UserMessage)
 		h.cleanupFailedPodProvision(podFolderID, nil)
@@ -2358,10 +2430,12 @@ func (h *PodsHandler) updatePublishedPodTemplates(
 	}
 
 	progress.set(publishProgressStepPreparing, "Preparing selected Pod Template VMs for update.")
-	templateFolderID, err := h.Service.EnsureChildFolder(
+	templateDescription := inventory.PurposePublishedPodTemplateFolderDescription
+	templateFolderID, err := h.Service.EnsureChildFolderWithDescription(
 		ctx,
 		req.SourceFolderID,
 		publishedPodTemplateFolderName,
+		&templateDescription,
 	)
 	if err != nil {
 		return nil, nil, inventoryRequestError(err)
@@ -2456,10 +2530,12 @@ func (h *PodsHandler) preparePublishedPodTemplates(
 
 	progress.set(publishProgressStepPreparing, "Creating or finding the Pod Template Folder inside the selected Pod Folder.")
 
-	templateFolderID, err := h.Service.EnsureChildFolder(
+	templateDescription := inventory.PurposePublishedPodTemplateFolderDescription
+	templateFolderID, err := h.Service.EnsureChildFolderWithDescription(
 		ctx,
 		req.SourceFolderID,
 		publishedPodTemplateFolderName,
+		&templateDescription,
 	)
 	if err != nil {
 		return nil, inventoryRequestError(err)

@@ -106,7 +106,16 @@ func ensureFolderChild(
 }
 
 func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUID, error) {
+	return s.EnsureFolderPathWithDescription(ctx, path, nil)
+}
+
+func (s *Service) EnsureFolderPathWithDescription(ctx context.Context, path []string, description *string) (uuid.UUID, error) {
 	normalizedPath, err := normalizeFolderPath(path)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	normalizedDescription, err := NormalizeFolderDescription(description)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -144,7 +153,16 @@ func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUI
 		created = created || didCreate
 	}
 
-	if created {
+	if normalizedDescription != nil {
+		if err := q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+			Description: normalizedDescription,
+			ID:          currentID,
+		}); err != nil {
+			return uuid.Nil, err
+		}
+	}
+
+	if created || normalizedDescription != nil {
 		s.notifyTx(ctx, tx, currentID)
 	}
 
@@ -152,7 +170,7 @@ func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUI
 		return uuid.Nil, err
 	}
 
-	if created {
+	if created || normalizedDescription != nil {
 		s.scheduleMirror()
 	}
 
@@ -160,8 +178,22 @@ func (s *Service) EnsureFolderPath(ctx context.Context, path []string) (uuid.UUI
 }
 
 func (s *Service) EnsureChildFolder(ctx context.Context, parentID uuid.UUID, name string) (uuid.UUID, error) {
+	return s.EnsureChildFolderWithDescription(ctx, parentID, name, nil)
+}
+
+func (s *Service) EnsureChildFolderWithDescription(
+	ctx context.Context,
+	parentID uuid.UUID,
+	name string,
+	description *string,
+) (uuid.UUID, error) {
 	normalizedName := names.Normalize(name)
 	if err := names.ValidateFolder(normalizedName); err != nil {
+		return uuid.Nil, err
+	}
+
+	normalizedDescription, err := NormalizeFolderDescription(description)
+	if err != nil {
 		return uuid.Nil, err
 	}
 
@@ -176,13 +208,23 @@ func (s *Service) EnsureChildFolder(ctx context.Context, parentID uuid.UUID, nam
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if created {
+
+	if normalizedDescription != nil {
+		if err := q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+			Description: normalizedDescription,
+			ID:          folderID,
+		}); err != nil {
+			return uuid.Nil, err
+		}
+	}
+
+	if created || normalizedDescription != nil {
 		s.notifyTx(ctx, tx, folderID)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
 	}
-	if created {
+	if created || normalizedDescription != nil {
 		s.scheduleMirror()
 	}
 

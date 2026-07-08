@@ -88,7 +88,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		return nil
 	}
 
-	desiredPools := make(map[string]struct{})
+	desiredPools := make(map[string]*string)
 	desiredVMPools := make(map[vmKey]string)
 	desiredVMNotes := make(map[vmKey]string)
 
@@ -100,7 +100,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		if id != *rootID && row.Kind == database.InventoryItemKindFolder {
 			nextPath = appendPath(path, row.Name)
 			poolID := EncodePoolPath(nextPath)
-			desiredPools[poolID] = struct{}{}
+			desiredPools[poolID] = row.Description
 		}
 
 		for _, childID := range childrenByParent[id] {
@@ -139,11 +139,28 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		currentPoolsByID[pool.PoolID] = pool
 	}
 
-	for _, poolID := range sortedPoolIDsByDepth(desiredPools, false) {
-		if _, exists := currentPoolsByID[poolID]; exists {
+	for _, poolID := range sortedPoolIDsByDepth(desiredPoolIDs(desiredPools), false) {
+		desiredComment := desiredPoolComment(desiredPools[poolID])
+		if existing, exists := currentPoolsByID[poolID]; exists {
+			if existing.Comment != desiredComment {
+				comment := desiredComment
+				var commentPtr *string
+				if desiredComment != "" {
+					commentPtr = &comment
+				}
+				if err := m.client.UpdatePoolComment(ctx, poolID, commentPtr); err != nil {
+					return fmt.Errorf("updating pool %q comment: %w", poolID, err)
+				}
+			}
 			continue
 		}
-		if err := m.client.CreatePool(ctx, poolID); err != nil {
+
+		var commentPtr *string
+		if desiredComment != "" {
+			comment := desiredComment
+			commentPtr = &comment
+		}
+		if err := m.client.CreatePool(ctx, poolID, commentPtr); err != nil {
 			return fmt.Errorf("creating pool %q: %w", poolID, err)
 		}
 	}
@@ -224,7 +241,22 @@ func buildInventoryIndex(rows []database.GetAllInventoryItemsRow) (*uuid.UUID, m
 		}
 	}
 
-	return findManagedRootFolderID(rows), itemsByID, childrenByParent
+	return FindManagedRootFolderID(rows), itemsByID, childrenByParent
+}
+
+func desiredPoolComment(description *string) string {
+	if description == nil {
+		return ""
+	}
+	return *description
+}
+
+func desiredPoolIDs(desiredPools map[string]*string) map[string]struct{} {
+	poolIDs := make(map[string]struct{}, len(desiredPools))
+	for poolID := range desiredPools {
+		poolIDs[poolID] = struct{}{}
+	}
+	return poolIDs
 }
 
 func appendPath(path []string, segment string) []string {

@@ -94,7 +94,7 @@ export function InventoryFolderItem({
           </ItemMedia>
           <ItemContent>
             <ItemTitle>{node.name}</ItemTitle>
-            <ItemDescription className="flex items-center gap-2 **:text-xs">
+            <ItemDescription className="flex items-center gap-2">
               {isFolder ? (
                 <FolderDescription node={node} />
               ) : (

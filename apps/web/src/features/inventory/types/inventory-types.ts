@@ -18,6 +18,7 @@ export type ApiTreeNode = {
   id: string
   name: string
   kind: "folder" | "vm"
+  description?: string | null
   direct_vm_limit?: number | null
   effective_vm_limit?: number | null
   vm_count?: number | null
@@ -40,6 +41,7 @@ export type ApiInventoryItem = {
   parent_id: string | null
   kind: "folder" | "vm"
   name: string
+  description?: string | null
   inherit_permissions: boolean
   direct_vm_limit?: number | null
   effective_vm_limit?: number | null

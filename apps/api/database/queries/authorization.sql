@@ -45,6 +45,7 @@ SELECT
     ii.parent_id,
     ii.kind,
     ii.name,
+    ii.description,
     ii.inherit_permissions,
     ii.vm_limit AS direct_vm_limit,
     (CASE
@@ -94,6 +95,7 @@ visible_items AS (
         ii.parent_id,
         ii.kind,
         ii.name,
+        ii.description,
         ii.inherit_permissions,
         ii.vm_limit AS direct_vm_limit,
         (CASE
@@ -147,6 +149,7 @@ ancestor_rows AS (
         ii.parent_id,
         ii.kind,
         ii.name,
+        ii.description,
         true AS inherit_permissions,
         ii.vm_limit AS direct_vm_limit,
         COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)::INTEGER AS effective_vm_limit,
@@ -171,7 +174,7 @@ combined AS (
     SELECT * FROM ancestor_rows
 )
 SELECT DISTINCT ON (id)
-    id, parent_id, kind, name, inherit_permissions,
+    id, parent_id, kind, name, description, inherit_permissions,
     direct_vm_limit, effective_vm_limit, vm_count,
     node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb,
     allowed_mask, denied_mask
@@ -184,6 +187,7 @@ SELECT
     ii.parent_id,
     ii.kind,
     ii.name,
+    ii.description,
     ii.inherit_permissions,
     ii.vm_limit AS direct_vm_limit,
     (CASE
@@ -224,6 +228,7 @@ SELECT
     ii.parent_id,
     ii.kind,
     ii.name,
+    ii.description,
     ii.inherit_permissions,
     ii.vm_limit AS direct_vm_limit,
     (CASE

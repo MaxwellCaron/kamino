@@ -708,6 +708,9 @@ func main() {
 		DevVMIDRange:                    vmidRangeConfig.Dev,
 		PersonalVMIDRange:               vmidRangeConfig.Personal,
 	}
+	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {
+		log.Printf("Purpose folder description sync failed: %v", err)
+	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
 		Authz: authzService,

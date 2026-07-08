@@ -453,11 +453,31 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 }
 
 // CreatePool ensures a pool exists for a folder path mirrored from Kamino.
-func (c *Client) CreatePool(ctx context.Context, poolID string) error {
-	var resp apiResponse[any]
-	return c.post(ctx, "/api2/json/pools", map[string]string{
+func (c *Client) CreatePool(ctx context.Context, poolID string, comment *string) error {
+	payload := map[string]string{
 		"poolid": poolID,
-	}, &resp)
+	}
+	if comment != nil {
+		payload["comment"] = *comment
+	}
+
+	var resp apiResponse[any]
+	return c.post(ctx, "/api2/json/pools", payload, &resp)
+}
+
+// UpdatePoolComment updates the comment on an existing Proxmox pool.
+func (c *Client) UpdatePoolComment(ctx context.Context, poolID string, comment *string) error {
+	payload := map[string]string{
+		"poolid": poolID,
+	}
+	if comment != nil {
+		payload["comment"] = *comment
+	} else {
+		payload["comment"] = ""
+	}
+
+	var resp apiResponse[any]
+	return c.put(ctx, "/api2/json/pools/", payload, &resp)
 }
 
 // DeletePool removes an empty pool that is no longer represented by Kamino inventory.

@@ -62,6 +62,7 @@ const testFolder: ApiTreeNode = {
   id: "folder-1",
   name: "Test Folder",
   kind: "folder",
+  description: "Folder purpose text",
   permissions: {
     allowed_mask: 0,
     denied_mask: 0,
@@ -92,6 +93,7 @@ describe("InventoryFolderPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Test Folder" })
     ).toBeInTheDocument()
+    expect(screen.getByText("Folder purpose text")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Actions for Test Folder" })
     ).toBeInTheDocument()

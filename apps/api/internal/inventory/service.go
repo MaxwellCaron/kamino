@@ -29,7 +29,10 @@ var (
 	ErrInventoryItemInUse           = errors.New("inventory item is in use")
 	ErrInventoryInvalidACL          = errors.New("invalid inventory ACL entry")
 	ErrInventoryPrincipalNotFound   = errors.New("principal not found")
+	ErrInventoryDescriptionTooLong  = errors.New("folder description must be 256 characters or less")
 )
+
+const MaxFolderDescriptionLength = 256
 
 const maxProxmoxPoolDepth = 3
 
@@ -230,4 +233,18 @@ func normalizeMutationError(err error) error {
 	}
 
 	return fmt.Errorf("%w: %s", ErrInventoryInvalidMove, pgErr.Message)
+}
+
+func NormalizeFolderDescription(description *string) (*string, error) {
+	if description == nil {
+		return nil, nil
+	}
+	value := strings.TrimSpace(*description)
+	if value == "" {
+		return nil, nil
+	}
+	if len(value) > MaxFolderDescriptionLength {
+		return nil, ErrInventoryDescriptionTooLong
+	}
+	return &value, nil
 }

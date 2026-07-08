@@ -27,7 +27,7 @@ func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) e
 		})
 
 		if index == -1 {
-			if err := c.CreatePool(ctx, currentPoolID); err != nil {
+			if err := c.CreatePool(ctx, currentPoolID, nil); err != nil {
 				return fmt.Errorf("creating pool %q: %w", currentPoolID, err)
 			}
 			pools = append(pools, Pool{PoolID: currentPoolID})

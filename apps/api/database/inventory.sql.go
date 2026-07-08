@@ -70,8 +70,7 @@ func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
-
-SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -95,6 +94,7 @@ type GetAllInventoryItemsRow struct {
 	ParentID         *uuid.UUID        `json:"parent_id"`
 	Kind             InventoryItemKind `json:"kind"`
 	Name             string            `json:"name"`
+	Description      *string           `json:"description"`
 	DirectVmLimit    *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit int32             `json:"effective_vm_limit"`
 	VmCount          int32             `json:"vm_count"`
@@ -107,9 +107,6 @@ type GetAllInventoryItemsRow struct {
 	DiskGb           *float64          `json:"disk_gb"`
 }
 
-// ---------------------------------------------------------------------------
-// Read queries for API endpoints
-// ---------------------------------------------------------------------------
 func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryItemsRow, error) {
 	rows, err := q.db.Query(ctx, getAllInventoryItems)
 	if err != nil {
@@ -124,6 +121,7 @@ func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryIt
 			&i.ParentID,
 			&i.Kind,
 			&i.Name,
+			&i.Description,
 			&i.DirectVmLimit,
 			&i.EffectiveVmLimit,
 			&i.VmCount,
@@ -229,7 +227,7 @@ func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID *uuid.UUID) ([
 }
 
 const getInventoryItemByID = `-- name: GetInventoryItemByID :one
-SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description, ii.inherit_permissions,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -250,6 +248,7 @@ type GetInventoryItemByIDRow struct {
 	ParentID           *uuid.UUID        `json:"parent_id"`
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
 	InheritPermissions bool              `json:"inherit_permissions"`
 	DirectVmLimit      *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
@@ -271,6 +270,7 @@ func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetIn
 		&i.ParentID,
 		&i.Kind,
 		&i.Name,
+		&i.Description,
 		&i.InheritPermissions,
 		&i.DirectVmLimit,
 		&i.EffectiveVmLimit,
@@ -621,6 +621,46 @@ func (q *Queries) NormalizeInventoryItemInheritance(ctx context.Context) (int64,
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateInventoryFolderDescription = `-- name: UpdateInventoryFolderDescription :exec
+UPDATE inventory_items
+SET description = $1
+WHERE id = $2
+  AND kind = 'folder'
+`
+
+type UpdateInventoryFolderDescriptionParams struct {
+	Description *string   `json:"description"`
+	ID          uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateInventoryFolderDescription(ctx context.Context, arg UpdateInventoryFolderDescriptionParams) error {
+	_, err := q.db.Exec(ctx, updateInventoryFolderDescription, arg.Description, arg.ID)
+	return err
+}
+
+const updateInventoryFolderDetails = `-- name: UpdateInventoryFolderDetails :exec
+
+UPDATE inventory_items
+SET name = $1,
+    description = $2
+WHERE id = $3
+  AND kind = 'folder'
+`
+
+type UpdateInventoryFolderDetailsParams struct {
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	ID          uuid.UUID `json:"id"`
+}
+
+// ---------------------------------------------------------------------------
+// Read queries for API endpoints
+// ---------------------------------------------------------------------------
+func (q *Queries) UpdateInventoryFolderDetails(ctx context.Context, arg UpdateInventoryFolderDetailsParams) error {
+	_, err := q.db.Exec(ctx, updateInventoryFolderDetails, arg.Name, arg.Description, arg.ID)
+	return err
 }
 
 const updateInventoryFolderVMLimit = `-- name: UpdateInventoryFolderVMLimit :exec
