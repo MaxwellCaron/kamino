@@ -35,7 +35,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed array index used as a React key.",
           "Fixed imagePullPolicy configuration.",
@@ -79,7 +79,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed permanently stranded requests and managers approving their own requests.",
           "Fixed routers using incorrect configurations and clone-of-clone.",
@@ -116,7 +116,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed pods cloned for groups not displaying for users.",
           "Fixed broken search bar in published pod catalog.",
@@ -148,7 +148,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed inventory permission edits visibility.",
           "Fixed incorrect sidebar width on pods endpoints.",
@@ -169,7 +169,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: ["Fixed VNC console hang."],
       },
     ],
@@ -180,7 +180,7 @@ export const RELEASES: Array<Release> = [
     groups: [
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Hardened login with rate limiting and post-login redirect validation.",
           "Fixed membership dialog infinite loop and duplicate-key bugs.",
@@ -217,7 +217,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed scrollbar margin and pod/inventory tree VM mismatch.",
           "Fixed 404 on misconfiguration.",
@@ -254,7 +254,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed redundant descriptions.",
           "Fixed dialog flashing.",
