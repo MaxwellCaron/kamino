@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,6 +24,10 @@ type Sync struct {
 // NewSync creates a new AD sync service.
 func NewSync(db *pgxpool.Pool, client *Client) *Sync {
 	return &Sync{db: db, client: client}
+}
+
+func principalCreatedAtParam(createdAt time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: createdAt.UTC(), Valid: true}
 }
 
 // Run performs a full sync: fetches users/groups from AD, upserts them as
@@ -59,11 +65,12 @@ func (s *Sync) Run(ctx context.Context) error {
 	keptSIDs := make([]string, 0, len(groups)+len(users))
 
 	for _, g := range groups {
-		id, err := q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
+		id, err := q.UpsertSyncedPrincipal(ctx, database.UpsertSyncedPrincipalParams{
 			ProviderID:    providerID,
 			PrincipalType: database.PrincipalTypeGroup,
 			ExternalID:    g.SID,
 			Name:          &g.Name,
+			CreatedAt:     principalCreatedAtParam(g.CreatedAt),
 		})
 		if err != nil {
 			return fmt.Errorf("upserting group %q: %w", g.Name, err)
@@ -80,11 +87,12 @@ func (s *Sync) Run(ctx context.Context) error {
 			return fmt.Errorf("normalizing full name for user %q: %w", u.Username, err)
 		}
 
-		id, err := q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
+		id, err := q.UpsertSyncedPrincipal(ctx, database.UpsertSyncedPrincipalParams{
 			ProviderID:    providerID,
 			PrincipalType: database.PrincipalTypeUser,
 			ExternalID:    u.SID,
 			Name:          &u.Username,
+			CreatedAt:     principalCreatedAtParam(u.CreatedAt),
 		})
 		if err != nil {
 			return fmt.Errorf("upserting user %q: %w", u.Username, err)

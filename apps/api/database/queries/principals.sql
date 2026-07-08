@@ -24,6 +24,16 @@ ON CONFLICT (provider_id, external_id)
 DO UPDATE SET name = EXCLUDED.name, principal_type = EXCLUDED.principal_type
 RETURNING id;
 
+-- name: UpsertSyncedPrincipal :one
+INSERT INTO principals (provider_id, principal_type, external_id, name, created_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (provider_id, external_id)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    principal_type = EXCLUDED.principal_type,
+    created_at = EXCLUDED.created_at
+RETURNING id;
+
 -- name: DeleteStalePrincipals :execrows
 DELETE FROM principals
 WHERE provider_id = $1

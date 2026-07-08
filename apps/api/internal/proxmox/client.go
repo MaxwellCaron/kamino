@@ -453,20 +453,10 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 }
 
 // CreatePool ensures a pool exists for a folder path mirrored from Kamino.
-func (c *Client) CreatePool(ctx context.Context, poolID, comment string) error {
+func (c *Client) CreatePool(ctx context.Context, poolID string) error {
 	var resp apiResponse[any]
 	return c.post(ctx, "/api2/json/pools", map[string]string{
-		"poolid":  poolID,
-		"comment": comment,
-	}, &resp)
-}
-
-// UpdatePoolComment updates metadata for an existing pool.
-func (c *Client) UpdatePoolComment(ctx context.Context, poolID, comment string) error {
-	var resp apiResponse[any]
-	return c.put(ctx, "/api2/json/pools/", map[string]string{
-		"poolid":  poolID,
-		"comment": comment,
+		"poolid": poolID,
 	}, &resp)
 }
 

@@ -15,10 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	kaminoManagedPoolCommentTag = "Managed by Kamino"
-)
-
 type InventoryMirror struct {
 	db     *pgxpool.Pool
 	client *Client
@@ -92,7 +88,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		return nil
 	}
 
-	desiredPools := make(map[string]string)
+	desiredPools := make(map[string]struct{})
 	desiredVMPools := make(map[vmKey]string)
 	desiredVMNotes := make(map[vmKey]string)
 
@@ -104,7 +100,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		if id != *rootID && row.Kind == database.InventoryItemKindFolder {
 			nextPath = appendPath(path, row.Name)
 			poolID := EncodePoolPath(nextPath)
-			desiredPools[poolID] = ManagedPoolComment(nextPath)
+			desiredPools[poolID] = struct{}{}
 		}
 
 		for _, childID := range childrenByParent[id] {
@@ -144,17 +140,11 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	}
 
 	for _, poolID := range sortedPoolIDsByDepth(desiredPools, false) {
-		comment := desiredPools[poolID]
-		current, exists := currentPoolsByID[poolID]
-		switch {
-		case !exists:
-			if err := m.client.CreatePool(ctx, poolID, comment); err != nil {
-				return fmt.Errorf("creating pool %q: %w", poolID, err)
-			}
-		case current.Comment != comment:
-			if err := m.client.UpdatePoolComment(ctx, poolID, comment); err != nil {
-				return fmt.Errorf("updating pool %q: %w", poolID, err)
-			}
+		if _, exists := currentPoolsByID[poolID]; exists {
+			continue
+		}
+		if err := m.client.CreatePool(ctx, poolID); err != nil {
+			return fmt.Errorf("creating pool %q: %w", poolID, err)
 		}
 	}
 
@@ -215,12 +205,6 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	for _, poolID := range staleManagedPoolIDs(currentPools, desiredPools) {
-		if err := m.client.DeletePool(ctx, poolID); err != nil {
-			return fmt.Errorf("deleting stale pool %q: %w", poolID, err)
-		}
-	}
-
 	return nil
 }
 
@@ -254,29 +238,13 @@ func EncodePoolPath(path []string) string {
 	return strings.Join(path, "/")
 }
 
-func sortedPoolIDsByDepth(pools map[string]string, deepestFirst bool) []string {
+func sortedPoolIDsByDepth(pools map[string]struct{}, deepestFirst bool) []string {
 	poolIDs := make([]string, 0, len(pools))
 	for poolID := range pools {
 		poolIDs = append(poolIDs, poolID)
 	}
 
 	sortPoolIDsByDepth(poolIDs, deepestFirst)
-	return poolIDs
-}
-
-func staleManagedPoolIDs(currentPools []Pool, desiredPools map[string]string) []string {
-	poolIDs := make([]string, 0, len(currentPools))
-	for _, pool := range currentPools {
-		if !strings.HasPrefix(pool.Comment, kaminoManagedPoolCommentTag) {
-			continue
-		}
-		if _, ok := desiredPools[pool.PoolID]; ok {
-			continue
-		}
-		poolIDs = append(poolIDs, pool.PoolID)
-	}
-
-	sortPoolIDsByDepth(poolIDs, true)
 	return poolIDs
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 	"unicode/utf16"
 
 	"github.com/go-ldap/ldap/v3"
@@ -18,6 +19,7 @@ type User struct {
 	Username    string
 	FullName    string
 	Description string
+	CreatedAt   time.Time
 }
 
 // Group represents an Active Directory group with its member DNs.
@@ -26,6 +28,7 @@ type Group struct {
 	SID       string
 	Name      string
 	MemberDNs []string
+	CreatedAt time.Time
 }
 
 // Client connects to Active Directory via LDAP.
@@ -90,10 +93,23 @@ type AuthResult struct {
 	Username string
 }
 
+func parseADWhenCreated(value string) (time.Time, error) {
+	createdAt, err := time.Parse("20060102150405.0Z", value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse AD whenCreated %q: %w", value, err)
+	}
+	return createdAt.UTC(), nil
+}
+
 func userFromEntry(entry *ldap.Entry) (User, error) {
 	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
 	if sid == "" {
 		return User{}, fmt.Errorf("ad: could not decode user SID")
+	}
+
+	createdAt, err := parseADWhenCreated(entry.GetAttributeValue("whenCreated"))
+	if err != nil {
+		return User{}, err
 	}
 
 	return User{
@@ -102,6 +118,32 @@ func userFromEntry(entry *ldap.Entry) (User, error) {
 		Username:    entry.GetAttributeValue("sAMAccountName"),
 		FullName:    entry.GetAttributeValue("displayName"),
 		Description: entry.GetAttributeValue("description"),
+		CreatedAt:   createdAt,
+	}, nil
+}
+
+func groupFromEntry(entry *ldap.Entry) (Group, error) {
+	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
+	if sid == "" {
+		return Group{}, fmt.Errorf("ad: could not decode group SID")
+	}
+
+	name := entry.GetAttributeValue("displayName")
+	if name == "" {
+		name = entry.GetAttributeValue("sAMAccountName")
+	}
+
+	createdAt, err := parseADWhenCreated(entry.GetAttributeValue("whenCreated"))
+	if err != nil {
+		return Group{}, err
+	}
+
+	return Group{
+		DN:        entry.GetAttributeValue("distinguishedName"),
+		SID:       sid,
+		Name:      name,
+		MemberDNs: entry.GetAttributeValues("member"),
+		CreatedAt: createdAt,
 	}, nil
 }
 
@@ -148,7 +190,7 @@ func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 1, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated"},
 		nil,
 	))
 	if err != nil {
@@ -192,7 +234,7 @@ func (c *Client) FetchUsers() ([]User, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated"},
 		nil,
 	), 1000)
 	if err != nil {
@@ -233,7 +275,7 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 		ldap.ScopeBaseObject,
 		ldap.NeverDerefAliases, 1, 0, false,
 		"(objectClass=user)",
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated"},
 		nil,
 	))
 	if err != nil {
@@ -278,7 +320,7 @@ func (c *Client) fetchGroupByDN(conn *ldap.Conn, groupDN string) (*Group, error)
 		ldap.ScopeBaseObject,
 		ldap.NeverDerefAliases, 1, 0, false,
 		"(objectClass=group)",
-		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member", "whenCreated"},
 		nil,
 	))
 	if err != nil {
@@ -288,23 +330,12 @@ func (c *Client) fetchGroupByDN(conn *ldap.Conn, groupDN string) (*Group, error)
 		return nil, nil
 	}
 
-	entry := result.Entries[0]
-	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
-	if sid == "" {
-		return nil, fmt.Errorf("ad: could not decode group SID")
+	group, err := groupFromEntry(result.Entries[0])
+	if err != nil {
+		return nil, err
 	}
 
-	name := entry.GetAttributeValue("displayName")
-	if name == "" {
-		name = entry.GetAttributeValue("sAMAccountName")
-	}
-
-	return &Group{
-		DN:        entry.GetAttributeValue("distinguishedName"),
-		SID:       sid,
-		Name:      name,
-		MemberDNs: entry.GetAttributeValues("member"),
-	}, nil
+	return &group, nil
 }
 
 // FetchGroupsInDN returns groups under a specific DN subtree.
@@ -329,7 +360,7 @@ func (c *Client) fetchGroups(baseDN string) ([]Group, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		"(objectClass=group)",
-		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member", "whenCreated"},
 		nil,
 	), 1000)
 	if err != nil {
@@ -338,22 +369,11 @@ func (c *Client) fetchGroups(baseDN string) ([]Group, error) {
 
 	groups := make([]Group, 0, len(result.Entries))
 	for _, entry := range result.Entries {
-		sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
-		if sid == "" {
+		group, err := groupFromEntry(entry)
+		if err != nil {
 			continue
 		}
-
-		name := entry.GetAttributeValue("displayName")
-		if name == "" {
-			name = entry.GetAttributeValue("sAMAccountName")
-		}
-
-		groups = append(groups, Group{
-			DN:        entry.GetAttributeValue("distinguishedName"),
-			SID:       sid,
-			Name:      name,
-			MemberDNs: entry.GetAttributeValues("member"),
-		})
+		groups = append(groups, group)
 	}
 
 	return groups, nil

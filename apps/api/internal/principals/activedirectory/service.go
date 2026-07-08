@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/principals"
@@ -65,6 +66,7 @@ func (s *Service) upsertCreatedPrincipal(
 	externalID string,
 	name string,
 	description string,
+	createdAt time.Time,
 ) (uuid.UUID, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -78,11 +80,12 @@ func (s *Service) upsertCreatedPrincipal(
 		return uuid.Nil, err
 	}
 
-	principalID, err := q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
+	principalID, err := q.UpsertSyncedPrincipal(ctx, database.UpsertSyncedPrincipalParams{
 		ProviderID:    providerID,
 		PrincipalType: principalType,
 		ExternalID:    externalID,
 		Name:          &name,
+		CreatedAt:     principalCreatedAtParam(createdAt),
 	})
 	if err != nil {
 		return uuid.Nil, err
@@ -126,6 +129,7 @@ func (s *Service) CreateUser(ctx context.Context, username, password, descriptio
 		createdUser.SID,
 		createdUser.Username,
 		description,
+		createdUser.CreatedAt,
 	)
 }
 
@@ -309,6 +313,7 @@ func (s *Service) CreateGroup(ctx context.Context, name, description string) (uu
 		createdGroup.SID,
 		createdGroup.Name,
 		description,
+		createdGroup.CreatedAt,
 	)
 }
 

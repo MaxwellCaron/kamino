@@ -597,3 +597,35 @@ func (q *Queries) UpsertPrincipal(ctx context.Context, arg UpsertPrincipalParams
 	err := row.Scan(&id)
 	return id, err
 }
+
+const upsertSyncedPrincipal = `-- name: UpsertSyncedPrincipal :one
+INSERT INTO principals (provider_id, principal_type, external_id, name, created_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (provider_id, external_id)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    principal_type = EXCLUDED.principal_type,
+    created_at = EXCLUDED.created_at
+RETURNING id
+`
+
+type UpsertSyncedPrincipalParams struct {
+	ProviderID    uuid.UUID          `json:"provider_id"`
+	PrincipalType PrincipalType      `json:"principal_type"`
+	ExternalID    string             `json:"external_id"`
+	Name          *string            `json:"name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) UpsertSyncedPrincipal(ctx context.Context, arg UpsertSyncedPrincipalParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, upsertSyncedPrincipal,
+		arg.ProviderID,
+		arg.PrincipalType,
+		arg.ExternalID,
+		arg.Name,
+		arg.CreatedAt,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
