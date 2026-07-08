@@ -160,13 +160,46 @@ export function isSharedStorage(
   return SHARED_STORAGE_TYPES.has(storage.type.toLowerCase())
 }
 
+function wouldBeSharedStorageByHeuristic(storage: ApiStorage) {
+  if (storage.shared === 1) {
+    return true
+  }
+  return SHARED_STORAGE_TYPES.has(storage.type.toLowerCase())
+}
+
+export function isExcludedStorage(
+  storage: ApiStorage,
+  sharedStorageNames: ReadonlySet<string> = new Set()
+) {
+  if (storage.kamino_excluded !== undefined) {
+    return storage.kamino_excluded
+  }
+  if (sharedStorageNames.size === 0) {
+    return false
+  }
+  if (sharedStorageNames.has(storage.storage)) {
+    return false
+  }
+  return wouldBeSharedStorageByHeuristic(storage)
+}
+
+function isNodeLocalStorage(
+  storage: ApiStorage,
+  sharedStorageNames: ReadonlySet<string>
+) {
+  return (
+    !isSharedStorage(storage, sharedStorageNames) &&
+    !isExcludedStorage(storage, sharedStorageNames)
+  )
+}
+
 function sumLocalStorage(
   storages: Array<ApiStorage> | undefined,
   sharedStorageNames: ReadonlySet<string>
 ): Capacity {
   return (storages ?? []).reduce<Capacity>(
     (capacity, storage) => {
-      if (isSharedStorage(storage, sharedStorageNames)) {
+      if (!isNodeLocalStorage(storage, sharedStorageNames)) {
         return capacity
       }
       return {

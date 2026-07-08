@@ -88,6 +88,7 @@ export type ApiStorage = {
   used: number
   shared?: number
   kamino_shared?: boolean
+  kamino_excluded?: boolean
 }
 
 export type ApiISO = {

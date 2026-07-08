@@ -120,16 +120,35 @@ func storageGroupKey(storage Storage) string {
 	return strings.ToLower(storage.Type) + ":" + storage.Storage
 }
 
-func isSharedStorage(storage Storage, overrideNames map[string]struct{}) bool {
-	if len(overrideNames) > 0 {
-		_, ok := overrideNames[storage.Storage]
-		return ok
-	}
+func wouldBeSharedStorageByHeuristic(storage Storage) bool {
 	if storage.Shared != nil && *storage.Shared == 1 {
 		return true
 	}
 	_, ok := sharedStorageTypes[strings.ToLower(storage.Type)]
 	return ok
+}
+
+func isSharedStorage(storage Storage, overrideNames map[string]struct{}) bool {
+	if len(overrideNames) > 0 {
+		_, ok := overrideNames[storage.Storage]
+		return ok
+	}
+	return wouldBeSharedStorageByHeuristic(storage)
+}
+
+func isExcludedStorage(storage Storage, overrideNames map[string]struct{}) bool {
+	if len(overrideNames) == 0 {
+		return false
+	}
+	if _, ok := overrideNames[storage.Storage]; ok {
+		return false
+	}
+	return wouldBeSharedStorageByHeuristic(storage)
+}
+
+func isNodeLocalStorage(storage Storage, overrideNames map[string]struct{}) bool {
+	return !isSharedStorage(storage, overrideNames) &&
+		!isExcludedStorage(storage, overrideNames)
 }
 
 func (c *Client) IsSharedStorage(storage Storage) bool {
@@ -138,6 +157,14 @@ func (c *Client) IsSharedStorage(storage Storage) bool {
 		names = map[string]struct{}{}
 	}
 	return isSharedStorage(storage, names)
+}
+
+func (c *Client) IsExcludedStorage(storage Storage) bool {
+	names := c.sharedStorageNames
+	if names == nil {
+		names = map[string]struct{}{}
+	}
+	return isExcludedStorage(storage, names)
 }
 
 func percent(used, total float64) float64 {
@@ -299,7 +326,7 @@ func buildNodeUsageHistoryPoints(
 	}
 
 	for _, entry := range result.storageHistories {
-		if isSharedStorage(entry.storage, sharedStorageNames) {
+		if !isNodeLocalStorage(entry.storage, sharedStorageNames) {
 			continue
 		}
 		if !entry.historyAvailable() {
@@ -355,7 +382,7 @@ func buildClusterUsageHistoryPoints(
 		}
 
 		for _, entry := range result.storageHistories {
-			if isSharedStorage(entry.storage, sharedStorageNames) {
+			if !isNodeLocalStorage(entry.storage, sharedStorageNames) {
 				continue
 			}
 			if !entry.historyAvailable() {

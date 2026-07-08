@@ -69,7 +69,8 @@ type Storage struct {
 
 type StorageWithClassification struct {
 	Storage
-	KaminoShared bool `json:"kamino_shared"`
+	KaminoShared   bool `json:"kamino_shared"`
+	KaminoExcluded bool `json:"kamino_excluded"`
 }
 
 // ISOContent represents an ISO file in a storage.

@@ -175,8 +175,9 @@ func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 	response := make([]proxmox.StorageWithClassification, len(storages))
 	for index, storage := range storages {
 		response[index] = proxmox.StorageWithClassification{
-			Storage:      storage,
-			KaminoShared: h.PX.IsSharedStorage(storage),
+			Storage:        storage,
+			KaminoShared:   h.PX.IsSharedStorage(storage),
+			KaminoExcluded: h.PX.IsExcludedStorage(storage),
 		}
 	}
 	c.JSON(http.StatusOK, response)
