@@ -1,8 +1,8 @@
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
+import { InventoryTreeLoadingSkeleton } from "./inventory-tree-loading-skeleton"
 import { InventoryTreeContent } from "./tree-content"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { SidebarListSkeleton } from "@/components/loading-skeletons"
 
 export function InventoryTreeBody() {
   const {
@@ -34,7 +34,7 @@ export function InventoryTreeBody() {
   }
 
   if (isLoading) {
-    return <SidebarListSkeleton />
+    return <InventoryTreeLoadingSkeleton />
   }
 
   if (isSearchActive && searchResultCount === 0) {
