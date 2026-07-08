@@ -51,6 +51,7 @@ import {
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
+import { uuid } from "@/features/shared/utils/uuid"
 
 export const IsoConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -632,9 +633,13 @@ export const IsoConfigurationFields = withCreateVmForm({
             resolveCardDescription={() =>
               "Configure connectivity for this interface."
             }
-            resolveCardKey={(network, index) =>
-              `${network.bridge}-${network.model}-${network.vlan_tag ?? "none"}-${index}`
-            }
+            resolveCardKey={(network) => network.id ?? "network"}
+            createNetworkValue={() => ({
+              id: uuid(),
+              bridge: "vmbr0",
+              model: "virtio",
+              firewall: true,
+            })}
             validateBridge={(value) =>
               getFirstIssueMessage(
                 networkInterfaceSchema.shape.bridge.safeParse(value)

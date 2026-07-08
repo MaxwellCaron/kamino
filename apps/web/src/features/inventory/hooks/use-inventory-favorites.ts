@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react"
 
-const FAVORITES_STORAGE_KEY = "kamino-favorite-inventory"
+const FAVORITES_STORAGE_KEY = "kamino-favorite-inventory:v1"
 
 const favoriteListeners = new Set<() => void>()
 

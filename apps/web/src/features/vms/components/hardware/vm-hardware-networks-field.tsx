@@ -28,6 +28,7 @@ import { VmHardwareNetworkCard } from "@/features/vms/components/hardware/hardwa
 import { VmHardwareNetworkBridgeCombobox } from "@/features/vms/components/hardware/vm-hardware-network-bridge-combobox"
 
 type NetworkInterfaceValue = {
+  id?: string
   device?: string
   mac_address?: string
   bridge: string
@@ -50,6 +51,7 @@ type VmHardwareNetworksFieldProps = {
   resolveCardTitle?: (network: NetworkInterfaceValue, index: number) => string
   resolveCardDescription?: (network: NetworkInterfaceValue) => string
   resolveCardKey?: (network: NetworkInterfaceValue, index: number) => string
+  createNetworkValue?: () => NetworkInterfaceValue
 }
 
 export function VmHardwareNetworksField({
@@ -65,6 +67,11 @@ export function VmHardwareNetworksField({
       ? `MAC ${network.mac_address}`
       : "Configure connectivity for this interface.",
   resolveCardKey = (network, index) => network.device ?? `network-${index}`,
+  createNetworkValue = () => ({
+    bridge: "vmbr0",
+    model: "virtio",
+    firewall: true,
+  }),
 }: VmHardwareNetworksFieldProps) {
   return (
     <form.Field name="networks" mode="array">
@@ -244,13 +251,7 @@ export function VmHardwareNetworksField({
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
-                networksField.pushValue({
-                  bridge: "vmbr0",
-                  model: "virtio",
-                  firewall: true,
-                })
-              }
+              onClick={() => networksField.pushValue(createNetworkValue())}
             >
               <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
               Add Network Interface

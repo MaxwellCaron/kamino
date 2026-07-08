@@ -164,12 +164,15 @@ export function syncSelectedTemplates(
   })
 }
 
-export function getReviewVmNames(values: CreatePodFormValues) {
-  const vmNames = values.templates.flatMap((template) =>
-    template.vms.map((vm) => vm.name.trim() || "Unnamed VM")
+export function getReviewVms(values: CreatePodFormValues) {
+  const vms = values.templates.flatMap((template) =>
+    template.vms.map((vm) => ({
+      id: vm.id,
+      name: vm.name.trim() || "Unnamed VM",
+    }))
   )
 
-  return values.includeRouter ? ["router", ...vmNames] : vmNames
+  return values.includeRouter ? [{ id: "router", name: "router" }, ...vms] : vms
 }
 
 export function toNumberInputValue(value: string) {

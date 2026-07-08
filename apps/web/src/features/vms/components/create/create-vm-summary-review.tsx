@@ -184,7 +184,7 @@ export function IsoReview({
         <div className="flex flex-col gap-4">
           {values.networks.map((network, index) => (
             <div
-              key={`${network.bridge}-${index}`}
+              key={network.id}
               className="flex flex-col gap-4 rounded-2xl border p-4"
             >
               <div className="flex flex-col gap-1">

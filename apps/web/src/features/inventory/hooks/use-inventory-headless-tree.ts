@@ -35,7 +35,7 @@ interface SelectionDataRef {
   selectUpToAnchorId?: string | null
 }
 
-const STORAGE_KEY = "kamino-inventory-expanded"
+const STORAGE_KEY = "kamino-inventory-expanded:v1"
 const NO_SEARCH_EXPANDED_ITEMS: Array<string> = []
 
 function folderIdsKey(folderIds: Array<string>) {
@@ -136,13 +136,17 @@ export function useInventoryHeadlessTree({
   })
 
   const preSearchExpandedRef = useRef<Array<string> | null>(null)
-  const effectiveExpandedItemsRef = useRef<Array<string>>(NO_SEARCH_EXPANDED_ITEMS)
+  const effectiveExpandedItemsRef = useRef<Array<string>>(
+    NO_SEARCH_EXPANDED_ITEMS
+  )
   const effectiveExpandedItems = useMemo(() => {
     const nextExpandedItems = isSearchActive
       ? searchExpandedItemIds
       : expandedItems
 
-    if (expandedItemsEqual(nextExpandedItems, effectiveExpandedItemsRef.current)) {
+    if (
+      expandedItemsEqual(nextExpandedItems, effectiveExpandedItemsRef.current)
+    ) {
       return effectiveExpandedItemsRef.current
     }
 
@@ -157,8 +161,7 @@ export function useInventoryHeadlessTree({
       }
 
       setExpandedItems((prev) => {
-        const next =
-          typeof updater === "function" ? updater(prev) : updater
+        const next = typeof updater === "function" ? updater(prev) : updater
 
         if (expandedItemsEqual(next, prev)) {
           return prev

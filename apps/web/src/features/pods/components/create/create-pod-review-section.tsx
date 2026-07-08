@@ -21,7 +21,7 @@ import {
   PackageIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
-import { getReviewVmNames } from "./create-pod-form"
+import { getReviewVms } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
 import { FolderIcon } from "@/components/status/folder-icon"
 import { VmIcon } from "@/components/status/vm-icon"
@@ -35,10 +35,10 @@ type CreatePodReviewSectionProps = {
 
 type ReviewTreePreviewProps = {
   podName: string
-  vmNames: Array<string>
+  vms: Array<{ id: string; name: string }>
 }
 
-function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
+function ReviewTreePreview({ podName, vms }: ReviewTreePreviewProps) {
   return (
     <div>
       <div className="flex flex-col gap-0.5">
@@ -51,9 +51,9 @@ function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
           <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
         </div>
 
-        {vmNames.map((vmName, index) => (
+        {vms.map((vm) => (
           <div
-            key={`${vmName}-${index}`}
+            key={vm.id}
             className={cn(
               treePreviewRowClass,
               "bg-transparent ps-12 text-muted-foreground"
@@ -61,7 +61,7 @@ function ReviewTreePreview({ podName, vmNames }: ReviewTreePreviewProps) {
           >
             <VmIcon status="running" />
             <span className="ml-1 flex-1 truncate text-foreground">
-              {vmName}
+              {vm.name}
             </span>
           </div>
         ))}
@@ -74,7 +74,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
   return (
     <form.Subscribe selector={(state) => state.values}>
       {(values) => {
-        const vmNames = getReviewVmNames(values)
+        const vms = getReviewVms(values)
 
         return (
           <div className="grid gap-4 md:grid-cols-2">
@@ -127,7 +127,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Virtual Machines</ItemTitle>
-                      <ItemDescription>{vmNames.length}</ItemDescription>
+                      <ItemDescription>{vms.length}</ItemDescription>
                     </ItemContent>
                   </Item>
                 </ItemGroup>
@@ -141,7 +141,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ReviewTreePreview podName={values.name} vmNames={vmNames} />
+                <ReviewTreePreview podName={values.name} vms={vms} />
               </CardContent>
             </Card>
           </div>

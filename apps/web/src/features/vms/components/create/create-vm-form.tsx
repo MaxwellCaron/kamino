@@ -8,12 +8,14 @@ import { z } from "zod"
 import { vmNameSchema } from "../../utils/vm-name"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
+import { uuid } from "@/features/shared/utils/uuid"
 
 const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 
 export type CreateVmMethod = z.infer<typeof createVmMethodSchema>
 
 export const networkInterfaceSchema = z.object({
+  id: z.string().min(1),
   bridge: z
     .string()
     .trim()
@@ -97,7 +99,9 @@ export const createVmFormSchema = z
     disk_size: z.number().int().min(1).default(32),
     networks: z
       .array(networkInterfaceSchema)
-      .default([{ bridge: "vmbr0", model: "virtio", firewall: true }]),
+      .default([
+        { id: uuid(), bridge: "vmbr0", model: "virtio", firewall: true },
+      ]),
     upload_filename: z.string().trim().optional(),
     upload_notes: z.string().trim().max(256).optional(),
   })
@@ -159,7 +163,7 @@ const defaultValues: CreateVmFormValues = {
   balloon: 0,
   storage: "",
   disk_size: 32,
-  networks: [{ bridge: "vmbr0", model: "virtio", firewall: true }],
+  networks: [{ id: uuid(), bridge: "vmbr0", model: "virtio", firewall: true }],
   upload_filename: "",
   upload_notes: "",
 }

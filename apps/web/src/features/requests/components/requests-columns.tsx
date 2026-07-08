@@ -93,7 +93,7 @@ export function getRequestColumns({
             )
           : request.kind === "personal_pod.create"
             ? "Personal pod"
-            : request.inventory?.item_name ?? "Inventory item"
+            : (request.inventory?.item_name ?? "Inventory item")
 
         return (
           <div className="flex items-center gap-3 pl-4">
@@ -209,8 +209,10 @@ export function getRequestColumns({
 
   if (excludeColumns.length === 0) return allColumns
 
+  const excludedColumnIds = new Set(excludeColumns)
+
   return allColumns.filter((col) => {
     const id = "accessorKey" in col ? (col.accessorKey as string) : col.id
-    return !excludeColumns.includes(id as string)
+    return !excludedColumnIds.has(id as string)
   })
 }

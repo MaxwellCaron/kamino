@@ -14,6 +14,7 @@ export function SiteFooter() {
             <a
               href="https://github.com/MaxwellCaron"
               target="_blank"
+              rel="noreferrer"
               className={`${buttonVariants({ variant: "link" })} px-1! text-foreground!`}
             >
               MaxwellCaron
