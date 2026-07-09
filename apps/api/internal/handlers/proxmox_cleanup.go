@@ -6,7 +6,11 @@ import (
 	"time"
 )
 
-func cleanupProxmoxVM(parent context.Context, px vmProxmox, node string, vmid int, reason string) {
+type proxmoxVMDeleter interface {
+	DeleteVM(ctx context.Context, node string, vmid int) error
+}
+
+func cleanupProxmoxVM(parent context.Context, px proxmoxVMDeleter, node string, vmid int, reason string) {
 	if px == nil {
 		return
 	}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,13 +17,40 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type vmCreateProxmox interface {
+	GetNodes(ctx context.Context) ([]proxmox.Node, error)
+	ResolvePrimaryNode(ctx context.Context) (proxmox.Node, error)
+	GetCreateStorages(ctx context.Context, node string) (diskStorages []proxmox.Storage, isoStorages []proxmox.Storage, err error)
+	GetCreateNetworks(ctx context.Context, node string) (bridges []proxmox.NetworkBridge, vnets []proxmox.VNet, err error)
+	GetStorages(ctx context.Context, node string) ([]proxmox.Storage, error)
+	IsSharedStorage(storage proxmox.Storage) bool
+	IsExcludedStorage(storage proxmox.Storage) bool
+	GetISOs(ctx context.Context, node, storage string) ([]proxmox.ISOContent, error)
+	GetCreateISOs(ctx context.Context, node, storage string) ([]proxmox.ISOContent, error)
+	GetNextVMID(ctx context.Context) (int, error)
+	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
+	GetBridges(ctx context.Context, node string) ([]proxmox.NetworkBridge, error)
+	GetVNets(ctx context.Context) ([]proxmox.VNet, error)
+	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
+	CreateVM(ctx context.Context, node string, params map[string]string) error
+	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
+	DeleteVM(ctx context.Context, node string, vmid int) error
+	GetClusterUsageHistory(ctx context.Context, timeframe string) (proxmox.ClusterUsageHistory, error)
+}
+
+type vmCreateAuthz interface {
+	vmAuthz
+	HasAny(ctx context.Context, principalID uuid.UUID, required authorization.Mask) (bool, error)
+	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
+}
+
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX                    *proxmox.Client
+	PX                    vmCreateProxmox
 	DB                    *pgxpool.Pool
 	Importer              *proxmox.InventoryImporter
 	Service               *inventory.Service
-	Authz                 *authorization.Service
+	Authz                 vmCreateAuthz
 	Audit                 *audit.Service
 	Allocator             *vmidalloc.Allocator
 	PersonalPodVNetPrefix string

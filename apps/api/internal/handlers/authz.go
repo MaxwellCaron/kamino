@@ -283,7 +283,7 @@ func requireVerifiedVMItemPermission(
 // requireVMCreateMetadataAccess gates Proxmox VM-create metadata endpoints
 func requireVMCreateMetadataAccess(
 	c *gin.Context,
-	authzService *authorization.Service,
+	authzService vmCreateAuthz,
 	principalID uuid.UUID,
 ) bool {
 	hasCreateVM, err := authzService.HasAny(c.Request.Context(), principalID, authorization.CreateVM)
@@ -310,7 +310,13 @@ func requireVMCreateMetadataAccess(
 
 func requireManagementPermission(
 	c *gin.Context,
-	authzService *authorization.Service,
+	authzService interface {
+		RequireManagement(
+			ctx context.Context,
+			principalID uuid.UUID,
+			required authorization.ManagementPermission,
+		) error
+	},
 	principalID uuid.UUID,
 	required authorization.ManagementPermission,
 ) bool {
