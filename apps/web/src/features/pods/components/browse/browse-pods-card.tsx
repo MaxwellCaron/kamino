@@ -18,6 +18,7 @@ import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 const podDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
+  timeZone: "UTC",
   year: "numeric",
 })
 
