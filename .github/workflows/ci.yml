@@ -65,6 +65,10 @@ jobs:
       - name: typecheck
         run: bun run typecheck
 
+      - name: typecheck (secondary compiler, non-blocking)
+        run: bun run typecheck:stable
+        continue-on-error: true
+
       - name: lint
         run: bun run lint
 

@@ -10,6 +10,7 @@ Kamino is a small internal VM-management application for ~100 users that wraps P
 | Frontend | TanStack Start · Vite · TanStack Query/Router |
 | UI primitives | Shared shadcn-style package (`@workspace/ui`) |
 | Tooling | Bun 1.3.11 · Turbo monorepo |
+| TypeScript | TS 7 (`@typescript/native`) gates CI via `bun run typecheck`; TS 6 runs as a non-blocking secondary check via `bun run typecheck:stable` |
 
 ## Repository layout
 
