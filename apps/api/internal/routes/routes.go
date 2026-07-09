@@ -45,7 +45,7 @@ func RegisterRoutes(
 	// Apply auth middleware to all remaining routes when auth is configured
 	if authService != nil {
 		protected = v1.Group("")
-		protected.Use(middleware.Auth(authService))
+		protected.Use(middleware.RequireCSRFHeader(), middleware.Auth(authService))
 	}
 
 	// Authenticated: current user info

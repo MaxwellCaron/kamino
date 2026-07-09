@@ -104,13 +104,33 @@ function isAuthEndpoint(input: string) {
   return input.startsWith("/api/v1/auth/")
 }
 
+function mergeRequestHeaders(init?: RequestInit): HeadersInit {
+  const csrfHeader = { "X-Kamino-Request": "1" }
+  if (!init?.headers) {
+    return csrfHeader
+  }
+  if (init.headers instanceof Headers) {
+    const merged = new Headers(init.headers)
+    merged.set("X-Kamino-Request", "1")
+    return merged
+  }
+  if (Array.isArray(init.headers)) {
+    return [...init.headers, ["X-Kamino-Request", "1"]]
+  }
+  return { ...csrfHeader, ...init.headers }
+}
+
 export async function apiFetch(
   input: string,
   init?: RequestInit,
   options?: { retryOn401?: boolean }
 ): Promise<Response> {
   const retryOn401 = options?.retryOn401 ?? true
-  const requestInit = { credentials: "include" as const, ...init }
+  const requestInit = {
+    credentials: "include" as const,
+    ...init,
+    headers: mergeRequestHeaders(init),
+  }
   const isProtectedRequest = retryOn401 && !isAuthEndpoint(input)
 
   if (isProtectedRequest) {
