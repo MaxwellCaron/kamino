@@ -212,7 +212,8 @@ export function getRequestColumns({
   const excludedColumnIds = new Set(excludeColumns)
 
   return allColumns.filter((col) => {
-    const id = "accessorKey" in col ? (col.accessorKey as string) : col.id
-    return !excludedColumnIds.has(id as string)
+    const id = "accessorKey" in col ? col.accessorKey : col.id
+    if (!id) return true
+    return !excludedColumnIds.has(id)
   })
 }

@@ -60,7 +60,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
                     value={
                       getSelectedTemplate(
                         templateOptions,
-                        field.state.value as string
+                        field.state.value
                       ) ?? null
                     }
                     onValueChange={(template: VmTemplateOption | null) =>

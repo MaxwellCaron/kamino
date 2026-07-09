@@ -18,7 +18,7 @@ function generateArcPath(
     cornerRadius,
     padAngle,
   })
-  return generator({ startAngle, endAngle } as unknown as null) || ""
+  return generator({ startAngle, endAngle }) || ""
 }
 
 // Calculate the translation offset for a slice to "pop out" along its radial axis

@@ -166,7 +166,7 @@ const Grainient: React.FC<GrainientProps> = ({
     })
 
     const gl = renderer.gl
-    const canvas = gl.canvas as HTMLCanvasElement
+    const canvas = gl.canvas
     canvas.style.width = "100%"
     canvas.style.height = "100%"
     canvas.style.display = "block"

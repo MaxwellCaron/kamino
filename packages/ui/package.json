@@ -75,7 +75,8 @@
     "@types/react-dom": "^19.2.3",
     "eslint": "^10.6.0",
     "tailwindcss": "^4.3.2",
-    "typescript": "^7.0.2"
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript": "^6.0.3"
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",

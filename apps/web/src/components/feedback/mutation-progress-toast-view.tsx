@@ -76,11 +76,14 @@ export function MutationProgressToast({
     report: (update: MutationItemUpdate) => void
   ) => Promise<MutationResult>
 }) {
-  const [toastState, setToastState] = useState(() => ({
+  const [toastState, setToastState] = useState<{
+    itemStates: Record<string, ItemState>
+    itemErrors: Record<string, string>
+  }>(() => ({
     itemStates: Object.fromEntries(
       items.map((item) => [item.id, "processing"])
-    ) as Record<string, ItemState>,
-    itemErrors: {} as Record<string, string>,
+    ),
+    itemErrors: {},
   }))
   const { itemStates, itemErrors } = toastState
   const initialItemsRef = useRef(items)
