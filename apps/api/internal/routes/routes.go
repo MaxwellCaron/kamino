@@ -172,6 +172,7 @@ func RegisterRoutes(
 
 	// Principals endpoints (AD users & groups)
 	if principals != nil {
+		protected.GET("/principals/provider", principals.GetProvider)
 		protected.GET("/principals/users", principals.ListUsers)
 		protected.POST("/principals/users", principals.CreateUser)
 		protected.DELETE("/principals/users", principals.DeleteUsers)

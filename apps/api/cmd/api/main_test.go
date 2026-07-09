@@ -233,8 +233,8 @@ func TestBuildVMIDRangeConfig(t *testing.T) {
 
 func TestInitialSyncConfig(t *testing.T) {
 	const (
-		proxmoxFlag = "PROXMOX_INITIAL_SYNC_ENABLED"
-		adFlag      = "AD_INITIAL_SYNC_ENABLED"
+		proxmoxFlag   = "PROXMOX_INITIAL_SYNC_ENABLED"
+		principalFlag = "PRINCIPAL_INITIAL_SYNC_ENABLED"
 	)
 
 	setRequired := func(t *testing.T) {
@@ -246,6 +246,7 @@ func TestInitialSyncConfig(t *testing.T) {
 			"PROXMOX_TOKEN_ID":     "test@pve!test",
 			"PROXMOX_TOKEN_SECRET": "test-token-secret",
 			"PROXMOX_NODES":        "node1",
+			"PRINCIPAL_PROVIDER":   "proxmox",
 		}
 		for k, v := range required {
 			t.Setenv(k, v)
@@ -269,7 +270,7 @@ func TestInitialSyncConfig(t *testing.T) {
 	t.Run("defaults to true when variables are absent", func(t *testing.T) {
 		setRequired(t)
 		captureAndUnset(t, proxmoxFlag)
-		captureAndUnset(t, adFlag)
+		captureAndUnset(t, principalFlag)
 
 		var cfg Config
 		if err := envconfig.Process("", &cfg); err != nil {
@@ -278,15 +279,15 @@ func TestInitialSyncConfig(t *testing.T) {
 		if !cfg.ProxmoxInitialSyncEnabled {
 			t.Fatalf("ProxmoxInitialSyncEnabled = false, want true")
 		}
-		if !cfg.ADInitialSyncEnabled {
-			t.Fatalf("ADInitialSyncEnabled = false, want true")
+		if !cfg.PrincipalInitialSyncEnabled {
+			t.Fatalf("PrincipalInitialSyncEnabled = false, want true")
 		}
 	})
 
 	t.Run("explicit false overrides defaults", func(t *testing.T) {
 		setRequired(t)
 		t.Setenv(proxmoxFlag, "false")
-		t.Setenv(adFlag, "false")
+		t.Setenv(principalFlag, "false")
 
 		var cfg Config
 		if err := envconfig.Process("", &cfg); err != nil {
@@ -295,15 +296,15 @@ func TestInitialSyncConfig(t *testing.T) {
 		if cfg.ProxmoxInitialSyncEnabled {
 			t.Fatalf("ProxmoxInitialSyncEnabled = true, want false")
 		}
-		if cfg.ADInitialSyncEnabled {
-			t.Fatalf("ADInitialSyncEnabled = true, want false")
+		if cfg.PrincipalInitialSyncEnabled {
+			t.Fatalf("PrincipalInitialSyncEnabled = true, want false")
 		}
 	})
 
 	t.Run("malformed value returns error naming the variable", func(t *testing.T) {
 		setRequired(t)
 		t.Setenv(proxmoxFlag, "not-a-bool")
-		captureAndUnset(t, adFlag)
+		captureAndUnset(t, principalFlag)
 
 		var cfg Config
 		err := envconfig.Process("", &cfg)
@@ -316,112 +317,180 @@ func TestInitialSyncConfig(t *testing.T) {
 	})
 }
 
+func TestValidatePrincipalProviderConfig(t *testing.T) {
+	base := Config{
+		DatabaseURL:        "postgres://test:test@localhost/test?sslmode=disable",
+		JWTSecret:          "secret",
+		ProxmoxURL:         "https://proxmox.test:8006",
+		ProxmoxTokenID:     "test@pve!test",
+		ProxmoxTokenSecret: "secret",
+		ProxmoxNodes:       "node1",
+	}
+
+	t.Run("missing provider rejected", func(t *testing.T) {
+		cfg := base
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "PRINCIPAL_PROVIDER is required") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("invalid provider rejected", func(t *testing.T) {
+		cfg := base
+		cfg.PrincipalProvider = "ldap"
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "must be") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("active directory requires ldap", func(t *testing.T) {
+		cfg := base
+		cfg.PrincipalProvider = principalProviderActiveDirectory
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "LDAP_URL") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("proxmox rejects ldap configuration", func(t *testing.T) {
+		cfg := base
+		cfg.PrincipalProvider = principalProviderProxmox
+		cfg.LDAPUrl = "ldaps://ad.example.internal"
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "LDAP provider configuration") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("proxmox does not require ldap envs", func(t *testing.T) {
+		cfg := base
+		cfg.PrincipalProvider = principalProviderProxmox
+		if err := validatePrincipalProviderConfig(&cfg); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("managed user realm defaults to auth realm", func(t *testing.T) {
+		cfg := base
+		cfg.PrincipalProvider = principalProviderProxmox
+		cfg.ProxmoxAuthRealm = "ad"
+		if got := resolveManagedUserRealm(&cfg); got != "ad" {
+			t.Fatalf("resolveManagedUserRealm() = %q, want ad", got)
+		}
+		cfg.ProxmoxManagedUserRealm = "pam"
+		if got := resolveManagedUserRealm(&cfg); got != "pam" {
+			t.Fatalf("resolveManagedUserRealm() = %q, want pam", got)
+		}
+	})
+}
+
 func TestRunInitialSyncs(t *testing.T) {
 	sentinelErr := errors.New("sync failed")
 
 	tests := []struct {
-		name                   string
-		proxmoxEnabled         bool
-		adEnabled              bool
-		adNil                  bool
-		proxmoxErr             error
-		adErr                  error
-		wantProxmoxCalls       int
-		wantADCalls            int
-		wantProxmoxErrReturned bool
-		wantADErrReturned      bool
+		name                     string
+		proxmoxEnabled           bool
+		principalEnabled         bool
+		principalNil             bool
+		proxmoxErr               error
+		principalErr             error
+		wantProxmoxCalls         int
+		wantPrincipalCalls       int
+		wantProxmoxErrReturned   bool
+		wantPrincipalErrReturned bool
 	}{
 		{
-			name:             "both enabled calls both",
-			proxmoxEnabled:   true,
-			adEnabled:        true,
-			wantProxmoxCalls: 1,
-			wantADCalls:      1,
+			name:               "both enabled calls both",
+			proxmoxEnabled:     true,
+			principalEnabled:   true,
+			wantProxmoxCalls:   1,
+			wantPrincipalCalls: 1,
 		},
 		{
-			name:             "proxmox disabled skips proxmox only",
-			proxmoxEnabled:   false,
-			adEnabled:        true,
-			wantProxmoxCalls: 0,
-			wantADCalls:      1,
+			name:               "proxmox disabled skips proxmox only",
+			proxmoxEnabled:     false,
+			principalEnabled:   true,
+			wantProxmoxCalls:   0,
+			wantPrincipalCalls: 1,
 		},
 		{
-			name:             "ad disabled skips ad only",
-			proxmoxEnabled:   true,
-			adEnabled:        false,
-			wantProxmoxCalls: 1,
-			wantADCalls:      0,
+			name:               "principal disabled skips principal only",
+			proxmoxEnabled:     true,
+			principalEnabled:   false,
+			wantProxmoxCalls:   1,
+			wantPrincipalCalls: 0,
 		},
 		{
-			name:             "both disabled skips both",
-			proxmoxEnabled:   false,
-			adEnabled:        false,
-			wantProxmoxCalls: 0,
-			wantADCalls:      0,
+			name:               "both disabled skips both",
+			proxmoxEnabled:     false,
+			principalEnabled:   false,
+			wantProxmoxCalls:   0,
+			wantPrincipalCalls: 0,
 		},
 		{
-			name:             "nil ad sync safe and proxmox still runs",
-			proxmoxEnabled:   true,
-			adEnabled:        true,
-			adNil:            true,
-			wantProxmoxCalls: 1,
-			wantADCalls:      0,
+			name:               "nil principal sync safe and proxmox still runs",
+			proxmoxEnabled:     true,
+			principalEnabled:   true,
+			principalNil:       true,
+			wantProxmoxCalls:   1,
+			wantPrincipalCalls: 0,
 		},
 		{
-			name:             "proxmox error still attempts ad",
-			proxmoxEnabled:   true,
-			adEnabled:        true,
-			proxmoxErr:       sentinelErr,
-			wantProxmoxCalls: 1,
-			wantADCalls:      1,
+			name:               "proxmox error still attempts principal",
+			proxmoxEnabled:     true,
+			principalEnabled:   true,
+			proxmoxErr:         sentinelErr,
+			wantProxmoxCalls:   1,
+			wantPrincipalCalls: 1,
 		},
 		{
-			name:             "ad error still attempted",
-			proxmoxEnabled:   true,
-			adEnabled:        true,
-			adErr:            sentinelErr,
-			wantProxmoxCalls: 1,
-			wantADCalls:      1,
+			name:               "principal error still attempted",
+			proxmoxEnabled:     true,
+			principalEnabled:   true,
+			principalErr:       sentinelErr,
+			wantProxmoxCalls:   1,
+			wantPrincipalCalls: 1,
 		},
 		{
-			name:             "disabled ad with nil sync is safe",
-			proxmoxEnabled:   true,
-			adEnabled:        false,
-			adNil:            true,
-			wantProxmoxCalls: 1,
-			wantADCalls:      0,
+			name:               "disabled principal with nil sync is safe",
+			proxmoxEnabled:     true,
+			principalEnabled:   false,
+			principalNil:       true,
+			wantProxmoxCalls:   1,
+			wantPrincipalCalls: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var proxmoxCalls, adCalls int
+			var proxmoxCalls, principalCalls int
 
 			proxmoxSync := func(ctx context.Context) error {
 				proxmoxCalls++
 				return tt.proxmoxErr
 			}
 
-			var adSync func(context.Context) error
-			if !tt.adNil {
-				adSync = func(ctx context.Context) error {
-					adCalls++
-					return tt.adErr
+			var principalSync func(context.Context) error
+			if !tt.principalNil {
+				principalSync = func(ctx context.Context) error {
+					principalCalls++
+					return tt.principalErr
 				}
 			}
 
 			cfg := Config{
-				ProxmoxInitialSyncEnabled: tt.proxmoxEnabled,
-				ADInitialSyncEnabled:      tt.adEnabled,
+				ProxmoxInitialSyncEnabled:   tt.proxmoxEnabled,
+				PrincipalInitialSyncEnabled: tt.principalEnabled,
 			}
 
-			runInitialSyncs(context.Background(), &cfg, proxmoxSync, adSync)
+			runInitialSyncs(context.Background(), &cfg, proxmoxSync, principalSync)
 
 			if proxmoxCalls != tt.wantProxmoxCalls {
 				t.Fatalf("proxmox calls = %d, want %d", proxmoxCalls, tt.wantProxmoxCalls)
 			}
-			if adCalls != tt.wantADCalls {
-				t.Fatalf("ad calls = %d, want %d", adCalls, tt.wantADCalls)
+			if principalCalls != tt.wantPrincipalCalls {
+				t.Fatalf("principal calls = %d, want %d", principalCalls, tt.wantPrincipalCalls)
 			}
 		})
 	}

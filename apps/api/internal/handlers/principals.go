@@ -11,7 +11,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
-	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -200,6 +199,23 @@ func bulkPrincipalDeleteError(err error) string {
 	}
 }
 
+func writePrincipalMutationError(c *gin.Context, message, operation string, err error) {
+	if errors.Is(err, principals.ErrUnsupportedPrincipal) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported principal"})
+		return
+	}
+	writeLoggedError(c, http.StatusBadGateway, message, operation, err)
+}
+
+// GetProvider returns the configured principal provider capabilities.
+// GET /api/v1/principals/provider
+func (h *PrincipalsHandler) GetProvider(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
+		return
+	}
+	c.JSON(http.StatusOK, h.Provider.Capabilities())
+}
+
 func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 	var req bulkMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -244,7 +260,7 @@ func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
 type createUserRequest struct {
 	Username    string      `json:"username" binding:"required"`
 	Description string      `json:"description"`
-	Password    string      `json:"password" binding:"required"`
+	Password    string      `json:"password"`
 	GroupIDs    []uuid.UUID `json:"group_ids"`
 }
 
@@ -263,13 +279,6 @@ func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
 	if len(reqs) == 0 {
 		writeInvalidRequest(c, "at least one user is required")
 		return
-	}
-
-	for _, req := range reqs {
-		if err := activedirectory.ValidateADCreateName(req.Username); err != nil {
-			writeInvalidRequest(c, err.Error())
-			return
-		}
 	}
 
 	type userCreateOutcome struct {
@@ -419,7 +428,7 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 		normalizedFullName,
 		req.Description,
 	); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to update user", "update user", err)
+		writePrincipalMutationError(c, "failed to update user", "update user", err)
 		return
 	}
 
@@ -462,7 +471,7 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 	}
 
 	if err := h.Provider.SetPassword(c.Request.Context(), id, req.Password); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to set password", "set user password", err)
+		writePrincipalMutationError(c, "failed to set password", "set user password", err)
 		return
 	}
 
@@ -532,7 +541,7 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 	}
 
 	if err := h.Provider.EnableUser(c.Request.Context(), id); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to enable user", "enable user", err)
+		writePrincipalMutationError(c, "failed to enable user", "enable user", err)
 		return
 	}
 
@@ -560,7 +569,7 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 	}
 
 	if err := h.Provider.DisableUser(c.Request.Context(), id); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to disable user", "disable user", err)
+		writePrincipalMutationError(c, "failed to disable user", "disable user", err)
 		return
 	}
 
@@ -651,13 +660,6 @@ func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
 		return
 	}
 
-	for _, req := range reqs {
-		if err := activedirectory.ValidateADCreateName(req.Name); err != nil {
-			writeInvalidRequest(c, err.Error())
-			return
-		}
-	}
-
 	response := bulkCreateResponse{
 		Total:    len(reqs),
 		Failures: make([]bulkCreateFailure, 0),
@@ -717,7 +719,7 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 	}
 
 	if err := h.Provider.UpdateGroup(c.Request.Context(), id, req.Name, req.Description); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to update group", "update group", err)
+		writePrincipalMutationError(c, "failed to update group", "update group", err)
 		return
 	}
 

@@ -22,6 +22,7 @@ import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
+import { principalProviderQueryOptions } from "@/features/principals/api/principals-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
 import { indexInventoryTree } from "@/features/inventory/utils/inventory-tree"
@@ -58,6 +59,11 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
   )
+  const { data: providerCapabilities } = useQuery(
+    principalProviderQueryOptions
+  )
+  const canChangeOwnPassword =
+    providerCapabilities?.can_change_own_password ?? true
   const {
     data: pendingRequests,
     error: pendingRequestsError,
@@ -261,7 +267,9 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           className="xl:col-span-5"
           roleLabel={roleLabel}
           user={user}
-          onSettingsClick={() => setSettingsOpen(true)}
+          onSettingsClick={
+            canChangeOwnPassword ? () => setSettingsOpen(true) : undefined
+          }
         />
         <DashboardQuestionActivityCard
           className="xl:col-span-4"
@@ -294,12 +302,12 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
       </div>
 
       <Suspense fallback={null}>
-        {settingsOpen && (
+        {settingsOpen && canChangeOwnPassword ? (
           <ChangePasswordDialog
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
           />
-        )}
+        ) : null}
         {selectedRequestId !== null && (
           <RequestDetailDialog
             canReview={false}

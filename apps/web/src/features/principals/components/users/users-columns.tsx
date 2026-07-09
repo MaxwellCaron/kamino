@@ -22,6 +22,7 @@ import { getPrincipalBaseName } from "@/components/principals/principal-label"
 
 type UserColumnsOptions = {
   canManage: boolean
+  canManageMemberships: boolean
   onEditClick: (user: ApiPrincipal) => void
   onEditGroups: (user: ApiPrincipal) => void
   onDeleteClick: (user: ApiPrincipal) => void
@@ -29,6 +30,7 @@ type UserColumnsOptions = {
 
 export function getUserColumns({
   canManage,
+  canManageMemberships,
   onEditClick,
   onEditGroups,
   onDeleteClick,
@@ -139,13 +141,15 @@ export function getUserColumns({
                 />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEditGroups(user)}>
-                <HugeiconsIcon
-                  icon={UserGroupIcon}
-                  className="text-muted-foreground"
-                />
-                Groups
-              </DropdownMenuItem>
+              {canManageMemberships ? (
+                <DropdownMenuItem onClick={() => onEditGroups(user)}>
+                  <HugeiconsIcon
+                    icon={UserGroupIcon}
+                    className="text-muted-foreground"
+                  />
+                  Groups
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"

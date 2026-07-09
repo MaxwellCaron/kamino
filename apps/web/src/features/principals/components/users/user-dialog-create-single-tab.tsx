@@ -20,12 +20,14 @@ export function UserDialogCreateSingleTab({
   form,
   groupItems,
   groupOptionMap,
+  requirePassword,
   selectedGroupIds,
   setSelectedGroupIds,
 }: {
   form: UserFormApi
   groupItems: Array<string>
   groupOptionMap: Map<string, string>
+  requirePassword: boolean
   selectedGroupIds: Array<string>
   setSelectedGroupIds: React.Dispatch<React.SetStateAction<Array<string>>>
 }) {
@@ -61,35 +63,37 @@ export function UserDialogCreateSingleTab({
         }}
       </form.Field>
 
-      <form.Field
-        name="password"
-        validators={{
-          onSubmit: requiredPasswordSchema,
-        }}
-      >
-        {(field) => {
-          const isInvalid =
-            field.state.meta.isTouched && !field.state.meta.isValid
+      {requirePassword ? (
+        <form.Field
+          name="password"
+          validators={{
+            onSubmit: requiredPasswordSchema,
+          }}
+        >
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
 
-          return (
-            <Field data-invalid={isInvalid}>
-              <FieldLabel htmlFor="single-password">Password</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="single-password"
-                  type="password"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Password123!"
-                  aria-invalid={isInvalid}
-                />
-              </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
-            </Field>
-          )
-        }}
-      </form.Field>
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor="single-password">Password</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="single-password"
+                    type="password"
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder="Password123!"
+                    aria-invalid={isInvalid}
+                  />
+                </FieldContent>
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
+      ) : null}
 
       <UserDialogGroupAssignmentsField
         id="single-group-assignments"

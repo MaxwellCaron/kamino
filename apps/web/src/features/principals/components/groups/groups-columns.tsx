@@ -22,6 +22,7 @@ import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 type GroupColumnsOptions = {
   canManageGroups: boolean
   canManageAccess: boolean
+  canManageMemberships: boolean
   onEditClick: (group: ApiPrincipal) => void
   onEditGroups: (group: ApiPrincipal) => void
   onEditAccess: (group: ApiPrincipal) => void
@@ -31,6 +32,7 @@ type GroupColumnsOptions = {
 export function getGroupColumns({
   canManageGroups,
   canManageAccess,
+  canManageMemberships,
   onEditClick,
   onEditGroups,
   onEditAccess,
@@ -135,7 +137,7 @@ export function getGroupColumns({
                 Permissions
               </DropdownMenuItem>
             )}
-            {canManageGroups && (
+            {canManageMemberships && (
               <DropdownMenuItem onClick={() => onEditGroups(group)}>
                 <HugeiconsIcon
                   icon={UserGroupIcon}

@@ -1,6 +1,6 @@
 # Kamino
 
-Kamino is a small internal VM-management application for ~100 users that wraps Proxmox with an inventory model, Discord-like ACLs/roles, request workflows, pod publishing/cloning, VNC console access, and Active Directory–backed principals. Postgres is the source of truth; Proxmox is mirrored and reconciled against it on startup and during operation.
+Kamino is a small internal VM-management application for ~100 users that wraps Proxmox with an inventory model, Discord-like ACLs/roles, request workflows, pod publishing/cloning, VNC console access, and a configurable principal provider (Active Directory or Proxmox). Postgres is the source of truth; Proxmox is mirrored and reconciled against it on startup and during operation.
 
 ## Stack
 
@@ -36,7 +36,7 @@ packages/ui/       Shared UI primitives exported as @workspace/ui
 - **Air** (Go live-reload; `go install github.com/air-verse/air@latest`) — required for `bun run dev` API watch mode
 - **Postgres** instance reachable from the API
 - **Proxmox** cluster with an API token (`kamino@pve!<token-name>`)
-- **AD/LDAP** — optional; required only if AD auth/sync is enabled
+- **Principal provider** — required; `active_directory` or `proxmox`
 
 ## Quick start (local dev)
 
@@ -140,17 +140,20 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_NODES` | yes | — | Comma-separated Proxmox node names |
 | `PROXMOX_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup Proxmox-to-database inventory import |
+| `PRINCIPAL_PROVIDER` | yes | — | `active_directory` or `proxmox` |
+| `PRINCIPAL_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup principal sync for the selected provider |
+| `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` | no | — | Initial admin group seed: AD DN in AD mode, Proxmox group ID in Proxmox mode |
+| `PROXMOX_AUTH_REALM` | no | `pve` | Default Proxmox realm for login and managed users when `PRINCIPAL_PROVIDER=proxmox` |
+| `PROXMOX_MANAGED_USER_REALM` | no | `PROXMOX_AUTH_REALM` | Realm appended to bare usernames created through Kamino in Proxmox mode |
 | `PORT` | no | `:8080` | API listen address |
 | `FRONTEND_URL` | no | `http://localhost:3000` | Allowed CORS origin |
-| `LDAP_URL` | no | — | LDAP server URL (enables AD auth/sync) |
-| `LDAP_BIND_DN` | no | — | Service account DN |
-| `LDAP_BIND_PASSWORD` | no | — | Service account password |
-| `LDAP_SEARCH_BASE_DN` | no | — | LDAP search base |
+| `LDAP_URL` | when AD | — | LDAP server URL (required when `PRINCIPAL_PROVIDER=active_directory`) |
+| `LDAP_BIND_DN` | when AD | — | Service account DN |
+| `LDAP_BIND_PASSWORD` | when AD | — | Service account password |
+| `LDAP_SEARCH_BASE_DN` | when AD | — | LDAP search base |
 | `LDAP_USER_OU` | no | — | OU containing user accounts |
 | `LDAP_GROUP_OU` | no | — | OU containing groups |
-| `LDAP_ADMIN_GROUP_DN` | no | — | DN of the Kamino admins group |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
-| `AD_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup AD-to-database principal sync |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
 | `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
 | `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
@@ -238,10 +241,10 @@ On startup the API performs these steps in order:
 1. Connect to Postgres and initialize the query layer.
 2. Connect to Proxmox and verify API access.
 3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`.
-4. Optionally run AD/LDAP sync if `LDAP_URL` is configured, unless `AD_INITIAL_SYNC_ENABLED` is `false`.
+4. Run principal sync for the configured provider (`active_directory` or `proxmox`), unless `PRINCIPAL_INITIAL_SYNC_ENABLED` is `false`. Proxmox mode authenticates users through Proxmox `/access/ticket`, then issues Kamino JWT/session cookies. Kamino never stores user Proxmox tickets or passwords and continues using the configured Proxmox API token for inventory and VM operations.
 5. Start event notifiers (inventory, VM status, requests).
 6. Reconcile Proxmox mirror state against the database. This step is not controlled by `PROXMOX_INITIAL_SYNC_ENABLED`.
-7. Bootstrap admin group ACLs from `LDAP_ADMIN_GROUP_DN` if configured.
+7. Bootstrap admin group ACLs from `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` when configured.
 8. Normalize permission inheritance across the inventory tree.
 9. Register HTTP routes and begin serving.
 

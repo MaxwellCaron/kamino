@@ -7,6 +7,7 @@ import type {
   ApiBulkMembershipResponse,
   ApiGroupMember,
   ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
   CreateGroupInput,
   CreateUserInput,
 } from "../types/principals-types"
@@ -21,6 +22,17 @@ export type ApiGroupManagementAcl = {
   group_id: string
   immutable: boolean
   sections: Array<ApiManagementPermissionSection>
+}
+
+export const principalProviderQueryOptions = {
+  queryKey: ["principals", "provider"] as const,
+  queryFn: async (): Promise<ApiPrincipalProviderCapabilities> => {
+    const res = await apiFetch("/api/v1/principals/provider")
+    if (!res.ok) {
+      throw new Error(`Failed to fetch principal provider: ${res.status}`)
+    }
+    return res.json()
+  },
 }
 
 export const usersQueryOptions = {
@@ -242,7 +254,7 @@ export function userGroupsQueryOptions(userId: string) {
   }
 }
 
-export async function triggerADSync(): Promise<void> {
+export async function triggerPrincipalSync(): Promise<void> {
   const res = await apiFetch("/api/v1/principals/sync", { method: "POST" })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

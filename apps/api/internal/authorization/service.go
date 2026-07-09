@@ -460,7 +460,7 @@ func (s *Service) BootstrapRootAccess(
 	q := database.New(s.db)
 
 	if len(groupNames) == 0 {
-		log.Printf("inventory ACL bootstrap skipped: LDAP_ADMIN_GROUP_DN is not configured or could not be resolved")
+		log.Printf("inventory ACL bootstrap skipped: PRINCIPAL_BOOTSTRAP_ADMIN_GROUP is not configured or could not be resolved")
 		return nil
 	}
 

@@ -35,7 +35,8 @@ import {
 } from "@/features/auth/utils/management-permissions"
 import {
   deleteUser,
-  triggerADSync,
+  principalProviderQueryOptions,
+  triggerPrincipalSync,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
@@ -86,12 +87,20 @@ export function UsersPage() {
   )
   const {
     data: users,
-    isLoading,
+    isLoading: isUsersLoading,
     error,
   } = useQuery({
     ...usersQueryOptions,
     enabled: canAdminister,
   })
+  const {
+    data: providerCapabilities,
+    isLoading: isProviderLoading,
+  } = useQuery({
+    ...principalProviderQueryOptions,
+    enabled: canAdminister,
+  })
+  const isLoading = isUsersLoading || isProviderLoading
   const userCountLabel = error ? "!" : String(users?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
@@ -139,6 +148,7 @@ export function UsersPage() {
     () =>
       getUserColumns({
         canManage: canAdminister,
+        canManageMemberships: providerCapabilities?.can_manage_memberships ?? true,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onDeleteClick: (targetUser: ApiPrincipal) =>
@@ -153,6 +163,7 @@ export function UsersPage() {
       }),
     [
       canAdminister,
+      providerCapabilities?.can_manage_memberships,
       editDialog.openWith,
       membershipDialog.openWith,
       showDeleteToast,
@@ -160,7 +171,7 @@ export function UsersPage() {
   )
 
   const syncMutation = useMutation({
-    mutationFn: triggerADSync,
+    mutationFn: triggerPrincipalSync,
     onSuccess: () => {
       toast.success("Sync complete")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
@@ -199,7 +210,7 @@ export function UsersPage() {
               List of users from your principal provider.
             </CardDescription>
             <CardAction className="flex items-center gap-2">
-              {canAdminister ? (
+              {canAdminister && providerCapabilities?.can_sync ? (
                 <AppActionButton
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
@@ -211,7 +222,7 @@ export function UsersPage() {
                   <span className="hidden lg:block">Sync</span>
                 </AppActionButton>
               ) : null}
-              {canAdminister ? (
+              {canAdminister && providerCapabilities?.can_create_users ? (
                 <Button
                   onClick={() => setCreateOpen(true)}
                   disabled={error !== null}
@@ -306,11 +317,16 @@ export function UsersPage() {
 
       <Suspense fallback={null}>
         {canAdminister && createOpen ? (
-          <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
+          <UserDialog
+            capabilities={providerCapabilities}
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+          />
         ) : null}
         {canAdminister && editDialog.data ? (
           <UserDialog
             key={`edit-${editDialog.dialogKey}`}
+            capabilities={providerCapabilities}
             user={editDialog.data}
             open={editDialog.open}
             onOpenChange={editDialog.onOpenChange}

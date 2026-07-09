@@ -34,9 +34,24 @@ export type ApiBulkCreateResponse = {
   failures: Array<ApiBulkCreateFailure>
 }
 
+export type ApiPrincipalProviderCapabilities = {
+  provider_type: "active_directory" | "proxmox" | "system"
+  display_name: string
+  can_sync: boolean
+  can_create_users: boolean
+  user_password_on_create: boolean
+  can_rename_users: boolean
+  can_set_passwords: boolean
+  can_change_own_password: boolean
+  can_enable_users: boolean
+  can_disable_users: boolean
+  can_create_groups: boolean
+  can_manage_memberships: boolean
+}
+
 export type CreateUserInput = {
   username: string
-  password: string
+  password?: string
   description?: string
   group_ids?: Array<string>
 }

@@ -31,7 +31,8 @@ import {
 import {
   deleteGroup,
   groupsQueryOptions,
-  triggerADSync,
+  principalProviderQueryOptions,
+  triggerPrincipalSync,
 } from "@/features/principals/api/principals-api"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
 import { formatToastError } from "@/features/shared/utils/format"
@@ -80,12 +81,20 @@ export function GroupsPage() {
   )
   const {
     data: groups,
-    isLoading,
+    isLoading: isGroupsLoading,
     error,
   } = useQuery({
     ...groupsQueryOptions,
     enabled: canAdminister,
   })
+  const {
+    data: providerCapabilities,
+    isLoading: isProviderLoading,
+  } = useQuery({
+    ...principalProviderQueryOptions,
+    enabled: canAdminister,
+  })
+  const isLoading = isGroupsLoading || isProviderLoading
   const groupCountLabel = error ? "!" : String(groups?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
@@ -126,7 +135,7 @@ export function GroupsPage() {
   )
 
   const syncMutation = useMutation({
-    mutationFn: triggerADSync,
+    mutationFn: triggerPrincipalSync,
     onSuccess: () => {
       toast.success("Sync complete")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
@@ -141,6 +150,7 @@ export function GroupsPage() {
       getGroupColumns({
         canManageGroups: canAdminister,
         canManageAccess: canAdminister,
+        canManageMemberships: providerCapabilities?.can_manage_memberships ?? true,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onEditAccess: accessDialog.openWith,
@@ -157,6 +167,7 @@ export function GroupsPage() {
     [
       accessDialog.openWith,
       canAdminister,
+      providerCapabilities?.can_manage_memberships,
       editDialog.openWith,
       membershipDialog.openWith,
       showDeleteToast,
@@ -192,7 +203,7 @@ export function GroupsPage() {
               List of groups from your principal provider.
             </CardDescription>
             <CardAction className="flex items-center gap-2">
-              {canAdminister ? (
+              {canAdminister && providerCapabilities?.can_sync ? (
                 <AppActionButton
                   variant="outline"
                   onClick={() => syncMutation.mutate()}
@@ -203,7 +214,7 @@ export function GroupsPage() {
                   Sync
                 </AppActionButton>
               ) : null}
-              {canAdminister ? (
+              {canAdminister && providerCapabilities?.can_create_groups ? (
                 <Button onClick={() => setCreateOpen(true)}>
                   <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
                   <span className="hidden lg:block">Create</span>

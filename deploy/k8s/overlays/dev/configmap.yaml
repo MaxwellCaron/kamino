@@ -11,5 +11,7 @@ data:
   FRONTEND_URL: https://dev.placeholder.invalid
   PROXMOX_INSECURE: "false"
   PROXMOX_INITIAL_SYNC_ENABLED: "true"
+  PRINCIPAL_PROVIDER: active_directory
+  PRINCIPAL_INITIAL_SYNC_ENABLED: "true"
+  PROXMOX_AUTH_REALM: pve
   LDAP_INSECURE: "false"
-  AD_INITIAL_SYNC_ENABLED: "true"

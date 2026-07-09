@@ -6,6 +6,7 @@ import { DialogFooter } from "@workspace/ui/components/dialog"
 import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
   CreateUserInput,
 } from "@/features/principals/types/principals-types"
 import type { CreateMode } from "@/features/principals/components/users/user-dialog-utils"
@@ -36,15 +37,20 @@ import {
 } from "@/features/principals/components/users/user-dialog-utils"
 
 export function UserDialog({
+  capabilities,
   user,
   open,
   onOpenChange,
 }: {
+  capabilities?: ApiPrincipalProviderCapabilities
   user?: ApiPrincipal
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const isEdit = !!user
+  const requireCreatePassword = capabilities?.user_password_on_create ?? true
+  const canSetPasswords = capabilities?.can_set_passwords ?? true
+  const canRenameUsers = capabilities?.can_rename_users ?? true
   const queryClient = useQueryClient()
   const { data: groups } = useQuery(groupsQueryOptions)
   const [mode, setMode] = React.useState<CreateMode>("single")
@@ -77,7 +83,7 @@ export function UserDialog({
           full_name: parsed.fullName,
           description: normalizeDescription(parsed.description ?? ""),
         })
-        if (parsed.password) {
+        if (parsed.password && canSetPasswords) {
           await setUserPassword(user.id, parsed.password)
         }
         return null
@@ -118,7 +124,12 @@ export function UserDialog({
         return
       }
 
-      const payload = buildCreateUsers(mode, value, selectedGroupIds)
+      const payload = buildCreateUsers(
+        mode,
+        value,
+        selectedGroupIds,
+        requireCreatePassword
+      )
       const createUsers = async (inputs: Array<CreateUserInput>) => {
         const result = await mutation.mutateAsync(inputs)
         if (result === null) {
@@ -185,13 +196,18 @@ export function UserDialog({
         }}
       >
         {isEdit ? (
-          <UserDialogEditForm form={form} />
+          <UserDialogEditForm
+            canRenameUsers={canRenameUsers}
+            canSetPasswords={canSetPasswords}
+            form={form}
+          />
         ) : (
           <UserDialogCreateForm
             form={form}
             groupItems={groupItems}
             groupOptionMap={groupOptionMap}
             mode={mode}
+            requirePassword={requireCreatePassword}
             selectedGroupIds={selectedGroupIds}
             setMode={setMode}
             setSelectedGroupIds={setSelectedGroupIds}

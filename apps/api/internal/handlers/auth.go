@@ -9,7 +9,7 @@ import (
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
-	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
+	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,12 +17,12 @@ import (
 )
 
 type AuthHandler struct {
-	Auth         *auth.Service
-	Sessions     *auth.SessionManager
-	ADClient     *activedirectory.Client
-	Authz        *authorization.Service
-	DB           *pgxpool.Pool
-	CookieSecure bool
+	Auth          *auth.Service
+	Sessions      *auth.SessionManager
+	Authenticator principals.Authenticator
+	Authz         *authorization.Service
+	DB            *pgxpool.Pool
+	CookieSecure  bool
 }
 
 type loginRequest struct {
@@ -54,9 +54,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.ADClient.Authenticate(req.Username, req.Password)
+	result, err := h.Authenticator.Authenticate(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		writeLoggedError(c, http.StatusUnauthorized, "invalid credentials", "ad authenticate", err)
+		if errors.Is(err, principals.ErrInvalidCredentials) {
+			writeLoggedError(c, http.StatusUnauthorized, "invalid credentials", "authenticate principal", err)
+			return
+		}
+		writeLoggedError(c, http.StatusBadGateway, "authentication service unavailable", "authenticate principal", err)
 		return
 	}
 
@@ -69,7 +73,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	principal, err := q.GetPrincipalByExternalID(c.Request.Context(), database.GetPrincipalByExternalIDParams{
 		ProviderID: providerID,
-		ExternalID: result.SID,
+		ExternalID: result.ExternalID,
 	})
 	if err != nil {
 		writeLoggedError(c, http.StatusUnauthorized, "user not synced — contact an administrator", "lookup principal", err)

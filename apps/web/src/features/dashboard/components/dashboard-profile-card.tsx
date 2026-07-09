@@ -20,7 +20,7 @@ export function DashboardProfileCard({
   user,
 }: {
   className?: string
-  onSettingsClick: () => void
+  onSettingsClick?: () => void
   roleLabel: string
   user: AuthUser
 }) {
@@ -41,10 +41,12 @@ export function DashboardProfileCard({
           </div>
         </div>
         <CardAction className="flex shrink-0 flex-wrap justify-end gap-2 self-end pb-2">
-          <Button type="button" onClick={onSettingsClick}>
-            <HugeiconsIcon icon={Settings01Icon} data-icon="inline-start" />
-            Settings
-          </Button>
+          {onSettingsClick ? (
+            <Button type="button" onClick={onSettingsClick}>
+              <HugeiconsIcon icon={Settings01Icon} data-icon="inline-start" />
+              Settings
+            </Button>
+          ) : null}
         </CardAction>
       </CardHeader>
     </Card>

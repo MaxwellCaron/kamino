@@ -22,12 +22,14 @@ export function UserDialogCreatePrefixTab({
   form,
   groupItems,
   groupOptionMap,
+  requirePassword,
   selectedGroupIds,
   setSelectedGroupIds,
 }: {
   form: UserFormApi
   groupItems: Array<string>
   groupOptionMap: Map<string, string>
+  requirePassword: boolean
   selectedGroupIds: Array<string>
   setSelectedGroupIds: React.Dispatch<React.SetStateAction<Array<string>>>
 }) {
@@ -131,35 +133,37 @@ export function UserDialogCreatePrefixTab({
         </form.Field>
       </div>
 
-      <form.Field
-        name="sharedPassword"
-        validators={{
-          onSubmit: requiredPasswordSchema,
-        }}
-      >
-        {(field) => {
-          const isInvalid =
-            field.state.meta.isTouched && !field.state.meta.isValid
+      {requirePassword ? (
+        <form.Field
+          name="sharedPassword"
+          validators={{
+            onSubmit: requiredPasswordSchema,
+          }}
+        >
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
 
-          return (
-            <Field data-invalid={isInvalid}>
-              <FieldLabel htmlFor="shared-password">Shared Password</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="shared-password"
-                  type="password"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Password123!"
-                  aria-invalid={isInvalid}
-                />
-              </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
-            </Field>
-          )
-        }}
-      </form.Field>
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor="shared-password">Shared Password</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="shared-password"
+                    type="password"
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder="Password123!"
+                    aria-invalid={isInvalid}
+                  />
+                </FieldContent>
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
+      ) : null}
 
       <UserDialogGroupAssignmentsField
         id="prefix-group-assignments"

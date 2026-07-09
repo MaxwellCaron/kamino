@@ -2,19 +2,18 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
+	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
@@ -25,7 +24,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -48,16 +46,21 @@ type Config struct {
 	ProxmoxSharedStorageNames string `envconfig:"PROXMOX_SHARED_STORAGE_NAMES"`
 	ProxmoxInitialSyncEnabled bool   `envconfig:"PROXMOX_INITIAL_SYNC_ENABLED" default:"true"`
 
-	// --- Active Directory / LDAP (optional; all required if AD auth/sync is enabled) ---
-	LDAPUrl              string `envconfig:"LDAP_URL"`
-	LDAPBindDN           string `envconfig:"LDAP_BIND_DN"`
-	LDAPBindPassword     string `envconfig:"LDAP_BIND_PASSWORD"`
-	LDAPSearchBaseDN     string `envconfig:"LDAP_SEARCH_BASE_DN"`
-	LDAPUserOU           string `envconfig:"LDAP_USER_OU"`
-	LDAPGroupOU          string `envconfig:"LDAP_GROUP_OU"`
-	LDAPAdminGroupDN     string `envconfig:"LDAP_ADMIN_GROUP_DN"`
-	LDAPInsecure         bool   `envconfig:"LDAP_INSECURE" default:"false"`
-	ADInitialSyncEnabled bool   `envconfig:"AD_INITIAL_SYNC_ENABLED" default:"true"`
+	// --- Principal provider (required) ---
+	PrincipalProvider            string `envconfig:"PRINCIPAL_PROVIDER" required:"true"`
+	PrincipalInitialSyncEnabled  bool   `envconfig:"PRINCIPAL_INITIAL_SYNC_ENABLED" default:"true"`
+	PrincipalBootstrapAdminGroup string `envconfig:"PRINCIPAL_BOOTSTRAP_ADMIN_GROUP"`
+	ProxmoxAuthRealm             string `envconfig:"PROXMOX_AUTH_REALM" default:"pve"`
+	ProxmoxManagedUserRealm      string `envconfig:"PROXMOX_MANAGED_USER_REALM"`
+
+	// --- Active Directory / LDAP (required when PRINCIPAL_PROVIDER=active_directory) ---
+	LDAPUrl          string `envconfig:"LDAP_URL"`
+	LDAPBindDN       string `envconfig:"LDAP_BIND_DN"`
+	LDAPBindPassword string `envconfig:"LDAP_BIND_PASSWORD"`
+	LDAPSearchBaseDN string `envconfig:"LDAP_SEARCH_BASE_DN"`
+	LDAPUserOU       string `envconfig:"LDAP_USER_OU"`
+	LDAPGroupOU      string `envconfig:"LDAP_GROUP_OU"`
+	LDAPInsecure     bool   `envconfig:"LDAP_INSECURE" default:"false"`
 
 	// --- Inventory folder item IDs (optional) ---
 	TemplatesFolderItemID    string `envconfig:"TEMPLATES_FOLDER_ITEM_ID"`
@@ -99,12 +102,14 @@ type Config struct {
 
 // Server holds all application dependencies
 type Server struct {
-	Config        *Config
-	DBPool        *pgxpool.Pool
-	ProxmoxClient *proxmox.Client
-	ProxmoxImport *proxmox.InventoryImporter
-	ADClient      *activedirectory.Client
-	ADSync        *activedirectory.Sync
+	Config                 *Config
+	DBPool                 *pgxpool.Pool
+	ProxmoxClient          *proxmox.Client
+	ProxmoxImport          *proxmox.InventoryImporter
+	ADClient               *activedirectory.Client
+	PrincipalProvider      principals.Provider
+	PrincipalAuthenticator principals.Authenticator
+	PrincipalSync          func(context.Context) error
 }
 
 const proxmoxVNetIDMaxLength = 8
@@ -389,66 +394,6 @@ func buildVMIDRangeConfig(config *Config) (vmidRanges, error) {
 	return ranges, nil
 }
 
-func resolveConfiguredAdminGroup(
-	config *Config,
-	adClient *activedirectory.Client,
-) (*activedirectory.Group, error) {
-	if adClient == nil || strings.TrimSpace(config.LDAPAdminGroupDN) == "" {
-		return nil, nil
-	}
-
-	group, err := adClient.FetchGroupByDN(config.LDAPAdminGroupDN)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"fetch admin group from LDAP_ADMIN_GROUP_DN %q: %w",
-			config.LDAPAdminGroupDN,
-			err,
-		)
-	}
-	if group == nil {
-		return nil, fmt.Errorf(
-			"no group found at LDAP_ADMIN_GROUP_DN %q",
-			config.LDAPAdminGroupDN,
-		)
-	}
-	return group, nil
-}
-
-func resolveProtectedAdminGroupPrincipalID(
-	ctx context.Context,
-	dbPool *pgxpool.Pool,
-	group *activedirectory.Group,
-) (uuid.UUID, error) {
-	if group == nil {
-		return uuid.Nil, nil
-	}
-	if strings.TrimSpace(group.SID) == "" {
-		return uuid.Nil, fmt.Errorf("protected admin group %q does not have a SID", group.Name)
-	}
-
-	q := database.New(dbPool)
-	providerID, err := q.GetPrincipalProvider(ctx)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, nil
-		}
-		return uuid.Nil, fmt.Errorf("load principal provider: %w", err)
-	}
-
-	principal, err := q.GetPrincipalByExternalID(ctx, database.GetPrincipalByExternalIDParams{
-		ProviderID: providerID,
-		ExternalID: group.SID,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, nil
-		}
-		return uuid.Nil, fmt.Errorf("load protected admin group principal: %w", err)
-	}
-
-	return principal.ID, nil
-}
-
 // init the environment
 func init() {
 	if err := godotenv.Load(); err != nil {
@@ -497,19 +442,9 @@ func newServer(config *Config) (*Server, error) {
 		ProxmoxImport: pxImport,
 	}
 
-	// Initialize AD client and sync if LDAP is configured
-	if config.LDAPUrl != "" {
-		adClient := activedirectory.NewClient(
-			config.LDAPUrl,
-			config.LDAPBindDN,
-			config.LDAPBindPassword,
-			config.LDAPSearchBaseDN,
-			config.LDAPUserOU,
-			config.LDAPGroupOU,
-			config.LDAPInsecure,
-		)
-		server.ADClient = adClient
-		server.ADSync = activedirectory.NewSync(dbPool, adClient)
+	if err := server.wirePrincipalProvider(); err != nil {
+		dbPool.Close()
+		return nil, err
 	}
 
 	return server, nil
@@ -519,7 +454,7 @@ func runInitialSyncs(
 	ctx context.Context,
 	config *Config,
 	proxmoxSync func(context.Context) error,
-	adSync func(context.Context) error,
+	principalSync func(context.Context) error,
 ) {
 	if config.ProxmoxInitialSyncEnabled {
 		if err := proxmoxSync(ctx); err != nil {
@@ -529,12 +464,12 @@ func runInitialSyncs(
 		log.Printf("Initial Proxmox sync disabled by PROXMOX_INITIAL_SYNC_ENABLED")
 	}
 
-	if adSync != nil && config.ADInitialSyncEnabled {
-		if err := adSync(ctx); err != nil {
-			log.Printf("Initial AD sync failed: %v", err)
+	if principalSync != nil && config.PrincipalInitialSyncEnabled {
+		if err := principalSync(ctx); err != nil {
+			log.Printf("Initial principal sync failed: %v", err)
 		}
-	} else if adSync != nil {
-		log.Printf("Initial AD sync disabled by AD_INITIAL_SYNC_ENABLED")
+	} else if principalSync != nil {
+		log.Printf("Initial principal sync disabled by PRINCIPAL_INITIAL_SYNC_ENABLED")
 	}
 }
 
@@ -542,6 +477,9 @@ func main() {
 	var config Config
 	if err := envconfig.Process("", &config); err != nil {
 		log.Fatalf("Failed to process environment configuration: %v", err)
+	}
+	if err := validatePrincipalProviderConfig(&config); err != nil {
+		log.Fatalf("Invalid principal provider configuration: %v", err)
 	}
 	routerCloneConfig, err := buildPodRouterCloneConfig(&config)
 	if err != nil {
@@ -559,15 +497,11 @@ func main() {
 	}
 	defer server.DBPool.Close()
 
-	var adSync func(context.Context) error
-	if server.ADSync != nil {
-		adSync = server.ADSync.Run
-	}
 	runInitialSyncs(
 		context.Background(),
 		&config,
 		server.ProxmoxImport.Run,
-		adSync,
+		server.PrincipalSync,
 	)
 
 	inventoryNotifier := inventory.NewNotifier(server.DBPool)
@@ -584,20 +518,31 @@ func main() {
 		}
 	}
 
-	adminGroup, err := resolveConfiguredAdminGroup(server.Config, server.ADClient)
+	adminGroup, err := resolveBootstrapAdminGroup(server.Config, server.ADClient)
 	if err != nil {
-		log.Printf("Admin group discovery failed: %v", err)
+		log.Fatalf("Admin group discovery failed: %v", err)
+	}
+	if strings.TrimSpace(server.Config.PrincipalBootstrapAdminGroup) == "" {
+		log.Printf(
+			"WARNING: PRINCIPAL_BOOTSTRAP_ADMIN_GROUP is unset; no initial administrator group will be bootstrapped",
+		)
 	}
 
 	var bootstrapAdminGroups []string
-	if adminGroup != nil && strings.TrimSpace(adminGroup.Name) != "" {
-		bootstrapAdminGroups = []string{adminGroup.Name}
+	if adminGroup != nil && strings.TrimSpace(adminGroup.DisplayName) != "" {
+		bootstrapAdminGroups = []string{adminGroup.DisplayName}
 	}
 
 	protectedACLPrincipalID, err := resolveProtectedAdminGroupPrincipalID(
 		context.Background(),
 		server.DBPool,
-		adminGroup,
+		configuredPrincipalProviderType(server.Config),
+		func() string {
+			if adminGroup == nil {
+				return ""
+			}
+			return adminGroup.ExternalID
+		}(),
 	)
 	if err != nil {
 		log.Printf("Protected admin group principal discovery failed: %v", err)
@@ -752,30 +697,24 @@ func main() {
 		Authz:             authzService,
 	}
 
-	var authHandler *handlers.AuthHandler
-	var authService *auth.Service
-	var principalsHandler *handlers.PrincipalsHandler
-	if server.ADClient != nil {
-		authService, err = auth.NewService(server.Config.JWTSecret)
-		if err != nil {
-			log.Fatal(err)
-		}
+	authService, err := auth.NewService(server.Config.JWTSecret)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		authHandler = &handlers.AuthHandler{
-			Auth:         authService,
-			Sessions:     auth.NewSessionManager(server.DBPool),
-			ADClient:     server.ADClient,
-			Authz:        authzService,
-			DB:           server.DBPool,
-			CookieSecure: strings.HasPrefix(server.Config.FrontendURL, "https://"),
-		}
+	authHandler := &handlers.AuthHandler{
+		Auth:          authService,
+		Sessions:      auth.NewSessionManager(server.DBPool),
+		Authenticator: server.PrincipalAuthenticator,
+		Authz:         authzService,
+		DB:            server.DBPool,
+		CookieSecure:  strings.HasPrefix(server.Config.FrontendURL, "https://"),
+	}
 
-		adService := activedirectory.NewService(server.DBPool, server.ADClient, server.ADSync)
-		principalsHandler = &handlers.PrincipalsHandler{
-			Provider: adService,
-			Authz:    authzService,
-			Audit:    auditService,
-		}
+	principalsHandler := &handlers.PrincipalsHandler{
+		Provider: server.PrincipalProvider,
+		Authz:    authzService,
+		Audit:    auditService,
 	}
 
 	r := gin.Default()

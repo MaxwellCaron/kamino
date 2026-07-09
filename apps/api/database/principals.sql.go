@@ -180,6 +180,26 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 	return items, nil
 }
 
+const getConfiguredPrincipalProvider = `-- name: GetConfiguredPrincipalProvider :one
+SELECT id, provider_type, name
+FROM principal_providers
+WHERE provider_type <> 'system'
+LIMIT 1
+`
+
+type GetConfiguredPrincipalProviderRow struct {
+	ID           uuid.UUID             `json:"id"`
+	ProviderType PrincipalProviderType `json:"provider_type"`
+	Name         string                `json:"name"`
+}
+
+func (q *Queries) GetConfiguredPrincipalProvider(ctx context.Context) (GetConfiguredPrincipalProviderRow, error) {
+	row := q.db.QueryRow(ctx, getConfiguredPrincipalProvider)
+	var i GetConfiguredPrincipalProviderRow
+	err := row.Scan(&i.ID, &i.ProviderType, &i.Name)
+	return i, err
+}
+
 const getGroupMembers = `-- name: GetGroupMembers :many
 SELECT p.id, p.principal_type, p.external_id, p.name, p.full_name, p.description
 FROM group_memberships gm
@@ -304,6 +324,20 @@ LIMIT 1
 // ---------------------------------------------------------------------------
 func (q *Queries) GetPrincipalProvider(ctx context.Context) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getPrincipalProvider)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getPrincipalProviderByType = `-- name: GetPrincipalProviderByType :one
+SELECT id
+FROM principal_providers
+WHERE provider_type = $1
+LIMIT 1
+`
+
+func (q *Queries) GetPrincipalProviderByType(ctx context.Context, providerType PrincipalProviderType) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getPrincipalProviderByType, providerType)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err

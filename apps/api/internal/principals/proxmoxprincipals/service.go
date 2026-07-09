@@ -1,4 +1,4 @@
-package activedirectory
+package proxmoxprincipals
 
 import (
 	"context"
@@ -9,31 +9,60 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/principals"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Service struct {
-	db     *pgxpool.Pool
-	client *Client
-	sync   *Sync
+type accessClient interface {
+	AuthenticateTicket(ctx context.Context, username, password, defaultRealm string) (proxmox.TicketAuthResult, error)
+	ListAccessUsers(ctx context.Context) ([]proxmox.AccessUser, error)
+	ListAccessGroups(ctx context.Context) ([]proxmox.AccessGroup, error)
+	CreateAccessUser(ctx context.Context, userid, comment string, enabled bool) error
+	UpdateAccessUser(ctx context.Context, userid, comment string, enabled *bool, groups []string) error
+	DeleteAccessUser(ctx context.Context, userid string) error
+	CreateAccessGroup(ctx context.Context, groupid, comment string) error
+	UpdateAccessGroup(ctx context.Context, groupid, comment string) error
+	DeleteAccessGroup(ctx context.Context, groupid string) error
 }
 
-func NewService(db *pgxpool.Pool, client *Client, sync *Sync) *Service {
-	return &Service{db: db, client: client, sync: sync}
+type Service struct {
+	db               *pgxpool.Pool
+	client           accessClient
+	defaultRealm     string
+	managedUserRealm string
+	sync             *Sync
+}
+
+func NewService(
+	db *pgxpool.Pool,
+	client *proxmox.Client,
+	defaultRealm, managedUserRealm string,
+) *Service {
+	if strings.TrimSpace(managedUserRealm) == "" {
+		managedUserRealm = defaultRealm
+	}
+	service := &Service{
+		db:               db,
+		client:           client,
+		defaultRealm:     strings.TrimSpace(defaultRealm),
+		managedUserRealm: strings.TrimSpace(managedUserRealm),
+	}
+	service.sync = NewSync(db, client)
+	return service
 }
 
 func (s *Service) Capabilities() principals.ProviderCapabilities {
 	return principals.ProviderCapabilities{
-		ProviderType:         database.PrincipalProviderTypeActiveDirectory,
-		DisplayName:          "Active Directory",
+		ProviderType:         database.PrincipalProviderTypeProxmox,
+		DisplayName:          "Proxmox",
 		CanSync:              true,
 		CanCreateUsers:       true,
-		UserPasswordOnCreate: true,
-		CanRenameUsers:       true,
-		CanSetPasswords:      true,
-		CanChangeOwnPassword: true,
+		UserPasswordOnCreate: false,
+		CanRenameUsers:       false,
+		CanSetPasswords:      false,
+		CanChangeOwnPassword: false,
 		CanEnableUsers:       true,
 		CanDisableUsers:      true,
 		CanCreateGroups:      true,
@@ -45,55 +74,26 @@ func (s *Service) Authenticate(
 	ctx context.Context,
 	username, password string,
 ) (principals.AuthenticatedPrincipal, error) {
-	_ = ctx
-	result, err := s.client.Authenticate(username, password)
+	result, err := s.client.AuthenticateTicket(ctx, username, password, s.defaultRealm)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "invalid credentials") {
-			return principals.AuthenticatedPrincipal{}, principals.ErrInvalidCredentials
-		}
 		return principals.AuthenticatedPrincipal{}, err
 	}
 	return principals.AuthenticatedPrincipal{
-		ExternalID: result.SID,
-		Username:   result.Username,
+		ExternalID: result.UserID,
+		Username:   result.UserID,
 	}, nil
 }
 
 func (s *Service) getProviderID(ctx context.Context) (uuid.UUID, error) {
 	q := database.New(s.db)
-	id, err := q.GetPrincipalProvider(ctx)
+	id, err := q.GetPrincipalProviderByType(ctx, database.PrincipalProviderTypeProxmox)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, errors.New("no principal provider configured")
+			return uuid.Nil, errors.New("no Proxmox principal provider configured")
 		}
 		return uuid.Nil, err
 	}
 	return id, nil
-}
-
-func (s *Service) lookupDN(sid string, objectType string) (string, error) {
-	if objectType == "user" {
-		users, err := s.client.FetchUsers()
-		if err != nil {
-			return "", err
-		}
-		for _, u := range users {
-			if u.SID == sid {
-				return u.DN, nil
-			}
-		}
-	} else {
-		groups, err := s.client.FetchGroups()
-		if err != nil {
-			return "", err
-		}
-		for _, g := range groups {
-			if g.SID == sid {
-				return g.DN, nil
-			}
-		}
-	}
-	return "", principals.ErrPrincipalNotFound
 }
 
 func (s *Service) upsertCreatedPrincipal(
@@ -102,7 +102,6 @@ func (s *Service) upsertCreatedPrincipal(
 	externalID string,
 	name string,
 	description string,
-	createdAt time.Time,
 ) (uuid.UUID, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -121,7 +120,7 @@ func (s *Service) upsertCreatedPrincipal(
 		PrincipalType: principalType,
 		ExternalID:    externalID,
 		Name:          &name,
-		CreatedAt:     principalCreatedAtParam(createdAt),
+		CreatedAt:     principalCreatedAtParam(time.Now().UTC()),
 	})
 	if err != nil {
 		return uuid.Nil, err
@@ -150,61 +149,51 @@ func (s *Service) ListUsers(ctx context.Context) ([]database.GetAllUsersRow, err
 }
 
 func (s *Service) CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error) {
-	if err := ValidateADCreateName(username); err != nil {
+	_ = password
+	userID := normalizeManagedUserID(username, s.managedUserRealm)
+	if err := ValidateProxmoxUserID(userID); err != nil {
 		return uuid.Nil, err
 	}
-	if strings.TrimSpace(password) == "" {
-		return uuid.Nil, fmt.Errorf("password is required")
-	}
 
-	createdUser, err := s.client.CreateUser(username, password, description)
-	if err != nil {
+	if err := s.client.CreateAccessUser(ctx, userID, description, true); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "password") {
+			return uuid.Nil, fmt.Errorf(
+				"proxmox requires password management for this realm; create the user in Proxmox instead",
+			)
+		}
 		return uuid.Nil, err
 	}
 
 	return s.upsertCreatedPrincipal(
 		ctx,
 		database.PrincipalTypeUser,
-		createdUser.SID,
-		createdUser.Username,
+		userID,
+		userID,
 		description,
-		createdUser.CreatedAt,
 	)
 }
 
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, fullName, description string) error {
-	normalizedFullName, err := principals.NormalizeFullName(fullName)
-	if err != nil {
-		return err
-	}
-
+func (s *Service) UpdateUser(
+	ctx context.Context,
+	id uuid.UUID,
+	username, fullName, description string,
+) error {
 	q := database.New(s.db)
 	p, err := q.GetPrincipalByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
-	if err != nil {
-		return err
+	currentName := ""
+	if p.Name != nil {
+		currentName = *p.Name
+	}
+	trimmedUsername := strings.TrimSpace(username)
+	if trimmedUsername != "" && trimmedUsername != currentName && trimmedUsername != p.ExternalID {
+		return principals.ErrUnsupportedPrincipal
 	}
 
-	if err := s.client.UpdateUser(dn, username, normalizedFullName, description); err != nil {
-		return err
-	}
-
-	providerID, err := s.getProviderID(ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
-		ProviderID:    providerID,
-		PrincipalType: p.PrincipalType,
-		ExternalID:    p.ExternalID,
-		Name:          &username,
-	})
-	if err != nil {
+	if err := s.client.UpdateAccessUser(ctx, p.ExternalID, description, nil, nil); err != nil {
 		return err
 	}
 
@@ -215,11 +204,14 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, fullNa
 		return err
 	}
 
+	normalizedFullName, err := principals.NormalizeFullName(fullName)
+	if err != nil {
+		return err
+	}
 	var fullNameValue *string
 	if normalizedFullName != "" {
 		fullNameValue = &normalizedFullName
 	}
-
 	return q.UpdatePrincipalFullName(ctx, database.UpdatePrincipalFullNameParams{
 		FullName: fullNameValue,
 		ID:       id,
@@ -227,18 +219,10 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, fullNa
 }
 
 func (s *Service) SetPassword(ctx context.Context, id uuid.UUID, password string) error {
-	q := database.New(s.db)
-	p, err := q.GetPrincipalByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	dn, err := s.lookupDN(p.ExternalID, "user")
-	if err != nil {
-		return err
-	}
-
-	return s.client.SetPassword(dn, password)
+	_ = ctx
+	_ = id
+	_ = password
+	return principals.ErrUnsupportedPrincipal
 }
 
 func (s *Service) ChangePassword(
@@ -246,58 +230,35 @@ func (s *Service) ChangePassword(
 	id uuid.UUID,
 	oldPassword, newPassword string,
 ) error {
+	_ = ctx
+	_ = id
+	_ = oldPassword
+	_ = newPassword
+	return principals.ErrUnsupportedPrincipal
+}
+
+func (s *Service) EnableUser(ctx context.Context, id uuid.UUID) error {
+	return s.setUserEnabled(ctx, id, true)
+}
+
+func (s *Service) DisableUser(ctx context.Context, id uuid.UUID) error {
+	return s.setUserEnabled(ctx, id, false)
+}
+
+func (s *Service) setUserEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
 	q := database.New(s.db)
 	p, err := q.GetPrincipalByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return principals.ErrPrincipalNotFound
-		}
 		return err
 	}
 	if p.PrincipalType != database.PrincipalTypeUser {
 		return principals.ErrUnsupportedPrincipal
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
-	if err != nil {
-		return principals.ErrPrincipalNotFound
-	}
-
-	if err := s.client.AuthenticateDN(dn, oldPassword); err != nil {
-		return principals.ErrInvalidCredentials
-	}
-
-	return s.client.SetPassword(dn, newPassword)
-}
-
-func (s *Service) EnableUser(ctx context.Context, id uuid.UUID) error {
-	q := database.New(s.db)
-	p, err := q.GetPrincipalByID(ctx, id)
-	if err != nil {
+	if err := s.client.UpdateAccessUser(ctx, p.ExternalID, "", &enabled, nil); err != nil {
 		return err
 	}
-
-	dn, err := s.lookupDN(p.ExternalID, "user")
-	if err != nil {
-		return err
-	}
-
-	return s.client.EnableUser(dn)
-}
-
-func (s *Service) DisableUser(ctx context.Context, id uuid.UUID) error {
-	q := database.New(s.db)
-	p, err := q.GetPrincipalByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	dn, err := s.lookupDN(p.ExternalID, "user")
-	if err != nil {
-		return err
-	}
-
-	return s.client.DisableUser(dn)
+	return nil
 }
 
 func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
@@ -313,18 +274,9 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
-	if err != nil {
-		if errors.Is(err, principals.ErrPrincipalNotFound) {
-			return q.DeletePrincipal(ctx, id)
-		}
+	if err := s.client.DeleteAccessUser(ctx, p.ExternalID); err != nil {
 		return err
 	}
-
-	if err := s.client.DeleteUser(dn); err != nil {
-		return err
-	}
-
 	return q.DeletePrincipal(ctx, id)
 }
 
@@ -337,22 +289,18 @@ func (s *Service) ListGroups(ctx context.Context) ([]database.GetAllGroupsRow, e
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name, description string) (uuid.UUID, error) {
-	if err := ValidateADCreateName(name); err != nil {
+	if err := ValidateProxmoxGroupID(name); err != nil {
 		return uuid.Nil, err
 	}
-
-	createdGroup, err := s.client.CreateGroup(name)
-	if err != nil {
+	if err := s.client.CreateAccessGroup(ctx, name, description); err != nil {
 		return uuid.Nil, err
 	}
-
 	return s.upsertCreatedPrincipal(
 		ctx,
 		database.PrincipalTypeGroup,
-		createdGroup.SID,
-		createdGroup.Name,
+		name,
+		name,
 		description,
-		createdGroup.CreatedAt,
 	)
 }
 
@@ -362,31 +310,12 @@ func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, name, descripti
 	if err != nil {
 		return err
 	}
-
-	dn, err := s.lookupDN(p.ExternalID, "group")
-	if err != nil {
+	if strings.TrimSpace(name) != "" && name != p.ExternalID {
+		return principals.ErrUnsupportedPrincipal
+	}
+	if err := s.client.UpdateAccessGroup(ctx, p.ExternalID, description); err != nil {
 		return err
 	}
-
-	if err := s.client.UpdateGroup(dn, name); err != nil {
-		return err
-	}
-
-	providerID, err := s.getProviderID(ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
-		ProviderID:    providerID,
-		PrincipalType: p.PrincipalType,
-		ExternalID:    p.ExternalID,
-		Name:          &name,
-	})
-	if err != nil {
-		return err
-	}
-
 	return q.UpdatePrincipalDescription(ctx, database.UpdatePrincipalDescriptionParams{
 		Description: &description,
 		ID:          id,
@@ -405,25 +334,14 @@ func (s *Service) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	if err := principals.EnsurePrincipalDeletable(ctx, q, id); err != nil {
 		return err
 	}
-
-	dn, err := s.lookupDN(p.ExternalID, "group")
-	if err != nil {
-		if errors.Is(err, principals.ErrPrincipalNotFound) {
-			return q.DeletePrincipal(ctx, id)
-		}
+	if err := s.client.DeleteAccessGroup(ctx, p.ExternalID); err != nil {
 		return err
 	}
-
-	if err := s.client.DeleteGroup(dn); err != nil {
-		return err
-	}
-
 	return q.DeletePrincipal(ctx, id)
 }
 
 func (s *Service) GetGroupMembers(ctx context.Context, groupID uuid.UUID) ([]database.GetGroupMembersRow, error) {
-	q := database.New(s.db)
-	return q.GetGroupMembers(ctx, groupID)
+	return database.New(s.db).GetGroupMembers(ctx, groupID)
 }
 
 func dedupeUUIDs(ids []uuid.UUID) []uuid.UUID {
@@ -439,36 +357,44 @@ func dedupeUUIDs(ids []uuid.UUID) []uuid.UUID {
 	return deduped
 }
 
-func (s *Service) updateGroupMembers(
+func (s *Service) lookupAccessUser(ctx context.Context, userid string) (proxmox.AccessUser, error) {
+	users, err := s.client.ListAccessUsers(ctx)
+	if err != nil {
+		return proxmox.AccessUser{}, err
+	}
+	for _, user := range users {
+		if user.UserID == userid {
+			return user, nil
+		}
+	}
+	return proxmox.AccessUser{}, principals.ErrPrincipalNotFound
+}
+
+func (s *Service) updateUserGroups(
 	ctx context.Context,
 	groupID uuid.UUID,
 	memberIDs []uuid.UUID,
 	add bool,
 ) (map[uuid.UUID]error, error) {
 	q := database.New(s.db)
-
 	group, err := q.GetPrincipalByID(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
-
-	groupDN, err := s.lookupDN(group.ExternalID, "group")
-	if err != nil {
-		return nil, err
+	if group.PrincipalType != database.PrincipalTypeGroup {
+		return nil, principals.ErrUnsupportedPrincipal
 	}
 
 	currentMembers, err := q.GetGroupMembers(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
-
 	currentMemberSet := make(map[uuid.UUID]struct{}, len(currentMembers))
 	for _, member := range currentMembers {
 		currentMemberSet[member.ID] = struct{}{}
 	}
 
 	failed := make(map[uuid.UUID]error)
-
 	for _, memberID := range dedupeUUIDs(memberIDs) {
 		_, isMember := currentMemberSet[memberID]
 		if add && isMember {
@@ -483,19 +409,27 @@ func (s *Service) updateGroupMembers(
 			failed[memberID] = err
 			continue
 		}
+		if member.PrincipalType != database.PrincipalTypeUser {
+			failed[memberID] = principals.ErrUnsupportedPrincipal
+			continue
+		}
 
-		memberDN, err := s.lookupDN(member.ExternalID, string(member.PrincipalType))
+		accessUser, err := s.lookupAccessUser(ctx, member.ExternalID)
 		if err != nil {
 			failed[memberID] = err
 			continue
 		}
 
+		groups := proxmox.ParseAccessGroups(accessUser.Groups)
 		if add {
-			err = s.client.AddGroupMember(groupDN, memberDN)
+			if !containsString(groups, group.ExternalID) {
+				groups = append(groups, group.ExternalID)
+			}
 		} else {
-			err = s.client.RemoveGroupMember(groupDN, memberDN)
+			groups = removeString(groups, group.ExternalID)
 		}
-		if err != nil {
+
+		if err := s.client.UpdateAccessUser(ctx, member.ExternalID, "", nil, groups); err != nil {
 			failed[memberID] = err
 			continue
 		}
@@ -523,12 +457,31 @@ func (s *Service) updateGroupMembers(
 	return failed, nil
 }
 
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(values []string, target string) []string {
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		if value != target {
+			filtered = append(filtered, value)
+		}
+	}
+	return filtered
+}
+
 func (s *Service) AddGroupMembers(
 	ctx context.Context,
 	groupID uuid.UUID,
 	memberIDs []uuid.UUID,
 ) (map[uuid.UUID]error, error) {
-	return s.updateGroupMembers(ctx, groupID, memberIDs, true)
+	return s.updateUserGroups(ctx, groupID, memberIDs, true)
 }
 
 func (s *Service) RemoveGroupMembers(
@@ -536,12 +489,11 @@ func (s *Service) RemoveGroupMembers(
 	groupID uuid.UUID,
 	memberIDs []uuid.UUID,
 ) (map[uuid.UUID]error, error) {
-	return s.updateGroupMembers(ctx, groupID, memberIDs, false)
+	return s.updateUserGroups(ctx, groupID, memberIDs, false)
 }
 
 func (s *Service) GetUserGroups(ctx context.Context, userID uuid.UUID) ([]database.GetUserGroupsRow, error) {
-	q := database.New(s.db)
-	return q.GetUserGroups(ctx, userID)
+	return database.New(s.db).GetUserGroups(ctx, userID)
 }
 
 func (s *Service) TriggerSync(ctx context.Context) error {

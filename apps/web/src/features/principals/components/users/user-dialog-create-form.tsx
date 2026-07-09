@@ -22,6 +22,7 @@ type UserDialogCreateFormProps = {
   groupItems: Array<string>
   groupOptionMap: Map<string, string>
   mode: CreateMode
+  requirePassword: boolean
   selectedGroupIds: Array<string>
   setMode: React.Dispatch<React.SetStateAction<CreateMode>>
   setSelectedGroupIds: React.Dispatch<React.SetStateAction<Array<string>>>
@@ -32,6 +33,7 @@ export function UserDialogCreateForm({
   groupItems,
   groupOptionMap,
   mode,
+  requirePassword,
   selectedGroupIds,
   setMode,
   setSelectedGroupIds,
@@ -63,13 +65,14 @@ export function UserDialogCreateForm({
             form={form}
             groupItems={groupItems}
             groupOptionMap={groupOptionMap}
+            requirePassword={requirePassword}
             selectedGroupIds={selectedGroupIds}
             setSelectedGroupIds={setSelectedGroupIds}
           />
         </TabsContent>
 
         <TabsContent value="list">
-          <UserDialogCreateListTab form={form} />
+          <UserDialogCreateListTab form={form} requirePassword={requirePassword} />
         </TabsContent>
 
         <TabsContent value="prefix">
@@ -77,6 +80,7 @@ export function UserDialogCreateForm({
             form={form}
             groupItems={groupItems}
             groupOptionMap={groupOptionMap}
+            requirePassword={requirePassword}
             selectedGroupIds={selectedGroupIds}
             setSelectedGroupIds={setSelectedGroupIds}
           />
