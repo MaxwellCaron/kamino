@@ -126,7 +126,7 @@ func (e *requestError) Error() string {
 func parseItemIDParam(c *gin.Context) (uuid.UUID, bool) {
 	itemID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return uuid.Nil, false
 	}
 
@@ -368,7 +368,7 @@ type managementACLResponse struct {
 func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -378,7 +378,7 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		writeInvalidRequest(c, "invalid group id")
 		return
 	}
 
@@ -393,7 +393,7 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
 		return
 	case authorization.IsManagementACLRequiresGroup(err):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "management access only applies to groups"})
+		writeInvalidRequest(c, "management access only applies to groups")
 		return
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch management access", "get management acl for group", err)
@@ -413,7 +413,7 @@ func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
 func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -423,7 +423,7 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		writeInvalidRequest(c, "invalid group id")
 		return
 	}
 
@@ -448,7 +448,7 @@ func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
 		return
 	case authorization.IsManagementACLRequiresGroup(err):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "management access only applies to groups"})
+		writeInvalidRequest(c, "management access only applies to groups")
 		return
 	default:
 		writeLoggedError(c, http.StatusBadRequest, "failed to update management access", "update management acl for group", err)

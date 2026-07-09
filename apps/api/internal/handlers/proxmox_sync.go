@@ -21,7 +21,7 @@ type ProxmoxSyncHandler struct {
 func (h *ProxmoxSyncHandler) requireAdmin(c *gin.Context) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
 	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator)

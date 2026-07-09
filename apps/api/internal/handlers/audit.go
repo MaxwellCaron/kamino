@@ -58,7 +58,7 @@ type AuditHandler struct {
 func (h *AuditHandler) requireManager(c *gin.Context) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
 	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager)
@@ -157,13 +157,13 @@ func (h *AuditHandler) List(c *gin.Context) {
 
 	page, ok := parsePageParam(c.Query("page"))
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
+		writeInvalidRequest(c, "invalid page")
 		return
 	}
 
 	rows, ok := parseRowsParam(c.Query("rows"))
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rows"})
+		writeInvalidRequest(c, "invalid rows")
 		return
 	}
 

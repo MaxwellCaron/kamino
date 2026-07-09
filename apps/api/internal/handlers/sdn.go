@@ -46,7 +46,7 @@ func (h *SDNHandler) requireSDNPermission(
 ) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
 

@@ -27,7 +27,7 @@ type EventsHandler struct {
 func (h *EventsHandler) Stream(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 

@@ -79,7 +79,7 @@ type VMHandler struct {
 // writeActionInProgress writes a deterministic 409 Conflict response when a
 // VM action claim is already held for the target item.
 func writeActionInProgress(c *gin.Context) {
-	c.JSON(http.StatusConflict, gin.H{"error": "another action is already in progress for this VM"})
+	writeConflict(c, "another action is already in progress for this VM")
 }
 
 // runClaimedVMAction claims itemID for the given action name before running
@@ -112,7 +112,7 @@ func (h *VMHandler) runClaimedVMAction(
 func (h *VMHandler) GetStatuses(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *VMHandler) GetStatuses(c *gin.Context) {
 func (h *VMHandler) GetResources(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -342,7 +342,7 @@ func (h *VMHandler) runClaimedBulkVMAction(
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -402,7 +402,7 @@ type powerActionRequest struct {
 func (h *VMHandler) PowerAction(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -414,7 +414,7 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 
 	itemIDs, err := parseBulkVMItemIDs(req.ItemIDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -475,7 +475,7 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 func (h *VMHandler) DeleteVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -487,7 +487,7 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 
 	itemIDs, err := parseBulkVMItemIDs(req.ItemIDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -579,7 +579,7 @@ type updateVMHardwareRequest struct {
 func (h *VMHandler) RenameVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -590,7 +590,7 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 	}
 	req.Name = names.Normalize(req.Name)
 	if err := names.ValidateVM(req.Name); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "validate vm name", err)
 		return
 	}
 
@@ -633,7 +633,7 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 func (h *VMHandler) UpdateNotes(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -694,7 +694,7 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 func (h *VMHandler) GetHardware(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -727,7 +727,7 @@ type vmNetworkSummaryResponse struct {
 func (h *VMHandler) GetNetworking(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -767,7 +767,7 @@ func summarizeVMHardwareNetworks(networks []proxmox.VMHardwareNetwork) []vmNetwo
 func (h *VMHandler) UpdateHardware(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -787,7 +787,7 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		return
 	}
 	if err := validateVMHardwareRequest(req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "validate vm hardware request", err)
 		return
 	}
 
@@ -853,7 +853,7 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 
 	h.runClaimedVMAction(c, target.ItemID, "update_hardware", principalID, func() bool {
 		if err := h.PX.UpdateVMHardware(c.Request.Context(), target.Node, target.VMID, config); err != nil {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "update vm hardware", err)
 			return false
 		}
 
@@ -957,7 +957,7 @@ type vmMutationResponse struct {
 func (h *VMHandler) CloneVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -968,7 +968,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	}
 	req.Name = names.Normalize(req.Name)
 	if err := names.ValidateVM(req.Name); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "validate vm name", err)
 		return
 	}
 	itemID, ok := parseItemIDParam(c)
@@ -982,7 +982,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 
 	targetFolderID, err := uuid.Parse(req.TargetFolderID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
+		writeInvalidRequest(c, "invalid target_folder_id")
 		return
 	}
 	if !requireInventoryPermission(c, h.Authz, principalID, targetFolderID, authorization.CreateVM) {
@@ -1023,7 +1023,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		switch {
 		case err == nil:
 		case isVMIDUnavailable(err):
-			c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+			writeConflict(c, "VM ID is already in use")
 			return false
 		default:
 			writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
@@ -1088,7 +1088,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -1100,7 +1100,7 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 
 	itemIDs, err := parseBulkVMItemIDs(req.ItemIDs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -1192,7 +1192,7 @@ func (h *VMHandler) requireVerifiedVMSnapshotReadAccess(
 func (h *VMHandler) GetSnapshots(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -1227,7 +1227,7 @@ type rollbackSnapshotRequest struct {
 func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -1278,7 +1278,7 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 

@@ -374,7 +374,7 @@ func (h *PodsHandler) provisionPersonalPod(
 func (h *PodsHandler) GetPersonalPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -430,7 +430,7 @@ func (h *PodsHandler) GetPersonalPod(c *gin.Context) {
 func (h *PodsHandler) CreatePersonalPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {

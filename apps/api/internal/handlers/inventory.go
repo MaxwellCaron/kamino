@@ -98,7 +98,7 @@ type InventoryACL struct {
 func (h *InventoryHandler) GetTree(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -116,13 +116,13 @@ func (h *InventoryHandler) GetTree(c *gin.Context) {
 func (h *InventoryHandler) GetItem(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -148,13 +148,13 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 func (h *InventoryHandler) GetACL(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -233,13 +233,13 @@ type updateInventoryACLRequest struct {
 func (h *InventoryHandler) UpdateACL(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -310,7 +310,7 @@ type moveInventoryItemsRequest struct {
 func (h *InventoryHandler) MoveItem(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -377,7 +377,7 @@ func (h *InventoryHandler) MoveItem(c *gin.Context) {
 func (h *InventoryHandler) MoveItems(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -460,7 +460,7 @@ type createFolderRequest struct {
 func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -514,13 +514,13 @@ type updateFolderVMLimitRequest struct {
 func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -568,13 +568,13 @@ func (h *InventoryHandler) RenameFolder(c *gin.Context) {
 func (h *InventoryHandler) UpdateFolderVMLimit(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -619,13 +619,13 @@ func (h *InventoryHandler) UpdateFolderVMLimit(c *gin.Context) {
 func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -830,7 +830,7 @@ func writeInventoryError(c *gin.Context, err error) {
 	case errors.Is(err, inventory.ErrInventoryItemNotFound),
 		errors.Is(err, inventory.ErrInventoryFolderNotFound),
 		errors.Is(err, inventory.ErrInventoryParentNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusNotFound, err.Error(), "inventory lookup", err)
 	case errors.Is(err, inventory.ErrInventoryTargetNotFolder),
 		errors.Is(err, inventory.ErrInventoryItemNotFolder),
 		errors.Is(err, inventory.ErrInventoryFolderDepthExceeded),
@@ -840,13 +840,13 @@ func writeInventoryError(c *gin.Context, err error) {
 		errors.Is(err, names.ErrTooLong),
 		errors.Is(err, names.ErrMustStartWithAlnum),
 		errors.Is(err, names.ErrInvalidCharacters):
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "inventory validation", err)
 	case errors.Is(err, inventory.ErrInventoryInvalidMove),
 		errors.Is(err, inventory.ErrInventoryReservedFolder),
 		errors.Is(err, inventory.ErrInventoryFolderConflict),
 		errors.Is(err, inventory.ErrInventoryFolderLimitExceeded),
 		errors.Is(err, inventory.ErrInventoryItemInUse):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusConflict, err.Error(), "inventory conflict", err)
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory mutation failed", "inventory mutation", err)
 	}
@@ -855,10 +855,10 @@ func writeInventoryError(c *gin.Context, err error) {
 func writeInventoryACLError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, inventory.ErrInventoryItemNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusNotFound, err.Error(), "inventory acl lookup", err)
 	case errors.Is(err, inventory.ErrInventoryPrincipalNotFound),
 		errors.Is(err, inventory.ErrInventoryInvalidACL):
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "inventory acl validation", err)
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "inventory ACL update failed", "inventory ACL mutation", err)
 	}

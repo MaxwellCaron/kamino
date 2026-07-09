@@ -42,7 +42,7 @@ var errPodCloneClaimsUnavailable = errors.New("pod clone claims unavailable")
 // writePodCloneActionInProgress writes a deterministic 409 Conflict response
 // when a pod clone claim is already held for the target pod/principal scope.
 func writePodCloneActionInProgress(c *gin.Context) {
-	c.JSON(http.StatusConflict, gin.H{"error": "another operation is already in progress for this pod"})
+	writeConflict(c, "another operation is already in progress for this pod")
 }
 
 func (h *PodsHandler) acquirePodCloneClaim(
@@ -399,13 +399,13 @@ func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterClone
 
 func (h *PodsHandler) GetCloneProgress(c *gin.Context) {
 	if _, ok := currentPrincipalID(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	progressID := strings.TrimSpace(c.Param("id"))
 	if progressID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid progress id"})
+		writeInvalidRequest(c, "invalid progress id")
 		return
 	}
 
@@ -421,7 +421,7 @@ func (h *PodsHandler) GetCloneProgress(c *gin.Context) {
 func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -457,7 +457,7 @@ func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -560,13 +560,13 @@ func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
 func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	username, ok := currentUsername(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -635,13 +635,13 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	cloneID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -690,7 +690,7 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if h.Actions == nil {
@@ -700,7 +700,7 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 
 	cloneID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -768,13 +768,13 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	cloneID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -824,18 +824,18 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	cloneID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 	questionID, err := uuid.Parse(c.Param("questionID"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		writeInvalidRequest(c, "invalid question id")
 		return
 	}
 
@@ -933,7 +933,7 @@ func (h *PodsHandler) AnswerClonedPodQuestion(c *gin.Context) {
 func (h *PodsHandler) ListPodQuestionActivity(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -2571,7 +2571,7 @@ func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int
 func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
@@ -2584,12 +2584,12 @@ func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
 
 	podID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 	cloneID, err := uuid.Parse(c.Param("cloneID"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		writeInvalidRequest(c, "invalid clone id")
 		return
 	}
 
@@ -2664,7 +2664,7 @@ func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
 func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
@@ -2673,12 +2673,12 @@ func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
 
 	podID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 	cloneID, err := uuid.Parse(c.Param("cloneID"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		writeInvalidRequest(c, "invalid clone id")
 		return
 	}
 
@@ -2952,7 +2952,7 @@ func (h *PodsHandler) publishedPodCloneSummaryByID(
 func (h *PodsHandler) ReclonePublishedPodClone(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
@@ -2961,12 +2961,12 @@ func (h *PodsHandler) ReclonePublishedPodClone(c *gin.Context) {
 
 	podID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 	cloneID, err := uuid.Parse(c.Param("cloneID"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid clone id"})
+		writeInvalidRequest(c, "invalid clone id")
 		return
 	}
 
@@ -2998,7 +2998,7 @@ func (h *PodsHandler) ReclonePublishedPodClone(c *gin.Context) {
 func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
@@ -3018,7 +3018,7 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 
 	podID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -3089,7 +3089,7 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
@@ -3098,7 +3098,7 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 
 	podID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 

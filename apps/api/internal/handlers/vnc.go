@@ -118,7 +118,7 @@ func (s *sessionStore) reapLoop() {
 func (h *VNCHandler) PostProxy(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -159,7 +159,7 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 func (h *VNCHandler) WebSocket(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 

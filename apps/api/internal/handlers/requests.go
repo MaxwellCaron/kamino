@@ -100,7 +100,7 @@ type requestEventResponse struct {
 func (h *RequestsHandler) List(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -153,14 +153,14 @@ func (h *RequestsHandler) List(c *gin.Context) {
 			Rows:  result.Rows,
 		})
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+		writeInvalidRequest(c, "invalid scope")
 	}
 }
 
 func (h *RequestsHandler) ListMine(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -213,7 +213,7 @@ func (h *RequestsHandler) ListMine(c *gin.Context) {
 			Rows:  result.Rows,
 		})
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+		writeInvalidRequest(c, "invalid scope")
 	}
 }
 
@@ -223,13 +223,13 @@ func (h *RequestsHandler) ListMine(c *gin.Context) {
 func parseTableParams(c *gin.Context) (page int32, rows int32, ok bool) {
 	page, ok = parsePageParam(c.Query("page"))
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
+		writeInvalidRequest(c, "invalid page")
 		return 0, 0, false
 	}
 
 	rows, ok = parseRowsParam(c.Query("rows"))
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rows"})
+		writeInvalidRequest(c, "invalid rows")
 		return 0, 0, false
 	}
 
@@ -239,13 +239,13 @@ func parseTableParams(c *gin.Context) (page int32, rows int32, ok bool) {
 func (h *RequestsHandler) Get(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	requestID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *RequestsHandler) Get(c *gin.Context) {
 func (h *RequestsHandler) Approve(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -280,7 +280,7 @@ func (h *RequestsHandler) Approve(c *gin.Context) {
 func (h *RequestsHandler) Deny(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -341,13 +341,13 @@ func (h *RequestsHandler) writeRequestActionResponse(
 func (h *RequestsHandler) Cancel(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
 	requestID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -366,7 +366,7 @@ func (h *RequestsHandler) Cancel(c *gin.Context) {
 func (h *RequestsHandler) SubmitInventoryPower(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -383,7 +383,7 @@ func (h *RequestsHandler) SubmitInventoryPower(c *gin.Context) {
 
 	action, err := inventoryPowerActionFromRequest(req.Action)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusBadRequest, err.Error(), "parse inventory power action", err)
 		return
 	}
 
@@ -402,7 +402,7 @@ func (h *RequestsHandler) SubmitInventoryPower(c *gin.Context) {
 func (h *RequestsHandler) SubmitInventorySnapshotCreate(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -437,7 +437,7 @@ func (h *RequestsHandler) SubmitInventorySnapshotCreate(c *gin.Context) {
 func (h *RequestsHandler) SubmitInventorySnapshotRollback(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -472,7 +472,7 @@ func (h *RequestsHandler) SubmitInventorySnapshotRollback(c *gin.Context) {
 func (h *RequestsHandler) SubmitPersonalPod(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -495,20 +495,20 @@ func writeRequestServiceError(c *gin.Context, err error, operation string) {
 	case errors.Is(err, requestqueue.ErrRequestForbidden):
 		writeForbidden(c)
 	case errors.Is(err, requestqueue.ErrRequestDirectExecution):
-		c.JSON(http.StatusConflict, gin.H{"error": "action is directly allowed and should not be queued"})
+		writeConflict(c, "action is directly allowed and should not be queued")
 	case errors.Is(err, requestqueue.ErrRequestNotPending):
-		c.JSON(http.StatusConflict, gin.H{"error": "request is not pending"})
+		writeConflict(c, "request is not pending")
 	case errors.Is(err, requestqueue.ErrRequestLimitExceeded):
-		c.JSON(http.StatusConflict, gin.H{"error": "users may only have 3 pending requests at a time"})
+		writeConflict(c, "users may only have 3 pending requests at a time")
 	case errors.Is(err, requestqueue.ErrRequestPersonalPodExists):
-		c.JSON(http.StatusConflict, gin.H{"error": "personal pod already exists"})
+		writeConflict(c, "personal pod already exists")
 	case errors.Is(err, requestqueue.ErrRequestDuplicatePending):
-		c.JSON(http.StatusConflict, gin.H{"error": "a pending personal pod request already exists"})
+		writeConflict(c, "a pending personal pod request already exists")
 	case errors.Is(err, requestqueue.ErrRequestUnsupportedKind):
-		c.JSON(http.StatusConflict, gin.H{"error": "personal pods are not configured"})
+		writeConflict(c, "personal pods are not configured")
 	case errors.Is(err, requestqueue.ErrRequestInvalidPowerAction),
 		errors.Is(err, requestqueue.ErrRequestInvalidSnapshot):
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), operation, err)
 	default:
 		writeLoggedError(c, http.StatusInternalServerError, "request operation failed", operation, err)
 	}

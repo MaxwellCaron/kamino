@@ -29,7 +29,7 @@ func (h *PrincipalsHandler) requirePrincipalPermission(
 ) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
 
@@ -145,7 +145,7 @@ func parseBulkDeleteIDs(c *gin.Context) ([]string, bool) {
 
 	for _, rawID := range req.IDs {
 		if _, err := uuid.Parse(rawID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			writeInvalidRequest(c, "invalid id")
 			return nil, false
 		}
 	}
@@ -201,7 +201,7 @@ func bulkPrincipalDeleteError(err error) string {
 
 func writePrincipalMutationError(c *gin.Context, message, operation string, err error) {
 	if errors.Is(err, principals.ErrUnsupportedPrincipal) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported principal"})
+		writeInvalidRequest(c, "unsupported principal")
 		return
 	}
 	writeLoggedError(c, http.StatusBadGateway, message, operation, err)
@@ -227,7 +227,7 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 	for _, rawID := range req.MemberIDs {
 		id, err := uuid.Parse(rawID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid member id"})
+			writeInvalidRequest(c, "invalid member id")
 			return nil, nil, false
 		}
 		memberIDs = append(memberIDs, id)
@@ -411,7 +411,7 @@ func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -466,7 +466,7 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -490,7 +490,7 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -511,7 +511,7 @@ func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
 		case errors.Is(err, principals.ErrPrincipalNotFound),
 			errors.Is(err, principals.ErrUnsupportedPrincipal):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "password change is unavailable for this account"})
+			writeInvalidRequest(c, "password change is unavailable for this account")
 		default:
 			writeLoggedError(c, http.StatusBadGateway, "failed to change password", "change own password", err)
 		}
@@ -536,7 +536,7 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -564,7 +564,7 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -714,7 +714,7 @@ func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -777,7 +777,7 @@ func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 
@@ -803,7 +803,7 @@ func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		writeInvalidRequest(c, "invalid group id")
 		return
 	}
 
@@ -861,7 +861,7 @@ func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		writeInvalidRequest(c, "invalid group id")
 		return
 	}
 
@@ -918,7 +918,7 @@ func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return
 	}
 

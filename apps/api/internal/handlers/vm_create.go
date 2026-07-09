@@ -61,7 +61,7 @@ type VMCreateHandler struct {
 func (h *VMCreateHandler) GetNodes(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -101,7 +101,7 @@ func filterVNetsByName(vnets []proxmox.VNet, scopedVNetName string) []proxmox.VN
 func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -187,7 +187,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -216,7 +216,7 @@ func (h *VMCreateHandler) GetStorages(c *gin.Context) {
 func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -238,7 +238,7 @@ func (h *VMCreateHandler) GetISOs(c *gin.Context) {
 func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -270,7 +270,7 @@ func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
 func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -290,7 +290,7 @@ func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
 func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -316,7 +316,7 @@ func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
 func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -417,7 +417,7 @@ func normalizeMachineType(machine string) string {
 func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -428,13 +428,13 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	}
 	req.Name = names.Normalize(req.Name)
 	if err := names.ValidateVM(req.Name); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "validate vm name", err)
 		return
 	}
 
 	targetFolderID, err := uuid.Parse(req.TargetFolderID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
+		writeInvalidRequest(c, "invalid target_folder_id")
 		return
 	}
 	if !requireInventoryPermission(c, h.Authz, principalID, targetFolderID, authorization.CreateVM) {
@@ -561,7 +561,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 	switch {
 	case err == nil:
 	case isVMIDUnavailable(err):
-		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
+		writeConflict(c, "VM ID is already in use")
 		return
 	default:
 		writeLoggedError(c, http.StatusBadGateway, "failed to create VM", "create proxmox vm", err)
