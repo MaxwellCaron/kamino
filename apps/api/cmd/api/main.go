@@ -32,10 +32,11 @@ import (
 // Config holds all application configuration
 type Config struct {
 	// --- Core (required) ---
-	Port        string `envconfig:"PORT" default:":8080"`
-	FrontendURL string `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
-	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
-	JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
+	Port              string   `envconfig:"PORT" default:":8080"`
+	FrontendURL       string   `envconfig:"FRONTEND_URL" default:"http://localhost:3000"`
+	TrustedProxyCIDRs []string `envconfig:"TRUSTED_PROXY_CIDRS"`
+	DatabaseURL       string   `envconfig:"DATABASE_URL" required:"true"`
+	JWTSecret         string   `envconfig:"JWT_SECRET" required:"true"`
 
 	// --- Proxmox (required) ---
 	ProxmoxURL                string `envconfig:"PROXMOX_URL" required:"true"`
@@ -724,6 +725,9 @@ func main() {
 	}
 
 	r := gin.Default()
+	if err := r.SetTrustedProxies(server.Config.TrustedProxyCIDRs); err != nil {
+		log.Fatalf("invalid TRUSTED_PROXY_CIDRS: %v", err)
+	}
 	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	// Register all API routes

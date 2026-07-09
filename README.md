@@ -147,6 +147,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_MANAGED_USER_REALM` | no | `PROXMOX_AUTH_REALM` | Realm appended to bare usernames created through Kamino in Proxmox mode |
 | `PORT` | no | `:8080` | API listen address |
 | `FRONTEND_URL` | no | `http://localhost:3000` | Allowed CORS origin |
+| `TRUSTED_PROXY_CIDRS` | no | — | Comma-separated CIDRs of reverse proxies allowed to set `X-Forwarded-For`; unset trusts none |
 | `LDAP_URL` | when AD | — | LDAP server URL (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_BIND_DN` | when AD | — | Service account DN |
 | `LDAP_BIND_PASSWORD` | when AD | — | Service account password |
