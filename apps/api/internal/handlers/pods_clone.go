@@ -37,6 +37,90 @@ const (
 	routerCloudInitNetworkPlaceholder = "{network}"
 )
 
+var errPodCloneClaimsUnavailable = errors.New("pod clone claims unavailable")
+
+// writePodCloneActionInProgress writes a deterministic 409 Conflict response
+// when a pod clone claim is already held for the target pod/principal scope.
+func writePodCloneActionInProgress(c *gin.Context) {
+	c.JSON(http.StatusConflict, gin.H{"error": "another operation is already in progress for this pod"})
+}
+
+func (h *PodsHandler) acquirePodCloneClaim(
+	c *gin.Context,
+	podID uuid.UUID,
+	userPrincipalID uuid.UUID,
+	action string,
+	actorPrincipalID uuid.UUID,
+) bool {
+	if h.PodCloneClaims == nil {
+		writeLoggedError(c, http.StatusServiceUnavailable, "pod clone claims unavailable", "claim pod clone", errPodCloneClaimsUnavailable)
+		return false
+	}
+
+	if err := h.PodCloneClaims.Claim(c.Request.Context(), podID, userPrincipalID, action, actorPrincipalID); err != nil {
+		if vmactions.IsActionInProgress(err) {
+			writePodCloneActionInProgress(c)
+			return false
+		}
+		writeLoggedError(c, http.StatusInternalServerError, "failed to claim pod for mutation", "claim pod clone", err)
+		return false
+	}
+	return true
+}
+
+func (h *PodsHandler) releasePodCloneClaim(podID, userPrincipalID uuid.UUID, requestCtx context.Context) {
+	if h.PodCloneClaims == nil {
+		return
+	}
+	_ = h.PodCloneClaims.Release(context.WithoutCancel(requestCtx), podID, userPrincipalID)
+}
+
+func (h *PodsHandler) claimPodCloneForMutation(
+	ctx context.Context,
+	podID uuid.UUID,
+	userPrincipalID uuid.UUID,
+	action string,
+	actorPrincipalID uuid.UUID,
+) *requestError {
+	if h.PodCloneClaims == nil {
+		return &requestError{
+			Status:      http.StatusServiceUnavailable,
+			UserMessage: "pod clone claims unavailable",
+			Operation:   "claim pod clone",
+			Err:         errPodCloneClaimsUnavailable,
+		}
+	}
+	if err := h.PodCloneClaims.Claim(ctx, podID, userPrincipalID, action, actorPrincipalID); err != nil {
+		if vmactions.IsActionInProgress(err) {
+			return &requestError{
+				Status:      http.StatusConflict,
+				UserMessage: "another operation is already in progress for this pod",
+			}
+		}
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to claim pod for mutation",
+			Operation:   "claim pod clone",
+			Err:         err,
+		}
+	}
+	return nil
+}
+
+func (h *PodsHandler) runClaimedPodCloneMutation(
+	ctx context.Context,
+	clone database.ClonedPods,
+	action string,
+	actorPrincipalID uuid.UUID,
+	fn func() *requestError,
+) *requestError {
+	if reqErr := h.claimPodCloneForMutation(ctx, clone.PodID, clone.UserPrincipalID, action, actorPrincipalID); reqErr != nil {
+		return reqErr
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, ctx)
+	return fn()
+}
+
 var clonedPodProgress = newPublishPodProgressStore()
 
 type clonePodProgressReporter struct {
@@ -517,6 +601,12 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 		return
 	}
 
+	if !h.acquirePodCloneClaim(c, pod.ID, principalID, "clone", principalID) {
+		progress.fail("another operation is already in progress for this pod")
+		return
+	}
+	defer h.releasePodCloneClaim(pod.ID, principalID, c.Request.Context())
+
 	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, folderName, pod, progress)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
@@ -565,6 +655,12 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 		writeRequestError(c, reqErr)
 		return
 	}
+
+	if !h.acquirePodCloneClaim(c, clone.PodID, clone.UserPrincipalID, "reclone", principalID) {
+		progress.fail("another operation is already in progress for this pod")
+		return
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
 
 	clone, reqErr = h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, progress)
 	if reqErr != nil {
@@ -688,6 +784,11 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 		writeRequestError(c, reqErr)
 		return
 	}
+
+	if !h.acquirePodCloneClaim(c, clone.PodID, clone.UserPrincipalID, "delete", principalID) {
+		return
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
 
 	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
 	if err != nil {
@@ -2596,6 +2697,11 @@ func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
 		return
 	}
 
+	if !h.acquirePodCloneClaim(c, clone.PodID, clone.UserPrincipalID, "delete", principalID) {
+		return
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
+
 	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod virtual machines", "list cloned pod VMs for manager delete", err)
@@ -2871,6 +2977,11 @@ func (h *PodsHandler) ReclonePublishedPodClone(c *gin.Context) {
 		return
 	}
 
+	if !h.acquirePodCloneClaim(c, clone.PodID, clone.UserPrincipalID, "reclone", principalID) {
+		return
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
+
 	if _, reqErr := h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil); reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
@@ -2938,9 +3049,14 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 		case "start", "shutdown":
 			reqErr = h.powerPublishedPodCloneForManager(c.Request.Context(), q, clone, req.Action)
 		case "reclone":
-			_, reqErr = h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil)
+			reqErr = h.runClaimedPodCloneMutation(c.Request.Context(), clone, "reclone", principalID, func() *requestError {
+				_, reqErr := h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil)
+				return reqErr
+			})
 		case "delete":
-			reqErr = h.deletePublishedPodCloneForManager(c.Request.Context(), q, clone)
+			reqErr = h.runClaimedPodCloneMutation(c.Request.Context(), clone, "delete", principalID, func() *requestError {
+				return h.deletePublishedPodCloneForManager(c.Request.Context(), q, clone)
+			})
 		}
 		if reqErr != nil {
 			log.Printf("bulk clone action %s clone_id=%s: %v", req.Action, clone.ID, reqErr.UserMessage)
@@ -3022,19 +3138,17 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 	}
 	target := principals[0]
 
-	if target.PrincipalType == database.PrincipalTypeUser {
-		if _, err := q.GetAccessibleClonedPodByPodID(c.Request.Context(), database.GetAccessibleClonedPodByPodIDParams{
-			PodID:       pod.ID,
-			PrincipalID: req.PrincipalID,
-		}); err == nil {
-			progress.fail("pod already cloned")
-			writeRequestError(c, &requestError{Status: http.StatusConflict, UserMessage: "pod already cloned"})
-			return
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			progress.fail("failed to check cloned pod")
-			writeLoggedError(c, http.StatusInternalServerError, "failed to check cloned pod", "check accessible cloned pod for manager clone", err)
-			return
-		}
+	if _, err := q.GetConflictingClonedPodForPrincipalByPodID(c.Request.Context(), database.GetConflictingClonedPodForPrincipalByPodIDParams{
+		PodID:           pod.ID,
+		UserPrincipalID: req.PrincipalID,
+	}); err == nil {
+		progress.fail("pod already cloned")
+		writeRequestError(c, &requestError{Status: http.StatusConflict, UserMessage: "pod already cloned"})
+		return
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		progress.fail("failed to check cloned pod")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to check cloned pod", "check conflicting cloned pod for manager clone", err)
+		return
 	}
 
 	displayLabel := target.ExternalID
@@ -3048,6 +3162,12 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 		writeRequestError(c, &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()})
 		return
 	}
+
+	if !h.acquirePodCloneClaim(c, pod.ID, req.PrincipalID, "clone", principalID) {
+		progress.fail("another operation is already in progress for this pod")
+		return
+	}
+	defer h.releasePodCloneClaim(pod.ID, req.PrincipalID, c.Request.Context())
 
 	clone, reqErr := h.clonePublishedPod(c.Request.Context(), req.PrincipalID, folderName, pod, progress)
 	if reqErr != nil {

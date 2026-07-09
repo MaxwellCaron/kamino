@@ -491,6 +491,20 @@ CREATE INDEX ix_published_pods_status_created_at
 CREATE INDEX ix_published_pods_source_folder_id
     ON published_pods (source_folder_id);
 
+-- ----------------------------------------------------------------------------
+-- Pod clone claims
+-- ----------------------------------------------------------------------------
+CREATE TABLE pod_clone_claims (
+    pod_id               UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
+    user_principal_id    UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
+    action               TEXT NOT NULL,
+    actor_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
+    claimed_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (pod_id, user_principal_id),
+    CONSTRAINT pod_clone_claims_action_not_empty
+        CHECK (length(trim(action)) > 0)
+);
+
 CREATE TABLE published_pod_creators (
     pod_id        UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
     principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,

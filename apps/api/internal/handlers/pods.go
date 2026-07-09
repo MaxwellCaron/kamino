@@ -82,6 +82,12 @@ type PodsHandler struct {
 	CloneVMIDRange                  vmidalloc.Range
 	DevVMIDRange                    vmidalloc.Range
 	PersonalVMIDRange               vmidalloc.Range
+	PodCloneClaims                  PodCloneClaimStore
+}
+
+type PodCloneClaimStore interface {
+	Claim(context.Context, uuid.UUID, uuid.UUID, string, uuid.UUID) error
+	Release(context.Context, uuid.UUID, uuid.UUID) error
 }
 
 var errConfiguredPodsFolderMissing = errors.New("configured PODS_FOLDER_ITEM_ID does not resolve to an existing folder")

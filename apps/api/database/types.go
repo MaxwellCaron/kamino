@@ -465,6 +465,14 @@ type PersonalPods struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PodCloneClaims struct {
+	PodID            uuid.UUID          `json:"pod_id"`
+	UserPrincipalID  uuid.UUID          `json:"user_principal_id"`
+	Action           string             `json:"action"`
+	ActorPrincipalID uuid.UUID          `json:"actor_principal_id"`
+	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
+}
+
 type PodDevNetworkAllocations struct {
 	PodFolderID   uuid.UUID          `json:"pod_folder_id"`
 	NetworkNumber int32              `json:"network_number"`

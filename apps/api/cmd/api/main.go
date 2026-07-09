@@ -589,6 +589,7 @@ func main() {
 		vmStatusNotifier,
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
+	podCloneClaims := vmactions.NewPodCloneClaims(server.DBPool)
 	vmHandler := &handlers.VMHandler{
 		PX:                    server.ProxmoxClient,
 		DB:                    server.DBPool,
@@ -653,6 +654,7 @@ func main() {
 		CloneVMIDRange:                  vmidRangeConfig.Clone,
 		DevVMIDRange:                    vmidRangeConfig.Dev,
 		PersonalVMIDRange:               vmidRangeConfig.Personal,
+		PodCloneClaims:                  podCloneClaims,
 	}
 	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {
 		log.Printf("Purpose folder description sync failed: %v", err)
@@ -695,6 +697,12 @@ func main() {
 		log.Printf("Expired capacity reservation sweep failed: %v", err)
 	} else if swept > 0 {
 		log.Printf("Swept %d expired folder VM capacity reservation(s)", swept)
+	}
+
+	if swept, err := podCloneClaims.SweepStale(context.Background(), 15*time.Minute); err != nil {
+		log.Printf("Stale pod clone claim sweep failed: %v", err)
+	} else if swept > 0 {
+		log.Printf("Swept %d stale pod clone claim(s)", swept)
 	}
 
 	eventsHandler := &handlers.EventsHandler{
