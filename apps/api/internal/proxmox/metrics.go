@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/url"
@@ -528,6 +529,61 @@ func (c *Client) GetStorageRRDData(
 	return resp.Data, nil
 }
 
+func (c *Client) getNodeUsageHistory(
+	ctx context.Context,
+	node Node,
+	timeframe string,
+) (nodeHistoryResult, error) {
+	usagePoints, err := c.GetNodeRRDData(ctx, node.Node, timeframe, "AVERAGE")
+	if err != nil {
+		return nodeHistoryResult{}, err
+	}
+
+	storages, err := c.GetStorages(ctx, node.Node)
+	if err != nil {
+		return nodeHistoryResult{
+			node:             node,
+			usagePoints:      usagePoints,
+			storageHistories: []storageWithHistory{},
+		}, nil
+	}
+
+	storageHistories := make([]storageWithHistory, 0, len(storages))
+	storageGroup, storageCtx := errgroup.WithContext(ctx)
+	var storageMu sync.Mutex
+
+	for _, storage := range storages {
+		storageGroup.Go(func() error {
+			points, fetchErr := c.GetStorageRRDData(
+				storageCtx,
+				node.Node,
+				storage.Storage,
+				timeframe,
+				"AVERAGE",
+			)
+
+			storageMu.Lock()
+			storageHistories = append(storageHistories, storageWithHistory{
+				storage:  storage,
+				points:   points,
+				fetchErr: fetchErr,
+			})
+			storageMu.Unlock()
+			return nil
+		})
+	}
+
+	if err := storageGroup.Wait(); err != nil {
+		return nodeHistoryResult{}, err
+	}
+
+	return nodeHistoryResult{
+		node:             node,
+		usagePoints:      usagePoints,
+		storageHistories: storageHistories,
+	}, nil
+}
+
 func (c *Client) GetClusterUsageHistory(
 	ctx context.Context,
 	timeframe string,
@@ -550,69 +606,44 @@ func (c *Client) GetClusterUsageHistory(
 		}, nil
 	}
 
-	results := make([]nodeHistoryResult, len(nodes))
+	resultsByIndex := make([]nodeHistoryResult, len(nodes))
+	available := make([]bool, len(nodes))
+	var (
+		resultMu   sync.Mutex
+		nodeErrors []error
+	)
+
 	group, groupCtx := errgroup.WithContext(ctx)
-
 	for index, node := range nodes {
-		index := index
-		node := node
 		group.Go(func() error {
-			usagePoints, err := c.GetNodeRRDData(
-				groupCtx,
-				node.Node,
-				normalizedTimeframe,
-				"AVERAGE",
-			)
+			result, err := c.getNodeUsageHistory(groupCtx, node, normalizedTimeframe)
+			resultMu.Lock()
+			defer resultMu.Unlock()
 			if err != nil {
-				return err
+				nodeErrors = append(nodeErrors, err)
+				return nil
 			}
-
-			storages, err := c.GetStorages(groupCtx, node.Node)
-			if err != nil {
-				return fmt.Errorf("fetching storages for %s: %w", node.Node, err)
-			}
-
-			storageHistories := make([]storageWithHistory, 0, len(storages))
-			storageGroup, storageCtx := errgroup.WithContext(groupCtx)
-			var storageMu sync.Mutex
-
-			for _, storage := range storages {
-				storage := storage
-				storageGroup.Go(func() error {
-					points, err := c.GetStorageRRDData(
-						storageCtx,
-						node.Node,
-						storage.Storage,
-						normalizedTimeframe,
-						"AVERAGE",
-					)
-
-					storageMu.Lock()
-					storageHistories = append(storageHistories, storageWithHistory{
-						storage:  storage,
-						points:   points,
-						fetchErr: err,
-					})
-					storageMu.Unlock()
-					return nil
-				})
-			}
-
-			if err := storageGroup.Wait(); err != nil {
-				return err
-			}
-
-			results[index] = nodeHistoryResult{
-				node:             node,
-				usagePoints:      usagePoints,
-				storageHistories: storageHistories,
-			}
+			resultsByIndex[index] = result
+			available[index] = true
 			return nil
 		})
 	}
 
 	if err := group.Wait(); err != nil {
 		return ClusterUsageHistory{}, err
+	}
+
+	results := make([]nodeHistoryResult, 0, len(nodes))
+	for index := range resultsByIndex {
+		if available[index] {
+			results = append(results, resultsByIndex[index])
+		}
+	}
+	if len(results) == 0 {
+		return ClusterUsageHistory{}, fmt.Errorf(
+			"failed to fetch usage history for all managed nodes: %w",
+			errors.Join(nodeErrors...),
+		)
 	}
 
 	nodeHistories := make([]NodeUsageHistory, len(results))
