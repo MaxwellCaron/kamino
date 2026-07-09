@@ -45,12 +45,11 @@ func (s *InventoryImporter) SyncVM(
 		return uuid.Nil, err
 	}
 
-	q := database.New(s.db)
-	if err := syncVMConfigSummary(syncCtx, q, parentID, node, vmid, summary); err != nil {
-		return uuid.Nil, fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
+	if err := s.syncVMConfigSummaryInTx(syncCtx, parentID, node, vmid, summary); err != nil {
+		return uuid.Nil, err
 	}
 
-	row, err := q.GetProxmoxVMByUpstreamUUID(syncCtx, summary.UpstreamUUID)
+	row, err := database.New(s.db).GetProxmoxVMByUpstreamUUID(syncCtx, summary.UpstreamUUID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("loading synced vm %d on node %s: %w", vmid, node, err)
 	}
@@ -113,7 +112,7 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 			continue
 		}
 
-		if err := syncVMConfigSummary(ctx, q, parentID, vm.Node, vm.VMID, summary); err != nil {
+		if err := s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, summary); err != nil {
 			log.Printf("Warning: failed to sync VM %d on node %s: %v", vm.VMID, vm.Node, err)
 			continue
 		}
@@ -164,6 +163,31 @@ func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.U
 		ParentID: &parentID,
 		Name:     name,
 	})
+}
+
+func (s *InventoryImporter) syncVMConfigSummaryInTx(
+	ctx context.Context,
+	parentID uuid.UUID,
+	node string,
+	vmid int,
+	summary *VMConfigSummary,
+) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning sync tx for vm %d on node %s: %w", vmid, node, err)
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(s.db).WithTx(tx)
+	if err := syncVMConfigSummary(ctx, q, parentID, node, vmid, summary); err != nil {
+		return fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("committing sync for vm %d on node %s: %w", vmid, node, err)
+	}
+
+	return nil
 }
 
 func syncVMConfigSummary(
