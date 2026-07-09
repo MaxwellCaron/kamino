@@ -103,19 +103,16 @@ func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionE
 		ActorUsername: row.ActorUsername,
 	}
 	if row.ActorPrincipalID != nil {
-		s := row.ActorPrincipalID.String()
-		item.ActorPrincipalID = &s
+		item.ActorPrincipalID = new(row.ActorPrincipalID.String())
 	}
 	if row.InventoryItemID != nil {
-		s := row.InventoryItemID.String()
-		item.InventoryItemID = &s
+		item.InventoryItemID = new(row.InventoryItemID.String())
 	}
 	if row.InventoryItemName != "" {
 		item.InventoryItemName = &row.InventoryItemName
 	}
 	if row.InventoryItemParentID != nil {
-		s := row.InventoryItemParentID.String()
-		item.InventoryItemParentID = &s
+		item.InventoryItemParentID = new(row.InventoryItemParentID.String())
 	}
 	if row.InventoryItemParentName != "" {
 		item.InventoryItemParentName = &row.InventoryItemParentName
@@ -131,8 +128,7 @@ func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionE
 		item.InventoryVmVmid = &vmid
 	}
 	if row.PodID != nil {
-		s := row.PodID.String()
-		item.PodID = &s
+		item.PodID = new(row.PodID.String())
 	}
 	if row.PodTitle != "" {
 		item.PodTitle = &row.PodTitle

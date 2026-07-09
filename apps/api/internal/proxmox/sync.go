@@ -139,9 +139,8 @@ func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, erro
 		return uuid.Nil, err
 	}
 
-	description := RootFolderDescription
 	if err := q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
-		Description: &description,
+		Description: new(RootFolderDescription),
 		ID:          id,
 	}); err != nil {
 		return uuid.Nil, err

@@ -127,8 +127,7 @@ func (h *PodsHandler) resolveConfiguredFolderID(
 // concrete Pods folder. With a configured ID the folder must already exist.
 func (h *PodsHandler) ensurePodsFolderID(ctx context.Context) (uuid.UUID, error) {
 	if h.PodsFolderItemID == uuid.Nil {
-		description := inventory.PurposePodsFolderDescription
-		return h.Service.EnsureFolderPathWithDescription(ctx, []string{podsFolderName}, &description)
+		return h.Service.EnsureFolderPathWithDescription(ctx, []string{podsFolderName}, new(inventory.PurposePodsFolderDescription))
 	}
 
 	id, found, err := h.resolvePodsFolderID(ctx)
@@ -146,8 +145,7 @@ func (h *PodsHandler) ensurePodsFolderID(ctx context.Context) (uuid.UUID, error)
 
 func (h *PodsHandler) ensurePersonalPodsFolderID(ctx context.Context) (uuid.UUID, error) {
 	if h.PersonalPodsFolderItemID == uuid.Nil {
-		description := inventory.PurposePersonalPodsFolderDescription
-		return h.Service.EnsureFolderPathWithDescription(ctx, []string{personalPodsFolderName}, &description)
+		return h.Service.EnsureFolderPathWithDescription(ctx, []string{personalPodsFolderName}, new(inventory.PurposePersonalPodsFolderDescription))
 	}
 
 	id, found, err := h.resolvePersonalPodsFolderID(ctx)
@@ -1176,12 +1174,11 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	vmDescription := inventory.PurposePodVirtualMachinesFolderDescription
 	vmFolderID, err := h.Service.EnsureChildFolderWithDescription(
 		c.Request.Context(),
 		podFolderID,
 		podVirtualMachinesFolderName,
-		&vmDescription,
+		new(inventory.PurposePodVirtualMachinesFolderDescription),
 	)
 	if err != nil {
 		progress.fail(inventoryRequestError(err).UserMessage)
@@ -2430,12 +2427,11 @@ func (h *PodsHandler) updatePublishedPodTemplates(
 	}
 
 	progress.set(publishProgressStepPreparing, "Preparing selected Pod Template VMs for update.")
-	templateDescription := inventory.PurposePublishedPodTemplateFolderDescription
 	templateFolderID, err := h.Service.EnsureChildFolderWithDescription(
 		ctx,
 		req.SourceFolderID,
 		publishedPodTemplateFolderName,
-		&templateDescription,
+		new(inventory.PurposePublishedPodTemplateFolderDescription),
 	)
 	if err != nil {
 		return nil, nil, inventoryRequestError(err)
@@ -2530,12 +2526,11 @@ func (h *PodsHandler) preparePublishedPodTemplates(
 
 	progress.set(publishProgressStepPreparing, "Creating or finding the Pod Template Folder inside the selected Pod Folder.")
 
-	templateDescription := inventory.PurposePublishedPodTemplateFolderDescription
 	templateFolderID, err := h.Service.EnsureChildFolderWithDescription(
 		ctx,
 		req.SourceFolderID,
 		publishedPodTemplateFolderName,
-		&templateDescription,
+		new(inventory.PurposePublishedPodTemplateFolderDescription),
 	)
 	if err != nil {
 		return nil, inventoryRequestError(err)

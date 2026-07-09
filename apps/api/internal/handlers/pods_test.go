@@ -207,13 +207,13 @@ func TestMemoryMBToGB(t *testing.T) {
 		want  int32
 	}{
 		{"nil returns 1", nil, 1},
-		{"zero returns 1", ptrInt32(0), 1},
-		{"negative returns 1", ptrInt32(-100), 1},
-		{"1024 MB = 1 GB", ptrInt32(1024), 1},
-		{"2048 MB = 2 GB", ptrInt32(2048), 2},
-		{"1536 MB rounds up to 2 GB", ptrInt32(1536), 2},
-		{"512 MB rounds up to 1 GB", ptrInt32(512), 1},
-		{"4096 MB = 4 GB", ptrInt32(4096), 4},
+		{"zero returns 1", new(int32(0)), 1},
+		{"negative returns 1", new(int32(-100)), 1},
+		{"1024 MB = 1 GB", new(int32(1024)), 1},
+		{"2048 MB = 2 GB", new(int32(2048)), 2},
+		{"1536 MB rounds up to 2 GB", new(int32(1536)), 2},
+		{"512 MB rounds up to 1 GB", new(int32(512)), 1},
+		{"4096 MB = 4 GB", new(int32(4096)), 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -231,12 +231,12 @@ func TestDiskGBToInt(t *testing.T) {
 		want  int32
 	}{
 		{"nil returns 1", nil, 1},
-		{"zero returns 1", ptrFloat64(0), 1},
-		{"negative returns 1", ptrFloat64(-10), 1},
-		{"1.0 = 1", ptrFloat64(1.0), 1},
-		{"1.5 rounds up to 2", ptrFloat64(1.5), 2},
-		{"1.1 rounds up to 2", ptrFloat64(1.1), 2},
-		{"50.0 = 50", ptrFloat64(50.0), 50},
+		{"zero returns 1", new(float64(0)), 1},
+		{"negative returns 1", new(float64(-10)), 1},
+		{"1.0 = 1", new(1.0), 1},
+		{"1.5 rounds up to 2", new(1.5), 2},
+		{"1.1 rounds up to 2", new(1.1), 2},
+		{"50.0 = 50", new(50.0), 50},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -590,9 +590,6 @@ func containsSubstr(s, substr string) bool {
 	}
 	return false
 }
-
-func ptrInt32(v int32) *int32       { return &v }
-func ptrFloat64(v float64) *float64 { return &v }
 
 // Suppress unused import warnings
 var _ = math.MaxInt32

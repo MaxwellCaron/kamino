@@ -781,8 +781,7 @@ func optionalRequestStatus(value database.NullRequestStatus) *string {
 		return nil
 	}
 
-	status := string(value.RequestStatus)
-	return &status
+	return new(string(value.RequestStatus))
 }
 
 func optionalActorUsername(actorPrincipalID *uuid.UUID, username string) *string {
