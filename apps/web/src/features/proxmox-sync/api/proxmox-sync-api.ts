@@ -1,4 +1,4 @@
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 export type SyncChangeKind = "add" | "remove" | "update"
 
@@ -50,28 +50,24 @@ export type SyncApplyResponse = {
 
 export const proxmoxSyncPreviewQueryOptions = {
   queryKey: ["proxmox", "sync", "preview"] as const,
-  queryFn: async (): Promise<SyncDiff> => {
-    const res = await apiFetch("/api/v1/admin/proxmox/sync/preview")
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error ?? `Failed to fetch sync preview: ${res.status}`)
-    }
-    return res.json()
-  },
+  queryFn: (): Promise<SyncDiff> =>
+    apiJson<SyncDiff>(
+      "/api/v1/admin/proxmox/sync/preview",
+      "fetch sync preview"
+    ),
   staleTime: 0,
 }
 
 export async function applyProxmoxSync(
   selection: SyncSelection
 ): Promise<SyncApplyResponse> {
-  const res = await apiFetch("/api/v1/admin/proxmox/sync/apply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(selection),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to apply sync: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<SyncApplyResponse>(
+    "/api/v1/admin/proxmox/sync/apply",
+    "apply sync",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selection),
+    }
+  )
 }

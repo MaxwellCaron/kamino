@@ -5,7 +5,7 @@ import type {
   ApiNode,
   ApiStorage,
 } from "../types/vm-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 export function bridgesQueryOptions(node: string, scopeItemId?: string) {
   return {
@@ -19,9 +19,10 @@ export function bridgesQueryOptions(node: string, scopeItemId?: string) {
         params.set("scope_item_id", scopeItemId)
       }
       const suffix = params.size > 0 ? `?${params.toString()}` : ""
-      const res = await apiFetch(`/api/v1/proxmox/nodes/${node}/bridges${suffix}`)
-      if (!res.ok) throw new Error(`Failed to fetch bridges: ${res.status}`)
-      return res.json()
+      return apiJson<{
+        bridges: Array<ApiNetworkBridge>
+        vnets: Array<ApiVNet>
+      }>(`/api/v1/proxmox/nodes/${node}/bridges${suffix}`, "fetch bridges")
     },
     enabled: !!node,
   }
@@ -42,31 +43,31 @@ export function createVmOptionsQueryOptions(scopeItemId?: string) {
         params.set("scope_item_id", scopeItemId)
       }
       const suffix = params.size > 0 ? `?${params.toString()}` : ""
-      const res = await apiFetch(`/api/v1/proxmox/create/options${suffix}`)
-      if (!res.ok)
-        throw new Error(`Failed to fetch create options: ${res.status}`)
-      return res.json()
+      return apiJson<{
+        nodes: Array<ApiNode>
+        disk_storages: Array<ApiStorage>
+        iso_storages: Array<ApiStorage>
+        bridges: Array<ApiNetworkBridge>
+        vnets: Array<ApiVNet>
+      }>(`/api/v1/proxmox/create/options${suffix}`, "fetch create options")
     },
   }
 }
 
 export const nodesQueryOptions = {
   queryKey: ["proxmox", "nodes"] as const,
-  queryFn: async (): Promise<Array<ApiNode>> => {
-    const res = await apiFetch("/api/v1/proxmox/nodes")
-    if (!res.ok) throw new Error(`Failed to fetch nodes: ${res.status}`)
-    return res.json()
-  },
+  queryFn: (): Promise<Array<ApiNode>> =>
+    apiJson<Array<ApiNode>>("/api/v1/proxmox/nodes", "fetch nodes"),
 }
 
 export function storagesQueryOptions(node: string) {
   return {
     queryKey: ["proxmox", "storages", node] as const,
-    queryFn: async (): Promise<Array<ApiStorage>> => {
-      const res = await apiFetch(`/api/v1/proxmox/nodes/${node}/storages`)
-      if (!res.ok) throw new Error(`Failed to fetch storages: ${res.status}`)
-      return res.json()
-    },
+    queryFn: (): Promise<Array<ApiStorage>> =>
+      apiJson<Array<ApiStorage>>(
+        `/api/v1/proxmox/nodes/${node}/storages`,
+        "fetch storages"
+      ),
     enabled: !!node,
   }
 }
@@ -74,11 +75,11 @@ export function storagesQueryOptions(node: string) {
 export function createVmIsosQueryOptions(storage: string) {
   return {
     queryKey: ["proxmox", "create", "isos", storage] as const,
-    queryFn: async (): Promise<Array<ApiISO>> => {
-      const res = await apiFetch(`/api/v1/proxmox/create/isos/${storage}`)
-      if (!res.ok) throw new Error(`Failed to fetch ISOs: ${res.status}`)
-      return res.json()
-    },
+    queryFn: (): Promise<Array<ApiISO>> =>
+      apiJson<Array<ApiISO>>(
+        `/api/v1/proxmox/create/isos/${storage}`,
+        "fetch ISOs"
+      ),
     enabled: !!storage,
   }
 }

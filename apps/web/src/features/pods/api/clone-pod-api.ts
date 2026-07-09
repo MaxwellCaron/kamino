@@ -8,6 +8,7 @@ import {
   apiFetch,
   shouldRetryApiQuery,
 } from "@/features/auth/api/auth-api"
+import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 export type CatalogCloneSummary = {
   summary: {
@@ -83,18 +84,11 @@ export function clonePodProgressQueryOptions(
 ) {
   return {
     queryKey: ["pods", "clone", "progress", progressId] as const,
-    queryFn: async (): Promise<ClonePodProgress> => {
-      const res = await apiFetch(
-        `/api/v1/pods/clones/progress/${encodeURIComponent(progressId ?? "")}`
-      )
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch clone progress: ${res.status}`
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ClonePodProgress> =>
+      apiJson<ClonePodProgress>(
+        `/api/v1/pods/clones/progress/${encodeURIComponent(progressId ?? "")}`,
+        "fetch clone progress"
+      ),
     enabled: enabled && !!progressId,
     retry: false,
     refetchOnReconnect: false,
@@ -125,30 +119,22 @@ export async function clonePod(params: {
   podSlug: string
   progressId: string
 }): Promise<ClonedPod> {
-  const res = await apiFetch(
+  return apiJson<ClonedPod>(
     `/api/v1/pods/catalog/${params.podSlug}/clone?progress_id=${encodeURIComponent(params.progressId)}`,
+    "clone pod",
     { method: "POST" }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to clone pod: ${res.status}`)
-  }
-  return res.json()
 }
 
 export async function reclonePod(params: {
   clonedPodId: string
   progressId: string
 }): Promise<ClonedPod> {
-  const res = await apiFetch(
+  return apiJson<ClonedPod>(
     `/api/v1/pods/clones/${params.clonedPodId}/reclone?progress_id=${encodeURIComponent(params.progressId)}`,
+    "re-clone pod",
     { method: "POST" }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to re-clone pod: ${res.status}`)
-  }
-  return res.json()
 }
 
 export async function answerClonedPodQuestion(params: {
@@ -156,19 +142,15 @@ export async function answerClonedPodQuestion(params: {
   questionId: string
   answer: string
 }): Promise<ClonedPod> {
-  const res = await apiFetch(
+  return apiJson<ClonedPod>(
     `/api/v1/pods/clones/${params.clonedPodId}/questions/${params.questionId}`,
+    "save answer",
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ answer: params.answer }),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to save answer: ${res.status}`)
-  }
-  return res.json()
 }
 
 export type ClonedPodPowerAction = "start" | "shutdown"
@@ -177,31 +159,21 @@ export async function powerClonedPod(params: {
   clonedPodId: string
   action: ClonedPodPowerAction
 }): Promise<ClonedPod> {
-  const res = await apiFetch(
+  return apiJson<ClonedPod>(
     `/api/v1/pods/clones/${params.clonedPodId}/power`,
+    `${params.action} cloned pod`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: params.action }),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to ${params.action} cloned pod: ${res.status}`
-    )
-  }
-  return res.json()
 }
 
 export async function deleteClonedPod(params: {
   clonedPodId: string
 }): Promise<void> {
-  const res = await apiFetch(`/api/v1/pods/clones/${params.clonedPodId}`, {
+  await apiVoid(`/api/v1/pods/clones/${params.clonedPodId}`, "delete cloned pod", {
     method: "DELETE",
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete cloned pod: ${res.status}`)
-  }
 }

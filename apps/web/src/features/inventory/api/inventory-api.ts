@@ -8,11 +8,10 @@ import {
   apiFetch,
   shouldRetryApiQuery,
 } from "@/features/auth/api/auth-api"
+import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
-  const res = await apiFetch("/api/v1/inventory/tree")
-  if (!res.ok) throw new Error(`Failed to fetch inventory: ${res.status}`)
-  return res.json()
+  return apiJson<Array<ApiTreeNode>>("/api/v1/inventory/tree", "fetch inventory")
 }
 
 export const inventoryTreeQueryOptions = {
@@ -26,8 +25,9 @@ export function inventoryItemQueryOptions(itemId: string) {
     queryFn: async (): Promise<ApiInventoryItem> => {
       const res = await apiFetch(`/api/v1/inventory/items/${itemId}`)
       if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
         throw new ApiError(
-          `Failed to fetch inventory item: ${res.status}`,
+          body.error ?? `Failed to fetch inventory item: ${res.status}`,
           res.status
         )
       }
@@ -51,13 +51,11 @@ export function seedInventoryItemCache(
 export function inventoryAclQueryOptions(itemId: string) {
   return {
     queryKey: ["inventory", itemId, "acl"] as const,
-    queryFn: async (): Promise<ApiInventoryAcl> => {
-      const res = await apiFetch(`/api/v1/inventory/items/${itemId}/acl`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch inventory ACL: ${res.status}`)
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ApiInventoryAcl> =>
+      apiJson<ApiInventoryAcl>(
+        `/api/v1/inventory/items/${itemId}/acl`,
+        "fetch inventory ACL"
+      ),
     enabled: !!itemId,
   }
 }
@@ -70,26 +68,20 @@ export async function updateInventoryAcl(params: {
     permissions: number
   }>
 }): Promise<void> {
-  const res = await apiFetch(`/api/v1/inventory/items/${params.itemId}/acl`, {
+  await apiVoid(`/api/v1/inventory/items/${params.itemId}/acl`, "update inventory ACL", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       entries: params.entries,
     }),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to update inventory ACL: ${res.status}`
-    )
-  }
 }
 
 export async function moveInventoryItems(params: {
   itemIds: Array<string>
   parentId: string
 }): Promise<void> {
-  const res = await apiFetch("/api/v1/inventory/move/bulk", {
+  await apiVoid("/api/v1/inventory/move/bulk", "move inventory items", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -97,19 +89,13 @@ export async function moveInventoryItems(params: {
       parent_id: params.parentId,
     }),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to move inventory items: ${res.status}`
-    )
-  }
 }
 
 export async function createFolder(params: {
   parentId: string
   name: string
 }): Promise<void> {
-  const res = await apiFetch("/api/v1/inventory/folders", {
+  await apiVoid("/api/v1/inventory/folders", "create folder", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -117,10 +103,6 @@ export async function createFolder(params: {
       name: params.name,
     }),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to create folder: ${res.status}`)
-  }
 }
 
 export async function renameFolder(params: {
@@ -128,7 +110,7 @@ export async function renameFolder(params: {
   name: string
   description?: string
 }): Promise<void> {
-  const res = await apiFetch(`/api/v1/inventory/folders/${params.id}/rename`, {
+  await apiVoid(`/api/v1/inventory/folders/${params.id}/rename`, "rename folder", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -136,38 +118,25 @@ export async function renameFolder(params: {
       description: params.description ?? "",
     }),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to rename folder: ${res.status}`)
-  }
 }
 
 export async function updateFolderVmLimit(params: {
   id: string
   vmLimit: number | null
 }): Promise<void> {
-  const res = await apiFetch(
+  await apiVoid(
     `/api/v1/inventory/folders/${params.id}/vm-limit`,
+    "update folder VM limit",
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vm_limit: params.vmLimit }),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to update folder VM limit: ${res.status}`
-    )
-  }
 }
 
 export async function deleteFolder(params: { id: string }): Promise<void> {
-  const res = await apiFetch(`/api/v1/inventory/folders/${params.id}`, {
+  await apiVoid(`/api/v1/inventory/folders/${params.id}`, "delete folder", {
     method: "DELETE",
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete folder: ${res.status}`)
-  }
 }

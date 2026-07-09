@@ -11,6 +11,7 @@ import {
   apiFetch,
   shouldRetryApiQuery,
 } from "@/features/auth/api/auth-api"
+import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 export type PublishedPodCloneBulkActionResponse = {
   action: PodCloneAction
@@ -50,14 +51,10 @@ export function publishPodOptionsQueryOptions(publishedPodId?: string) {
         params.set("published_pod_id", publishedPodId)
       }
       const query = params.size > 0 ? `?${params.toString()}` : ""
-      const res = await apiFetch(`/api/v1/pods/publish/options${query}`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch publish options: ${res.status}`
-        )
-      }
-      return res.json()
+      return apiJson<PublishPodOptions>(
+        `/api/v1/pods/publish/options${query}`,
+        "fetch publish options"
+      )
     },
   }
 }
@@ -74,18 +71,11 @@ export function publishedPodProgressQueryOptions(
 ) {
   return {
     queryKey: ["pods", "published", "progress", progressId] as const,
-    queryFn: async (): Promise<PublishPodProgress> => {
-      const res = await apiFetch(
-        `/api/v1/pods/published/progress/${encodeURIComponent(progressId ?? "")}`
-      )
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch publish progress: ${res.status}`
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<PublishPodProgress> =>
+      apiJson<PublishPodProgress>(
+        `/api/v1/pods/published/progress/${encodeURIComponent(progressId ?? "")}`,
+        "fetch publish progress"
+      ),
     enabled: enabled && !!progressId,
     retry: false,
     refetchOnReconnect: false,
@@ -96,30 +86,20 @@ export function publishedPodProgressQueryOptions(
 
 export const publishedPodsQueryOptions = {
   queryKey: ["pods", "published"] as const,
-  queryFn: async (): Promise<Array<PublishedPodCatalogEntry>> => {
-    const res = await apiFetch("/api/v1/pods/published")
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(
-        body.error ?? `Failed to fetch published pods: ${res.status}`
-      )
-    }
-    return res.json()
-  },
+  queryFn: (): Promise<Array<PublishedPodCatalogEntry>> =>
+    apiJson<Array<PublishedPodCatalogEntry>>(
+      "/api/v1/pods/published",
+      "fetch published pods"
+    ),
 }
 
 export const podCatalogQueryOptions = {
   queryKey: ["pods", "catalog"] as const,
-  queryFn: async (): Promise<Array<PublishedPodCatalogEntry>> => {
-    const res = await apiFetch("/api/v1/pods/catalog")
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(
-        body.error ?? `Failed to fetch pod catalog: ${res.status}`
-      )
-    }
-    return res.json()
-  },
+  queryFn: (): Promise<Array<PublishedPodCatalogEntry>> =>
+    apiJson<Array<PublishedPodCatalogEntry>>(
+      "/api/v1/pods/catalog",
+      "fetch pod catalog"
+    ),
 }
 
 export function podCatalogEntryQueryOptions(podSlug?: string) {
@@ -144,16 +124,11 @@ export function podCatalogEntryQueryOptions(podSlug?: string) {
 export function publishedPodQueryOptions(podId?: string) {
   return {
     queryKey: ["pods", "published", podId] as const,
-    queryFn: async (): Promise<PublishedPodCatalogEntry> => {
-      const res = await apiFetch(`/api/v1/pods/published/${podId}`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch published pod: ${res.status}`
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<PublishedPodCatalogEntry> =>
+      apiJson<PublishedPodCatalogEntry>(
+        `/api/v1/pods/published/${podId}`,
+        "fetch published pod"
+      ),
     enabled: !!podId,
   }
 }
@@ -161,16 +136,11 @@ export function publishedPodQueryOptions(podId?: string) {
 export function publishedPodClonesQueryOptions(podId?: string) {
   return {
     queryKey: ["pods", "published", podId, "clones"] as const,
-    queryFn: async (): Promise<Array<PublishedPodCloneSummary>> => {
-      const res = await apiFetch(`/api/v1/pods/published/${podId}/clones`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch published pod clones: ${res.status}`
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<Array<PublishedPodCloneSummary>> =>
+      apiJson<Array<PublishedPodCloneSummary>>(
+        `/api/v1/pods/published/${podId}/clones`,
+        "fetch published pod clones"
+      ),
     enabled: !!podId,
   }
 }
@@ -180,53 +150,37 @@ export async function powerPublishedPodClone(params: {
   clonedPodId: string
   action: ClonedPodPowerAction
 }): Promise<PublishedPodCloneSummary> {
-  const res = await apiFetch(
+  return apiJson<PublishedPodCloneSummary>(
     `/api/v1/pods/published/${params.podId}/clones/${params.clonedPodId}/power`,
+    `${params.action} cloned pod`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: params.action }),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ??
-        `Failed to ${params.action} cloned pod: ${res.status}`
-    )
-  }
-  return res.json()
 }
 
 export async function deletePublishedPodClone(params: {
   podId: string
   clonedPodId: string
 }): Promise<void> {
-  const res = await apiFetch(
+  await apiVoid(
     `/api/v1/pods/published/${params.podId}/clones/${params.clonedPodId}`,
+    "delete cloned pod",
     { method: "DELETE" }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to delete cloned pod: ${res.status}`
-    )
-  }
 }
 
 export async function reclonePublishedPodClone(params: {
   podId: string
   clonedPodId: string
 }): Promise<PublishedPodCloneSummary> {
-  const res = await apiFetch(
+  return apiJson<PublishedPodCloneSummary>(
     `/api/v1/pods/published/${params.podId}/clones/${params.clonedPodId}/reclone`,
+    "re-clone cloned pod",
     { method: "POST" }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to re-clone cloned pod: ${res.status}`)
-  }
-  return res.json()
 }
 
 export type CreatePublishedPodCloneParams = {
@@ -238,42 +192,33 @@ export type CreatePublishedPodCloneParams = {
 export async function createPublishedPodClone(
   params: CreatePublishedPodCloneParams
 ): Promise<PublishedPodCloneSummary> {
-  const res = await apiFetch(`/api/v1/pods/published/${params.podId}/clones`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      principal_id: params.principalId,
-      progress_id: params.progressId,
-    }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to clone pod for principal: ${res.status}`
-    )
-  }
-  return res.json()
+  return apiJson<PublishedPodCloneSummary>(
+    `/api/v1/pods/published/${params.podId}/clones`,
+    "clone pod for principal",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        principal_id: params.principalId,
+        progress_id: params.progressId,
+      }),
+    }
+  )
 }
 
 export async function bulkActionPublishedPodClones(params: {
   podId: string
   action: PodCloneAction
 }): Promise<PublishedPodCloneBulkActionResponse> {
-  const res = await apiFetch(
+  return apiJson<PublishedPodCloneBulkActionResponse>(
     `/api/v1/pods/published/${params.podId}/clone-actions`,
+    "apply bulk clone action",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: params.action }),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to apply bulk clone action: ${res.status}`
-    )
-  }
-  return res.json()
 }
 
 export async function savePublishedPod(
@@ -284,53 +229,40 @@ export async function savePublishedPod(
   const progressParam = options?.progressId
     ? `?progress_id=${encodeURIComponent(options.progressId)}`
     : ""
-  const res = await apiFetch(
+  return apiJson<PublishedPodCatalogEntry>(
     `${
       isExisting
         ? `/api/v1/pods/published/${values.id}`
         : "/api/v1/pods/published"
     }${progressParam}`,
+    "save published pod",
     {
       method: isExisting ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to save published pod: ${res.status}`)
-  }
-  return res.json()
 }
 
 export async function setPublishedPodStatus(params: {
   id: string
   status: PublishedPodCatalogEntry["status"]
 }): Promise<PublishedPodCatalogEntry> {
-  const res = await apiFetch(`/api/v1/pods/published/${params.id}/status`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: params.status }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to update published pod status: ${res.status}`
-    )
-  }
-  return res.json()
+  return apiJson<PublishedPodCatalogEntry>(
+    `/api/v1/pods/published/${params.id}/status`,
+    "update published pod status",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: params.status }),
+    }
+  )
 }
 
 export async function deletePublishedPod(id: string): Promise<void> {
-  const res = await apiFetch(`/api/v1/pods/published/${id}`, {
+  await apiVoid(`/api/v1/pods/published/${id}`, "delete published pod", {
     method: "DELETE",
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to delete published pod: ${res.status}`
-    )
-  }
 }
 
 export function toPublishPodFormValues(

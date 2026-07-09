@@ -6,7 +6,7 @@ import type {
   ApiRequestTablePage,
   ApiRequesterRequestScope,
 } from "../types/request-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 type RequestTableQueryParams = {
   pageIndex: number
@@ -32,11 +32,10 @@ async function fetchRequestsTablePage(
   params: RequestTableQueryParams
 ): Promise<ApiRequestTablePage> {
   const search = tableSearchParams(scope, params)
-  const res = await apiFetch(`/api/v1/requests?${search}`)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiRequestTablePage>(
+    `/api/v1/requests?${search}`,
+    `fetch ${scope} requests`
+  )
 }
 
 export function requestsTableQueryOptions(
@@ -54,11 +53,10 @@ async function fetchRequesterRequestsTablePage(
   params: RequestTableQueryParams
 ): Promise<ApiRequestTablePage> {
   const search = tableSearchParams(scope, params)
-  const res = await apiFetch(`/api/v1/requests/mine?${search}`)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch your ${scope} requests: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiRequestTablePage>(
+    `/api/v1/requests/mine?${search}`,
+    `fetch your ${scope} requests`
+  )
 }
 
 /**
@@ -113,13 +111,11 @@ export function requesterRequestSummariesQueryOptions(
 export function requestDetailQueryOptions(requestId: string) {
   return {
     queryKey: ["requests", requestId] as const,
-    queryFn: async (): Promise<ApiRequestDetail> => {
-      const res = await apiFetch(`/api/v1/requests/${requestId}`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch request: ${res.status}`)
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ApiRequestDetail> =>
+      apiJson<ApiRequestDetail>(
+        `/api/v1/requests/${requestId}`,
+        "fetch request"
+      ),
     enabled: !!requestId,
   }
 }
@@ -127,31 +123,27 @@ export function requestDetailQueryOptions(requestId: string) {
 export async function approveRequest(
   requestIds: Array<string>
 ): Promise<ApiRequestActionResponse> {
-  const res = await apiFetch(`/api/v1/requests/approve`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids: requestIds }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to approve requests: ${res.status}`)
-  }
-
-  return res.json()
+  return apiJson<ApiRequestActionResponse>(
+    `/api/v1/requests/approve`,
+    "approve requests",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: requestIds }),
+    }
+  )
 }
 
 export async function denyRequest(
   requestIds: Array<string>
 ): Promise<ApiRequestActionResponse> {
-  const res = await apiFetch(`/api/v1/requests/deny`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids: requestIds }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to deny requests: ${res.status}`)
-  }
-
-  return res.json()
+  return apiJson<ApiRequestActionResponse>(
+    `/api/v1/requests/deny`,
+    "deny requests",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: requestIds }),
+    }
+  )
 }

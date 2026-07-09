@@ -1,4 +1,4 @@
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 export type UsageHistoryTimeframe = "hour" | "day" | "week" | "month"
 
@@ -38,15 +38,11 @@ export function clusterUsageHistoryQueryOptions(
 ) {
   return {
     queryKey: ["proxmox", "cluster", "usage-history", timeframe] as const,
-    queryFn: async (): Promise<ApiClusterUsageHistoryResponse> => {
-      const res = await apiFetch(
-        `/api/v1/proxmox/cluster/usage-history?timeframe=${timeframe}`
-      )
-      if (!res.ok) {
-        throw new Error(`Failed to fetch cluster usage history: ${res.status}`)
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ApiClusterUsageHistoryResponse> =>
+      apiJson<ApiClusterUsageHistoryResponse>(
+        `/api/v1/proxmox/cluster/usage-history?timeframe=${timeframe}`,
+        "fetch cluster usage history"
+      ),
     staleTime: 300_000,
     refetchInterval: 300_000,
   }
