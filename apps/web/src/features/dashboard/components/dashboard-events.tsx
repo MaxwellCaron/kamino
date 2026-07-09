@@ -43,7 +43,6 @@ export function DashboardEvents() {
           inventoryTreeQueryOptions.queryKey
         )
 
-        if (treeQuery?.fetchStatus === "fetching") return
 
         const eventUpdatedAt = Date.parse(payload.timestamp)
         if (
