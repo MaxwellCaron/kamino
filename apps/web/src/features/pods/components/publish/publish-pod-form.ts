@@ -299,7 +299,7 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
     description:
       "A comprehensive environment for learning modern software engineering.",
     image:
-      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60",
+      "https://i.imgur.com/sMbWqtc.png",
     creators: [],
     created_at: new Date().toISOString(),
     clone_count: 0,
