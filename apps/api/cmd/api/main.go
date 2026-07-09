@@ -690,6 +690,12 @@ func main() {
 		log.Printf("Recovered %d stranded executing request(s): %v", len(fenced), fenced)
 	}
 
+	if swept, err := inventoryService.SweepExpiredFolderVMCapacityReservations(context.Background()); err != nil {
+		log.Printf("Expired capacity reservation sweep failed: %v", err)
+	} else if swept > 0 {
+		log.Printf("Swept %d expired folder VM capacity reservation(s)", swept)
+	}
+
 	eventsHandler := &handlers.EventsHandler{
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,

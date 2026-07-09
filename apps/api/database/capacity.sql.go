@@ -36,6 +36,19 @@ func (q *Queries) CreateFolderVMCapacityReservation(ctx context.Context, arg Cre
 	return i, err
 }
 
+const deleteExpiredFolderVMCapacityReservations = `-- name: DeleteExpiredFolderVMCapacityReservations :execrows
+DELETE FROM folder_vm_capacity_reservations
+WHERE created_at < now() - INTERVAL '1 hour'
+`
+
+func (q *Queries) DeleteExpiredFolderVMCapacityReservations(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredFolderVMCapacityReservations)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const releaseFolderVMCapacityReservation = `-- name: ReleaseFolderVMCapacityReservation :exec
 DELETE FROM folder_vm_capacity_reservations
 WHERE id = $1
@@ -50,8 +63,11 @@ const sumActiveFolderVMCapacityReservations = `-- name: SumActiveFolderVMCapacit
 SELECT COALESCE(SUM(vm_count), 0)::INTEGER AS total
 FROM folder_vm_capacity_reservations
 WHERE folder_id = $1
+  AND created_at > now() - INTERVAL '1 hour'
 `
 
+// Reservations older than 1 hour are treated as leaked (crashed or
+// disconnected operation) and no longer count against folder capacity.
 func (q *Queries) SumActiveFolderVMCapacityReservations(ctx context.Context, folderID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, sumActiveFolderVMCapacityReservations, folderID)
 	var total int32
