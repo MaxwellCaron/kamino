@@ -269,44 +269,13 @@ func (h *PodsHandler) hydratePublishedPodClones(
 		cloneIDs = append(cloneIDs, s.ID)
 	}
 
-	vmRows, err := q.ListClonedPodRuntimeVMsByCloneIDs(ctx, cloneIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	allVMIDs := make([]int, 0, len(vmRows))
-	vmsByClone := make(map[uuid.UUID][]database.ListClonedPodRuntimeVMsByCloneIDsRow, len(cloneIDs))
-	for _, row := range vmRows {
-		vmsByClone[row.ClonedPodID] = append(vmsByClone[row.ClonedPodID], row)
-		if row.Vmid != nil {
-			allVMIDs = append(allVMIDs, int(*row.Vmid))
-		}
-	}
-
-	statuses, _, err := h.runtimeForVMIDs(ctx, allVMIDs)
+	statusByClone, err := h.clonedPodRuntimeStatusByCloneIDs(ctx, q, cloneIDs)
 	if err != nil {
 		return nil, err
 	}
 
 	response := make([]publishedPodCloneResponse, 0, len(summaries))
 	for _, s := range summaries {
-		vmStatusList := make([]string, 0, len(vmsByClone[s.ID]))
-		for _, row := range vmsByClone[s.ID] {
-			if row.Vmid == nil {
-				vmStatusList = append(vmStatusList, "missing")
-				continue
-			}
-			st, ok := statuses[int(*row.Vmid)]
-			if !ok {
-				vmStatusList = append(vmStatusList, "missing")
-				continue
-			}
-			vmStatusList = append(vmStatusList, st)
-		}
-		if len(vmStatusList) == 0 {
-			vmStatusList = []string{"missing"}
-		}
-
 		progress := 0.0
 		if s.TaskTotal > 0 {
 			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
@@ -328,7 +297,7 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			},
 			ClonedAt:  s.CreatedAt.Time,
 			UpdatedAt: s.UpdatedAt.Time,
-			Status:    clonedPodRuntimeStatus(vmStatusList),
+			Status:    statusByClone[s.ID],
 			Network:   network,
 			VMCount:   int32(s.VmCount),
 			TaskSummary: publishedPodCloneTaskSummaryResponse{

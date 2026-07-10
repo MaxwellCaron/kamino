@@ -508,6 +508,16 @@ func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
 		return
 	}
 
+	cloneIDs := make([]uuid.UUID, 0, len(cloneRows))
+	for _, row := range cloneRows {
+		cloneIDs = append(cloneIDs, row.ID)
+	}
+	statusByClone, err := h.clonedPodRuntimeStatusByCloneIDs(c.Request.Context(), q, cloneIDs)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load clone runtime status", "hydrate clone runtime status for summary", err)
+		return
+	}
+
 	cloneByPodID := make(map[uuid.UUID]catalogCloneSummaryResponse, len(cloneRows))
 	for _, row := range cloneRows {
 		totalTasks := int(row.TaskTotal)
@@ -517,17 +527,11 @@ func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
 			progress = (float64(completedTasks) / float64(totalTasks)) * 100
 		}
 
-		status, err := h.hydrateClonedPodRuntimeStatus(c.Request.Context(), q, row.ID)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to load clone runtime status", "hydrate clone runtime status for summary", err)
-			return
-		}
-
 		cloneByPodID[row.PodID] = catalogCloneSummaryResponse{
 			ID:       row.ID,
 			PodID:    row.PodID,
 			ClonedAt: pgTime(row.CreatedAt),
-			Status:   status,
+			Status:   statusByClone[row.ID],
 			TaskSummary: catalogCloneTaskSummaryResponse{
 				Total:     totalTasks,
 				Completed: completedTasks,
@@ -2190,11 +2194,7 @@ func (h *PodsHandler) hydrateClonedPod(
 	principalID uuid.UUID,
 	clone database.ClonedPods,
 ) (clonedPodResponse, error) {
-	vms, err := h.hydrateClonedPodVMs(ctx, q, principalID, clone.ID)
-	if err != nil {
-		return clonedPodResponse{}, err
-	}
-	status, err := h.hydrateClonedPodRuntimeStatus(ctx, q, clone.ID)
+	vms, status, err := h.hydrateClonedPodVMs(ctx, q, principalID, clone.ID)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}
@@ -2278,16 +2278,11 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 	q *database.Queries,
 	principalID uuid.UUID,
 	cloneID uuid.UUID,
-) ([]clonedPodVMResponse, error) {
+) ([]clonedPodVMResponse, string, error) {
 	rows, err := q.ListClonedPodVMs(ctx, cloneID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	visibleItemIDs, err := h.visibleInventoryItemIDs(ctx, principalID)
-	if err != nil {
-		return nil, err
-	}
-	rows = filterVisibleClonedPodVMRows(rows, visibleItemIDs)
 
 	vmids := make([]int, 0, len(rows))
 	for _, row := range rows {
@@ -2297,11 +2292,23 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 	}
 	statuses, resources, err := h.runtimeForVMIDs(ctx, vmids)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	response := make([]clonedPodVMResponse, 0, len(rows))
+	vmStatuses := make([]string, 0, len(rows))
 	for _, row := range rows {
+		vmStatuses = append(vmStatuses, h.runtimeStatusForClonedVMRow(ctx, row, statuses))
+	}
+	aggregateStatus := clonedPodRuntimeStatus(vmStatuses)
+
+	visibleItemIDs, err := h.visibleInventoryItemIDs(ctx, principalID)
+	if err != nil {
+		return nil, "", err
+	}
+	visibleRows := filterVisibleClonedPodVMRows(rows, visibleItemIDs)
+
+	response := make([]clonedPodVMResponse, 0, len(visibleRows))
+	for _, row := range visibleRows {
 		vmid := int32(0)
 		if row.Vmid != nil {
 			vmid = *row.Vmid
@@ -2330,7 +2337,7 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 		})
 	}
 
-	return response, nil
+	return response, aggregateStatus, nil
 }
 
 func (h *PodsHandler) runtimeStatusForClonedVMRow(
@@ -2398,33 +2405,78 @@ func filterVisibleClonedPodVMRows(
 	return filtered
 }
 
-func (h *PodsHandler) hydrateClonedPodRuntimeStatus(
+func vmStatusListFromRuntimeVMRows(
+	rows []database.ListClonedPodRuntimeVMsByCloneIDsRow,
+	statuses map[int]string,
+) []string {
+	vmStatusList := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if row.Vmid == nil {
+			vmStatusList = append(vmStatusList, "missing")
+			continue
+		}
+		st, ok := statuses[int(*row.Vmid)]
+		if !ok {
+			vmStatusList = append(vmStatusList, "missing")
+			continue
+		}
+		vmStatusList = append(vmStatusList, st)
+	}
+	if len(vmStatusList) == 0 {
+		vmStatusList = []string{"missing"}
+	}
+	return vmStatusList
+}
+
+func aggregateClonedPodRuntimeStatusByClone(
+	vmRows []database.ListClonedPodRuntimeVMsByCloneIDsRow,
+	statuses map[int]string,
+) map[uuid.UUID]string {
+	vmsByClone := make(map[uuid.UUID][]database.ListClonedPodRuntimeVMsByCloneIDsRow)
+	for _, row := range vmRows {
+		vmsByClone[row.ClonedPodID] = append(vmsByClone[row.ClonedPodID], row)
+	}
+
+	result := make(map[uuid.UUID]string, len(vmsByClone))
+	for cloneID, rows := range vmsByClone {
+		result[cloneID] = clonedPodRuntimeStatus(vmStatusListFromRuntimeVMRows(rows, statuses))
+	}
+	return result
+}
+
+func (h *PodsHandler) clonedPodRuntimeStatusByCloneIDs(
 	ctx context.Context,
 	q *database.Queries,
-	cloneID uuid.UUID,
-) (string, error) {
-	rows, err := q.ListClonedPodVMs(ctx, cloneID)
-	if err != nil {
-		return "", err
+	cloneIDs []uuid.UUID,
+) (map[uuid.UUID]string, error) {
+	if len(cloneIDs) == 0 {
+		return map[uuid.UUID]string{}, nil
 	}
 
-	vmids := make([]int, 0, len(rows))
-	for _, row := range rows {
+	vmRows, err := q.ListClonedPodRuntimeVMsByCloneIDs(ctx, cloneIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	allVMIDs := make([]int, 0, len(vmRows))
+	for _, row := range vmRows {
 		if row.Vmid != nil {
-			vmids = append(vmids, int(*row.Vmid))
+			allVMIDs = append(allVMIDs, int(*row.Vmid))
 		}
 	}
-	statuses, _, err := h.runtimeForVMIDs(ctx, vmids)
+
+	statuses, _, err := h.runtimeForVMIDs(ctx, allVMIDs)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	vmStatuses := make([]string, 0, len(rows))
-	for _, row := range rows {
-		vmStatuses = append(vmStatuses, h.runtimeStatusForClonedVMRow(ctx, row, statuses))
+	byClone := aggregateClonedPodRuntimeStatusByClone(vmRows, statuses)
+	for _, id := range cloneIDs {
+		if _, ok := byClone[id]; !ok {
+			byClone[id] = clonedPodRuntimeStatus([]string{"missing"})
+		}
 	}
-
-	return clonedPodRuntimeStatus(vmStatuses), nil
+	return byClone, nil
 }
 
 func (h *PodsHandler) runtimeForVMIDs(
