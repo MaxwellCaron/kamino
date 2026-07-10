@@ -1,13 +1,6 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { NotebookIcon, RegexIcon, UserIcon } from "@hugeicons/core-free-icons"
 import { FieldGroup } from "@workspace/ui/components/field"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
-import type React from "react"
+import { TabsContent } from "@workspace/ui/components/tabs"
+import type { Dispatch, SetStateAction } from "react"
 import type {
   CreateMode,
   UserFormApi,
@@ -24,8 +17,7 @@ type UserDialogCreateFormProps = {
   mode: CreateMode
   requirePassword: boolean
   selectedGroupIds: Array<string>
-  setMode: React.Dispatch<React.SetStateAction<CreateMode>>
-  setSelectedGroupIds: React.Dispatch<React.SetStateAction<Array<string>>>
+  setSelectedGroupIds: Dispatch<SetStateAction<Array<string>>>
 }
 
 export function UserDialogCreateForm({
@@ -35,57 +27,35 @@ export function UserDialogCreateForm({
   mode,
   requirePassword,
   selectedGroupIds,
-  setMode,
   setSelectedGroupIds,
 }: UserDialogCreateFormProps) {
   return (
     <div className="flex flex-col gap-6">
-      <Tabs
-        value={mode}
-        onValueChange={(value) => setMode(value as CreateMode)}
-        className="gap-4"
-      >
-        <TabsList className="w-full border-b" variant="line">
-          <TabsTrigger value="single">
-            <HugeiconsIcon icon={UserIcon} />
-            Single
-          </TabsTrigger>
-          <TabsTrigger value="list">
-            <HugeiconsIcon icon={NotebookIcon} />
-            List
-          </TabsTrigger>
-          <TabsTrigger value="prefix">
-            <HugeiconsIcon icon={RegexIcon} />
-            Prefix
-          </TabsTrigger>
-        </TabsList>
+      <TabsContent value="single">
+        <UserDialogCreateSingleTab
+          form={form}
+          groupItems={groupItems}
+          groupOptionMap={groupOptionMap}
+          requirePassword={requirePassword}
+          selectedGroupIds={selectedGroupIds}
+          setSelectedGroupIds={setSelectedGroupIds}
+        />
+      </TabsContent>
 
-        <TabsContent value="single">
-          <UserDialogCreateSingleTab
-            form={form}
-            groupItems={groupItems}
-            groupOptionMap={groupOptionMap}
-            requirePassword={requirePassword}
-            selectedGroupIds={selectedGroupIds}
-            setSelectedGroupIds={setSelectedGroupIds}
-          />
-        </TabsContent>
+      <TabsContent value="list">
+        <UserDialogCreateListTab form={form} requirePassword={requirePassword} />
+      </TabsContent>
 
-        <TabsContent value="list">
-          <UserDialogCreateListTab form={form} requirePassword={requirePassword} />
-        </TabsContent>
-
-        <TabsContent value="prefix">
-          <UserDialogCreatePrefixTab
-            form={form}
-            groupItems={groupItems}
-            groupOptionMap={groupOptionMap}
-            requirePassword={requirePassword}
-            selectedGroupIds={selectedGroupIds}
-            setSelectedGroupIds={setSelectedGroupIds}
-          />
-        </TabsContent>
-      </Tabs>
+      <TabsContent value="prefix">
+        <UserDialogCreatePrefixTab
+          form={form}
+          groupItems={groupItems}
+          groupOptionMap={groupOptionMap}
+          requirePassword={requirePassword}
+          selectedGroupIds={selectedGroupIds}
+          setSelectedGroupIds={setSelectedGroupIds}
+        />
+      </TabsContent>
 
       {mode === "list" && (
         <FieldGroup>

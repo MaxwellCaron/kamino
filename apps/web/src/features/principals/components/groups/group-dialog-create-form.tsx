@@ -1,10 +1,3 @@
-import * as React from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  NotebookIcon,
-  RegexIcon,
-  UserGroupIcon,
-} from "@hugeicons/core-free-icons"
 import {
   Field,
   FieldContent,
@@ -14,17 +7,9 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
+import { TabsContent } from "@workspace/ui/components/tabs"
 import { Textarea } from "@workspace/ui/components/textarea"
-import type {
-  CreateMode,
-  GroupFormApi,
-} from "@/features/principals/components/groups/group-dialog-utils"
+import type { GroupFormApi } from "@/features/principals/components/groups/group-dialog-utils"
 import {
   descriptionFieldSchema,
   groupNameSchema,
@@ -35,36 +20,11 @@ import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 
 type GroupDialogCreateFormProps = {
   form: GroupFormApi
-  mode: CreateMode
-  setMode: React.Dispatch<React.SetStateAction<CreateMode>>
 }
 
-export function GroupDialogCreateForm({
-  form,
-  mode,
-  setMode,
-}: GroupDialogCreateFormProps) {
+export function GroupDialogCreateForm({ form }: GroupDialogCreateFormProps) {
   return (
-    <Tabs
-      value={mode}
-      onValueChange={(value) => setMode(value as CreateMode)}
-      className="gap-4"
-    >
-      <TabsList className="w-full border-b" variant="line">
-        <TabsTrigger value="single">
-          <HugeiconsIcon icon={UserGroupIcon} />
-          Single
-        </TabsTrigger>
-        <TabsTrigger value="list">
-          <HugeiconsIcon icon={NotebookIcon} />
-          List
-        </TabsTrigger>
-        <TabsTrigger value="prefix">
-          <HugeiconsIcon icon={RegexIcon} />
-          Prefix
-        </TabsTrigger>
-      </TabsList>
-
+    <>
       <TabsContent value="single">
         <FieldGroup>
           <form.Field
@@ -294,6 +254,6 @@ export function GroupDialogCreateForm({
           </form.Field>
         </FieldGroup>
       </TabsContent>
-    </Tabs>
+    </>
   )
 }

@@ -16,6 +16,7 @@ import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   AppDialog,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import {
@@ -142,71 +143,73 @@ function DirectSnapshotForm({
         void form.handleSubmit()
       }}
     >
-      <FieldGroup>
-        <form.Field name="snapname">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
+      <AppDialogScrollBody>
+        <FieldGroup>
+          <form.Field name="snapname">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
 
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor="snapname">Name</FieldLabel>
-                <Input
-                  id="snapname"
-                  placeholder="my-snapshot"
-                  aria-invalid={isInvalid}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            )
-          }}
-        </form.Field>
-        <form.Field name="description">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-
-            return (
-              <CountedTextareaField
-                id="description"
-                label="Description"
-                placeholder="Optional description..."
-                isInvalid={isInvalid}
-                value={field.state.value}
-                onValueChange={field.handleChange}
-                onBlur={field.handleBlur}
-                maxLength={256}
-                className="max-h-100"
-                errors={isInvalid ? field.state.meta.errors : []}
-              />
-            )
-          }}
-        </form.Field>
-        {!isLxc && (
-          <form.Field name="vmstate">
-            {(field) => (
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="vmstate"
-                  checked={field.state.value}
-                  onCheckedChange={(checked) => field.handleChange(!!checked)}
-                />
-                <FieldContent>
-                  <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
-                  <FieldDescription>
-                    Save the RAM contents along with the snapshot. Uses more
-                    storage.
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            )}
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="snapname">Name</FieldLabel>
+                  <Input
+                    id="snapname"
+                    placeholder="my-snapshot"
+                    aria-invalid={isInvalid}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
           </form.Field>
-        )}
-      </FieldGroup>
-      <DialogFooter className="mt-6">
+          <form.Field name="description">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <CountedTextareaField
+                  id="description"
+                  label="Description"
+                  placeholder="Optional description..."
+                  isInvalid={isInvalid}
+                  value={field.state.value}
+                  onValueChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                  maxLength={256}
+                  className="max-h-100"
+                  errors={isInvalid ? field.state.meta.errors : []}
+                />
+              )
+            }}
+          </form.Field>
+          {!isLxc && (
+            <form.Field name="vmstate">
+              {(field) => (
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="vmstate"
+                    checked={field.state.value}
+                    onCheckedChange={(checked) => field.handleChange(!!checked)}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
+                    <FieldDescription>
+                      Save the RAM contents along with the snapshot. Uses more
+                      storage.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+          )}
+        </FieldGroup>
+      </AppDialogScrollBody>
+      <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <AppDialogPrimaryButton
@@ -289,29 +292,31 @@ function RequestSnapshotForm({
         void form.handleSubmit()
       }}
     >
-      <FieldGroup>
-        <form.Field name="snapname">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
+      <AppDialogScrollBody>
+        <FieldGroup>
+          <form.Field name="snapname">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
 
-            return (
-              <Field data-invalid={isInvalid}>
-                <Input
-                  id="request-snapname"
-                  placeholder="snapshot-2026-04-22T15-04-05Z"
-                  aria-invalid={isInvalid}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            )
-          }}
-        </form.Field>
-      </FieldGroup>
-      <DialogFooter className="mt-6">
+              return (
+                <Field data-invalid={isInvalid}>
+                  <Input
+                    id="request-snapname"
+                    placeholder="snapshot-2026-04-22T15-04-05Z"
+                    aria-invalid={isInvalid}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
+          </form.Field>
+        </FieldGroup>
+      </AppDialogScrollBody>
+      <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <AppDialogPrimaryButton

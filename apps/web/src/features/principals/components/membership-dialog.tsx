@@ -21,6 +21,7 @@ import { formatPrincipalReference } from "@/components/principals/principal-labe
 import {
   AppDialog,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
@@ -271,51 +272,53 @@ function MembershipForm({
         })
       }}
     >
-      <form.Field name="selectedIds">
-        {(field) => (
-          <Combobox
-            multiple
-            autoHighlight
-            items={options}
-            itemToStringLabel={(option) => option.label}
-            value={selectedOptions}
-            onValueChange={(newValue) =>
-              field.handleChange(uniqueIds(newValue.map((option) => option.id)))
-            }
-          >
-            <ComboboxChips ref={anchor} className="mb-6 w-full p-3!">
-              <ComboboxValue>
-                {(values) => (
-                  <React.Fragment>
-                    {(values as Array<MembershipOption>).map((option) => (
-                      <ComboboxChip key={option.id}>
-                        {option.label}
-                      </ComboboxChip>
-                    ))}
-                    <ComboboxChipsInput
-                      placeholder={
-                        mode === "user-groups"
-                          ? "Search groups..."
-                          : "Search users..."
-                      }
-                    />
-                  </React.Fragment>
-                )}
-              </ComboboxValue>
-            </ComboboxChips>
-            <ComboboxContent anchor={anchor}>
-              <ComboboxEmpty>No items found.</ComboboxEmpty>
-              <ComboboxList>
-                {(option) => (
-                  <ComboboxItem key={option.id} value={option}>
-                    {option.label}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
-        )}
-      </form.Field>
+      <AppDialogScrollBody>
+        <form.Field name="selectedIds">
+          {(field) => (
+            <Combobox
+              multiple
+              autoHighlight
+              items={options}
+              itemToStringLabel={(option) => option.label}
+              value={selectedOptions}
+              onValueChange={(newValue) =>
+                field.handleChange(uniqueIds(newValue.map((option) => option.id)))
+              }
+            >
+              <ComboboxChips ref={anchor} className="w-full p-3!">
+                <ComboboxValue>
+                  {(values) => (
+                    <React.Fragment>
+                      {(values as Array<MembershipOption>).map((option) => (
+                        <ComboboxChip key={option.id}>
+                          {option.label}
+                        </ComboboxChip>
+                      ))}
+                      <ComboboxChipsInput
+                        placeholder={
+                          mode === "user-groups"
+                            ? "Search groups..."
+                            : "Search users..."
+                        }
+                      />
+                    </React.Fragment>
+                  )}
+                </ComboboxValue>
+              </ComboboxChips>
+              <ComboboxContent anchor={anchor}>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                  {(option) => (
+                    <ComboboxItem key={option.id} value={option}>
+                      {option.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          )}
+        </form.Field>
+      </AppDialogScrollBody>
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (

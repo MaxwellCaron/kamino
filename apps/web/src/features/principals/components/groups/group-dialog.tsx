@@ -1,8 +1,16 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import {
+  Add01Icon,
+  NotebookIcon,
+  PencilEdit01Icon,
+  RegexIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { Tabs, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
@@ -11,7 +19,9 @@ import type {
 import type { CreateMode } from "@/features/principals/components/groups/group-dialog-utils"
 import {
   AppDialog,
+  AppDialogHeaderTabs,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
@@ -140,58 +150,100 @@ export function GroupDialog({
     setResultSummary(null)
   }, [resetFields])
 
-  return (
-    <AppDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onClosed={resetDialog}
-      initialFocus={false}
-      className={nestedDialogAnimationClassName}
-      icon={isEdit ? PencilEdit01Icon : Add01Icon}
-      title={isEdit ? "Edit Group" : "Create Groups"}
-      description={
-        isEdit
-          ? `Update the group account details for ${group.name ?? group.external_id}.`
-          : "Create one or more groups in Kamino."
-      }
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: resetDialog,
+    initialFocus: false as const,
+    className: nestedDialogAnimationClassName,
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit Group" : "Create Groups",
+    description: isEdit
+      ? `Update the group account details for ${group.name ?? group.external_id}.`
+      : "Create one or more groups in Kamino.",
+  }
+
+  const formContent = (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
     >
-      <form
-        action={() => {
-          void form.handleSubmit()
-        }}
+      {isEdit ? (
+        <GroupDialogEditForm form={form} />
+      ) : (
+        <AppDialogScrollBody>
+          <GroupDialogCreateForm form={form} />
+        </AppDialogScrollBody>
+      )}
+
+      <DialogFooter>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton
+              pending={isSubmitting}
+              pendingLabel={isEdit ? "Saving..." : "Creating..."}
+            >
+              {isEdit ? "Save" : "Create"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
+      </DialogFooter>
+    </form>
+  )
+
+  const resultSummaryDialog = resultSummary ? (
+    <BulkCreateResultsSummary
+      entityLabel="group"
+      open={true}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setResultSummary(null)
+        }
+      }}
+      result={resultSummary}
+    />
+  ) : null
+
+  if (isEdit) {
+    return (
+      <>
+        <AppDialog {...dialogProps}>{formContent}</AppDialog>
+        {resultSummaryDialog}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Tabs
+        value={mode}
+        onValueChange={(value) => setMode(value as CreateMode)}
+        className="gap-0"
       >
-        {isEdit ? (
-          <GroupDialogEditForm form={form} />
-        ) : (
-          <GroupDialogCreateForm form={form} mode={mode} setMode={setMode} />
-        )}
-
-        <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton
-                pending={isSubmitting}
-                pendingLabel={isEdit ? "Saving..." : "Creating..."}
-              >
-                {isEdit ? "Save" : "Create"}
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
-
-      {resultSummary ? (
-        <BulkCreateResultsSummary
-          entityLabel="group"
-          open={true}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setResultSummary(null)
-            }
-          }}
-          result={resultSummary}
-        />
-      ) : null}
-    </AppDialog>
+        <AppDialog
+          {...dialogProps}
+          headerAfter={
+            <AppDialogHeaderTabs>
+              <TabsTrigger value="single">
+                <HugeiconsIcon icon={UserGroupIcon} />
+                Single
+              </TabsTrigger>
+              <TabsTrigger value="list">
+                <HugeiconsIcon icon={NotebookIcon} />
+                List
+              </TabsTrigger>
+              <TabsTrigger value="prefix">
+                <HugeiconsIcon icon={RegexIcon} />
+                Prefix
+              </TabsTrigger>
+            </AppDialogHeaderTabs>
+          }
+        >
+          {formContent}
+        </AppDialog>
+      </Tabs>
+      {resultSummaryDialog}
+    </>
   )
 }

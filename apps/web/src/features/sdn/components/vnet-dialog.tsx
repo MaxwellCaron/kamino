@@ -12,7 +12,6 @@ import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Tabs,
   TabsContent,
-  TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/tabs"
 import type {
@@ -27,7 +26,9 @@ import type {
 import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
 import {
   AppDialog,
+  AppDialogHeaderTabs,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
@@ -83,8 +84,6 @@ async function reportSDNApply(report: (update: MutationItemUpdate) => void) {
 function VNetCreateFields({
   FieldComponent,
   SubscribeComponent,
-  mode,
-  setMode,
   zones,
   zonesByName,
   zonesUnavailable,
@@ -92,30 +91,13 @@ function VNetCreateFields({
 }: {
   FieldComponent: any
   SubscribeComponent: any
-  mode: VNetCreateMode
-  setMode: (mode: VNetCreateMode) => void
   zones: Array<{ zone: string; type?: string }>
   zonesByName: Map<string, { zone: string; type?: string }>
   zonesUnavailable: boolean
   onZoneChange: (nextZone: string) => void
 }) {
   return (
-    <Tabs
-      value={mode}
-      onValueChange={(value) => setMode(value as VNetCreateMode)}
-      className="gap-4"
-    >
-      <TabsList className="w-full border-b" variant="line">
-        <TabsTrigger value="single">
-          <HugeiconsIcon icon={Globe02Icon} />
-          Single
-        </TabsTrigger>
-        <TabsTrigger value="prefix">
-          <HugeiconsIcon icon={RegexIcon} />
-          Prefix
-        </TabsTrigger>
-      </TabsList>
-
+    <>
       <TabsContent value="single">
         <CreateVNetSingleForm
           FieldComponent={FieldComponent}
@@ -137,7 +119,7 @@ function VNetCreateFields({
           onZoneChange={onZoneChange}
         />
       </TabsContent>
-    </Tabs>
+    </>
   )
 }
 
@@ -153,7 +135,7 @@ function VNetDialogFooter({
   zonesUnavailable: boolean
 }) {
   return (
-    <DialogFooter className="mt-6">
+    <DialogFooter>
       <SubscribeComponent selector={(state: any) => state.isSubmitting}>
         {(isSubmitting: boolean) => (
           <AppDialogPrimaryButton
@@ -434,28 +416,28 @@ function VNetDialogForm({
     }
   }
 
-  return (
-    <AppDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onClosed={() => {
-        form.reset(getDefaultVNetFormValues(vnet, defaultZone || undefined))
-        setMode("single")
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: () => {
+      form.reset(getDefaultVNetFormValues(vnet, defaultZone || undefined))
+      setMode("single")
+    },
+    initialFocus: false as const,
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit VNet" : "Create VNets",
+    description: isEdit
+      ? `Update VNet configuration for ${vnet.vnet}.`
+      : "Create one or more VNets.",
+  }
+
+  const formContent = (
+    <form
+      action={() => {
+        void form.handleSubmit()
       }}
-      initialFocus={false}
-      icon={isEdit ? PencilEdit01Icon : Add01Icon}
-      title={isEdit ? "Edit VNet" : "Create VNets"}
-      description={
-        isEdit
-          ? `Update VNet configuration for ${vnet.vnet}.`
-          : "Create one or more VNets."
-      }
     >
-      <form
-        action={() => {
-          void form.handleSubmit()
-        }}
-      >
+      <AppDialogScrollBody>
         {isEdit ? (
           <EditVNetForm
             FieldComponent={form.Field}
@@ -469,22 +451,50 @@ function VNetDialogForm({
           <VNetCreateFields
             FieldComponent={form.Field}
             SubscribeComponent={form.Subscribe}
-            mode={mode}
-            setMode={setMode}
             zones={zones}
             zonesByName={zonesByName}
             zonesUnavailable={zonesUnavailable}
             onZoneChange={handleZoneChange}
           />
         )}
+      </AppDialogScrollBody>
 
-        <VNetDialogFooter
-          SubscribeComponent={form.Subscribe}
-          isEdit={isEdit}
-          mode={mode}
-          zonesUnavailable={zonesUnavailable}
-        />
-      </form>
-    </AppDialog>
+      <VNetDialogFooter
+        SubscribeComponent={form.Subscribe}
+        isEdit={isEdit}
+        mode={mode}
+        zonesUnavailable={zonesUnavailable}
+      />
+    </form>
+  )
+
+  if (isEdit) {
+    return <AppDialog {...dialogProps}>{formContent}</AppDialog>
+  }
+
+  return (
+    <Tabs
+      value={mode}
+      onValueChange={(value) => setMode(value as VNetCreateMode)}
+      className="gap-0"
+    >
+      <AppDialog
+        {...dialogProps}
+        headerAfter={
+          <AppDialogHeaderTabs>
+            <TabsTrigger value="single">
+              <HugeiconsIcon icon={Globe02Icon} />
+              Single
+            </TabsTrigger>
+            <TabsTrigger value="prefix">
+              <HugeiconsIcon icon={RegexIcon} />
+              Prefix
+            </TabsTrigger>
+          </AppDialogHeaderTabs>
+        }
+      >
+        {formContent}
+      </AppDialog>
+    </Tabs>
   )
 }

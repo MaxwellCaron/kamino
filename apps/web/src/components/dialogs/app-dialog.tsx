@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
+import { TabsList } from "@workspace/ui/components/tabs"
 import { useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { ComponentProps, ReactNode } from "react"
@@ -116,6 +117,7 @@ export function AppAlertDialogContent({
 type AppDialogHeaderProps = {
   description: ReactNode
   descriptionProps?: Omit<ComponentProps<typeof DialogDescription>, "children">
+  headerAfter?: ReactNode
   icon?: AppDialogIcon
   title: string
   variant?: AppDialogVariant
@@ -124,6 +126,7 @@ type AppDialogHeaderProps = {
 export function AppDialogHeader({
   description,
   descriptionProps,
+  headerAfter,
   icon: Icon,
   title,
   variant = "default",
@@ -148,6 +151,7 @@ export function AppDialogHeader({
         )}
       </DialogTitle>
       <DialogDescription {...descriptionProps}>{description}</DialogDescription>
+      {headerAfter}
     </DialogHeader>
   )
 }
@@ -161,6 +165,7 @@ export function AppDialogContent({
   children,
   description,
   descriptionProps,
+  headerAfter,
   icon,
   title,
   variant = "default",
@@ -174,6 +179,7 @@ export function AppDialogContent({
         <AppDialogHeader
           description={description}
           descriptionProps={descriptionProps}
+          headerAfter={headerAfter}
           icon={icon}
           title={title}
           variant={variant}
@@ -223,6 +229,15 @@ export function AppDialogScrollBody({
       )}
       {...props}
     />
+  )
+}
+
+export function AppDialogHeaderTabs({
+  className,
+  ...props
+}: ComponentProps<typeof TabsList>) {
+  return (
+    <TabsList className={cn("mt-3 w-full border-b", className)} {...props} />
   )
 }
 
