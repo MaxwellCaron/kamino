@@ -974,7 +974,7 @@ func parseVMHardwareConfig(data map[string]any) (*VMHardwareConfig, error) {
 func parseVMIdentity(data map[string]any, vmid int) (*VMIdentity, error) {
 	name := strings.TrimSpace(getStringValue(data["name"]))
 	if name == "" {
-		name = fmt.Sprintf("vm-%d", vmid)
+		name = fmt.Sprintf("VM %d", vmid)
 	}
 
 	upstreamUUID, err := parseVMUpstreamUUID(getStringValue(data["smbios1"]))
