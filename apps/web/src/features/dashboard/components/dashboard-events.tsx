@@ -35,49 +35,48 @@ export function DashboardEvents() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    return subscribeToJsonEventStream<DashboardEventMap>("/api/v1/events", {
-      "inventory.changed": (payload) => {
-        if (payload.scope && payload.scope !== "tree") return
+    return subscribeToJsonEventStream<DashboardEventMap>(
+      "/api/v1/events",
+      {
+        "inventory.changed": (payload) => {
+          if (payload.scope && payload.scope !== "tree") return
 
-        const treeQuery = queryClient.getQueryState(
-          inventoryTreeQueryOptions.queryKey
-        )
-
-
-        const eventUpdatedAt = Date.parse(payload.timestamp)
-        if (
-          Number.isFinite(eventUpdatedAt) &&
-          treeQuery &&
-          treeQuery.dataUpdatedAt >= eventUpdatedAt
-        ) {
-          return
-        }
-
-        void queryClient.invalidateQueries({
-          queryKey: inventoryTreeQueryOptions.queryKey,
-        })
-      },
-      "vm.statuses.changed": (payload) => {
-        queryClient.setQueryData(
-          vmStatusQueryOptions.queryKey,
-          payload.statuses
-        )
-      },
-      "request.changed": (payload) => {
-        void queryClient.invalidateQueries({ queryKey: ["requests"] })
-        if (payload.request_id) {
           void queryClient.invalidateQueries({
-            queryKey: ["requests", payload.request_id],
+            queryKey: inventoryTreeQueryOptions.queryKey,
           })
-        }
+        },
+        "vm.statuses.changed": (payload) => {
+          queryClient.setQueryData(
+            vmStatusQueryOptions.queryKey,
+            payload.statuses
+          )
+        },
+        "request.changed": (payload) => {
+          void queryClient.invalidateQueries({ queryKey: ["requests"] })
+          if (payload.request_id) {
+            void queryClient.invalidateQueries({
+              queryKey: ["requests", payload.request_id],
+            })
+          }
+        },
+        "pod.publish.progress": (payload) => {
+          queryClient.setQueryData(
+            ["pods", "published", "progress", payload.id],
+            payload
+          )
+        },
       },
-      "pod.publish.progress": (payload) => {
-        queryClient.setQueryData(
-          ["pods", "published", "progress", payload.id],
-          payload
-        )
-      },
-    })
+      {
+        onOpen: ({ reconnected }) => {
+          if (!reconnected) return
+
+          void queryClient.invalidateQueries({
+            queryKey: inventoryTreeQueryOptions.queryKey,
+          })
+          void queryClient.invalidateQueries({ queryKey: ["requests"] })
+        },
+      }
+    )
   }, [queryClient])
 
   return null
