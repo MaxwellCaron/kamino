@@ -60,6 +60,7 @@ type SnapshotDialogProps = {
   itemId: string
   vmid?: number
   vmName?: string
+  guestType?: "qemu" | "lxc"
   mode?: SnapshotDialogMode
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -69,6 +70,7 @@ function DirectSnapshotDialog({
   itemId,
   vmid,
   vmName,
+  guestType,
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
@@ -94,6 +96,7 @@ function DirectSnapshotDialog({
       <DirectSnapshotForm
         key={sessionKeyRef.current}
         itemId={itemId}
+        guestType={guestType}
         onOpenChange={onOpenChange}
       />
     </AppDialog>
@@ -102,9 +105,11 @@ function DirectSnapshotDialog({
 
 function DirectSnapshotForm({
   itemId,
+  guestType,
   onOpenChange,
-}: Pick<SnapshotDialogProps, "itemId" | "onOpenChange">) {
+}: Pick<SnapshotDialogProps, "itemId" | "guestType" | "onOpenChange">) {
   const create = useCreateSnapshot(itemId)
+  const isLxc = guestType === "lxc"
 
   const form = useForm({
     defaultValues: {
@@ -124,7 +129,7 @@ function DirectSnapshotForm({
           itemId,
           snapname: parsed.snapname,
           description: parsed.description || undefined,
-          vmstate: parsed.vmstate,
+          vmstate: isLxc ? false : parsed.vmstate,
         }),
         parsed.snapname
       )
@@ -180,24 +185,26 @@ function DirectSnapshotForm({
             )
           }}
         </form.Field>
-        <form.Field name="vmstate">
-          {(field) => (
-            <Field orientation="horizontal">
-              <Checkbox
-                id="vmstate"
-                checked={field.state.value}
-                onCheckedChange={(checked) => field.handleChange(!!checked)}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
-                <FieldDescription>
-                  Save the RAM contents along with the snapshot. Uses more
-                  storage.
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-          )}
-        </form.Field>
+        {!isLxc && (
+          <form.Field name="vmstate">
+            {(field) => (
+              <Field orientation="horizontal">
+                <Checkbox
+                  id="vmstate"
+                  checked={field.state.value}
+                  onCheckedChange={(checked) => field.handleChange(!!checked)}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
+                  <FieldDescription>
+                    Save the RAM contents along with the snapshot. Uses more
+                    storage.
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
+        )}
       </FieldGroup>
       <DialogFooter className="mt-6">
         <form.Subscribe selector={(state) => state.isSubmitting}>

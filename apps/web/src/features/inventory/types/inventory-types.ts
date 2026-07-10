@@ -1,6 +1,7 @@
 export type ApiTreeNodeVM = {
   node: string
   vmid: number
+  guest_type: "qemu" | "lxc"
   is_template: boolean
   notes?: string | null
   cpu_count?: number

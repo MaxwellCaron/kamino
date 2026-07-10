@@ -4,6 +4,7 @@ import {
   ComputerIcon,
   Copy02Icon,
   CpuIcon,
+  CubeIcon,
   Globe02Icon,
   HardDriveIcon,
   IdentityCardIcon,
@@ -294,22 +295,20 @@ export function VmHeader({
     isNetworksLoading,
     isNetworksError
   )
+  const headerIcon = isTemplate
+    ? Copy02Icon
+    : vm.guest_type === "lxc"
+      ? CubeIcon
+      : ComputerIcon
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {isTemplate ? (
-            <HugeiconsIcon
-              icon={Copy02Icon}
-              className="size-7 text-muted-foreground"
-            />
-          ) : (
-            <HugeiconsIcon
-              icon={ComputerIcon}
-              className="size-7 text-muted-foreground"
-            />
-          )}
+          <HugeiconsIcon
+            icon={headerIcon}
+            className="size-7 text-muted-foreground"
+          />
           <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
             {node.name}
           </h1>
@@ -322,6 +321,7 @@ export function VmHeader({
             nodeId={node.id}
             permissions={node.permissions}
             isTemplate={isTemplate}
+            guestType={vm.guest_type}
             itemId={itemId}
             vmid={vm.vmid}
             pveNode={vm.node}

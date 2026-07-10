@@ -18,6 +18,7 @@ import {
 import { formatUptime } from "@/features/shared/utils/format"
 
 export function VmListItem({
+  guestType,
   isTemplate = false,
   itemId,
   name,
@@ -25,6 +26,7 @@ export function VmListItem({
   status,
   uptime,
 }: {
+  guestType?: "qemu" | "lxc"
   isTemplate?: boolean
   itemId: string
   name: string
@@ -46,7 +48,11 @@ export function VmListItem({
           params={{ itemId }}
         >
           <ItemMedia variant="icon">
-            <VmIcon status={status} isTemplate={isTemplate} />
+            <VmIcon
+              status={status}
+              isTemplate={isTemplate}
+              guestType={guestType}
+            />
           </ItemMedia>
           <ItemContent>
             <ItemTitle className="text-sm font-medium">{name}</ItemTitle>

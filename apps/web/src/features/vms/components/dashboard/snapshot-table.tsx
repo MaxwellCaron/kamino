@@ -42,12 +42,14 @@ export function SnapshotsTable({
   itemId,
   vmid,
   vmName,
+  guestType,
   isTemplate,
   permissions,
 }: {
   itemId: string
   vmid: number | null
   vmName?: string
+  guestType?: "qemu" | "lxc"
   isTemplate: boolean
   permissions: SnapshotTablePermissions
 }) {
@@ -161,6 +163,7 @@ export function SnapshotsTable({
             itemId={itemId}
             vmid={vmid}
             vmName={vmName}
+            guestType={guestType}
             mode={permissions.canManage ? "direct" : "request"}
             open={snapshotOpen}
             onOpenChange={setSnapshotOpen}

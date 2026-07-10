@@ -15,5 +15,11 @@ export function InventoryNodeIcon({
     return <FolderIcon open={isExpanded} />
   }
 
-  return <VmIcon status={status} isTemplate={node.vm?.is_template} />
+  return (
+    <VmIcon
+      status={status}
+      isTemplate={node.vm?.is_template}
+      guestType={node.vm?.guest_type}
+    />
+  )
 }

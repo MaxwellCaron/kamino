@@ -47,7 +47,12 @@ export function getSyncDiffColumns(): Array<ColumnDef<SyncChange>> {
       accessorKey: "name",
       header: "Name",
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <span className="flex items-center gap-2 font-medium">
+          {row.original.name}
+          {row.original.guest_type === "lxc" ? (
+            <Badge variant="secondary">CT</Badge>
+          ) : null}
+        </span>
       ),
     },
     {

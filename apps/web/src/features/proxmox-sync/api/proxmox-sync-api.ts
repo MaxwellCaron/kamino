@@ -14,6 +14,7 @@ export type SyncChange = {
   node: string
   vmid: number
   name: string
+  guest_type: "qemu" | "lxc"
   is_template: boolean
   fields?: Array<SyncFieldChange>
   removable?: boolean

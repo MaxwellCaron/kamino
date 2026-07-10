@@ -81,6 +81,7 @@ type SnapshotDialogConfig = {
   itemId: string
   currentName?: string
   currentVmid?: number
+  guestType?: "qemu" | "lxc"
   mode?: SnapshotDialogMode
 }
 
@@ -318,6 +319,7 @@ export function InventoryDialogsProvider({
             itemId={state.snapshot.itemId}
             vmid={state.snapshot.currentVmid}
             vmName={state.snapshot.currentName}
+            guestType={state.snapshot.guestType}
             mode={state.snapshot.mode}
             open={true}
             onOpenChange={(open) => {

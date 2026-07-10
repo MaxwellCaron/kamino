@@ -123,16 +123,20 @@ export function getFolderCapabilities(
 
 export function getVmCapabilities(
   permissions: ApiTreeNodePermissions | undefined,
-  options: { isTemplate?: boolean } = {}
+  options: { guestType?: "qemu" | "lxc"; isTemplate?: boolean } = {}
 ) {
-  const clone = getDirectInventoryCapability(permissions, "cloneVm")
+  const isLxc = options.guestType === "lxc"
+  const clone = isLxc
+    ? directCapability(false)
+    : getDirectInventoryCapability(permissions, "cloneVm")
   const console = options.isTemplate
     ? directCapability(false)
     : getDirectInventoryCapability(permissions, "consoleVm")
   const deleteVm = getDirectInventoryCapability(permissions, "deleteVm")
-  const editHardware = options.isTemplate
-    ? directCapability(false)
-    : getDirectInventoryCapability(permissions, "editVmHardware")
+  const editHardware =
+    options.isTemplate || isLxc
+      ? directCapability(false)
+      : getDirectInventoryCapability(permissions, "editVmHardware")
   const managePermissions = getDirectInventoryCapability(
     permissions,
     "managePermissions"
@@ -145,9 +149,10 @@ export function getVmCapabilities(
   const snapshot = options.isTemplate
     ? modeCapability(null)
     : getRequestableInventoryCapability(permissions, "snapshotVm")
-  const template = options.isTemplate
-    ? directCapability(false)
-    : getDirectInventoryCapability(permissions, "templateVm")
+  const template =
+    options.isTemplate || isLxc
+      ? directCapability(false)
+      : getDirectInventoryCapability(permissions, "templateVm")
   const viewSnapshots = getDirectInventoryCapability(
     permissions,
     "viewSnapshots"

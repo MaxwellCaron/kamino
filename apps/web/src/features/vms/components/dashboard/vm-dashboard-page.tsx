@@ -67,7 +67,10 @@ export function VmDashboardPage() {
     ...vmNetworksQueryOptions(itemId),
     enabled: shouldFetchNetworks,
   })
-  const capabilities = getVmCapabilities(node?.permissions, { isTemplate })
+  const capabilities = getVmCapabilities(node?.permissions, {
+    isTemplate,
+    guestType: vm?.guest_type,
+  })
   const canManageSnapshots = capabilities.snapshot.mode === "direct"
   const canViewSnapshots = capabilities.viewSnapshots.enabled
   const canRequestSnapshots = capabilities.snapshot.mode === "request"
@@ -120,6 +123,7 @@ export function VmDashboardPage() {
             itemId={itemId}
             vmid={vm.vmid}
             vmName={node.name}
+            guestType={vm.guest_type}
             isTemplate={isTemplate}
             permissions={{
               canView: canViewSnapshots,

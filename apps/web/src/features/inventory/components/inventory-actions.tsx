@@ -235,6 +235,7 @@ function VmMenuItems({
   itemId,
   vmid,
   name,
+  guestType,
   onAction,
   onManagePermissions,
   onSnapshot,
@@ -250,6 +251,7 @@ function VmMenuItems({
   itemId: string
   vmid: number
   name?: string
+  guestType?: "qemu" | "lxc"
   onAction: (config: ConfirmConfig) => void
   onManagePermissions: () => void
   onSnapshot: (mode: "direct" | "request") => void
@@ -269,7 +271,7 @@ function VmMenuItems({
     vmName: name,
     isLoading,
   })
-  const capabilities = getVmCapabilities(permissions)
+  const capabilities = getVmCapabilities(permissions, { guestType })
   const hasActionItems = capabilities.hasActionItems
   const hasItemsAfterGeneral =
     powerActions.powerMode !== null ||
@@ -434,7 +436,9 @@ function VmMenuItems({
                     {
                       id: itemId,
                       name: formatVmReference(vmid, name),
-                      icon: <VmIcon status={powerStatus} />,
+                      icon: (
+                        <VmIcon status={powerStatus} guestType={guestType} />
+                      ),
                     },
                   ]}
                 />
@@ -776,6 +780,7 @@ function InventoryNodeMenuBody({
               itemId,
               currentName: data.name,
               currentVmid: data.vm.vmid,
+              guestType: data.vm.guest_type,
               mode,
             })
           }}
@@ -809,6 +814,7 @@ function InventoryNodeMenuBody({
           }}
           isLoading={false}
           powerStatus={powerStatus}
+          guestType={data.vm?.guest_type}
         />
       )}
     </>
@@ -868,6 +874,7 @@ export function VmOptionsMenu({
   permissions,
   isFolder = false,
   isTemplate,
+  guestType,
   vmid,
   pveNode,
   name,
@@ -879,6 +886,7 @@ export function VmOptionsMenu({
   permissions: ApiTreeNodePermissions
   isFolder?: boolean
   isTemplate?: boolean
+  guestType?: "qemu" | "lxc"
   vmid?: number
   pveNode?: string
   name?: string
@@ -997,6 +1005,7 @@ export function VmOptionsMenu({
                   itemId,
                   currentName: name,
                   currentVmid: vmid,
+                  guestType,
                   mode,
                 })
               }}
@@ -1030,6 +1039,7 @@ export function VmOptionsMenu({
               }}
               isLoading={isLoading}
               powerStatus={powerStatus}
+              guestType={guestType}
             />
           )}
         </DropdownMenuContent>
