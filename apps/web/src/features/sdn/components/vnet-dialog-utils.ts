@@ -36,12 +36,12 @@ export const namePrefixSchema = z
   .trim()
   .min(1, "Name prefix is required")
 
-export const amountSchema = z
+export const quantitySchema = z
   .string()
   .trim()
-  .regex(/^\d+$/, "Amount must be a positive whole number")
+  .regex(/^\d+$/, "Quantity must be a positive whole number")
   .refine((value) => Number.parseInt(value, 10) >= 1, {
-    message: "Amount must be a positive whole number",
+    message: "Quantity must be a positive whole number",
   })
   .refine((value) => Number.parseInt(value, 10) <= MAX_PREFIX_CREATE_VNETS, {
     message: `Cannot create more than ${MAX_PREFIX_CREATE_VNETS} VNets at once`,
@@ -57,7 +57,7 @@ export type VNetFormValues = {
   vnetPrefix: string
   aliasPrefix: string
   baseTag: string
-  amount: string
+  quantity: string
 }
 
 export function getTagRule(zoneType: string | undefined): TagRule {
@@ -143,7 +143,7 @@ export function getDefaultVNetFormValues(
     vnetPrefix: "",
     aliasPrefix: "",
     baseTag: "",
-    amount: "10",
+    quantity: "10",
   }
 }
 
@@ -179,7 +179,7 @@ function buildPrefixCreateVNets(
 
   const aliasPrefix = values.aliasPrefix
   const hasAliasPrefix = aliasPrefix.trim().length > 0
-  const amount = Number.parseInt(amountSchema.parse(values.amount), 10)
+  const quantity = Number.parseInt(quantitySchema.parse(values.quantity), 10)
 
   const tagRule = getTagRule(zoneType)
   const baseTagTrimmed = values.baseTag.trim()
@@ -194,13 +194,13 @@ function buildPrefixCreateVNets(
       if (!Number.isInteger(tagBase) || tagBase < 1 || tagBase > 16777215) {
         throw new Error("Tag must be a whole number between 1 and 16777215")
       }
-      if (tagBase + amount - 1 > 16777215) {
+      if (tagBase + quantity - 1 > 16777215) {
         throw new Error("Generated tags exceed the maximum of 16777215")
       }
     }
   }
 
-  return Array.from({ length: amount }, (_, offset) => {
+  return Array.from({ length: quantity }, (_, offset) => {
     const suffix = tagBase !== undefined ? tagBase + offset : offset + 1
     const vnet = validateVNetIdOrThrow(
       `${vnetPrefix}${suffix}`,
@@ -233,14 +233,14 @@ function buildPrefixCreateVNets(
 }
 
 export function getPrefixCreatePreview(
-  values: Pick<VNetFormValues, "vnetPrefix" | "baseTag" | "amount">,
+  values: Pick<VNetFormValues, "vnetPrefix" | "baseTag" | "quantity">,
   zoneType: string | undefined
 ) {
   const prefix = values.vnetPrefix.trim()
   if (!prefix) return undefined
 
-  const amountResult = amountSchema.safeParse(values.amount)
-  if (!amountResult.success) return undefined
+  const quantityResult = quantitySchema.safeParse(values.quantity)
+  if (!quantityResult.success) return undefined
 
   const tagRule = getTagRule(zoneType)
   let start = 1
@@ -252,8 +252,8 @@ export function getPrefixCreatePreview(
     start = baseTag
   }
 
-  const amount = Number.parseInt(amountResult.data, 10)
-  return `This will create ${prefix}${start} - ${prefix}${start + amount - 1}`
+  const quantity = Number.parseInt(quantityResult.data, 10)
+  return `This will create ${prefix}${start} - ${prefix}${start + quantity - 1}`
 }
 
 export function buildCreateVNets(

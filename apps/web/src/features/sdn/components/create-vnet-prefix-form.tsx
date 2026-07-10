@@ -26,12 +26,12 @@ import {
 } from "@/features/sdn/components/vnet-form-fields"
 import {
   aliasSchema,
-  amountSchema,
   getPrefixCreatePreview,
   getTagRule,
   getZoneType,
   isVlanAwareDisabled,
   namePrefixSchema,
+  quantitySchema,
   validateBaseTag,
 } from "@/features/sdn/components/vnet-dialog-utils"
 
@@ -141,17 +141,17 @@ function BaseTagField({
   )
 }
 
-function AmountField({
+function QuantityField({
   FieldComponent,
 }: {
   FieldComponent: AppFieldComponent
 }) {
   return (
     <FieldComponent
-      name="amount"
+      name="quantity"
       validators={{
         onSubmit: ({ value }: { value: string }) => {
-          const result = amountSchema.safeParse(value)
+          const result = quantitySchema.safeParse(value)
           return result.success ? undefined : result.error.issues[0]?.message
         },
       }}
@@ -161,10 +161,10 @@ function AmountField({
 
         return (
           <Field data-invalid={isInvalid}>
-            <FieldLabel htmlFor="amount">Amount</FieldLabel>
+            <FieldLabel htmlFor="quantity">Quantity</FieldLabel>
             <FieldContent>
               <Input
-                id="amount"
+                id="quantity"
                 type="number"
                 min={1}
                 max={50}
@@ -216,9 +216,9 @@ export function CreateVNetsPrefixForm({
       <FieldSeparator />
 
       <FieldSet>
-        <FieldLegend>Prefix & Amounts</FieldLegend>
+        <FieldLegend>Prefix & Quantity</FieldLegend>
         <FieldDescription>
-          Define the prefixes and the starting Tag with the amount of VNets to
+          Define the prefixes and the starting Tag with the quantity of VNets to
           create.
         </FieldDescription>
         <FieldGroup>
@@ -244,7 +244,7 @@ export function CreateVNetsPrefixForm({
                     FieldComponent={FieldComponent}
                     zoneType={zoneType}
                   />
-                  <AmountField FieldComponent={FieldComponent} />
+                  <QuantityField FieldComponent={FieldComponent} />
                 </div>
               )
             }}
@@ -254,14 +254,14 @@ export function CreateVNetsPrefixForm({
           selector={(state: any) => ({
             vnetPrefix: state.values.vnetPrefix,
             baseTag: state.values.baseTag,
-            amount: state.values.amount,
+            quantity: state.values.quantity,
             zone: state.values.zone,
           })}
         >
           {(values: {
             vnetPrefix: string
             baseTag: string
-            amount: string
+            quantity: string
             zone: string
           }) => {
             const preview = getPrefixCreatePreview(
