@@ -1,8 +1,8 @@
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { ApiError, apiFetch } from "@/features/auth/api/auth-api"
 
 async function throwResponseError(res: Response, label: string): Promise<never> {
   const body = await res.json().catch(() => ({}))
-  throw new Error(body.error ?? `Failed to ${label}: ${res.status}`)
+  throw new ApiError(body.error ?? `Failed to ${label}: ${res.status}`, res.status)
 }
 
 /** Fetch JSON from the API; on !ok throws the server's error message. */
