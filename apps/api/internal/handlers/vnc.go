@@ -216,15 +216,25 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	}
 	defer pxConn.Close()
 
-	// Bridge binary frames bidirectionally
-	done := make(chan struct{})
+	bridgeBidirectional(clientConn, pxConn)
+}
+
+func bridgeBidirectional(left, right *websocket.Conn) {
+	done := make(chan struct{}, 2)
 
 	go func() {
-		defer close(done)
-		bridge(pxConn, clientConn)
+		bridge(left, right)
+		done <- struct{}{}
 	}()
 
-	bridge(clientConn, pxConn)
+	go func() {
+		bridge(right, left)
+		done <- struct{}{}
+	}()
+
+	<-done
+	left.Close()
+	right.Close()
 	<-done
 }
 
