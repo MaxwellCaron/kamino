@@ -218,7 +218,11 @@ func (c *Client) AuthenticateDN(userDN, password string) error {
 	return c.bindUser(userDN, password)
 }
 
-// FetchUsers returns all enabled user accounts under the configured base DN.
+func allUsersFilter() string {
+	return "(&(objectClass=user)(objectCategory=person))"
+}
+
+// FetchUsers returns all user accounts under the configured base DN.
 func (c *Client) FetchUsers() ([]User, error) {
 	conn, err := c.connect()
 	if err != nil {
@@ -226,8 +230,7 @@ func (c *Client) FetchUsers() ([]User, error) {
 	}
 	defer conn.Close()
 
-	// Filter: person objects that are not disabled (bit 2 of userAccountControl)
-	filter := "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+	filter := allUsersFilter()
 
 	result, err := conn.SearchWithPaging(ldap.NewSearchRequest(
 		c.baseDN,
