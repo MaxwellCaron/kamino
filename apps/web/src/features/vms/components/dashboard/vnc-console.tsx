@@ -38,7 +38,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { Spinner } from "@workspace/ui/components/spinner"
 import type { VncScreenHandle } from "react-vnc"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
@@ -195,16 +194,7 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
         )}
 
         {session && (
-          <Suspense
-            fallback={
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ width: "100%", height: "100%" }}
-              >
-                <Spinner />
-              </div>
-            }
-          >
+          <Suspense fallback={null}>
             <LazyVncScreen
               ref={vncRef}
               url={session.url}
