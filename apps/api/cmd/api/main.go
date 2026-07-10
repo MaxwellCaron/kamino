@@ -684,6 +684,7 @@ func main() {
 		requestsNotifier,
 		auditService,
 		podsHandler,
+		vmActionClaims,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 

@@ -324,6 +324,8 @@ func (h *RequestsHandler) writeRequestActionResponse(
 				errorMessage = "request is not pending"
 			} else if errors.Is(err, requestqueue.ErrRequestForbidden) {
 				errorMessage = "forbidden"
+			} else if errors.Is(err, requestqueue.ErrRequestActionInProgress) {
+				errorMessage = "another action is already in progress for this VM"
 			}
 			response.Failed = append(response.Failed, requestActionFailure{
 				ID:    rawID,

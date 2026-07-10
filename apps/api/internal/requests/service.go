@@ -53,7 +53,13 @@ var (
 	ErrRequestLimitExceeded      = errors.New("maximum pending request limit reached")
 	ErrRequestPersonalPodExists  = errors.New("personal pod already exists")
 	ErrRequestDuplicatePending   = errors.New("a pending personal pod request already exists")
+	ErrRequestActionInProgress   = errors.New("another action is already in progress for this VM")
 )
+
+type vmActionClaimer interface {
+	Claim(ctx context.Context, itemID uuid.UUID, action string, actorPrincipalID uuid.UUID, detail string) error
+	Release(ctx context.Context, itemID uuid.UUID) error
+}
 
 type PersonalPodProvisioner interface {
 	PersonalPodsEnabled() bool
@@ -69,6 +75,7 @@ type Service struct {
 	notifier     *Notifier
 	audit        *audit.Service
 	personalPods PersonalPodProvisioner
+	vmClaims     vmActionClaimer
 }
 
 type vmTarget struct {
@@ -88,6 +95,7 @@ func NewService(
 	notifier *Notifier,
 	auditService *audit.Service,
 	personalPods PersonalPodProvisioner,
+	vmClaims vmActionClaimer,
 ) *Service {
 	return &Service{
 		db:           db,
@@ -98,6 +106,7 @@ func NewService(
 		notifier:     notifier,
 		audit:        auditService,
 		personalPods: personalPods,
+		vmClaims:     vmClaims,
 	}
 }
 
@@ -611,6 +620,14 @@ func (s *Service) ApproveRequest(
 		return database.GetRequestByIDRow{}, nil, ErrRequestForbidden
 	}
 
+	releaseClaim, claimErr := s.acquireInventoryRequestClaim(ctx, locked, reviewerPrincipalID)
+	if claimErr != nil {
+		return database.GetRequestByIDRow{}, nil, claimErr
+	}
+	if releaseClaim != nil {
+		defer releaseClaim()
+	}
+
 	approved, err := q.ApproveRequest(ctx, database.ApproveRequestParams{
 		ID:                  requestID,
 		ReviewerPrincipalID: &reviewerPrincipalID,
@@ -957,6 +974,52 @@ func (s *Service) reviewerPermissions(
 	}
 
 	return perms, nil
+}
+
+func isInventoryVMRequestKind(requestKind string) bool {
+	switch requestKind {
+	case RequestKindInventoryVMPower,
+		RequestKindInventoryVMSnapshotCreate,
+		RequestKindInventoryVMSnapshotRollback:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Service) acquireInventoryRequestClaim(
+	ctx context.Context,
+	locked database.GetRequestForExecutionRow,
+	reviewerPrincipalID uuid.UUID,
+) (func(), error) {
+	if !isInventoryVMRequestKind(locked.Kind) {
+		return nil, nil
+	}
+	if s.vmClaims == nil {
+		return nil, ErrRequestServiceUnavailable
+	}
+	if locked.InventoryItemID == nil {
+		return nil, ErrRequestMissingPayload
+	}
+
+	itemID := *locked.InventoryItemID
+	if err := s.vmClaims.Claim(
+		ctx,
+		itemID,
+		"request:"+locked.Kind,
+		reviewerPrincipalID,
+		locked.ID.String(),
+	); err != nil {
+		if vmactions.IsActionInProgress(err) {
+			return nil, ErrRequestActionInProgress
+		}
+		return nil, err
+	}
+
+	release := func() {
+		_ = s.vmClaims.Release(context.WithoutCancel(ctx), itemID)
+	}
+	return release, nil
 }
 
 func canReviewRequestKind(
