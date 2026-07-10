@@ -749,9 +749,12 @@ func main() {
 	}
 	r.Use(middleware.CORS(server.Config.FrontendURL))
 
+	healthHandler := &handlers.HealthHandler{DB: server.DBPool}
+
 	// Register all API routes
 	routes.RegisterRoutes(
 		r,
+		healthHandler,
 		authHandler,
 		authService,
 		sessionManager,
