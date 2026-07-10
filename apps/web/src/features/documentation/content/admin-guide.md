@@ -66,7 +66,7 @@ they are never offered as a request.
 ## Proxmox sync
 
 Open [Proxmox Sync](/admin/proxmox-sync) to import out-of-band Proxmox
-changes into Kamino's inventory. Refresh the preview to see current drift,
+changes into Kamino's inventory. The page loads current drift on open,
 which is classified as additions, removals, or updates; any removal that
 is unsafe to apply is marked blocked. Select only the changes you have
 confirmed are expected, then **Apply**. Review the per-item outcome after

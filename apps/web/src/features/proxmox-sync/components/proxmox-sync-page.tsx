@@ -92,14 +92,48 @@ export function ProxmoxSyncPage() {
     data: diff,
     isLoading,
     error,
-    refetch,
-    isFetching,
   } = useQuery({
     ...proxmoxSyncPreviewQueryOptions,
     enabled: canAdminister,
   })
   const queryClient = useQueryClient()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+
+  const applyChangesWithToast = (
+    changes: Array<SyncChange>,
+    onAllSuccess?: () => void
+  ) => {
+    const kindRank = { add: 0, update: 1, remove: 2 } as const
+    const ordered = changes.toSorted(
+      (a, b) => kindRank[a.kind] - kindRank[b.kind]
+    )
+    showUnitMutationToast({
+      title: `Applying ${changes.length} sync change${changes.length === 1 ? "" : "s"}`,
+      concurrency: 1,
+      units: ordered.map((row) => ({
+        items: [{ id: row.id, name: row.name }],
+        run: async () => {
+          const response = await applyProxmoxSync(buildSyncSelection([row]))
+          const result = response.results.find((entry) => entry.id === row.id)
+          if (result?.status === "success") return
+          return {
+            failed: [{ id: row.id, error: result?.error ?? "skipped" }],
+          }
+        },
+      })),
+      onSettled: async (result) => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: proxmoxSyncPreviewQueryOptions.queryKey,
+          }),
+          queryClient.invalidateQueries({
+            queryKey: inventoryTreeQueryOptions.queryKey,
+          }),
+        ])
+        if (result.failed.length === 0) onAllSuccess?.()
+      },
+    })
+  }
 
   const columns = useMemo(() => getSyncDiffColumns(), [])
 
@@ -120,6 +154,9 @@ export function ProxmoxSyncPage() {
   const removes: Array<SyncChange> = diff ? diff.removes : []
   const updates: Array<SyncChange> = diff ? diff.updates : []
   const blocked = removes.filter((r) => r.removable === false).length
+  const syncableChanges = rows.filter(
+    (r) => !(r.kind === "remove" && r.removable === false)
+  )
   const isEmpty =
     adds.length === 0 && removes.length === 0 && updates.length === 0
 
@@ -173,17 +210,23 @@ export function ProxmoxSyncPage() {
             </CardDescription>
             <CardAction>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                disabled={isFetching}
+                onClick={() =>
+                  setConfirm({
+                    title: "Sync All Changes",
+                    icon: ReloadIcon,
+                    description:
+                      blocked > 0
+                        ? `Apply all ${syncableChanges.length} pending change${syncableChanges.length === 1 ? "" : "s"} to the inventory. ${blocked} blocked removal${blocked === 1 ? "" : "s"} will be skipped.`
+                        : `Apply all ${syncableChanges.length} pending change${syncableChanges.length === 1 ? "" : "s"} to the inventory.`,
+                    actionLabel: "Sync All",
+                    variant: "default",
+                    onConfirm: () => applyChangesWithToast(syncableChanges),
+                  })
+                }
+                disabled={!!error || syncableChanges.length === 0}
               >
-                <HugeiconsIcon
-                  icon={ReloadIcon}
-                  className={isFetching ? "animate-spin" : ""}
-                  data-icon="inline-start"
-                />
-                Refresh
+                <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                Sync All
               </Button>
             </CardAction>
           </CardHeader>
@@ -237,54 +280,11 @@ export function ProxmoxSyncPage() {
                           description: `Apply ${selectableRows.length} selected change${selectableRows.length === 1 ? "" : "s"} to the inventory.`,
                           actionLabel: "Apply",
                           variant: "default",
-                          onConfirm: () => {
-                            const kindRank = { add: 0, update: 1, remove: 2 } as const
-                            const ordered = selectableRows.toSorted(
-                              (a, b) => kindRank[a.kind] - kindRank[b.kind]
-                            )
-                            showUnitMutationToast({
-                              title: `Applying ${selectableRows.length} sync change${selectableRows.length === 1 ? "" : "s"}`,
-                              concurrency: 1,
-                              units: ordered.map((row) => ({
-                                items: [{ id: row.id, name: row.name }],
-                                run: async () => {
-                                  const response = await applyProxmoxSync(
-                                    buildSyncSelection([row])
-                                  )
-                                  const result = response.results.find(
-                                    (entry) => entry.id === row.id
-                                  )
-                                  if (result?.status === "success") {
-                                    return
-                                  }
-                                  return {
-                                    failed: [
-                                      {
-                                        id: row.id,
-                                        error: result?.error ?? "skipped",
-                                      },
-                                    ],
-                                  }
-                                },
-                              })),
-                              onSettled: async (result) => {
-                                await Promise.all([
-                                  queryClient.invalidateQueries({
-                                    queryKey:
-                                      proxmoxSyncPreviewQueryOptions.queryKey,
-                                  }),
-                                  queryClient.invalidateQueries({
-                                    queryKey:
-                                      inventoryTreeQueryOptions.queryKey,
-                                  }),
-                                ])
-
-                                if (result.failed.length === 0) {
-                                  clearSelection()
-                                }
-                              },
-                            })
-                          },
+                          onConfirm: () =>
+                            applyChangesWithToast(
+                              selectableRows,
+                              clearSelection
+                            ),
                         })
                       }}
                     >
