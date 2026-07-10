@@ -23,9 +23,10 @@ const (
 )
 
 type Target struct {
-	ItemID uuid.UUID
-	Node   string
-	VMID   int
+	ItemID    uuid.UUID
+	Node      string
+	VMID      int
+	GuestType proxmox.GuestType
 }
 
 type Executor struct {
@@ -49,22 +50,22 @@ func NewExecutor(
 func (e *Executor) PowerAction(ctx context.Context, target Target, action PowerAction) error {
 	switch action {
 	case PowerActionStart:
-		if err := e.px.StartVM(ctx, target.Node, target.VMID); err != nil {
+		if err := e.px.StartVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
 			return err
 		}
 		go e.waitForObservedVMStatus(target.VMID, "running")
 	case PowerActionShutdown:
-		if err := e.px.ShutdownVM(ctx, target.Node, target.VMID); err != nil {
+		if err := e.px.ShutdownVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
 			return err
 		}
 		go e.waitForObservedVMStatus(target.VMID, "stopped")
 	case PowerActionReboot:
-		if err := e.px.RebootVM(ctx, target.Node, target.VMID); err != nil {
+		if err := e.px.RebootVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
 			return err
 		}
 		go e.waitForObservedVMStatus(target.VMID, "running")
 	case PowerActionStop:
-		if err := e.px.StopVM(ctx, target.Node, target.VMID); err != nil {
+		if err := e.px.StopVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
 			return err
 		}
 		go e.waitForObservedVMStatus(target.VMID, "stopped")
@@ -79,7 +80,7 @@ func (e *Executor) DeleteVM(ctx context.Context, target Target) error {
 	if err := e.inventory.EnsureInventorySubtreeDeletable(ctx, target.ItemID); err != nil {
 		return err
 	}
-	if err := e.px.DeleteVMStopped(ctx, target.Node, target.VMID); err != nil {
+	if err := e.px.DeleteVMStopped(ctx, target.GuestType, target.Node, target.VMID); err != nil {
 		return err
 	}
 	if err := e.inventory.DeleteInventoryVM(ctx, target.ItemID); err != nil {
@@ -97,7 +98,7 @@ func (e *Executor) CreateSnapshot(
 	description string,
 	vmstate bool,
 ) error {
-	return e.px.CreateSnapshot(ctx, target.Node, target.VMID, snapname, description, vmstate)
+	return e.px.CreateSnapshot(ctx, target.GuestType, target.Node, target.VMID, snapname, description, vmstate)
 }
 
 func (e *Executor) RollbackSnapshot(
@@ -105,7 +106,7 @@ func (e *Executor) RollbackSnapshot(
 	target Target,
 	snapname string,
 ) error {
-	return e.px.RollbackSnapshot(ctx, target.Node, target.VMID, snapname)
+	return e.px.RollbackSnapshot(ctx, target.GuestType, target.Node, target.VMID, snapname)
 }
 
 func (e *Executor) waitForObservedVMStatus(vmid int, expectedStatus string) {

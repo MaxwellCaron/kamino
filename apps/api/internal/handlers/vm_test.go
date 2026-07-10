@@ -112,7 +112,7 @@ type fakeVMProxmox struct {
 	identityErr error
 }
 
-func (f *fakeVMProxmox) GetVMIdentity(ctx context.Context, node string, vmid int) (*proxmox.VMIdentity, error) {
+func (f *fakeVMProxmox) GetVMIdentity(ctx context.Context, gt proxmox.GuestType, node string, vmid int) (*proxmox.VMIdentity, error) {
 	return f.identity, f.identityErr
 }
 
@@ -120,16 +120,20 @@ func (f *fakeVMProxmox) GetVMs(ctx context.Context) ([]proxmox.VM, error) {
 	panic("fakeVMProxmox: GetVMs not configured for this test")
 }
 
-func (f *fakeVMProxmox) RenameVM(ctx context.Context, node string, vmid int, name string) error {
+func (f *fakeVMProxmox) RenameVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int, name string) error {
 	panic("fakeVMProxmox: RenameVM not configured for this test")
 }
 
-func (f *fakeVMProxmox) UpdateVMNotes(ctx context.Context, node string, vmid int, notes string) error {
+func (f *fakeVMProxmox) UpdateVMNotes(ctx context.Context, gt proxmox.GuestType, node string, vmid int, notes string) error {
 	panic("fakeVMProxmox: UpdateVMNotes not configured for this test")
 }
 
 func (f *fakeVMProxmox) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error) {
 	panic("fakeVMProxmox: GetVMHardwareConfig not configured for this test")
+}
+
+func (f *fakeVMProxmox) GetLXCNetworks(ctx context.Context, node string, vmid int) ([]proxmox.VMHardwareNetwork, error) {
+	panic("fakeVMProxmox: GetLXCNetworks not configured for this test")
 }
 
 func (f *fakeVMProxmox) UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error {
@@ -160,11 +164,11 @@ func (f *fakeVMProxmox) SyncVMPoolMembership(ctx context.Context, node string, v
 	panic("fakeVMProxmox: SyncVMPoolMembership not configured for this test")
 }
 
-func (f *fakeVMProxmox) GetSnapshots(ctx context.Context, node string, vmid int) ([]proxmox.Snapshot, error) {
+func (f *fakeVMProxmox) GetSnapshots(ctx context.Context, gt proxmox.GuestType, node string, vmid int) ([]proxmox.Snapshot, error) {
 	panic("fakeVMProxmox: GetSnapshots not configured for this test")
 }
 
-func (f *fakeVMProxmox) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
+func (f *fakeVMProxmox) DeleteSnapshot(ctx context.Context, gt proxmox.GuestType, node string, vmid int, snapname string) error {
 	panic("fakeVMProxmox: DeleteSnapshot not configured for this test")
 }
 
@@ -172,7 +176,7 @@ func (f *fakeVMProxmox) ConvertToTemplate(ctx context.Context, node string, vmid
 	panic("fakeVMProxmox: ConvertToTemplate not configured for this test")
 }
 
-func (f *fakeVMProxmox) DeleteVM(ctx context.Context, node string, vmid int) error {
+func (f *fakeVMProxmox) DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error {
 	panic("fakeVMProxmox: DeleteVM not configured for this test")
 }
 
@@ -294,6 +298,7 @@ func TestVMDeleteVM_IdentityMismatch(t *testing.T) {
 			InventoryItemID: itemID,
 			Node:            "node-a",
 			Vmid:            101,
+			GuestType:       "qemu",
 			UpstreamUUID:    storedUUID,
 		},
 	}
@@ -316,6 +321,7 @@ func TestVMDeleteVM_IdentityNotConfigured(t *testing.T) {
 			InventoryItemID: itemID,
 			Node:            "node-a",
 			Vmid:            101,
+			GuestType:       "qemu",
 			UpstreamUUID:    uuid.New(),
 		},
 	}
@@ -401,6 +407,7 @@ func TestVMPowerAction_IdentityMismatch(t *testing.T) {
 			InventoryItemID: itemID,
 			Node:            "node-a",
 			Vmid:            202,
+			GuestType:       "qemu",
 			UpstreamUUID:    storedUUID,
 		},
 	}
@@ -423,6 +430,7 @@ func TestVMPowerAction_IdentityNotConfigured(t *testing.T) {
 			InventoryItemID: itemID,
 			Node:            "node-a",
 			Vmid:            202,
+			GuestType:       "qemu",
 			UpstreamUUID:    uuid.New(),
 		},
 	}
@@ -516,6 +524,7 @@ func TestVMRollbackSnapshot_IdentityMismatch(t *testing.T) {
 			InventoryItemID: itemID,
 			Node:            "node-a",
 			Vmid:            303,
+			GuestType:       "qemu",
 			UpstreamUUID:    storedUUID,
 		},
 	}
@@ -538,6 +547,7 @@ func TestVMRollbackSnapshot_IdentityNotConfigured(t *testing.T) {
 			InventoryItemID: itemID,
 			Node:            "node-a",
 			Vmid:            303,
+			GuestType:       "qemu",
 			UpstreamUUID:    uuid.New(),
 		},
 	}

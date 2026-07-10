@@ -33,11 +33,12 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 
 // vmProxmox is the seam VMHandler uses to talk to Proxmox
 type vmProxmox interface {
-	GetVMIdentity(ctx context.Context, node string, vmid int) (*proxmox.VMIdentity, error)
+	GetVMIdentity(ctx context.Context, gt proxmox.GuestType, node string, vmid int) (*proxmox.VMIdentity, error)
 	GetVMs(ctx context.Context) ([]proxmox.VM, error)
-	RenameVM(ctx context.Context, node string, vmid int, name string) error
-	UpdateVMNotes(ctx context.Context, node string, vmid int, notes string) error
+	RenameVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int, name string) error
+	UpdateVMNotes(ctx context.Context, gt proxmox.GuestType, node string, vmid int, notes string) error
 	GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error)
+	GetLXCNetworks(ctx context.Context, node string, vmid int) ([]proxmox.VMHardwareNetwork, error)
 	UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error
 	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
 	GetNextVMID(ctx context.Context) (int, error)
@@ -45,10 +46,10 @@ type vmProxmox interface {
 	CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error
 	SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error
 	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
-	GetSnapshots(ctx context.Context, node string, vmid int) ([]proxmox.Snapshot, error)
-	DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error
+	GetSnapshots(ctx context.Context, gt proxmox.GuestType, node string, vmid int) ([]proxmox.Snapshot, error)
+	DeleteSnapshot(ctx context.Context, gt proxmox.GuestType, node string, vmid int, snapname string) error
 	ConvertToTemplate(ctx context.Context, node string, vmid int) error
-	DeleteVM(ctx context.Context, node string, vmid int) error
+	DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error
 }
 
 // vmAuthz is the seam VMHandler uses to talk to the authorization service
@@ -337,6 +338,19 @@ func (h *VMHandler) runClaimedBulkVMAction(
 	return fn(), true
 }
 
+func vmActionTarget(target verifiedVMTarget) vmactions.Target {
+	return vmactions.Target{
+		ItemID:    target.ItemID,
+		Node:      target.Node,
+		VMID:      target.VMID,
+		GuestType: target.GuestType,
+	}
+}
+
+func writeContainerNotSupported(c *gin.Context) {
+	c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "not supported for containers"})
+}
+
 // CreateSnapshot creates a snapshot of a VM and waits for the Proxmox task to complete.
 // POST /api/v1/inventory/items/:id/vm/snapshots
 func (h *VMHandler) CreateSnapshot(c *gin.Context) {
@@ -360,11 +374,15 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if target.GuestType == proxmox.GuestLXC && req.VMState {
+		writeContainerNotSupported(c)
+		return
+	}
 
 	h.runClaimedVMAction(c, target.ItemID, "create_snapshot", principalID, func() bool {
 		if err := h.Actions.CreateSnapshot(
 			c.Request.Context(),
-			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+			vmActionTarget(target),
 			req.Snapname,
 			req.Description,
 			req.VMState,
@@ -431,7 +449,7 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "power_action", principalID, func() error {
 			return h.Actions.PowerAction(
 				ctx,
-				vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+				vmActionTarget(target),
 				vmactions.PowerAction(req.Action),
 			)
 		})
@@ -502,10 +520,7 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 	ctx := c.Request.Context()
 	for _, target := range targets {
 		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "delete_vm", principalID, func() error {
-			return h.Actions.DeleteVM(
-				ctx,
-				vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
-			)
+			return h.Actions.DeleteVM(ctx, vmActionTarget(target))
 		})
 		if !claimed {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
@@ -606,7 +621,7 @@ func (h *VMHandler) RenameVM(c *gin.Context) {
 	h.runClaimedVMAction(c, target.ItemID, "rename_vm", principalID, func() bool {
 		ctx := c.Request.Context()
 
-		if err := h.PX.RenameVM(ctx, target.Node, target.VMID, req.Name); err != nil {
+		if err := h.PX.RenameVM(ctx, target.GuestType, target.Node, target.VMID, req.Name); err != nil {
 			writeLoggedError(c, http.StatusBadGateway, "failed to rename VM", "rename vm", err)
 			return false
 		}
@@ -678,7 +693,7 @@ func (h *VMHandler) UpdateNotes(c *gin.Context) {
 			return true
 		}
 
-		if err := h.PX.UpdateVMNotes(c.Request.Context(), target.Node, target.VMID, notes); err != nil {
+		if err := h.PX.UpdateVMNotes(c.Request.Context(), target.GuestType, target.Node, target.VMID, notes); err != nil {
 			log.Printf("vm notes saved to postgres but proxmox sync is pending for %s/%d: %v", target.Node, target.VMID, err)
 			c.JSON(http.StatusAccepted, gin.H{"ok": true, "synced": false})
 			return true
@@ -705,6 +720,10 @@ func (h *VMHandler) GetHardware(c *gin.Context) {
 
 	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.EditVMHardware, false)
 	if !ok {
+		return
+	}
+	if target.GuestType == proxmox.GuestLXC {
+		writeContainerNotSupported(c)
 		return
 	}
 
@@ -741,13 +760,23 @@ func (h *VMHandler) GetNetworking(c *gin.Context) {
 		return
 	}
 
-	config, err := h.PX.GetVMHardwareConfig(c.Request.Context(), target.Node, target.VMID)
+	var networks []proxmox.VMHardwareNetwork
+	var err error
+	if target.GuestType == proxmox.GuestLXC {
+		networks, err = h.PX.GetLXCNetworks(c.Request.Context(), target.Node, target.VMID)
+	} else {
+		var config *proxmox.VMHardwareConfig
+		config, err = h.PX.GetVMHardwareConfig(c.Request.Context(), target.Node, target.VMID)
+		if err == nil {
+			networks = config.Networks
+		}
+	}
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM networks", "fetch vm network config", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"networks": summarizeVMHardwareNetworks(config.Networks)})
+	c.JSON(http.StatusOK, gin.H{"networks": summarizeVMHardwareNetworks(networks)})
 }
 
 func summarizeVMHardwareNetworks(networks []proxmox.VMHardwareNetwork) []vmNetworkSummaryResponse {
@@ -778,6 +807,10 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 
 	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.EditVMHardware, true)
 	if !ok {
+		return
+	}
+	if target.GuestType == proxmox.GuestLXC {
+		writeContainerNotSupported(c)
 		return
 	}
 
@@ -979,6 +1012,10 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if source.GuestType == proxmox.GuestLXC {
+		writeContainerNotSupported(c)
+		return
+	}
 
 	targetFolderID, err := uuid.Parse(req.TargetFolderID)
 	if err != nil {
@@ -1047,6 +1084,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 			placement.FolderID,
 			targetNode,
 			newID,
+			proxmox.GuestQEMU,
 		)
 		if err != nil {
 			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM inventory sync failure")
@@ -1114,6 +1152,13 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	for _, target := range targets {
+		if target.GuestType == proxmox.GuestLXC {
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "not supported for containers",
+			})
+			continue
+		}
 		inventorySyncFailed := false
 		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "convert_to_template", principalID, func() error {
 			if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
@@ -1205,7 +1250,7 @@ func (h *VMHandler) GetSnapshots(c *gin.Context) {
 		return
 	}
 
-	snapshots, err := h.PX.GetSnapshots(c.Request.Context(), target.Node, target.VMID)
+	snapshots, err := h.PX.GetSnapshots(c.Request.Context(), target.GuestType, target.Node, target.VMID)
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch snapshots", "fetch vm snapshots", err)
 		return
@@ -1248,7 +1293,7 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 	h.runClaimedVMAction(c, target.ItemID, "rollback_snapshot", principalID, func() bool {
 		if err := h.Actions.RollbackSnapshot(
 			c.Request.Context(),
-			vmactions.Target{ItemID: target.ItemID, Node: target.Node, VMID: target.VMID},
+			vmActionTarget(target),
 			req.Snapname,
 		); err != nil {
 			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
@@ -1293,7 +1338,7 @@ func (h *VMHandler) DeleteSnapshot(c *gin.Context) {
 	}
 
 	h.runClaimedVMAction(c, target.ItemID, "delete_snapshot", principalID, func() bool {
-		if err := h.PX.DeleteSnapshot(c.Request.Context(), target.Node, target.VMID, snapname); err != nil {
+		if err := h.PX.DeleteSnapshot(c.Request.Context(), target.GuestType, target.Node, target.VMID, snapname); err != nil {
 			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
 				ActorPrincipalID: &principalID,
 				ActionKind:       "vm.snapshot.delete",

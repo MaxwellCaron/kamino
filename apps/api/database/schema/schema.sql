@@ -261,6 +261,8 @@ CREATE TABLE proxmox_vms (
     inventory_item_id     UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
     node                  TEXT NOT NULL,
     vmid                  INTEGER NOT NULL CHECK (vmid > 0),
+    guest_type            TEXT NOT NULL DEFAULT 'qemu'
+        CHECK (guest_type IN ('qemu', 'lxc')),
     upstream_uuid         UUID NOT NULL,
     is_template           BOOLEAN NOT NULL DEFAULT false,
     notes                 TEXT NULL,

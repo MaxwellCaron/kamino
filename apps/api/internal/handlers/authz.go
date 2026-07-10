@@ -103,6 +103,7 @@ type verifiedVMTarget struct {
 	Node         string
 	VMID         int
 	UpstreamUUID uuid.UUID
+	GuestType    proxmox.GuestType
 }
 
 type requestError struct {
@@ -208,7 +209,7 @@ func verifyVMRecordIdentity(
 	px vmProxmox,
 	record authorization.VMRecord,
 ) (verifiedVMTarget, *requestError) {
-	identity, err := px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+	identity, err := px.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
 	switch {
 	case err == nil:
 	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
@@ -237,6 +238,7 @@ func verifyVMRecordIdentity(
 		Node:         record.Node,
 		VMID:         int(record.Vmid),
 		UpstreamUUID: record.UpstreamUUID,
+		GuestType:    proxmox.GuestType(record.GuestType),
 	}, nil
 }
 

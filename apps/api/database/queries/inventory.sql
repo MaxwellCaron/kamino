@@ -67,6 +67,7 @@ WHERE inherit_permissions = false;
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -81,6 +82,7 @@ WHERE pv.node = $1 AND pv.vmid = $2;
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -95,6 +97,7 @@ WHERE pv.upstream_uuid = $1;
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -108,6 +111,7 @@ WHERE inventory_item_id = $1;
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -119,18 +123,19 @@ WHERE inventory_item_id = $1
 FOR UPDATE;
 
 -- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, guest_type, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
 SET node = $2,
     vmid = $3,
-    upstream_uuid = $4,
-    is_template = $5,
-    cpu_count = $6,
-    memory_mb = $7,
-    disk_gb = $8
+    guest_type = $4,
+    upstream_uuid = $5,
+    is_template = $6,
+    cpu_count = $7,
+    memory_mb = $8,
+    disk_gb = $9
 WHERE inventory_item_id = $1;
 
 -- name: GetAllProxmoxVMNodeVMIDs :many
@@ -223,7 +228,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -242,7 +247,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description, ii.inherit_permiss
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1;

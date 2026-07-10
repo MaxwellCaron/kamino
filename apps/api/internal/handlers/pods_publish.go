@@ -31,6 +31,7 @@ const (
 type publishPodVMOption struct {
 	ID          uuid.UUID                      `json:"id"`
 	Name        string                         `json:"name"`
+	GuestType   string                         `json:"guest_type"`
 	CPUCount    int32                          `json:"cpuCount"`
 	MemoryGB    int32                          `json:"memoryGb"`
 	StorageGB   int32                          `json:"storageGb"`
@@ -561,6 +562,11 @@ func (h *PodsHandler) normalizePublishPodRequest(
 	podFolder, ok := findPodFolder(podFolders, podFolderID)
 	if !ok {
 		return normalizedPublishPodRequest{}, invalidPublishPod("Pod Folder is not available")
+	}
+	for _, vm := range podFolder.VirtualMachines {
+		if vm.GuestType == "lxc" {
+			return normalizedPublishPodRequest{}, invalidPublishPod("pods containing containers cannot be published")
+		}
 	}
 
 	principalQ := database.New(h.DB)
@@ -1480,7 +1486,7 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 		}
 	}
 
-	clonedItemID, err := h.Importer.SyncVM(ctx, placement.FolderID, targetNode, newID)
+	clonedItemID, err := h.Importer.SyncVM(ctx, placement.FolderID, targetNode, newID, proxmox.GuestQEMU)
 	if err != nil {
 		return clonedVM{}, &requestError{
 			Status:      http.StatusInternalServerError,
@@ -1572,7 +1578,7 @@ func (h *PodsHandler) cleanupPublishClones(created map[int]clonedVM) {
 	defer cancel()
 
 	for _, clone := range created {
-		if err := h.PX.DeleteVM(ctx, clone.TargetNode, clone.VMID); err != nil {
+		if err := h.PX.DeleteVM(ctx, proxmox.GuestQEMU, clone.TargetNode, clone.VMID); err != nil {
 			log.Printf("publish cleanup: failed to delete Proxmox VM %d on %s: %v", clone.VMID, clone.TargetNode, err)
 		}
 		if clone.InventoryItemID != uuid.Nil {

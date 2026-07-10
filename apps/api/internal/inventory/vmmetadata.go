@@ -106,6 +106,7 @@ func (s *Service) RegisterProxmoxVM(
 		InventoryItemID: itemID,
 		Node:            node,
 		Vmid:            vmid,
+		GuestType:       "qemu",
 		UpstreamUuid:    upstreamUUID,
 		IsTemplate:      isTemplate,
 	}); err != nil {

@@ -172,7 +172,7 @@ func TestGetVMRuntimeStatus(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	status, err := client.GetVMRuntimeStatus(context.Background(), "node1", 101)
+	status, err := client.GetVMRuntimeStatus(context.Background(), GuestQEMU, "node1", 101)
 	if err != nil {
 		t.Fatalf("GetVMRuntimeStatus() error = %v", err)
 	}
@@ -191,7 +191,7 @@ func TestWaitForVMRuntimeStatus(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	if err := client.WaitForVMRuntimeStatus(context.Background(), "node1", 101, "running", 3*time.Second); err != nil {
+	if err := client.WaitForVMRuntimeStatus(context.Background(), GuestQEMU, "node1", 101, "running", 3*time.Second); err != nil {
 		t.Fatalf("WaitForVMRuntimeStatus() error = %v", err)
 	}
 }
@@ -262,7 +262,7 @@ func TestDeleteVMStopped(t *testing.T) {
 		defer server.Close()
 
 		client := newTestClient(server)
-		err := client.DeleteVMStopped(context.Background(), "node1", 101)
+		err := client.DeleteVMStopped(context.Background(), GuestQEMU, "node1", 101)
 		if err != nil {
 			t.Fatalf("DeleteVMStopped() error = %v", err)
 		}
@@ -318,7 +318,7 @@ func TestDeleteVMStopped(t *testing.T) {
 		defer server.Close()
 
 		client := newTestClient(server)
-		err := client.DeleteVMStopped(context.Background(), "node1", 101)
+		err := client.DeleteVMStopped(context.Background(), GuestQEMU, "node1", 101)
 		if err != nil {
 			t.Fatalf("DeleteVMStopped() error = %v", err)
 		}

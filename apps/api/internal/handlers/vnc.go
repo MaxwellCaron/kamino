@@ -50,6 +50,7 @@ func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
 // --- session store ---
 
 type vncSession struct {
+	guestType   proxmox.GuestType
 	node        string
 	vmid        int
 	port        string
@@ -131,13 +132,14 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 		return
 	}
 
-	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), target.Node, target.VMID)
+	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), target.GuestType, target.Node, target.VMID)
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to create VNC proxy", "create vnc proxy", err)
 		return
 	}
 
 	sessionID := h.sessions.store(&vncSession{
+		guestType:   target.GuestType,
 		node:        target.Node,
 		vmid:        target.VMID,
 		port:        vncResp.Port,
@@ -193,8 +195,8 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	if pxURL.Scheme == "http" {
 		scheme = "ws"
 	}
-	wsURL := fmt.Sprintf("%s://%s/api2/json/nodes/%s/qemu/%d/vncwebsocket?port=%s&vncticket=%s",
-		scheme, pxURL.Host, sess.node, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
+	wsURL := fmt.Sprintf("%s://%s/api2/json/nodes/%s/%s/%d/vncwebsocket?port=%s&vncticket=%s",
+		scheme, pxURL.Host, sess.node, sess.guestType, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
 
 	// Dial Proxmox WebSocket
 	dialer := websocket.Dialer{}

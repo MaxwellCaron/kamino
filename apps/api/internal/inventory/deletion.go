@@ -14,6 +14,7 @@ type FolderDeletionVM struct {
 	InventoryItemID uuid.UUID
 	Node            string
 	VMID            int32
+	GuestType       string
 	Name            string
 	IsTemplate      bool
 }
@@ -67,11 +68,16 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 		}
 
 		isTemplate := current.IsTemplate != nil && *current.IsTemplate
+		guestType := "qemu"
+		if current.GuestType != nil {
+			guestType = *current.GuestType
+		}
 		if current.Node != nil && current.Vmid != nil {
 			plan.ProxmoxVMs = append(plan.ProxmoxVMs, FolderDeletionVM{
 				InventoryItemID: current.ID,
 				Node:            *current.Node,
 				VMID:            *current.Vmid,
+				GuestType:       guestType,
 				Name:            current.Name,
 				IsTemplate:      isTemplate,
 			})

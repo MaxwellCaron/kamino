@@ -261,6 +261,7 @@ func buildPublishPodFolderOptions(
 		folder.VirtualMachines = append(folder.VirtualMachines, publishPodVMOption{
 			ID:        row.ID,
 			Name:      row.Name,
+			GuestType: guestTypeFromRow(row.GuestType),
 			CPUCount:  positiveHardwareInt(row.CpuCount),
 			MemoryGB:  memoryMBToGB(row.MemoryMb),
 			StorageGB: diskGBToInt(row.DiskGb),
@@ -288,6 +289,13 @@ func buildPublishPodFolderOptions(
 	})
 
 	return options
+}
+
+func guestTypeFromRow(value *string) string {
+	if value != nil && *value != "" {
+		return *value
+	}
+	return "qemu"
 }
 
 func findPodFolder(

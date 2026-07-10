@@ -97,7 +97,7 @@ func (f *fakeVMCreateProxmox) SyncVMPoolMembership(_ context.Context, _ string, 
 	panic("fakeVMCreateProxmox: SyncVMPoolMembership not configured for this test")
 }
 
-func (f *fakeVMCreateProxmox) DeleteVM(_ context.Context, _ string, _ int) error {
+func (f *fakeVMCreateProxmox) DeleteVM(_ context.Context, _ proxmox.GuestType, _ string, _ int) error {
 	panic("fakeVMCreateProxmox: DeleteVM not configured for this test")
 }
 

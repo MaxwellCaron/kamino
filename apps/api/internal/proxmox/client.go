@@ -22,7 +22,12 @@ import (
 var (
 	ErrVMIdentityNotConfigured = errors.New("vm upstream uuid is not configured")
 	ErrVMIdentityInvalid       = errors.New("vm upstream uuid is invalid")
+	ErrLXCRAMSnapshot          = errors.New("RAM snapshots are not supported for containers")
 )
+
+func guestPath(gt GuestType, node string, vmid int, suffix string) string {
+	return fmt.Sprintf("/api2/json/nodes/%s/%s/%d%s", node, gt, vmid, suffix)
+}
 
 // Client talks to the Proxmox VE API.
 type Client struct {
@@ -222,13 +227,13 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	return c.filterVMs(resp.Data), nil
 }
 
-// GetVMRuntimeStatus returns the node-local QEMU runtime status for a VM.
-func (c *Client) GetVMRuntimeStatus(ctx context.Context, node string, vmid int) (string, error) {
+// GetVMRuntimeStatus returns the node-local runtime status for a guest.
+func (c *Client) GetVMRuntimeStatus(ctx context.Context, gt GuestType, node string, vmid int) (string, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return "", err
 	}
 
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/current", node, vmid)
+	path := guestPath(gt, node, vmid, "/status/current")
 	var resp apiResponse[map[string]any]
 	if err := c.get(ctx, path, &resp); err != nil {
 		return "", fmt.Errorf("fetching VM runtime status: %w", err)
@@ -241,8 +246,8 @@ func (c *Client) GetVMRuntimeStatus(ctx context.Context, node string, vmid int) 
 	return status, nil
 }
 
-// WaitForVMRuntimeStatus polls the node-local QEMU runtime status until it matches.
-func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, node string, vmid int, expected string, timeout time.Duration) error {
+// WaitForVMRuntimeStatus polls the node-local runtime status until it matches.
+func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, gt GuestType, node string, vmid int, expected string, timeout time.Duration) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
@@ -262,7 +267,7 @@ func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, node string, vmid i
 
 	lastStatus := ""
 	for {
-		status, err := c.GetVMRuntimeStatus(waitCtx, node, vmid)
+		status, err := c.GetVMRuntimeStatus(waitCtx, gt, node, vmid)
 		if err != nil {
 			return err
 		}
@@ -282,13 +287,13 @@ func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, node string, vmid i
 	}
 }
 
-// GetVMConfig returns the raw Proxmox config for a VM.
-func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (map[string]any, error) {
+// GetVMConfig returns the raw Proxmox config for a guest.
+func (c *Client) GetVMConfig(ctx context.Context, gt GuestType, node string, vmid int) (map[string]any, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
 	}
 
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	path := guestPath(gt, node, vmid, "/config")
 	var resp apiResponse[map[string]any]
 	if err := c.get(ctx, path, &resp); err != nil {
 		return nil, fmt.Errorf("fetching VM config: %w", err)
@@ -297,11 +302,23 @@ func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (map[st
 	return resp.Data, nil
 }
 
-// GetVMIdentity returns the stable identity metadata for a VM.
-func (c *Client) GetVMIdentity(ctx context.Context, node string, vmid int) (*VMIdentity, error) {
-	data, err := c.GetVMConfig(ctx, node, vmid)
+// GetVMIdentity returns the stable identity metadata for a guest.
+func (c *Client) GetVMIdentity(ctx context.Context, gt GuestType, node string, vmid int) (*VMIdentity, error) {
+	data, err := c.GetVMConfig(ctx, gt, node, vmid)
 	if err != nil {
 		return nil, err
+	}
+
+	if gt == GuestLXC {
+		summary, err := parseLXCConfigSummary(data, vmid)
+		if err != nil {
+			return nil, err
+		}
+		return &VMIdentity{
+			Name:         summary.Name,
+			IsTemplate:   summary.IsTemplate,
+			UpstreamUUID: summary.UpstreamUUID,
+		}, nil
 	}
 
 	identity, err := parseVMIdentity(data, vmid)
@@ -312,20 +329,27 @@ func (c *Client) GetVMIdentity(ctx context.Context, node string, vmid int) (*VMI
 	return identity, nil
 }
 
-// GetVMConfigSummary returns inventory metadata derived from a VM config.
-func (c *Client) GetVMConfigSummary(ctx context.Context, node string, vmid int) (*VMConfigSummary, error) {
-	data, err := c.GetVMConfig(ctx, node, vmid)
+// GetVMConfigSummary returns inventory metadata derived from a guest config.
+func (c *Client) GetVMConfigSummary(ctx context.Context, gt GuestType, node string, vmid int) (*VMConfigSummary, error) {
+	data, err := c.GetVMConfig(ctx, gt, node, vmid)
 	if err != nil {
 		return nil, err
+	}
+
+	if gt == GuestLXC {
+		return parseLXCConfigSummary(data, vmid)
 	}
 
 	return parseVMConfigSummary(data, vmid)
 }
 
-// EnsureVMUpstreamUUID returns the current VM UUID, assigning one when the VM
-// config does not expose a valid SMBIOS UUID yet.
-func (c *Client) EnsureVMUpstreamUUID(ctx context.Context, node string, vmid int) (uuid.UUID, error) {
-	data, err := c.GetVMConfig(ctx, node, vmid)
+// EnsureVMUpstreamUUID returns the guest UUID, assigning SMBIOS UUID for qemu when missing.
+func (c *Client) EnsureVMUpstreamUUID(ctx context.Context, gt GuestType, node string, vmid int) (uuid.UUID, error) {
+	if gt == GuestLXC {
+		return lxcUpstreamUUID(vmid), nil
+	}
+
+	data, err := c.GetVMConfig(ctx, gt, node, vmid)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -349,7 +373,7 @@ func (c *Client) EnsureVMUpstreamUUID(ctx context.Context, node string, vmid int
 // SetVMUpstreamUUID updates the Proxmox config so the VM exposes the provided
 // SMBIOS UUID.
 func (c *Client) SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error {
-	data, err := c.GetVMConfig(ctx, node, vmid)
+	data, err := c.GetVMConfig(ctx, GuestQEMU, node, vmid)
 	if err != nil {
 		return err
 	}
@@ -373,12 +397,15 @@ type VNCProxyResponse struct {
 	Password string `json:"password"`
 }
 
-// CreateSnapshot creates a snapshot of a VM and waits for the task to complete.
-func (c *Client) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) error {
+// CreateSnapshot creates a snapshot of a guest and waits for the task to complete.
+func (c *Client) CreateSnapshot(ctx context.Context, gt GuestType, node string, vmid int, snapname, description string, vmstate bool) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot", node, vmid)
+	if gt == GuestLXC && vmstate {
+		return ErrLXCRAMSnapshot
+	}
+	path := guestPath(gt, node, vmid, "/snapshot")
 	form := map[string]string{
 		"snapname": snapname,
 	}
@@ -511,12 +538,12 @@ func poolEndpoint(poolID string) string {
 	return "/api2/json/pools/?" + query.Encode()
 }
 
-// StartVM powers on a VM and waits for the Proxmox task to complete.
-func (c *Client) StartVM(ctx context.Context, node string, vmid int) error {
+// StartVM powers on a guest and waits for the Proxmox task to complete.
+func (c *Client) StartVM(ctx context.Context, gt GuestType, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/start", node, vmid)
+	path := guestPath(gt, node, vmid, "/status/start")
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return fmt.Errorf("starting VM: %w", err)
@@ -524,12 +551,12 @@ func (c *Client) StartVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// ShutdownVM sends a graceful shutdown signal to a VM and waits for the task to complete.
-func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) error {
+// ShutdownVM sends a graceful shutdown signal to a guest and waits for the task to complete.
+func (c *Client) ShutdownVM(ctx context.Context, gt GuestType, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/shutdown", node, vmid)
+	path := guestPath(gt, node, vmid, "/status/shutdown")
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return fmt.Errorf("shutting down VM: %w", err)
@@ -537,12 +564,12 @@ func (c *Client) ShutdownVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// RebootVM sends a reboot signal to a VM and waits for the task to complete.
-func (c *Client) RebootVM(ctx context.Context, node string, vmid int) error {
+// RebootVM sends a reboot signal to a guest and waits for the task to complete.
+func (c *Client) RebootVM(ctx context.Context, gt GuestType, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/reboot", node, vmid)
+	path := guestPath(gt, node, vmid, "/status/reboot")
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return fmt.Errorf("rebooting VM: %w", err)
@@ -550,12 +577,12 @@ func (c *Client) RebootVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// StopVM immediately stops a VM and waits for the task to complete.
-func (c *Client) StopVM(ctx context.Context, node string, vmid int) error {
+// StopVM immediately stops a guest and waits for the task to complete.
+func (c *Client) StopVM(ctx context.Context, gt GuestType, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/stop", node, vmid)
+	path := guestPath(gt, node, vmid, "/status/stop")
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return fmt.Errorf("stopping VM: %w", err)
@@ -563,12 +590,12 @@ func (c *Client) StopVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// DeleteVM deletes a VM and waits for the task to complete.
-func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
+// DeleteVM deletes a guest and waits for the task to complete.
+func (c *Client) DeleteVM(ctx context.Context, gt GuestType, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d", node, vmid)
+	path := guestPath(gt, node, vmid, "")
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
 		return fmt.Errorf("deleting VM: %w", err)
@@ -576,35 +603,38 @@ func (c *Client) DeleteVM(ctx context.Context, node string, vmid int) error {
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// DeleteVMStopped checks if a VM is running, stops it if so, and then deletes it.
-func (c *Client) DeleteVMStopped(ctx context.Context, node string, vmid int) error {
-	status, err := c.GetVMRuntimeStatus(ctx, node, vmid)
+// DeleteVMStopped checks if a guest is running, stops it if so, and then deletes it.
+func (c *Client) DeleteVMStopped(ctx context.Context, gt GuestType, node string, vmid int) error {
+	status, err := c.GetVMRuntimeStatus(ctx, gt, node, vmid)
 	if err != nil {
 		return err
 	}
 	if status == "running" {
-		if err := c.StopVM(ctx, node, vmid); err != nil {
+		if err := c.StopVM(ctx, gt, node, vmid); err != nil {
 			return err
 		}
 	}
-	return c.DeleteVM(ctx, node, vmid)
+	return c.DeleteVM(ctx, gt, node, vmid)
 }
 
-// RenameVM changes the name of a VM.
-func (c *Client) RenameVM(ctx context.Context, node string, vmid int, name string) error {
+// RenameVM changes the name of a guest.
+func (c *Client) RenameVM(ctx context.Context, gt GuestType, node string, vmid int, name string) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	path := guestPath(gt, node, vmid, "/config")
+	if gt == GuestLXC {
+		return c.put(ctx, path, map[string]string{"hostname": name}, nil)
+	}
 	return c.put(ctx, path, map[string]string{"name": name}, nil)
 }
 
-// UpdateVMNotes updates the VM description field used by Proxmox for notes.
-func (c *Client) UpdateVMNotes(ctx context.Context, node string, vmid int, notes string) error {
+// UpdateVMNotes updates the guest description field used by Proxmox for notes.
+func (c *Client) UpdateVMNotes(ctx context.Context, gt GuestType, node string, vmid int, notes string) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	path := guestPath(gt, node, vmid, "/config")
 	form := map[string]string{}
 	if notes == "" {
 		form["delete"] = "description"
@@ -614,9 +644,18 @@ func (c *Client) UpdateVMNotes(ctx context.Context, node string, vmid int, notes
 	return c.put(ctx, path, form, nil)
 }
 
+// GetLXCNetworks returns LXC network interfaces from container config.
+func (c *Client) GetLXCNetworks(ctx context.Context, node string, vmid int) ([]VMHardwareNetwork, error) {
+	data, err := c.GetVMConfig(ctx, GuestLXC, node, vmid)
+	if err != nil {
+		return nil, err
+	}
+	return parseLXCNetworks(data)
+}
+
 // GetVMHardwareConfig returns editable VM hardware settings from Proxmox.
 func (c *Client) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*VMHardwareConfig, error) {
-	data, err := c.GetVMConfig(ctx, node, vmid)
+	data, err := c.GetVMConfig(ctx, GuestQEMU, node, vmid)
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +677,7 @@ func (c *Client) WaitForVMConfigUnlocked(ctx context.Context, node string, vmid 
 	defer ticker.Stop()
 
 	for {
-		data, err := c.GetVMConfig(waitCtx, node, vmid)
+		data, err := c.GetVMConfig(waitCtx, GuestQEMU, node, vmid)
 		if err != nil {
 			return fmt.Errorf("fetching VM config: %w", err)
 		}
@@ -691,7 +730,7 @@ func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid in
 	defer ticker.Stop()
 
 	for {
-		data, err := c.GetVMConfig(waitCtx, node, vmid)
+		data, err := c.GetVMConfig(waitCtx, GuestQEMU, node, vmid)
 		if err != nil {
 			return fmt.Errorf("fetching VM config: %w", err)
 		}
@@ -726,7 +765,7 @@ func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid i
 		return err
 	}
 
-	data, err := c.GetVMConfig(ctx, node, vmid)
+	data, err := c.GetVMConfig(ctx, GuestQEMU, node, vmid)
 	if err != nil {
 		return err
 	}
@@ -1472,12 +1511,12 @@ func (c *Client) ConvertToTemplate(ctx context.Context, node string, vmid int) e
 	return c.waitForTask(ctx, node, resp.Data)
 }
 
-// GetSnapshots returns all snapshots for a VM.
-func (c *Client) GetSnapshots(ctx context.Context, node string, vmid int) ([]Snapshot, error) {
+// GetSnapshots returns all snapshots for a guest.
+func (c *Client) GetSnapshots(ctx context.Context, gt GuestType, node string, vmid int) ([]Snapshot, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot", node, vmid)
+	path := guestPath(gt, node, vmid, "/snapshot")
 	var resp apiResponse[[]Snapshot]
 	if err := c.get(ctx, path, &resp); err != nil {
 		return nil, fmt.Errorf("fetching snapshots: %w", err)
@@ -1485,12 +1524,12 @@ func (c *Client) GetSnapshots(ctx context.Context, node string, vmid int) ([]Sna
 	return resp.Data, nil
 }
 
-// RollbackSnapshot rolls back a VM to a snapshot and waits for the task to complete.
-func (c *Client) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
+// RollbackSnapshot rolls back a guest to a snapshot and waits for the task to complete.
+func (c *Client) RollbackSnapshot(ctx context.Context, gt GuestType, node string, vmid int, snapname string) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot/%s/rollback", node, vmid, snapname)
+	path := guestPath(gt, node, vmid, "/snapshot/"+snapname+"/rollback")
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return fmt.Errorf("rolling back snapshot: %w", err)
@@ -1499,11 +1538,11 @@ func (c *Client) RollbackSnapshot(ctx context.Context, node string, vmid int, sn
 }
 
 // DeleteSnapshot deletes a snapshot and waits for the task to complete.
-func (c *Client) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) error {
+func (c *Client) DeleteSnapshot(ctx context.Context, gt GuestType, node string, vmid int, snapname string) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/snapshot/%s", node, vmid, snapname)
+	path := guestPath(gt, node, vmid, "/snapshot/"+snapname)
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
 		return fmt.Errorf("deleting snapshot: %w", err)
@@ -1795,18 +1834,22 @@ func (c *Client) ApplySDN(ctx context.Context) error {
 	return c.put(ctx, "/api2/json/cluster/sdn", nil, nil)
 }
 
-// CreateVNCProxy requests a VNC proxy session from Proxmox for a given VM.
-func (c *Client) CreateVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyResponse, error) {
+// CreateVNCProxy requests a VNC proxy session from Proxmox for a given guest.
+func (c *Client) CreateVNCProxy(ctx context.Context, gt GuestType, node string, vmid int) (*VNCProxyResponse, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
 	}
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/vncproxy", node, vmid)
+	path := guestPath(gt, node, vmid, "/vncproxy")
+	form := map[string]string{"websocket": "1"}
+	if gt == GuestQEMU {
+		form["generate-password"] = "1"
+	}
 	var resp apiResponse[VNCProxyResponse]
-	if err := c.post(ctx, path, map[string]string{
-		"generate-password": "1",
-		"websocket":         "1",
-	}, &resp); err != nil {
+	if err := c.post(ctx, path, form, &resp); err != nil {
 		return nil, fmt.Errorf("creating VNC proxy: %w", err)
+	}
+	if gt == GuestLXC && resp.Data.Password == "" {
+		resp.Data.Password = resp.Data.Ticket
 	}
 	return &resp.Data, nil
 }

@@ -76,6 +76,7 @@ type vmTarget struct {
 	Node         string
 	VMID         int
 	UpstreamUUID uuid.UUID
+	GuestType    proxmox.GuestType
 }
 
 func NewService(
@@ -1049,7 +1050,7 @@ func (s *Service) resolveVMTarget(ctx context.Context, itemID uuid.UUID) (vmTarg
 		return vmTarget{}, err
 	}
 
-	identity, err := s.px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+	identity, err := s.px.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
 	if err != nil {
 		switch {
 		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured),
@@ -1068,6 +1069,7 @@ func (s *Service) resolveVMTarget(ctx context.Context, itemID uuid.UUID) (vmTarg
 		Node:         record.Node,
 		VMID:         int(record.Vmid),
 		UpstreamUUID: record.UpstreamUUID,
+		GuestType:    proxmox.GuestType(record.GuestType),
 	}, nil
 }
 
@@ -1099,7 +1101,7 @@ func (s *Service) executeRollbackSnapshot(
 	snapshotName string,
 ) error {
 	snapshotName = strings.TrimSpace(snapshotName)
-	snapshots, err := s.px.GetSnapshots(ctx, target.Node, target.VMID)
+	snapshots, err := s.px.GetSnapshots(ctx, target.GuestType, target.Node, target.VMID)
 	if err != nil {
 		return err
 	}
@@ -1300,8 +1302,9 @@ func powerActionForRequest(action database.InventoryRequestPowerAction) vmaction
 
 func toActionTarget(target vmTarget) vmactions.Target {
 	return vmactions.Target{
-		ItemID: target.ItemID,
-		Node:   target.Node,
-		VMID:   target.VMID,
+		ItemID:    target.ItemID,
+		Node:      target.Node,
+		VMID:      target.VMID,
+		GuestType: target.GuestType,
 	}
 }

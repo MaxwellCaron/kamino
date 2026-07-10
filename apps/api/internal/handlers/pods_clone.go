@@ -1124,17 +1124,17 @@ func clonedPodVMAlreadyInPowerState(action string, status string) bool {
 }
 
 func (h *PodsHandler) deleteClonedPodProxmoxVM(ctx context.Context, node string, vmid int) error {
-	if err := h.PX.DeleteVM(ctx, node, vmid); err == nil || isMissingProxmoxVMError(err) {
+	if err := h.PX.DeleteVM(ctx, proxmox.GuestQEMU, node, vmid); err == nil || isMissingProxmoxVMError(err) {
 		return nil
 	}
 
-	if err := h.PX.StopVM(ctx, node, vmid); err != nil {
+	if err := h.PX.StopVM(ctx, proxmox.GuestQEMU, node, vmid); err != nil {
 		if isMissingProxmoxVMError(err) {
 			return nil
 		}
 		return err
 	}
-	if err := h.PX.DeleteVM(ctx, node, vmid); err != nil && !isMissingProxmoxVMError(err) {
+	if err := h.PX.DeleteVM(ctx, proxmox.GuestQEMU, node, vmid); err != nil && !isMissingProxmoxVMError(err) {
 		return err
 	}
 	return nil
@@ -1591,7 +1591,7 @@ func (h *PodsHandler) resolvePublishedPodVMTemplate(
 		}
 	}
 
-	identity, err := h.PX.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+	identity, err := h.PX.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
 	switch {
 	case err == nil:
 	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
@@ -1626,6 +1626,7 @@ func (h *PodsHandler) resolvePublishedPodVMTemplate(
 		Node:         record.Node,
 		VMID:         int(record.Vmid),
 		UpstreamUUID: record.UpstreamUUID,
+		GuestType:    proxmox.GuestType(record.GuestType),
 	}, nil
 }
 
@@ -1987,7 +1988,7 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 		return reqErr
 	}
 
-	status, err := h.PX.GetVMRuntimeStatus(ctx, router.clone.TargetNode, router.clone.VMID)
+	status, err := h.PX.GetVMRuntimeStatus(ctx, proxmox.GuestQEMU, router.clone.TargetNode, router.clone.VMID)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
@@ -2037,7 +2038,7 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 		}
 	}
 
-	if err := h.PX.StartVM(ctx, router.clone.TargetNode, router.clone.VMID); err != nil {
+	if err := h.PX.StartVM(ctx, proxmox.GuestQEMU, router.clone.TargetNode, router.clone.VMID); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to start router",
@@ -2047,6 +2048,7 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 	}
 	if err := h.PX.WaitForVMRuntimeStatus(
 		ctx,
+		proxmox.GuestQEMU,
 		router.clone.TargetNode,
 		router.clone.VMID,
 		"running",
@@ -2356,7 +2358,7 @@ func (h *PodsHandler) runtimeStatusForClonedVMRow(
 		return status
 	}
 
-	directStatus, err := h.PX.GetVMRuntimeStatus(ctx, strings.TrimSpace(*row.Node), vmid)
+	directStatus, err := h.PX.GetVMRuntimeStatus(ctx, proxmox.GuestQEMU, strings.TrimSpace(*row.Node), vmid)
 	if err != nil {
 		if status == "" {
 			return "missing"
@@ -2767,7 +2769,7 @@ func (h *PodsHandler) clonedPodManagerActionTargets(
 			}
 		}
 
-		identity, err := h.PX.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+		identity, err := h.PX.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
 		switch {
 		case err == nil:
 		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
@@ -2792,9 +2794,10 @@ func (h *PodsHandler) clonedPodManagerActionTargets(
 		}
 
 		targets = append(targets, vmactions.Target{
-			ItemID: record.InventoryItemID,
-			Node:   record.Node,
-			VMID:   int(record.Vmid),
+			ItemID:    record.InventoryItemID,
+			Node:      record.Node,
+			VMID:      int(record.Vmid),
+			GuestType: proxmox.GuestType(record.GuestType),
 		})
 	}
 

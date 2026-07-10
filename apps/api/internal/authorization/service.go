@@ -36,6 +36,7 @@ type VMRecord struct {
 	Node            string
 	Vmid            int32
 	UpstreamUUID    uuid.UUID
+	GuestType       string
 }
 
 type VMItemAccess struct {
@@ -284,6 +285,7 @@ func (s *Service) GetVMRecord(ctx context.Context, itemID uuid.UUID) (VMRecord, 
 		Node:            row.Node,
 		Vmid:            row.Vmid,
 		UpstreamUUID:    row.UpstreamUuid,
+		GuestType:       row.GuestType,
 	}, nil
 }
 
@@ -321,6 +323,7 @@ func (s *Service) ResolveVMItems(
 						Node:            row.Node,
 						Vmid:            row.Vmid,
 						UpstreamUUID:    row.UpstreamUuid,
+						GuestType:       row.GuestType,
 					}
 				}
 				result[row.ID] = access
@@ -340,6 +343,7 @@ func (s *Service) ResolveVMItems(
 						Node:            row.Node,
 						Vmid:            row.Vmid,
 						UpstreamUUID:    row.UpstreamUuid,
+						GuestType:       row.GuestType,
 					}
 				}
 				result[row.ID] = access
@@ -369,6 +373,7 @@ func (s *Service) ResolveVMItems(
 					Node:            row.Node,
 					Vmid:            row.Vmid,
 					UpstreamUUID:    row.UpstreamUuid,
+					GuestType:       row.GuestType,
 				}
 			}
 			result[row.ID] = access
@@ -393,6 +398,7 @@ func (s *Service) ResolveVMItems(
 					Node:            row.Node,
 					Vmid:            row.Vmid,
 					UpstreamUUID:    row.UpstreamUuid,
+					GuestType:       row.GuestType,
 				}
 			}
 			result[row.ID] = access
@@ -417,6 +423,7 @@ func (s *Service) GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (V
 		Node:            row.Node,
 		Vmid:            row.Vmid,
 		UpstreamUUID:    row.UpstreamUuid,
+		GuestType:       row.GuestType,
 	}, nil
 }
 

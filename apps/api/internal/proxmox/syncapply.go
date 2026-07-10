@@ -125,7 +125,7 @@ func (s *InventoryImporter) applyAdd(
 		}
 	}
 
-	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID); err != nil {
+	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
 		result.Status = "error"
 		result.Error = fmt.Sprintf("sync vm: %v", err)
 		log.Printf("proxmox sync add %s: %v", change.ID, err)
@@ -158,7 +158,7 @@ func (s *InventoryImporter) applyUpdate(
 		parentID = rootID
 	}
 
-	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID); err != nil {
+	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
 		result.Status = "error"
 		result.Error = fmt.Sprintf("sync vm: %v", err)
 		log.Printf("proxmox sync update %s: %v", change.ID, err)

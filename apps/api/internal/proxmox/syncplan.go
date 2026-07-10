@@ -32,6 +32,7 @@ type SyncChange struct {
 	VMID       int               `json:"vmid"`
 	Name       string            `json:"name"`
 	IsTemplate bool              `json:"is_template"`
+	GuestType  string            `json:"guest_type"`
 	Fields     []SyncFieldChange `json:"fields,omitempty"`
 	Removable  bool              `json:"removable,omitempty"`
 	Blockers   []string          `json:"blockers,omitempty"`
@@ -57,6 +58,7 @@ type dbVMRecord struct {
 	parentID   *uuid.UUID
 	name       string
 	isTemplate bool
+	guestType  string
 }
 
 // computeSyncDiff builds the diff from pre-fetched slices.
@@ -85,11 +87,16 @@ func computeSyncDiff(
 		}
 		key := syncVMKey(*row.Node, int(*row.Vmid))
 		isTemplate := row.IsTemplate != nil && *row.IsTemplate
+		guestType := "qemu"
+		if row.GuestType != nil {
+			guestType = *row.GuestType
+		}
 		dbByKey[key] = dbVMRecord{
 			itemID:     row.ID,
 			parentID:   row.ParentID,
 			name:       row.Name,
 			isTemplate: isTemplate,
+			guestType:  guestType,
 		}
 	}
 
@@ -116,6 +123,7 @@ func computeSyncDiff(
 				VMID:       vm.VMID,
 				Name:       vm.Name,
 				IsTemplate: vm.IsTemplate(),
+				GuestType:  vm.Type,
 				Pool:       vm.Pool,
 			})
 		}
@@ -136,6 +144,7 @@ func computeSyncDiff(
 				VMID:       vmid,
 				Name:       rec.name,
 				IsTemplate: rec.isTemplate,
+				GuestType:  rec.guestType,
 				Removable:  len(blockers) == 0,
 				Blockers:   blockers,
 				ItemID:     rec.itemID,
@@ -176,6 +185,7 @@ func computeSyncDiff(
 				VMID:       vm.VMID,
 				Name:       vm.Name,
 				IsTemplate: vm.IsTemplate(),
+				GuestType:  vm.Type,
 				Fields:     fields,
 				ItemID:     rec.itemID,
 				ParentID:   rec.parentID,

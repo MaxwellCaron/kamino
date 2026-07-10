@@ -58,6 +58,7 @@ SELECT
     END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
+    pv.guest_type,
     pv.is_template,
     pv.notes,
     pv.cpu_count,
@@ -108,6 +109,7 @@ visible_items AS (
         END)::INTEGER AS vm_count,
         pv.node,
         pv.vmid,
+        pv.guest_type,
         pv.is_template,
         pv.notes,
         pv.cpu_count,
@@ -156,6 +158,7 @@ ancestor_rows AS (
         inventory_folder_vm_count(ii.id, NULL)::INTEGER AS vm_count,
         NULL::TEXT AS node,
         NULL::INTEGER AS vmid,
+        NULL::TEXT AS guest_type,
         NULL::BOOLEAN AS is_template,
         NULL::TEXT AS notes,
         NULL::INTEGER AS cpu_count,
@@ -176,7 +179,7 @@ combined AS (
 SELECT DISTINCT ON (id)
     id, parent_id, kind, name, description, inherit_permissions,
     direct_vm_limit, effective_vm_limit, vm_count,
-    node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb,
+    node, vmid, guest_type, is_template, notes, cpu_count, memory_mb, disk_gb,
     allowed_mask, denied_mask
 FROM combined
 ORDER BY id, priority;
@@ -200,6 +203,7 @@ SELECT
     END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
+    pv.guest_type,
     pv.is_template,
     pv.notes,
     pv.cpu_count,
@@ -241,6 +245,7 @@ SELECT
     END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
+    pv.guest_type,
     pv.is_template,
     pv.notes,
     pv.cpu_count,
@@ -268,6 +273,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm
 FROM inventory_items ii
@@ -275,6 +281,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -286,6 +293,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm
 FROM inventory_items ii
@@ -293,6 +301,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -309,6 +318,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm,
     perms.allowed_mask,
@@ -318,6 +328,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -343,6 +354,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm,
     perms.allowed_mask,
@@ -352,6 +364,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id

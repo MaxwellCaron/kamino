@@ -4,10 +4,12 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 )
 
 type proxmoxVMDeleter interface {
-	DeleteVM(ctx context.Context, node string, vmid int) error
+	DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error
 }
 
 func cleanupProxmoxVM(parent context.Context, px proxmoxVMDeleter, node string, vmid int, reason string) {
@@ -18,7 +20,7 @@ func cleanupProxmoxVM(parent context.Context, px proxmoxVMDeleter, node string, 
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cancel()
 
-	if err := px.DeleteVM(ctx, node, vmid); err != nil {
+	if err := px.DeleteVM(ctx, proxmox.GuestQEMU, node, vmid); err != nil {
 		log.Printf("proxmox cleanup after %s: failed to delete VM %d on %s: %v", reason, vmid, node, err)
 	}
 }

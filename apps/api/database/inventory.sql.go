@@ -80,7 +80,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -100,6 +100,7 @@ type GetAllInventoryItemsRow struct {
 	VmCount          int32             `json:"vm_count"`
 	Node             *string           `json:"node"`
 	Vmid             *int32            `json:"vmid"`
+	GuestType        *string           `json:"guest_type"`
 	IsTemplate       *bool             `json:"is_template"`
 	Notes            *string           `json:"notes"`
 	CpuCount         *int32            `json:"cpu_count"`
@@ -127,6 +128,7 @@ func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryIt
 			&i.VmCount,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.IsTemplate,
 			&i.Notes,
 			&i.CpuCount,
@@ -237,7 +239,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description, ii.inherit_permiss
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1
@@ -255,6 +257,7 @@ type GetInventoryItemByIDRow struct {
 	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	GuestType          *string           `json:"guest_type"`
 	IsTemplate         *bool             `json:"is_template"`
 	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
@@ -277,6 +280,7 @@ func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetIn
 		&i.VmCount,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.IsTemplate,
 		&i.Notes,
 		&i.CpuCount,
@@ -320,6 +324,7 @@ const getProxmoxVMByInventoryItemID = `-- name: GetProxmoxVMByInventoryItemID :o
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -334,6 +339,7 @@ type GetProxmoxVMByInventoryItemIDRow struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	Notes           *string   `json:"notes"`
@@ -349,6 +355,7 @@ func (q *Queries) GetProxmoxVMByInventoryItemID(ctx context.Context, inventoryIt
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.IsTemplate,
 		&i.Notes,
@@ -363,6 +370,7 @@ const getProxmoxVMByInventoryItemIDForUpdate = `-- name: GetProxmoxVMByInventory
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -378,6 +386,7 @@ type GetProxmoxVMByInventoryItemIDForUpdateRow struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	Notes           *string   `json:"notes"`
@@ -393,6 +402,7 @@ func (q *Queries) GetProxmoxVMByInventoryItemIDForUpdate(ctx context.Context, in
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.IsTemplate,
 		&i.Notes,
@@ -407,6 +417,7 @@ const getProxmoxVMByNodeVMID = `-- name: GetProxmoxVMByNodeVMID :one
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -427,6 +438,7 @@ type GetProxmoxVMByNodeVMIDRow struct {
 	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
 	Node            string     `json:"node"`
 	Vmid            int32      `json:"vmid"`
+	GuestType       string     `json:"guest_type"`
 	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
 	CpuCount        *int32     `json:"cpu_count"`
 	MemoryMb        *int32     `json:"memory_mb"`
@@ -442,6 +454,7 @@ func (q *Queries) GetProxmoxVMByNodeVMID(ctx context.Context, arg GetProxmoxVMBy
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.CpuCount,
 		&i.MemoryMb,
@@ -456,6 +469,7 @@ const getProxmoxVMByUpstreamUUID = `-- name: GetProxmoxVMByUpstreamUUID :one
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -471,6 +485,7 @@ type GetProxmoxVMByUpstreamUUIDRow struct {
 	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
 	Node            string     `json:"node"`
 	Vmid            int32      `json:"vmid"`
+	GuestType       string     `json:"guest_type"`
 	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
 	CpuCount        *int32     `json:"cpu_count"`
 	MemoryMb        *int32     `json:"memory_mb"`
@@ -486,6 +501,7 @@ func (q *Queries) GetProxmoxVMByUpstreamUUID(ctx context.Context, upstreamUuid u
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.CpuCount,
 		&i.MemoryMb,
@@ -516,14 +532,15 @@ func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UU
 }
 
 const insertProxmoxVM = `-- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, guest_type, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertProxmoxVMParams struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	CpuCount        *int32    `json:"cpu_count"`
@@ -536,6 +553,7 @@ func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams
 		arg.InventoryItemID,
 		arg.Node,
 		arg.Vmid,
+		arg.GuestType,
 		arg.UpstreamUuid,
 		arg.IsTemplate,
 		arg.CpuCount,
@@ -732,11 +750,12 @@ const updateProxmoxVM = `-- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
 SET node = $2,
     vmid = $3,
-    upstream_uuid = $4,
-    is_template = $5,
-    cpu_count = $6,
-    memory_mb = $7,
-    disk_gb = $8
+    guest_type = $4,
+    upstream_uuid = $5,
+    is_template = $6,
+    cpu_count = $7,
+    memory_mb = $8,
+    disk_gb = $9
 WHERE inventory_item_id = $1
 `
 
@@ -744,6 +763,7 @@ type UpdateProxmoxVMParams struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	CpuCount        *int32    `json:"cpu_count"`
@@ -756,6 +776,7 @@ func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams
 		arg.InventoryItemID,
 		arg.Node,
 		arg.Vmid,
+		arg.GuestType,
 		arg.UpstreamUuid,
 		arg.IsTemplate,
 		arg.CpuCount,

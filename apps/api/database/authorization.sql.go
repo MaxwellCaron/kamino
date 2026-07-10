@@ -102,6 +102,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm
 FROM inventory_items ii
@@ -109,6 +110,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -120,6 +122,7 @@ type GetBulkVMItemsRow struct {
 	ID           uuid.UUID   `json:"id"`
 	Node         string      `json:"node"`
 	Vmid         int32       `json:"vmid"`
+	GuestType    string      `json:"guest_type"`
 	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
 	HasVm        interface{} `json:"has_vm"`
 }
@@ -137,6 +140,7 @@ func (q *Queries) GetBulkVMItems(ctx context.Context, itemIds []uuid.UUID) ([]Ge
 			&i.ID,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.UpstreamUuid,
 			&i.HasVm,
 		); err != nil {
@@ -155,6 +159,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm
 FROM inventory_items ii
@@ -162,6 +167,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -174,6 +180,7 @@ type GetBulkVMItemsForUpdateRow struct {
 	ID           uuid.UUID   `json:"id"`
 	Node         string      `json:"node"`
 	Vmid         int32       `json:"vmid"`
+	GuestType    string      `json:"guest_type"`
 	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
 	HasVm        interface{} `json:"has_vm"`
 }
@@ -191,6 +198,7 @@ func (q *Queries) GetBulkVMItemsForUpdate(ctx context.Context, itemIds []uuid.UU
 			&i.ID,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.UpstreamUuid,
 			&i.HasVm,
 		); err != nil {
@@ -213,6 +221,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm,
     perms.allowed_mask,
@@ -222,6 +231,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -248,6 +258,7 @@ type GetBulkVMItemsWithPermissionsRow struct {
 	ID           uuid.UUID   `json:"id"`
 	Node         string      `json:"node"`
 	Vmid         int32       `json:"vmid"`
+	GuestType    string      `json:"guest_type"`
 	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
 	HasVm        interface{} `json:"has_vm"`
 	AllowedMask  int64       `json:"allowed_mask"`
@@ -267,6 +278,7 @@ func (q *Queries) GetBulkVMItemsWithPermissions(ctx context.Context, arg GetBulk
 			&i.ID,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.UpstreamUuid,
 			&i.HasVm,
 			&i.AllowedMask,
@@ -291,6 +303,7 @@ SELECT
     ii.id,
     COALESCE(pv.node, '') AS node,
     COALESCE(pv.vmid, 0)::INTEGER AS vmid,
+    COALESCE(pv.guest_type, 'qemu') AS guest_type,
     COALESCE(pv.upstream_uuid, '00000000-0000-0000-0000-000000000000'::UUID) AS upstream_uuid,
     (pv.upstream_uuid IS NOT NULL) AS has_vm,
     perms.allowed_mask,
@@ -300,6 +313,7 @@ LEFT JOIN LATERAL (
     SELECT
         proxmox_vms.node,
         proxmox_vms.vmid,
+        proxmox_vms.guest_type,
         proxmox_vms.upstream_uuid
     FROM proxmox_vms
     WHERE proxmox_vms.inventory_item_id = ii.id
@@ -327,6 +341,7 @@ type GetBulkVMItemsWithPermissionsForUpdateRow struct {
 	ID           uuid.UUID   `json:"id"`
 	Node         string      `json:"node"`
 	Vmid         int32       `json:"vmid"`
+	GuestType    string      `json:"guest_type"`
 	UpstreamUuid uuid.UUID   `json:"upstream_uuid"`
 	HasVm        interface{} `json:"has_vm"`
 	AllowedMask  int64       `json:"allowed_mask"`
@@ -346,6 +361,7 @@ func (q *Queries) GetBulkVMItemsWithPermissionsForUpdate(ctx context.Context, ar
 			&i.ID,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.UpstreamUuid,
 			&i.HasVm,
 			&i.AllowedMask,
@@ -423,6 +439,7 @@ SELECT
     END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
+    pv.guest_type,
     pv.is_template,
     pv.notes,
     pv.cpu_count,
@@ -459,6 +476,7 @@ type GetInventoryItemWithPermissionsRow struct {
 	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	GuestType          *string           `json:"guest_type"`
 	IsTemplate         *bool             `json:"is_template"`
 	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
@@ -483,6 +501,7 @@ func (q *Queries) GetInventoryItemWithPermissions(ctx context.Context, arg GetIn
 		&i.VmCount,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.IsTemplate,
 		&i.Notes,
 		&i.CpuCount,
@@ -517,6 +536,7 @@ SELECT
     END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
+    pv.guest_type,
     pv.is_template,
     pv.notes,
     pv.cpu_count,
@@ -557,6 +577,7 @@ type GetInventoryItemsWithPermissionsRow struct {
 	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	GuestType          *string           `json:"guest_type"`
 	IsTemplate         *bool             `json:"is_template"`
 	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
@@ -587,6 +608,7 @@ func (q *Queries) GetInventoryItemsWithPermissions(ctx context.Context, arg GetI
 			&i.VmCount,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.IsTemplate,
 			&i.Notes,
 			&i.CpuCount,
@@ -663,6 +685,7 @@ SELECT
     END)::INTEGER AS vm_count,
     pv.node,
     pv.vmid,
+    pv.guest_type,
     pv.is_template,
     pv.notes,
     pv.cpu_count,
@@ -702,6 +725,7 @@ type GetVisibleInventoryItemsForPrincipalRow struct {
 	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	GuestType          *string           `json:"guest_type"`
 	IsTemplate         *bool             `json:"is_template"`
 	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
@@ -732,6 +756,7 @@ func (q *Queries) GetVisibleInventoryItemsForPrincipal(ctx context.Context, prin
 			&i.VmCount,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.IsTemplate,
 			&i.Notes,
 			&i.CpuCount,
@@ -774,6 +799,7 @@ visible_items AS (
         END)::INTEGER AS vm_count,
         pv.node,
         pv.vmid,
+        pv.guest_type,
         pv.is_template,
         pv.notes,
         pv.cpu_count,
@@ -822,6 +848,7 @@ ancestor_rows AS (
         inventory_folder_vm_count(ii.id, NULL)::INTEGER AS vm_count,
         NULL::TEXT AS node,
         NULL::INTEGER AS vmid,
+        NULL::TEXT AS guest_type,
         NULL::BOOLEAN AS is_template,
         NULL::TEXT AS notes,
         NULL::INTEGER AS cpu_count,
@@ -835,14 +862,14 @@ ancestor_rows AS (
       AND ii.kind = 'folder'
 ),
 combined AS (
-    SELECT id, parent_id, kind, name, description, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM visible_items
+    SELECT id, parent_id, kind, name, description, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, guest_type, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM visible_items
     UNION ALL
-    SELECT id, parent_id, kind, name, description, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM ancestor_rows
+    SELECT id, parent_id, kind, name, description, inherit_permissions, direct_vm_limit, effective_vm_limit, vm_count, node, vmid, guest_type, is_template, notes, cpu_count, memory_mb, disk_gb, allowed_mask, denied_mask, priority FROM ancestor_rows
 )
 SELECT DISTINCT ON (id)
     id, parent_id, kind, name, description, inherit_permissions,
     direct_vm_limit, effective_vm_limit, vm_count,
-    node, vmid, is_template, notes, cpu_count, memory_mb, disk_gb,
+    node, vmid, guest_type, is_template, notes, cpu_count, memory_mb, disk_gb,
     allowed_mask, denied_mask
 FROM combined
 ORDER BY id, priority
@@ -860,6 +887,7 @@ type GetVisibleInventoryTreeForPrincipalRow struct {
 	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	GuestType          *string           `json:"guest_type"`
 	IsTemplate         *bool             `json:"is_template"`
 	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
@@ -890,6 +918,7 @@ func (q *Queries) GetVisibleInventoryTreeForPrincipal(ctx context.Context, princ
 			&i.VmCount,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.IsTemplate,
 			&i.Notes,
 			&i.CpuCount,

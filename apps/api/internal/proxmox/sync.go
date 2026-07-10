@@ -36,16 +36,17 @@ func (s *InventoryImporter) SyncVM(
 	parentID uuid.UUID,
 	node string,
 	vmid int,
+	gt GuestType,
 ) (uuid.UUID, error) {
 	syncCtx, cancel := context.WithTimeout(ctx, singleVMSyncTimeout)
 	defer cancel()
 
-	summary, err := s.waitForVMConfigSummary(syncCtx, node, vmid)
+	summary, err := s.waitForVMConfigSummary(syncCtx, gt, node, vmid)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
-	if err := s.syncVMConfigSummaryInTx(syncCtx, parentID, node, vmid, summary); err != nil {
+	if err := s.syncVMConfigSummaryInTx(syncCtx, parentID, node, vmid, gt, summary); err != nil {
 		return uuid.Nil, err
 	}
 
@@ -95,9 +96,11 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 	// Sync VMs
 	syncedCount := 0
 	for _, vm := range vms {
-		if vm.Type != "qemu" {
+		if vm.Type != "qemu" && vm.Type != "lxc" {
 			continue
 		}
+
+		gt := GuestTypeFromVMType(vm.Type)
 
 		parentID := rootID
 		if vm.Pool != "" {
@@ -106,13 +109,13 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 			}
 		}
 
-		summary, err := s.ensureVMConfigSummary(ctx, vm.Node, vm.VMID)
+		summary, err := s.ensureVMConfigSummary(ctx, gt, vm.Node, vm.VMID)
 		if err != nil {
 			log.Printf("Warning: failed to load config summary for VM %d on node %s: %v", vm.VMID, vm.Node, err)
 			continue
 		}
 
-		if err := s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, summary); err != nil {
+		if err := s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, gt, summary); err != nil {
 			log.Printf("Warning: failed to sync VM %d on node %s: %v", vm.VMID, vm.Node, err)
 			continue
 		}
@@ -170,6 +173,7 @@ func (s *InventoryImporter) syncVMConfigSummaryInTx(
 	parentID uuid.UUID,
 	node string,
 	vmid int,
+	gt GuestType,
 	summary *VMConfigSummary,
 ) error {
 	tx, err := s.db.Begin(ctx)
@@ -179,7 +183,7 @@ func (s *InventoryImporter) syncVMConfigSummaryInTx(
 	defer tx.Rollback(ctx)
 
 	q := database.New(s.db).WithTx(tx)
-	if err := syncVMConfigSummary(ctx, q, parentID, node, vmid, summary); err != nil {
+	if err := syncVMConfigSummary(ctx, q, parentID, node, vmid, gt, summary); err != nil {
 		return fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
 	}
 
@@ -196,6 +200,7 @@ func syncVMConfigSummary(
 	parentID uuid.UUID,
 	node string,
 	vmid int,
+	gt GuestType,
 	summary *VMConfigSummary,
 ) error {
 	if summary == nil {
@@ -252,6 +257,7 @@ func syncVMConfigSummary(
 			InventoryItemID: itemID,
 			Node:            node,
 			Vmid:            int32(vmid),
+			GuestType:       string(gt),
 			UpstreamUuid:    summary.UpstreamUUID,
 			IsTemplate:      summary.IsTemplate,
 			CpuCount:        &summary.CPUCount,
@@ -279,6 +285,7 @@ func syncVMConfigSummary(
 		InventoryItemID: existing.InventoryItemID,
 		Node:            node,
 		Vmid:            int32(vmid),
+		GuestType:       string(gt),
 		UpstreamUuid:    summary.UpstreamUUID,
 		IsTemplate:      summary.IsTemplate,
 		CpuCount:        &summary.CPUCount,
@@ -311,23 +318,25 @@ func syncVMConfigSummary(
 
 func (s *InventoryImporter) ensureVMConfigSummary(
 	ctx context.Context,
+	gt GuestType,
 	node string,
 	vmid int,
 ) (*VMConfigSummary, error) {
-	if _, err := s.client.EnsureVMUpstreamUUID(ctx, node, vmid); err != nil {
+	if _, err := s.client.EnsureVMUpstreamUUID(ctx, gt, node, vmid); err != nil {
 		return nil, err
 	}
 
-	return s.client.GetVMConfigSummary(ctx, node, vmid)
+	return s.client.GetVMConfigSummary(ctx, gt, node, vmid)
 }
 
 func (s *InventoryImporter) waitForVMConfigSummary(
 	ctx context.Context,
+	gt GuestType,
 	node string,
 	vmid int,
 ) (*VMConfigSummary, error) {
 	for {
-		summary, err := s.ensureVMConfigSummary(ctx, node, vmid)
+		summary, err := s.ensureVMConfigSummary(ctx, gt, node, vmid)
 		if err == nil {
 			return summary, nil
 		}

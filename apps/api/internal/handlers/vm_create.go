@@ -34,7 +34,7 @@ type vmCreateProxmox interface {
 	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
 	CreateVM(ctx context.Context, node string, params map[string]string) error
 	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
-	DeleteVM(ctx context.Context, node string, vmid int) error
+	DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error
 	GetClusterUsageHistory(ctx context.Context, timeframe string) (proxmox.ClusterUsageHistory, error)
 }
 
@@ -579,6 +579,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		placement.FolderID,
 		targetNode,
 		vmid,
+		proxmox.GuestQEMU,
 	)
 	if err != nil {
 		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, vmid, "created VM inventory sync failure")

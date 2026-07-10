@@ -37,8 +37,9 @@ func TestComputeSyncDiff(t *testing.T) {
 	nodePve2 := "pve2"
 	vmid100 := int32(100)
 
-	dbVM := func(id uuid.UUID, node string, vmid int32, name string, isTemplate bool) database.GetAllInventoryItemsRow {
+	dbVM := func(id uuid.UUID, node string, vmid int32, name string, isTemplate bool, guestType string) database.GetAllInventoryItemsRow {
 		tmpl := isTemplate
+		gt := guestType
 		return database.GetAllInventoryItemsRow{
 			ID:         id,
 			ParentID:   &parentID,
@@ -46,6 +47,7 @@ func TestComputeSyncDiff(t *testing.T) {
 			Name:       name,
 			Node:       &node,
 			Vmid:       &vmid,
+			GuestType:  &gt,
 			IsTemplate: &tmpl,
 		}
 	}
@@ -73,7 +75,7 @@ func TestComputeSyncDiff(t *testing.T) {
 			name: "add vm present in proxmox absent from db",
 			vms: []VM{{
 				Node: "pve1", VMID: 100, Name: "new-vm", Pool: "students",
-				Template: 0,
+				Type: "qemu", Template: 0,
 			}},
 			dbRows:     nil,
 			blockersFn: noopBlockers,
@@ -82,14 +84,14 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 100, Name: "new-vm",
-					IsTemplate: false, Pool: "students",
+					IsTemplate: false, GuestType: "qemu", Pool: "students",
 				}},
 			},
 		},
 		{
 			name:   "empty proxmox with db vms suppresses removes",
 			vms:    nil,
-			dbRows: []database.GetAllInventoryItemsRow{dbVM(itemID, nodePve1, vmid100, "gone-vm", false)},
+			dbRows: []database.GetAllInventoryItemsRow{dbVM(itemID, nodePve1, vmid100, "gone-vm", false, "qemu")},
 			blockersFn: func(id uuid.UUID) ([]string, error) {
 				t.Fatal("blockersFn should not be called when removes are suppressed")
 				return nil, nil
@@ -102,9 +104,9 @@ func TestComputeSyncDiff(t *testing.T) {
 		},
 		{
 			name: "remove removable",
-			vms:  []VM{{Node: "pve1", VMID: 200, Name: "other"}},
+			vms:  []VM{{Node: "pve1", VMID: 200, Name: "other", Type: "qemu"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "gone-vm", false),
+				dbVM(itemID, nodePve1, vmid100, "gone-vm", false, "qemu"),
 			},
 			blockersFn: noopBlockers,
 			want: SyncDiff{
@@ -112,19 +114,21 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve1/200", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 200, Name: "other",
+					GuestType: "qemu",
 				}},
 				Removes: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeRemove,
 					Node: "pve1", VMID: 100, Name: "gone-vm",
+					GuestType: "qemu",
 					Removable: true, ItemID: itemID, ParentID: &parentID,
 				}},
 			},
 		},
 		{
 			name: "remove blocked",
-			vms:  []VM{{Node: "pve1", VMID: 200, Name: "other"}},
+			vms:  []VM{{Node: "pve1", VMID: 200, Name: "other", Type: "qemu"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "blocked-vm", false),
+				dbVM(itemID, nodePve1, vmid100, "blocked-vm", false, "qemu"),
 			},
 			blockersFn: func(uuid.UUID) ([]string, error) {
 				return []string{"has active clone"}, nil
@@ -134,10 +138,12 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve1/200", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 200, Name: "other",
+					GuestType: "qemu",
 				}},
 				Removes: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeRemove,
 					Node: "pve1", VMID: 100, Name: "blocked-vm",
+					GuestType: "qemu",
 					Removable: false, Blockers: []string{"has active clone"},
 					ItemID: itemID, ParentID: &parentID,
 				}},
@@ -145,9 +151,9 @@ func TestComputeSyncDiff(t *testing.T) {
 		},
 		{
 			name: "blockersFn error propagates",
-			vms:  []VM{{Node: "pve1", VMID: 200, Name: "other"}},
+			vms:  []VM{{Node: "pve1", VMID: 200, Name: "other", Type: "qemu"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "gone-vm", false),
+				dbVM(itemID, nodePve1, vmid100, "gone-vm", false, "qemu"),
 			},
 			blockersFn: func(uuid.UUID) ([]string, error) {
 				return nil, errors.New("db unavailable")
@@ -156,9 +162,9 @@ func TestComputeSyncDiff(t *testing.T) {
 		},
 		{
 			name: "update name change",
-			vms:  []VM{{Node: "pve1", VMID: 100, Name: "renamed"}},
+			vms:  []VM{{Node: "pve1", VMID: 100, Name: "renamed", Type: "qemu"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "old-name", false),
+				dbVM(itemID, nodePve1, vmid100, "old-name", false, "qemu"),
 			},
 			blockersFn: noopBlockers,
 			want: SyncDiff{
@@ -166,6 +172,7 @@ func TestComputeSyncDiff(t *testing.T) {
 				Updates: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeUpdate,
 					Node: "pve1", VMID: 100, Name: "renamed",
+					GuestType: "qemu",
 					Fields: []SyncFieldChange{{
 						Field: "name", From: "old-name", To: "renamed",
 					}},
@@ -175,9 +182,9 @@ func TestComputeSyncDiff(t *testing.T) {
 		},
 		{
 			name: "update template flag change",
-			vms:  []VM{{Node: "pve1", VMID: 100, Name: "tpl-vm", Template: 1}},
+			vms:  []VM{{Node: "pve1", VMID: 100, Name: "tpl-vm", Template: 1, Type: "qemu"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "tpl-vm", false),
+				dbVM(itemID, nodePve1, vmid100, "tpl-vm", false, "qemu"),
 			},
 			blockersFn: noopBlockers,
 			want: SyncDiff{
@@ -185,6 +192,7 @@ func TestComputeSyncDiff(t *testing.T) {
 				Updates: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeUpdate,
 					Node: "pve1", VMID: 100, Name: "tpl-vm", IsTemplate: true,
+					GuestType: "qemu",
 					Fields: []SyncFieldChange{{
 						Field: "template", From: "false", To: "true",
 					}},
@@ -194,9 +202,9 @@ func TestComputeSyncDiff(t *testing.T) {
 		},
 		{
 			name: "no-op identical vm",
-			vms:  []VM{{Node: "pve1", VMID: 100, Name: "same", Template: 0}},
+			vms:  []VM{{Node: "pve1", VMID: 100, Name: "same", Template: 0, Type: "qemu"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "same", false),
+				dbVM(itemID, nodePve1, vmid100, "same", false, "qemu"),
 			},
 			blockersFn: noopBlockers,
 			want: SyncDiff{
@@ -204,10 +212,46 @@ func TestComputeSyncDiff(t *testing.T) {
 			},
 		},
 		{
-			name: "node move is add plus remove",
-			vms:  []VM{{Node: nodePve2, VMID: 100, Name: "moved"}},
+			name: "lxc add present in proxmox absent from db",
+			vms: []VM{{
+				Node: "pve1", VMID: 616, Name: "CT 616", Type: "lxc",
+			}},
+			dbRows:     nil,
+			blockersFn: noopBlockers,
+			want: SyncDiff{
+				ProxmoxVMCount: 1,
+				Adds: []SyncChange{{
+					ID: "pve1/616", Kind: SyncChangeAdd,
+					Node: "pve1", VMID: 616, Name: "CT 616",
+					GuestType: "lxc",
+				}},
+			},
+		},
+		{
+			name: "lxc hostname changed",
+			vms:  []VM{{Node: "pve1", VMID: 616, Name: "renamed-ct", Type: "lxc"}},
 			dbRows: []database.GetAllInventoryItemsRow{
-				dbVM(itemID, nodePve1, vmid100, "moved", false),
+				dbVM(itemID, nodePve1, 616, "old-ct-name", false, "lxc"),
+			},
+			blockersFn: noopBlockers,
+			want: SyncDiff{
+				ProxmoxVMCount: 1,
+				Updates: []SyncChange{{
+					ID: "pve1/616", Kind: SyncChangeUpdate,
+					Node: "pve1", VMID: 616, Name: "renamed-ct",
+					GuestType: "lxc",
+					Fields: []SyncFieldChange{{
+						Field: "name", From: "old-ct-name", To: "renamed-ct",
+					}},
+					ItemID: itemID, ParentID: &parentID,
+				}},
+			},
+		},
+		{
+			name: "node move is add plus remove",
+			vms:  []VM{{Node: nodePve2, VMID: 100, Name: "moved", Type: "qemu"}},
+			dbRows: []database.GetAllInventoryItemsRow{
+				dbVM(itemID, nodePve1, vmid100, "moved", false, "qemu"),
 			},
 			blockersFn: noopBlockers,
 			want: SyncDiff{
@@ -215,10 +259,12 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve2/100", Kind: SyncChangeAdd,
 					Node: nodePve2, VMID: 100, Name: "moved",
+					GuestType: "qemu",
 				}},
 				Removes: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeRemove,
 					Node: nodePve1, VMID: 100, Name: "moved",
+					GuestType: "qemu",
 					Removable: true, ItemID: itemID, ParentID: &parentID,
 				}},
 			},
@@ -345,7 +391,7 @@ func assertSyncChangesEqual(t *testing.T, label string, want, got []SyncChange) 
 	for i := range want {
 		w, g := want[i], got[i]
 		if w.ID != g.ID || w.Kind != g.Kind || w.Node != g.Node || w.VMID != g.VMID ||
-			w.Name != g.Name || w.IsTemplate != g.IsTemplate || w.Pool != g.Pool ||
+			w.Name != g.Name || w.IsTemplate != g.IsTemplate || w.GuestType != g.GuestType || w.Pool != g.Pool ||
 			w.Removable != g.Removable || w.ItemID != g.ItemID {
 			t.Errorf("%s[%d]: change mismatch\ngot:  %+v\nwant: %+v", label, i, g, w)
 		}

@@ -46,6 +46,20 @@ type VM struct {
 // IsTemplate returns true if the VM is a Proxmox template.
 func (v VM) IsTemplate() bool { return v.Template == 1 }
 
+type GuestType string
+
+const (
+	GuestQEMU GuestType = "qemu"
+	GuestLXC  GuestType = "lxc"
+)
+
+func GuestTypeFromVMType(t string) GuestType {
+	if t == "lxc" {
+		return GuestLXC
+	}
+	return GuestQEMU
+}
+
 // Node represents a cluster node from the Proxmox API.
 type Node struct {
 	Node   string  `json:"node"`

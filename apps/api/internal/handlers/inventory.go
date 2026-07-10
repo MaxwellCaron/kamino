@@ -43,6 +43,7 @@ type TreeNode struct {
 type VMDetail struct {
 	Node       string   `json:"node"`
 	VMID       int32    `json:"vmid"`
+	GuestType  string   `json:"guest_type"`
 	IsTemplate bool     `json:"is_template"`
 	Notes      *string  `json:"notes,omitempty"`
 	CPUCount   *int32   `json:"cpu_count,omitempty"`
@@ -655,7 +656,7 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 	}
 
 	for _, vm := range plan.ProxmoxVMs {
-		if err := h.PX.DeleteVMStopped(c.Request.Context(), vm.Node, int(vm.VMID)); err != nil {
+		if err := h.PX.DeleteVMStopped(c.Request.Context(), proxmox.GuestType(vm.GuestType), vm.Node, int(vm.VMID)); err != nil {
 			logRequestError(c, fmt.Sprintf("delete inventory folder proxmox vmid=%d node=%s", vm.VMID, vm.Node), err)
 			kind := "VM"
 			if vm.IsTemplate {
@@ -708,7 +709,7 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 		}
 
 		if row.Node != nil {
-			node.VM = toVMDetail(row.Node, row.Vmid, row.IsTemplate, row.Notes, row.CpuCount, row.MemoryMb, row.DiskGb)
+			node.VM = toVMDetail(row.Node, row.Vmid, row.GuestType, row.IsTemplate, row.Notes, row.CpuCount, row.MemoryMb, row.DiskGb)
 		}
 
 		nodes[row.ID] = node
@@ -762,6 +763,7 @@ func buildInventoryItem(row database.GetInventoryItemWithPermissionsRow) Invento
 		item.VM = toVMDetail(
 			row.Node,
 			row.Vmid,
+			row.GuestType,
 			row.IsTemplate,
 			row.Notes,
 			row.CpuCount,
@@ -787,12 +789,16 @@ func folderCountPtr(kind database.InventoryItemKind, count int32) *int32 {
 	return &count
 }
 
-func toVMDetail(node *string, vmid *int32, isTemplate *bool, notes *string, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {
+func toVMDetail(node *string, vmid *int32, guestType *string, isTemplate *bool, notes *string, cpuCount, memoryMB *int32, diskGB *float64) *VMDetail {
 	vm := &VMDetail{
-		Notes:    notes,
-		CPUCount: cpuCount,
-		MemoryMB: memoryMB,
-		DiskGB:   diskGB,
+		Notes:     notes,
+		CPUCount:  cpuCount,
+		MemoryMB:  memoryMB,
+		DiskGB:    diskGB,
+		GuestType: "qemu",
+	}
+	if guestType != nil && *guestType != "" {
+		vm.GuestType = *guestType
 	}
 	if node != nil {
 		vm.Node = *node

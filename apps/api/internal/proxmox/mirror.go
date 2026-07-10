@@ -114,7 +114,11 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 				continue
 			}
 
-			key := vmKey{Node: *child.Node, VMID: int(*child.Vmid)}
+			gt := GuestQEMU
+			if child.GuestType != nil {
+				gt = GuestType(*child.GuestType)
+			}
+			key := vmKey{Node: *child.Node, VMID: int(*child.Vmid), GuestType: gt}
 			desiredPool := ""
 			if len(nextPath) > 0 {
 				desiredPool = EncodePoolPath(nextPath)
@@ -172,7 +176,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 
 	currentVMPools := make(map[vmKey]string, len(currentVMs))
 	for _, vm := range currentVMs {
-		currentVMPools[vmKey{Node: vm.Node, VMID: vm.VMID}] = vm.Pool
+		currentVMPools[vmKey{Node: vm.Node, VMID: vm.VMID, GuestType: GuestTypeFromVMType(vm.Type)}] = vm.Pool
 	}
 
 	poolGroup, poolCtx := errgroup.WithContext(ctx)
@@ -211,7 +215,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 				return nil
 			}
 
-			if err := m.client.UpdateVMNotes(notesCtx, key.Node, key.VMID, desiredNotes); err != nil {
+			if err := m.client.UpdateVMNotes(notesCtx, key.GuestType, key.Node, key.VMID, desiredNotes); err != nil {
 				return fmt.Errorf("updating notes for VM %d on %s: %w", key.VMID, key.Node, err)
 			}
 
@@ -226,8 +230,9 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 }
 
 type vmKey struct {
-	Node string
-	VMID int
+	Node      string
+	VMID      int
+	GuestType GuestType
 }
 
 func buildInventoryIndex(rows []database.GetAllInventoryItemsRow) (*uuid.UUID, map[uuid.UUID]database.GetAllInventoryItemsRow, map[uuid.UUID][]uuid.UUID) {
