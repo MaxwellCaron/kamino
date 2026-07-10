@@ -42,8 +42,7 @@ VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (provider_id, external_id)
 DO UPDATE SET
     name = EXCLUDED.name,
-    principal_type = EXCLUDED.principal_type,
-    created_at = EXCLUDED.created_at
+    principal_type = EXCLUDED.principal_type
 RETURNING id;
 
 -- name: DeleteStalePrincipals :execrows
