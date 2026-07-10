@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -6,463 +6,150 @@ import {
   Add01Icon,
   Globe02Icon,
   PencilEdit01Icon,
+  RegexIcon,
 } from "@hugeicons/core-free-icons"
-import { z } from "zod"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldTitle,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
-import type { ComponentType } from "react"
-import type { ApiSDNZone, ApiVNet } from "@/features/sdn/types/sdn-types"
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs"
+import type {
+  ApiSDNZone,
+  ApiVNet,
+  CreateVNetInput,
+} from "@/features/sdn/types/sdn-types"
+import type {
+  VNetCreateMode,
+  VNetFormValues,
+} from "@/features/sdn/components/vnet-dialog-utils"
+import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
 import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { DialogBodySkeleton } from "@/components/loading-skeletons"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
-  formatFieldError,
-  isTouchedInvalid,
-} from "@/components/forms/form-errors"
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import {
+  applySDN,
   createVNet,
+  createVNets,
   sdnZonesQueryOptions,
   updateVNet,
 } from "@/features/sdn/api/sdn-api"
+import { CreateVNetSingleForm } from "@/features/sdn/components/create-vnet-single-form"
+import { CreateVNetsPrefixForm } from "@/features/sdn/components/create-vnet-prefix-form"
+import { EditVNetForm } from "@/features/sdn/components/edit-vnet-form"
+import {
+  buildCreateVNets,
+  getDefaultVNetFormValues,
+  getTagRule,
+  isVlanAwareDisabled,
+} from "@/features/sdn/components/vnet-dialog-utils"
 
-type AppFieldComponent = ComponentType<any>
-type AppSubscribeComponent = ComponentType<any>
+const SDN_APPLY_ITEM_ID = "sdn-apply"
 
-const REQUIRED_TAG_ZONE_TYPES = new Set(["vlan", "vxlan", "evpn"])
-const OPTIONAL_TAG_ZONE_TYPES = new Set(["qinq", "faucet"])
-
-type TagRule = "disabled" | "required" | "optional"
-
-function getTagRule(zoneType: string | undefined): TagRule {
-  if (!zoneType || zoneType === "simple") return "disabled"
-  if (REQUIRED_TAG_ZONE_TYPES.has(zoneType)) return "required"
-  if (OPTIONAL_TAG_ZONE_TYPES.has(zoneType)) return "optional"
-  return "optional"
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Failed"
 }
 
-function isVlanAwareDisabled(zoneType: string | undefined): boolean {
-  return !zoneType || zoneType === "evpn"
-}
-
-const vnetIdSchema = z
-  .string()
-  .trim()
-  .min(2, "Must be 2-8 characters")
-  .max(8, "Must be 2-8 characters")
-  .regex(
-    /^[A-Za-z][A-Za-z0-9]*$/,
-    "Must start with a letter, letters and numbers only"
-  )
-
-const aliasSchema = z
-  .string()
-  .trim()
-  .max(256, "Must be 256 characters or fewer")
-
-const zoneSchema = z.string().trim().min(1, "Zone is required")
-
-function getFirstIssueMessage(result: z.ZodSafeParseResult<unknown>) {
-  return result.success ? undefined : result.error.issues[0]?.message
-}
-
-function validateTag(value: string, zoneType: string | undefined) {
-  const rule = getTagRule(zoneType)
-  if (rule === "disabled") return undefined
-
-  const trimmed = value.trim()
-  if (trimmed === "") {
-    return rule === "required"
-      ? "Tag is required for this zone type"
-      : undefined
+function getSDNApplyProgressItem() {
+  return {
+    id: SDN_APPLY_ITEM_ID,
+    name: "SDN Apply",
+    successDescription: "Applied",
+    retry: applySDN,
   }
+}
 
-  const tag = Number(trimmed)
-  if (!Number.isInteger(tag) || tag < 1 || tag > 16777215) {
-    return "Tag must be a whole number between 1 and 16777215"
+async function reportSDNApply(report: (update: MutationItemUpdate) => void) {
+  try {
+    await applySDN()
+    report({ id: SDN_APPLY_ITEM_ID, status: "done" })
+  } catch (error) {
+    report({
+      id: SDN_APPLY_ITEM_ID,
+      status: "error",
+      error: getErrorMessage(error),
+    })
   }
-  return undefined
 }
 
-function VNetIdentityFields({
-  FieldComponent,
-  isEdit,
-}: {
-  FieldComponent: AppFieldComponent
-  isEdit: boolean
-}) {
-  return (
-    <>
-      <FieldComponent
-        name="vnet"
-        validators={{
-          onBlur: ({ value }: { value: string }) =>
-            getFirstIssueMessage(vnetIdSchema.safeParse(value)),
-          onSubmit: ({ value }: { value: string }) =>
-            getFirstIssueMessage(vnetIdSchema.safeParse(value)),
-        }}
-      >
-        {(field: any) => {
-          const isInvalid = isTouchedInvalid(field.state.meta)
-
-          return (
-            <Field data-invalid={isInvalid}>
-              <FieldLabel htmlFor="vnet">VNet ID</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="vnet"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  disabled={isEdit}
-                  placeholder="pod245"
-                  maxLength={8}
-                  aria-invalid={isInvalid}
-                />
-              </FieldContent>
-              {isInvalid && (
-                <FieldError>
-                  {formatFieldError(field.state.meta.errors[0])}
-                </FieldError>
-              )}
-            </Field>
-          )
-        }}
-      </FieldComponent>
-
-      <FieldComponent
-        name="alias"
-        validators={{
-          onBlur: ({ value }: { value: string }) =>
-            getFirstIssueMessage(aliasSchema.safeParse(value)),
-          onSubmit: ({ value }: { value: string }) =>
-            getFirstIssueMessage(aliasSchema.safeParse(value)),
-        }}
-      >
-        {(field: any) => {
-          const isInvalid = isTouchedInvalid(field.state.meta)
-
-          return (
-            <Field data-invalid={isInvalid}>
-              <FieldLabel htmlFor="alias">Alias</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="alias"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Optional description"
-                  aria-invalid={isInvalid}
-                />
-              </FieldContent>
-              {isInvalid && (
-                <FieldError>
-                  {formatFieldError(field.state.meta.errors[0])}
-                </FieldError>
-              )}
-            </Field>
-          )
-        }}
-      </FieldComponent>
-    </>
-  )
-}
-
-function VNetZonesUnavailableState() {
-  return (
-    <Empty className="border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <HugeiconsIcon icon={Globe02Icon} className="text-muted-foreground" />
-        </EmptyMedia>
-        <EmptyTitle>No SDN zones available</EmptyTitle>
-        <EmptyDescription>
-          Configure an SDN zone in Proxmox before creating a VNet.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  )
-}
-
-function VNetZoneField({
-  FieldComponent,
-  zones,
-  zonesUnavailable,
-  onZoneChange,
-}: {
-  FieldComponent: AppFieldComponent
-  zones: Array<ApiSDNZone>
-  zonesUnavailable: boolean
-  onZoneChange: (nextZone: string) => void
-}) {
-  return (
-    <FieldComponent
-      name="zone"
-      validators={{
-        onBlur: ({ value }: { value: string }) =>
-          getFirstIssueMessage(zoneSchema.safeParse(value)),
-        onSubmit: ({ value }: { value: string }) =>
-          getFirstIssueMessage(zoneSchema.safeParse(value)),
-      }}
-    >
-      {(field: any) => {
-        const isInvalid = isTouchedInvalid(field.state.meta)
-
-        return (
-          <Field data-invalid={isInvalid}>
-            <FieldLabel htmlFor="zone">Zone</FieldLabel>
-            <FieldContent>
-              <Select
-                value={field.state.value}
-                onValueChange={(value) => {
-                  const next = value ?? ""
-                  field.handleChange(next)
-                  onZoneChange(next)
-                }}
-                disabled={zonesUnavailable}
-              >
-                <SelectTrigger
-                  id="zone"
-                  aria-invalid={isInvalid}
-                  className="w-full"
-                >
-                  <SelectValue placeholder="Select a zone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {zones.map((zone) => (
-                      <SelectItem key={zone.zone} value={zone.zone}>
-                        {zone.zone}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </FieldContent>
-            {isInvalid && (
-              <FieldError>
-                {formatFieldError(field.state.meta.errors[0])}
-              </FieldError>
-            )}
-          </Field>
-        )
-      }}
-    </FieldComponent>
-  )
-}
-
-function VNetTagField({
-  FieldComponent,
-  zoneType,
-}: {
-  FieldComponent: AppFieldComponent
-  zoneType: string | undefined
-}) {
-  const tagRule = getTagRule(zoneType)
-  const tagDisabled = tagRule === "disabled"
-
-  return (
-    <FieldComponent
-      name="tag"
-      validators={{
-        onBlur: ({ value }: { value: string }) => validateTag(value, zoneType),
-        onSubmit: ({ value }: { value: string }) =>
-          validateTag(value, zoneType),
-      }}
-    >
-      {(field: any) => {
-        const isInvalid = isTouchedInvalid(field.state.meta)
-
-        return (
-          <Field data-invalid={isInvalid}>
-            <FieldLabel htmlFor="tag">Tag</FieldLabel>
-            <FieldContent>
-              <Input
-                id="tag"
-                type="number"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                disabled={tagDisabled}
-                placeholder={tagRule === "required" ? "1245" : "Optional"}
-                aria-invalid={isInvalid}
-              />
-            </FieldContent>
-            {isInvalid && (
-              <FieldError>
-                {formatFieldError(field.state.meta.errors[0])}
-              </FieldError>
-            )}
-          </Field>
-        )
-      }}
-    </FieldComponent>
-  )
-}
-
-function VNetBooleanFields({
-  FieldComponent,
-  vlanAwareDisabled,
-}: {
-  FieldComponent: AppFieldComponent
-  vlanAwareDisabled: boolean
-}) {
-  return (
-    <>
-      <FieldComponent name="isolatePorts">
-        {(field: any) => (
-          <FieldLabel htmlFor={field.name} className="cursor-pointer">
-            <Field orientation="horizontal">
-              <Checkbox
-                id={field.name}
-                checked={field.state.value}
-                onCheckedChange={(checked) => field.handleChange(!!checked)}
-              />
-              <FieldContent>
-                <FieldTitle>Isolate Ports</FieldTitle>
-                <FieldDescription>
-                  Prevent guests on this VNet from communicating with each other
-                  directly through the bridge.
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-          </FieldLabel>
-        )}
-      </FieldComponent>
-
-      <FieldComponent name="vlanAware">
-        {(field: any) => (
-          <FieldLabel
-            htmlFor={field.name}
-            data-disabled={vlanAwareDisabled || undefined}
-            className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
-          >
-            <Field orientation="horizontal">
-              <Checkbox
-                id={field.name}
-                checked={field.state.value}
-                disabled={vlanAwareDisabled}
-                onCheckedChange={(checked) => field.handleChange(!!checked)}
-              />
-              <FieldContent>
-                <FieldTitle>VLAN Aware</FieldTitle>
-                <FieldDescription>
-                  {vlanAwareDisabled
-                    ? "Unavailable when no zone is selected or the zone type is EVPN."
-                    : "Allow VLAN-tagged traffic to pass through this VNet to guests."}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-          </FieldLabel>
-        )}
-      </FieldComponent>
-    </>
-  )
-}
-
-function VNetZoneDependentFields({
+function VNetCreateFields({
   FieldComponent,
   SubscribeComponent,
-  zonesByName,
-}: {
-  FieldComponent: AppFieldComponent
-  SubscribeComponent: AppSubscribeComponent
-  zonesByName: Map<string, ApiSDNZone>
-}) {
-  return (
-    <SubscribeComponent selector={(state: any) => state.values.zone}>
-      {(zoneValue: string) => {
-        const zoneType = zonesByName.get(zoneValue)?.type
-        const vlanAwareDisabled = isVlanAwareDisabled(zoneType)
-
-        return (
-          <>
-            <VNetTagField FieldComponent={FieldComponent} zoneType={zoneType} />
-            <VNetBooleanFields
-              FieldComponent={FieldComponent}
-              vlanAwareDisabled={vlanAwareDisabled}
-            />
-          </>
-        )
-      }}
-    </SubscribeComponent>
-  )
-}
-
-function VNetDialogFields({
-  FieldComponent,
-  SubscribeComponent,
-  isEdit,
+  mode,
+  setMode,
   zones,
   zonesByName,
   zonesUnavailable,
   onZoneChange,
 }: {
-  FieldComponent: AppFieldComponent
-  SubscribeComponent: AppSubscribeComponent
-  isEdit: boolean
-  zones: Array<ApiSDNZone>
-  zonesByName: Map<string, ApiSDNZone>
+  FieldComponent: any
+  SubscribeComponent: any
+  mode: VNetCreateMode
+  setMode: (mode: VNetCreateMode) => void
+  zones: Array<{ zone: string; type?: string }>
+  zonesByName: Map<string, { zone: string; type?: string }>
   zonesUnavailable: boolean
   onZoneChange: (nextZone: string) => void
 }) {
   return (
-    <FieldGroup>
-      <VNetIdentityFields FieldComponent={FieldComponent} isEdit={isEdit} />
+    <Tabs
+      value={mode}
+      onValueChange={(value) => setMode(value as VNetCreateMode)}
+      className="gap-4"
+    >
+      <TabsList className="w-full border-b" variant="line">
+        <TabsTrigger value="single">
+          <HugeiconsIcon icon={Globe02Icon} />
+          Single
+        </TabsTrigger>
+        <TabsTrigger value="prefix">
+          <HugeiconsIcon icon={RegexIcon} />
+          Prefix
+        </TabsTrigger>
+      </TabsList>
 
-      <VNetZoneField
-        FieldComponent={FieldComponent}
-        zones={zones}
-        zonesUnavailable={zonesUnavailable}
-        onZoneChange={onZoneChange}
-      />
+      <TabsContent value="single">
+        <CreateVNetSingleForm
+          FieldComponent={FieldComponent}
+          SubscribeComponent={SubscribeComponent}
+          zones={zones}
+          zonesByName={zonesByName}
+          zonesUnavailable={zonesUnavailable}
+          onZoneChange={onZoneChange}
+        />
+      </TabsContent>
 
-      {zonesUnavailable && <VNetZonesUnavailableState />}
-
-      <VNetZoneDependentFields
-        FieldComponent={FieldComponent}
-        SubscribeComponent={SubscribeComponent}
-        zonesByName={zonesByName}
-      />
-    </FieldGroup>
+      <TabsContent value="prefix">
+        <CreateVNetsPrefixForm
+          FieldComponent={FieldComponent}
+          SubscribeComponent={SubscribeComponent}
+          zones={zones}
+          zonesByName={zonesByName}
+          zonesUnavailable={zonesUnavailable}
+          onZoneChange={onZoneChange}
+        />
+      </TabsContent>
+    </Tabs>
   )
 }
 
 function VNetDialogFooter({
   SubscribeComponent,
   isEdit,
+  mode,
   zonesUnavailable,
 }: {
-  SubscribeComponent: AppSubscribeComponent
+  SubscribeComponent: any
   isEdit: boolean
+  mode: VNetCreateMode
   zonesUnavailable: boolean
 }) {
   return (
@@ -474,7 +161,7 @@ function VNetDialogFooter({
             pendingLabel={isEdit ? "Saving..." : "Creating..."}
             disabled={zonesUnavailable}
           >
-            {isEdit ? "Save" : "Create"}
+            {isEdit ? "Save" : mode === "prefix" ? "Create VNets" : "Create"}
           </AppDialogPrimaryButton>
         )}
       </SubscribeComponent>
@@ -492,8 +179,6 @@ export function VNetDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const isEdit = !!vnet
-  const queryClient = useQueryClient()
-
   const {
     data: zonesData,
     error: zonesError,
@@ -509,35 +194,80 @@ export function VNetDialog({
     [zones]
   )
   const zonesUnavailable = !isZonesLoading && !zonesError && zones.length === 0
+  const defaultZone = zones[0]?.zone ?? ""
+
+  if (zonesError || isZonesLoading) {
+    return (
+      <AppDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        initialFocus={false}
+        icon={isEdit ? PencilEdit01Icon : Add01Icon}
+        title={isEdit ? "Edit VNet" : "Create VNets"}
+        description={
+          isEdit
+            ? `Update VNet configuration for ${vnet.vnet}.`
+            : "Create one or more VNets."
+        }
+      >
+        {zonesError ? (
+          <InlineErrorAlert
+            error={zonesError}
+            fallback="Failed to load SDN zones."
+          />
+        ) : (
+          <DialogBodySkeleton rows={4} />
+        )}
+      </AppDialog>
+    )
+  }
+
+  return (
+    <VNetDialogForm
+      vnet={vnet}
+      open={open}
+      onOpenChange={onOpenChange}
+      zones={zones}
+      zonesByName={zonesByName}
+      zonesUnavailable={zonesUnavailable}
+      defaultZone={defaultZone}
+    />
+  )
+}
+
+function VNetDialogForm({
+  vnet,
+  open,
+  onOpenChange,
+  zones,
+  zonesByName,
+  zonesUnavailable,
+  defaultZone,
+}: {
+  vnet?: ApiVNet
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  zones: Array<ApiSDNZone>
+  zonesByName: Map<string, ApiSDNZone>
+  zonesUnavailable: boolean
+  defaultZone: string
+}) {
+  const isEdit = !!vnet
+  const queryClient = useQueryClient()
+  const [mode, setMode] = useState<VNetCreateMode>("single")
 
   const mutation = useMutation({
-    mutationFn: async (values: {
-      vnet: string
-      zone: string
-      tag: string
-      alias: string
-      vlanAware: boolean
-      isolatePorts: boolean
-    }) => {
+    mutationFn: async (values: VNetFormValues) => {
+      if (!isEdit) return
+
       const tag = values.tag.trim() ? parseInt(values.tag, 10) : undefined
-      if (isEdit) {
-        await updateVNet(vnet.vnet, {
-          zone: values.zone,
-          tag,
-          alias: values.alias || undefined,
-          vlanaware: values.vlanAware,
-          isolate_ports: values.isolatePorts,
-        })
-      } else {
-        await createVNet({
-          vnet: values.vnet,
-          zone: values.zone,
-          tag,
-          alias: values.alias || undefined,
-          vlanaware: values.vlanAware,
-          isolate_ports: values.isolatePorts,
-        })
-      }
+      await updateVNet(vnet.vnet, {
+        zone: values.zone,
+        tag,
+        alias: values.alias || undefined,
+        vlanaware: values.vlanAware,
+        isolate_ports: values.isolatePorts,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
@@ -546,21 +276,149 @@ export function VNetDialog({
   })
 
   const form = useForm({
-    defaultValues: {
-      vnet: vnet?.vnet ?? "",
-      zone: vnet?.zone ?? "",
-      tag: vnet?.tag?.toString() ?? "",
-      alias: vnet?.alias ?? "",
-      vlanAware: vnet?.vlanaware ?? true,
-      isolatePorts: vnet?.isolate_ports ?? false,
-    },
+    defaultValues: getDefaultVNetFormValues(vnet, defaultZone || undefined),
     onSubmit: ({ value }) => {
+      const zoneType = zonesByName.get(value.zone.trim())?.type
+
+      if (isEdit) {
+        onOpenChange(false)
+        showSingleMutationToast({
+          title: "Updating VNet",
+          name: value.vnet,
+          promise: () => mutation.mutateAsync(value),
+          successDescription: "Updated",
+        })
+        return
+      }
+
+      if (mode === "single") {
+        let payload: CreateVNetInput
+        try {
+          const [nextPayload] = buildCreateVNets("single", value, zoneType)
+          payload = nextPayload
+        } catch (error) {
+          showSingleMutationToast({
+            title: "Creating VNet",
+            name: value.vnet || "VNet",
+            promise: () =>
+              Promise.reject(
+                error instanceof Error ? error : new Error(String(error))
+              ),
+            successDescription: "Created",
+          })
+          return
+        }
+
+        onOpenChange(false)
+        showUnitMutationToast({
+          title: "Creating VNet",
+          progressItems: [getSDNApplyProgressItem()],
+          units: [
+            {
+              items: [
+                {
+                  id: payload.vnet,
+                  name: payload.vnet,
+                  successDescription: "Queued",
+                  retry: async () => {
+                    await createVNet(payload, { apply: false })
+                    await applySDN()
+                  },
+                },
+              ],
+              run: async (report) => {
+                try {
+                  await createVNet(payload, { apply: false })
+                  report({ id: payload.vnet, status: "done" })
+                } catch (error) {
+                  report({
+                    id: SDN_APPLY_ITEM_ID,
+                    status: "error",
+                    error: "Skipped because VNet creation failed",
+                  })
+                  throw error
+                }
+
+                await reportSDNApply(report)
+              },
+            },
+          ],
+          onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
+            form.reset()
+          },
+        })
+        return
+      }
+
+      let payload
+      try {
+        payload = buildCreateVNets("prefix", value, zoneType)
+      } catch (error) {
+        showSingleMutationToast({
+          title: "Creating VNets",
+          name: "Prefix",
+          promise: () =>
+            Promise.reject(
+              error instanceof Error ? error : new Error(String(error))
+            ),
+          successDescription: "Created",
+        })
+        return
+      }
+
       onOpenChange(false)
-      showSingleMutationToast({
-        title: isEdit ? "Updating VNet" : "Creating VNet",
-        name: value.vnet,
-        promise: () => mutation.mutateAsync(value),
-        successDescription: isEdit ? "Updated" : "Created",
+      showUnitMutationToast({
+        title: "Creating VNets",
+        progressItems: [getSDNApplyProgressItem()],
+        units: [
+          {
+            items: payload.map((input) => ({
+              id: input.vnet,
+              name: input.vnet,
+              successDescription: "Queued",
+              retry: async () => {
+                const result = await createVNets([input], { apply: false })
+                const failure = result.failed.find(
+                  (item) => item.id === input.vnet
+                )
+                if (failure) throw new Error(failure.error)
+                await applySDN()
+              },
+            })),
+            run: async (report) => {
+              const result = await createVNets(payload, { apply: false })
+              const errorsById = new Map(
+                result.failed.map((failure) => [failure.id, failure.error])
+              )
+              for (const input of payload) {
+                const error = errorsById.get(input.vnet)
+                if (error) {
+                  report({ id: input.vnet, status: "error", error })
+                } else {
+                  report({ id: input.vnet, status: "done" })
+                }
+              }
+
+              if (result.created.length === 0) {
+                report({
+                  id: SDN_APPLY_ITEM_ID,
+                  status: "error",
+                  error: "Skipped because no VNets were queued",
+                })
+                return { failed: result.failed }
+              }
+
+              await reportSDNApply(report)
+              return { failed: result.failed }
+            },
+          },
+        ],
+        onSettled: () => {
+          queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
+          form.reset()
+          setMode("single")
+        },
       })
     },
   })
@@ -569,6 +427,7 @@ export function VNetDialog({
     const zoneType = zonesByName.get(nextZone)?.type
     if (getTagRule(zoneType) === "disabled") {
       form.setFieldValue("tag", "")
+      form.setFieldValue("baseTag", "")
     }
     if (isVlanAwareDisabled(zoneType)) {
       form.setFieldValue("vlanAware", false)
@@ -579,46 +438,53 @@ export function VNetDialog({
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
-      onClosed={() => form.reset()}
+      onClosed={() => {
+        form.reset(getDefaultVNetFormValues(vnet, defaultZone || undefined))
+        setMode("single")
+      }}
       initialFocus={false}
       icon={isEdit ? PencilEdit01Icon : Add01Icon}
-      title={isEdit ? "Edit VNet" : "Create VNet"}
+      title={isEdit ? "Edit VNet" : "Create VNets"}
       description={
         isEdit
-          ? `Update the virtual network configuration for ${vnet.vnet}.`
-          : "Create a new SDN virtual network."
+          ? `Update VNet configuration for ${vnet.vnet}.`
+          : "Create one or more VNets."
       }
     >
-      {zonesError ? (
-        <InlineErrorAlert
-          error={zonesError}
-          fallback="Failed to load SDN zones."
-        />
-      ) : isZonesLoading ? (
-        <DialogBodySkeleton rows={4} />
-      ) : (
-        <form
-          action={() => {
-            void form.handleSubmit()
-          }}
-        >
-          <VNetDialogFields
+      <form
+        action={() => {
+          void form.handleSubmit()
+        }}
+      >
+        {isEdit ? (
+          <EditVNetForm
             FieldComponent={form.Field}
             SubscribeComponent={form.Subscribe}
-            isEdit={isEdit}
             zones={zones}
             zonesByName={zonesByName}
             zonesUnavailable={zonesUnavailable}
             onZoneChange={handleZoneChange}
           />
-
-          <VNetDialogFooter
+        ) : (
+          <VNetCreateFields
+            FieldComponent={form.Field}
             SubscribeComponent={form.Subscribe}
-            isEdit={isEdit}
+            mode={mode}
+            setMode={setMode}
+            zones={zones}
+            zonesByName={zonesByName}
             zonesUnavailable={zonesUnavailable}
+            onZoneChange={handleZoneChange}
           />
-        </form>
-      )}
+        )}
+
+        <VNetDialogFooter
+          SubscribeComponent={form.Subscribe}
+          isEdit={isEdit}
+          mode={mode}
+          zonesUnavailable={zonesUnavailable}
+        />
+      </form>
     </AppDialog>
   )
 }

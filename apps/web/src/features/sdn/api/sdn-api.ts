@@ -1,6 +1,15 @@
-import type { ApiSDNZone, ApiVNet } from "../types/sdn-types"
+import type {
+  ApiCreateVNetsResponse,
+  ApiSDNZone,
+  ApiVNet,
+  CreateVNetInput,
+} from "../types/sdn-types"
 import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
+
+function applySearchParam(options?: { apply?: boolean }) {
+  return options?.apply === false ? "?apply=false" : ""
+}
 
 export const vnetsQueryOptions = {
   queryKey: ["sdn", "vnets"] as const,
@@ -14,18 +23,39 @@ export const sdnZonesQueryOptions = {
     apiJson<Array<ApiSDNZone>>("/api/v1/sdn/zones", "fetch SDN zones"),
 }
 
-export async function createVNet(params: {
-  vnet: string
-  zone: string
-  tag?: number
-  alias?: string
-  vlanaware?: boolean
-  isolate_ports?: boolean
-}): Promise<void> {
-  await apiVoid("/api/v1/sdn/vnets", "create VNet", {
+export async function createVNet(
+  params: CreateVNetInput,
+  options?: { apply?: boolean }
+): Promise<void> {
+  await apiVoid(
+    `/api/v1/sdn/vnets${applySearchParam(options)}`,
+    "create VNet",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  )
+}
+
+export async function createVNets(
+  params: Array<CreateVNetInput>,
+  options?: { apply?: boolean }
+): Promise<ApiCreateVNetsResponse> {
+  return apiJson<ApiCreateVNetsResponse>(
+    `/api/v1/sdn/vnets/bulk${applySearchParam(options)}`,
+    "create VNets",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vnets: params }),
+    }
+  )
+}
+
+export async function applySDN(): Promise<void> {
+  await apiVoid("/api/v1/sdn/apply", "apply SDN configuration", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
   })
 }
 
@@ -47,11 +77,16 @@ export async function updateVNet(
 }
 
 export async function deleteVNet(
-  vnets: Array<string>
+  vnets: Array<string>,
+  options?: { apply?: boolean }
 ): Promise<ApiBulkDeleteResponse> {
-  return apiJson<ApiBulkDeleteResponse>("/api/v1/sdn/vnets", "delete VNets", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vnets }),
-  })
+  return apiJson<ApiBulkDeleteResponse>(
+    `/api/v1/sdn/vnets${applySearchParam(options)}`,
+    "delete VNets",
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vnets }),
+    }
+  )
 }

@@ -66,11 +66,13 @@ function applyItemUpdate(
 export function MutationProgressToast({
   toastId,
   title,
+  progressItems = [],
   items,
   runMutation,
 }: {
   toastId: string | number
   title: string
+  progressItems?: Array<MutationToastItem>
   items: Array<MutationToastItem>
   runMutation: (
     report: (update: MutationItemUpdate) => void
@@ -81,12 +83,12 @@ export function MutationProgressToast({
     itemErrors: Record<string, string>
   }>(() => ({
     itemStates: Object.fromEntries(
-      items.map((item) => [item.id, "processing"])
+      [...progressItems, ...items].map((item) => [item.id, "processing"])
     ),
     itemErrors: {},
   }))
   const { itemStates, itemErrors } = toastState
-  const initialItemsRef = useRef(items)
+  const initialItemsRef = useRef([...progressItems, ...items])
   const runMutationRef = useRef(runMutation)
   runMutationRef.current = runMutation
 
@@ -184,7 +186,7 @@ export function MutationProgressToast({
     }
   }
 
-  const attachments = items.map((item) => (
+  const renderAttachment = (item: MutationToastItem) => (
     <Attachment
       key={item.id}
       state={itemStates[item.id]}
@@ -229,7 +231,10 @@ export function MutationProgressToast({
         )}
       </AttachmentActions>
     </Attachment>
-  ))
+  )
+
+  const progressAttachments = progressItems.map(renderAttachment)
+  const attachments = items.map(renderAttachment)
 
   return (
     <div className="flex w-full flex-col gap-3 rounded-4xl bg-card px-6 py-4 shadow ring-1 ring-border">
@@ -247,6 +252,11 @@ export function MutationProgressToast({
           <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
       </div>
+      {progressAttachments.length > 0 && (
+        <AttachmentGroup className="-mx-6 flex flex-col gap-0 rounded-md py-0">
+          {progressAttachments}
+        </AttachmentGroup>
+      )}
       <AttachmentGroup className="-mx-6 flex max-h-100 scroll-fade flex-col gap-0 overflow-y-auto rounded-md py-0 firefox:scroll-fade-none">
         {attachments}
       </AttachmentGroup>

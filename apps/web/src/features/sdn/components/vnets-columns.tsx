@@ -1,4 +1,5 @@
 import { Button } from "@workspace/ui/components/button"
+import { Badge } from "@workspace/ui/components/badge"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   DropdownMenu,
@@ -9,12 +10,14 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Delete01Icon,
+  EthernetPortIcon,
   Globe02Icon,
   GroupIcon,
   MoreHorizontalIcon,
   NotebookIcon,
   PencilEdit01Icon,
   Tag02Icon,
+  Wifi02Icon,
 } from "@hugeicons/core-free-icons"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
@@ -26,6 +29,14 @@ type VNetColumnsOptions = {
   onDeleteClick: (vnet: ApiVNet) => void
 }
 
+function booleanBadge(value: boolean | undefined) {
+  return (
+    <Badge variant={value ? "default" : "destructive"}>
+      {value ? "Enabled" : "Disabled"}
+    </Badge>
+  )
+}
+
 export function getVNetColumns({
   canManage,
   onEditVnet,
@@ -35,16 +46,24 @@ export function getVNetColumns({
     {
       accessorKey: "vnet",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} icon={Globe02Icon} title="Name" />
+        <DataTableColumnHeader
+          column={column}
+          icon={Globe02Icon}
+          title="Name"
+        />
       ),
       cell: ({ row }) => (
-        <span className="text-wrap mx-3">{row.original.vnet}</span>
+        <span className="mx-3 text-wrap">{row.original.vnet}</span>
       ),
     },
     {
       accessorKey: "alias",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} icon={NotebookIcon} title="Alias" />
+        <DataTableColumnHeader
+          column={column}
+          icon={NotebookIcon}
+          title="Alias"
+        />
       ),
       cell: ({ row }) => (
         <span className="mx-3 text-wrap">{row.original.alias}</span>
@@ -55,17 +74,39 @@ export function getVNetColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} icon={GroupIcon} title="Zone" />
       ),
-      cell: ({ row }) => (
-        <span className="mx-3">{row.original.zone}</span>
-      ),
+      cell: ({ row }) => <span className="mx-3">{row.original.zone}</span>,
     },
     {
       accessorKey: "tag",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} icon={Tag02Icon} title="VLAN" />
+        <DataTableColumnHeader column={column} icon={Tag02Icon} title="Tag" />
+      ),
+      cell: ({ row }) => <span className="mx-3">{row.original.tag}</span>,
+    },
+    {
+      accessorKey: "isolate_ports",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          icon={EthernetPortIcon}
+          title="Isolated Ports"
+        />
       ),
       cell: ({ row }) => (
-        <span className="mx-3">{row.original.tag}</span>
+        <div className="mx-3">{booleanBadge(row.original.isolate_ports)}</div>
+      ),
+    },
+    {
+      accessorKey: "vlanaware",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          icon={Wifi02Icon}
+          title="VLAN Aware"
+        />
+      ),
+      cell: ({ row }) => (
+        <div className="mx-3">{booleanBadge(row.original.vlanaware)}</div>
       ),
     },
   ]

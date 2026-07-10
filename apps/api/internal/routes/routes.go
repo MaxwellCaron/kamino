@@ -134,8 +134,10 @@ func RegisterRoutes(
 	}
 
 	// SDN endpoints
+	protected.POST("/sdn/apply", sdn.ApplySDN)
 	protected.GET("/sdn/vnets", sdn.GetVNets)
 	protected.POST("/sdn/vnets", sdn.CreateVNet)
+	protected.POST("/sdn/vnets/bulk", sdn.CreateVNets)
 	protected.DELETE("/sdn/vnets", sdn.DeleteVNets)
 	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
 	protected.GET("/sdn/zones", sdn.GetSDNZones)

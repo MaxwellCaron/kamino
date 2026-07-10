@@ -26,7 +26,9 @@ export type MutationUnitItem = {
 
 export type MutationUnit = {
   items: Array<MutationUnitItem>
-  run: () => Promise<{ failed: Array<{ id: string; error: string }> } | void>
+  run: (
+    report: (update: MutationItemUpdate) => void
+  ) => Promise<{ failed: Array<{ id: string; error: string }> } | void>
 }
 
 export async function runMutationUnits(
@@ -40,7 +42,7 @@ export async function runMutationUnits(
 
   async function runUnit(unit: MutationUnit) {
     try {
-      const result = await unit.run()
+      const result = await unit.run(report)
       const errorsById = new Map(
         (result?.failed ?? []).map((entry) => [entry.id, entry.error])
       )
@@ -89,7 +91,7 @@ function resolveItemRetry(
   }
   if (unit.items.length === 1) {
     return async () => {
-      const result = await unit.run()
+      const result = await unit.run(() => {})
       const failure = result?.failed.find((entry) => entry.id === item.id)
       if (failure) {
         throw new Error(failure.error)
@@ -101,6 +103,7 @@ function resolveItemRetry(
 
 export function showUnitMutationToast(params: {
   title: string
+  progressItems?: Array<MutationToastItem>
   units: Array<MutationUnit>
   concurrency?: number
   onSettled?: (result: MutationResult) => void
@@ -117,6 +120,7 @@ export function showUnitMutationToast(params: {
 
   return showMutationToast({
     title: params.title,
+    progressItems: params.progressItems,
     items,
     runMutation: async (report) => {
       const result = await runMutationUnits(params.units, report, concurrency)
@@ -128,14 +132,18 @@ export function showUnitMutationToast(params: {
 
 function showMutationToast(params: {
   title: string
+  progressItems?: Array<MutationToastItem>
   items: Array<MutationToastItem>
-  runMutation: (report: (update: MutationItemUpdate) => void) => Promise<MutationResult>
+  runMutation: (
+    report: (update: MutationItemUpdate) => void
+  ) => Promise<MutationResult>
 }): string | number {
   return toast.custom(
     (id) => (
       <MutationProgressToast
         toastId={id}
         title={params.title}
+        progressItems={params.progressItems}
         items={params.items}
         runMutation={params.runMutation}
       />

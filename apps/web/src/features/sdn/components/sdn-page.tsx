@@ -6,6 +6,7 @@ import {
   Add01Icon,
   Delete01Icon,
   Globe02Icon,
+  Refresh03Icon,
 } from "@hugeicons/core-free-icons"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
@@ -20,6 +21,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
 
 import {
   ManagementPermissionKeys,
@@ -27,6 +29,7 @@ import {
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
 import {
+  applySDN,
   deleteVNet,
   sdnZonesQueryOptions,
   vnetsQueryOptions,
@@ -34,7 +37,10 @@ import {
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const sdnRouteApi = getRouteApi("/_dashboard/admin/sdn")
@@ -49,8 +55,36 @@ const VNetDialog = lazy(() =>
   }))
 )
 
+const SDN_APPLY_ITEM_ID = "sdn-apply"
+
 function getVNetLabel(vnet: ApiVNet) {
   return vnet.vnet
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Failed"
+}
+
+function getSDNApplyProgressItem() {
+  return {
+    id: SDN_APPLY_ITEM_ID,
+    name: "SDN Apply",
+    successDescription: "Applied",
+    retry: applySDN,
+  }
+}
+
+async function reportSDNApply(report: (update: MutationItemUpdate) => void) {
+  try {
+    await applySDN()
+    report({ id: SDN_APPLY_ITEM_ID, status: "done" })
+  } catch (error) {
+    report({
+      id: SDN_APPLY_ITEM_ID,
+      status: "error",
+      error: getErrorMessage(error),
+    })
+  }
 }
 
 export function SdnPage() {
@@ -74,12 +108,21 @@ export function SdnPage() {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const queryClient = useQueryClient()
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteVNet,
+  const applyMutation = useMutation({
+    mutationFn: applySDN,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
     },
   })
+
+  const showApplyToast = useCallback(() => {
+    showSingleMutationToast({
+      title: "Applying SDN",
+      name: "SDN Apply",
+      promise: () => applyMutation.mutateAsync(),
+      successDescription: "Applied",
+    })
+  }, [applyMutation])
 
   const showDeleteToast = useCallback(
     (targets: Array<ApiVNet>, onAllSucceeded?: () => void) => {
@@ -87,31 +130,57 @@ export function SdnPage() {
 
       showUnitMutationToast({
         title: "Deleting",
+        progressItems: [getSDNApplyProgressItem()],
         units: [
           {
-            // One batched request: the backend runs a single cluster-wide ApplySDN after the batch.
             items: targets.map((vnet) => ({
               id: vnet.vnet,
               name: vnet.vnet,
               successDescription: "Deleted",
               retry: async () => {
-                const result = await deleteMutation.mutateAsync([vnet.vnet])
-                const failure = result.failed.find((item) => item.id === vnet.vnet)
+                const result = await deleteVNet([vnet.vnet], { apply: false })
+                const failure = result.failed.find(
+                  (item) => item.id === vnet.vnet
+                )
                 if (failure) throw new Error(failure.error)
+                await applySDN()
               },
             })),
-            run: async () => {
-              const result = await deleteMutation.mutateAsync(targetIds)
+            run: async (report) => {
+              const result = await deleteVNet(targetIds, { apply: false })
+              const errorsById = new Map(
+                result.failed.map((failure) => [failure.id, failure.error])
+              )
+              for (const target of targets) {
+                const itemError = errorsById.get(target.vnet)
+                if (itemError) {
+                  report({ id: target.vnet, status: "error", error: itemError })
+                } else {
+                  report({ id: target.vnet, status: "done" })
+                }
+              }
+
+              if (result.deleted.length === 0) {
+                report({
+                  id: SDN_APPLY_ITEM_ID,
+                  status: "error",
+                  error: "Skipped because no VNets were deleted",
+                })
+                return { failed: result.failed }
+              }
+
+              await reportSDNApply(report)
               return { failed: result.failed }
             },
           },
         ],
         onSettled: (result) => {
+          queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
           if (result.failed.length === 0) onAllSucceeded?.()
         },
       })
     },
-    [deleteMutation]
+    [queryClient]
   )
 
   const columns = useMemo(
@@ -160,13 +229,35 @@ export function SdnPage() {
             <CardDescription>List of VNets in proxmox.</CardDescription>
             <CardAction>
               {canAdminister ? (
-                <Button
-                  onClick={() => setCreateOpen(true)}
-                  disabled={error !== null}
-                >
-                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-                  <span className="hidden lg:block">Create</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setConfirm({
+                        title: "Apply SDN",
+                        icon: Refresh03Icon,
+                        description:
+                          "Apply the current SDN configuration in Proxmox.",
+                        actionLabel: "Apply",
+                        onConfirm: showApplyToast,
+                      })
+                    }
+                    disabled={error !== null}
+                  >
+                    <HugeiconsIcon
+                      icon={Refresh03Icon}
+                      data-icon="inline-start"
+                    />
+                    <span className="hidden lg:block">Apply SDN</span>
+                  </Button>
+                  <Button
+                    onClick={() => setCreateOpen(true)}
+                    disabled={error !== null}
+                  >
+                    <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+                    <span className="hidden lg:block">Create</span>
+                  </Button>
+                </div>
               ) : null}
             </CardAction>
           </CardHeader>
