@@ -519,7 +519,7 @@ func main() {
 		}
 	}
 
-	adminGroup, err := resolveBootstrapAdminGroup(server.Config, server.ADClient)
+	adminGroup, err := resolveBootstrapAdminGroup(context.Background(), server.Config, server.ADClient)
 	if err != nil {
 		log.Fatalf("Admin group discovery failed: %v", err)
 	}

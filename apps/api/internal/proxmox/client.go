@@ -19,6 +19,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const proxmoxResponseHeaderTimeout = 30 * time.Second
+
 var (
 	ErrVMIdentityNotConfigured = errors.New("vm upstream uuid is not configured")
 	ErrVMIdentityInvalid       = errors.New("vm upstream uuid is invalid")
@@ -47,6 +49,7 @@ func NewClient(
 	baseURL, tokenID, secret string, insecure bool, nodes []string,
 ) *Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = proxmoxResponseHeaderTimeout
 	if insecure {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}

@@ -112,6 +112,7 @@ type bootstrapAdminGroup struct {
 }
 
 func resolveBootstrapAdminGroup(
+	ctx context.Context,
 	config *Config,
 	adClient *activedirectory.Client,
 ) (*bootstrapAdminGroup, error) {
@@ -125,7 +126,7 @@ func resolveBootstrapAdminGroup(
 		if adClient == nil {
 			return nil, fmt.Errorf("AD client is required to resolve PRINCIPAL_BOOTSTRAP_ADMIN_GROUP")
 		}
-		group, err := adClient.FetchGroupByDN(bootstrapValue)
+		group, err := adClient.FetchGroupByDN(ctx, bootstrapValue)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"fetch admin group from PRINCIPAL_BOOTSTRAP_ADMIN_GROUP %q: %w",

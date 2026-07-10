@@ -1,9 +1,11 @@
 package activedirectory
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -11,6 +13,13 @@ import (
 
 	"github.com/go-ldap/ldap/v3"
 )
+
+const (
+	adDialTimeout      = 10 * time.Second
+	adOperationTimeout = 30 * time.Second
+)
+
+var ldapOperationTimeout = adOperationTimeout
 
 // User represents an Active Directory user account.
 type User struct {
@@ -56,26 +65,18 @@ func NewClient(url, bindDN, bindPass, baseDN, userOU, groupOU string, insecure b
 }
 
 // connect dials the LDAPS server and binds with the configured credentials.
-func (c *Client) connect() (*ldap.Conn, error) {
-	u, err := url.Parse(c.url)
-	if err != nil {
-		return nil, fmt.Errorf("parse ldap url: %w", err)
+func (c *Client) connect(ctx context.Context) (*ldap.Conn, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
-	host := u.Host
-	if !strings.Contains(host, ":") {
-		host += ":636"
-	}
-
-	tlsConn, err := tls.Dial("tcp", host, &tls.Config{
-		InsecureSkipVerify: c.insecure,
-		ServerName:         u.Hostname(),
-	})
+	tlsConn, err := c.dialTLS(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("ldaps dial: %w", err)
+		return nil, err
 	}
 
 	conn := ldap.NewConn(tlsConn, true)
+	configureLDAPConn(conn)
 	conn.Start()
 
 	if err := conn.Bind(c.bindDN, c.bindPass); err != nil {
@@ -84,6 +85,51 @@ func (c *Client) connect() (*ldap.Conn, error) {
 	}
 
 	return conn, nil
+}
+
+func (c *Client) ldapHost() (string, error) {
+	u, err := url.Parse(c.url)
+	if err != nil {
+		return "", fmt.Errorf("parse ldap url: %w", err)
+	}
+
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		host += ":636"
+	}
+
+	return host, nil
+}
+
+func (c *Client) dialTLS(ctx context.Context) (net.Conn, error) {
+	host, err := c.ldapHost()
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(c.url)
+	if err != nil {
+		return nil, fmt.Errorf("parse ldap url: %w", err)
+	}
+
+	dialer := &tls.Dialer{
+		NetDialer: &net.Dialer{Timeout: adDialTimeout},
+		Config: &tls.Config{
+			InsecureSkipVerify: c.insecure,
+			ServerName:         u.Hostname(),
+		},
+	}
+
+	conn, err := dialer.DialContext(ctx, "tcp", host)
+	if err != nil {
+		return nil, fmt.Errorf("ldaps dial: %w", err)
+	}
+
+	return conn, nil
+}
+
+func configureLDAPConn(conn *ldap.Conn) {
+	conn.SetTimeout(ldapOperationTimeout)
 }
 
 // AuthResult holds the identity of a successfully authenticated AD user.
@@ -147,25 +193,17 @@ func groupFromEntry(entry *ldap.Entry) (Group, error) {
 	}, nil
 }
 
-func (c *Client) bindUser(userDN, password string) error {
-	u, err := url.Parse(c.url)
-	if err != nil {
-		return fmt.Errorf("parse ldap url: %w", err)
+func (c *Client) bindUser(ctx context.Context, userDN, password string) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
-	host := u.Host
-	if !strings.Contains(host, ":") {
-		host += ":636"
-	}
-
-	tlsConn, err := tls.Dial("tcp", host, &tls.Config{
-		InsecureSkipVerify: c.insecure,
-		ServerName:         u.Hostname(),
-	})
+	tlsConn, err := c.dialTLS(ctx)
 	if err != nil {
-		return fmt.Errorf("ldaps dial: %w", err)
+		return err
 	}
 	userConn := ldap.NewConn(tlsConn, true)
+	configureLDAPConn(userConn)
 	userConn.Start()
 	defer userConn.Close()
 
@@ -176,9 +214,13 @@ func (c *Client) bindUser(userDN, password string) error {
 	return nil
 }
 
-func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
+func (c *Client) Authenticate(ctx context.Context, username, password string) (*AuthResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	// First, connect with service account to look up the user's DN and SID.
-	conn, err := c.connect()
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ad connect: %w", err)
 	}
@@ -207,15 +249,15 @@ func (c *Client) Authenticate(username, password string) (*AuthResult, error) {
 	}
 
 	// Now attempt a fresh bind as the user to verify their password.
-	if err := c.bindUser(user.DN, password); err != nil {
+	if err := c.bindUser(ctx, user.DN, password); err != nil {
 		return nil, err
 	}
 
 	return &AuthResult{DN: user.DN, SID: user.SID, Username: user.Username}, nil
 }
 
-func (c *Client) AuthenticateDN(userDN, password string) error {
-	return c.bindUser(userDN, password)
+func (c *Client) AuthenticateDN(ctx context.Context, userDN, password string) error {
+	return c.bindUser(ctx, userDN, password)
 }
 
 func allUsersFilter() string {
@@ -223,8 +265,8 @@ func allUsersFilter() string {
 }
 
 // FetchUsers returns all user accounts under the configured base DN.
-func (c *Client) FetchUsers() ([]User, error) {
-	conn, err := c.connect()
+func (c *Client) FetchUsers(ctx context.Context) ([]User, error) {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -257,8 +299,8 @@ func (c *Client) FetchUsers() ([]User, error) {
 }
 
 // FetchUserByDN returns a single user for an exact distinguished name.
-func (c *Client) FetchUserByDN(userDN string) (*User, error) {
-	conn, err := c.connect()
+func (c *Client) FetchUserByDN(ctx context.Context, userDN string) (*User, error) {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -297,13 +339,13 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 }
 
 // FetchGroups returns all groups under the configured base DN.
-func (c *Client) FetchGroups() ([]Group, error) {
-	return c.fetchGroups(c.baseDN)
+func (c *Client) FetchGroups(ctx context.Context) ([]Group, error) {
+	return c.fetchGroups(ctx, c.baseDN)
 }
 
 // FetchGroupByDN returns a single group for an exact distinguished name.
-func (c *Client) FetchGroupByDN(groupDN string) (*Group, error) {
-	conn, err := c.connect()
+func (c *Client) FetchGroupByDN(ctx context.Context, groupDN string) (*Group, error) {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -342,12 +384,12 @@ func (c *Client) fetchGroupByDN(conn *ldap.Conn, groupDN string) (*Group, error)
 }
 
 // FetchGroupsInDN returns groups under a specific DN subtree.
-func (c *Client) FetchGroupsInDN(baseDN string) ([]Group, error) {
-	return c.fetchGroups(baseDN)
+func (c *Client) FetchGroupsInDN(ctx context.Context, baseDN string) ([]Group, error) {
+	return c.fetchGroups(ctx, baseDN)
 }
 
-func (c *Client) fetchGroups(baseDN string) ([]Group, error) {
-	conn, err := c.connect()
+func (c *Client) fetchGroups(ctx context.Context, baseDN string) ([]Group, error) {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,8 +468,8 @@ func encodePassword(password string) []byte {
 }
 
 // CreateUser creates a new user account in Active Directory.
-func (c *Client) CreateUser(username, password, description string) (User, error) {
-	conn, err := c.connect()
+func (c *Client) CreateUser(ctx context.Context, username, password, description string) (User, error) {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return User{}, err
 	}
@@ -462,8 +504,8 @@ func (c *Client) CreateUser(username, password, description string) (User, error
 }
 
 // UpdateUser modifies the logon name and profile metadata of an existing user.
-func (c *Client) UpdateUser(dn, username, fullName, description string) error {
-	conn, err := c.connect()
+func (c *Client) UpdateUser(ctx context.Context, dn, username, fullName, description string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -490,8 +532,8 @@ func (c *Client) UpdateUser(dn, username, fullName, description string) error {
 }
 
 // SetPassword sets the password for an existing user account.
-func (c *Client) SetPassword(dn, password string) error {
-	conn, err := c.connect()
+func (c *Client) SetPassword(ctx context.Context, dn, password string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -507,8 +549,8 @@ func (c *Client) SetPassword(dn, password string) error {
 }
 
 // EnableUser enables a user account by setting userAccountControl to NORMAL_ACCOUNT.
-func (c *Client) EnableUser(dn string) error {
-	conn, err := c.connect()
+func (c *Client) EnableUser(ctx context.Context, dn string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -524,8 +566,8 @@ func (c *Client) EnableUser(dn string) error {
 }
 
 // DisableUser disables a user account by setting the ACCOUNTDISABLE flag.
-func (c *Client) DisableUser(dn string) error {
-	conn, err := c.connect()
+func (c *Client) DisableUser(ctx context.Context, dn string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -542,8 +584,8 @@ func (c *Client) DisableUser(dn string) error {
 }
 
 // DeleteUser deletes a user account from Active Directory.
-func (c *Client) DeleteUser(dn string) error {
-	conn, err := c.connect()
+func (c *Client) DeleteUser(ctx context.Context, dn string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -556,8 +598,8 @@ func (c *Client) DeleteUser(dn string) error {
 }
 
 // CreateGroup creates a new security group in Active Directory.
-func (c *Client) CreateGroup(name string) (Group, error) {
-	conn, err := c.connect()
+func (c *Client) CreateGroup(ctx context.Context, name string) (Group, error) {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return Group{}, err
 	}
@@ -588,8 +630,8 @@ func (c *Client) CreateGroup(name string) (Group, error) {
 }
 
 // UpdateGroup modifies the display name of an existing group.
-func (c *Client) UpdateGroup(dn, name string) error {
-	conn, err := c.connect()
+func (c *Client) UpdateGroup(ctx context.Context, dn, name string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -605,8 +647,8 @@ func (c *Client) UpdateGroup(dn, name string) error {
 }
 
 // DeleteGroup deletes a group from Active Directory.
-func (c *Client) DeleteGroup(dn string) error {
-	conn, err := c.connect()
+func (c *Client) DeleteGroup(ctx context.Context, dn string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -619,8 +661,8 @@ func (c *Client) DeleteGroup(dn string) error {
 }
 
 // AddGroupMember adds a member to an AD group.
-func (c *Client) AddGroupMember(groupDN, memberDN string) error {
-	conn, err := c.connect()
+func (c *Client) AddGroupMember(ctx context.Context, groupDN, memberDN string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -636,8 +678,8 @@ func (c *Client) AddGroupMember(groupDN, memberDN string) error {
 }
 
 // RemoveGroupMember removes a member from an AD group.
-func (c *Client) RemoveGroupMember(groupDN, memberDN string) error {
-	conn, err := c.connect()
+func (c *Client) RemoveGroupMember(ctx context.Context, groupDN, memberDN string) error {
+	conn, err := c.connect(ctx)
 	if err != nil {
 		return err
 	}

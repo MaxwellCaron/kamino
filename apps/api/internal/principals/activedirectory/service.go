@@ -45,8 +45,7 @@ func (s *Service) Authenticate(
 	ctx context.Context,
 	username, password string,
 ) (principals.AuthenticatedPrincipal, error) {
-	_ = ctx
-	result, err := s.client.Authenticate(username, password)
+	result, err := s.client.Authenticate(ctx, username, password)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "invalid credentials") {
 			return principals.AuthenticatedPrincipal{}, principals.ErrInvalidCredentials
@@ -71,9 +70,9 @@ func (s *Service) getProviderID(ctx context.Context) (uuid.UUID, error) {
 	return id, nil
 }
 
-func (s *Service) lookupDN(sid string, objectType string) (string, error) {
+func (s *Service) lookupDN(ctx context.Context, sid string, objectType string) (string, error) {
 	if objectType == "user" {
-		users, err := s.client.FetchUsers()
+		users, err := s.client.FetchUsers(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -83,7 +82,7 @@ func (s *Service) lookupDN(sid string, objectType string) (string, error) {
 			}
 		}
 	} else {
-		groups, err := s.client.FetchGroups()
+		groups, err := s.client.FetchGroups(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -157,7 +156,7 @@ func (s *Service) CreateUser(ctx context.Context, username, password, descriptio
 		return uuid.Nil, fmt.Errorf("password is required")
 	}
 
-	createdUser, err := s.client.CreateUser(username, password, description)
+	createdUser, err := s.client.CreateUser(ctx, username, password, description)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -184,12 +183,12 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, username, fullNa
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "user")
 	if err != nil {
 		return err
 	}
 
-	if err := s.client.UpdateUser(dn, username, normalizedFullName, description); err != nil {
+	if err := s.client.UpdateUser(ctx, dn, username, normalizedFullName, description); err != nil {
 		return err
 	}
 
@@ -233,12 +232,12 @@ func (s *Service) SetPassword(ctx context.Context, id uuid.UUID, password string
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "user")
 	if err != nil {
 		return err
 	}
 
-	return s.client.SetPassword(dn, password)
+	return s.client.SetPassword(ctx, dn, password)
 }
 
 func (s *Service) ChangePassword(
@@ -258,16 +257,16 @@ func (s *Service) ChangePassword(
 		return principals.ErrUnsupportedPrincipal
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "user")
 	if err != nil {
 		return principals.ErrPrincipalNotFound
 	}
 
-	if err := s.client.AuthenticateDN(dn, oldPassword); err != nil {
+	if err := s.client.AuthenticateDN(ctx, dn, oldPassword); err != nil {
 		return principals.ErrInvalidCredentials
 	}
 
-	return s.client.SetPassword(dn, newPassword)
+	return s.client.SetPassword(ctx, dn, newPassword)
 }
 
 func (s *Service) EnableUser(ctx context.Context, id uuid.UUID) error {
@@ -277,12 +276,12 @@ func (s *Service) EnableUser(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "user")
 	if err != nil {
 		return err
 	}
 
-	return s.client.EnableUser(dn)
+	return s.client.EnableUser(ctx, dn)
 }
 
 func (s *Service) DisableUser(ctx context.Context, id uuid.UUID) error {
@@ -292,12 +291,12 @@ func (s *Service) DisableUser(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "user")
 	if err != nil {
 		return err
 	}
 
-	return s.client.DisableUser(dn)
+	return s.client.DisableUser(ctx, dn)
 }
 
 func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
@@ -313,7 +312,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "user")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "user")
 	if err != nil {
 		if errors.Is(err, principals.ErrPrincipalNotFound) {
 			return q.DeletePrincipal(ctx, id)
@@ -321,7 +320,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	if err := s.client.DeleteUser(dn); err != nil {
+	if err := s.client.DeleteUser(ctx, dn); err != nil {
 		return err
 	}
 
@@ -341,7 +340,7 @@ func (s *Service) CreateGroup(ctx context.Context, name, description string) (uu
 		return uuid.Nil, err
 	}
 
-	createdGroup, err := s.client.CreateGroup(name)
+	createdGroup, err := s.client.CreateGroup(ctx, name)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -363,12 +362,12 @@ func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, name, descripti
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "group")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "group")
 	if err != nil {
 		return err
 	}
 
-	if err := s.client.UpdateGroup(dn, name); err != nil {
+	if err := s.client.UpdateGroup(ctx, dn, name); err != nil {
 		return err
 	}
 
@@ -406,7 +405,7 @@ func (s *Service) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	dn, err := s.lookupDN(p.ExternalID, "group")
+	dn, err := s.lookupDN(ctx, p.ExternalID, "group")
 	if err != nil {
 		if errors.Is(err, principals.ErrPrincipalNotFound) {
 			return q.DeletePrincipal(ctx, id)
@@ -414,7 +413,7 @@ func (s *Service) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	if err := s.client.DeleteGroup(dn); err != nil {
+	if err := s.client.DeleteGroup(ctx, dn); err != nil {
 		return err
 	}
 
@@ -452,7 +451,7 @@ func (s *Service) updateGroupMembers(
 		return nil, err
 	}
 
-	groupDN, err := s.lookupDN(group.ExternalID, "group")
+	groupDN, err := s.lookupDN(ctx, group.ExternalID, "group")
 	if err != nil {
 		return nil, err
 	}
@@ -484,16 +483,16 @@ func (s *Service) updateGroupMembers(
 			continue
 		}
 
-		memberDN, err := s.lookupDN(member.ExternalID, string(member.PrincipalType))
+		memberDN, err := s.lookupDN(ctx, member.ExternalID, string(member.PrincipalType))
 		if err != nil {
 			failed[memberID] = err
 			continue
 		}
 
 		if add {
-			err = s.client.AddGroupMember(groupDN, memberDN)
+			err = s.client.AddGroupMember(ctx, groupDN, memberDN)
 		} else {
-			err = s.client.RemoveGroupMember(groupDN, memberDN)
+			err = s.client.RemoveGroupMember(ctx, groupDN, memberDN)
 		}
 		if err != nil {
 			failed[memberID] = err

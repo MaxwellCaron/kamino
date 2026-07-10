@@ -35,12 +35,12 @@ func principalCreatedAtParam(createdAt time.Time) pgtype.Timestamptz {
 func (s *Sync) Run(ctx context.Context) error {
 	log.Println("Starting Active Directory sync")
 
-	groups, err := s.client.FetchGroups()
+	groups, err := s.client.FetchGroups(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching AD groups: %w", err)
 	}
 
-	users, err := s.client.FetchUsers()
+	users, err := s.client.FetchUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching AD users: %w", err)
 	}
