@@ -9,16 +9,21 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  ClockIcon,
   Delete01Icon,
   MoreHorizontalIcon,
+  NotebookIcon,
   PencilEdit01Icon,
+  UserAccountIcon,
   UserGroupIcon,
+  UserIcon,
 } from "@hugeicons/core-free-icons"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { getPrincipalBaseName } from "@/components/principals/principal-label"
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 
 type UserColumnsOptions = {
   canManage: boolean
@@ -38,49 +43,60 @@ export function getUserColumns({
   const columns: Array<ColumnDef<ApiPrincipal>> = [
     {
       accessorKey: "name",
-      header: "Username",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={UserIcon} title="Username" />
+      ),
       cell: ({ row: { original: user } }) => (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mx-3">
           <FacehashIcon name={getPrincipalBaseName(user)} size={32} />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="truncate font-medium">
-              {getPrincipalBaseName(user)}
-            </div>
+            {getPrincipalBaseName(user)}
           </div>
         </div>
       ),
     },
     {
       accessorKey: "full_name",
-      header: "Full Name",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={UserAccountIcon} title="Full Name" />
+      ),
       cell: ({ row: { original: user } }) => (
-        <p className="text-wrap text-foreground">
-          {user.full_name?.trim() ? user.full_name : (
-            <span className="text-muted-foreground">—</span>
+        <p className="mx-3 text-wrap">
+          {user.full_name?.trim() ? (
+            user.full_name
+          ) : (
+            <span >—</span>
           )}
         </p>
       ),
     },
     {
       accessorKey: "description",
-      header: () => <span className="pl-12">Description</span>,
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          icon={NotebookIcon}
+          title="Description"
+        />
+      ),
       cell: ({ row: { original: user } }) => (
-        <p className="pr-8 pl-12 text-wrap text-muted-foreground">
+        <p className="mx-3 text-wrap">
           {user.description ?? "—"}
         </p>
       ),
     },
     {
       accessorKey: "created_at",
-      header: "Created",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={ClockIcon} title="Created" />
+      ),
       cell: ({ row: { original: group } }) =>
         group.created_at ? (
           <RelativeTimeCard
             date={group.created_at}
-            timezones={["UTC"]}
             delay={50}
             closeDelay={150}
-            variant="muted"
+            className="mx-3"
           />
         ) : (
           "—"
@@ -95,6 +111,7 @@ export function getUserColumns({
   return [
     {
       id: "select",
+      enableSorting: false,
       meta: { className: "w-0" },
       header: ({ table }) => (
         <div className="pl-4">
@@ -121,6 +138,7 @@ export function getUserColumns({
     ...columns,
     {
       id: "actions",
+      enableSorting: false,
       meta: { className: "w-0" },
       header: () => null,
       cell: ({ row: { original: user } }) => (

@@ -10,3 +10,17 @@ export type DataTableSelectionActionsContext<TData> = {
   clearSelection: () => void
   selectedRows: Array<TData>
 }
+
+export type DataTableFeatures = {
+  loading?: boolean
+  pagination?: boolean
+  sorting?: boolean
+  selectionSummary?: boolean
+}
+
+export const defaultDataTableFeatures: Required<DataTableFeatures> = {
+  loading: false,
+  pagination: true,
+  sorting: false,
+  selectionSummary: true,
+}

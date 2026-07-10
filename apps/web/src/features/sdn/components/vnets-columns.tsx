@@ -9,11 +9,16 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Delete01Icon,
+  Globe02Icon,
+  GroupIcon,
   MoreHorizontalIcon,
+  NotebookIcon,
   PencilEdit01Icon,
+  Tag02Icon,
 } from "@hugeicons/core-free-icons"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 
 type VNetColumnsOptions = {
   canManage: boolean
@@ -29,22 +34,38 @@ export function getVNetColumns({
   const columns: Array<ColumnDef<ApiVNet>> = [
     {
       accessorKey: "vnet",
-      header: "Name",
-      cell: ({ row }) => <span className="text-wrap">{row.original.vnet}</span>,
-    },
-    {
-      accessorKey: "zone",
-      header: "Zone",
-    },
-    {
-      accessorKey: "tag",
-      header: "VLAN Tag",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={Globe02Icon} title="Name" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-wrap mx-3">{row.original.vnet}</span>
+      ),
     },
     {
       accessorKey: "alias",
-      header: "Alias",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={NotebookIcon} title="Alias" />
+      ),
       cell: ({ row }) => (
-        <span className="text-wrap">{row.original.alias}</span>
+        <span className="mx-3 text-wrap">{row.original.alias}</span>
+      ),
+    },
+    {
+      accessorKey: "zone",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={GroupIcon} title="Zone" />
+      ),
+      cell: ({ row }) => (
+        <span className="mx-3">{row.original.zone}</span>
+      ),
+    },
+    {
+      accessorKey: "tag",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={Tag02Icon} title="VLAN" />
+      ),
+      cell: ({ row }) => (
+        <span className="mx-3">{row.original.tag}</span>
       ),
     },
   ]
@@ -56,6 +77,7 @@ export function getVNetColumns({
   return [
     {
       id: "select",
+      enableSorting: false,
       meta: { className: "w-0" },
       header: ({ table }) => (
         <div className="pl-4">
@@ -82,6 +104,7 @@ export function getVNetColumns({
     ...columns,
     {
       id: "actions",
+      enableSorting: false,
       meta: { className: "w-0" },
       header: () => null,
       cell: ({ row: { original: vnet } }) => (

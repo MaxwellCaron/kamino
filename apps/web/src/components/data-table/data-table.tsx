@@ -36,19 +36,25 @@ import {
   getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
+  getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
 import { Fragment, useRef, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableStateRow } from "./data-table-state-row"
+import { defaultDataTableFeatures } from "./data-table-types"
 import type { ComponentType, ReactNode } from "react"
-import type { DataTableSelectionActionsContext } from "./data-table-types"
+import type {
+  DataTableFeatures,
+  DataTableSelectionActionsContext,
+} from "./data-table-types"
 import type {
   ColumnDef,
   ExpandedState,
   OnChangeFn,
   PaginationState,
   RowSelectionState,
+  SortingState,
   TableOptions,
 } from "@tanstack/react-table"
 
@@ -75,12 +81,11 @@ export type DataTableServerPagination = {
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
-  isLoading?: boolean
   error: Error | null
+  features?: DataTableFeatures
   getRowId?: TableOptions<TData>["getRowId"]
   initialPageSize?: number
-  enablePagination?: boolean
-  showSelectionSummary?: boolean
+  initialSorting?: SortingState
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
@@ -92,20 +97,27 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
-  isLoading = false,
   error,
+  features: featuresInput,
   getRowId,
   initialPageSize = 25,
-  enablePagination = true,
-  showSelectionSummary = true,
+  initialSorting = [],
   selectionActions,
   expandedRowComponent: ExpandedRowComponent,
   getRowCanExpand,
   serverPagination,
 }: DataTableProps<TData, TValue>) {
+  const features = { ...defaultDataTableFeatures, ...featuresInput }
+  const {
+    loading: isLoading,
+    pagination: enablePagination,
+    sorting: enableSorting,
+    selectionSummary: showSelectionSummary,
+  } = features
   const isServerMode = serverPagination?.mode === "server"
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const hasBeenLoading = useRef(isLoading)
   if (isLoading) hasBeenLoading.current = true
@@ -128,6 +140,7 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel:
       enablePagination && !isServerMode ? getPaginationRowModel() : undefined,
+    getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getFilteredRowModel: isServerMode ? undefined : getFilteredRowModel(),
     manualPagination: isServerMode,
     rowCount: isServerMode ? serverPagination.rowCount : undefined,
@@ -136,6 +149,7 @@ export function DataTable<TData, TValue>({
       : {}),
     onGlobalFilterChange: isServerMode ? undefined : setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
     onExpandedChange: setExpanded,
     globalFilterFn: isServerMode ? undefined : "includesString",
     state: {
@@ -143,6 +157,7 @@ export function DataTable<TData, TValue>({
         ? { pagination: serverPagination.pagination }
         : { globalFilter }),
       rowSelection,
+      sorting,
       expanded,
     },
     initialState:
@@ -231,6 +246,13 @@ export function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
+                      aria-sort={
+                        header.column.getIsSorted() === "asc"
+                          ? "ascending"
+                          : header.column.getIsSorted() === "desc"
+                            ? "descending"
+                            : undefined
+                      }
                       className={header.column.columnDef.meta?.className}
                     >
                       {header.isPlaceholder

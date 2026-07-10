@@ -174,7 +174,8 @@ export function SdnPage() {
             <DataTable
               columns={columns}
               data={vnets || []}
-              isLoading={isLoading}
+              features={{ loading: isLoading, sorting: true }}
+              initialSorting={[{ id: "tag", desc: false }]}
               error={error}
               getRowId={(vnet) => vnet.vnet}
               selectionActions={

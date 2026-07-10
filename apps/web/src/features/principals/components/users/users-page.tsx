@@ -237,7 +237,8 @@ export function UsersPage() {
             <DataTable
               columns={columns}
               data={users || []}
-              isLoading={isLoading}
+              features={{ loading: isLoading, sorting: true }}
+              initialSorting={[{ id: "created_at", desc: true }]}
               error={error}
               getRowId={(tableUser: ApiPrincipal) => tableUser.id}
               selectionActions={

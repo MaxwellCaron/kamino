@@ -9,15 +9,18 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  ClockIcon,
   Delete01Icon,
   LockPasswordIcon,
   MoreHorizontalIcon,
+  NotebookIcon,
   PencilEdit01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 
 type GroupColumnsOptions = {
   canManageGroups: boolean
@@ -41,28 +44,42 @@ export function getGroupColumns({
   const columns: Array<ColumnDef<ApiPrincipal>> = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={UserGroupIcon} title="Name" />
+      ),
+      cell: ({ row: { original: group } }) => (
+        <p className="mx-3">
+          {group.name}
+        </p>
+      ),
     },
     {
       accessorKey: "description",
-      header: () => <span className="pl-12">Description</span>,
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          icon={NotebookIcon}
+          title="Description"
+        />
+      ),
       cell: ({ row: { original: group } }) => (
-        <p className="pr-8 pl-12 text-wrap text-muted-foreground">
+        <p className="mx-3 text-wrap">
           {group.description || "—"}
         </p>
       ),
     },
     {
       accessorKey: "created_at",
-      header: "Created",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} icon={ClockIcon} title="Created" />
+      ),
       cell: ({ row: { original: group } }) =>
         group.created_at ? (
           <RelativeTimeCard
             date={group.created_at}
-            timezones={["UTC"]}
             delay={50}
             closeDelay={150}
-            variant="muted"
+            className="mx-3"
           />
         ) : (
           "—"
@@ -79,6 +96,7 @@ export function getGroupColumns({
   if (canManageGroups) {
     managedColumns.unshift({
       id: "select",
+      enableSorting: false,
       meta: { className: "w-0" },
       header: ({ table }) => (
         <div className="pl-4">
@@ -106,6 +124,7 @@ export function getGroupColumns({
 
   managedColumns.push({
     id: "actions",
+    enableSorting: false,
     meta: { className: "w-0" },
     header: () => null,
     cell: ({ row: { original: group } }) => (

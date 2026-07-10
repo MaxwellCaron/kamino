@@ -117,7 +117,7 @@ export function RequestsPageQueueCard({
         <DataTable
           columns={columns}
           data={activeRequests}
-          isLoading={isActiveLoading}
+          features={{ loading: isActiveLoading }}
           error={activeError}
           getRowId={(request: ApiRequestSummary) => request.id}
           serverPagination={serverPagination}

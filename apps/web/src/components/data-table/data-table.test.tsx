@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, screen } from "@testing-library/react"
+import { IdentificationIcon } from "@hugeicons/core-free-icons"
 import { DataTable } from "./data-table"
+import { DataTableColumnHeader } from "./data-table-column-header"
 import type { ColumnDef } from "@tanstack/react-table"
 import { renderWithQueryClient } from "@/test/test-utils"
 
@@ -9,6 +11,15 @@ vi.mock("@/components/loading-transition", () => ({
 }))
 
 type Row = { id: string; name: string }
+
+const sortableColumns: Array<ColumnDef<Row>> = [
+  {
+    accessorKey: "name",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} icon={IdentificationIcon} title="Name" />
+    ),
+  },
+]
 
 const columns: Array<ColumnDef<Row>> = [
   {
@@ -25,6 +36,33 @@ function makeRows(count: number): Array<Row> {
 }
 
 describe("DataTable client mode", () => {
+  it("sorts rows through a sortable column header", () => {
+    renderWithQueryClient(
+      <DataTable
+        columns={sortableColumns}
+        data={[
+          { id: "row-b", name: "Beta" },
+          { id: "row-a", name: "Alpha" },
+        ]}
+        features={{ sorting: true }}
+        initialSorting={[{ id: "name", desc: true }]}
+        error={null}
+      />
+    )
+
+    const rows = screen.getAllByRole("row")
+    expect(rows[1]).toHaveTextContent("Beta")
+    expect(rows[2]).toHaveTextContent("Alpha")
+
+    const sortButton = screen.getByRole("button", { name: "Sort by Name" })
+    fireEvent.click(sortButton)
+    fireEvent.click(sortButton)
+
+    const sortedRows = screen.getAllByRole("row")
+    expect(sortedRows[1]).toHaveTextContent("Alpha")
+    expect(sortedRows[2]).toHaveTextContent("Beta")
+  })
+
   it("paginates local data with initialPageSize=25 by default", () => {
     renderWithQueryClient(
       <DataTable columns={columns} data={makeRows(60)} error={null} />

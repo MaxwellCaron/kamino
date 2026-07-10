@@ -39,11 +39,10 @@ export function PublishedPodsCatalogCard({
             expandedRowComponent={(props) => (
               <PublishedPodExpandedRow {...props} />
             )}
+            features={{ loading: isLoading, selectionSummary: false }}
             getRowCanExpand={() => true}
             getRowId={(pod) => pod.id}
             initialPageSize={10}
-            isLoading={isLoading}
-            showSelectionSummary={false}
           />
         ) : (
           <PublishedPodsEmptyState />

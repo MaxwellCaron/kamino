@@ -57,7 +57,7 @@ export function AuditPage() {
             <DataTable
               columns={columns}
               data={data?.items ?? []}
-              isLoading={isLoading}
+              features={{ loading: isLoading }}
               error={error}
               serverPagination={{
                 mode: "server",

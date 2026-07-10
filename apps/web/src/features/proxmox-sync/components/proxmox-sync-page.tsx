@@ -218,7 +218,7 @@ export function ProxmoxSyncPage() {
               <DataTable
                 columns={columns}
                 data={rows}
-                isLoading={isLoading}
+                features={{ loading: isLoading }}
                 error={error}
                 getRowId={(c) => c.id}
                 selectionActions={({ selectedRows, clearSelection }) => {
