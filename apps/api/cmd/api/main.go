@@ -705,6 +705,13 @@ func main() {
 		log.Printf("Swept %d stale pod clone claim(s)", swept)
 	}
 
+	if swept, err := vmActionClaims.SweepStale(context.Background(), vmactions.VMActionClaimStaleAge); err != nil {
+		log.Printf("Stale VM action claim sweep failed: %v", err)
+	} else if swept > 0 {
+		log.Printf("Swept %d stale VM action claim(s)", swept)
+	}
+	go vmActionClaims.StartRecovery(context.Background())
+
 	eventsHandler := &handlers.EventsHandler{
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,
