@@ -198,6 +198,33 @@ func (m *SessionManager) RevokeSession(ctx context.Context, rawToken string) err
 	return nil
 }
 
+func (m *SessionManager) ValidateAccessSession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	principalID uuid.UUID,
+) error {
+	q := database.New(m.store)
+	active, err := q.IsAuthSessionActive(ctx, database.IsAuthSessionActiveParams{
+		ID:          sessionID,
+		PrincipalID: principalID,
+	})
+	if err != nil {
+		return fmt.Errorf("validate auth session: %w", err)
+	}
+	if !active {
+		return ErrInvalidSession
+	}
+	return nil
+}
+
+func (m *SessionManager) RevokePrincipalSessions(ctx context.Context, principalID uuid.UUID) error {
+	q := database.New(m.store)
+	if _, err := q.RevokeAuthSessionsForPrincipal(ctx, principalID); err != nil {
+		return fmt.Errorf("revoke auth sessions for principal: %w", err)
+	}
+	return nil
+}
+
 func generateOpaqueToken() (rawToken string, tokenHash string, err error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {

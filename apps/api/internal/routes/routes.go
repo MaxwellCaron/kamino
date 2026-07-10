@@ -13,6 +13,7 @@ func RegisterRoutes(
 	r *gin.Engine,
 	authHandler *handlers.AuthHandler,
 	authService *auth.Service,
+	sessionManager *auth.SessionManager,
 	inventory *handlers.InventoryHandler,
 	vnc *handlers.VNCHandler,
 	vm *handlers.VMHandler,
@@ -45,7 +46,7 @@ func RegisterRoutes(
 	// Apply auth middleware to all remaining routes when auth is configured
 	if authService != nil {
 		protected = v1.Group("")
-		protected.Use(middleware.RequireCSRFHeader(), middleware.Auth(authService))
+		protected.Use(middleware.RequireCSRFHeader(), middleware.Auth(authService, sessionManager))
 	}
 
 	// Authenticated: current user info

@@ -66,16 +66,16 @@ func (f *fakeSessionStore) getByID(id uuid.UUID) (fakeSessionRow, bool) {
 	return *row, true
 }
 
-func (f *fakeSessionStore) Exec(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, errors.New("fakeSessionStore: Exec not supported outside a transaction")
+func (f *fakeSessionStore) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return f.execQuery(sql, args...)
 }
 
 func (f *fakeSessionStore) Query(_ context.Context, _ string, _ ...any) (pgx.Rows, error) {
 	return nil, errors.New("fakeSessionStore: Query not supported")
 }
 
-func (f *fakeSessionStore) QueryRow(_ context.Context, _ string, _ ...any) pgx.Row {
-	return fakeSessionRowResult{err: errors.New("fakeSessionStore: QueryRow not supported outside a transaction")}
+func (f *fakeSessionStore) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+	return f.queryRow(sql, args...)
 }
 
 func (f *fakeSessionStore) BeginTx(_ context.Context, _ pgx.TxOptions) (pgx.Tx, error) {
@@ -131,7 +131,18 @@ func (tx *fakeSessionTx) Conn() *pgx.Conn {
 }
 
 func (tx *fakeSessionTx) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	store := tx.store
+	return tx.store.execQuery(sql, args...)
+}
+
+func (tx *fakeSessionTx) Query(_ context.Context, sql string, _ ...any) (pgx.Rows, error) {
+	return nil, errors.New("fakeSessionTx: Query not supported: " + sql)
+}
+
+func (tx *fakeSessionTx) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+	return tx.store.queryRow(sql, args...)
+}
+
+func (store *fakeSessionStore) execQuery(sql string, args ...any) (pgconn.CommandTag, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
@@ -168,6 +179,21 @@ func (tx *fakeSessionTx) Exec(_ context.Context, sql string, args ...any) (pgcon
 			affected++
 		}
 		return fakeCommandTag(affected), nil
+	case strings.Contains(sql, "UPDATE auth_sessions") && strings.Contains(sql, "principal_id = $1"):
+		principalID := args[0].(uuid.UUID)
+		now := time.Now().UTC()
+		var affected int64
+		for _, row := range store.byID {
+			if row.principalID != principalID || row.revokedAt.Valid {
+				continue
+			}
+			if !row.expiresAt.Valid || !now.Before(row.expiresAt.Time) {
+				continue
+			}
+			row.revokedAt = pgtype.Timestamptz{Time: now, Valid: true}
+			affected++
+		}
+		return fakeCommandTag(affected), nil
 	case strings.Contains(sql, "UPDATE auth_sessions") && strings.Contains(sql, "WHERE id = $1"):
 		id := args[0].(uuid.UUID)
 		row, ok := store.byID[id]
@@ -179,21 +205,30 @@ func (tx *fakeSessionTx) Exec(_ context.Context, sql string, args ...any) (pgcon
 		}
 		return pgconn.CommandTag{}, nil
 	default:
-		return pgconn.CommandTag{}, errors.New("fakeSessionTx: unsupported Exec query: " + sql)
+		return pgconn.CommandTag{}, errors.New("fakeSessionStore: unsupported Exec query: " + sql)
 	}
 }
 
-func (tx *fakeSessionTx) Query(_ context.Context, sql string, _ ...any) (pgx.Rows, error) {
-	return nil, errors.New("fakeSessionTx: Query not supported: " + sql)
-}
-
-func (tx *fakeSessionTx) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
-	store := tx.store
+func (store *fakeSessionStore) queryRow(sql string, args ...any) pgx.Row {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	if strings.Contains(sql, "EXISTS") && strings.Contains(sql, "principal_id = $2") {
+		sessionID := args[0].(uuid.UUID)
+		principalID := args[1].(uuid.UUID)
+		row, ok := store.byID[sessionID]
+		if !ok || row.principalID != principalID || row.revokedAt.Valid {
+			return fakeBoolRowResult{value: false}
+		}
+		now := time.Now().UTC()
+		if !row.expiresAt.Valid || !now.Before(row.expiresAt.Time) {
+			return fakeBoolRowResult{value: false}
+		}
+		return fakeBoolRowResult{value: true}
+	}
+
 	if !strings.Contains(sql, "FROM auth_sessions") {
-		return fakeSessionRowResult{err: errors.New("fakeSessionTx: unsupported QueryRow query: " + sql)}
+		return fakeSessionRowResult{err: errors.New("fakeSessionStore: unsupported QueryRow query: " + sql)}
 	}
 
 	tokenHash := args[0].(string)
@@ -202,6 +237,20 @@ func (tx *fakeSessionTx) QueryRow(_ context.Context, sql string, args ...any) pg
 		return fakeSessionRowResult{err: pgx.ErrNoRows}
 	}
 	return fakeSessionRowResult{row: *row}
+}
+
+// fakeBoolRowResult implements pgx.Row for EXISTS-style boolean scans.
+type fakeBoolRowResult struct {
+	value bool
+	err   error
+}
+
+func (r fakeBoolRowResult) Scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	*(dest[0].(*bool)) = r.value
+	return nil
 }
 
 // fakeCommandTag builds a pgconn.CommandTag reporting the given RowsAffected.
@@ -435,4 +484,150 @@ func TestRotateSessionUnknownTokenReturnsInvalidSession(t *testing.T) {
 	}
 }
 
+func TestValidateAccessSessionActive(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	sessionID := uuid.New()
+	principalID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          sessionID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("active-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+
+	if err := mgr.ValidateAccessSession(context.Background(), sessionID, principalID); err != nil {
+		t.Fatalf("ValidateAccessSession (active): unexpected error: %v", err)
+	}
+}
+
+func TestValidateAccessSessionRevoked(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	sessionID := uuid.New()
+	principalID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          sessionID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("revoked-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+		revokedAt:   pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+
+	err := mgr.ValidateAccessSession(context.Background(), sessionID, principalID)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("ValidateAccessSession (revoked): expected ErrInvalidSession, got %v", err)
+	}
+}
+
+func TestValidateAccessSessionExpired(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	sessionID := uuid.New()
+	principalID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          sessionID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("expired-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-time.Hour), Valid: true},
+	})
+
+	err := mgr.ValidateAccessSession(context.Background(), sessionID, principalID)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("ValidateAccessSession (expired): expected ErrInvalidSession, got %v", err)
+	}
+}
+
+func TestValidateAccessSessionWrongPrincipal(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	sessionID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          sessionID,
+		principalID: uuid.New(),
+		tokenHash:   hashOpaqueToken("wrong-principal-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+
+	err := mgr.ValidateAccessSession(context.Background(), sessionID, uuid.New())
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("ValidateAccessSession (wrong principal): expected ErrInvalidSession, got %v", err)
+	}
+}
+
+func TestRevokePrincipalSessionsRevokesActive(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	principalID := uuid.New()
+	activeID := uuid.New()
+	revokedID := uuid.New()
+	expiredID := uuid.New()
+	otherPrincipalID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          activeID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("active-principal-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+	store.putSession(fakeSessionRow{
+		id:          revokedID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("already-revoked-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+		revokedAt:   pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+	store.putSession(fakeSessionRow{
+		id:          expiredID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("expired-principal-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-time.Hour), Valid: true},
+	})
+	store.putSession(fakeSessionRow{
+		id:          uuid.New(),
+		principalID: otherPrincipalID,
+		tokenHash:   hashOpaqueToken("other-principal-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+
+	if err := mgr.RevokePrincipalSessions(context.Background(), principalID); err != nil {
+		t.Fatalf("RevokePrincipalSessions: unexpected error: %v", err)
+	}
+
+	active, ok := store.getByID(activeID)
+	if !ok || !active.revokedAt.Valid {
+		t.Fatal("RevokePrincipalSessions: expected active session to be revoked")
+	}
+	alreadyRevoked, ok := store.getByID(revokedID)
+	if !ok || !alreadyRevoked.revokedAt.Valid {
+		t.Fatal("RevokePrincipalSessions: expected previously revoked session to remain revoked")
+	}
+	expired, ok := store.getByID(expiredID)
+	if !ok || expired.revokedAt.Valid {
+		t.Fatal("RevokePrincipalSessions: expired session should not be updated")
+	}
+}
+
+func TestRevokePrincipalSessionsZeroRowsOK(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	if err := mgr.RevokePrincipalSessions(context.Background(), uuid.New()); err != nil {
+		t.Fatalf("RevokePrincipalSessions (zero rows): unexpected error: %v", err)
+	}
+}
+
 var _ database.DBTX = (*fakeSessionTx)(nil)
+var _ database.DBTX = (*fakeSessionStore)(nil)

@@ -85,6 +85,29 @@ func (q *Queries) GetAuthSessionByTokenHashForUpdate(ctx context.Context, tokenH
 	return i, err
 }
 
+const isAuthSessionActive = `-- name: IsAuthSessionActive :one
+SELECT EXISTS (
+    SELECT 1
+    FROM auth_sessions
+    WHERE id = $1
+      AND principal_id = $2
+      AND revoked_at IS NULL
+      AND expires_at > now()
+) AS active
+`
+
+type IsAuthSessionActiveParams struct {
+	ID          uuid.UUID `json:"id"`
+	PrincipalID uuid.UUID `json:"principal_id"`
+}
+
+func (q *Queries) IsAuthSessionActive(ctx context.Context, arg IsAuthSessionActiveParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isAuthSessionActive, arg.ID, arg.PrincipalID)
+	var active bool
+	err := row.Scan(&active)
+	return active, err
+}
+
 const revokeAuthSession = `-- name: RevokeAuthSession :exec
 UPDATE auth_sessions
 SET revoked_at = COALESCE(revoked_at, now())
@@ -105,6 +128,22 @@ WHERE family_id = $1
 
 func (q *Queries) RevokeAuthSessionFamily(ctx context.Context, familyID uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, revokeAuthSessionFamily, familyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeAuthSessionsForPrincipal = `-- name: RevokeAuthSessionsForPrincipal :execrows
+UPDATE auth_sessions
+SET revoked_at = COALESCE(revoked_at, now())
+WHERE principal_id = $1
+  AND revoked_at IS NULL
+  AND expires_at > now()
+`
+
+func (q *Queries) RevokeAuthSessionsForPrincipal(ctx context.Context, principalID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAuthSessionsForPrincipal, principalID)
 	if err != nil {
 		return 0, err
 	}

@@ -717,9 +717,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	sessionManager := auth.NewSessionManager(server.DBPool)
+
 	authHandler := &handlers.AuthHandler{
 		Auth:          authService,
-		Sessions:      auth.NewSessionManager(server.DBPool),
+		Sessions:      sessionManager,
 		Authenticator: server.PrincipalAuthenticator,
 		Authz:         authzService,
 		DB:            server.DBPool,
@@ -730,6 +732,7 @@ func main() {
 		Provider: server.PrincipalProvider,
 		Authz:    authzService,
 		Audit:    auditService,
+		Sessions: sessionManager,
 	}
 
 	r := gin.Default()
@@ -743,6 +746,7 @@ func main() {
 		r,
 		authHandler,
 		authService,
+		sessionManager,
 		inventoryHandler,
 		vncHandler,
 		vmHandler,

@@ -45,3 +45,20 @@ SET
     replaced_by_session_id = $2,
     last_used_at = now()
 WHERE id = $1;
+
+-- name: IsAuthSessionActive :one
+SELECT EXISTS (
+    SELECT 1
+    FROM auth_sessions
+    WHERE id = $1
+      AND principal_id = $2
+      AND revoked_at IS NULL
+      AND expires_at > now()
+) AS active;
+
+-- name: RevokeAuthSessionsForPrincipal :execrows
+UPDATE auth_sessions
+SET revoked_at = COALESCE(revoked_at, now())
+WHERE principal_id = $1
+  AND revoked_at IS NULL
+  AND expires_at > now();

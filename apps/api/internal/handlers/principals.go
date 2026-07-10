@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,11 +17,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type principalDisabler interface {
+	DisableUser(context.Context, uuid.UUID) error
+}
+
+type principalSessionRevoker interface {
+	RevokePrincipalSessions(context.Context, uuid.UUID) error
+}
+
+func disableUserAndRevokeSessions(
+	ctx context.Context,
+	provider principalDisabler,
+	revoker principalSessionRevoker,
+	principalID uuid.UUID,
+) error {
+	if err := provider.DisableUser(ctx, principalID); err != nil {
+		return err
+	}
+	if err := revoker.RevokePrincipalSessions(ctx, principalID); err != nil {
+		return err
+	}
+	return nil
+}
+
 // PrincipalsHandler handles user and group CRUD via a generic principal provider.
 type PrincipalsHandler struct {
 	Provider principals.Provider
 	Authz    *authorization.Service
 	Audit    *audit.Service
+	Sessions principalSessionRevoker
 }
 
 func (h *PrincipalsHandler) requirePrincipalPermission(
@@ -570,6 +595,23 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 
 	if err := h.Provider.DisableUser(c.Request.Context(), id); err != nil {
 		writePrincipalMutationError(c, "failed to disable user", "disable user", err)
+		return
+	}
+
+	if err := h.Sessions.RevokePrincipalSessions(c.Request.Context(), id); err != nil {
+		h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.user.disable",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"principal_id": id.String()},
+		}, "session revocation failed")
+		writeLoggedError(
+			c,
+			http.StatusInternalServerError,
+			"account disabled but active sessions could not be revoked",
+			"revoke sessions after disable user",
+			err,
+		)
 		return
 	}
 
