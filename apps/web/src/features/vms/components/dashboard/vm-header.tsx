@@ -37,7 +37,7 @@ import type {
   VmResources,
 } from "@/features/vms/types/vm-types"
 import type { ReactNode } from "react"
-import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
+import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions/vm-options-menu"
 import {
   formatBytes,
   formatMemory,

@@ -1,9 +1,10 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { Separator } from "@workspace/ui/components/separator"
+import { Badge } from "@workspace/ui/components/badge"
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { findInventoryTreeNode } from "../../utils/inventory-tree"
-import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryFolderContents } from "./inventory-folder-contents"
 import { InventoryFolderSkeleton } from "./inventory-folder-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -45,9 +46,14 @@ export function InventoryFolderPage() {
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <FolderIcon className="size-8 shrink-0" />
-              <h1 className="min-w-0 wrap-break-word font-heading text-4xl font-extrabold tracking-tight text-balance">
+              <h1 className="min-w-0 font-heading text-4xl font-extrabold tracking-tight text-balance wrap-break-word">
                 {folder.name}
               </h1>
+              {folder.effective_vm_limit != null && (
+                <Badge variant="secondary">
+                  {folder.vm_count ?? 0} / {folder.effective_vm_limit}
+                </Badge>
+              )}
             </div>
             {folder.description && (
               <p className="text-xl text-muted-foreground">

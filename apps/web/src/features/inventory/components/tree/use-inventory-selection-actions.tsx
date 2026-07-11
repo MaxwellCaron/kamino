@@ -1,14 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
+import {
+  collectPowerVmTargets,
+  runInventoryPowerAction,
+} from "../../utils/inventory-power-actions"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
 import { useInventoryDialogs } from "../inventory-dialogs-provider"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import {
   collectDescendantIds,
-  collectPowerVmTargets,
   getVmSelectionLabel,
 } from "./inventory-selection-action-bar-utils"
-import type { QueryClient } from "@tanstack/react-query"
 import type {
   ApiTreeNode,
   SelectedFolderItem,
@@ -20,23 +22,10 @@ import {
   createInventoryDeleteItems,
 } from "@/features/inventory/utils/inventory-delete-items"
 import { formatVmReference } from "@/features/shared/utils/format"
-import { vmPowerAction, vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import {
   useConvertToTemplate,
   useDeleteVM,
 } from "@/features/vms/hooks/use-vm-actions"
-
-const VM_STATUS_POLL_INTERVAL_MS = 2_000
-
-function startVmStatusPolling(queryClient: QueryClient) {
-  void queryClient.invalidateQueries({ queryKey: vmStatusQueryOptions.queryKey })
-  const handle = window.setInterval(() => {
-    void queryClient.invalidateQueries({
-      queryKey: vmStatusQueryOptions.queryKey,
-    })
-  }, VM_STATUS_POLL_INTERVAL_MS)
-  return () => window.clearInterval(handle)
-}
 
 export function useInventorySelectionActions() {
   const {
@@ -125,68 +114,11 @@ export function useInventorySelectionActions() {
     selectedItems.length === selectedItemIds.length
 
   function runPowerAction(action: "start" | "shutdown" | "reboot" | "stop") {
-    const targetItemIds = powerVmItems.map((item) => item.id)
-
-    if (targetItemIds.length === 0) {
-      return
-    }
-
-    const actionLabels = {
-      start: { loading: "Starting", failure: "Failed to start selected VMs" },
-      shutdown: {
-        loading: "Shutting down",
-        failure: "Failed to shut down selected VMs",
-      },
-      reboot: {
-        loading: "Rebooting",
-        failure: "Failed to reboot selected VMs",
-      },
-      stop: { loading: "Stopping", failure: "Failed to stop selected VMs" },
-    }[action]
-
-    const stopPolling = startVmStatusPolling(queryClient)
-
-    showUnitMutationToast({
-      title: `${actionLabels.loading} ${targetItemIds.length} VM${targetItemIds.length === 1 ? "" : "s"}`,
-      units: powerVmItems.map((item) => ({
-        items: [
-          {
-            id: item.id,
-            name: formatVmReference(item.vm.vmid, item.name),
-          },
-        ],
-        run: async () => {
-          try {
-            const result = await vmPowerAction({
-              action,
-              itemIds: [item.id],
-            })
-            if (result.succeeded.length > 0) {
-              void queryClient.invalidateQueries({
-                queryKey: vmStatusQueryOptions.queryKey,
-              })
-            }
-            return { failed: result.failed }
-          } catch (error) {
-            return {
-              failed: [
-                {
-                  id: item.id,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : actionLabels.failure,
-                },
-              ],
-            }
-          }
-        },
-      })),
+    runInventoryPowerAction({
+      queryClient,
+      action,
+      targets: powerVmItems,
       onSettled: (result) => {
-        stopPolling()
-        void queryClient.invalidateQueries({
-          queryKey: vmStatusQueryOptions.queryKey,
-        })
         if (result.failed.length === 0) {
           clearSelection()
         } else {

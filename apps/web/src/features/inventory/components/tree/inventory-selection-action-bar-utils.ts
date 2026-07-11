@@ -28,17 +28,3 @@ export function collectDescendantIds(
     collectDescendantIds(child, descendants)
   }
 }
-
-export function collectPowerVmTargets(
-  node: ApiTreeNode,
-  targets: Map<string, SelectedVmItem>
-) {
-  if (node.kind === "vm" && node.vm && !node.vm.is_template) {
-    targets.set(node.id, node as SelectedVmItem)
-    return
-  }
-
-  for (const child of node.children ?? []) {
-    collectPowerVmTargets(child, targets)
-  }
-}

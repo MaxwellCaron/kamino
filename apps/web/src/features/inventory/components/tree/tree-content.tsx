@@ -12,7 +12,7 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
-import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import { TREE_INDENT } from "../../utils/constants"
 import { useInventoryTreeContext } from "./inventory-tree-context"
@@ -181,7 +181,8 @@ export function InventoryTreeContent({
   const viewportHeight = virtualizer.scrollRect?.height ?? 0
   const visibleStartIndex = Math.max(
     0,
-    Math.floor(scrollOffset / INVENTORY_TREE_ROW_HEIGHT) - TREE_ROW_ACTIVE_BUFFER
+    Math.floor(scrollOffset / INVENTORY_TREE_ROW_HEIGHT) -
+      TREE_ROW_ACTIVE_BUFFER
   )
   const visibleEndIndex = Math.min(
     items.length - 1,
@@ -322,11 +323,7 @@ function InventoryTreeRow({
         </span>
         <div className="ml-auto flex items-center gap-0.5">
           {isFolder && data.effective_vm_limit != null && (
-            <Badge
-              variant="secondary"
-              className="bg-muted/50 text-muted-foreground tabular-nums"
-              title="VM/template count"
-            >
+            <Badge variant="secondary">
               {data.vm_count ?? 0} / {data.effective_vm_limit}
             </Badge>
           )}

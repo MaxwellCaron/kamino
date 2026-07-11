@@ -195,9 +195,9 @@ export function hasFolderActions(
   )
 }
 
-export function hasNodeActions(data: ApiTreeNode) {
+export function hasNodeActions(data: ApiTreeNode, canPowerFolder = false) {
   if (data.kind === "folder") {
-    return getFolderCapabilities(data.permissions).hasActions
+    return getFolderCapabilities(data.permissions).hasActions || canPowerFolder
   }
 
   return true

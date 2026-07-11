@@ -34,7 +34,7 @@ vi.mock("@/features/inventory/api/inventory-api", () => ({
   },
 }))
 
-vi.mock("../inventory-actions", () => ({
+vi.mock("../inventory-actions/inventory-node-menu", () => ({
   InventoryNodeMenu: (props: {
     itemId: string
     data: ApiTreeNode
@@ -94,6 +94,7 @@ describe("InventoryFolderPage", () => {
       await screen.findByRole("heading", { name: "Test Folder" })
     ).toBeInTheDocument()
     expect(screen.getByText("Folder purpose text")).toBeInTheDocument()
+    expect(screen.queryByText(/\/\s*10/)).not.toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Actions for Test Folder" })
     ).toBeInTheDocument()
@@ -103,5 +104,19 @@ describe("InventoryFolderPage", () => {
       iconSize: "icon",
       contentAlign: "end",
     })
+  })
+
+  it("renders the VM limit badge when the folder has an effective limit", async () => {
+    mockInventoryTreeQueryFn.mockResolvedValue([
+      {
+        ...testFolder,
+        vm_count: 3,
+        effective_vm_limit: 10,
+      },
+    ])
+
+    renderWithQueryClient(<InventoryFolderPage />)
+
+    expect(await screen.findByText("3 / 10")).toBeInTheDocument()
   })
 })

@@ -19,7 +19,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
-import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import { formatMemory } from "@/features/shared/utils/format"
