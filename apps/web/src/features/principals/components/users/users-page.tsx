@@ -1,22 +1,15 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Suspense, lazy, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
-  AddTeam02Icon,
   Cancel01Icon,
   Delete01Icon,
   ReloadIcon,
   Tick01Icon,
   UserIcon,
-  UserMinusIcon,
 } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
-import {
-  ActionBarItem,
-  ActionBarSeparator,
-} from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -36,20 +29,16 @@ import {
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
 import {
-  deleteUser,
-  disableUser,
-  enableUser,
   principalProviderQueryOptions,
-  triggerPrincipalSync,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
-import { formatToastError } from "@/features/shared/utils/format"
+import { useUsersPageMutations } from "@/features/principals/hooks/use-users-page-mutations"
+import { UsersSelectionActions } from "@/features/principals/components/users/users-selection-actions"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
 const ConfirmDialog = lazy(() =>
@@ -78,10 +67,6 @@ const UserGroupBulkDialog = lazy(() =>
     })
   )
 )
-
-function getUserLabel(user: ApiPrincipal) {
-  return formatPrincipalReference(user)
-}
 
 export function UsersPage() {
   const { user } = usersRouteApi.useRouteContext()
@@ -115,85 +100,8 @@ export function UsersPage() {
   }>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
-  const queryClient = useQueryClient()
-  const deleteMutation = useMutation({
-    mutationFn: deleteUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
-    },
-  })
-  const enableMutation = useMutation({
-    mutationFn: enableUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
-    },
-  })
-  const disableMutation = useMutation({
-    mutationFn: disableUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
-    },
-  })
-
-  const showDeleteToast = useCallback(
-    (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
-      showUnitMutationToast({
-        title: "Deleting",
-        units: targets.map((target) => ({
-          items: [
-            {
-              id: target.id,
-              name: getUserLabel(target),
-              successDescription: "Deleted",
-            },
-          ],
-          run: async () => {
-            const result = await deleteMutation.mutateAsync([target.id])
-            return { failed: result.failed }
-          },
-        })),
-        onSettled: (result) => {
-          if (result.failed.length === 0) onAllSucceeded?.()
-        },
-      })
-    },
-    [deleteMutation]
-  )
-
-  const showEnabledToast = useCallback(
-    (
-      targets: Array<ApiPrincipal>,
-      mode: "enable" | "disable",
-      onAllSucceeded?: () => void
-    ) => {
-      showUnitMutationToast({
-        title: mode === "enable" ? "Enabling" : "Disabling",
-        units: targets.map((target) => ({
-          items: [
-            {
-              id: target.id,
-              name: getUserLabel(target),
-              successDescription: mode === "enable" ? "Enabled" : "Disabled",
-            },
-          ],
-          run: async () => {
-            if (mode === "enable") {
-              if (target.status === false) {
-                await enableMutation.mutateAsync(target.id)
-              }
-            } else if (target.status !== false) {
-              await disableMutation.mutateAsync(target.id)
-            }
-            return { failed: [] }
-          },
-        })),
-        onSettled: (result) => {
-          if (result.failed.length === 0) onAllSucceeded?.()
-        },
-      })
-    },
-    [disableMutation, enableMutation]
-  )
+  const { syncMutation, showDeleteToast, showEnabledToast } =
+    useUsersPageMutations()
 
   const columns = useMemo(
     () =>
@@ -208,7 +116,7 @@ export function UsersPage() {
           setConfirm({
             title: "Enable User",
             icon: Tick01Icon,
-            description: `Enable ${getUserLabel(targetUser)}?`,
+            description: `Enable ${formatPrincipalReference(targetUser)}?`,
             actionLabel: "Enable",
             variant: "default",
             onConfirm: () => showEnabledToast([targetUser], "enable"),
@@ -217,7 +125,7 @@ export function UsersPage() {
           setConfirm({
             title: "Disable User",
             icon: Cancel01Icon,
-            description: `Disable ${getUserLabel(targetUser)}? Active sessions will be revoked.`,
+            description: `Disable ${formatPrincipalReference(targetUser)}? Active sessions will be revoked.`,
             actionLabel: "Disable",
             variant: "destructive",
             onConfirm: () => showEnabledToast([targetUser], "disable"),
@@ -226,7 +134,7 @@ export function UsersPage() {
           setConfirm({
             title: "Delete User",
             icon: Delete01Icon,
-            description: `Are you sure you want to delete ${getUserLabel(targetUser)}? This will permanently remove the user.`,
+            description: `Are you sure you want to delete ${formatPrincipalReference(targetUser)}? This will permanently remove the user.`,
             actionLabel: "Delete",
             variant: "destructive",
             onConfirm: () => showDeleteToast([targetUser]),
@@ -243,17 +151,6 @@ export function UsersPage() {
       showEnabledToast,
     ]
   )
-
-  const syncMutation = useMutation({
-    mutationFn: triggerPrincipalSync,
-    onSuccess: () => {
-      toast.success("Sync complete")
-      queryClient.invalidateQueries({ queryKey: ["principals"] })
-    },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
-  })
 
   if (!canAccessAdmin(user.management_permissions)) {
     return <Navigate to="/" />
@@ -324,106 +221,23 @@ export function UsersPage() {
                       clearSelection: () => void
                       selectedRows: Array<ApiPrincipal>
                     }) => (
-                      <>
-                        <ActionBarItem
-                          onSelect={(event) => event.preventDefault()}
-                          onClick={() =>
-                            bulkGroupDialog.openWith({
-                              clearSelection,
-                              mode: "add",
-                              users: selectedRows,
-                            })
-                          }
-                          aria-label="Add selected users to a group"
-                          tooltip="Add to group"
-                          variant="default"
-                        >
-                          <HugeiconsIcon icon={AddTeam02Icon} />
-                        </ActionBarItem>
-                        <ActionBarItem
-                          onSelect={(event) => event.preventDefault()}
-                          onClick={() =>
-                            bulkGroupDialog.openWith({
-                              clearSelection,
-                              mode: "remove",
-                              users: selectedRows,
-                            })
-                          }
-                          aria-label="Remove selected users from a group"
-                          tooltip="Remove from group"
-                          variant="destructive"
-                        >
-                          <HugeiconsIcon icon={UserMinusIcon} />
-                        </ActionBarItem>
-                        <ActionBarSeparator />
-                        {providerCapabilities?.can_enable_users ? (
-                          <ActionBarItem
-                            onSelect={(event) => event.preventDefault()}
-                            onClick={() => showEnabledToast(selectedRows, "enable")}
-                            aria-label="Enable selected users"
-                            tooltip="Enable users"
-                            variant="default"
-                          >
-                            <HugeiconsIcon icon={Tick01Icon} />
-                          </ActionBarItem>
-                        ) : null}
-                        {providerCapabilities?.can_disable_users ? (
-                          <ActionBarItem
-                            variant="destructive"
-                            onSelect={(event) => event.preventDefault()}
-                            aria-label="Disable selected users"
-                            tooltip="Disable users"
-                            onClick={() =>
-                              setConfirm({
-                                title:
-                                  selectedRows.length === 1
-                                    ? "Disable User"
-                                    : "Disable Users",
-                                icon: Cancel01Icon,
-                                description:
-                                  selectedRows.length === 1
-                                    ? `Disable ${getUserLabel(selectedRows[0])}? Active sessions will be revoked.`
-                                    : `Disable ${selectedRows.length} users? Active sessions will be revoked.`,
-                                actionLabel: "Disable",
-                                variant: "destructive",
-                                onConfirm: () =>
-                                  showEnabledToast(
-                                    selectedRows,
-                                    "disable",
-                                    clearSelection
-                                  ),
-                              })
-                            }
-                          >
-                            <HugeiconsIcon icon={Cancel01Icon} />
-                          </ActionBarItem>
-                        ) : null}
-                        <ActionBarItem
-                          variant="destructive"
-                          onSelect={(event) => event.preventDefault()}
-                          aria-label="Delete selected users"
-                          tooltip="Delete users"
-                          onClick={() =>
-                            setConfirm({
-                              title:
-                                selectedRows.length === 1
-                                  ? "Delete User"
-                                  : "Delete Users",
-                              icon: Delete01Icon,
-                              description:
-                                selectedRows.length === 1
-                                  ? `Are you sure you want to delete ${getUserLabel(selectedRows[0])}? This will permanently remove the user.`
-                                  : `Are you sure you want to delete ${selectedRows.length} users? This will permanently remove the selected users.`,
-                              actionLabel: "Delete",
-                              variant: "destructive",
-                              onConfirm: () =>
-                                showDeleteToast(selectedRows, clearSelection),
-                            })
-                          }
-                        >
-                          <HugeiconsIcon icon={Delete01Icon} />
-                        </ActionBarItem>
-                      </>
+                      <UsersSelectionActions
+                        clearSelection={clearSelection}
+                        selectedRows={selectedRows}
+                        canEnableUsers={
+                          providerCapabilities?.can_enable_users ?? false
+                        }
+                        canDisableUsers={
+                          providerCapabilities?.can_disable_users ?? false
+                        }
+                        onAddToGroup={bulkGroupDialog.openWith}
+                        onEnableUsers={(usr) => showEnabledToast(usr, "enable")}
+                        onDisableUsers={(usr, clear) =>
+                          showEnabledToast(usr, "disable", clear)
+                        }
+                        onDeleteUsers={showDeleteToast}
+                        onConfirm={setConfirm}
+                      />
                     )
                   : undefined
               }
