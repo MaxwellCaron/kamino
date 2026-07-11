@@ -110,11 +110,7 @@ function UsageChartBody({
     : { top: 8, right: 6, bottom: 28, left: 6 }
 
   return (
-    <AreaChart
-      aspectRatio={aspectRatio}
-      data={chartData}
-      margin={margin}
-    >
+    <AreaChart aspectRatio={aspectRatio} data={chartData} margin={margin}>
       <Grid
         fadeHorizontal={false}
         numTicksRows={compact ? 2 : 3}
@@ -151,9 +147,7 @@ function UsageChartBody({
         />
       ) : null}
       <ChartTooltip
-        className={
-          compact ? "-translate-y-[calc(20%+0.5rem)]" : undefined
-        }
+        className={compact ? "-translate-y-[calc(30%+0.5rem)]" : undefined}
         content={({ point }) => {
           const used = Number(point.used ?? 0)
           const total = Number(point.total ?? 0)
