@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf16"
@@ -29,6 +30,7 @@ type User struct {
 	FullName    string
 	Description string
 	CreatedAt   time.Time
+	Enabled     bool
 }
 
 // Group represents an Active Directory group with its member DNs.
@@ -147,6 +149,11 @@ func parseADWhenCreated(value string) (time.Time, error) {
 	return createdAt.UTC(), nil
 }
 
+func parseUserAccountControl(value string) bool {
+	uac, err := strconv.Atoi(value)
+	return err != nil || (uac&2) == 0
+}
+
 func userFromEntry(entry *ldap.Entry) (User, error) {
 	sid := decodeSID(entry.GetRawAttributeValue("objectSid"))
 	if sid == "" {
@@ -165,6 +172,7 @@ func userFromEntry(entry *ldap.Entry) (User, error) {
 		FullName:    entry.GetAttributeValue("displayName"),
 		Description: entry.GetAttributeValue("description"),
 		CreatedAt:   createdAt,
+		Enabled:     parseUserAccountControl(entry.GetAttributeValue("userAccountControl")),
 	}, nil
 }
 
@@ -232,7 +240,7 @@ func (c *Client) Authenticate(ctx context.Context, username, password string) (*
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 1, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated", "userAccountControl"},
 		nil,
 	))
 	if err != nil {
@@ -279,7 +287,7 @@ func (c *Client) FetchUsers(ctx context.Context) ([]User, error) {
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated", "userAccountControl"},
 		nil,
 	), 1000)
 	if err != nil {
@@ -320,7 +328,7 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 		ldap.ScopeBaseObject,
 		ldap.NeverDerefAliases, 1, 0, false,
 		"(objectClass=user)",
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated"},
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated", "userAccountControl"},
 		nil,
 	))
 	if err != nil {

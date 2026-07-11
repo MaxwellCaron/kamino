@@ -119,6 +119,13 @@ func (s *Sync) Run(ctx context.Context) error {
 		}); err != nil {
 			return fmt.Errorf("updating user full name %q: %w", u.Username, err)
 		}
+
+		if err := q.UpdatePrincipalStatus(ctx, database.UpdatePrincipalStatusParams{
+			Status: &u.Enabled,
+			ID:     id,
+		}); err != nil {
+			return fmt.Errorf("updating user status %q: %w", u.Username, err)
+		}
 		dnToID[u.DN] = id
 		keptSIDs = append(keptSIDs, u.SID)
 	}

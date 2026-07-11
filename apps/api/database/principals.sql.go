@@ -135,7 +135,7 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 
 const getAllUsers = `-- name: GetAllUsers :many
 
-SELECT id, external_id, name, full_name, description, created_at
+SELECT id, external_id, name, full_name, description, created_at, status
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name
@@ -148,6 +148,7 @@ type GetAllUsersRow struct {
 	FullName    *string            `json:"full_name"`
 	Description *string            `json:"description"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Status      *bool              `json:"status"`
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +170,7 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 			&i.FullName,
 			&i.Description,
 			&i.CreatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -598,6 +600,20 @@ type UpdatePrincipalFullNameParams struct {
 
 func (q *Queries) UpdatePrincipalFullName(ctx context.Context, arg UpdatePrincipalFullNameParams) error {
 	_, err := q.db.Exec(ctx, updatePrincipalFullName, arg.FullName, arg.ID)
+	return err
+}
+
+const updatePrincipalStatus = `-- name: UpdatePrincipalStatus :exec
+UPDATE principals SET status = $1, updated_at = now() WHERE id = $2
+`
+
+type UpdatePrincipalStatusParams struct {
+	Status *bool     `json:"status"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdatePrincipalStatus(ctx context.Context, arg UpdatePrincipalStatusParams) error {
+	_, err := q.db.Exec(ctx, updatePrincipalStatus, arg.Status, arg.ID)
 	return err
 }
 

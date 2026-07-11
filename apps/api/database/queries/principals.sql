@@ -71,7 +71,7 @@ ON CONFLICT DO NOTHING;
 -- ---------------------------------------------------------------------------
 
 -- name: GetAllUsers :many
-SELECT id, external_id, name, full_name, description, created_at
+SELECT id, external_id, name, full_name, description, created_at, status
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name;
@@ -175,6 +175,9 @@ UPDATE principals SET full_name = $1 WHERE id = $2;
 
 -- name: UpdatePrincipalDescription :exec
 UPDATE principals SET description = $1 WHERE id = $2;
+
+-- name: UpdatePrincipalStatus :exec
+UPDATE principals SET status = $1, updated_at = now() WHERE id = $2;
 
 -- name: DeletePrincipal :exec
 DELETE FROM principals WHERE id = $1;

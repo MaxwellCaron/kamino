@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type principalDisabler interface {
@@ -46,6 +47,7 @@ type PrincipalsHandler struct {
 	Authz    *authorization.Service
 	Audit    *audit.Service
 	Sessions principalSessionRevoker
+	DB       *pgxpool.Pool
 }
 
 func (h *PrincipalsHandler) requirePrincipalPermission(
@@ -107,6 +109,7 @@ type principalResponse struct {
 	FullName    *string    `json:"full_name"`
 	Description *string    `json:"description"`
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	Status      *bool      `json:"status,omitempty"`
 }
 
 func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
@@ -127,6 +130,7 @@ func userPrincipalResponses(rows []database.GetAllUsersRow) []principalResponse 
 			FullName:    row.FullName,
 			Description: row.Description,
 			CreatedAt:   timestamptzPtr(row.CreatedAt),
+			Status:      row.Status,
 		})
 	}
 	return responses
@@ -570,6 +574,14 @@ func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
 		return
 	}
 
+	active := true
+	if err := database.New(h.DB).UpdatePrincipalStatus(c.Request.Context(), database.UpdatePrincipalStatusParams{
+		Status: &active,
+		ID:     id,
+	}); err != nil {
+		logRequestError(c, "mirror account status after enable user", err)
+	}
+
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "principal.user.enable",
@@ -596,6 +608,14 @@ func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
 	if err := h.Provider.DisableUser(c.Request.Context(), id); err != nil {
 		writePrincipalMutationError(c, "failed to disable user", "disable user", err)
 		return
+	}
+
+	inactive := false
+	if err := database.New(h.DB).UpdatePrincipalStatus(c.Request.Context(), database.UpdatePrincipalStatusParams{
+		Status: &inactive,
+		ID:     id,
+	}); err != nil {
+		logRequestError(c, "mirror account status after disable user", err)
 	}
 
 	if err := h.Sessions.RevokePrincipalSessions(c.Request.Context(), id); err != nil {

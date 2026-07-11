@@ -136,6 +136,18 @@ export async function setUserPassword(
   })
 }
 
+export async function enableUser(id: string): Promise<void> {
+  await apiVoid(`/api/v1/principals/users/${id}/enable`, "enable user", {
+    method: "POST",
+  })
+}
+
+export async function disableUser(id: string): Promise<void> {
+  await apiVoid(`/api/v1/principals/users/${id}/disable`, "disable user", {
+    method: "POST",
+  })
+}
+
 export async function createGroup(
   params: Array<CreateGroupInput>
 ): Promise<ApiBulkCreateResponse> {

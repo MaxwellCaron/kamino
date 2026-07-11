@@ -63,7 +63,6 @@ func (f *fakeAccessClient) UpdateAccessUser(
 ) error {
 	_ = ctx
 	_ = comment
-	_ = enabled
 	f.updateUserCalls = append(f.updateUserCalls, struct {
 		userid string
 		groups []string
@@ -71,6 +70,13 @@ func (f *fakeAccessClient) UpdateAccessUser(
 	for index, user := range f.users {
 		if user.UserID == userid {
 			f.users[index].Groups = strings.Join(groups, ",")
+			if enabled != nil {
+				if *enabled {
+					f.users[index].Enable = 1
+				} else {
+					f.users[index].Enable = 0
+				}
+			}
 			return nil
 		}
 	}
@@ -83,6 +89,28 @@ func (f *fakeAccessClient) CreateAccessGroup(context.Context, string, string) er
 }
 func (f *fakeAccessClient) UpdateAccessGroup(context.Context, string, string) error { return nil }
 func (f *fakeAccessClient) DeleteAccessGroup(context.Context, string) error         { return nil }
+
+func TestEnableDisableUserUpdatesProvider(t *testing.T) {
+	client := &fakeAccessClient{
+		users: []proxmox.AccessUser{{UserID: "alice@ad", Enable: 0}},
+	}
+
+	enabled := true
+	if err := client.UpdateAccessUser(context.Background(), "alice@ad", "", &enabled, nil); err != nil {
+		t.Fatalf("UpdateAccessUser(enable) error = %v", err)
+	}
+	if client.users[0].Enable != 1 {
+		t.Fatalf("Enable = %d, want 1", client.users[0].Enable)
+	}
+
+	disabled := false
+	if err := client.UpdateAccessUser(context.Background(), "alice@ad", "", &disabled, nil); err != nil {
+		t.Fatalf("UpdateAccessUser(disable) error = %v", err)
+	}
+	if client.users[0].Enable != 0 {
+		t.Fatalf("Enable = %d, want 0", client.users[0].Enable)
+	}
+}
 
 func TestAuthenticateDoesNotWriteDatabase(t *testing.T) {
 	client := &fakeAccessClient{}

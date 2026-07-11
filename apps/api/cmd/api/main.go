@@ -741,6 +741,7 @@ func main() {
 		Authz:    authzService,
 		Audit:    auditService,
 		Sessions: sessionManager,
+		DB:       server.DBPool,
 	}
 
 	r := gin.Default()

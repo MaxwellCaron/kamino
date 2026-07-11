@@ -1,5 +1,4 @@
 import { Button } from "@workspace/ui/components/button"
-import { Badge } from "@workspace/ui/components/badge"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   DropdownMenu,
@@ -19,6 +18,7 @@ import {
   Tag02Icon,
   Wifi02Icon,
 } from "@hugeicons/core-free-icons"
+import { EnabledBadge } from "@workspace/ui/components/enabled-badge"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
@@ -27,14 +27,6 @@ type VNetColumnsOptions = {
   canManage: boolean
   onEditVnet: (vnet: ApiVNet) => void
   onDeleteClick: (vnet: ApiVNet) => void
-}
-
-function booleanBadge(value: boolean | undefined) {
-  return (
-    <Badge variant={value ? "default" : "destructive"}>
-      {value ? "Enabled" : "Disabled"}
-    </Badge>
-  )
 }
 
 export function getVNetColumns({
@@ -93,7 +85,9 @@ export function getVNetColumns({
         />
       ),
       cell: ({ row }) => (
-        <div className="mx-3">{booleanBadge(row.original.isolate_ports)}</div>
+        <div className="mx-3">
+          <EnabledBadge value={row.original.isolate_ports} />
+        </div>
       ),
     },
     {
@@ -106,7 +100,9 @@ export function getVNetColumns({
         />
       ),
       cell: ({ row }) => (
-        <div className="mx-3">{booleanBadge(row.original.vlanaware)}</div>
+        <div className="mx-3">
+          <EnabledBadge value={row.original.vlanaware} />
+        </div>
       ),
     },
   ]

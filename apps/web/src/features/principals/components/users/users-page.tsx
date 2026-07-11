@@ -5,8 +5,10 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   AddTeam02Icon,
+  Cancel01Icon,
   Delete01Icon,
   ReloadIcon,
+  Tick01Icon,
   UserIcon,
   UserMinusIcon,
 } from "@hugeicons/core-free-icons"
@@ -35,6 +37,8 @@ import {
 } from "@/features/auth/utils/management-permissions"
 import {
   deleteUser,
+  disableUser,
+  enableUser,
   principalProviderQueryOptions,
   triggerPrincipalSync,
   usersQueryOptions,
@@ -118,6 +122,18 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
     },
   })
+  const enableMutation = useMutation({
+    mutationFn: enableUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
+    },
+  })
+  const disableMutation = useMutation({
+    mutationFn: disableUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["principals", "users"] })
+    },
+  })
 
   const showDeleteToast = useCallback(
     (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
@@ -144,13 +160,68 @@ export function UsersPage() {
     [deleteMutation]
   )
 
+  const showEnabledToast = useCallback(
+    (
+      targets: Array<ApiPrincipal>,
+      mode: "enable" | "disable",
+      onAllSucceeded?: () => void
+    ) => {
+      showUnitMutationToast({
+        title: mode === "enable" ? "Enabling" : "Disabling",
+        units: targets.map((target) => ({
+          items: [
+            {
+              id: target.id,
+              name: getUserLabel(target),
+              successDescription: mode === "enable" ? "Enabled" : "Disabled",
+            },
+          ],
+          run: async () => {
+            if (mode === "enable") {
+              if (target.status === false) {
+                await enableMutation.mutateAsync(target.id)
+              }
+            } else if (target.status !== false) {
+              await disableMutation.mutateAsync(target.id)
+            }
+            return { failed: [] }
+          },
+        })),
+        onSettled: (result) => {
+          if (result.failed.length === 0) onAllSucceeded?.()
+        },
+      })
+    },
+    [disableMutation, enableMutation]
+  )
+
   const columns = useMemo(
     () =>
       getUserColumns({
         canManage: canAdminister,
         canManageMemberships: providerCapabilities?.can_manage_memberships ?? true,
+        canEnableUsers: providerCapabilities?.can_enable_users ?? false,
+        canDisableUsers: providerCapabilities?.can_disable_users ?? false,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
+        onEnableClick: (targetUser: ApiPrincipal) =>
+          setConfirm({
+            title: "Enable User",
+            icon: Tick01Icon,
+            description: `Enable ${getUserLabel(targetUser)}?`,
+            actionLabel: "Enable",
+            variant: "default",
+            onConfirm: () => showEnabledToast([targetUser], "enable"),
+          }),
+        onDisableClick: (targetUser: ApiPrincipal) =>
+          setConfirm({
+            title: "Disable User",
+            icon: Cancel01Icon,
+            description: `Disable ${getUserLabel(targetUser)}? Active sessions will be revoked.`,
+            actionLabel: "Disable",
+            variant: "destructive",
+            onConfirm: () => showEnabledToast([targetUser], "disable"),
+          }),
         onDeleteClick: (targetUser: ApiPrincipal) =>
           setConfirm({
             title: "Delete User",
@@ -164,9 +235,12 @@ export function UsersPage() {
     [
       canAdminister,
       providerCapabilities?.can_manage_memberships,
+      providerCapabilities?.can_enable_users,
+      providerCapabilities?.can_disable_users,
       editDialog.openWith,
       membershipDialog.openWith,
       showDeleteToast,
+      showEnabledToast,
     ]
   )
 
@@ -282,6 +356,48 @@ export function UsersPage() {
                           <HugeiconsIcon icon={UserMinusIcon} />
                         </ActionBarItem>
                         <ActionBarSeparator />
+                        {providerCapabilities?.can_enable_users ? (
+                          <ActionBarItem
+                            onSelect={(event) => event.preventDefault()}
+                            onClick={() => showEnabledToast(selectedRows, "enable")}
+                            aria-label="Enable selected users"
+                            tooltip="Enable users"
+                            variant="default"
+                          >
+                            <HugeiconsIcon icon={Tick01Icon} />
+                          </ActionBarItem>
+                        ) : null}
+                        {providerCapabilities?.can_disable_users ? (
+                          <ActionBarItem
+                            variant="destructive"
+                            onSelect={(event) => event.preventDefault()}
+                            aria-label="Disable selected users"
+                            tooltip="Disable users"
+                            onClick={() =>
+                              setConfirm({
+                                title:
+                                  selectedRows.length === 1
+                                    ? "Disable User"
+                                    : "Disable Users",
+                                icon: Cancel01Icon,
+                                description:
+                                  selectedRows.length === 1
+                                    ? `Disable ${getUserLabel(selectedRows[0])}? Active sessions will be revoked.`
+                                    : `Disable ${selectedRows.length} users? Active sessions will be revoked.`,
+                                actionLabel: "Disable",
+                                variant: "destructive",
+                                onConfirm: () =>
+                                  showEnabledToast(
+                                    selectedRows,
+                                    "disable",
+                                    clearSelection
+                                  ),
+                              })
+                            }
+                          >
+                            <HugeiconsIcon icon={Cancel01Icon} />
+                          </ActionBarItem>
+                        ) : null}
                         <ActionBarItem
                           variant="destructive"
                           onSelect={(event) => event.preventDefault()}

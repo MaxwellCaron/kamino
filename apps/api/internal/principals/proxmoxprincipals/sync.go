@@ -134,6 +134,14 @@ func (s *Sync) Run(ctx context.Context) error {
 			return fmt.Errorf("updating user full name %q: %w", userID, err)
 		}
 
+		userActive := user.Enable == 1
+		if err := q.UpdatePrincipalStatus(ctx, database.UpdatePrincipalStatusParams{
+			Status: &userActive,
+			ID:     id,
+		}); err != nil {
+			return fmt.Errorf("updating user status %q: %w", userID, err)
+		}
+
 		userExternalToID[userID] = id
 		keptExternalIDs = append(keptExternalIDs, userID)
 	}

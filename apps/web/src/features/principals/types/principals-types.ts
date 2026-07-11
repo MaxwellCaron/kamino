@@ -7,6 +7,7 @@ export type ApiPrincipal = {
   full_name: string | null
   description: string | null
   created_at?: string | null
+  status?: boolean | null
 }
 
 export type ApiGroupMember = {
