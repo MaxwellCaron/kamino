@@ -1,4 +1,4 @@
-export { cn } from "cnfast"
+export { cn } from "cnfast";
 
 export function slugify(value: string) {
   return value
@@ -8,5 +8,5 @@ export function slugify(value: string) {
     .trim()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-")
+    .replace(/-{2,}/g, "-");
 }

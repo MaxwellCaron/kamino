@@ -1,47 +1,53 @@
-import { m } from "motion/react"
-import { useId, useMemo } from "react"
-import { useChart } from "./chart-context"
-import { renderPatternPreset } from "./pattern-preset"
-import type { PatternPresetId, PatternPresetOptions } from "./pattern-preset"
+"use client";
 
-export type BackgroundPatternPreset = PatternPresetId
+import { m } from "motion/react";
+import { useId, useMemo } from "react";
+import { useChartStable } from "./chart-context";
+import {
+  
+  
+  renderPatternPreset
+} from "./pattern-preset";
+import type {PatternPresetId, PatternPresetOptions} from "./pattern-preset";
+
+export type BackgroundPatternPreset = PatternPresetId;
 
 export interface BackgroundProps extends PatternPresetOptions {
   /** Pattern preset. `"none"` renders nothing. */
-  pattern?: BackgroundPatternPreset
+  pattern?: BackgroundPatternPreset;
   /** Pattern stroke color. Default: `var(--chart-grid)` */
-  color?: string
+  color?: string;
   /** Apply the pattern texture to the plot area. Default: true */
-  showFill?: boolean
+  showFill?: boolean;
   /** Pattern fill opacity. Default: 1 */
-  opacity?: number
+  opacity?: number;
   /** Fade pattern at the left and right chart edges. Default: true */
-  fadeHorizontal?: boolean
+  fadeHorizontal?: boolean;
   /** Fade pattern at the top and bottom chart edges. Default: true */
-  fadeVertical?: boolean
+  fadeVertical?: boolean;
   /** Horizontal fade zone as % of plot width per edge. Default: 10 */
-  fadeHorizontalLength?: number
+  fadeHorizontalLength?: number;
   /** Vertical fade zone as % of plot height per edge. Default: 10 */
-  fadeVerticalLength?: number
+  fadeVerticalLength?: number;
 }
 
-const BACKGROUND_ENTER_FADE_MS = 420
+const BACKGROUND_ENTER_FADE_MS = 420;
 
 function clampFadeLength(length: number): number {
-  return Math.min(45, Math.max(0, length))
+  return Math.min(45, Math.max(0, length));
 }
 
 function fadeMaskStops(lengthPercent: number): Array<{
-  offset: string
-  opacity: number
+  offset: string;
+  opacity: number;
 }> {
-  const edge = clampFadeLength(lengthPercent)
+  const edge = clampFadeLength(lengthPercent);
   return [
     { offset: "0%", opacity: 0 },
     { offset: `${edge}%`, opacity: 1 },
     { offset: `${100 - edge}%`, opacity: 1 },
     { offset: "100%", opacity: 0 },
-  ]
+  ];
 }
 
 /** Plot-area pattern fill for charts without a grid. Renders behind series layers. */
@@ -62,21 +68,22 @@ export function Background({
   fadeHorizontalLength = 10,
   fadeVerticalLength = 10,
 }: BackgroundProps) {
-  const { innerWidth, innerHeight, isLoaded } = useChart()
-  const uniqueId = useId()
-  const patternId = `chart-background-${uniqueId.replace(/:/g, "")}`
+  const { innerWidth, innerHeight, isLoaded, enterTransition } =
+    useChartStable();
+  const uniqueId = useId();
+  const patternId = `chart-background-${uniqueId.replace(/:/g, "")}`;
 
   const hStops = useMemo(
     () => fadeMaskStops(fadeHorizontalLength),
     [fadeHorizontalLength]
-  )
+  );
   const vStops = useMemo(
     () => fadeMaskStops(fadeVerticalLength),
     [fadeVerticalLength]
-  )
+  );
 
   if (pattern === "none" || !showFill || innerWidth <= 0 || innerHeight <= 0) {
-    return null
+    return null;
   }
 
   const patternNode = renderPatternPreset(pattern, patternId, {
@@ -88,33 +95,33 @@ export function Background({
     fill,
     dotFill,
     tileBackground,
-  })
+  });
   if (!patternNode) {
-    return null
+    return null;
   }
 
-  const fadeMask = fadeHorizontal || fadeVertical
-  const hMaskId = `chart-background-fade-h-${uniqueId.replace(/:/g, "")}`
-  const hGradientId = `${hMaskId}-gradient`
-  const vMaskId = `chart-background-fade-v-${uniqueId.replace(/:/g, "")}`
-  const vGradientId = `${vMaskId}-gradient`
-  const combinedMaskId = `chart-background-fade-${uniqueId.replace(/:/g, "")}`
+  const fadeMask = fadeHorizontal || fadeVertical;
+  const hMaskId = `chart-background-fade-h-${uniqueId.replace(/:/g, "")}`;
+  const hGradientId = `${hMaskId}-gradient`;
+  const vMaskId = `chart-background-fade-v-${uniqueId.replace(/:/g, "")}`;
+  const vGradientId = `${vMaskId}-gradient`;
+  const combinedMaskId = `chart-background-fade-${uniqueId.replace(/:/g, "")}`;
 
-  let maskRef: string | undefined
+  let maskRef: string | undefined;
   if (fadeHorizontal && fadeVertical) {
-    maskRef = `url(#${combinedMaskId})`
+    maskRef = `url(#${combinedMaskId})`;
   } else if (fadeHorizontal) {
-    maskRef = `url(#${hMaskId})`
+    maskRef = `url(#${hMaskId})`;
   } else if (fadeVertical) {
-    maskRef = `url(#${vMaskId})`
+    maskRef = `url(#${vMaskId})`;
   }
 
-  const targetOpacity = opacity
-  const revealOpacity = isLoaded ? targetOpacity : 0
-  const enterFade = {
-    duration: BACKGROUND_ENTER_FADE_MS / 1000,
-    ease: "easeOut" as const,
-  }
+  const targetOpacity = opacity;
+  const revealOpacity = isLoaded ? targetOpacity : 0;
+  const enterFade =
+    enterTransition && typeof enterTransition === "object"
+      ? enterTransition
+      : { duration: BACKGROUND_ENTER_FADE_MS / 1000, ease: "easeOut" as const };
 
   return (
     // biome-ignore lint/a11y/noAriaHiddenOnFocusable: decorative plot-area pattern layer
@@ -205,9 +212,9 @@ export function Background({
         y={0}
       />
     </g>
-  )
+  );
 }
 
-Background.displayName = "Background"
+Background.displayName = "Background";
 
-export default Background
+export default Background;

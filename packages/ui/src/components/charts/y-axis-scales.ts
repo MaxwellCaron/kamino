@@ -30,9 +30,14 @@ type YScale = ReturnType<typeof scaleLinear<number>>;
 
 export function getPrimaryYScale(
   yScales: Record<string, YScale>,
-  _fallback: YScale
+  fallback: YScale
 ): YScale {
-  return yScales[DEFAULT_Y_AXIS_ID];
+  const primary = yScales[DEFAULT_Y_AXIS_ID];
+  if (primary) {
+    return primary;
+  }
+  const first = Object.values(yScales)[0];
+  return first ?? fallback;
 }
 
 export function buildYScalesForLines({
@@ -59,6 +64,14 @@ export function buildYScalesForLines({
     });
   }
 
+  if (!scales[DEFAULT_Y_AXIS_ID]) {
+    scales[DEFAULT_Y_AXIS_ID] = scaleLinear({
+      range: [innerHeight, 0],
+      domain: [0, 100],
+      nice: true,
+    });
+  }
+
   return scales;
 }
 
@@ -76,10 +89,20 @@ export function buildYScalesFromDomains({
   const scales: Record<string, YScale> = {};
 
   for (const [axisId] of groups) {
-    const domain = domainsByAxis[axisId] ?? domainsByAxis[DEFAULT_Y_AXIS_ID];
+    const domain =
+      domainsByAxis[axisId] ??
+      domainsByAxis[DEFAULT_Y_AXIS_ID] ??
+      ([0, 100] as [number, number]);
     scales[axisId] = scaleLinear({
       range: [innerHeight, 0],
       domain,
+    });
+  }
+
+  if (!scales[DEFAULT_Y_AXIS_ID]) {
+    scales[DEFAULT_Y_AXIS_ID] = scaleLinear({
+      range: [innerHeight, 0],
+      domain: domainsByAxis[DEFAULT_Y_AXIS_ID] ?? [0, 100],
     });
   }
 

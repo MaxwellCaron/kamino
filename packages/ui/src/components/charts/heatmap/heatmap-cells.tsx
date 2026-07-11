@@ -1,8 +1,14 @@
-import { Group } from "@visx/group"
-import { HeatmapRect } from "@visx/heatmap"
-import { animate, m, useMotionValue } from "motion/react"
-import { memo, useCallback, useEffect, useMemo, useRef } from "react"
-import { transitionWithDelay } from "../motion-utils"
+"use client";
+
+import { Group } from "@visx/group";
+import { HeatmapRect } from "@visx/heatmap";
+import {
+  animate,
+  m,
+  useMotionValue,
+} from "motion/react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { transitionWithDelay } from "../motion-utils";
 import {
   HEATMAP_DEFAULT_ENTER_EASE,
   HEATMAP_LOADING_BASE_CELL_OPACITY,
@@ -10,20 +16,36 @@ import {
   computeHeatmapEnterFadeDelayMs,
   heatmapLoadingCellParticipates,
   resolveHeatmapEnterFadeDurationSec,
-} from "./heatmap-animation"
-import { heatmapLevelCellFillOpacity } from "./heatmap-colors"
-import { useHeatmap, useHeatmapInteraction } from "./heatmap-context"
-import { getHeatmapContributionLevel } from "./heatmap-utils"
-import type { ChartStatus } from "../chart-phase"
-import type { HeatmapBin, HeatmapColumn } from "./heatmap-context"
-import type { MotionValue, Transition } from "motion/react"
+} from "./heatmap-animation";
+import { heatmapLevelCellFillOpacity } from "./heatmap-colors";
+import {
+  
+  
+  useHeatmap,
+  useHeatmapInteraction
+} from "./heatmap-context";
+import {
+  getHeatmapContributionLevel,
+  isHeatmapGhostBin,
+  isHeatmapHoverEffectEnabled,
+  resolveHeatmapDisplayRange,
+  resolveHeatmapHoverStyle,
+  resolveHeatmapRowOpacity,
+} from "./heatmap-utils";
+import type {HeatmapBin, HeatmapColumn} from "./heatmap-context";
+import type {MotionValue, Transition} from "motion/react";
+import type { ChartStatus } from "../chart-phase";
 
-const HEATMAP_FADED_OPACITY = 0.3
-const HEATMAP_HOVER_TRANSITION = { duration: 0.15, ease: "easeOut" as const }
+const HEATMAP_INACTIVE_OPACITY = 0.3;
+/** Smooth tween for inactive opacity + scale on hover. */
+const HEATMAP_INACTIVE_TRANSITION = {
+  duration: 0.22,
+  ease: [0.4, 0, 0.2, 1] as const,
+};
 const HEATMAP_CONCEAL_TRANSITION = {
   duration: HEATMAP_LOADING_CONCEAL_MS / 1000,
   ease: HEATMAP_DEFAULT_ENTER_EASE,
-}
+};
 
 function computeHeatmapCellFaded(
   isCellHovering: boolean,
@@ -32,32 +54,36 @@ function computeHeatmapCellFaded(
   hoveredLegendLevel: number | null,
   cell: { column: number; row: number },
   count: number
-): boolean {
+): { isHighlighted: boolean; isDimmed: boolean } {
   if (isCellHovering && hoveredCell) {
-    return hoveredCell.column !== cell.column || hoveredCell.row !== cell.row
+    const isHighlighted =
+      hoveredCell.column === cell.column && hoveredCell.row === cell.row;
+    return { isHighlighted, isDimmed: !isHighlighted };
   }
   if (isLevelHovering && hoveredLegendLevel !== null) {
-    return getHeatmapContributionLevel(count) !== hoveredLegendLevel
+    const isHighlighted =
+      getHeatmapContributionLevel(count) === hoveredLegendLevel;
+    return { isHighlighted, isDimmed: !isHighlighted };
   }
-  return false
+  return { isHighlighted: false, isDimmed: false };
 }
 
 interface SyncCellLayerParams {
-  animateCells: boolean
-  chartStatus: ChartStatus
-  dataOpacity: MotionValue<number>
-  isAwaitingLoadingConceal: boolean
-  isExitingToLoading: boolean
-  isLoadingResting: boolean
-  isReadyResting: boolean
-  isRevealActive: boolean
-  participates: boolean
-  pulseOpacity: MotionValue<number>
-  readyDataOpacity: number
-  shimmerOpacity: MotionValue<number>
-  showLoadingCellsLayer: boolean
-  showShimmerPulse: boolean
-  staggeredTransition: Transition
+  animateCells: boolean;
+  chartStatus: ChartStatus;
+  dataOpacity: MotionValue<number>;
+  isAwaitingLoadingConceal: boolean;
+  isExitingToLoading: boolean;
+  isLoadingResting: boolean;
+  isReadyResting: boolean;
+  isRevealActive: boolean;
+  participates: boolean;
+  pulseOpacity: MotionValue<number>;
+  readyDataOpacity: number;
+  shimmerOpacity: MotionValue<number>;
+  showLoadingCellsLayer: boolean;
+  showShimmerPulse: boolean;
+  staggeredTransition: Transition;
 }
 
 function syncHeatmapCellLayerOpacities(params: SyncCellLayerParams) {
@@ -77,104 +103,118 @@ function syncHeatmapCellLayerOpacities(params: SyncCellLayerParams) {
     showLoadingCellsLayer,
     showShimmerPulse,
     staggeredTransition,
-  } = params
+  } = params;
 
   if (!animateCells) {
     if (isReadyResting) {
-      dataOpacity.set(readyDataOpacity)
-      shimmerOpacity.set(0)
-      pulseOpacity.set(0)
+      dataOpacity.set(readyDataOpacity);
+      shimmerOpacity.set(0);
+      pulseOpacity.set(0);
     } else if (chartStatus === "loading") {
-      dataOpacity.set(0)
-      pulseOpacity.set(0)
+      dataOpacity.set(0);
+      pulseOpacity.set(0);
       shimmerOpacity.set(
         participates && showLoadingCellsLayer
           ? 0
           : HEATMAP_LOADING_BASE_CELL_OPACITY
-      )
+      );
     }
-    return
+    return;
   }
 
   if (isLoadingResting) {
-    animate(dataOpacity, 0, { duration: 0 })
+    animate(dataOpacity, 0, { duration: 0 });
     if (!showShimmerPulse) {
       animate(shimmerOpacity, HEATMAP_LOADING_BASE_CELL_OPACITY, {
         duration: 0,
-      })
+      });
     }
-    return
+    return;
   }
 
   if (isRevealActive) {
-    pulseOpacity.set(0)
-    shimmerOpacity.set(0)
-    animate(dataOpacity, readyDataOpacity, staggeredTransition)
-    return
+    pulseOpacity.set(0);
+    shimmerOpacity.set(0);
+    animate(dataOpacity, readyDataOpacity, staggeredTransition);
+    return;
   }
 
   if (isAwaitingLoadingConceal || isExitingToLoading) {
-    animate(dataOpacity, 0, HEATMAP_CONCEAL_TRANSITION)
-    animate(shimmerOpacity, 0, { duration: 0 })
-    return
+    animate(dataOpacity, 0, HEATMAP_CONCEAL_TRANSITION);
+    animate(shimmerOpacity, 0, { duration: 0 });
+    return;
   }
 
   if (isReadyResting) {
-    animate(dataOpacity, readyDataOpacity, HEATMAP_HOVER_TRANSITION)
-    animate(shimmerOpacity, 0, { duration: 0 })
-    pulseOpacity.set(0)
+    animate(dataOpacity, readyDataOpacity, HEATMAP_INACTIVE_TRANSITION);
+    animate(shimmerOpacity, 0, { duration: 0 });
+    pulseOpacity.set(0);
   }
 }
 
 export interface HeatmapCellsProps {
   /** Corner radius for each cell. Default: 2 */
-  cornerRadius?: number
+  cornerRadius?: number;
   /** Override the default GitHub-style green color scale. */
-  colorScale?: (count: number | null | undefined) => string
-  /** Opacity for non-hovered cells while a cell is hovered. Default: 0.3 */
-  fadedOpacity?: number
+  colorScale?: (count: number | null | undefined) => string;
+  /** Opacity for inactive cells while hovering. Default: 0.3 */
+  inactiveOpacity?: number;
+  /** Scale for inactive cells while hovering. Default: 1 */
+  inactiveScale?: number;
+  /** Scale for the highlighted cell while hovering. Default: 1 */
+  activeScale?: number;
+  /** Per-row opacity multiplier (display row index). Default: 1 */
+  rowOpacity?: number | ReadonlyArray<number>;
   /** Pointer hover + dimming. Default: true */
-  interactive?: boolean
+  interactive?: boolean;
+  /** Hide out-of-range bins (GitHub-style ghost cells). Default: true */
+  hideGhostCells?: boolean;
 }
 
 interface HeatmapCellRectProps {
   cell: {
-    column: number
-    row: number
-    x: number
-    y: number
-    width: number
-    height: number
-    color?: string
-    opacity?: number
-  }
-  bin: HeatmapBin
-  cornerRadius: number
-  interactive: boolean
-  fadedOpacity: number
-  isFaded: boolean
+    column: number;
+    row: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color?: string;
+    opacity?: number;
+  };
+  bin: HeatmapBin;
+  cornerRadius: number;
+  interactive: boolean;
+  inactiveOpacity: number;
+  inactiveScale: number;
+  activeScale: number;
+  rowOpacity: number | ReadonlyArray<number> | undefined;
+  hoverState: { isHighlighted: boolean; isDimmed: boolean };
   onEnter: (
     column: number,
     row: number,
     bin: HeatmapBin,
     x: number,
     y: number
-  ) => void
-  onLeave: () => void
+  ) => void;
+  onLeave: () => void;
 }
 
-const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
+const HeatmapMotionCell = memo(function HeatmapMotionCell({
   cell,
   bin,
   cornerRadius,
   fillScale,
   interactive,
-  fadedOpacity,
-  isFaded,
+  inactiveOpacity,
+  inactiveScale,
+  activeScale,
+  rowOpacity,
+  hoverState,
   onEnter,
   onLeave,
 }: HeatmapCellRectProps & {
-  fillScale: (count: number | null | undefined) => string
+  fillScale: (count: number | null | undefined) => string;
 }) {
   const {
     chartStatus,
@@ -190,29 +230,31 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
     loadingCellMaxOpacity,
     loadingCellRandomness,
     levelStyles,
-  } = useHeatmap()
+  } = useHeatmap();
 
-  const levelStyle = levelStyles[getHeatmapContributionLevel(bin.count)]
-  const targetFill = fillScale(bin.count)
-  const emptyFill = fillScale(0)
-  const patternFillOpacity = heatmapLevelCellFillOpacity(levelStyle)
-  const dataOpacity = useMotionValue(0)
+  const levelStyle =
+    levelStyles[getHeatmapContributionLevel(bin.count ?? 0)] ?? levelStyles[0];
+  const targetFill = fillScale(bin.count);
+  const emptyFill = fillScale(0);
+  const patternFillOpacity = heatmapLevelCellFillOpacity(levelStyle);
+  const dataOpacity = useMotionValue(0);
   /** Orchestration layer: conceal, static loading base. */
-  const shimmerOpacity = useMotionValue(0)
+  const shimmerOpacity = useMotionValue(0);
   /** Pulse loop only — kept separate so stagger tweens don't break re-entry. */
-  const pulseOpacity = useMotionValue(0)
-  const wasShimmerPulsingRef = useRef(false)
+  const pulseOpacity = useMotionValue(0);
+  const wasShimmerPulsingRef = useRef(false);
 
-  const isLoadingResting = chartStatus === "loading" && chartPhase === "loading"
+  const isLoadingResting =
+    chartStatus === "loading" && chartPhase === "loading";
   const isAwaitingLoadingConceal =
-    chartStatus === "loading" && chartPhase === "ready"
-  const isExitingToLoading = chartPhase === "exitingReady"
+    chartStatus === "loading" && chartPhase === "ready";
+  const isExitingToLoading = chartPhase === "exitingReady";
   const isRevealActive =
     chartPhase === "revealing" &&
     !isLoaded &&
-    (revealMode === "fromLoading" || revealMode === "enter")
+    (revealMode === "fromLoading" || revealMode === "enter");
   const isReadyResting =
-    chartStatus === "ready" && chartPhase === "ready" && isLoaded
+    chartStatus === "ready" && chartPhase === "ready" && isLoaded;
 
   const participates = useMemo(
     () =>
@@ -222,15 +264,15 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
         loadingCellRandomness
       ),
     [cell.column, cell.row, loadingCellRandomness]
-  )
+  );
 
   const showShimmerPulse =
-    animateCells && showLoadingCellsLayer && participates && isLoadingResting
+    animateCells && showLoadingCellsLayer && participates && isLoadingResting;
 
   const fadeDurationSec = resolveHeatmapEnterFadeDurationSec(
     enterTransition,
     animationDuration
-  )
+  );
   const delayMs = computeHeatmapEnterFadeDelayMs({
     column: cell.column,
     row: cell.row,
@@ -238,59 +280,72 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
     animationDurationMs: animationDuration,
     enterStaggerScale,
     fadeDurationSec,
-  })
+  });
   const staggeredTransition = transitionWithDelay(
     enterTransition,
     delayMs / 1000
-  )
+  );
 
-  const readyDataOpacity = isFaded ? fadedOpacity : 1
+  const readyHoverStyle = resolveHeatmapHoverStyle(
+    hoverState.isHighlighted,
+    hoverState.isDimmed,
+    { inactiveOpacity, inactiveScale, activeScale }
+  );
+  const rowOpacityMultiplier = resolveHeatmapRowOpacity(cell.row, rowOpacity);
+  const readyDataOpacity = readyHoverStyle.opacity;
+  const readyScale = isReadyResting ? readyHoverStyle.scale : 1;
+  const transformOrigin = `${cell.x + cell.width / 2}px ${cell.y + cell.height / 2}px`;
 
   useEffect(() => {
     if (!showShimmerPulse) {
-      wasShimmerPulsingRef.current = false
-      pulseOpacity.set(0)
-      return
+      wasShimmerPulsingRef.current = false;
+      pulseOpacity.set(0);
+      return;
     }
 
-    const isFreshLoadingPulse = !wasShimmerPulsingRef.current
-    wasShimmerPulsingRef.current = true
+    const isFreshLoadingPulse =
+      isLoadingResting && !wasShimmerPulsingRef.current;
+    wasShimmerPulsingRef.current = true;
 
     if (isFreshLoadingPulse) {
-      pulseOpacity.set(0)
+      pulseOpacity.set(0);
     }
 
-    const pulseState = { cancelled: false }
-    let current: ReturnType<typeof animate> | undefined
+    let cancelled = false;
+    let current: ReturnType<typeof animate> | undefined;
 
     const pulse = async () => {
-      while (!pulseState.cancelled) {
-        const target = Math.random() * loadingCellMaxOpacity
-        const duration = 0.35 + Math.random() * 0.85
+      while (!cancelled) {
+        const target = Math.random() * loadingCellMaxOpacity;
+        const duration = 0.35 + Math.random() * 0.85;
         current = animate(pulseOpacity, target, {
           duration,
           ease: [0.45, 0, 0.55, 1],
-        })
+        });
 
         try {
-          await current
+          await current;
         } catch {
-          break
+          break;
+        }
+
+        if (cancelled) {
+          break;
         }
 
         await new Promise<void>((resolve) => {
-          window.setTimeout(resolve, 80 + Math.random() * 420)
-        })
+          window.setTimeout(resolve, 80 + Math.random() * 420);
+        });
       }
-    }
+    };
 
-    pulse().catch(() => undefined)
+    pulse().catch(() => undefined);
 
     return () => {
-      pulseState.cancelled = true
-      current?.stop()
-    }
-  }, [isLoadingResting, loadingCellMaxOpacity, pulseOpacity, showShimmerPulse])
+      cancelled = true;
+      current?.stop();
+    };
+  }, [isLoadingResting, loadingCellMaxOpacity, pulseOpacity, showShimmerPulse]);
 
   useEffect(() => {
     syncHeatmapCellLayerOpacities({
@@ -309,7 +364,7 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
       showLoadingCellsLayer,
       showShimmerPulse,
       staggeredTransition,
-    })
+    });
   }, [
     animateCells,
     chartStatus,
@@ -326,7 +381,7 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
     showLoadingCellsLayer,
     showShimmerPulse,
     staggeredTransition,
-  ])
+  ]);
 
   const cellProps = {
     className: "visx-heatmap-rect",
@@ -336,14 +391,20 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
     width: cell.width,
     x: cell.x,
     y: cell.y,
-  }
+  };
 
   return (
-    <g>
+    <m.g
+      animate={{ scale: readyScale }}
+      style={{ transformOrigin }}
+      transition={HEATMAP_INACTIVE_TRANSITION}
+    >
       <m.rect
         {...cellProps}
         fill={targetFill}
-        fillOpacity={(cell.opacity ?? 1) * patternFillOpacity}
+        fillOpacity={
+          (cell.opacity ?? 1) * patternFillOpacity * rowOpacityMultiplier
+        }
         onPointerEnter={() =>
           onEnter(cell.column, cell.row, bin, cell.x, cell.y)
         }
@@ -361,15 +422,19 @@ const HeatmapMotionCell = memo(function HeatmapMotionCellComponent({
           opacity: showShimmerPulse ? pulseOpacity : shimmerOpacity,
         }}
       />
-    </g>
-  )
-})
+    </m.g>
+  );
+});
 
-export const HeatmapCells = memo(function HeatmapCellsComponent({
+export const HeatmapCells = memo(function HeatmapCells({
   cornerRadius = 2,
   colorScale: colorScaleProp,
-  fadedOpacity = HEATMAP_FADED_OPACITY,
+  inactiveOpacity = HEATMAP_INACTIVE_OPACITY,
+  inactiveScale = 1,
+  activeScale = 1,
+  rowOpacity,
   interactive = true,
+  hideGhostCells = true,
 }: HeatmapCellsProps) {
   const {
     data,
@@ -382,26 +447,26 @@ export const HeatmapCells = memo(function HeatmapCellsComponent({
     chartStatus,
     colorScale: contextColorScale,
     fillScale: contextFillScale,
-  } = useHeatmap()
-  const colorScale = colorScaleProp ?? contextColorScale
-  const fillScale = contextFillScale
-  const cellsInteractive = interactive && chartStatus !== "loading"
+  } = useHeatmap();
+  const colorScale = colorScaleProp ?? contextColorScale;
+  const fillScale = contextFillScale;
+  const cellsInteractive = interactive && chartStatus !== "loading";
   const {
     hoveredCell,
     hoveredLegendLevel,
     setHoveredCell,
     setHoveredLegendLevel,
     setTooltipData,
-  } = useHeatmapInteraction()
+  } = useHeatmapInteraction();
 
   const handleCellEnter = useCallback(
     (column: number, row: number, bin: HeatmapBin, x: number, y: number) => {
       if (!cellsInteractive) {
-        return
+        return;
       }
 
-      setHoveredLegendLevel(null)
-      setHoveredCell({ column, row })
+      setHoveredLegendLevel(null);
+      setHoveredCell({ column, row });
       setTooltipData({
         column,
         row,
@@ -409,7 +474,7 @@ export const HeatmapCells = memo(function HeatmapCellsComponent({
         date: bin.date,
         x: margin.left + x + binWidth / 2,
         y: margin.top + y + binHeight / 2,
-      })
+      });
     },
     [
       binHeight,
@@ -421,19 +486,31 @@ export const HeatmapCells = memo(function HeatmapCellsComponent({
       setHoveredLegendLevel,
       setTooltipData,
     ]
-  )
+  );
 
   const handleCellLeave = useCallback(() => {
     if (!cellsInteractive) {
-      return
+      return;
     }
 
-    setHoveredCell(null)
-    setTooltipData(null)
-  }, [cellsInteractive, setHoveredCell, setTooltipData])
+    setHoveredCell(null);
+    setTooltipData(null);
+  }, [cellsInteractive, setHoveredCell, setTooltipData]);
 
-  const isCellHovering = cellsInteractive && hoveredCell !== null
-  const isLevelHovering = cellsInteractive && hoveredLegendLevel !== null
+  const inactiveEnabled = isHeatmapHoverEffectEnabled({
+    inactiveOpacity,
+    inactiveScale,
+    activeScale,
+  });
+  const isCellHovering =
+    cellsInteractive && hoveredCell !== null && inactiveEnabled;
+  const isLevelHovering =
+    cellsInteractive && hoveredLegendLevel !== null && inactiveEnabled;
+
+  const displayRange = useMemo(
+    () => (hideGhostCells ? resolveHeatmapDisplayRange(data) : null),
+    [data, hideGhostCells]
+  );
 
   return (
     <HeatmapRect<HeatmapColumn, HeatmapBin>
@@ -441,7 +518,7 @@ export const HeatmapCells = memo(function HeatmapCellsComponent({
       bins={(column) => column.bins}
       binWidth={binWidth}
       colorScale={(count) =>
-        colorScale(typeof count === "number" ? count : count.valueOf())
+        colorScale(typeof count === "number" ? count : count?.valueOf())
       }
       count={(bin) => bin.count}
       data={data}
@@ -453,42 +530,49 @@ export const HeatmapCells = memo(function HeatmapCellsComponent({
         <Group className="visx-heatmap-rects">
           {cells.flatMap((column) =>
             column.map((cell) => {
-              const bin = data.at(cell.column)?.bins.at(cell.row)
+              const bin = data[cell.column]?.bins[cell.row];
               if (!bin) {
-                return null
+                return null;
               }
 
-              const isFaded = computeHeatmapCellFaded(
+              if (displayRange && isHeatmapGhostBin(bin, displayRange)) {
+                return null;
+              }
+
+              const hoverState = computeHeatmapCellFaded(
                 isCellHovering,
                 isLevelHovering,
                 hoveredCell,
                 hoveredLegendLevel,
                 cell,
                 bin.count
-              )
+              );
 
               return (
                 <HeatmapMotionCell
+                  activeScale={activeScale}
                   bin={bin}
                   cell={cell}
                   cornerRadius={cornerRadius}
-                  fadedOpacity={fadedOpacity}
                   fillScale={fillScale}
+                  hoverState={hoverState}
+                  inactiveOpacity={inactiveOpacity}
+                  inactiveScale={inactiveScale}
                   interactive={cellsInteractive}
-                  isFaded={isFaded}
                   key={`heatmap-cell-${cell.column}-${cell.row}`}
                   onEnter={handleCellEnter}
                   onLeave={handleCellLeave}
+                  rowOpacity={rowOpacity}
                 />
-              )
+              );
             })
           )}
         </Group>
       )}
     </HeatmapRect>
-  )
-})
+  );
+});
 
-HeatmapCells.displayName = "HeatmapCells"
+HeatmapCells.displayName = "HeatmapCells";
 
-export default HeatmapCells
+export default HeatmapCells;

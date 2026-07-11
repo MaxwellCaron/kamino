@@ -1,71 +1,80 @@
-import { memo, useEffect, useMemo, useState } from "react"
-import { createPortal } from "react-dom"
-import { cn } from "@workspace/ui/lib/utils"
-import { useHeatmap } from "./heatmap-context"
+"use client";
+
+import { memo, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { cn } from "@workspace/ui/lib/utils";
+import { useHeatmap } from "./heatmap-context";
+import { getHeatmapColumnMonthAnchor } from "./heatmap-utils";
 
 export interface HeatmapXAxisProps {
   /** Additional class name for labels */
-  className?: string
+  className?: string;
 }
 
-const monthFmt = new Intl.DateTimeFormat("en-US", { month: "short" })
+const monthFmt = new Intl.DateTimeFormat("en-US", { month: "short" });
 
-export const HeatmapXAxis = memo(function HeatmapXAxisComponent({
+export const HeatmapXAxis = memo(function HeatmapXAxis({
   className,
 }: HeatmapXAxisProps) {
-  const { containerRef, data, margin, binWidth, xScale } = useHeatmap()
-  const [mounted, setMounted] = useState(false)
+  const { containerRef, data, margin, xScale } = useHeatmap();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   const labels = useMemo(() => {
-    const ticks: Array<{ label: string; x: number; key: string }> = []
-    let lastMonth = -1
+    const ticks: Array<{ label: string; x: number; key: string }> = [];
+    let lastMonthKey = "";
 
     for (let columnIndex = 0; columnIndex < data.length; columnIndex++) {
-      const firstDate = data[columnIndex].bins.at(0)?.date
-      if (!firstDate) {
-        continue
+      const column = data[columnIndex];
+      if (!column) {
+        continue;
       }
 
-      const month = firstDate.getMonth()
-      if (month === lastMonth) {
-        continue
+      const monthAnchor = getHeatmapColumnMonthAnchor(column);
+      if (!monthAnchor) {
+        continue;
+      }
+
+      const monthKey = `${monthAnchor.getFullYear()}-${monthAnchor.getMonth()}`;
+      if (monthKey === lastMonthKey) {
+        continue;
       }
 
       ticks.push({
-        label: monthFmt.format(firstDate),
-        x: margin.left + xScale(columnIndex) + binWidth / 2,
-        key: `${columnIndex}-${month}`,
-      })
-      lastMonth = month
+        label: monthFmt.format(monthAnchor),
+        x: margin.left + xScale(columnIndex),
+        key: monthKey,
+      });
+      lastMonthKey = monthKey;
     }
 
-    return ticks
-  }, [binWidth, data, margin.left, xScale])
+    return ticks;
+  }, [data, margin.left, xScale]);
 
-  const container = containerRef.current
+  const container = containerRef.current;
   if (!(mounted && container)) {
-    return null
+    return null;
   }
 
   return createPortal(
     labels.map((tick) => (
       <div
-        className="pointer-events-none absolute top-0"
+        className="pointer-events-none absolute"
         key={tick.key}
         style={{
+          top: 0,
           left: tick.x,
           width: 0,
           display: "flex",
-          justifyContent: "center",
+          justifyContent: "flex-start",
         }}
       >
         <span
           className={cn(
-            "text-xs whitespace-nowrap text-chart-label",
+            "whitespace-nowrap text-chart-label text-xs",
             className
           )}
         >
@@ -74,9 +83,9 @@ export const HeatmapXAxis = memo(function HeatmapXAxisComponent({
       </div>
     )),
     container
-  )
-})
+  );
+});
 
-HeatmapXAxis.displayName = "HeatmapXAxis"
+HeatmapXAxis.displayName = "HeatmapXAxis";
 
-export default HeatmapXAxis
+export default HeatmapXAxis;

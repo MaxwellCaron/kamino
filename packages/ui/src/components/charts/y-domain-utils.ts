@@ -90,6 +90,10 @@ export function computeYDomainsByAxis({
     domains[normalizeYAxisId(axisId)] = niceYDomain(resolveDomain(dataKeys));
   }
 
+  if (!domains.left) {
+    domains.left = niceYDomain([0, 100]);
+  }
+
   return domains;
 }
 
@@ -119,7 +123,7 @@ export function domainsEqual(
   for (const axisId of leftKeys) {
     const from = left[axisId];
     const to = right[axisId];
-    if (from[0] !== to[0] || from[1] !== to[1]) {
+    if (!(from && to) || from[0] !== to[0] || from[1] !== to[1]) {
       return false;
     }
   }

@@ -1,5 +1,7 @@
-import { PatternCircles, PatternLines } from "./visx-pattern"
-import type { ReactNode } from "react"
+"use client";
+
+import { PatternCircles, PatternLines } from "./visx-pattern";
+import type { ReactNode } from "react";
 
 export const PATTERN_PRESET_IDS = [
   "none",
@@ -10,50 +12,50 @@ export const PATTERN_PRESET_IDS = [
   "dots",
   "circles",
   "accent",
-] as const
+] as const;
 
-export type PatternPresetId = (typeof PATTERN_PRESET_IDS)[number]
+export type PatternPresetId = (typeof PATTERN_PRESET_IDS)[number];
 
 export interface PatternPresetOptions {
-  color?: string
-  scale?: number
-  strokeWidth?: number
-  radius?: number
-  complement?: boolean
-  fill?: string
+  color?: string;
+  scale?: number;
+  strokeWidth?: number;
+  radius?: number;
+  complement?: boolean;
+  fill?: string;
   /** Dot grid only — when false, render hollow dots (stroke only). Default: true */
-  dotFill?: boolean
-  tileBackground?: string
+  dotFill?: boolean;
+  tileBackground?: string;
 }
 
 /** Presets rendered with @visx/pattern `PatternCircles`. */
 export function isCirclePattern(preset: PatternPresetId): boolean {
-  return preset === "circles" || preset === "dots"
+  return preset === "circles" || preset === "dots";
 }
 
 /** @deprecated Use `isCirclePattern`. */
 export function isCirclesPattern(preset: PatternPresetId): boolean {
-  return isCirclePattern(preset)
+  return isCirclePattern(preset);
 }
 
 export function patternPresetTileSize(
   preset: PatternPresetId,
   scale = 1
 ): { width: number; height: number; strokeWidth: number } {
-  let base = { width: 6, height: 6, strokeWidth: 1 }
+  let base = { width: 6, height: 6, strokeWidth: 1 };
   if (preset === "dots") {
-    base = { width: 10, height: 10, strokeWidth: 0 }
+    base = { width: 10, height: 10, strokeWidth: 0 };
   } else if (preset === "cross") {
-    base = { width: 8, height: 8, strokeWidth: 1 }
+    base = { width: 8, height: 8, strokeWidth: 1 };
   } else if (preset === "circles") {
-    base = { width: 6, height: 6, strokeWidth: 1 }
+    base = { width: 6, height: 6, strokeWidth: 1 };
   }
 
   return {
     width: base.width * scale,
     height: base.height * scale,
     strokeWidth: base.strokeWidth * scale,
-  }
+  };
 }
 
 function renderPatternCircles(
@@ -61,22 +63,22 @@ function renderPatternCircles(
   _id: string,
   color: string,
   common: {
-    id: string
-    height: number
-    width: number
-    strokeWidth: number
-    background?: string
+    id: string;
+    height: number;
+    width: number;
+    strokeWidth: number;
+    background?: string;
   },
   options: PatternPresetOptions,
   scale: number
 ) {
-  const isDotGrid = preset === "dots"
+  const isDotGrid = preset === "dots";
   const radius =
-    options.radius ?? (isDotGrid ? Math.max(0.5, 1.5 * scale) : 2 * scale)
-  const dotFillEnabled = options.dotFill !== false
+    options.radius ?? (isDotGrid ? Math.max(0.5, 1.5 * scale) : 2 * scale);
+  const dotFillEnabled = options.dotFill !== false;
 
   if (isDotGrid) {
-    const dotFill = dotFillEnabled ? options.fill || color : undefined
+    const dotFill = dotFillEnabled ? options.fill || color : undefined;
     return (
       <PatternCircles
         {...common}
@@ -90,7 +92,7 @@ function renderPatternCircles(
             : (options.strokeWidth ?? 1)
         }
       />
-    )
+    );
   }
 
   return (
@@ -102,7 +104,7 @@ function renderPatternCircles(
       stroke={color}
       strokeWidth={options.strokeWidth ?? common.strokeWidth}
     />
-  )
+  );
 }
 
 /** Renders a @visx/pattern definition node for the given preset. */
@@ -112,25 +114,25 @@ export function renderPatternPreset(
   options: PatternPresetOptions = {}
 ): ReactNode {
   if (preset === "none") {
-    return null
+    return null;
   }
 
-  const color = options.color ?? "var(--chart-1)"
-  const scale = options.scale ?? 1
-  const tile = patternPresetTileSize(preset, scale)
+  const color = options.color ?? "var(--chart-1)";
+  const scale = options.scale ?? 1;
+  const tile = patternPresetTileSize(preset, scale);
   const common = {
     id,
     height: tile.height,
     width: tile.width,
     strokeWidth: tile.strokeWidth,
     ...(options.tileBackground ? { background: options.tileBackground } : {}),
-  }
+  };
 
   if (preset === "dots" || preset === "circles") {
-    return renderPatternCircles(preset, id, color, common, options, scale)
+    return renderPatternCircles(preset, id, color, common, options, scale);
   }
 
-  const strokeWidth = options.strokeWidth ?? tile.strokeWidth
+  const strokeWidth = options.strokeWidth ?? tile.strokeWidth;
 
   switch (preset) {
     case "diagonal":
@@ -141,7 +143,7 @@ export function renderPatternPreset(
           stroke={color}
           strokeWidth={strokeWidth}
         />
-      )
+      );
     case "horizontal":
       return (
         <PatternLines
@@ -150,7 +152,7 @@ export function renderPatternPreset(
           stroke={color}
           strokeWidth={strokeWidth}
         />
-      )
+      );
     case "vertical":
       return (
         <PatternLines
@@ -159,7 +161,7 @@ export function renderPatternPreset(
           stroke={color}
           strokeWidth={strokeWidth}
         />
-      )
+      );
     case "cross":
       return (
         <PatternLines
@@ -168,7 +170,7 @@ export function renderPatternPreset(
           stroke={color}
           strokeWidth={strokeWidth}
         />
-      )
+      );
     case "accent":
       return (
         <PatternLines
@@ -177,8 +179,8 @@ export function renderPatternPreset(
           stroke="#e879f9"
           strokeWidth={strokeWidth}
         />
-      )
+      );
     default:
-      return null
+      return null;
   }
 }

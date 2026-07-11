@@ -1,116 +1,131 @@
+"use client";
+
 import {
+  
+  
+  
+  
   createContext,
   useCallback,
   useContext,
   useMemo,
-  useState,
-} from "react"
-import { cn } from "@workspace/ui/lib/utils"
-import { HEATMAP_DEFAULT_LEVEL_COLORS } from "./heatmap-colors"
-import type { scaleLinear, scaleTime } from "@visx/scale"
-import type { Transition } from "motion/react"
-import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react"
-import type { Margin } from "../chart-context"
-import type { ChartPhase, ChartStatus } from "../chart-phase"
-import type { HeatmapLevelStyles } from "./heatmap-colors"
+  useState
+} from "react";
+import { cn } from "@workspace/ui/lib/utils";
+import {
+  HEATMAP_DEFAULT_LEVEL_COLORS
+  
+} from "./heatmap-colors";
+import type {Dispatch, ReactNode, RefObject, SetStateAction} from "react";
+import type { scaleLinear, scaleTime } from "@visx/scale";
+import type { Transition } from "motion/react";
+import type { Margin } from "../chart-context";
+import type { ChartPhase, ChartStatus } from "../chart-phase";
+import type {HeatmapLevelStyles} from "./heatmap-colors";
+import type {
+  HeatmapSeparatorLayout,
+  HeatmapWeekStartDay,
+} from "./heatmap-utils";
 
-type HeatmapTimeScale = ReturnType<typeof scaleTime<number>>
-type HeatmapLinearScale = ReturnType<typeof scaleLinear<number>>
+type HeatmapTimeScale = ReturnType<typeof scaleTime<number>>;
+type HeatmapLinearScale = ReturnType<typeof scaleLinear<number>>;
 
 export interface HeatmapBin {
-  count: number
-  bin: number
-  date: Date
+  count: number;
+  bin: number;
+  date: Date;
 }
 
 export interface HeatmapColumn {
-  bin: number
-  bins: Array<HeatmapBin>
+  bin: number;
+  bins: Array<HeatmapBin>;
 }
 
 export interface HeatmapTooltipData {
-  column: number
-  row: number
-  count: number
-  date: Date
-  x: number
-  y: number
+  column: number;
+  row: number;
+  count: number;
+  date: Date;
+  x: number;
+  y: number;
 }
 
 export interface HeatmapInteractionContextValue {
-  hoveredCell: { column: number; row: number } | null
-  hoveredLegendLevel: number | null
-  tooltipData: HeatmapTooltipData | null
-  setHoveredCell: (cell: { column: number; row: number } | null) => void
-  setHoveredLegendLevel: (level: number | null) => void
-  setTooltipData: Dispatch<SetStateAction<HeatmapTooltipData | null>>
-  clearInteraction: () => void
+  hoveredCell: { column: number; row: number } | null;
+  hoveredLegendLevel: number | null;
+  tooltipData: HeatmapTooltipData | null;
+  setHoveredCell: (cell: { column: number; row: number } | null) => void;
+  setHoveredLegendLevel: (level: number | null) => void;
+  setTooltipData: Dispatch<SetStateAction<HeatmapTooltipData | null>>;
+  clearInteraction: () => void;
 }
 
 export interface HeatmapContextValue {
-  data: Array<HeatmapColumn>
-  width: number
-  height: number
-  innerWidth: number
-  innerHeight: number
-  margin: Margin
-  binWidth: number
-  binHeight: number
-  gap: number
-  xScale: (columnIndex: number) => number
-  yScale: (rowIndex: number) => number
-  timeXScale: HeatmapTimeScale
-  brushYScale: HeatmapLinearScale
-  isReady: boolean
-  colorScale: (count: number | null | undefined) => string
-  fillScale: (count: number | null | undefined) => string
-  levelStyles: HeatmapLevelStyles
-  containerRef: RefObject<HTMLDivElement | null>
-  chartStatus: ChartStatus
-  chartPhase: ChartPhase
-  isLoaded: boolean
-  revealEpoch: number
-  animationDuration: number
-  enterTransition?: Transition
-  enterStaggerScale: number
-  animateCells: boolean
-  loadingOpacity: number
-  showLoadingCells: boolean
-  loadingCellMaxOpacity: number
-  loadingCellRandomness: number
-  revealMode: HeatmapRevealMode
-  loadingLabel?: string
-  showLoadingLabel: boolean
+  data: Array<HeatmapColumn>;
+  width: number;
+  height: number;
+  innerWidth: number;
+  innerHeight: number;
+  margin: Margin;
+  binWidth: number;
+  binHeight: number;
+  gap: number;
+  weekStartDay: HeatmapWeekStartDay;
+  xScale: (columnIndex: number) => number;
+  yScale: (rowIndex: number) => number;
+  separatorLayout: HeatmapSeparatorLayout | null;
+  timeXScale: HeatmapTimeScale;
+  brushYScale: HeatmapLinearScale;
+  isReady: boolean;
+  colorScale: (count: number | null | undefined) => string;
+  fillScale: (count: number | null | undefined) => string;
+  levelStyles: HeatmapLevelStyles;
+  containerRef: RefObject<HTMLDivElement | null>;
+  chartStatus: ChartStatus;
+  chartPhase: ChartPhase;
+  isLoaded: boolean;
+  revealEpoch: number;
+  animationDuration: number;
+  enterTransition?: Transition;
+  enterStaggerScale: number;
+  animateCells: boolean;
+  loadingOpacity: number;
+  showLoadingCells: boolean;
+  loadingCellMaxOpacity: number;
+  loadingCellRandomness: number;
+  revealMode: HeatmapRevealMode;
+  loadingLabel?: string;
+  showLoadingLabel: boolean;
 }
 
 /** How cells transition into view after loading or on first mount. */
-export type HeatmapRevealMode = "enter" | "fromLoading" | null
+export type HeatmapRevealMode = "enter" | "fromLoading" | null;
 
-const HeatmapContext = createContext<HeatmapContextValue | null>(null)
+const HeatmapContext = createContext<HeatmapContextValue | null>(null);
 const HeatmapInteractionContext =
-  createContext<HeatmapInteractionContextValue | null>(null)
+  createContext<HeatmapInteractionContextValue | null>(null);
 
 export function HeatmapInteractionProvider({
   children,
 }: {
-  children: ReactNode
+  children: ReactNode;
 }) {
   const [hoveredCell, setHoveredCell] = useState<{
-    column: number
-    row: number
-  } | null>(null)
+    column: number;
+    row: number;
+  } | null>(null);
   const [hoveredLegendLevel, setHoveredLegendLevel] = useState<number | null>(
     null
-  )
+  );
   const [tooltipData, setTooltipData] = useState<HeatmapTooltipData | null>(
     null
-  )
+  );
 
   const clearInteraction = useCallback(() => {
-    setHoveredCell(null)
-    setHoveredLegendLevel(null)
-    setTooltipData(null)
-  }, [])
+    setHoveredCell(null);
+    setHoveredLegendLevel(null);
+    setTooltipData(null);
+  }, []);
 
   const value = useMemo<HeatmapInteractionContextValue>(
     () => ({
@@ -123,47 +138,47 @@ export function HeatmapInteractionProvider({
       clearInteraction,
     }),
     [clearInteraction, hoveredCell, hoveredLegendLevel, tooltipData]
-  )
+  );
 
   return (
     <HeatmapInteractionContext.Provider value={value}>
       {children}
     </HeatmapInteractionContext.Provider>
-  )
+  );
 }
 
 export function HeatmapProvider({
   children,
   value,
 }: {
-  children: ReactNode
-  value: HeatmapContextValue
+  children: ReactNode;
+  value: HeatmapContextValue;
 }) {
   return (
     <HeatmapContext.Provider value={value}>{children}</HeatmapContext.Provider>
-  )
+  );
 }
 
 export function useHeatmap(): HeatmapContextValue {
-  const context = useContext(HeatmapContext)
+  const context = useContext(HeatmapContext);
   if (!context) {
-    throw new Error("useHeatmap must be used within a HeatmapProvider")
+    throw new Error("useHeatmap must be used within a HeatmapProvider");
   }
-  return context
+  return context;
 }
 
 export function useHeatmapInteraction(): HeatmapInteractionContextValue {
-  const context = useContext(HeatmapInteractionContext)
+  const context = useContext(HeatmapInteractionContext);
   if (!context) {
     throw new Error(
       "useHeatmapInteraction must be used within a HeatmapInteractionProvider"
-    )
+    );
   }
-  return context
+  return context;
 }
 
 export function useHeatmapInteractionOptional(): HeatmapInteractionContextValue | null {
-  return useContext(HeatmapInteractionContext)
+  return useContext(HeatmapInteractionContext);
 }
 
 /** Clears hover state when the pointer leaves chart + legend. */
@@ -171,10 +186,10 @@ export function HeatmapInteractionBoundary({
   children,
   className,
 }: {
-  children: ReactNode
-  className?: string
+  children: ReactNode;
+  className?: string;
 }) {
-  const { clearInteraction } = useHeatmapInteraction()
+  const { clearInteraction } = useHeatmapInteraction();
 
   return (
     <div
@@ -183,16 +198,16 @@ export function HeatmapInteractionBoundary({
     >
       {children}
     </div>
-  )
+  );
 }
 
 /** Nests a provider only when one is not already present upstream. */
 export function HeatmapInteractionRoot({ children }: { children: ReactNode }) {
-  const existing = useContext(HeatmapInteractionContext)
+  const existing = useContext(HeatmapInteractionContext);
   if (existing) {
-    return children
+    return children;
   }
-  return <HeatmapInteractionProvider>{children}</HeatmapInteractionProvider>
+  return <HeatmapInteractionProvider>{children}</HeatmapInteractionProvider>;
 }
 
 /** @deprecated Use {@link HEATMAP_DEFAULT_LEVEL_COLORS} */
@@ -202,4 +217,4 @@ export const heatmapCssVars = {
   level2: HEATMAP_DEFAULT_LEVEL_COLORS[2],
   level3: HEATMAP_DEFAULT_LEVEL_COLORS[3],
   level4: HEATMAP_DEFAULT_LEVEL_COLORS[4],
-} as const
+} as const;

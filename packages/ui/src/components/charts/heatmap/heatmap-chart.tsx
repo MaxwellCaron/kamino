@@ -1,7 +1,8 @@
-"use client";
+"use client"
 
-import { scaleLinear, scaleTime } from "@visx/scale";
-import { useReducedMotion } from "motion/react";
+import { ParentSize } from "@visx/responsive"
+import { scaleLinear, scaleTime } from "@visx/scale"
+import { useReducedMotion } from "motion/react"
 import {
   useCallback,
   useEffect,
@@ -9,13 +10,10 @@ import {
   useMemo,
   useRef,
   useState,
-} from "react";
-import { cn } from "@workspace/ui/lib/utils";
-import { ChartLoadingLabel } from "../chart-loading-label";
-import {
-  DEFAULT_CHART_STATUS,
-  resolveRestingChartPhase,
-} from "../chart-phase";
+} from "react"
+import { cn } from "@workspace/ui/lib/utils"
+import { ChartLoadingLabel } from "../chart-loading-label"
+import { DEFAULT_CHART_STATUS, resolveRestingChartPhase } from "../chart-phase"
 import {
   HEATMAP_DEFAULT_ENTER_DURATION_MS,
   HEATMAP_DEFAULT_ENTER_TRANSITION,
@@ -23,144 +21,131 @@ import {
   HEATMAP_DEFAULT_LOADING_CELL_RANDOMNESS,
   HEATMAP_LOADING_CHART_OPACITY,
   HEATMAP_LOADING_CONCEAL_MS,
-} from "./heatmap-animation";
+} from "./heatmap-animation"
 import {
   buildHeatmapColorScaleFromStyles,
   buildHeatmapFillScale,
   resolveHeatmapLevelStyles,
-} from "./heatmap-colors";
+} from "./heatmap-colors"
 import {
   HeatmapInteractionRoot,
   HeatmapProvider,
   useHeatmap,
   useHeatmapInteraction,
-} from "./heatmap-context";
-import { HeatmapPatternDefs } from "./heatmap-pattern-defs";
-import { filterHeatmapColumns, getHeatmapTimeExtent } from "./heatmap-utils";
-import type { Transition } from "motion/react";
-import type { ReactNode } from "react";
-import type { Margin } from "../chart-context";
-import type { ChartPhase, ChartStatus } from "../chart-phase";
-import type { HeatmapLevelColors, HeatmapLevelStyles } from "./heatmap-colors";
+} from "./heatmap-context"
+import { HeatmapPatternDefs } from "./heatmap-pattern-defs"
+import { resolveHeatmapSeparatorConfigWithData } from "./heatmap-resolve-separator"
+import {
+  filterHeatmapColumns,
+  getHeatmapColumnXOffset,
+  getHeatmapPlotInnerWidth,
+  getHeatmapSeparatorCount,
+  getHeatmapTimeExtent,
+  rotateHeatmapColumnBins,
+} from "./heatmap-utils"
+import type {
+  HeatmapSeparatorLayout,
+  HeatmapSeparatorParsedConfig,
+  HeatmapWeekStartDay,
+} from "./heatmap-utils"
 import type {
   HeatmapColumn,
   HeatmapContextValue,
   HeatmapRevealMode,
-} from "./heatmap-context";
+} from "./heatmap-context"
+import type { ChartPhase, ChartStatus } from "../chart-phase"
+import type { HeatmapLevelColors, HeatmapLevelStyles } from "./heatmap-colors"
+import type { ReactNode } from "react"
+import type { Margin } from "../chart-context"
+import type { Transition } from "motion/react"
 
-export type HeatmapLayout = "fluid" | "fill";
+export type HeatmapLayout = "fluid" | "fill"
 
 export interface HeatmapChartProps {
   /** Column data — one entry per week (or category) with row bins inside. */
-  data: Array<HeatmapColumn>;
+  data: Array<HeatmapColumn>
   /** Visible time range — filters week columns that overlap the domain. */
-  xDomain?: [Date, Date];
+  xDomain?: [Date, Date]
   /**
    * Week columns used for cell sizing when `xDomain` is set. Keeps bin height
    * stable while scrubbing (filtered columns can vary by ±1 at boundaries).
    */
-  sizingColumnCount?: number;
+  sizingColumnCount?: number
   /**
    * `fluid` — width drives square cells; chart height hugs the grid (GitHub-style).
    * `fill` — expands cells to fill the parent.
    */
-  layout?: HeatmapLayout;
+  layout?: HeatmapLayout
   /** Chart margins */
-  margin?: Partial<Margin>;
+  margin?: Partial<Margin>
   /** Fixed cell size in pixels. When 0, cells are square and sized to fit the plot. Default: 0 */
-  binSize?: number;
+  binSize?: number
   /** Gap between cells in pixels. Default: 2 */
-  gap?: number;
+  gap?: number
   /** Override the default color scale. */
-  colorScale?: (count: number | null | undefined) => string;
+  colorScale?: (count: number | null | undefined) => string
   /** Per-level colors for the Less → More scale (5 entries). */
-  levelColors?: HeatmapLevelColors;
+  levelColors?: HeatmapLevelColors
   /** Per-level fill styles (color and optional pattern). Takes precedence over `levelColors`. */
-  levelStyles?: HeatmapLevelStyles;
+  levelStyles?: HeatmapLevelStyles
   /** Optional outer aspect ratio (e.g. "2 / 1"). Omit to fill the parent. */
-  aspectRatio?: string;
+  aspectRatio?: string
   /** Additional class name for the container */
-  className?: string;
+  className?: string
   /** Fetch / display status. Default: `"ready"`. */
-  status?: ChartStatus;
+  status?: ChartStatus
   /** Centered label while loading. */
-  loadingLabel?: string;
+  loadingLabel?: string
   /** Enter animation duration in milliseconds. Default: 1600 */
-  animationDuration?: number;
+  animationDuration?: number
   /** Motion enter transition (spring or cubic-bezier tween). */
-  enterTransition?: Transition;
+  enterTransition?: Transition
   /** Signature of motion URL state — triggers enter replay when it changes. */
-  revealSignature?: string;
+  revealSignature?: string
   /** Scales wave stagger delays (1 = default). */
-  enterStaggerScale?: number;
+  enterStaggerScale?: number
   /** Play enter fade-in / loading shimmer animations. Default: true */
-  animate?: boolean;
+  animate?: boolean
   /** Chart opacity while loading. Default: 0.5 */
-  loadingOpacity?: number;
+  loadingOpacity?: number
   /** Show loading cell shimmer while loading. Default: true */
-  showLoadingCells?: boolean;
+  showLoadingCells?: boolean
   /** Max opacity loading cells animate toward (0–1). Default: 0.5 */
-  loadingCellMaxOpacity?: number;
+  loadingCellMaxOpacity?: number
   /** Share of cells that participate in loading shimmer (0–1). Default: 0.65 */
-  loadingCellRandomness?: number;
+  loadingCellRandomness?: number
+  /**
+   * Inserts horizontal gaps between column groups. Overridden when a
+   * {@link HeatmapSeparator} child sets `every` / `spacing`.
+   */
+  columnSeparators?: HeatmapSeparatorParsedConfig
+  /**
+   * First row of the grid — `0` = Sunday (GitHub default), `1` = Monday, etc.
+   * Rotates column bins for display without reshaping source data.
+   */
+  weekStartDay?: HeatmapWeekStartDay
   /** Child components (HeatmapCells, HeatmapXAxis, HeatmapYAxis) */
-  children: ReactNode;
+  children: ReactNode
 }
 
-const DEFAULT_MARGIN: Margin = { top: 28, right: 16, bottom: 0, left: 40 };
-const ZERO_SIZE = { width: 0, height: 0 };
+const DEFAULT_MARGIN: Margin = { top: 28, right: 16, bottom: 0, left: 40 }
 
-function readElementSize(element: HTMLElement | null) {
-  if (!element) {
-    return ZERO_SIZE;
-  }
+const FLUID_HEATMAP_FALLBACK_CELL_PX = 11
 
-  const rect = element.getBoundingClientRect();
-  return {
-    width: rect.width,
-    height: rect.height,
-  };
-}
+/** Reserve fluid chart height before ParentSize measures width. */
+function estimateFluidHeatmapHeight(
+  width: number,
+  columnCount: number,
+  rowCount: number,
+  margin: Margin
+): number {
+  const innerWidth = Math.max(width - margin.left - margin.right, 0)
+  const cellSize =
+    width >= 10
+      ? innerWidth / Math.max(columnCount, 1)
+      : FLUID_HEATMAP_FALLBACK_CELL_PX
 
-function sameElementSize(left: typeof ZERO_SIZE, right: typeof ZERO_SIZE) {
-  return left.width === right.width && left.height === right.height;
-}
-
-function useElementSize<TElement extends HTMLElement>() {
-  const elementRef = useRef<TElement>(null);
-  const [size, setSize] = useState(ZERO_SIZE);
-
-  const updateSize = useCallback(() => {
-    const nextSize = readElementSize(elementRef.current);
-    setSize((currentSize) =>
-      sameElementSize(currentSize, nextSize) ? currentSize : nextSize
-    );
-  }, []);
-
-  useLayoutEffect(() => {
-    updateSize();
-
-    const element = elementRef.current;
-    if (!element) {
-      return;
-    }
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateSize);
-      return () => window.removeEventListener("resize", updateSize);
-    }
-
-    const observer = new ResizeObserver(() => updateSize());
-    observer.observe(element);
-    window.addEventListener("resize", updateSize);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateSize);
-    };
-  }, [updateSize]);
-
-  return { elementRef, size };
+  return margin.top + margin.bottom + rowCount * cellSize
 }
 
 function computeHeatmapDimensions({
@@ -171,85 +156,97 @@ function computeHeatmapDimensions({
   rowCount,
   binSize,
   layout,
+  separator,
 }: {
-  width: number;
-  parentHeight: number;
-  margin: Margin;
-  columnCount: number;
-  rowCount: number;
-  binSize: number;
-  layout: HeatmapLayout;
+  width: number
+  parentHeight: number
+  margin: Margin
+  columnCount: number
+  rowCount: number
+  binSize: number
+  layout: HeatmapLayout
+  separator: Pick<HeatmapSeparatorLayout, "spacing" | "atColumns"> | null
 }) {
-  const innerWidth = Math.max(width - margin.left - margin.right, 0);
-  const availableHeight = Math.max(
-    parentHeight - margin.top - margin.bottom,
-    0
-  );
+  const innerWidth = Math.max(width - margin.left - margin.right, 0)
+  const availableHeight = Math.max(parentHeight - margin.top - margin.bottom, 0)
+  const separatorCount = separator ? getHeatmapSeparatorCount(separator) : 0
+  const totalSpacing = separatorCount * (separator?.spacing ?? 0)
 
-  let binWidth: number;
-  let binHeight: number;
+  let binWidth: number
+  let binHeight: number
 
   if (binSize > 0) {
-    binWidth = binSize;
-    binHeight = binSize;
+    binWidth = binSize
+    binHeight = binSize
   } else if (layout === "fluid") {
-    const cellSize = innerWidth / columnCount;
-    binWidth = cellSize;
-    binHeight = cellSize;
+    const cellSize = Math.max((innerWidth - totalSpacing) / columnCount, 0)
+    binWidth = cellSize
+    binHeight = cellSize
   } else {
     const cellSize = Math.min(
-      innerWidth / columnCount,
+      Math.max((innerWidth - totalSpacing) / columnCount, 0),
       availableHeight / rowCount
-    );
-    binWidth = cellSize;
-    binHeight = cellSize;
+    )
+    binWidth = cellSize
+    binHeight = cellSize
   }
 
-  const innerHeight = rowCount * binHeight;
+  const plotInnerWidth = getHeatmapPlotInnerWidth(
+    columnCount,
+    binWidth,
+    separator
+  )
+  const innerHeight = rowCount * binHeight
   const height =
     layout === "fluid"
       ? margin.top + innerHeight + margin.bottom
-      : Math.max(parentHeight, margin.top + innerHeight + margin.bottom);
+      : Math.max(parentHeight, margin.top + innerHeight + margin.bottom)
+  const chartWidth =
+    binSize > 0 && layout === "fluid"
+      ? margin.left + plotInnerWidth + margin.right
+      : width
 
   return {
     binWidth,
     binHeight,
-    innerWidth,
+    innerWidth: plotInnerWidth,
     innerHeight,
     height,
-    width,
-  };
+    width: chartWidth,
+  }
 }
 
 interface HeatmapChartInnerProps {
-  width: number;
-  height: number;
-  data: Array<HeatmapColumn>;
-  xDomain?: [Date, Date];
-  sizingColumnCount?: number;
-  margin: Margin;
-  binSize: number;
-  gap: number;
-  layout: HeatmapLayout;
-  colorScale: (count: number | null | undefined) => string;
-  fillScale: (count: number | null | undefined) => string;
-  levelStyles: HeatmapLevelStyles;
-  chartStatus: ChartStatus;
-  chartPhase: ChartPhase;
-  isLoaded: boolean;
-  revealEpoch: number;
-  animationDuration: number;
-  enterTransition?: Transition;
-  enterStaggerScale: number;
-  animateCells: boolean;
-  loadingOpacity: number;
-  showLoadingCells: boolean;
-  loadingCellMaxOpacity: number;
-  loadingCellRandomness: number;
-  revealMode: HeatmapRevealMode;
-  loadingLabel?: string;
-  showLoadingLabel: boolean;
-  children: ReactNode;
+  width: number
+  height: number
+  data: Array<HeatmapColumn>
+  xDomain?: [Date, Date]
+  sizingColumnCount?: number
+  margin: Margin
+  binSize: number
+  gap: number
+  layout: HeatmapLayout
+  colorScale: (count: number | null | undefined) => string
+  fillScale: (count: number | null | undefined) => string
+  levelStyles: HeatmapLevelStyles
+  chartStatus: ChartStatus
+  chartPhase: ChartPhase
+  isLoaded: boolean
+  revealEpoch: number
+  animationDuration: number
+  enterTransition?: Transition
+  enterStaggerScale: number
+  animateCells: boolean
+  loadingOpacity: number
+  showLoadingCells: boolean
+  loadingCellMaxOpacity: number
+  loadingCellRandomness: number
+  revealMode: HeatmapRevealMode
+  loadingLabel?: string
+  showLoadingLabel: boolean
+  columnSeparators?: HeatmapSeparatorParsedConfig
+  weekStartDay: HeatmapWeekStartDay
+  children: ReactNode
 }
 
 function HeatmapChartInner({
@@ -280,21 +277,38 @@ function HeatmapChartInner({
   revealMode,
   loadingLabel,
   showLoadingLabel,
+  columnSeparators,
+  weekStartDay,
   children,
 }: HeatmapChartInnerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const visibleData = useMemo(
+  const filteredData = useMemo(
     () => filterHeatmapColumns(data, xDomain),
     [data, xDomain]
-  );
+  )
 
-  const visibleColumnCount = Math.max(visibleData.length, 1);
+  const visibleData = useMemo(
+    () => rotateHeatmapColumnBins(filteredData, weekStartDay),
+    [filteredData, weekStartDay]
+  )
+
+  const visibleColumnCount = Math.max(visibleData.length, 1)
   const columnCount =
     xDomain && sizingColumnCountProp != null
       ? Math.max(sizingColumnCountProp, 1)
-      : visibleColumnCount;
-  const rowCount = Math.max(visibleData[0]?.bins.length ?? 7, 1);
+      : visibleColumnCount
+  const rowCount = Math.max(visibleData[0]?.bins.length ?? 7, 1)
+
+  const separatorLayout = useMemo(
+    () =>
+      resolveHeatmapSeparatorConfigWithData(
+        children,
+        visibleData,
+        columnSeparators
+      ),
+    [children, columnSeparators, visibleData]
+  )
 
   const {
     binWidth,
@@ -313,28 +327,40 @@ function HeatmapChartInner({
         rowCount,
         binSize,
         layout,
+        separator: separatorLayout,
       }),
-    [binSize, columnCount, layout, margin, parentHeight, rowCount, width]
-  );
+    [
+      binSize,
+      columnCount,
+      layout,
+      margin,
+      parentHeight,
+      rowCount,
+      separatorLayout,
+      width,
+    ]
+  )
 
   const xScale = useMemo(
-    () => (columnIndex: number) => columnIndex * binWidth,
-    [binWidth]
-  );
+    () => (columnIndex: number) =>
+      columnIndex * binWidth +
+      getHeatmapColumnXOffset(columnIndex, separatorLayout),
+    [binWidth, separatorLayout]
+  )
   const yScale = useMemo(
     () => (rowIndex: number) => rowIndex * binHeight,
     [binHeight]
-  );
+  )
 
-  const timeExtent = useMemo(() => getHeatmapTimeExtent(data), [data]);
+  const timeExtent = useMemo(() => getHeatmapTimeExtent(data), [data])
 
   const timeXScale = useMemo(() => {
-    const domain = timeExtent ?? [new Date(), new Date()];
+    const domain = timeExtent ?? [new Date(), new Date()]
     return scaleTime({
       domain,
       range: [0, innerWidth],
-    });
-  }, [innerWidth, timeExtent]);
+    })
+  }, [innerWidth, timeExtent])
 
   const brushYScale = useMemo(
     () =>
@@ -343,7 +369,7 @@ function HeatmapChartInner({
         range: [innerHeight, 0],
       }),
     [innerHeight]
-  );
+  )
 
   const contextValue = useMemo<HeatmapContextValue>(
     () => ({
@@ -356,8 +382,10 @@ function HeatmapChartInner({
       binWidth,
       binHeight,
       gap,
+      weekStartDay,
       xScale,
       yScale,
+      separatorLayout,
       timeXScale,
       brushYScale,
       isReady: chartWidth >= 10 && height >= 10,
@@ -406,18 +434,20 @@ function HeatmapChartInner({
       loadingOpacity,
       margin,
       revealMode,
+      separatorLayout,
       showLoadingCells,
       showLoadingLabel,
       revealEpoch,
       timeXScale,
       visibleData,
+      weekStartDay,
       xScale,
       yScale,
     ]
-  );
+  )
 
   if (chartWidth < 10 || height < 10) {
-    return null;
+    return null
   }
 
   return (
@@ -426,15 +456,15 @@ function HeatmapChartInner({
         <HeatmapChartSurface layout={layout}>{children}</HeatmapChartSurface>
       </HeatmapInteractionRoot>
     </HeatmapProvider>
-  );
+  )
 }
 
 function HeatmapChartSurface({
   layout,
   children,
 }: {
-  layout: HeatmapLayout;
-  children: ReactNode;
+  layout: HeatmapLayout
+  children: ReactNode
 }) {
   const {
     containerRef,
@@ -446,12 +476,12 @@ function HeatmapChartSurface({
     loadingOpacity,
     loadingLabel,
     showLoadingLabel,
-  } = useHeatmap();
-  const { clearInteraction } = useHeatmapInteraction();
+  } = useHeatmap()
+  const { clearInteraction } = useHeatmapInteraction()
   const reducedOpacity =
     chartPhase === "loading" || chartPhase === "exitingReady"
       ? loadingOpacity
-      : 1;
+      : 1
 
   return (
     <div
@@ -481,7 +511,7 @@ function HeatmapChartSurface({
         </div>
       ) : null}
     </div>
-  );
+  )
 }
 
 function useHeatmapChartLifecycle({
@@ -490,108 +520,108 @@ function useHeatmapChartLifecycle({
   revealSignature = "",
   animate,
 }: {
-  chartStatus: ChartStatus;
-  animationDuration: number;
-  revealSignature?: string;
-  animate: boolean;
+  chartStatus: ChartStatus
+  animationDuration: number
+  revealSignature?: string
+  animate: boolean
 }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion()
   const [chartPhase, setChartPhase] = useState<ChartPhase>(() =>
     resolveRestingChartPhase(chartStatus)
-  );
+  )
   const [isLoaded, setIsLoaded] = useState(
     () => chartStatus === "ready" && (!animate || animationDuration <= 0)
-  );
-  const [revealEpoch, setRevealEpoch] = useState(0);
-  const [revealMode, setRevealMode] = useState<HeatmapRevealMode>(null);
-  const prevStatusRef = useRef(chartStatus);
-  const phaseRef = useRef(chartPhase);
-  phaseRef.current = chartPhase;
+  )
+  const [revealEpoch, setRevealEpoch] = useState(0)
+  const [revealMode, setRevealMode] = useState<HeatmapRevealMode>(null)
+  const prevStatusRef = useRef(chartStatus)
+  const phaseRef = useRef(chartPhase)
+  phaseRef.current = chartPhase
 
-  const animateCells = animate && !reducedMotion;
-  const animateEnter = animateCells && animationDuration > 0;
+  const animateCells = animate && !reducedMotion
+  const animateEnter = animateCells && animationDuration > 0
 
   const finishReveal = useCallback(() => {
-    setIsLoaded(true);
-    setChartPhase("ready");
-    setRevealMode(null);
-  }, []);
+    setIsLoaded(true)
+    setChartPhase("ready")
+    setRevealMode(null)
+  }, [])
 
   const beginReveal = useCallback(() => {
-    setRevealMode("enter");
-    setRevealEpoch((epoch) => epoch + 1);
-    setIsLoaded(false);
-    setChartPhase("revealing");
+    setRevealMode("enter")
+    setRevealEpoch((epoch) => epoch + 1)
+    setIsLoaded(false)
+    setChartPhase("revealing")
     if (!animateEnter) {
-      finishReveal();
+      finishReveal()
     }
-  }, [animateEnter, finishReveal]);
+  }, [animateEnter, finishReveal])
 
   useLayoutEffect(() => {
-    const prevStatus = prevStatusRef.current;
+    const prevStatus = prevStatusRef.current
     if (prevStatus === chartStatus) {
-      return;
+      return
     }
-    prevStatusRef.current = chartStatus;
+    prevStatusRef.current = chartStatus
 
     if (chartStatus === "ready" && prevStatus === "loading") {
-      setRevealMode("fromLoading");
-      setIsLoaded(false);
-      setChartPhase("revealing");
-      return;
+      setRevealMode("fromLoading")
+      setIsLoaded(false)
+      setChartPhase("revealing")
+      return
     }
 
     if (chartStatus === "loading" && prevStatus === "ready") {
-      setRevealMode(null);
-      setIsLoaded(false);
-      setChartPhase("exitingReady");
+      setRevealMode(null)
+      setIsLoaded(false)
+      setChartPhase("exitingReady")
     }
-  }, [chartStatus]);
+  }, [chartStatus])
 
   useEffect(() => {
     if (chartPhase !== "exitingReady") {
-      return;
+      return
     }
 
     const timer = window.setTimeout(() => {
-      setChartPhase("loading");
-    }, HEATMAP_LOADING_CONCEAL_MS);
+      setChartPhase("loading")
+    }, HEATMAP_LOADING_CONCEAL_MS)
 
-    return () => window.clearTimeout(timer);
-  }, [chartPhase]);
+    return () => window.clearTimeout(timer)
+  }, [chartPhase])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: revealSignature replays enter
   useEffect(() => {
     if (!animateEnter) {
-      setIsLoaded(true);
-      setChartPhase(resolveRestingChartPhase(chartStatus));
-      return;
+      setIsLoaded(true)
+      setChartPhase(resolveRestingChartPhase(chartStatus))
+      return
     }
     if (chartStatus !== "ready") {
-      return;
+      return
     }
     if (phaseRef.current !== "ready") {
-      return;
+      return
     }
 
-    beginReveal();
+    beginReveal()
   }, [
     animateEnter,
     animationDuration,
     beginReveal,
     chartStatus,
     revealSignature,
-  ]);
+  ])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: revealEpoch replays finish timer
   useEffect(() => {
     if (!animateEnter || chartPhase !== "revealing") {
-      return;
+      return
     }
 
-    const finishTimer = window.setTimeout(finishReveal, animationDuration);
-    return () => window.clearTimeout(finishTimer);
-  }, [animateEnter, animationDuration, chartPhase, finishReveal, revealEpoch]);
+    const finishTimer = window.setTimeout(finishReveal, animationDuration)
+    return () => window.clearTimeout(finishTimer)
+  }, [animateEnter, animationDuration, chartPhase, finishReveal, revealEpoch])
 
   return {
     chartPhase,
@@ -599,7 +629,7 @@ function useHeatmapChartLifecycle({
     revealEpoch,
     revealMode,
     animateCells,
-  };
+  }
 }
 
 export function HeatmapChart({
@@ -626,22 +656,67 @@ export function HeatmapChart({
   showLoadingCells = true,
   loadingCellMaxOpacity = HEATMAP_DEFAULT_LOADING_CELL_MAX_OPACITY,
   loadingCellRandomness = HEATMAP_DEFAULT_LOADING_CELL_RANDOMNESS,
+  columnSeparators,
+  weekStartDay = 0,
   children,
 }: HeatmapChartProps) {
-  const { elementRef, size } = useElementSize<HTMLDivElement>();
-  const margin = { ...DEFAULT_MARGIN, ...marginProp };
+  const margin = { ...DEFAULT_MARGIN, ...marginProp }
+  const containerRef = useRef<HTMLDivElement>(null)
+  const columnCount = Math.max(data.length, 1)
+  const rowCount = Math.max(data[0]?.bins.length ?? 7, 1)
+  const [reservedHeight, setReservedHeight] = useState<number | undefined>(() =>
+    layout === "fluid"
+      ? estimateFluidHeatmapHeight(0, columnCount, rowCount, margin)
+      : undefined
+  )
   const levelStyles = useMemo(
     () => resolveHeatmapLevelStyles(levelColors, levelStylesProp),
     [levelColors, levelStylesProp]
-  );
+  )
   const colorScale = useMemo(
     () => colorScaleProp ?? buildHeatmapColorScaleFromStyles(levelStyles),
     [colorScaleProp, levelStyles]
-  );
+  )
   const fillScale = useMemo(
     () => buildHeatmapFillScale(levelStyles),
     [levelStyles]
-  );
+  )
+
+  useLayoutEffect(() => {
+    if (layout !== "fluid") {
+      return
+    }
+
+    const element = containerRef.current
+    if (!element) {
+      return
+    }
+
+    const syncReservedHeight = () => {
+      setReservedHeight(
+        estimateFluidHeatmapHeight(
+          element.offsetWidth,
+          columnCount,
+          rowCount,
+          margin
+        )
+      )
+    }
+
+    syncReservedHeight()
+
+    const observer = new ResizeObserver(syncReservedHeight)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [
+    columnCount,
+    layout,
+    margin.bottom,
+    margin.left,
+    margin.right,
+    margin.top,
+    rowCount,
+  ])
 
   const { chartPhase, isLoaded, revealEpoch, revealMode, animateCells } =
     useHeatmapChartLifecycle({
@@ -649,59 +724,68 @@ export function HeatmapChart({
       animationDuration,
       revealSignature,
       animate,
-    });
+    })
 
   const showLoadingLabel = Boolean(
     loadingLabel?.trim() &&
-      status === "loading" &&
-      (chartPhase === "loading" || chartPhase === "exitingReady")
-  );
+    status === "loading" &&
+    (chartPhase === "loading" || chartPhase === "exitingReady")
+  )
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "relative w-full",
         layout === "fill" && "h-full min-h-0",
         className
       )}
-      ref={elementRef}
-      style={aspectRatio ? { aspectRatio } : undefined}
+      style={{
+        ...(aspectRatio ? { aspectRatio } : undefined),
+        ...(reservedHeight != null ? { minHeight: reservedHeight } : undefined),
+      }}
     >
-      <HeatmapChartInner
-        animateCells={animateCells}
-        animationDuration={animationDuration}
-        binSize={binSize}
-        chartPhase={chartPhase}
-        chartStatus={status}
-        colorScale={colorScale}
-        data={data}
-        enterStaggerScale={enterStaggerScale}
-        enterTransition={enterTransition}
-        fillScale={fillScale}
-        gap={gap}
-        height={size.height}
-        isLoaded={isLoaded}
-        layout={layout}
-        levelStyles={levelStyles}
-        loadingCellMaxOpacity={loadingCellMaxOpacity}
-        loadingCellRandomness={loadingCellRandomness}
-        loadingLabel={loadingLabel}
-        loadingOpacity={loadingOpacity}
-        margin={margin}
-        revealEpoch={revealEpoch}
-        revealMode={revealMode}
-        showLoadingCells={showLoadingCells}
-        showLoadingLabel={showLoadingLabel}
-        sizingColumnCount={sizingColumnCount}
-        width={size.width}
-        xDomain={xDomain}
-      >
-        {children}
-      </HeatmapChartInner>
+      <ParentSize>
+        {({ width, height: parentHeight }) => (
+          <HeatmapChartInner
+            animateCells={animateCells}
+            animationDuration={animationDuration}
+            binSize={binSize}
+            chartPhase={chartPhase}
+            chartStatus={status}
+            colorScale={colorScale}
+            columnSeparators={columnSeparators}
+            data={data}
+            enterStaggerScale={enterStaggerScale}
+            enterTransition={enterTransition}
+            fillScale={fillScale}
+            gap={gap}
+            height={parentHeight}
+            isLoaded={isLoaded}
+            layout={layout}
+            levelStyles={levelStyles}
+            loadingCellMaxOpacity={loadingCellMaxOpacity}
+            loadingCellRandomness={loadingCellRandomness}
+            loadingLabel={loadingLabel}
+            loadingOpacity={loadingOpacity}
+            margin={margin}
+            revealEpoch={revealEpoch}
+            revealMode={revealMode}
+            showLoadingCells={showLoadingCells}
+            showLoadingLabel={showLoadingLabel}
+            sizingColumnCount={sizingColumnCount}
+            weekStartDay={weekStartDay}
+            width={width}
+            xDomain={xDomain}
+          >
+            {children}
+          </HeatmapChartInner>
+        )}
+      </ParentSize>
     </div>
-  );
+  )
 }
 
-HeatmapChart.displayName = "HeatmapChart";
+HeatmapChart.displayName = "HeatmapChart"
 
-export default HeatmapChart;
+export default HeatmapChart
