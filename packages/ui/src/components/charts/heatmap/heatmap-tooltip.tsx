@@ -1,7 +1,6 @@
 "use client"
 
 import { memo } from "react"
-import cn from "cnfast"
 import { TooltipBox } from "../tooltip/tooltip-box"
 import { Separator } from "../../separator"
 import { useHeatmap, useHeatmapInteraction } from "./heatmap-context"
