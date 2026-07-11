@@ -26,7 +26,6 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
-import { PersonalPodCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
 import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
 import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 import { animateChild, animateContainer } from "@/components/animate"
@@ -65,9 +64,7 @@ export function DashboardRecentPodsCard({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {isPersonalPodLoading ? (
-          <PersonalPodCardSkeleton />
-        ) : personalPodStatus?.configured ? (
+        {!isPersonalPodLoading && personalPodStatus?.configured ? (
           <PersonalPodCard status={personalPodStatus} username={username} />
         ) : null}
         {error ? (

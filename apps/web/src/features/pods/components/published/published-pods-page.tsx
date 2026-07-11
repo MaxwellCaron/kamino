@@ -5,13 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Delete01Icon } from "@hugeicons/core-free-icons"
 import { PublishedPodsCatalogCard } from "./published-pods-catalog-card"
 import { PublishedPodsHeaderCard } from "./published-pods-header-card"
-import { PublishedPodsPageSkeleton } from "./published-pods-skeleton"
 import { getPublishedPodsColumns } from "./published-pods-columns"
 import { ManagerCloneDialog } from "./manager-clone-dialog"
 import type { PendingCloneBulkAction } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   showSingleMutationToast,
@@ -266,13 +266,12 @@ export function PublishedPodsPage() {
       }
     : null
 
-  if (isPodsLoading) {
-    return <PublishedPodsPageSkeleton />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isPodsLoading} label="Loading published pods" />
+      {!isPodsLoading && (
+        <>
+          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <PublishedPodsHeaderCard stats={stats} />
         <PublishedPodsCatalogCard
           columns={columns}
@@ -303,6 +302,8 @@ export function PublishedPodsPage() {
         pendingPrincipalIdsByPodId={pendingPrincipalIdsByPodId}
         onConfirm={(pod, principals) => handleManagerClone(pod, principals)}
       />
+        </>
+      )}
     </div>
   )
 }

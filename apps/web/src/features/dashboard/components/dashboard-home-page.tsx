@@ -10,7 +10,6 @@ import { DashboardActivityTableCard } from "./dashboard-requests-card"
 import { getDashboardActivityColumns } from "./dashboard-requests-columns"
 import { DashboardCurrentClonedPodCard } from "./dashboard-cloned-pod-card"
 import { DashboardFavoritesCard } from "./dashboard-favorites-card"
-import { DashboardHomeSkeleton } from "./dashboard-home-skeleton"
 import { DashboardProfileCard } from "./dashboard-profile-card"
 import { DashboardQuestionActivityCard } from "./dashboard-question-activity-card"
 import { DashboardRecentPodsCard } from "./dashboard-published-pods-card"
@@ -21,6 +20,7 @@ import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { principalProviderQueryOptions } from "@/features/principals/api/principals-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
@@ -255,13 +255,12 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   ]
   const roleLabel = getManagementRoleLabel(user.management_permissions)
 
-  if (isDashboardLoading) {
-    return <DashboardHomeSkeleton />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isDashboardLoading} label="Loading dashboard" />
+      {!isDashboardLoading && (
+        <>
+          <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
         <DashboardStatsGrid className="xl:col-span-7" stats={stats} />
         <DashboardProfileCard
           className="xl:col-span-5"
@@ -326,6 +325,8 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           />
         )}
       </Suspense>
+        </>
+      )}
     </div>
   )
 }

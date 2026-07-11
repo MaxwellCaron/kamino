@@ -40,7 +40,7 @@ export function PublishPodPage() {
 
   return (
     <div className="relative flex flex-1 flex-col">
-      <PreloadOverlay active={isPreloading} />
+      <PreloadOverlay active={isPreloading} label="Loading pod" />
       {!isPreloading && (
         <PublishPodEditor
           key={existingPod?.id ?? initialValues.id}

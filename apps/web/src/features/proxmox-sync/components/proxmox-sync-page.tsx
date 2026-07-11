@@ -44,7 +44,7 @@ import {
 import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
@@ -146,10 +146,6 @@ export function ProxmoxSyncPage() {
     return <Navigate to="/" />
   }
 
-  if (isLoading) {
-    return <TablePageSkeleton titleWidth="w-48" />
-  }
-
   const adds: Array<SyncChange> = diff ? diff.adds : []
   const removes: Array<SyncChange> = diff ? diff.removes : []
   const updates: Array<SyncChange> = diff ? diff.updates : []
@@ -161,8 +157,10 @@ export function ProxmoxSyncPage() {
     adds.length === 0 && removes.length === 0 && updates.length === 0
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isLoading} label="Loading Proxmox sync" />
+      {!isLoading && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         {diff?.warning && (
           <Alert variant="destructive">
             <HugeiconsIcon icon={Alert01Icon} className="size-4" />
@@ -301,7 +299,8 @@ export function ProxmoxSyncPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <Suspense fallback={null}>
         {confirm && (

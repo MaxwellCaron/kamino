@@ -1,6 +1,6 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { VmDashboardSkeleton } from "./vm-dashboard-skeleton"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import {
   inventoryItemQueryOptions,
@@ -76,66 +76,71 @@ export function VmDashboardPage() {
   const canRequestSnapshots = capabilities.snapshot.mode === "request"
   const canUseConsole = capabilities.console.enabled
 
-  if (isLoading) {
-    return <VmDashboardSkeleton />
-  }
+  if (!isLoading) {
+    if (!node && isItemError) {
+      if (isApiErrorStatus(itemError, 404)) {
+        throw notFound()
+      }
 
-  if (!node && isItemError) {
-    if (isApiErrorStatus(itemError, 404)) {
-      throw notFound()
+      throw itemError
     }
 
-    throw itemError
-  }
-
-  if (!node || !vm) {
-    throw notFound()
+    if (!node || !vm) {
+      throw notFound()
+    }
   }
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <VmHeader
-          node={node}
-          itemId={itemId}
-          vm={vm}
-          powerStatus={powerStatus}
-          resources={shouldFetchResources ? resources : undefined}
-          networks={networks?.networks}
-          isNetworksLoading={isNetworksLoading}
-          isNetworksError={isNetworksError}
-          isTemplate={isTemplate}
-        />
-        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
-          <VmPowerControls
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isLoading} label="Loading virtual machine" />
+      {node && vm && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+          <VmHeader
             node={node}
             itemId={itemId}
             vm={vm}
             powerStatus={powerStatus}
+            resources={shouldFetchResources ? resources : undefined}
+            networks={networks?.networks}
+            isNetworksLoading={isNetworksLoading}
+            isNetworksError={isNetworksError}
             isTemplate={isTemplate}
           />
-          <div className={isTemplate ? "lg:col-span-3" : "lg:col-span-2"}>
-            <VmNotes node={node} itemId={itemId} vm={vm} />
+          <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
+            <VmPowerControls
+              node={node}
+              itemId={itemId}
+              vm={vm}
+              powerStatus={powerStatus}
+              isTemplate={isTemplate}
+            />
+            <div className={isTemplate ? "lg:col-span-3" : "lg:col-span-2"}>
+              <VmNotes node={node} itemId={itemId} vm={vm} />
+            </div>
           </div>
+          {capabilities.viewSnapshots.enabled && (
+            <SnapshotsTable
+              itemId={itemId}
+              vmid={vm.vmid}
+              vmName={node.name}
+              guestType={vm.guest_type}
+              isTemplate={isTemplate}
+              permissions={{
+                canView: canViewSnapshots,
+                canManage: canManageSnapshots,
+                canRequest: canRequestSnapshots,
+              }}
+            />
+          )}
+          {!isTemplate && canUseConsole && (
+            <VncConsole
+              key={itemId}
+              itemId={itemId}
+              powerStatus={powerStatus}
+            />
+          )}
         </div>
-        {capabilities.viewSnapshots.enabled && (
-          <SnapshotsTable
-            itemId={itemId}
-            vmid={vm.vmid}
-            vmName={node.name}
-            guestType={vm.guest_type}
-            isTemplate={isTemplate}
-            permissions={{
-              canView: canViewSnapshots,
-              canManage: canManageSnapshots,
-              canRequest: canRequestSnapshots,
-            }}
-          />
-        )}
-        {!isTemplate && canUseConsole && (
-          <VncConsole key={itemId} itemId={itemId} powerStatus={powerStatus} />
-        )}
-      </div>
+      )}
     </div>
   )
 }

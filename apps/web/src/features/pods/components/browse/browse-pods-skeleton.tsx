@@ -7,12 +7,6 @@ import {
   CutoutCorner,
   cutoutCardSurfaceClassName,
 } from "@workspace/ui/components/cutout-card"
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemMedia,
-} from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -66,23 +60,5 @@ export function BrowsePodsCardSkeleton() {
         </CutoutCardFooter>
       </CutoutCardContent>
     </CutoutCard>
-  )
-}
-
-export function PersonalPodCardSkeleton() {
-  return (
-    <Item variant="muted" aria-hidden="true">
-      <ItemMedia variant="image" className="size-15">
-        <Skeleton className="size-full rounded-xl" />
-      </ItemMedia>
-      <ItemContent>
-        <Skeleton className="h-5 w-24 rounded-md" />
-        <Skeleton className="h-4 w-full max-w-sm rounded-md" />
-        <Skeleton className="h-5 w-24 rounded-full" />
-      </ItemContent>
-      <ItemActions>
-        <Skeleton className="h-8 w-20 rounded-md" />
-      </ItemActions>
-    </Item>
   )
 }

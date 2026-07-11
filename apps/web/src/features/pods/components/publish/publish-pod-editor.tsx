@@ -263,7 +263,7 @@ export function PublishPodEditor({
 
   return (
     <div className="@container/main relative flex flex-1 flex-col">
-      <PreloadOverlay active={isLoadingFormOptions} />
+      <PreloadOverlay active={isLoadingFormOptions} label="Loading pod" />
       {!isLoadingFormOptions && (
         <PublishPodFormView
           step={step}

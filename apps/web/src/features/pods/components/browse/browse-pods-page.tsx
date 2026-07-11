@@ -13,7 +13,6 @@ import { BrowsePodsCard } from "./browse-pods-card"
 import { PersonalPodCard } from "./personal-pod-card"
 import {
   BrowsePodsGridSkeleton,
-  PersonalPodCardSkeleton,
   browsePodsGridClassName,
 } from "./browse-pods-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -102,9 +101,7 @@ export function BrowsePodsPage() {
                 className="mx-auto max-w-lg"
               />
             ) : null}
-            {isPersonalPodLoading ? (
-              <PersonalPodCardSkeleton />
-            ) : personalPodStatus?.configured ? (
+            {!isPersonalPodLoading && personalPodStatus?.configured ? (
               <PersonalPodCard status={personalPodStatus} username={username} />
             ) : null}
             {visiblePods.length > 0 ? (

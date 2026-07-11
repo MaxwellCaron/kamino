@@ -37,7 +37,7 @@ import {
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
 import { formatToastError } from "@/features/shared/utils/format"
 import { DataTable } from "@/components/data-table/data-table"
-import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
@@ -178,13 +178,11 @@ export function GroupsPage() {
     return <Navigate to="/" />
   }
 
-  if (isLoading) {
-    return <TablePageSkeleton actionCount={2} titleWidth="w-40" />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isLoading} label="Loading groups" />
+      {!isLoading && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -272,7 +270,8 @@ export function GroupsPage() {
             />
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <Suspense fallback={null}>
         {canAdminister && createOpen ? (

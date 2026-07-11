@@ -54,10 +54,6 @@ vi.mock("./inventory-folder-contents", () => ({
   InventoryFolderContents: () => null,
 }))
 
-vi.mock("./inventory-folder-skeleton", () => ({
-  InventoryFolderSkeleton: () => null,
-}))
-
 const testFolder: ApiTreeNode = {
   id: "folder-1",
   name: "Test Folder",
@@ -75,6 +71,17 @@ describe("InventoryFolderPage", () => {
   beforeEach(() => {
     mockInventoryTreeQueryFn.mockReset()
     mockInventoryNodeMenuProps.current = null
+  })
+
+  it("shows preload overlay while loading without throwing not found", () => {
+    mockInventoryTreeQueryFn.mockReturnValue(new Promise(() => {}))
+
+    renderWithQueryClient(<InventoryFolderPage />)
+
+    expect(screen.getByLabelText("Loading folder")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("heading", { name: "Test Folder" })
+    ).not.toBeInTheDocument()
   })
 
   it("renders error alert instead of not found when tree query fails", async () => {

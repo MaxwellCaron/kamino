@@ -14,9 +14,9 @@ import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
 import { CreatePodReviewSection } from "./create-pod-review-section"
 import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-section"
 import { CreatePodSubmitState } from "./create-pod-creation-state"
-import { CreatePodFormSkeleton } from "./create-pod-skeleton"
 import type { CreatePodFormValues } from "./create-pod-form"
 import type { CreatePodResult } from "@/features/pods/api/create-pod-api"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { uuid } from "@/features/shared/utils/uuid"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
@@ -232,13 +232,11 @@ export function CreatePodPage() {
     )
   }
 
-  if (isCreateOptionsLoading) {
-    return <CreatePodFormSkeleton />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
+    <div className="@container/main relative flex flex-1 flex-col">
+      <PreloadOverlay active={isCreateOptionsLoading} label="Loading pod creation" />
+      {!isCreateOptionsLoading && (
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-4xl font-extrabold tracking-tight text-balance">
             Create Pod
@@ -326,7 +324,8 @@ export function CreatePodPage() {
             </AlertDialogFooter>
           </AppAlertDialogContent>
         </AlertDialog>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

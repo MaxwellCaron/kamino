@@ -36,7 +36,7 @@ import {
 } from "@/features/sdn/api/sdn-api"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
-import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
@@ -205,13 +205,11 @@ export function SdnPage() {
     return <Navigate to="/" />
   }
 
-  if (isLoading) {
-    return <TablePageSkeleton titleWidth="w-32" />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isLoading} label="Loading VNets" />
+      {!isLoading && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -308,7 +306,8 @@ export function SdnPage() {
             />
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <Suspense fallback={null}>
         {canAdminister && createOpen ? (

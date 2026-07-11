@@ -37,7 +37,7 @@ import { useUsersPageMutations } from "@/features/principals/hooks/use-users-pag
 import { UsersSelectionActions } from "@/features/principals/components/users/users-selection-actions"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { DataTable } from "@/components/data-table/data-table"
-import { TablePageSkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
@@ -156,13 +156,11 @@ export function UsersPage() {
     return <Navigate to="/" />
   }
 
-  if (isLoading) {
-    return <TablePageSkeleton actionCount={2} titleWidth="w-32" />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay active={isLoading} label="Loading users" />
+      {!isLoading && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -244,7 +242,8 @@ export function UsersPage() {
             />
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <Suspense fallback={null}>
         {canAdminister && createOpen ? (

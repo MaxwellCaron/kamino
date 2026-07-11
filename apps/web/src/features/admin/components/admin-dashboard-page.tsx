@@ -16,11 +16,11 @@ import { AdminClusterCard } from "./admin-cluster-card"
 import { AdminDashboardHeader } from "./admin-dashboard-header"
 import { getPrincipalColumns } from "./admin-principal-columns"
 import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
-import { AdminDashboardSkeleton } from "./admin-dashboard-skeleton"
 import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-requests-card"
 import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
@@ -216,13 +216,15 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     isPendingRequestsLoading ||
     isCompletedRequestsLoading
 
-  if (isDashboardLoading) {
-    return <AdminDashboardSkeleton />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      <PreloadOverlay
+        active={isDashboardLoading}
+        label="Loading admin dashboard"
+      />
+      {!isDashboardLoading && (
+        <>
+          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
         <div className="xl:col-span-12">
           <AdminDashboardHeader stats={adminStats} />
         </div>
@@ -267,6 +269,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           />
         )}
       </Suspense>
+        </>
+      )}
     </div>
   )
 }
