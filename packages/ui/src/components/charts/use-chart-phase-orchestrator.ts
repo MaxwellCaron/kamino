@@ -20,6 +20,16 @@ export interface UseChartPhaseOrchestratorOptions {
   skipEnterReveal?: boolean;
 }
 
+function shouldPlayEnterReveal(
+  chartStatus: ChartStatus,
+  skipEnterReveal: boolean,
+  animationDuration: number
+) {
+  return (
+    chartStatus === "ready" && !skipEnterReveal && animationDuration > 0
+  );
+}
+
 export function useChartPhaseOrchestrator({
   chartStatus,
   targetData,
@@ -29,15 +39,22 @@ export function useChartPhaseOrchestrator({
   revealSignature = "",
   skipEnterReveal = false,
 }: UseChartPhaseOrchestratorOptions) {
+  const playEnterReveal = shouldPlayEnterReveal(
+    chartStatus,
+    skipEnterReveal,
+    animationDuration
+  );
   const [chartPhase, setChartPhase] = useState<ChartPhase>(() =>
-    resolveRestingChartPhase(chartStatus)
+    playEnterReveal ? "revealing" : resolveRestingChartPhase(chartStatus)
   );
   const [plotData, setPlotData] = useState<Array<Record<string, unknown>>>(() =>
     chartStatus === "loading" ? skeletonData : targetData
   );
   const [revealEpoch, setRevealEpoch] = useState(0);
   const [concealEpoch, setConcealEpoch] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(() => chartStatus === "ready");
+  const [isLoaded, setIsLoaded] = useState(
+    () => chartStatus === "ready" && !playEnterReveal
+  );
   const prevStatusRef = useRef(chartStatus);
   const phaseRef = useRef(chartPhase);
   phaseRef.current = chartPhase;
