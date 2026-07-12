@@ -54,6 +54,7 @@ type VMCreateHandler struct {
 	Audit                 *audit.Service
 	Allocator             *vmidalloc.Allocator
 	PersonalPodVNetPrefix string
+	PodLANVLANBase        int
 }
 
 // GetNodes returns all cluster nodes.
@@ -160,6 +161,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 				c.Request.Context(),
 				h.DB,
 				h.PersonalPodVNetPrefix,
+				h.PodLANVLANBase,
 				scopeItemID,
 			)
 			if err != nil {
@@ -357,6 +359,7 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 				c.Request.Context(),
 				h.DB,
 				h.PersonalPodVNetPrefix,
+				h.PodLANVLANBase,
 				scopeItemID,
 			)
 			if err != nil {
@@ -451,6 +454,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 			c.Request.Context(),
 			h.DB,
 			h.PersonalPodVNetPrefix,
+			h.PodLANVLANBase,
 			targetFolderID,
 		)
 		if err != nil {

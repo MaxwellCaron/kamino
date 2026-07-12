@@ -449,6 +449,7 @@ CREATE TABLE published_pods (
     status                  published_pod_status NOT NULL DEFAULT 'listed',
     source_folder_id        UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
     publisher_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
+    network_profile_key     TEXT NOT NULL,
     clone_count             INTEGER NOT NULL DEFAULT 0,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -461,7 +462,9 @@ CREATE TABLE published_pods (
     CONSTRAINT published_pods_slug_format
         CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
     CONSTRAINT published_pods_clone_count_non_negative
-        CHECK (clone_count >= 0)
+        CHECK (clone_count >= 0),
+    CONSTRAINT published_pods_network_profile_key_not_empty
+        CHECK (length(trim(network_profile_key)) > 0)
 );
 
 CREATE UNIQUE INDEX ux_published_pods_slug
@@ -522,10 +525,17 @@ CREATE TABLE published_pod_vms (
     disk_gb                   NUMERIC(12,2) NOT NULL CHECK (disk_gb > 0),
     allow_mask                BIGINT NOT NULL CHECK (allow_mask >= 0),
     deny_mask                 BIGINT NOT NULL CHECK (deny_mask >= 0),
+    is_router                 BOOLEAN NOT NULL DEFAULT false,
+    segment_key               TEXT NULL,
     sort_order                INTEGER NOT NULL CHECK (sort_order >= 0),
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT published_pod_vms_name_not_empty
-        CHECK (length(trim(name)) > 0)
+        CHECK (length(trim(name)) > 0),
+    CONSTRAINT published_pod_vms_segment_identity
+        CHECK (
+            (is_router AND segment_key IS NULL)
+            OR (NOT is_router AND segment_key IS NOT NULL AND length(trim(segment_key)) > 0)
+        )
 );
 
 CREATE UNIQUE INDEX ux_published_pod_vms_source
@@ -579,11 +589,14 @@ CREATE TABLE cloned_pods (
     user_principal_id   UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
     folder_id           UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     network_number      INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    network_profile_key TEXT NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (pod_id, user_principal_id),
     UNIQUE (folder_id),
-    UNIQUE (network_number)
+    UNIQUE (network_number),
+    CONSTRAINT cloned_pods_network_profile_key_not_empty
+        CHECK (length(trim(network_profile_key)) > 0)
 );
 
 CREATE INDEX ix_cloned_pods_user_created_at
@@ -593,12 +606,33 @@ CREATE INDEX ix_cloned_pods_pod_created_at
     ON cloned_pods (pod_id, created_at DESC);
 
 CREATE TABLE pod_dev_network_allocations (
-    pod_folder_id  UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
-    network_number INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (network_number)
+    pod_folder_id         UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
+    network_number        INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    network_profile_key   TEXT NOT NULL,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (network_number),
+    CONSTRAINT pod_dev_network_allocations_network_profile_key_not_empty
+        CHECK (length(trim(network_profile_key)) > 0)
 );
+
+CREATE TABLE pod_dev_vm_network_assignments (
+    inventory_item_id UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
+    pod_folder_id     UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    is_router         BOOLEAN NOT NULL DEFAULT false,
+    segment_key       TEXT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pod_dev_vm_network_assignments_segment_identity
+        CHECK (
+            (is_router AND segment_key IS NULL)
+            OR (NOT is_router AND segment_key IS NOT NULL AND length(trim(segment_key)) > 0)
+        )
+);
+
+CREATE UNIQUE INDEX ux_pod_dev_vm_network_assignments_router
+    ON pod_dev_vm_network_assignments (pod_folder_id)
+    WHERE is_router;
 
 CREATE TABLE personal_pods (
     id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),

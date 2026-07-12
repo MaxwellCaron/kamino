@@ -18,10 +18,14 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
   FieldSet,
   FieldTitle,
 } from "@workspace/ui/components/field"
-import { Switch } from "@workspace/ui/components/switch"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@workspace/ui/components/radio-group"
 import {
   Empty,
   EmptyDescription,
@@ -30,23 +34,86 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Copy02Icon } from "@hugeicons/core-free-icons"
+import {
+  Copy02Icon,
+  Globe02Icon,
+  Shield01Icon,
+  WifiOffIcon,
+} from "@hugeicons/core-free-icons"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
 import { syncSelectedTemplates } from "./create-pod-form"
-import type { CreatePodFormApi } from "./create-pod-form"
-import type { PodTemplateOption } from "@/features/pods/api/create-pod-api"
+import type {
+  CreatePodFormApi,
+  PodNetworkingMode,
+  PodVmSegmentKey,
+} from "./create-pod-form"
+import type {
+  PodNetworkProfile,
+  PodTemplateOption,
+} from "@/features/pods/api/create-pod-api"
+import type { IconSvgElement } from "@hugeicons/react"
 
 type CreatePodVirtualMachinesSectionProps = {
   form: CreatePodFormApi
   submissionAttempts: number
   templateOptions: Array<PodTemplateOption>
+  networkProfiles: Array<PodNetworkProfile>
   routerTemplateConfigured?: boolean
+}
+
+const networkingModeCards: Array<{
+  value: PodNetworkingMode
+  title: string
+  description: string
+  icon: IconSvgElement
+  requiresRouter: boolean
+}> = [
+  {
+    value: "none",
+    title: "None",
+    description: "Keep template NIC settings without a managed router or VNet.",
+    icon: WifiOffIcon,
+    requiresRouter: false,
+  },
+  {
+    value: "lan-router-v1",
+    title: "LAN Router",
+    description:
+      "One VyOS router with host-preserving 1:1 NAT into an isolated LAN.",
+    icon: Globe02Icon,
+    requiresRouter: true,
+  },
+  {
+    value: "lan-dmz-router-v1",
+    title: "LAN + DMZ Router",
+    description:
+      "Isolated LAN and DMZ segments. DMZ hosts are 1:1 NAT from WAN to DMZ",
+    icon: Shield01Icon,
+    requiresRouter: true,
+  },
+]
+
+function getDefaultSegmentKey(
+  networkingMode: PodNetworkingMode,
+  networkProfiles: Array<PodNetworkProfile>
+): PodVmSegmentKey | undefined {
+  if (networkingMode !== "lan-dmz-router-v1") return undefined
+
+  const profile = networkProfiles.find(
+    (option) => option.key === "lan-dmz-router-v1"
+  )
+  const defaultSegment = profile?.default_segment_key
+
+  return defaultSegment === "dmz" || defaultSegment === "lan"
+    ? defaultSegment
+    : "lan"
 }
 
 export function CreatePodVirtualMachinesSection({
   form,
   submissionAttempts,
   templateOptions,
+  networkProfiles,
   routerTemplateConfigured = true,
 }: CreatePodVirtualMachinesSectionProps) {
   const anchor = useComboboxAnchor()
@@ -58,49 +125,103 @@ export function CreatePodVirtualMachinesSection({
   return (
     <FieldSet className="w-full">
       <FieldGroup>
-        <form.Field name="includeRouter">
+        <form.Field name="networkingMode">
           {(field) => {
             const showValidation =
               field.state.meta.isTouched || submissionAttempts > 0
             const isInvalid = showValidation && !field.state.meta.isValid
 
             return (
-              <FieldLabel
-                htmlFor={field.name}
-                data-disabled={!routerTemplateConfigured || undefined}
-                className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
-              >
-                <Field
-                  orientation="horizontal"
-                  data-invalid={isInvalid || undefined}
+              <FieldSet data-invalid={isInvalid || undefined}>
+                <FieldLegend>Automated Networking</FieldLegend>
+                <FieldDescription>
+                  {routerTemplateConfigured
+                    ? "Choose how Kamino should provision routing and isolated networks for this pod."
+                    : "Router automation is unavailable until an admin configures a router VM template."}
+                </FieldDescription>
+                <RadioGroup
+                  value={field.state.value}
+                  onValueChange={(value) => {
+                    const nextMode = value as PodNetworkingMode
+                    field.handleChange(nextMode)
+
+                    if (nextMode === "lan-dmz-router-v1") {
+                      const defaultSegmentKey = getDefaultSegmentKey(
+                        nextMode,
+                        networkProfiles
+                      )
+                      const templates = form.getFieldValue("templates")
+                      form.setFieldValue(
+                        "templates",
+                        templates.map((template) => ({
+                          ...template,
+                          vms: template.vms.map((vm) => ({
+                            ...vm,
+                            segmentKey: vm.segmentKey ?? defaultSegmentKey,
+                          })),
+                        }))
+                      )
+                      return
+                    }
+
+                    const templates = form.getFieldValue("templates")
+                    form.setFieldValue(
+                      "templates",
+                      templates.map((template) => ({
+                        ...template,
+                        vms: template.vms.map(
+                          ({ segmentKey: _segmentKey, ...vm }) => vm
+                        ),
+                      }))
+                    )
+                  }}
+                  className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3"
                 >
-                  <FieldContent>
-                    <FieldTitle>
-                      Include Router
-                      <span className="text-muted-foreground">
-                        (Recommended)
-                      </span>
-                    </FieldTitle>
-                    <FieldDescription>
-                      {routerTemplateConfigured
-                        ? "Automatically add a router VM to provide networking for this template via 1-1 NATing."
-                        : "Router automation is unavailable until an admin configures a router VM template."}
-                    </FieldDescription>
-                    <FieldError
-                      errors={showValidation ? field.state.meta.errors : []}
-                    />
-                  </FieldContent>
-                  <Switch
-                    id={field.name}
-                    name={field.name}
-                    checked={field.state.value}
-                    disabled={!routerTemplateConfigured}
-                    onCheckedChange={(checked) => field.handleChange(checked)}
-                    onBlur={field.handleBlur}
-                    aria-invalid={isInvalid || undefined}
-                  />
-                </Field>
-              </FieldLabel>
+                  {networkingModeCards.map((mode) => {
+                    const disabled =
+                      mode.requiresRouter && !routerTemplateConfigured
+
+                    return (
+                      <FieldLabel
+                        key={mode.value}
+                        htmlFor={`create-pod-networking-${mode.value}`}
+                        data-disabled={disabled || undefined}
+                        className="h-full cursor-pointer data-[disabled=true]:cursor-not-allowed"
+                      >
+                        <Field
+                          orientation="vertical"
+                          className="h-full justify-between gap-3"
+                        >
+                          <div className="flex w-full items-start justify-between gap-3">
+                            <HugeiconsIcon
+                              icon={mode.icon}
+                              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                            />
+                            <RadioGroupItem
+                              id={`create-pod-networking-${mode.value}`}
+                              value={mode.value}
+                              disabled={disabled}
+                              onBlur={field.handleBlur}
+                              className="mt-0.5"
+                            />
+                          </div>
+                          <FieldContent className="gap-1.5">
+                            <FieldTitle className="text-sm leading-snug">
+                              {mode.title}
+                            </FieldTitle>
+                            <FieldDescription className="text-pretty">
+                              {mode.description}
+                            </FieldDescription>
+                          </FieldContent>
+                        </Field>
+                      </FieldLabel>
+                    )
+                  })}
+                </RadioGroup>
+                <FieldError
+                  errors={showValidation ? field.state.meta.errors : []}
+                />
+              </FieldSet>
             )
           }}
         </form.Field>
@@ -112,6 +233,14 @@ export function CreatePodVirtualMachinesSection({
             const isInvalid = showValidation && !field.state.meta.isValid
             const selectedTemplates = field.state.value.map(
               (template) => template.templateItemId
+            )
+            const networkingMode = form.getFieldValue("networkingMode")
+            const defaultSegmentKey = getDefaultSegmentKey(
+              networkingMode,
+              networkProfiles
+            )
+            const dmzProfile = networkProfiles.find(
+              (profile) => profile.key === "lan-dmz-router-v1"
             )
 
             return (
@@ -127,7 +256,8 @@ export function CreatePodVirtualMachinesSection({
                       syncSelectedTemplates(
                         field.state.value,
                         Array.isArray(value) ? value : [],
-                        templateOptions
+                        templateOptions,
+                        defaultSegmentKey ? { defaultSegmentKey } : undefined
                       )
                     )
                   }}
@@ -183,6 +313,8 @@ export function CreatePodVirtualMachinesSection({
                         templateConfig={templateConfig}
                         templateIndex={index}
                         submissionAttempts={submissionAttempts}
+                        networkingMode={networkingMode}
+                        networkSegments={dmzProfile?.segments ?? []}
                         onRemoveTemplate={() => field.removeValue(index)}
                       />
                     ))}

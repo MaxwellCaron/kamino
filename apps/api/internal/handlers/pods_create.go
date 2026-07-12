@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -54,8 +55,9 @@ type podTemplateOption struct {
 }
 
 type podCreateOptionsResponse struct {
-	RouterTemplateConfigured bool                `json:"router_template_configured"`
-	Templates                []podTemplateOption `json:"templates"`
+	RouterTemplateConfigured bool                       `json:"router_template_configured"`
+	NetworkProfiles          []podnetwork.PublicProfile `json:"network_profiles"`
+	Templates                []podTemplateOption        `json:"templates"`
 }
 
 type podNameAvailabilityResponse struct {
@@ -63,10 +65,11 @@ type podNameAvailabilityResponse struct {
 }
 
 type createPodVMRequest struct {
-	Name      string `json:"name" binding:"required"`
-	CPUCount  int    `json:"cpu_count"`
-	MemoryGB  int    `json:"memory_gb"`
-	StorageGB int    `json:"storage_gb"`
+	Name       string  `json:"name" binding:"required"`
+	CPUCount   int     `json:"cpu_count"`
+	MemoryGB   int     `json:"memory_gb"`
+	StorageGB  int     `json:"storage_gb"`
+	SegmentKey *string `json:"segment_key"`
 }
 
 type createPodTemplateRequest struct {
@@ -75,9 +78,9 @@ type createPodTemplateRequest struct {
 }
 
 type createPodRequest struct {
-	Name          string                     `json:"name" binding:"required"`
-	IncludeRouter bool                       `json:"include_router"`
-	Templates     []createPodTemplateRequest `json:"templates"`
+	Name              string                     `json:"name" binding:"required"`
+	NetworkProfileKey string                     `json:"network_profile_key"`
+	Templates         []createPodTemplateRequest `json:"templates"`
 }
 
 type createPodVMResponse struct {
@@ -102,6 +105,7 @@ type podCloneSpec struct {
 	TemplateItemID uuid.UUID
 	Name           string
 	Router         bool
+	SegmentKey     string
 	Hardware       *podCloneHardware
 }
 
@@ -129,6 +133,7 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 	if !found {
 		c.JSON(http.StatusOK, podCreateOptionsResponse{
 			RouterTemplateConfigured: h.RouterTemplateItemID != uuid.Nil,
+			NetworkProfiles:          h.publicNetworkProfiles(),
 			Templates:                []podTemplateOption{},
 		})
 		return
@@ -180,8 +185,16 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, podCreateOptionsResponse{
 		RouterTemplateConfigured: h.RouterTemplateItemID != uuid.Nil,
+		NetworkProfiles:          h.publicNetworkProfiles(),
 		Templates:                templates,
 	})
+}
+
+func (h *PodsHandler) publicNetworkProfiles() []podnetwork.PublicProfile {
+	if h.NetworkCatalog == nil {
+		return []podnetwork.PublicProfile{}
+	}
+	return h.NetworkCatalog.PublicProfiles()
 }
 
 func (h *PodsHandler) ValidateCreateName(c *gin.Context) {
@@ -256,6 +269,22 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	profileKey, automatedNetworking, err := h.resolveCreateNetworkProfile(req)
+	if err != nil {
+		progress.fail(err.Error())
+		writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "resolve pod network profile", err)
+		return
+	}
+
+	segmentByTarget := segmentAssignmentsFromSpecs(specs)
+	if automatedNetworking {
+		if err := h.NetworkCatalog.ValidateAssignments(profileKey, 1, segmentByTarget); err != nil {
+			progress.fail(err.Error())
+			writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "validate pod network assignments", err)
+			return
+		}
+	}
+
 	progress.set(createProgressStepFolders, "Creating Pod inventory folders.")
 	podsFolderID, err := h.ensurePodsFolderID(c.Request.Context())
 	if err != nil {
@@ -321,14 +350,15 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	var devNetworkNumber int32
-	if req.IncludeRouter {
+	if automatedNetworking {
 		progress.set(createProgressStepNetwork, "Reserving a dev network.")
 		allocation, err := database.New(h.DB).InsertPodDevNetworkAllocation(
 			c.Request.Context(),
 			database.InsertPodDevNetworkAllocationParams{
-				PodFolderID:      podFolderID,
-				MinNetworkNumber: h.RouterCloneConfig.DevNetworkMin,
-				MaxNetworkNumber: h.RouterCloneConfig.DevNetworkMax,
+				PodFolderID:       podFolderID,
+				MinNetworkNumber:  h.RouterCloneConfig.DevNetworkMin,
+				MaxNetworkNumber:  h.RouterCloneConfig.DevNetworkMax,
+				NetworkProfileKey: profileKey,
 			},
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -345,9 +375,8 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		}
 
 		devNetworkNumber = allocation.NetworkNumber
-		vnetName := h.podVNetName(devNetworkNumber)
-		progress.set(createProgressStepNetwork, fmt.Sprintf("Checking dev VNet %s.", vnetName))
-		if reqErr := h.ensurePodVNetExists(c.Request.Context(), vnetName); reqErr != nil {
+		progress.set(createProgressStepNetwork, fmt.Sprintf("Checking dev VNets for profile %s.", profileKey))
+		if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey, devNetworkNumber); reqErr != nil {
 			progress.fail(reqErr.UserMessage)
 			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeRequestError(c, reqErr)
@@ -425,17 +454,35 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			writeRequestError(c, reqErr)
 			return
 		}
-		if req.IncludeRouter {
-			devVNetName := h.podVNetName(devNetworkNumber)
-			progress.set(createProgressStepConfiguring, "Configuring dev VNet bridges.")
-			if reqErr := h.configurePodVNetBridges(c.Request.Context(), devVNetName, createdTargets); reqErr != nil {
+		if automatedNetworking {
+			progress.set(createProgressStepConfiguring, "Configuring dev network attachments.")
+			if reqErr := h.configureProfileNetworkAttachments(
+				c.Request.Context(),
+				profileKey,
+				devNetworkNumber,
+				createdTargets,
+				segmentByTarget,
+			); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
 				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
 
-			cloudInitConfig, err := buildClonedRouterCloudInitConfig(devNetworkNumber, h.RouterCloneConfig)
+			if err := h.persistDevNetworkAssignments(
+				c.Request.Context(),
+				database.New(h.DB),
+				podFolderID,
+				createdTargets,
+				segmentByTarget,
+			); err != nil {
+				progress.fail("failed to save pod network assignments")
+				h.cleanupFailedPodProvision(podFolderID, created)
+				writeLoggedError(c, http.StatusInternalServerError, "failed to save pod network assignments", "insert pod dev vm network assignments", err)
+				return
+			}
+
+			cloudInitConfig, err := buildRouterCloudInitConfigForProfile(devNetworkNumber, profileKey, h.RouterCloneConfig)
 			if err != nil {
 				progress.fail("failed to build router cloud-init configuration")
 				h.cleanupFailedPodProvision(podFolderID, created)
@@ -468,10 +515,40 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	})
 }
 
+func (h *PodsHandler) resolveCreateNetworkProfile(req createPodRequest) (string, bool, error) {
+	profileKey := strings.TrimSpace(req.NetworkProfileKey)
+	if profileKey == "" {
+		return "", false, nil
+	}
+	if h.NetworkCatalog == nil {
+		return "", false, fmt.Errorf("pod network catalog is not configured")
+	}
+	if _, err := h.NetworkCatalog.Profile(profileKey); err != nil {
+		return "", false, err
+	}
+	return profileKey, true, nil
+}
+
+func segmentAssignmentsFromSpecs(specs []podCloneSpec) map[string]string {
+	assignments := make(map[string]string, len(specs))
+	for _, spec := range specs {
+		if spec.Router {
+			continue
+		}
+		assignments[spec.Name] = spec.SegmentKey
+	}
+	return assignments
+}
+
 func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, error) {
 	specs := make([]podCloneSpec, 0)
 
-	if req.IncludeRouter {
+	profileKey, automatedNetworking, err := h.resolveCreateNetworkProfile(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if automatedNetworking {
 		if h.RouterTemplateItemID == uuid.Nil {
 			return nil, fmt.Errorf("router template is not configured")
 		}
@@ -480,6 +557,14 @@ func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, err
 			Name:           "router",
 			Router:         true,
 		})
+	}
+
+	defaultSegment := ""
+	if automatedNetworking {
+		defaultSegment, err = h.NetworkCatalog.DefaultWorkloadSegment(profileKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, template := range req.Templates {
@@ -503,9 +588,21 @@ func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, err
 				return nil, fmt.Errorf("storage must be between 10 and 100 GB")
 			}
 
+			segmentKey := defaultSegment
+			if vm.SegmentKey != nil {
+				segmentKey = strings.TrimSpace(*vm.SegmentKey)
+			}
+			if !automatedNetworking && segmentKey != "" {
+				return nil, fmt.Errorf("segment_key requires network_profile_key")
+			}
+			if automatedNetworking && profileKey == podnetwork.ProfileLANDMZRouterV1 && segmentKey == "" {
+				return nil, fmt.Errorf("segment_key is required for every workload in the LAN + DMZ Router profile")
+			}
+
 			specs = append(specs, podCloneSpec{
 				TemplateItemID: templateID,
 				Name:           name,
+				SegmentKey:     segmentKey,
 				Hardware: &podCloneHardware{
 					CPUCount:  vm.CPUCount,
 					MemoryGB:  vm.MemoryGB,

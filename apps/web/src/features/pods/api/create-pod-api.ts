@@ -1,5 +1,9 @@
 import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
-import type { CreatePodFormValues } from "@/features/pods/components/create/create-pod-form"
+import type {
+  CreatePodFormValues,
+  PodNetworkingMode,
+} from "@/features/pods/components/create/create-pod-form"
+import { isPodNetworkingWithRouter } from "@/features/pods/components/create/create-pod-form"
 import { apiJson } from "@/features/shared/api/api-json"
 
 export type PodTemplateOption = {
@@ -13,8 +17,23 @@ export type PodTemplateOption = {
   is_router_template: boolean
 }
 
+export type PodNetworkSegment = {
+  key: string
+  label: string
+}
+
+export type PodNetworkProfile = {
+  key: Exclude<PodNetworkingMode, "none">
+  label: string
+  description: string
+  default_segment_key?: string
+  segments: Array<PodNetworkSegment>
+  prefix_nat_segment_key?: string
+}
+
 export type CreatePodOptions = {
   router_template_configured: boolean
+  network_profiles: Array<PodNetworkProfile>
   templates: Array<PodTemplateOption>
 }
 
@@ -63,6 +82,29 @@ export async function validatePodNameAvailability(
   )
 }
 
+export function buildCreatePodRequestBody(values: CreatePodFormValues) {
+  const usesManagedNetworking = isPodNetworkingWithRouter(values.networkingMode)
+
+  return {
+    name: values.name,
+    ...(usesManagedNetworking
+      ? { network_profile_key: values.networkingMode }
+      : {}),
+    templates: values.templates.map((template) => ({
+      template_item_id: template.templateItemId,
+      vms: template.vms.map((vm) => ({
+        name: vm.name,
+        cpu_count: vm.cpuCount,
+        memory_gb: vm.memoryGb,
+        storage_gb: vm.storageGb,
+        ...(values.networkingMode === "lan-dmz-router-v1" && vm.segmentKey
+          ? { segment_key: vm.segmentKey }
+          : {}),
+      })),
+    })),
+  }
+}
+
 export async function createPod(
   params: {
     values: CreatePodFormValues
@@ -73,19 +115,7 @@ export async function createPod(
   return apiJson<CreatePodResult>(`/api/v1/pods?${query.toString()}`, "create pod", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: params.values.name,
-      include_router: params.values.includeRouter,
-      templates: params.values.templates.map((template) => ({
-        template_item_id: template.templateItemId,
-        vms: template.vms.map((vm) => ({
-          name: vm.name,
-          cpu_count: vm.cpuCount,
-          memory_gb: vm.memoryGb,
-          storage_gb: vm.storageGb,
-        })),
-      })),
-    }),
+    body: JSON.stringify(buildCreatePodRequestBody(params.values)),
   })
 }
 

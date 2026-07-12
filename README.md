@@ -158,6 +158,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
 | `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
+| `POD_LAN_VLAN_BASE` | no | `0` | VLAN tag offset for `{prefix}<N>` LAN VNets (`tag = base + N`) |
 | `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
 | `POD_CLONE_NETWORK_MAX` | no | `244` | Last published-clone network number |
 | `POD_DEV_NETWORK_MIN` | no | `245` | First create-pod developer network number |
@@ -224,6 +225,18 @@ Configure workload guests once, as `192.168.1.<host>/24` with gateway
 VMs must be readdressed to this LAN (then republished/recloned) before this
 networking model takes effect for them.
 
+Supported automated profiles:
+
+| Profile | Key | Router NICs | Workload segments | Notes |
+|---|---|---|---|---|
+| LAN Router | `lan-router-v1` (default) | WAN `net0`, LAN `net1`, `net2` link-down | one LAN on `pod<N>` | `172.16.<N>.0/24` ↔ `192.168.1.0/24` 1:1 prefix NAT |
+| LAN + DMZ Router | `lan-dmz-router-v1` | WAN `net0`, LAN `net1`, DMZ `net2` | explicit LAN or DMZ per workload | `172.16.<N>.0/24` ↔ `10.0.50.0/24` 1:1 prefix NAT |
+
+The router template must expose `net0`, `net1`, and `net2` for the DMZ profile.
+DMZ workloads must use static `10.0.50.<host>/24` addresses with gateway
+`10.0.50.1`; each host is reachable at `172.16.<N>.<host>`. Kamino validates
+segment assignment and Proxmox NIC attachment, not guest OS addressing.
+
 ## Security notes
 
 - Keep real credentials only in untracked `.env*` files (`.env`, `.env.docker`). Never commit them.
@@ -262,6 +275,9 @@ Pod cloning requires the following to be configured and healthy:
 |---|---|---|
 | Router template VM exists in inventory | `POD_ROUTER_TEMPLATE_ITEM_ID` | Must point to a valid template inventory item |
 | Cloud-init snippets exist on Proxmox storage | `POD_ROUTER_CLOUD_INIT_*` | Filenames must pass validation (no path separators, no `..`) |
-| VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_CLONE_NETWORK_MIN/MAX` | Each `{prefix}{number}` VNet must be present in Proxmox SDN |
+| VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_LAN_VLAN_BASE` | Each `{prefix}{LAN_VLAN_BASE + N}` VNet must be present with tag `POD_LAN_VLAN_BASE + N` |
+| DMZ VNets exist for DMZ profile pods | `POD_DMZ_VNET_PREFIX` + `POD_DMZ_VLAN_BASE` | Each `dmz{DMZ_VLAN_BASE + N}` VNet must exist with tag `POD_DMZ_VLAN_BASE + N` |
+| Router template has three NICs for DMZ profile | `POD_ROUTER_TEMPLATE_ITEM_ID` | `net0` WAN, `net1` LAN, `net2` DMZ |
+| LAN + DMZ router cloud-init snippets exist | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_*` | `kamino-router-lan-dmz-{network}-user-data.yaml` per network |
 | WAN IP prefix is a valid dotted numeric value | `POD_ROUTER_WAN_IP_BASE` | Each segment must be 0-255 |
 | Internal subnet is a valid IPv4 `/24` network | `POD_ROUTER_INTERNAL_SUBNET` | Must be a canonical `/24` network address, not a host address |

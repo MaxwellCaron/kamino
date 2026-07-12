@@ -826,6 +826,27 @@ func (c *Client) SetVMCloudInitCustom(
 }
 
 func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, device string, bridge string) error {
+	return c.SetVMNetworkAttachment(ctx, node, vmid, device, NetworkAttachment{
+		Bridge:   bridge,
+		Firewall: true,
+	})
+}
+
+// NetworkAttachment describes the desired Proxmox NIC state.
+type NetworkAttachment struct {
+	Bridge   string
+	VLANTag  *int
+	LinkDown bool
+	Firewall bool
+}
+
+func (c *Client) SetVMNetworkAttachment(
+	ctx context.Context,
+	node string,
+	vmid int,
+	device string,
+	attachment NetworkAttachment,
+) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
 	}
@@ -834,9 +855,14 @@ func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, 
 	if device == "" {
 		return fmt.Errorf("network device is required")
 	}
-	bridge = strings.TrimSpace(bridge)
+	bridge := strings.TrimSpace(attachment.Bridge)
 	if bridge == "" {
 		return fmt.Errorf("bridge is required")
+	}
+	if attachment.VLANTag != nil {
+		if *attachment.VLANTag < 1 || *attachment.VLANTag > 4094 {
+			return fmt.Errorf("vlan tag must be within 1..4094")
+		}
 	}
 
 	current, err := c.GetVMHardwareConfig(ctx, node, vmid)
@@ -857,13 +883,15 @@ func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, 
 
 	updated := *target
 	updated.Bridge = bridge
-	updated.Firewall = true
+	updated.Firewall = attachment.Firewall
+	updated.LinkDown = attachment.LinkDown
+	updated.VLANTag = attachment.VLANTag
 
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
 	if err := c.put(ctx, path, map[string]string{
 		device: formatVMHardwareNetwork(updated),
 	}, nil); err != nil {
-		return fmt.Errorf("updating VM network bridge: %w", err)
+		return fmt.Errorf("updating VM network attachment: %w", err)
 	}
 
 	return nil
@@ -1181,6 +1209,8 @@ func parseVMHardwareNetwork(device, raw string) (VMHardwareNetwork, error) {
 			}
 		case "firewall":
 			network.Firewall = value == "1" || strings.EqualFold(value, "true")
+		case "link_down":
+			network.LinkDown = value == "1" || strings.EqualFold(value, "true")
 		}
 	}
 
@@ -1212,6 +1242,9 @@ func formatVMHardwareNetwork(network VMHardwareNetwork) string {
 	}
 	if network.Firewall {
 		parts = append(parts, "firewall=1")
+	}
+	if network.LinkDown {
+		parts = append(parts, "link_down=1")
 	}
 	if network.VLANTag != nil && *network.VLANTag > 0 {
 		parts = append(parts, fmt.Sprintf("tag=%d", *network.VLANTag))

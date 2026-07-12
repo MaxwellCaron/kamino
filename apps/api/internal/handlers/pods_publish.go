@@ -35,14 +35,17 @@ type publishPodVMOption struct {
 	CPUCount    int32                          `json:"cpuCount"`
 	MemoryGB    int32                          `json:"memoryGb"`
 	StorageGB   int32                          `json:"storageGb"`
+	IsRouter    bool                           `json:"is_router,omitempty"`
+	SegmentKey  *string                        `json:"segment_key,omitempty"`
 	Permissions publishedPodPermissionResponse `json:"permissions"`
 }
 
 type publishPodFolderOption struct {
-	ID              uuid.UUID            `json:"id"`
-	Name            string               `json:"name"`
-	Path            string               `json:"path"`
-	VirtualMachines []publishPodVMOption `json:"virtual_machines"`
+	ID                uuid.UUID            `json:"id"`
+	Name              string               `json:"name"`
+	Path              string               `json:"path"`
+	NetworkProfileKey string               `json:"network_profile_key"`
+	VirtualMachines   []publishPodVMOption `json:"virtual_machines"`
 }
 
 type publishPodPrincipalRequest struct {
@@ -63,6 +66,8 @@ type publishPodVMRequest struct {
 	CPUCount    int32                       `json:"cpuCount"`
 	MemoryGB    int32                       `json:"memoryGb"`
 	StorageGB   int32                       `json:"storageGb"`
+	IsRouter    bool                        `json:"is_router"`
+	SegmentKey  *string                     `json:"segment_key"`
 	Permissions publishPodPermissionRequest `json:"permissions"`
 }
 
@@ -407,6 +412,7 @@ func (h *PodsHandler) savePublishedPod(
 			Status:               normalized.Status,
 			SourceFolderID:       normalized.SourceFolderID,
 			PublisherPrincipalID: principalID,
+			NetworkProfileKey:    normalized.NetworkProfileKey,
 		}); err != nil {
 			return publishedPodResponse{}, &requestError{
 				Status:      http.StatusInternalServerError,
@@ -473,6 +479,7 @@ type normalizedPublishPodRequest struct {
 	Image                 string
 	Status                database.PublishedPodStatus
 	SourceFolderID        uuid.UUID
+	NetworkProfileKey     string
 	CreatorIDs            []uuid.UUID
 	AudienceIDs           []uuid.UUID
 	VirtualMachines       []normalizedPublishPodVM
@@ -490,6 +497,8 @@ type normalizedPublishPodVM struct {
 	StorageGB              int32
 	AllowMask              int64
 	DenyMask               int64
+	IsRouter               bool
+	SegmentKey             *string
 }
 
 type normalizedPublishPodTask struct {
@@ -592,6 +601,12 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		return normalizedPublishPodRequest{}, reqErr
 	}
 
+	networkProfileKey, vmAssignments, reqErr := h.validatePublishablePodNetwork(ctx, podFolderID, podFolder.VirtualMachines)
+	if reqErr != nil {
+		return normalizedPublishPodRequest{}, reqErr
+	}
+	vms, reqErr = applyPublishNetworkAssignments(vms, vmAssignments)
+
 	return normalizedPublishPodRequest{
 		ID:                    podID,
 		Title:                 title,
@@ -599,6 +614,7 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		Image:                 image,
 		Status:                status,
 		SourceFolderID:        podFolderID,
+		NetworkProfileKey:     networkProfileKey,
 		CreatorIDs:            creatorIDs,
 		AudienceIDs:           audienceIDs,
 		VirtualMachines:       vms,
@@ -713,6 +729,8 @@ func (h *PodsHandler) replacePublishedPodChildren(
 				DiskGb:                float64(vm.StorageGB),
 				AllowMask:             vm.AllowMask,
 				DenyMask:              vm.DenyMask,
+				IsRouter:              vm.IsRouter,
+				SegmentKey:            vm.SegmentKey,
 				SortOrder:             int32(index),
 			}); err != nil {
 				return childInsertError("insert published pod vm", err)
@@ -731,6 +749,8 @@ func (h *PodsHandler) replacePublishedPodChildren(
 			DiskGb:                float64(vm.StorageGB),
 			AllowMask:             vm.AllowMask,
 			DenyMask:              vm.DenyMask,
+			IsRouter:              vm.IsRouter,
+			SegmentKey:            vm.SegmentKey,
 			SortOrder:             int32(index),
 		}); err != nil {
 			return childInsertError("update published pod vm", err)
@@ -1298,16 +1318,15 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 	prepared := make([]normalizedPublishPodVM, len(vms))
 	routerTemplateID := uuid.Nil
 	for _, vm := range vms {
-		if !isPodRouterName(vm.Name) {
+		if !vm.IsRouter {
 			continue
 		}
 
 		var err error
-		routerTemplateID, err = publishedPodVMTemplateItemID(
-			vm.Name,
-			vm.SourceInventoryItemID,
-			h.RouterTemplateItemID,
-		)
+		routerTemplateID, err = publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{
+			SourceInventoryItemID: vm.SourceInventoryItemID,
+			IsRouter:              vm.IsRouter,
+		}, h.RouterTemplateItemID)
 		if err != nil {
 			return nil, &requestError{
 				Status:      http.StatusConflict,

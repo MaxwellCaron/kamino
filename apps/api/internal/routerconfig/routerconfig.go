@@ -95,6 +95,18 @@ func NormalizeCloudInitFilePattern(envName, value string) (string, error) {
 	return trimmed, nil
 }
 
+const (
+	DefaultLANRouterCloudInitUserFilePattern    = "kamino-router-{network}-user-data.yaml"
+	DefaultLANRouterCloudInitNetworkFile        = "kamino-router-network-config.yaml"
+	DefaultLANDMZRouterCloudInitUserFilePattern = "kamino-router-lan-dmz-{network}-user-data.yaml"
+	DefaultLANDMZRouterCloudInitNetworkFile     = "kamino-router-lan-dmz-network-config.yaml"
+
+	LANDMZLANSubnet      = "192.168.1.0/24"
+	LANDMZLANGatewayHost = 1
+	LANDMZDMZSubnet      = "10.0.50.0/24"
+	LANDMZDMZGatewayHost = 1
+)
+
 func NormalizeCloudInitFileName(envName, value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {

@@ -21,7 +21,11 @@ import {
   PackageIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
-import { getReviewVms } from "./create-pod-form"
+import {
+  getPodNetworkingModeLabel,
+  getPodSegmentLabel,
+  getReviewVms,
+} from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
 import { FolderIcon } from "@/components/status/folder-icon"
 import { VmIcon } from "@/components/status/vm-icon"
@@ -35,7 +39,7 @@ type CreatePodReviewSectionProps = {
 
 type ReviewTreePreviewProps = {
   podName: string
-  vms: Array<{ id: string; name: string }>
+  vms: ReturnType<typeof getReviewVms>
 }
 
 function ReviewTreePreview({ podName, vms }: ReviewTreePreviewProps) {
@@ -62,6 +66,12 @@ function ReviewTreePreview({ podName, vms }: ReviewTreePreviewProps) {
             <VmIcon status="running" />
             <span className="ml-1 flex-1 truncate text-foreground">
               {vm.name}
+              {vm.segmentKey ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({getPodSegmentLabel(vm.segmentKey)})
+                </span>
+              ) : null}
             </span>
           </div>
         ))}
@@ -111,7 +121,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                     <ItemContent>
                       <ItemTitle>Automated Networking</ItemTitle>
                       <ItemDescription>
-                        {values.includeRouter ? "Yes" : "No"}
+                        {getPodNetworkingModeLabel(values.networkingMode)}
                       </ItemDescription>
                     </ItemContent>
                   </Item>

@@ -304,12 +304,12 @@ func isPodRouterName(name string) bool {
 }
 
 func isPublishedPodRouterVM(publishedVM database.ListPublishedPodVMsForCloneRow) bool {
-	return isPodRouterName(publishedVM.Name)
+	return publishedVM.IsRouter
 }
 
-func publishedPodVMTemplateItemID(name string, publishedTemplateID, routerTemplateID uuid.UUID) (uuid.UUID, error) {
-	if !isPodRouterName(name) {
-		return publishedTemplateID, nil
+func publishedPodVMTemplateItemID(publishedVM database.ListPublishedPodVMsForCloneRow, routerTemplateID uuid.UUID) (uuid.UUID, error) {
+	if !publishedVM.IsRouter {
+		return publishedVM.SourceInventoryItemID, nil
 	}
 	if routerTemplateID == uuid.Nil {
 		return uuid.Nil, fmt.Errorf("router template is not configured")
@@ -1304,12 +1304,12 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
-	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID)
+	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey)
 	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
 
-	if reqErr := h.ensureClonedPodVNetExists(ctx, h.clonedPodVNetName(clone.NetworkNumber)); reqErr != nil {
+	if reqErr := h.ensureProfileVNetsExist(ctx, pod.NetworkProfileKey, clone.NetworkNumber); reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
 
@@ -1423,7 +1423,7 @@ func (h *PodsHandler) provisionClonedPodVMs(
 	if reqErr := h.waitForClonedVMsReady(ctx, results); reqErr != nil {
 		return nil, created, reqErr
 	}
-	if reqErr := h.configureClonedPodNetwork(ctx, clone.NetworkNumber, results); reqErr != nil {
+	if reqErr := h.configureClonedPodNetwork(ctx, clone, results); reqErr != nil {
 		return nil, created, reqErr
 	}
 
@@ -1506,8 +1506,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 			progress.set(cloneProgressStepCloning, "Cloning "+publishedVM.Name+" into a Cloned Pod VM")
 			router := isPublishedPodRouterVM(publishedVM)
 			sourceItemID, err := publishedPodVMTemplateItemID(
-				publishedVM.Name,
-				publishedVM.SourceInventoryItemID,
+				publishedVM,
 				h.RouterTemplateItemID,
 			)
 			if err != nil {
@@ -1673,15 +1672,17 @@ func (h *PodsHandler) createClonedPodRecord(
 	principalID uuid.UUID,
 	podID uuid.UUID,
 	folderID uuid.UUID,
+	networkProfileKey string,
 ) (database.ClonedPods, *requestError) {
 	q := database.New(h.DB)
 	clone, err := q.InsertClonedPod(ctx, database.InsertClonedPodParams{
-		ID:               uuid.New(),
-		PodID:            podID,
-		UserPrincipalID:  principalID,
-		FolderID:         folderID,
-		MinNetworkNumber: h.RouterCloneConfig.NetworkMin,
-		MaxNetworkNumber: h.RouterCloneConfig.NetworkMax,
+		ID:                uuid.New(),
+		PodID:             podID,
+		UserPrincipalID:   principalID,
+		FolderID:          folderID,
+		NetworkProfileKey: networkProfileKey,
+		MinNetworkNumber:  h.RouterCloneConfig.NetworkMin,
+		MaxNetworkNumber:  h.RouterCloneConfig.NetworkMax,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return database.ClonedPods{}, &requestError{
@@ -1766,31 +1767,23 @@ func (h *PodsHandler) recordClonedPodDetails(
 }
 
 func (h *PodsHandler) podVNetName(networkNumber int32) string {
-	return fmt.Sprintf("%s%d", strings.TrimSpace(h.RouterCloneConfig.VNetPrefix), networkNumber)
+	return fmt.Sprintf(
+		"%s%d",
+		strings.TrimSpace(h.RouterCloneConfig.VNetPrefix),
+		h.RouterCloneConfig.LANVLANBase+int(networkNumber),
+	)
 }
 
 func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
 	return h.podVNetName(networkNumber)
 }
 
-func (h *PodsHandler) podNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
-	wanBase, err := routerconfig.NormalizeDottedPrefix(h.RouterCloneConfig.WANIPBase)
-	if err != nil {
-		return clonedPodNetworkResponse{}, fmt.Errorf("invalid WAN IP base %q: %w", h.RouterCloneConfig.WANIPBase, err)
-	}
-
-	return clonedPodNetworkResponse{
-		Number:          networkNumber,
-		VNet:            h.podVNetName(networkNumber),
-		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
-		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
-		InternalSubnet:  h.RouterCloneConfig.InternalSubnet.String(),
-		InternalGateway: h.RouterCloneConfig.InternalSubnet.Addr().Next().String(),
-	}, nil
+func (h *PodsHandler) podNetworkMetadata(profileKey string, networkNumber int32) (clonedPodNetworkResponse, error) {
+	return h.buildPodNetworkMetadata(profileKey, networkNumber)
 }
 
-func (h *PodsHandler) clonedPodNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
-	return h.podNetworkMetadata(networkNumber)
+func (h *PodsHandler) clonedPodNetworkMetadata(clone database.ClonedPods) (clonedPodNetworkResponse, error) {
+	return h.buildPodNetworkMetadata(clone.NetworkProfileKey, clone.NetworkNumber)
 }
 
 func (h *PodsHandler) ensurePodVNetExists(ctx context.Context, vnetName string) *requestError {
@@ -1976,10 +1969,34 @@ func (h *PodsHandler) configurePodVNetBridges(
 
 func (h *PodsHandler) configureClonedPodNetwork(
 	ctx context.Context,
-	networkNumber int32,
+	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	return h.configurePodVNetBridges(ctx, h.podVNetName(networkNumber), podNetworkTargetsFromCloneResults(results))
+	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey, clone.NetworkNumber); reqErr != nil {
+		return reqErr
+	}
+
+	segmentByTarget := segmentAssignmentsFromPublishedCloneResults(results)
+	return h.configureProfileNetworkAttachments(
+		ctx,
+		clone.NetworkProfileKey,
+		clone.NetworkNumber,
+		podNetworkTargetsFromCloneResults(results),
+		segmentByTarget,
+	)
+}
+
+func segmentAssignmentsFromPublishedCloneResults(results []clonePublishedVMResult) map[string]string {
+	assignments := make(map[string]string, len(results))
+	for _, result := range results {
+		if result.router {
+			continue
+		}
+		if result.published.SegmentKey != nil {
+			assignments[result.published.Name] = *result.published.SegmentKey
+		}
+	}
+	return assignments
 }
 
 func (h *PodsHandler) configurePodRouterCloudInit(
@@ -2080,7 +2097,7 @@ func (h *PodsHandler) configureClonedRouter(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	cloudInitConfig, err := buildClonedRouterCloudInitConfig(clone.NetworkNumber, h.RouterCloneConfig)
+	cloudInitConfig, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, h.RouterCloneConfig)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusInternalServerError,
@@ -2250,7 +2267,7 @@ func (h *PodsHandler) hydrateClonedPod(
 	}
 	owner := cloneOwnerFromPrincipal(principals[0])
 
-	network, err := h.clonedPodNetworkMetadata(clone.NetworkNumber)
+	network, err := h.clonedPodNetworkMetadata(clone)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}

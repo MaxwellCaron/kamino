@@ -13,19 +13,23 @@ import (
 func TestBuildPodRouterCloneConfig(t *testing.T) {
 	baseConfig := func() Config {
 		return Config{
-			PodCloneVNetPrefix:                "pod",
-			PodCloneNetworkMin:                1,
-			PodCloneNetworkMax:                174,
-			PodDevNetworkMin:                  175,
-			PodDevNetworkMax:                  199,
-			PodRouterWait:                     "5m",
-			PodRouterWANIPBase:                "172.16.",
-			PodRouterInternalSubnet:           "192.168.1.0/24",
-			PodRouterCloudInitStorage:         "local",
-			PodRouterCloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
-			PodRouterCloudInitNetworkFile:     "kamino-router-network-config.yaml",
-			PersonalPodNetworkMin:             200,
-			PersonalPodNetworkMax:             254,
+			PodCloneVNetPrefix:                  "pod",
+			PodCloneNetworkMin:                  1,
+			PodCloneNetworkMax:                  174,
+			PodDevNetworkMin:                    175,
+			PodDevNetworkMax:                    199,
+			PodRouterWait:                       "5m",
+			PodRouterWANIPBase:                  "172.16.",
+			PodRouterInternalSubnet:             "192.168.1.0/24",
+			PodRouterCloudInitStorage:           "local",
+			PodRouterCloudInitUserFilePattern:   "kamino-router-{network}-user-data.yaml",
+			PodRouterCloudInitNetworkFile:       "kamino-router-network-config.yaml",
+			PodDMZVNetPrefix:                    "dmz",
+			PodDMZVLANBase:                      1000,
+			PodRouterLANDMZCloudInitUserPattern: "kamino-router-lan-dmz-{network}-user-data.yaml",
+			PodRouterLANDMZCloudInitNetworkFile: "kamino-router-lan-dmz-network-config.yaml",
+			PersonalPodNetworkMin:               200,
+			PersonalPodNetworkMax:               254,
 		}
 	}
 
@@ -70,6 +74,15 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 				cfg.PersonalPodNetworkMax = 210
 				return cfg
 			}(),
+		},
+		{
+			name: "overlapping LAN and DMZ VLAN ranges rejected",
+			config: func() Config {
+				cfg := baseConfig()
+				cfg.PodLANVLANBase = 900
+				return cfg
+			}(),
+			wantErr: "LAN and DMZ VLAN tag ranges must not overlap",
 		},
 	}
 

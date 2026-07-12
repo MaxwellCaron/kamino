@@ -46,8 +46,9 @@ INSERT INTO published_pods (
     image_url,
     status,
     source_folder_id,
-    publisher_principal_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    publisher_principal_id,
+    network_profile_key
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING
     id,
     title,
@@ -57,6 +58,7 @@ RETURNING
     status,
     source_folder_id,
     publisher_principal_id,
+    network_profile_key,
     clone_count,
     created_at,
     updated_at
@@ -71,6 +73,7 @@ type CreatePublishedPodParams struct {
 	Status               PublishedPodStatus `json:"status"`
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
 }
 
 func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPodParams) (PublishedPods, error) {
@@ -83,6 +86,7 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 		arg.Status,
 		arg.SourceFolderID,
 		arg.PublisherPrincipalID,
+		arg.NetworkProfileKey,
 	)
 	var i PublishedPods
 	err := row.Scan(
@@ -94,6 +98,7 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 		&i.Status,
 		&i.SourceFolderID,
 		&i.PublisherPrincipalID,
+		&i.NetworkProfileKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -118,6 +123,16 @@ WHERE cloned_pod_id = $1
 
 func (q *Queries) DeleteClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteClonedPodVMs, clonedPodID)
+	return err
+}
+
+const deletePodDevVMNetworkAssignments = `-- name: DeletePodDevVMNetworkAssignments :exec
+DELETE FROM pod_dev_vm_network_assignments
+WHERE pod_folder_id = $1
+`
+
+func (q *Queries) DeletePodDevVMNetworkAssignments(ctx context.Context, podFolderID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deletePodDevVMNetworkAssignments, podFolderID)
 	return err
 }
 
@@ -221,6 +236,7 @@ SELECT
     cp.user_principal_id,
     cp.folder_id,
     cp.network_number,
+    cp.network_profile_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -245,6 +261,7 @@ func (q *Queries) GetAccessibleClonedPodByID(ctx context.Context, arg GetAccessi
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -258,6 +275,7 @@ SELECT
     cp.user_principal_id,
     cp.folder_id,
     cp.network_number,
+    cp.network_profile_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -286,6 +304,7 @@ func (q *Queries) GetAccessibleClonedPodByPodID(ctx context.Context, arg GetAcce
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -299,6 +318,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -314,6 +334,7 @@ func (q *Queries) GetClonedPodByID(ctx context.Context, id uuid.UUID) (ClonedPod
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -327,6 +348,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -348,6 +370,7 @@ func (q *Queries) GetClonedPodForPrincipalByID(ctx context.Context, arg GetClone
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -361,6 +384,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -382,6 +406,31 @@ func (q *Queries) GetClonedPodForPrincipalByPodID(ctx context.Context, arg GetCl
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPodDevNetworkAllocation = `-- name: GetPodDevNetworkAllocation :one
+SELECT
+    pod_folder_id,
+    network_number,
+    network_profile_key,
+    created_at,
+    updated_at
+FROM pod_dev_network_allocations
+WHERE pod_folder_id = $1
+`
+
+func (q *Queries) GetPodDevNetworkAllocation(ctx context.Context, podFolderID uuid.UUID) (PodDevNetworkAllocations, error) {
+	row := q.db.QueryRow(ctx, getPodDevNetworkAllocation, podFolderID)
+	var i PodDevNetworkAllocations
+	err := row.Scan(
+		&i.PodFolderID,
+		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -399,6 +448,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -418,6 +468,7 @@ type GetPublishedPodByIDRow struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -436,6 +487,7 @@ func (q *Queries) GetPublishedPodByID(ctx context.Context, id uuid.UUID) (GetPub
 		&i.SourceFolderID,
 		&i.SourceFolderName,
 		&i.PublisherPrincipalID,
+		&i.NetworkProfileKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -527,6 +579,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -568,6 +621,7 @@ type GetVisiblePublishedPodBySlugRow struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -586,6 +640,7 @@ func (q *Queries) GetVisiblePublishedPodBySlug(ctx context.Context, arg GetVisib
 		&i.SourceFolderID,
 		&i.SourceFolderName,
 		&i.PublisherPrincipalID,
+		&i.NetworkProfileKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -600,7 +655,7 @@ WITH allocation_lock AS (
 candidate AS (
     SELECT n::INTEGER AS network_number
     FROM allocation_lock,
-         generate_series($5::INTEGER, $6::INTEGER) AS n
+         generate_series($6::INTEGER, $7::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
         FROM cloned_pods cp
@@ -614,14 +669,16 @@ INSERT INTO cloned_pods (
     pod_id,
     user_principal_id,
     folder_id,
-    network_number
+    network_number,
+    network_profile_key
 )
 SELECT
     $1,
     $2,
     $3,
     $4,
-    candidate.network_number
+    candidate.network_number,
+    $5
 FROM candidate
 RETURNING
     id,
@@ -629,17 +686,19 @@ RETURNING
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 `
 
 type InsertClonedPodParams struct {
-	ID               uuid.UUID `json:"id"`
-	PodID            uuid.UUID `json:"pod_id"`
-	UserPrincipalID  uuid.UUID `json:"user_principal_id"`
-	FolderID         uuid.UUID `json:"folder_id"`
-	MinNetworkNumber int32     `json:"min_network_number"`
-	MaxNetworkNumber int32     `json:"max_network_number"`
+	ID                uuid.UUID `json:"id"`
+	PodID             uuid.UUID `json:"pod_id"`
+	UserPrincipalID   uuid.UUID `json:"user_principal_id"`
+	FolderID          uuid.UUID `json:"folder_id"`
+	NetworkProfileKey string    `json:"network_profile_key"`
+	MinNetworkNumber  int32     `json:"min_network_number"`
+	MaxNetworkNumber  int32     `json:"max_network_number"`
 }
 
 func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (ClonedPods, error) {
@@ -648,6 +707,7 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		arg.PodID,
 		arg.UserPrincipalID,
 		arg.FolderID,
+		arg.NetworkProfileKey,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
 	)
@@ -658,6 +718,7 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -723,7 +784,7 @@ WITH allocation_lock AS (
 candidate AS (
     SELECT n::INTEGER AS network_number
     FROM allocation_lock,
-         generate_series($2::INTEGER, $3::INTEGER) AS n
+         generate_series($3::INTEGER, $4::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
         FROM cloned_pods cp
@@ -739,35 +800,71 @@ candidate AS (
 )
 INSERT INTO pod_dev_network_allocations (
     pod_folder_id,
-    network_number
+    network_number,
+    network_profile_key
 )
 SELECT
     $1,
-    candidate.network_number
+    candidate.network_number,
+    $2
 FROM candidate
 RETURNING
     pod_folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 `
 
 type InsertPodDevNetworkAllocationParams struct {
-	PodFolderID      uuid.UUID `json:"pod_folder_id"`
-	MinNetworkNumber int32     `json:"min_network_number"`
-	MaxNetworkNumber int32     `json:"max_network_number"`
+	PodFolderID       uuid.UUID `json:"pod_folder_id"`
+	NetworkProfileKey string    `json:"network_profile_key"`
+	MinNetworkNumber  int32     `json:"min_network_number"`
+	MaxNetworkNumber  int32     `json:"max_network_number"`
 }
 
 func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertPodDevNetworkAllocationParams) (PodDevNetworkAllocations, error) {
-	row := q.db.QueryRow(ctx, insertPodDevNetworkAllocation, arg.PodFolderID, arg.MinNetworkNumber, arg.MaxNetworkNumber)
+	row := q.db.QueryRow(ctx, insertPodDevNetworkAllocation,
+		arg.PodFolderID,
+		arg.NetworkProfileKey,
+		arg.MinNetworkNumber,
+		arg.MaxNetworkNumber,
+	)
 	var i PodDevNetworkAllocations
 	err := row.Scan(
 		&i.PodFolderID,
 		&i.NetworkNumber,
+		&i.NetworkProfileKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertPodDevVMNetworkAssignment = `-- name: InsertPodDevVMNetworkAssignment :exec
+INSERT INTO pod_dev_vm_network_assignments (
+    inventory_item_id,
+    pod_folder_id,
+    is_router,
+    segment_key
+) VALUES ($1, $2, $3, $4)
+`
+
+type InsertPodDevVMNetworkAssignmentParams struct {
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	PodFolderID     uuid.UUID `json:"pod_folder_id"`
+	IsRouter        bool      `json:"is_router"`
+	SegmentKey      *string   `json:"segment_key"`
+}
+
+func (q *Queries) InsertPodDevVMNetworkAssignment(ctx context.Context, arg InsertPodDevVMNetworkAssignmentParams) error {
+	_, err := q.db.Exec(ctx, insertPodDevVMNetworkAssignment,
+		arg.InventoryItemID,
+		arg.PodFolderID,
+		arg.IsRouter,
+		arg.SegmentKey,
+	)
+	return err
 }
 
 const insertPublishedPodAudience = `-- name: InsertPublishedPodAudience :exec
@@ -875,8 +972,10 @@ INSERT INTO published_pod_vms (
     disk_gb,
     allow_mask,
     deny_mask,
+    is_router,
+    segment_key,
     sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 
 type InsertPublishedPodVMParams struct {
@@ -889,6 +988,8 @@ type InsertPublishedPodVMParams struct {
 	DiskGb                float64   `json:"disk_gb"`
 	AllowMask             int64     `json:"allow_mask"`
 	DenyMask              int64     `json:"deny_mask"`
+	IsRouter              bool      `json:"is_router"`
+	SegmentKey            *string   `json:"segment_key"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -903,6 +1004,8 @@ func (q *Queries) InsertPublishedPodVM(ctx context.Context, arg InsertPublishedP
 		arg.DiskGb,
 		arg.AllowMask,
 		arg.DenyMask,
+		arg.IsRouter,
+		arg.SegmentKey,
 		arg.SortOrder,
 	)
 	return err
@@ -1091,6 +1194,7 @@ SELECT
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
     cp.network_number,
+    cp.network_profile_key,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -1124,19 +1228,20 @@ ORDER BY cp.created_at DESC
 `
 
 type ListClonedPodSummariesByPodIDRow struct {
-	ID              uuid.UUID          `json:"id"`
-	PodID           uuid.UUID          `json:"pod_id"`
-	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
-	PrincipalType   PrincipalType      `json:"principal_type"`
-	UserLabel       string             `json:"user_label"`
-	UserDescription string             `json:"user_description"`
-	FolderID        uuid.UUID          `json:"folder_id"`
-	NetworkNumber   int32              `json:"network_number"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	VmCount         int32              `json:"vm_count"`
-	TaskTotal       int32              `json:"task_total"`
-	TaskCompleted   int32              `json:"task_completed"`
+	ID                uuid.UUID          `json:"id"`
+	PodID             uuid.UUID          `json:"pod_id"`
+	UserPrincipalID   uuid.UUID          `json:"user_principal_id"`
+	PrincipalType     PrincipalType      `json:"principal_type"`
+	UserLabel         string             `json:"user_label"`
+	UserDescription   string             `json:"user_description"`
+	FolderID          uuid.UUID          `json:"folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	VmCount           int32              `json:"vm_count"`
+	TaskTotal         int32              `json:"task_total"`
+	TaskCompleted     int32              `json:"task_completed"`
 }
 
 func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.UUID) ([]ListClonedPodSummariesByPodIDRow, error) {
@@ -1157,6 +1262,7 @@ func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.
 			&i.UserDescription,
 			&i.FolderID,
 			&i.NetworkNumber,
+			&i.NetworkProfileKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VmCount,
@@ -1271,6 +1377,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -1293,6 +1400,47 @@ func (q *Queries) ListClonedPodsByPodID(ctx context.Context, podID uuid.UUID) ([
 			&i.UserPrincipalID,
 			&i.FolderID,
 			&i.NetworkNumber,
+			&i.NetworkProfileKey,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPodDevVMNetworkAssignments = `-- name: ListPodDevVMNetworkAssignments :many
+SELECT
+    inventory_item_id,
+    pod_folder_id,
+    is_router,
+    segment_key,
+    created_at,
+    updated_at
+FROM pod_dev_vm_network_assignments
+WHERE pod_folder_id = $1
+ORDER BY is_router DESC, created_at ASC
+`
+
+func (q *Queries) ListPodDevVMNetworkAssignments(ctx context.Context, podFolderID uuid.UUID) ([]PodDevVmNetworkAssignments, error) {
+	rows, err := q.db.Query(ctx, listPodDevVMNetworkAssignments, podFolderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PodDevVmNetworkAssignments
+	for rows.Next() {
+		var i PodDevVmNetworkAssignments
+		if err := rows.Scan(
+			&i.InventoryItemID,
+			&i.PodFolderID,
+			&i.IsRouter,
+			&i.SegmentKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1566,6 +1714,8 @@ SELECT
     disk_gb,
     allow_mask,
     deny_mask,
+    is_router,
+    segment_key,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = ANY($1::UUID[])
@@ -1582,6 +1732,8 @@ type ListPublishedPodVMsByPodIDsRow struct {
 	DiskGb                float64   `json:"disk_gb"`
 	AllowMask             int64     `json:"allow_mask"`
 	DenyMask              int64     `json:"deny_mask"`
+	IsRouter              bool      `json:"is_router"`
+	SegmentKey            *string   `json:"segment_key"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -1604,6 +1756,8 @@ func (q *Queries) ListPublishedPodVMsByPodIDs(ctx context.Context, podIds []uuid
 			&i.DiskGb,
 			&i.AllowMask,
 			&i.DenyMask,
+			&i.IsRouter,
+			&i.SegmentKey,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err
@@ -1627,6 +1781,8 @@ SELECT
     disk_gb,
     allow_mask,
     deny_mask,
+    is_router,
+    segment_key,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = $1
@@ -1643,6 +1799,8 @@ type ListPublishedPodVMsForCloneRow struct {
 	DiskGb                float64   `json:"disk_gb"`
 	AllowMask             int64     `json:"allow_mask"`
 	DenyMask              int64     `json:"deny_mask"`
+	IsRouter              bool      `json:"is_router"`
+	SegmentKey            *string   `json:"segment_key"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -1665,6 +1823,8 @@ func (q *Queries) ListPublishedPodVMsForClone(ctx context.Context, podID uuid.UU
 			&i.DiskGb,
 			&i.AllowMask,
 			&i.DenyMask,
+			&i.IsRouter,
+			&i.SegmentKey,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err
@@ -1688,6 +1848,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -1707,6 +1868,7 @@ type ListPublishedPodsRow struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -1731,6 +1893,7 @@ func (q *Queries) ListPublishedPods(ctx context.Context) ([]ListPublishedPodsRow
 			&i.SourceFolderID,
 			&i.SourceFolderName,
 			&i.PublisherPrincipalID,
+			&i.NetworkProfileKey,
 			&i.CloneCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -1756,6 +1919,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -1792,6 +1956,7 @@ type ListVisiblePublishedPodsForPrincipalRow struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -1816,6 +1981,7 @@ func (q *Queries) ListVisiblePublishedPodsForPrincipal(ctx context.Context, prin
 			&i.SourceFolderID,
 			&i.SourceFolderName,
 			&i.PublisherPrincipalID,
+			&i.NetworkProfileKey,
 			&i.CloneCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -1961,6 +2127,7 @@ RETURNING
     status,
     source_folder_id,
     publisher_principal_id,
+    network_profile_key,
     clone_count,
     created_at,
     updated_at
@@ -1996,6 +2163,7 @@ func (q *Queries) UpdatePublishedPod(ctx context.Context, arg UpdatePublishedPod
 		&i.Status,
 		&i.SourceFolderID,
 		&i.PublisherPrincipalID,
+		&i.NetworkProfileKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -2093,7 +2261,9 @@ SET
     disk_gb = $7,
     allow_mask = $8,
     deny_mask = $9,
-    sort_order = $10
+    is_router = $10,
+    segment_key = $11,
+    sort_order = $12
 WHERE id = $1
   AND pod_id = $2
 `
@@ -2108,6 +2278,8 @@ type UpdatePublishedPodVMParams struct {
 	DiskGb                float64   `json:"disk_gb"`
 	AllowMask             int64     `json:"allow_mask"`
 	DenyMask              int64     `json:"deny_mask"`
+	IsRouter              bool      `json:"is_router"`
+	SegmentKey            *string   `json:"segment_key"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -2122,6 +2294,8 @@ func (q *Queries) UpdatePublishedPodVM(ctx context.Context, arg UpdatePublishedP
 		arg.DiskGb,
 		arg.AllowMask,
 		arg.DenyMask,
+		arg.IsRouter,
+		arg.SegmentKey,
 		arg.SortOrder,
 	)
 	return err

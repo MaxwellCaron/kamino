@@ -188,13 +188,48 @@ func (h *PodsHandler) publishPodFolders(
 		publishedPodFolderIDs[row.SourceFolderID] = struct{}{}
 	}
 
-	return buildPublishPodFolderOptions(rows, podsFolderID, publishedPodFolderIDs), nil
+	return buildPublishPodFolderOptions(rows, podsFolderID, publishedPodFolderIDs, h.loadPublishFolderNetworkMetadata(ctx, rows, podsFolderID)), nil
+}
+
+func (h *PodsHandler) loadPublishFolderNetworkMetadata(
+	ctx context.Context,
+	rows []database.GetVisibleInventoryItemsForPrincipalRow,
+	podsFolderID uuid.UUID,
+) map[uuid.UUID]publishFolderNetworkMetadata {
+	result := make(map[uuid.UUID]publishFolderNetworkMetadata)
+	for _, row := range rows {
+		if row.Kind != database.InventoryItemKindFolder || row.ParentID == nil || *row.ParentID != podsFolderID {
+			continue
+		}
+		topology, err := h.loadDevNetworkTopology(ctx, row.ID)
+		if err != nil {
+			continue
+		}
+		assignments := make(map[uuid.UUID]publishNetworkAssignment, len(topology.Assignments))
+		for _, assignment := range topology.Assignments {
+			assignments[assignment.InventoryItemID] = publishNetworkAssignment{
+				IsRouter:   assignment.IsRouter,
+				SegmentKey: assignment.SegmentKey,
+			}
+		}
+		result[row.ID] = publishFolderNetworkMetadata{
+			ProfileKey:  topology.ProfileKey,
+			Assignments: assignments,
+		}
+	}
+	return result
+}
+
+type publishFolderNetworkMetadata struct {
+	ProfileKey  string
+	Assignments map[uuid.UUID]publishNetworkAssignment
 }
 
 func buildPublishPodFolderOptions(
 	rows []database.GetVisibleInventoryItemsForPrincipalRow,
 	podsFolderID uuid.UUID,
 	publishedPodFolderIDs map[uuid.UUID]struct{},
+	networkMetadata map[uuid.UUID]publishFolderNetworkMetadata,
 ) []publishPodFolderOption {
 	rowsByID := make(map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow, len(rows))
 	for _, row := range rows {
@@ -212,13 +247,18 @@ func buildPublishPodFolderOptions(
 		if _, published := publishedPodFolderIDs[row.ID]; published {
 			continue
 		}
+		metadata, ok := networkMetadata[row.ID]
+		if !ok {
+			continue
+		}
 		if !maskHas(row.AllowedMask, authorization.View) {
 			continue
 		}
 		folders[row.ID] = &publishPodFolderOption{
-			ID:   row.ID,
-			Name: row.Name,
-			Path: inventoryPath(row.ID, rowsByID),
+			ID:                row.ID,
+			Name:              row.Name,
+			Path:              inventoryPath(row.ID, rowsByID),
+			NetworkProfileKey: metadata.ProfileKey,
 		}
 	}
 
@@ -258,6 +298,8 @@ func buildPublishPodFolderOptions(
 		if folder == nil {
 			continue
 		}
+		metadata := networkMetadata[podRootID]
+		assignment, hasAssignment := metadata.Assignments[row.ID]
 		folder.VirtualMachines = append(folder.VirtualMachines, publishPodVMOption{
 			ID:        row.ID,
 			Name:      row.Name,
@@ -265,6 +307,13 @@ func buildPublishPodFolderOptions(
 			CPUCount:  positiveHardwareInt(row.CpuCount),
 			MemoryGB:  memoryMBToGB(row.MemoryMb),
 			StorageGB: diskGBToInt(row.DiskGb),
+			IsRouter:  hasAssignment && assignment.IsRouter,
+			SegmentKey: func() *string {
+				if !hasAssignment || assignment.IsRouter {
+					return nil
+				}
+				return assignment.SegmentKey
+			}(),
 			Permissions: publishedPodPermissionResponse{
 				AllowMask: defaultPublishedPodVMAllowMask,
 				DenyMask:  0,

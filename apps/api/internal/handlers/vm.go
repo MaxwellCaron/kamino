@@ -75,6 +75,7 @@ type VMHandler struct {
 	Audit                 *audit.Service
 	Allocator             *vmidalloc.Allocator
 	PersonalPodVNetPrefix string
+	PodLANVLANBase        int
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a
@@ -834,6 +835,7 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 			c.Request.Context(),
 			h.DB,
 			h.PersonalPodVNetPrefix,
+			h.PodLANVLANBase,
 			itemID,
 		)
 		if err != nil {

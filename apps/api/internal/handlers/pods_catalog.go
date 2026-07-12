@@ -281,7 +281,7 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
 		}
 
-		network, err := h.clonedPodNetworkMetadata(s.NetworkNumber)
+		network, err := h.buildPodNetworkMetadata(s.NetworkProfileKey, s.NetworkNumber)
 		if err != nil {
 			return nil, fmt.Errorf("clone %s network metadata: %w", s.ID, err)
 		}
@@ -403,6 +403,7 @@ func (h *PodsHandler) hydratePublishedPods(
 			Audience:        nonNilPrincipals(audienceByPod[base.ID]),
 			Tasks:           taskResponses,
 			SourceFolder:    base.SourceFolderID,
+			NetworkProfile:  base.NetworkProfileKey,
 			VirtualMachines: nonNilVMs(vmsByPod[base.ID]),
 		})
 	}
@@ -412,11 +413,13 @@ func (h *PodsHandler) hydratePublishedPods(
 
 func publishedVMFromRow(row database.ListPublishedPodVMsByPodIDsRow) publishedPodVMResponse {
 	return publishedPodVMResponse{
-		ID:        row.SourceInventoryItemID,
-		Name:      row.Name,
-		CPUCount:  row.CpuCount,
-		MemoryGB:  memoryMBToGB(&row.MemoryMb),
-		StorageGB: diskGBToInt(&row.DiskGb),
+		ID:         row.SourceInventoryItemID,
+		Name:       row.Name,
+		CPUCount:   row.CpuCount,
+		MemoryGB:   memoryMBToGB(&row.MemoryMb),
+		StorageGB:  diskGBToInt(&row.DiskGb),
+		IsRouter:   row.IsRouter,
+		SegmentKey: row.SegmentKey,
 		Permissions: publishedPodPermissionResponse{
 			AllowMask: row.AllowMask,
 			DenyMask:  row.DenyMask,
@@ -468,15 +471,16 @@ func listPublishedRowsToBase(rows []database.ListPublishedPodsRow) []publishedPo
 	bases := make([]publishedPodBase, 0, len(rows))
 	for _, row := range rows {
 		bases = append(bases, publishedPodBase{
-			ID:             row.ID,
-			Title:          row.Title,
-			Slug:           row.Slug,
-			Description:    row.Description,
-			ImageURL:       row.ImageUrl,
-			Status:         row.Status,
-			SourceFolderID: row.SourceFolderID,
-			CloneCount:     row.CloneCount,
-			CreatedAt:      optionalTime(row.CreatedAt),
+			ID:                row.ID,
+			Title:             row.Title,
+			Slug:              row.Slug,
+			Description:       row.Description,
+			ImageURL:          row.ImageUrl,
+			Status:            row.Status,
+			SourceFolderID:    row.SourceFolderID,
+			NetworkProfileKey: row.NetworkProfileKey,
+			CloneCount:        row.CloneCount,
+			CreatedAt:         optionalTime(row.CreatedAt),
 		})
 	}
 	return bases
@@ -486,15 +490,16 @@ func visiblePublishedRowsToBase(rows []database.ListVisiblePublishedPodsForPrinc
 	bases := make([]publishedPodBase, 0, len(rows))
 	for _, row := range rows {
 		bases = append(bases, publishedPodBase{
-			ID:             row.ID,
-			Title:          row.Title,
-			Slug:           row.Slug,
-			Description:    row.Description,
-			ImageURL:       row.ImageUrl,
-			Status:         row.Status,
-			SourceFolderID: row.SourceFolderID,
-			CloneCount:     row.CloneCount,
-			CreatedAt:      optionalTime(row.CreatedAt),
+			ID:                row.ID,
+			Title:             row.Title,
+			Slug:              row.Slug,
+			Description:       row.Description,
+			ImageURL:          row.ImageUrl,
+			Status:            row.Status,
+			SourceFolderID:    row.SourceFolderID,
+			NetworkProfileKey: row.NetworkProfileKey,
+			CloneCount:        row.CloneCount,
+			CreatedAt:         optionalTime(row.CreatedAt),
 		})
 	}
 	return bases
@@ -502,29 +507,31 @@ func visiblePublishedRowsToBase(rows []database.ListVisiblePublishedPodsForPrinc
 
 func publishedRowToBase(row database.GetPublishedPodByIDRow) publishedPodBase {
 	return publishedPodBase{
-		ID:             row.ID,
-		Title:          row.Title,
-		Slug:           row.Slug,
-		Description:    row.Description,
-		ImageURL:       row.ImageUrl,
-		Status:         row.Status,
-		SourceFolderID: row.SourceFolderID,
-		CloneCount:     row.CloneCount,
-		CreatedAt:      optionalTime(row.CreatedAt),
+		ID:                row.ID,
+		Title:             row.Title,
+		Slug:              row.Slug,
+		Description:       row.Description,
+		ImageURL:          row.ImageUrl,
+		Status:            row.Status,
+		SourceFolderID:    row.SourceFolderID,
+		NetworkProfileKey: row.NetworkProfileKey,
+		CloneCount:        row.CloneCount,
+		CreatedAt:         optionalTime(row.CreatedAt),
 	}
 }
 
 func visiblePublishedSlugRowToBase(row database.GetVisiblePublishedPodBySlugRow) publishedPodBase {
 	return publishedPodBase{
-		ID:             row.ID,
-		Title:          row.Title,
-		Slug:           row.Slug,
-		Description:    row.Description,
-		ImageURL:       row.ImageUrl,
-		Status:         row.Status,
-		SourceFolderID: row.SourceFolderID,
-		CloneCount:     row.CloneCount,
-		CreatedAt:      optionalTime(row.CreatedAt),
+		ID:                row.ID,
+		Title:             row.Title,
+		Slug:              row.Slug,
+		Description:       row.Description,
+		ImageURL:          row.ImageUrl,
+		Status:            row.Status,
+		SourceFolderID:    row.SourceFolderID,
+		NetworkProfileKey: row.NetworkProfileKey,
+		CloneCount:        row.CloneCount,
+		CreatedAt:         optionalTime(row.CreatedAt),
 	}
 }
 

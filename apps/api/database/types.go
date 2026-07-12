@@ -431,13 +431,14 @@ type AuthSessions struct {
 }
 
 type ClonedPods struct {
-	ID              uuid.UUID          `json:"id"`
-	PodID           uuid.UUID          `json:"pod_id"`
-	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
-	FolderID        uuid.UUID          `json:"folder_id"`
-	NetworkNumber   int32              `json:"network_number"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                uuid.UUID          `json:"id"`
+	PodID             uuid.UUID          `json:"pod_id"`
+	UserPrincipalID   uuid.UUID          `json:"user_principal_id"`
+	FolderID          uuid.UUID          `json:"folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type FolderVmCapacityReservations struct {
@@ -474,10 +475,20 @@ type PodCloneClaims struct {
 }
 
 type PodDevNetworkAllocations struct {
-	PodFolderID   uuid.UUID          `json:"pod_folder_id"`
-	NetworkNumber int32              `json:"network_number"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PodDevVmNetworkAssignments struct {
+	InventoryItemID uuid.UUID          `json:"inventory_item_id"`
+	PodFolderID     uuid.UUID          `json:"pod_folder_id"`
+	IsRouter        bool               `json:"is_router"`
+	SegmentKey      *string            `json:"segment_key"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublishedPods struct {
@@ -489,6 +500,7 @@ type PublishedPods struct {
 	Status               PublishedPodStatus `json:"status"`
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`

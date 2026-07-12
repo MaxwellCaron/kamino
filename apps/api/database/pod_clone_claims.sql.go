@@ -114,9 +114,19 @@ type GetConflictingClonedPodForPrincipalByPodIDParams struct {
 	UserPrincipalID uuid.UUID `json:"user_principal_id"`
 }
 
-func (q *Queries) GetConflictingClonedPodForPrincipalByPodID(ctx context.Context, arg GetConflictingClonedPodForPrincipalByPodIDParams) (ClonedPods, error) {
+type GetConflictingClonedPodForPrincipalByPodIDRow struct {
+	ID              uuid.UUID          `json:"id"`
+	PodID           uuid.UUID          `json:"pod_id"`
+	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
+	FolderID        uuid.UUID          `json:"folder_id"`
+	NetworkNumber   int32              `json:"network_number"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetConflictingClonedPodForPrincipalByPodID(ctx context.Context, arg GetConflictingClonedPodForPrincipalByPodIDParams) (GetConflictingClonedPodForPrincipalByPodIDRow, error) {
 	row := q.db.QueryRow(ctx, getConflictingClonedPodForPrincipalByPodID, arg.PodID, arg.UserPrincipalID)
-	var i ClonedPods
+	var i GetConflictingClonedPodForPrincipalByPodIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.PodID,

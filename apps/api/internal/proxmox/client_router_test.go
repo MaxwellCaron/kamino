@@ -69,7 +69,7 @@ func TestSetVMNetworkBridgePreservesNICShape(t *testing.T) {
 	if putPath == "" {
 		t.Fatalf("expected PUT request")
 	}
-	if got := putForm.Get("net1"); got != "virtio=11:22:33:44:55:66,bridge=kamino24,firewall=1,tag=200" {
+	if got := putForm.Get("net1"); got != "virtio=11:22:33:44:55:66,bridge=kamino24,firewall=1" {
 		t.Fatalf("net1 payload = %q", got)
 	}
 	if got := putForm.Get("net0"); got != "" {

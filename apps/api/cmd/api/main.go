@@ -13,6 +13,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -70,17 +71,22 @@ type Config struct {
 	PodRouterTemplate        string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
 
 	// --- Pod clone networking (optional defaults shown) ---
-	PodCloneVNetPrefix                string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
-	PodCloneNetworkMin                int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
-	PodCloneNetworkMax                int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"174"`
-	PodDevNetworkMin                  int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
-	PodDevNetworkMax                  int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"199"`
-	PodRouterWait                     string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
-	PodRouterWANIPBase                string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
-	PodRouterInternalSubnet           string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"192.168.1.0/24"`
-	PodRouterCloudInitStorage         string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
-	PodRouterCloudInitUserFilePattern string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
-	PodRouterCloudInitNetworkFile     string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
+	PodCloneVNetPrefix                  string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
+	PodLANVLANBase                      int    `envconfig:"POD_LAN_VLAN_BASE" default:"0"`
+	PodCloneNetworkMin                  int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
+	PodCloneNetworkMax                  int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"174"`
+	PodDevNetworkMin                    int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
+	PodDevNetworkMax                    int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"199"`
+	PodRouterWait                       string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
+	PodRouterWANIPBase                  string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
+	PodRouterInternalSubnet             string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"192.168.1.0/24"`
+	PodRouterCloudInitStorage           string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
+	PodRouterCloudInitUserFilePattern   string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
+	PodRouterCloudInitNetworkFile       string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
+	PodDMZVNetPrefix                    string `envconfig:"POD_DMZ_VNET_PREFIX" default:"dmz"`
+	PodDMZVLANBase                      int    `envconfig:"POD_DMZ_VLAN_BASE" default:"1000"`
+	PodRouterLANDMZCloudInitUserPattern string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-lan-dmz-{network}-user-data.yaml"`
+	PodRouterLANDMZCloudInitNetworkFile string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-lan-dmz-network-config.yaml"`
 
 	// --- Personal pods (optional; PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID gates the feature) ---
 	PersonalPodRouterTemplateItemID     string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
@@ -177,6 +183,9 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	maxNetworkNumber := config.PodCloneNetworkMax
 	if config.PodDevNetworkMax > maxNetworkNumber {
 		maxNetworkNumber = config.PodDevNetworkMax
+	}
+	if config.PersonalPodNetworkMax > maxNetworkNumber {
+		maxNetworkNumber = config.PersonalPodNetworkMax
 	}
 	if config.PersonalPodNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN must be at least 1")
@@ -283,8 +292,56 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN..PERSONAL_POD_NETWORK_MAX must not overlap pod ranges when the cloud-init user file pattern is shared")
 	}
 
+	dmzVNetPrefix := strings.TrimSpace(config.PodDMZVNetPrefix)
+	if dmzVNetPrefix == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DMZ_VNET_PREFIX must not be empty")
+	}
+	if config.PodDMZVLANBase < 0 || config.PodDMZVLANBase > 4094 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DMZ_VLAN_BASE must be within 0..4094")
+	}
+	if config.PodLANVLANBase < 0 || config.PodLANVLANBase > 4094 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_LAN_VLAN_BASE must be within 0..4094")
+	}
+	lanDMZCloudInitUserFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
+		"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN",
+		config.PodRouterLANDMZCloudInitUserPattern,
+	)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+	lanDMZCloudInitNetworkFile, err := routerconfig.NormalizeCloudInitFileName(
+		"POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE",
+		config.PodRouterLANDMZCloudInitNetworkFile,
+	)
+	if err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+
+	lanMinTag := config.PodLANVLANBase + 1
+	lanMaxTag := config.PodLANVLANBase + int(maxNetworkNumber)
+	dmzMinTag := config.PodDMZVLANBase + 1
+	dmzMaxTag := config.PodDMZVLANBase + int(maxNetworkNumber)
+	if lanMinTag < 1 || lanMaxTag > 4094 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived LAN VLAN tags must be within 1..4094")
+	}
+	if dmzMinTag < 1 || dmzMaxTag > 4094 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived DMZ VLAN tags must be within 1..4094")
+	}
+	if rangesOverlap(int32(lanMinTag), int32(lanMaxTag), int32(dmzMinTag), int32(dmzMaxTag)) {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("LAN and DMZ VLAN tag ranges must not overlap")
+	}
+	if len(fmt.Sprintf("%s%d", vnetPrefix, config.PodLANVLANBase+int(maxNetworkNumber))) > proxmoxVNetIDMaxLength {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived LAN VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
+	}
+	if len(fmt.Sprintf("%s%d", dmzVNetPrefix, config.PodDMZVLANBase+int(maxNetworkNumber))) > proxmoxVNetIDMaxLength {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived DMZ VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
+	}
+
 	routerConfig := handlers.PodRouterCloneConfig{
 		VNetPrefix:                       vnetPrefix,
+		LANVLANBase:                      config.PodLANVLANBase,
+		DMZVNetPrefix:                    dmzVNetPrefix,
+		DMZVLANBase:                      config.PodDMZVLANBase,
 		NetworkMin:                       config.PodCloneNetworkMin,
 		NetworkMax:                       config.PodCloneNetworkMax,
 		DevNetworkMin:                    config.PodDevNetworkMin,
@@ -295,6 +352,8 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		CloudInitStorage:                 cloudInitStorage,
 		CloudInitUserFilePattern:         cloudInitUserFilePattern,
 		CloudInitNetworkFile:             cloudInitNetworkFile,
+		LANDMZCloudInitUserFilePattern:   lanDMZCloudInitUserFilePattern,
+		LANDMZCloudInitNetworkFile:       lanDMZCloudInitNetworkFile,
 		PersonalVNetPrefix:               personalPrefix,
 		PersonalNetworkMin:               config.PersonalPodNetworkMin,
 		PersonalNetworkMax:               config.PersonalPodNetworkMax,
@@ -318,6 +377,16 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	)
 
 	return routerConfig, nil
+}
+
+func buildPodNetworkCatalog(config handlers.PodRouterCloneConfig) (*podnetwork.Catalog, error) {
+	return podnetwork.NewCatalog(podnetwork.Config{
+		VNetPrefix:    config.VNetPrefix,
+		LANVLANBase:   config.LANVLANBase,
+		DMZVNetPrefix: config.DMZVNetPrefix,
+		DMZVLANBase:   config.DMZVLANBase,
+		WANIPBase:     config.WANIPBase,
+	})
 }
 
 type vmidRanges struct {
@@ -486,6 +555,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid pod router clone configuration: %v", err)
 	}
+	networkCatalog, err := buildPodNetworkCatalog(routerCloneConfig)
+	if err != nil {
+		log.Fatalf("Invalid pod network catalog: %v", err)
+	}
 	vmidRangeConfig, err := buildVMIDRangeConfig(&config)
 	if err != nil {
 		log.Fatalf("Invalid VMID range configuration: %v", err)
@@ -601,6 +674,7 @@ func main() {
 		Claims:                vmActionClaims,
 		Audit:                 auditService,
 		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
+		PodLANVLANBase:        routerCloneConfig.LANVLANBase,
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
 	vmHandler.Allocator = vmidAllocator
@@ -613,6 +687,7 @@ func main() {
 		Audit:                 auditService,
 		Allocator:             vmidAllocator,
 		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
+		PodLANVLANBase:        routerCloneConfig.LANVLANBase,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {
@@ -645,6 +720,7 @@ func main() {
 		RouterTemplateItemID:            routerTemplateItemID,
 		PersonalPodRouterTemplateItemID: personalPodRouterTemplateItemID,
 		RouterCloneConfig:               routerCloneConfig,
+		NetworkCatalog:                  networkCatalog,
 		Audit:                           auditService,
 		TemplatesFolderItemID:           templatesFolderItemID,
 		PodsFolderItemID:                podsFolderItemID,

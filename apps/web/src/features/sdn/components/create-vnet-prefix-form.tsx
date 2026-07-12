@@ -25,6 +25,7 @@ import {
   VNetZonesUnavailableState,
 } from "@/features/sdn/components/vnet-form-fields"
 import {
+  MAX_PREFIX_CREATE_VNETS,
   aliasSchema,
   getPrefixCreatePreview,
   getTagRule,
@@ -167,7 +168,7 @@ function QuantityField({
                 id="quantity"
                 type="number"
                 min={1}
-                max={50}
+                max={MAX_PREFIX_CREATE_VNETS}
                 step={1}
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}

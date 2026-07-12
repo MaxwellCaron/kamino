@@ -40,7 +40,11 @@ type personalPodCreateResponse struct {
 }
 
 func (h *PodsHandler) personalPodVNetName(networkNumber int32) string {
-	return fmt.Sprintf("%s%d", strings.TrimSpace(h.RouterCloneConfig.PersonalVNetPrefix), networkNumber)
+	return fmt.Sprintf(
+		"%s%d",
+		strings.TrimSpace(h.RouterCloneConfig.PersonalVNetPrefix),
+		h.RouterCloneConfig.LANVLANBase+int(networkNumber),
+	)
 }
 
 func personalPodFolderName(username string) string {

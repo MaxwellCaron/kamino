@@ -9,10 +9,17 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import {
   Field,
+  FieldContent,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldTitle,
 } from "@workspace/ui/components/field"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@workspace/ui/components/radio-group"
 import {
   InputGroup,
   InputGroupAddon,
@@ -32,7 +39,12 @@ import {
 } from "@hugeicons/core-free-icons"
 import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
 import type { ReactNode } from "react"
-import type { CreatePodFormApi, CreatePodFormValues } from "./create-pod-form"
+import type {
+  CreatePodFormApi,
+  CreatePodFormValues,
+  PodNetworkingMode,
+} from "./create-pod-form"
+import type { PodNetworkSegment } from "@/features/pods/api/create-pod-api"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 type CreatePodTemplateCardProps = {
@@ -40,6 +52,8 @@ type CreatePodTemplateCardProps = {
   templateConfig: CreatePodFormValues["templates"][number]
   templateIndex: number
   submissionAttempts: number
+  networkingMode: PodNetworkingMode
+  networkSegments: Array<PodNetworkSegment>
   onRemoveTemplate: () => void
 }
 
@@ -125,6 +139,8 @@ export function CreatePodTemplateCard({
   templateConfig,
   templateIndex,
   submissionAttempts,
+  networkingMode,
+  networkSegments,
   onRemoveTemplate,
 }: CreatePodTemplateCardProps) {
   return (
@@ -165,10 +181,15 @@ export function CreatePodTemplateCard({
                   disabled={vms.length >= 5}
                   onClick={() =>
                     vmsField.pushValue(
-                      createTemplateVm({
-                        name: templateConfig.templateName,
-                        disk_gb: templateConfig.templateDiskGb,
-                      })
+                      createTemplateVm(
+                        {
+                          name: templateConfig.templateName,
+                          disk_gb: templateConfig.templateDiskGb,
+                        },
+                        networkingMode === "lan-dmz-router-v1"
+                          ? { segmentKey: "lan" }
+                          : undefined
+                      )
                     )
                   }
                 >
@@ -257,6 +278,68 @@ export function CreatePodTemplateCard({
                           <HugeiconsIcon icon={Cancel01Icon} />
                         </Button>
                       </div>
+
+                      {networkingMode === "lan-dmz-router-v1" ? (
+                        <form.Field
+                          name={`templates[${templateIndex}].vms[${vmIndex}].segmentKey`}
+                        >
+                          {(segmentField) => {
+                            const showValidation =
+                              segmentField.state.meta.isTouched ||
+                              submissionAttempts > 0
+                            const isInvalid =
+                              showValidation && !segmentField.state.meta.isValid
+
+                            return (
+                              <Field data-invalid={isInvalid || undefined}>
+                                <FieldLabel className="text-xs text-muted-foreground">
+                                  Network segment
+                                </FieldLabel>
+                                <RadioGroup
+                                  value={segmentField.state.value ?? ""}
+                                  onValueChange={(value) =>
+                                    segmentField.handleChange(
+                                      value as "lan" | "dmz"
+                                    )
+                                  }
+                                  className="grid gap-2 sm:grid-cols-2"
+                                >
+                                  {networkSegments.map((segment) => (
+                                    <FieldLabel
+                                      key={segment.key}
+                                      htmlFor={`${segmentField.name}-${segment.key}`}
+                                    >
+                                      <Field orientation="horizontal">
+                                        <FieldContent>
+                                          <FieldTitle className="text-sm">
+                                            {segment.label}
+                                          </FieldTitle>
+                                        </FieldContent>
+                                        <RadioGroupItem
+                                          id={`${segmentField.name}-${segment.key}`}
+                                          value={segment.key}
+                                          onBlur={segmentField.handleBlur}
+                                        />
+                                      </Field>
+                                    </FieldLabel>
+                                  ))}
+                                </RadioGroup>
+                                <FieldDescription>
+                                  Both segments use static guest addresses. DMZ
+                                  addresses map to the same WAN host octet.
+                                </FieldDescription>
+                                <FieldError
+                                  errors={
+                                    showValidation
+                                      ? segmentField.state.meta.errors
+                                      : []
+                                  }
+                                />
+                              </Field>
+                            )
+                          }}
+                        </form.Field>
+                      ) : null}
 
                       <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         <CreatePodVmNumberField

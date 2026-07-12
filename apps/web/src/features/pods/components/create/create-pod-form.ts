@@ -5,6 +5,15 @@ import type { PodTemplateOption } from "@/features/pods/api/create-pod-api"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { uuid } from "@/features/shared/utils/uuid"
 
+export type PodNetworkingMode =
+  | "none"
+  | "lan-router-v1"
+  | "lan-dmz-router-v1"
+
+export type PodVmSegmentKey = "lan" | "dmz"
+
+const podVmSegmentKeySchema = z.enum(["lan", "dmz"])
+
 const vmNameSchema = z
   .string()
   .trim()
@@ -33,6 +42,7 @@ const createPodVmSchema = z.object({
     .int("Storage must be a whole number.")
     .min(10, "Storage must be at least 10 GB.")
     .max(100, "Storage must be at most 100 GB."),
+  segmentKey: podVmSegmentKeySchema.optional(),
 })
 
 const createPodTemplateSchema = z
@@ -78,13 +88,40 @@ export const podNameSchema = z
     "Pod name must start with a letter and can only contain ASCII letters, digits, and -."
   )
 
-const createPodFormSchema = z.object({
-  name: podNameSchema,
-  includeRouter: z.boolean(),
-  templates: z.array(createPodTemplateSchema),
-})
+const createPodFormSchema = z
+  .object({
+    name: podNameSchema,
+    networkingMode: z.enum([
+      "none",
+      "lan-router-v1",
+      "lan-dmz-router-v1",
+    ]),
+    templates: z.array(createPodTemplateSchema),
+  })
+  .superRefine((values, ctx) => {
+    if (values.networkingMode !== "lan-dmz-router-v1") return
+
+    values.templates.forEach((template, templateIndex) => {
+      template.vms.forEach((vm, vmIndex) => {
+        if (vm.segmentKey) return
+
+        ctx.addIssue({
+          code: "custom",
+          path: ["templates", templateIndex, "vms", vmIndex, "segmentKey"],
+          message: "Select LAN or DMZ for this VM.",
+        })
+      })
+    })
+  })
 
 export type CreatePodFormValues = z.infer<typeof createPodFormSchema>
+
+export type CreatePodReviewVm = {
+  id: string
+  name: string
+  isRouter?: boolean
+  segmentKey?: PodVmSegmentKey
+}
 
 type UseCreatePodFormOptions = {
   onSubmit?: (values: CreatePodFormValues) => Promise<void> | void
@@ -94,11 +131,49 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+export function isPodNetworkingWithRouter(mode: PodNetworkingMode) {
+  return mode !== "none"
+}
+
+export function getPodNetworkingModeLabel(mode: PodNetworkingMode) {
+  switch (mode) {
+    case "none":
+      return "None"
+    case "lan-router-v1":
+      return "LAN Router"
+    case "lan-dmz-router-v1":
+      return "LAN + DMZ Router"
+  }
+}
+
+export function getPodSegmentLabel(segmentKey: PodVmSegmentKey) {
+  return segmentKey === "dmz" ? "DMZ" : "LAN"
+}
+
+export function summarizeDmzWorkloadSegments(
+  values: Pick<CreatePodFormValues, "templates">
+) {
+  const counts = { lan: 0, dmz: 0 }
+
+  for (const template of values.templates) {
+    for (const vm of template.vms) {
+      if (vm.segmentKey === "dmz") {
+        counts.dmz += 1
+      } else if (vm.segmentKey === "lan") {
+        counts.lan += 1
+      }
+    }
+  }
+
+  return counts
+}
+
 export function createTemplateVm(
   template: Pick<
     PodTemplateOption,
     "name" | "cpu_count" | "disk_gb" | "memory_mb"
-  >
+  >,
+  options?: { segmentKey?: PodVmSegmentKey }
 ): CreatePodFormValues["templates"][number]["vms"][number] {
   const cpuCount = clampNumber(template.cpu_count ?? 2, 1, 8)
   const memoryGb = clampNumber(
@@ -114,6 +189,7 @@ export function createTemplateVm(
     cpuCount,
     memoryGb,
     storageGb,
+    ...(options?.segmentKey ? { segmentKey: options.segmentKey } : {}),
   }
 }
 
@@ -122,20 +198,25 @@ function createTemplateConfig(
     PodTemplateOption,
     "cpu_count" | "disk_gb" | "id" | "memory_mb" | "name"
   >,
-  vmCount = 1
+  vmCount = 1,
+  options?: { defaultSegmentKey?: PodVmSegmentKey }
 ): CreatePodFormValues["templates"][number] {
   return {
     templateItemId: template.id,
     templateName: template.name,
     templateDiskGb: template.disk_gb ?? 0,
-    vms: Array.from({ length: vmCount }, () => createTemplateVm(template)),
+    vms: Array.from({ length: vmCount }, () =>
+      createTemplateVm(template, {
+        segmentKey: options?.defaultSegmentKey,
+      })
+    ),
   }
 }
 
 function createDefaultCreatePodValues(): CreatePodFormValues {
   return {
     name: "new-pod",
-    includeRouter: true,
+    networkingMode: "lan-router-v1",
     templates: [],
   }
 }
@@ -148,7 +229,8 @@ export function syncSelectedTemplates(
       PodTemplateOption,
       "cpu_count" | "disk_gb" | "id" | "memory_mb" | "name"
     >
-  >
+  >,
+  options?: { defaultSegmentKey?: PodVmSegmentKey }
 ) {
   return selectedTemplateIds.flatMap((templateItemId) => {
     const currentTemplate = currentTemplates.find(
@@ -160,19 +242,26 @@ export function syncSelectedTemplates(
     const template = templateOptions.find(
       (option) => option.id === templateItemId
     )
-    return template ? [createTemplateConfig(template)] : []
+    return template ? [createTemplateConfig(template, 1, options)] : []
   })
 }
 
-export function getReviewVms(values: CreatePodFormValues) {
-  const vms = values.templates.flatMap((template) =>
+export function getReviewVms(values: CreatePodFormValues): Array<CreatePodReviewVm> {
+  const workloadVms = values.templates.flatMap((template) =>
     template.vms.map((vm) => ({
       id: vm.id,
       name: vm.name.trim() || "Unnamed VM",
+      ...(values.networkingMode === "lan-dmz-router-v1" && vm.segmentKey
+        ? { segmentKey: vm.segmentKey }
+        : {}),
     }))
   )
 
-  return values.includeRouter ? [{ id: "router", name: "router" }, ...vms] : vms
+  if (!isPodNetworkingWithRouter(values.networkingMode)) {
+    return workloadVms
+  }
+
+  return [{ id: "router", name: "router", isRouter: true }, ...workloadVms]
 }
 
 export function toNumberInputValue(value: string) {

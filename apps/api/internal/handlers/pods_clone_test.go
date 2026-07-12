@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -135,32 +135,43 @@ func TestClonedPodVNetName(t *testing.T) {
 }
 
 func TestClonedPodNetworkMetadata(t *testing.T) {
+	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
+		VNetPrefix:    "pod",
+		LANVLANBase:   0,
+		DMZVNetPrefix: "dmz",
+		DMZVLANBase:   1000,
+		WANIPBase:     "172.16.",
+	})
+	if err != nil {
+		t.Fatalf("NewCatalog() error = %v", err)
+	}
+
 	tests := []struct {
 		name           string
-		networkNumber  int32
+		clone          database.ClonedPods
 		wantVNet       string
 		wantExtSubnet  string
 		wantExtGateway string
 	}{
-		{"published clone", 24, "pod24", "172.16.24.0/24", "172.16.24.1"},
-		{"development", 245, "pod245", "172.16.245.0/24", "172.16.245.1"},
+		{"published clone", database.ClonedPods{NetworkNumber: 24, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod24", "172.16.24.0/24", "172.16.24.1"},
+		{"development", database.ClonedPods{NetworkNumber: 245, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod245", "172.16.245.0/24", "172.16.245.1"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &PodsHandler{
+				NetworkCatalog: catalog,
 				RouterCloneConfig: PodRouterCloneConfig{
-					VNetPrefix:     "pod",
-					WANIPBase:      "172.16.",
-					InternalSubnet: netip.MustParsePrefix("192.168.1.0/24"),
+					VNetPrefix: "pod",
+					WANIPBase:  "172.16.",
 				},
 			}
 
-			got, err := handler.clonedPodNetworkMetadata(tt.networkNumber)
+			got, err := handler.clonedPodNetworkMetadata(tt.clone)
 			if err != nil {
 				t.Fatalf("clonedPodNetworkMetadata() error = %v", err)
 			}
-			if got.Number != tt.networkNumber || got.VNet != tt.wantVNet {
+			if got.Number != tt.clone.NetworkNumber || got.VNet != tt.wantVNet {
 				t.Fatalf("metadata identity = %#v", got)
 			}
 			if got.ExternalSubnet != tt.wantExtSubnet || got.ExternalGateway != tt.wantExtGateway {
@@ -243,18 +254,11 @@ func TestBuildClonedRouterCloudInitConfigRejectsInvalidPatterns(t *testing.T) {
 }
 
 func TestIsPublishedPodRouterVM(t *testing.T) {
-	trueCases := []string{"router", " Router ", "ROUTER"}
-	for _, name := range trueCases {
-		if !isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: name}) {
-			t.Fatalf("expected %q to be recognized as router", name)
-		}
+	if !isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{IsRouter: true, Name: "workstation"}) {
+		t.Fatal("expected is_router=true to identify router")
 	}
-
-	falseCases := []string{"vyos", "pfsense", "router-1", "pod-router"}
-	for _, name := range falseCases {
-		if isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: name}) {
-			t.Fatalf("expected %q not to be recognized as router", name)
-		}
+	if isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: "router"}) {
+		t.Fatal("expected workload named router without is_router to remain a workload")
 	}
 }
 
@@ -263,7 +267,10 @@ func TestPublishedPodVMTemplateItemID(t *testing.T) {
 	routerTemplateID := uuid.New()
 
 	t.Run("router uses configured source template", func(t *testing.T) {
-		got, err := publishedPodVMTemplateItemID("router", publishedTemplateID, routerTemplateID)
+		got, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{
+			IsRouter:              true,
+			SourceInventoryItemID: publishedTemplateID,
+		}, routerTemplateID)
 		if err != nil {
 			t.Fatalf("publishedPodVMTemplateItemID() error = %v", err)
 		}
@@ -273,7 +280,9 @@ func TestPublishedPodVMTemplateItemID(t *testing.T) {
 	})
 
 	t.Run("non-router uses published template", func(t *testing.T) {
-		got, err := publishedPodVMTemplateItemID("workstation", publishedTemplateID, routerTemplateID)
+		got, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{
+			SourceInventoryItemID: publishedTemplateID,
+		}, routerTemplateID)
 		if err != nil {
 			t.Fatalf("publishedPodVMTemplateItemID() error = %v", err)
 		}
@@ -283,7 +292,7 @@ func TestPublishedPodVMTemplateItemID(t *testing.T) {
 	})
 
 	t.Run("router requires configured template", func(t *testing.T) {
-		if _, err := publishedPodVMTemplateItemID("router", publishedTemplateID, uuid.Nil); err == nil {
+		if _, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{IsRouter: true}, uuid.Nil); err == nil {
 			t.Fatal("expected missing router template error")
 		}
 	})

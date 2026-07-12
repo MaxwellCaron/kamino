@@ -40,6 +40,7 @@ import {
   applySDN,
   createVNet,
   createVNets,
+  createVNetsInChunks,
   sdnZonesQueryOptions,
   updateVNet,
 } from "@/features/sdn/api/sdn-api"
@@ -369,7 +370,7 @@ function VNetDialogForm({
               },
             })),
             run: async (report) => {
-              const result = await createVNets(payload, { apply: false })
+              const result = await createVNetsInChunks(payload, { apply: false })
               const errorsById = new Map(
                 result.failed.map((failure) => [failure.id, failure.error])
               )

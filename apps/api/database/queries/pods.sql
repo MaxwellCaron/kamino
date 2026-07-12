@@ -9,6 +9,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -28,6 +29,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -64,6 +66,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -83,6 +86,7 @@ SELECT
     pp.source_folder_id,
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
+    pp.network_profile_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -124,8 +128,9 @@ INSERT INTO published_pods (
     image_url,
     status,
     source_folder_id,
-    publisher_principal_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    publisher_principal_id,
+    network_profile_key
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING
     id,
     title,
@@ -135,6 +140,7 @@ RETURNING
     status,
     source_folder_id,
     publisher_principal_id,
+    network_profile_key,
     clone_count,
     created_at,
     updated_at;
@@ -157,6 +163,7 @@ RETURNING
     status,
     source_folder_id,
     publisher_principal_id,
+    network_profile_key,
     clone_count,
     created_at,
     updated_at;
@@ -211,8 +218,10 @@ INSERT INTO published_pod_vms (
     disk_gb,
     allow_mask,
     deny_mask,
+    is_router,
+    segment_key,
     sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdatePublishedPodVM :exec
 UPDATE published_pod_vms
@@ -224,7 +233,9 @@ SET
     disk_gb = $7,
     allow_mask = $8,
     deny_mask = $9,
-    sort_order = $10
+    is_router = $10,
+    segment_key = $11,
+    sort_order = $12
 WHERE id = $1
   AND pod_id = $2;
 
@@ -330,6 +341,8 @@ SELECT
     disk_gb,
     allow_mask,
     deny_mask,
+    is_router,
+    segment_key,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = ANY(sqlc.arg(pod_ids)::UUID[])
@@ -370,6 +383,8 @@ SELECT
     disk_gb,
     allow_mask,
     deny_mask,
+    is_router,
+    segment_key,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = $1
@@ -382,6 +397,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -395,6 +411,7 @@ SELECT
     cp.user_principal_id,
     cp.folder_id,
     cp.network_number,
+    cp.network_profile_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -453,6 +470,7 @@ SELECT
     COALESCE(p.description, '') AS user_description,
     cp.folder_id,
     cp.network_number,
+    cp.network_profile_key,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -491,6 +509,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -504,6 +523,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -532,6 +552,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -545,6 +566,7 @@ SELECT
     cp.user_principal_id,
     cp.folder_id,
     cp.network_number,
+    cp.network_profile_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -575,14 +597,16 @@ INSERT INTO cloned_pods (
     pod_id,
     user_principal_id,
     folder_id,
-    network_number
+    network_number,
+    network_profile_key
 )
 SELECT
     sqlc.arg(id),
     sqlc.arg(pod_id),
     sqlc.arg(user_principal_id),
     sqlc.arg(folder_id),
-    candidate.network_number
+    candidate.network_number,
+    sqlc.arg(network_profile_key)
 FROM candidate
 RETURNING
     id,
@@ -590,6 +614,7 @@ RETURNING
     user_principal_id,
     folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at;
 
@@ -616,17 +641,54 @@ candidate AS (
 )
 INSERT INTO pod_dev_network_allocations (
     pod_folder_id,
-    network_number
+    network_number,
+    network_profile_key
 )
 SELECT
     sqlc.arg(pod_folder_id),
-    candidate.network_number
+    candidate.network_number,
+    sqlc.arg(network_profile_key)
 FROM candidate
 RETURNING
     pod_folder_id,
     network_number,
+    network_profile_key,
     created_at,
     updated_at;
+
+-- name: GetPodDevNetworkAllocation :one
+SELECT
+    pod_folder_id,
+    network_number,
+    network_profile_key,
+    created_at,
+    updated_at
+FROM pod_dev_network_allocations
+WHERE pod_folder_id = $1;
+
+-- name: DeletePodDevVMNetworkAssignments :exec
+DELETE FROM pod_dev_vm_network_assignments
+WHERE pod_folder_id = $1;
+
+-- name: InsertPodDevVMNetworkAssignment :exec
+INSERT INTO pod_dev_vm_network_assignments (
+    inventory_item_id,
+    pod_folder_id,
+    is_router,
+    segment_key
+) VALUES ($1, $2, $3, $4);
+
+-- name: ListPodDevVMNetworkAssignments :many
+SELECT
+    inventory_item_id,
+    pod_folder_id,
+    is_router,
+    segment_key,
+    created_at,
+    updated_at
+FROM pod_dev_vm_network_assignments
+WHERE pod_folder_id = $1
+ORDER BY is_router DESC, created_at ASC;
 
 -- name: InsertClonedPodVM :exec
 INSERT INTO cloned_pod_vms (

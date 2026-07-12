@@ -38,6 +38,8 @@ const publishPodVmSchema = z.object({
   cpuCount: z.number().int().min(1),
   memoryGb: z.number().int().min(1),
   storageGb: z.number().int().min(1),
+  is_router: z.boolean().optional(),
+  segment_key: z.string().nullable().optional(),
   permissions: publishPodVmPermissionSchema,
 })
 

@@ -9,7 +9,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PackageAddIcon } from "@hugeicons/core-free-icons"
 import { CreatePodFormSection } from "./create-pod-form-section"
-import { useCreatePodForm } from "./create-pod-form"
+import { isPodNetworkingWithRouter, useCreatePodForm  } from "./create-pod-form"
 import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
 import { CreatePodReviewSection } from "./create-pod-review-section"
 import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-section"
@@ -158,11 +158,13 @@ export function CreatePodPage() {
 
   React.useEffect(() => {
     if (createOptions && !createOptions.router_template_configured) {
-      form.setFieldValue("includeRouter", false)
+      form.setFieldValue("networkingMode", "none")
     }
   }, [createOptions, form])
   const latestSubmittedValues = submittedValuesRef.current
-  const includeRouter = latestSubmittedValues?.includeRouter ?? false
+  const hasRouter = isPodNetworkingWithRouter(
+    latestSubmittedValues?.networkingMode ?? "none"
+  )
   const hasSubmittedVirtualMachines =
     latestSubmittedValues?.templates.some(
       (template) => template.vms.length > 0
@@ -219,7 +221,7 @@ export function CreatePodPage() {
             createdPod={state.createdPod}
             errorMessage={resolvedSubmitErrorMessage}
             hasVirtualMachines={hasSubmittedVirtualMachines}
-            includeRouter={includeRouter}
+            hasRouter={hasRouter}
             onCreateAnother={handleCreateAnother}
             onRetry={handleRetry}
             progress={
@@ -263,6 +265,7 @@ export function CreatePodPage() {
             <CreatePodVirtualMachinesSection
               form={form}
               submissionAttempts={state.submissionAttempts}
+              networkProfiles={createOptions?.network_profiles ?? []}
               routerTemplateConfigured={routerTemplateConfigured}
               templateOptions={createOptions?.templates ?? []}
             />

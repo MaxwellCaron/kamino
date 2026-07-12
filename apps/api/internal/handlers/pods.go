@@ -15,6 +15,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
@@ -26,6 +27,9 @@ import (
 
 type PodRouterCloneConfig struct {
 	VNetPrefix                       string
+	LANVLANBase                      int
+	DMZVNetPrefix                    string
+	DMZVLANBase                      int
 	NetworkMin                       int32
 	NetworkMax                       int32
 	DevNetworkMin                    int32
@@ -36,6 +40,8 @@ type PodRouterCloneConfig struct {
 	CloudInitStorage                 string
 	CloudInitUserFilePattern         string
 	CloudInitNetworkFile             string
+	LANDMZCloudInitUserFilePattern   string
+	LANDMZCloudInitNetworkFile       string
 	PersonalVNetPrefix               string
 	PersonalNetworkMin               int32
 	PersonalNetworkMax               int32
@@ -54,6 +60,7 @@ type PodsHandler struct {
 	RouterTemplateItemID            uuid.UUID
 	PersonalPodRouterTemplateItemID uuid.UUID
 	RouterCloneConfig               PodRouterCloneConfig
+	NetworkCatalog                  *podnetwork.Catalog
 	Audit                           *audit.Service
 	TemplatesFolderItemID           uuid.UUID
 	PodsFolderItemID                uuid.UUID
@@ -89,6 +96,8 @@ type publishedPodVMResponse struct {
 	CPUCount    int32                          `json:"cpuCount"`
 	MemoryGB    int32                          `json:"memoryGb"`
 	StorageGB   int32                          `json:"storageGb"`
+	IsRouter    bool                           `json:"is_router,omitempty"`
+	SegmentKey  *string                        `json:"segment_key,omitempty"`
 	Permissions publishedPodPermissionResponse `json:"permissions"`
 }
 
@@ -120,6 +129,7 @@ type publishedPodResponse struct {
 	Audience        []publishedPodPrincipalResponse `json:"audience"`
 	Tasks           []publishedPodTaskResponse      `json:"tasks"`
 	SourceFolder    uuid.UUID                       `json:"source_folder"`
+	NetworkProfile  string                          `json:"network_profile_key"`
 	VirtualMachines []publishedPodVMResponse        `json:"virtual_machines"`
 }
 
@@ -137,12 +147,20 @@ type publishedPodCloneTaskSummaryResponse struct {
 }
 
 type clonedPodNetworkResponse struct {
-	Number          int32  `json:"number"`
-	VNet            string `json:"vnet"`
-	ExternalSubnet  string `json:"external_subnet"`
-	ExternalGateway string `json:"external_gateway"`
-	InternalSubnet  string `json:"internal_subnet"`
-	InternalGateway string `json:"internal_gateway"`
+	Number          int32                       `json:"number"`
+	VNet            string                      `json:"vnet"`
+	ExternalSubnet  string                      `json:"external_subnet"`
+	ExternalGateway string                      `json:"external_gateway"`
+	InternalSubnet  string                      `json:"internal_subnet"`
+	InternalGateway string                      `json:"internal_gateway"`
+	ProfileKey      string                      `json:"profile_key,omitempty"`
+	DMZVNet         string                      `json:"dmz_vnet,omitempty"`
+	DMZSubnet       string                      `json:"dmz_subnet,omitempty"`
+	DMZGateway      string                      `json:"dmz_gateway,omitempty"`
+	DMZVLANTag      int                         `json:"dmz_vlan_tag,omitempty"`
+	LANVLANTag      int                         `json:"lan_vlan_tag,omitempty"`
+	Segments        []podNetworkSegmentResponse `json:"segments,omitempty"`
+	PrefixNAT       *prefixNATResponse          `json:"prefix_nat,omitempty"`
 }
 
 type publishedPodCloneResponse struct {
@@ -158,15 +176,16 @@ type publishedPodCloneResponse struct {
 }
 
 type publishedPodBase struct {
-	ID             uuid.UUID
-	Title          string
-	Slug           string
-	Description    string
-	ImageURL       string
-	Status         database.PublishedPodStatus
-	SourceFolderID uuid.UUID
-	CloneCount     int32
-	CreatedAt      *time.Time
+	ID                uuid.UUID
+	Title             string
+	Slug              string
+	Description       string
+	ImageURL          string
+	Status            database.PublishedPodStatus
+	SourceFolderID    uuid.UUID
+	NetworkProfileKey string
+	CloneCount        int32
+	CreatedAt         *time.Time
 }
 
 func requireInventoryPermissionRequest(

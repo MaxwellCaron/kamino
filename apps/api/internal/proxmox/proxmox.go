@@ -139,6 +139,7 @@ type VMHardwareNetwork struct {
 	Model      string `json:"model"`
 	VLANTag    *int   `json:"vlan_tag,omitempty"`
 	Firewall   bool   `json:"firewall"`
+	LinkDown   bool   `json:"link_down,omitempty"`
 	MACAddress string `json:"mac_address,omitempty"`
 }
 

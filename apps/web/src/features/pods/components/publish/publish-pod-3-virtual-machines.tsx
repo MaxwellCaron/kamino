@@ -79,6 +79,10 @@ import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
 import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
 import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
+import {
+  getPublishNetworkProfileLabel,
+  getPublishVmNetworkLabel,
+} from "@/features/pods/utils/pod-networking"
 
 const publishVmPermissionGroups = getInventoryPermissionDefinitionsByGroup("vm")
 
@@ -181,6 +185,15 @@ function PublishPodVirtualMachinesTable({
             />
             <span className="truncate font-medium">{row.original.vm.name}</span>
           </div>
+        ),
+      },
+      {
+        id: "network",
+        header: "Network",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {getPublishVmNetworkLabel(row.original.vm)}
+          </span>
         ),
       },
       {
@@ -504,6 +517,7 @@ export function PublishPodVirtualMachinesStep({
                                     {folder.virtual_machines.length === 1
                                       ? ""
                                       : "s"}
+                                    {` · ${getPublishNetworkProfileLabel(folder.network_profile_key)}`}
                                   </span>
                                 </span>
                               </ComboboxItem>

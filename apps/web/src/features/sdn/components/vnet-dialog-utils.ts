@@ -29,7 +29,7 @@ export const aliasSchema = z
 
 export const zoneSchema = z.string().trim().min(1, "Zone is required")
 
-const MAX_PREFIX_CREATE_VNETS = 50
+export const MAX_PREFIX_CREATE_VNETS = 300
 
 export const namePrefixSchema = z
   .string()

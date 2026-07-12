@@ -85,12 +85,12 @@ const CREATE_POD_WITH_ROUTER_STEPS = [
 
 function getCreatePodSteps({
   hasVirtualMachines,
-  includeRouter,
+  hasRouter,
 }: {
   hasVirtualMachines: boolean
-  includeRouter: boolean
+  hasRouter: boolean
 }) {
-  if (includeRouter) return CREATE_POD_WITH_ROUTER_STEPS
+  if (hasRouter) return CREATE_POD_WITH_ROUTER_STEPS
   if (hasVirtualMachines) return CREATE_POD_WITH_VM_STEPS
   return CREATE_POD_FOLDER_STEPS
 }
@@ -110,7 +110,7 @@ export function CreatePodSubmitState({
   createdPod,
   errorMessage,
   hasVirtualMachines,
-  includeRouter,
+  hasRouter,
   onCreateAnother,
   onCreatingComplete,
   onRetry,
@@ -120,14 +120,14 @@ export function CreatePodSubmitState({
   createdPod?: CreatePodResult | null
   errorMessage?: string | null
   hasVirtualMachines: boolean
-  includeRouter: boolean
+  hasRouter: boolean
   onCreateAnother: () => void
   onCreatingComplete?: () => void
   onRetry: () => void
   progress?: CreatePodProgress
   state: CreatePodSubmitStatus
 }) {
-  const steps = getCreatePodSteps({ hasVirtualMachines, includeRouter })
+  const steps = getCreatePodSteps({ hasVirtualMachines, hasRouter })
   const createdPodFolderId = createdPod?.folder_id ?? null
 
   switch (state) {

@@ -36,6 +36,8 @@ export interface PublishedPodVirtualMachine {
   cpuCount: number
   memoryGb: number
   storageGb: number
+  is_router?: boolean
+  segment_key?: string | null
   permissions: {
     allowMask: number
     denyMask: number
