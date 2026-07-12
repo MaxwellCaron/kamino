@@ -90,7 +90,10 @@ export function MutationProgressToast({
   const { itemStates, itemErrors } = toastState
   const initialItemsRef = useRef([...progressItems, ...items])
   const runMutationRef = useRef(runMutation)
-  runMutationRef.current = runMutation
+
+  useEffect(() => {
+    runMutationRef.current = runMutation
+  }, [runMutation])
 
   useEffect(() => {
     liveReporters.set(toastId, (update) => {

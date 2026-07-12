@@ -162,24 +162,6 @@ export function getPodDefaultVmSegmentKey(
     : "lan"
 }
 
-export function summarizeDmzWorkloadSegments(
-  values: Pick<CreatePodFormValues, "templates">
-) {
-  const counts = { lan: 0, dmz: 0 }
-
-  for (const template of values.templates) {
-    for (const vm of template.vms) {
-      if (vm.segmentKey === "dmz") {
-        counts.dmz += 1
-      } else if (vm.segmentKey === "lan") {
-        counts.lan += 1
-      }
-    }
-  }
-
-  return counts
-}
-
 export function createTemplateVm(
   template: Pick<
     PodTemplateOption,

@@ -13,7 +13,11 @@ function chunkCreateVNetInputs(
   params: Array<CreateVNetInput>
 ): Array<Array<CreateVNetInput>> {
   const chunks: Array<Array<CreateVNetInput>> = []
-  for (let index = 0; index < params.length; index += BULK_CREATE_VNETS_CHUNK_SIZE) {
+  for (
+    let index = 0;
+    index < params.length;
+    index += BULK_CREATE_VNETS_CHUNK_SIZE
+  ) {
     chunks.push(params.slice(index, index + BULK_CREATE_VNETS_CHUNK_SIZE))
   }
   return chunks
@@ -69,16 +73,14 @@ export async function createVNetsInChunks(
   params: Array<CreateVNetInput>,
   options?: { apply?: boolean }
 ): Promise<ApiCreateVNetsResponse> {
-  const created: Array<string> = []
-  const failed: ApiCreateVNetsResponse["failed"] = []
+  const results = await Promise.all(
+    chunkCreateVNetInputs(params).map((chunk) => createVNets(chunk, options))
+  )
 
-  for (const chunk of chunkCreateVNetInputs(params)) {
-    const result = await createVNets(chunk, options)
-    created.push(...result.created)
-    failed.push(...result.failed)
+  return {
+    created: results.flatMap((result) => result.created),
+    failed: results.flatMap((result) => result.failed),
   }
-
-  return { created, failed }
 }
 
 export async function applySDN(): Promise<void> {

@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { Camera01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
@@ -67,6 +67,20 @@ type SnapshotDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
+function useDialogSessionKey(open: boolean) {
+  const [sessionKey, setSessionKey] = useState(0)
+  const prevOpenRef = useRef(open)
+
+  useLayoutEffect(() => {
+    if (open && !prevOpenRef.current) {
+      setSessionKey((current) => current + 1)
+    }
+    prevOpenRef.current = open
+  }, [open])
+
+  return sessionKey
+}
+
 function DirectSnapshotDialog({
   itemId,
   vmid,
@@ -75,13 +89,7 @@ function DirectSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const sessionKeyRef = useRef(0)
-  const prevOpenRef = useRef(open)
-
-  if (open && !prevOpenRef.current) {
-    sessionKeyRef.current += 1
-  }
-  prevOpenRef.current = open
+  const sessionKey = useDialogSessionKey(open)
 
   return (
     <AppDialog
@@ -95,7 +103,7 @@ function DirectSnapshotDialog({
       )}.`}
     >
       <DirectSnapshotForm
-        key={sessionKeyRef.current}
+        key={sessionKey}
         itemId={itemId}
         guestType={guestType}
         onOpenChange={onOpenChange}
@@ -232,13 +240,7 @@ function RequestSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const sessionKeyRef = useRef(0)
-  const prevOpenRef = useRef(open)
-
-  if (open && !prevOpenRef.current) {
-    sessionKeyRef.current += 1
-  }
-  prevOpenRef.current = open
+  const sessionKey = useDialogSessionKey(open)
 
   const vmReference = formatVmReference(vmid, vmName)
 
@@ -251,7 +253,7 @@ function RequestSnapshotDialog({
       description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
     >
       <RequestSnapshotForm
-        key={sessionKeyRef.current}
+        key={sessionKey}
         itemId={itemId}
         onOpenChange={onOpenChange}
       />

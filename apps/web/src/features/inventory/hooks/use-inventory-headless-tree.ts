@@ -1,4 +1,10 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import {
   dragAndDropFeature,
   expandAllFeature,
@@ -116,11 +122,7 @@ export function useInventoryHeadlessTree({
   selectedItemIds,
   setSelectedItemIds,
 }: UseInventoryHeadlessTreeOptions) {
-  const itemsRef = useRef(items)
-  const childrenRef = useRef(children)
   const scrollToItemHandlerRef = useRef<((itemId: string) => void) | null>(null)
-  itemsRef.current = items
-  childrenRef.current = children
 
   const [expandedItems, setExpandedItems] = useState<Array<string>>(() => {
     if (typeof window === "undefined") return []
@@ -136,23 +138,9 @@ export function useInventoryHeadlessTree({
   })
 
   const preSearchExpandedRef = useRef<Array<string> | null>(null)
-  const effectiveExpandedItemsRef = useRef<Array<string>>(
-    NO_SEARCH_EXPANDED_ITEMS
-  )
-  const effectiveExpandedItems = useMemo(() => {
-    const nextExpandedItems = isSearchActive
-      ? searchExpandedItemIds
-      : expandedItems
-
-    if (
-      expandedItemsEqual(nextExpandedItems, effectiveExpandedItemsRef.current)
-    ) {
-      return effectiveExpandedItemsRef.current
-    }
-
-    effectiveExpandedItemsRef.current = nextExpandedItems
-    return nextExpandedItems
-  }, [expandedItems, isSearchActive, searchExpandedItemIds])
+  const effectiveExpandedItems = isSearchActive
+    ? searchExpandedItemIds
+    : expandedItems
 
   const handleExpandedChange = useCallback(
     (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
@@ -167,12 +155,15 @@ export function useInventoryHeadlessTree({
           return prev
         }
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
         return next
       })
     },
     [isSearchActive]
   )
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedItems))
+  }, [expandedItems])
 
   useLayoutEffect(() => {
     if (isSearchActive) {
@@ -194,7 +185,6 @@ export function useInventoryHeadlessTree({
     }
 
     setExpandedItems(snapshot)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
   }, [expandedItems, isSearchActive])
 
   const handleDrop = useCallback(
@@ -221,8 +211,8 @@ export function useInventoryHeadlessTree({
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().kind === "folder",
     dataLoader: {
-      getItem: (itemId) => itemsRef.current.get(itemId) ?? VIRTUAL_ROOT,
-      getChildren: (itemId) => childrenRef.current.get(itemId) ?? [],
+      getItem: (itemId) => items.get(itemId) ?? VIRTUAL_ROOT,
+      getChildren: (itemId) => children.get(itemId) ?? [],
     },
     features: [
       syncDataLoaderFeature,
@@ -294,19 +284,21 @@ export function useInventoryHeadlessTree({
   }, [folderIds, tree])
 
   const selectionDataRef = tree.getDataRef<SelectionDataRef>()
-  const anchorId = selectionDataRef.current.selectUpToAnchorId
+  useLayoutEffect(() => {
+    const anchorId = selectionDataRef.current.selectUpToAnchorId
 
-  if (anchorId && !items.has(anchorId)) {
-    selectionDataRef.current.selectUpToAnchorId = null
-  } else if (selectedItemIds.length === 0) {
-    selectionDataRef.current.selectUpToAnchorId = null
-  } else if (
-    selectedItemIds.length === 1 &&
-    items.has(selectedItemIds[0]) &&
-    anchorId !== selectedItemIds[0]
-  ) {
-    selectionDataRef.current.selectUpToAnchorId = selectedItemIds[0]
-  }
+    if (anchorId && !items.has(anchorId)) {
+      selectionDataRef.current.selectUpToAnchorId = null
+    } else if (selectedItemIds.length === 0) {
+      selectionDataRef.current.selectUpToAnchorId = null
+    } else if (
+      selectedItemIds.length === 1 &&
+      items.has(selectedItemIds[0]) &&
+      anchorId !== selectedItemIds[0]
+    ) {
+      selectionDataRef.current.selectUpToAnchorId = selectedItemIds[0]
+    }
+  }, [items, selectedItemIds, selectionDataRef])
 
   const expandAll = useCallback(() => {
     if (isSearchActive) {

@@ -169,7 +169,7 @@ export function SiteCommandDialog({
   )
 
   const commands = useMemo(() => {
-    if (!user) return []
+    if (!sessionData?.user) return []
 
     return buildSiteCommands({
       actions: commandActions,
@@ -195,7 +195,7 @@ export function SiteCommandDialog({
     pendingRequests,
     podCatalog,
     publishedPods,
-    user,
+    sessionData,
     users,
     vnets,
     searchQuery,

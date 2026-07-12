@@ -39,7 +39,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { Fragment, useRef, useState } from "react"
+import { Fragment, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableStateRow } from "./data-table-state-row"
 import { defaultDataTableFeatures } from "./data-table-types"
@@ -119,8 +119,6 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [expanded, setExpanded] = useState<ExpandedState>({})
-  const hasBeenLoading = useRef(isLoading)
-  if (isLoading) hasBeenLoading.current = true
   const notReady = isLoading || error !== null
 
   const searchValue = isServerMode ? serverPagination.search : globalFilter

@@ -80,7 +80,10 @@ export function PublishPodEditor({
     () => initialValues ?? createInitialPublishPodValues(),
     [initialValues]
   )
-  onSubmitRef.current = onSubmit
+
+  React.useEffect(() => {
+    onSubmitRef.current = onSubmit
+  }, [onSubmit])
 
   const handleValidatedSubmit = React.useCallback(
     (values: PublishPodFormValues) => {

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -35,13 +42,8 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
 
   const [searchQuery, setSearchQuery] = useState("")
   const pendingRevealItemIdRef = useRef<string | null>(null)
-  const pendingRouteRevealRef = useRef<string | null>(null)
   const treeNavigationItemIdRef = useRef<string | null>(null)
   const revealedRouteItemIdRef = useRef<string | null>(null)
-  const [routeRevealSync, setRouteRevealSync] = useState<{
-    activeItemId: string | undefined
-    treeLoaded: boolean
-  }>({ activeItemId: undefined, treeLoaded: false })
   const normalizedSearchQuery = searchQuery.trim()
   const isSearchActive =
     normalizedSearchQuery.length >= INVENTORY_SEARCH_MIN_LENGTH
@@ -69,10 +71,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [filterResult.filteredTree]
   )
 
-  const {
-    items: sourceItems,
-    folderIds: sourceFolderIds,
-  } = sourceTree
+  const { items: sourceItems, folderIds: sourceFolderIds } = sourceTree
 
   const {
     items: displayItems,
@@ -207,34 +206,37 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const treeHasActiveItem =
     activeItemId !== undefined && sourceItems.has(activeItemId)
 
-  if (
-    activeItemId !== routeRevealSync.activeItemId ||
-    (treeHasActiveItem && !routeRevealSync.treeLoaded)
-  ) {
-    setRouteRevealSync({
-      activeItemId,
-      treeLoaded: treeHasActiveItem,
-    })
-
+  useLayoutEffect(() => {
     if (!activeItemId) {
       revealedRouteItemIdRef.current = null
-    } else if (
-      treeHasActiveItem &&
-      revealedRouteItemIdRef.current !== activeItemId
-    ) {
-      revealedRouteItemIdRef.current = activeItemId
-      const skipReveal = treeNavigationItemIdRef.current === activeItemId
-      treeNavigationItemIdRef.current = null
-
-      if (!skipReveal) {
-        if (isSearchActive) {
-          clearSearchAndQueueReveal(activeItemId)
-        } else {
-          pendingRouteRevealRef.current = activeItemId
-        }
-      }
+      return
     }
-  }
+
+    if (!treeHasActiveItem || revealedRouteItemIdRef.current === activeItemId) {
+      return
+    }
+
+    revealedRouteItemIdRef.current = activeItemId
+    const skipReveal = treeNavigationItemIdRef.current === activeItemId
+    treeNavigationItemIdRef.current = null
+
+    if (skipReveal) {
+      return
+    }
+
+    if (isSearchActive) {
+      clearSearchAndQueueReveal(activeItemId)
+      return
+    }
+
+    void revealItem(activeItemId)
+  }, [
+    activeItemId,
+    clearSearchAndQueueReveal,
+    isSearchActive,
+    revealItem,
+    treeHasActiveItem,
+  ])
 
   useEffect(() => {
     const pendingItemId = pendingRevealItemIdRef.current
@@ -247,18 +249,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     handlePrimaryAction(pendingItemId)
   }, [handlePrimaryAction, isSearchActive, revealItem, searchQuery])
 
-  useEffect(() => {
-    const itemId = pendingRouteRevealRef.current
-    if (!itemId) {
-      return
-    }
-
-    pendingRouteRevealRef.current = null
-    void revealItem(itemId)
-  }, [activeItemId, revealItem, routeRevealSync])
-
-  const searchResultCount =
-    !isLoading && !error ? filterResult.matchCount : 0
+  const searchResultCount = !isLoading && !error ? filterResult.matchCount : 0
 
   const value: InventoryTreeContextValue = {
     tree,

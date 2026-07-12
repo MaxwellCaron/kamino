@@ -13,7 +13,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
 import { TabsList } from "@workspace/ui/components/tabs"
-import { useRef } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { ComponentProps, ReactNode } from "react"
 import type { IconSvgElement } from "@hugeicons/react"
@@ -27,7 +27,10 @@ function Freeze({
   children: ReactNode
 }) {
   const frozen = useRef(children)
-  if (!freeze) frozen.current = children
+  useLayoutEffect(() => {
+    if (!freeze) frozen.current = children
+  }, [children, freeze])
+
   return <>{freeze ? frozen.current : children}</>
 }
 

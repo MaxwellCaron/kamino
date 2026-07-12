@@ -26,10 +26,10 @@ export function PublishPodPage() {
   const existingPod = existingPodData ?? null
   const initialValues = useMemo(
     () =>
-      existingPod
-        ? toPublishPodFormValues(existingPod)
+      existingPodData
+        ? toPublishPodFormValues(existingPodData)
         : createInitialPublishPodValues(),
-    [existingPod]
+    [existingPodData]
   )
 
   if (podId && isExistingPodError) {

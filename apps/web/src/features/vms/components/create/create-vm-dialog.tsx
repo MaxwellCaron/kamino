@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useSelector } from "@tanstack/react-store"
@@ -210,13 +210,15 @@ export function CreateVmDialog({
     },
   })
 
-  if (open && folderOptions.length > 0 && !didPrefillTargetFolder.current) {
-    didPrefillTargetFolder.current = true
-    form.setFieldValue(
-      "target_folder_id",
-      getSelectedFolder(folderOptions, initialFolderId)?.id ?? ""
-    )
-  }
+  useLayoutEffect(() => {
+    if (open && folderOptions.length > 0 && !didPrefillTargetFolder.current) {
+      didPrefillTargetFolder.current = true
+      form.setFieldValue(
+        "target_folder_id",
+        getSelectedFolder(folderOptions, initialFolderId)?.id ?? ""
+      )
+    }
+  }, [folderOptions, form, initialFolderId, open])
 
   function handleCreate() {
     if (method === "upload") {
