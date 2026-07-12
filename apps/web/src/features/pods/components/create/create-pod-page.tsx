@@ -9,10 +9,11 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PackageAddIcon } from "@hugeicons/core-free-icons"
 import { CreatePodFormSection } from "./create-pod-form-section"
-import { isPodNetworkingWithRouter, useCreatePodForm  } from "./create-pod-form"
-import { CreatePodPersonalizeSection } from "./create-pod-personalize-section"
-import { CreatePodReviewSection } from "./create-pod-review-section"
-import { CreatePodVirtualMachinesSection } from "./create-pod-virtual-machines-section"
+import { isPodNetworkingWithRouter, useCreatePodForm } from "./create-pod-form"
+import { CreatePodPersonalizeSection } from "./create-pod-1-personalize"
+import { CreatePodNetworkingSection } from "./create-pod-2-networking"
+import { CreatePodVirtualMachinesSection } from "./create-pod-3-virtual-machines"
+import { CreatePodReviewSection } from "./create-pod-4-review"
 import { CreatePodSubmitState } from "./create-pod-creation-state"
 import type { CreatePodFormValues } from "./create-pod-form"
 import type { CreatePodResult } from "@/features/pods/api/create-pod-api"
@@ -236,97 +237,108 @@ export function CreatePodPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col">
-      <PreloadOverlay active={isCreateOptionsLoading} label="Loading pod creation" />
+      <PreloadOverlay
+        active={isCreateOptionsLoading}
+        label="Loading pod creation"
+      />
       {!isCreateOptionsLoading && (
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-4xl font-extrabold tracking-tight text-balance">
-            Create Pod
-          </h1>
-          <p className="text-muted-foreground">
-            Initialize a foundation for your pod by using virutal machine
-            templates, simplified networking configurations, and more.
-          </p>
-        </div>
-        <form
-          className="flex w-full max-w-5xl flex-col"
-          action={() => {
-            void openCreateConfirm()
-          }}
-        >
-          <CreatePodFormSection number={1} title="Personalize">
-            <CreatePodPersonalizeSection
-              form={form}
-              submissionAttempts={state.submissionAttempts}
-            />
-          </CreatePodFormSection>
-
-          <CreatePodFormSection number={2} title="Virtual Machines">
-            <CreatePodVirtualMachinesSection
-              form={form}
-              submissionAttempts={state.submissionAttempts}
-              networkProfiles={createOptions?.network_profiles ?? []}
-              routerTemplateConfigured={routerTemplateConfigured}
-              templateOptions={createOptions?.templates ?? []}
-            />
-          </CreatePodFormSection>
-
-          <CreatePodFormSection number={3} title="Review" isLast>
-            <CreatePodReviewSection form={form} />
-          </CreatePodFormSection>
-
-          <div className="w-full pt-6">
-            <form.Subscribe selector={(formState) => formState.isSubmitting}>
-              {(isSubmitting) => (
-                <AppActionButton
-                  type="submit"
-                  pending={isSubmitting}
-                  pendingLabel="Creating Pod..."
-                  className="w-full"
-                  size="lg"
-                >
-                  <HugeiconsIcon
-                    icon={PackageAddIcon}
-                    data-icon="inline-start"
-                  />
-                  Create Pod
-                </AppActionButton>
-              )}
-            </form.Subscribe>
+          <div className="flex flex-col gap-2">
+            <h1 className="font-heading text-4xl font-extrabold tracking-tight text-balance">
+              Create Pod
+            </h1>
+            <p className="text-muted-foreground">
+              Initialize a foundation for your pod by using simplified
+              networking configurations and virtual machine templates.
+            </p>
           </div>
-        </form>
-
-        <AlertDialog
-          open={state.createConfirmOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              dispatch({ type: "confirmOpenChanged", open: false })
-            }
-          }}
-        >
-          <AppAlertDialogContent
-            open={state.createConfirmOpen}
-            icon={PackageAddIcon}
-            title="Create Pod?"
-            description="This will create the Pod inventory folder, assign its permissions, and begin preparing the router and selected virtual machine templates."
+          <form
+            className="flex w-full max-w-5xl flex-col"
+            action={() => {
+              void openCreateConfirm()
+            }}
           >
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={() =>
-                  dispatch({ type: "confirmOpenChanged", open: false })
-                }
-              >
-                Close
-              </AlertDialogCancel>
-              <AlertDialogAction
-                variant="default"
-                onClick={handleCreateConfirm}
-              >
-                Create Pod
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AppAlertDialogContent>
-        </AlertDialog>
+            <CreatePodFormSection number={1} title="Personalize">
+              <CreatePodPersonalizeSection
+                form={form}
+                submissionAttempts={state.submissionAttempts}
+              />
+            </CreatePodFormSection>
+
+            <CreatePodFormSection number={2} title="Networking">
+              <CreatePodNetworkingSection
+                form={form}
+                submissionAttempts={state.submissionAttempts}
+                networkProfiles={createOptions?.network_profiles ?? []}
+                routerTemplateConfigured={routerTemplateConfigured}
+              />
+            </CreatePodFormSection>
+
+            <CreatePodFormSection number={3} title="Virtual Machines">
+              <CreatePodVirtualMachinesSection
+                form={form}
+                submissionAttempts={state.submissionAttempts}
+                networkProfiles={createOptions?.network_profiles ?? []}
+                templateOptions={createOptions?.templates ?? []}
+              />
+            </CreatePodFormSection>
+
+            <CreatePodFormSection number={4} title="Review" isLast>
+              <CreatePodReviewSection form={form} />
+            </CreatePodFormSection>
+
+            <div className="w-full pt-6">
+              <form.Subscribe selector={(formState) => formState.isSubmitting}>
+                {(isSubmitting) => (
+                  <AppActionButton
+                    type="submit"
+                    pending={isSubmitting}
+                    pendingLabel="Creating Pod..."
+                    className="w-full"
+                    size="lg"
+                  >
+                    <HugeiconsIcon
+                      icon={PackageAddIcon}
+                      data-icon="inline-start"
+                    />
+                    Create Pod
+                  </AppActionButton>
+                )}
+              </form.Subscribe>
+            </div>
+          </form>
+
+          <AlertDialog
+            open={state.createConfirmOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                dispatch({ type: "confirmOpenChanged", open: false })
+              }
+            }}
+          >
+            <AppAlertDialogContent
+              open={state.createConfirmOpen}
+              icon={PackageAddIcon}
+              title="Create Pod?"
+              description="This will create the Pod inventory folder, assign its permissions, and begin preparing the router and selected virtual machine templates."
+            >
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  onClick={() =>
+                    dispatch({ type: "confirmOpenChanged", open: false })
+                  }
+                >
+                  Close
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  variant="default"
+                  onClick={handleCreateConfirm}
+                >
+                  Create Pod
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AppAlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>

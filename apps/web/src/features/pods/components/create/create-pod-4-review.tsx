@@ -17,8 +17,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ChevronDownIcon,
   ComputerIcon,
+  Folder01Icon,
   Globe02Icon,
-  PackageIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import {
@@ -88,61 +88,55 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
 
         return (
           <div className="grid gap-4 md:grid-cols-2">
-            <Card className="bg-muted/50">
-              <CardContent className="flex flex-1">
-                <ItemGroup className="flex-1">
-                  <Item
-                    variant="muted"
-                    className="flex-1 shadow ring-1 ring-border dark:ring-0"
-                  >
-                    <ItemMedia
-                      variant="icon"
-                      className="translate-y-0! self-center!"
-                    >
-                      <HugeiconsIcon icon={PackageIcon} />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>Pod Name</ItemTitle>
-                      <ItemDescription>
-                        {values.name || "New pod"}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                  <Item
-                    variant="muted"
-                    className="flex-1 shadow ring-1 ring-border dark:ring-0"
-                  >
-                    <ItemMedia
-                      variant="icon"
-                      className="translate-y-0! self-center!"
-                    >
-                      <HugeiconsIcon icon={Globe02Icon} />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>Automated Networking</ItemTitle>
-                      <ItemDescription>
-                        {getPodNetworkingModeLabel(values.networkingMode)}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                  <Item
-                    variant="muted"
-                    className="flex-1 shadow ring-1 ring-border dark:ring-0"
-                  >
-                    <ItemMedia
-                      variant="icon"
-                      className="translate-y-0! self-center!"
-                    >
-                      <HugeiconsIcon icon={ComputerIcon} />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>Virtual Machines</ItemTitle>
-                      <ItemDescription>{vms.length}</ItemDescription>
-                    </ItemContent>
-                  </Item>
-                </ItemGroup>
-              </CardContent>
-            </Card>
+            <ItemGroup className="flex-1">
+              <Item
+                variant="muted"
+                className="flex-1 shadow ring-1 ring-border dark:ring-0"
+              >
+                <ItemMedia
+                  variant="icon"
+                  className="translate-y-0! self-center!"
+                >
+                  <HugeiconsIcon icon={Folder01Icon} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>Name</ItemTitle>
+                  <ItemDescription>{values.name || "New pod"}</ItemDescription>
+                </ItemContent>
+              </Item>
+              <Item
+                variant="muted"
+                className="flex-1 shadow ring-1 ring-border dark:ring-0"
+              >
+                <ItemMedia
+                  variant="icon"
+                  className="translate-y-0! self-center!"
+                >
+                  <HugeiconsIcon icon={Globe02Icon} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>Networking</ItemTitle>
+                  <ItemDescription>
+                    {getPodNetworkingModeLabel(values.networkingMode)}
+                  </ItemDescription>
+                </ItemContent>
+              </Item>
+              <Item
+                variant="muted"
+                className="flex-1 shadow ring-1 ring-border dark:ring-0"
+              >
+                <ItemMedia
+                  variant="icon"
+                  className="translate-y-0! self-center!"
+                >
+                  <HugeiconsIcon icon={ComputerIcon} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>Virtual Machines</ItemTitle>
+                  <ItemDescription>{vms.length}</ItemDescription>
+                </ItemContent>
+              </Item>
+            </ItemGroup>
             <Card className="w-full bg-muted/50">
               <CardHeader>
                 <CardTitle>Tree Preview</CardTitle>

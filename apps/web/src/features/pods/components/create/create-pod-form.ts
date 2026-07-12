@@ -1,14 +1,14 @@
 import { useForm } from "@tanstack/react-form"
 import { useMemo } from "react"
 import { z } from "zod"
-import type { PodTemplateOption } from "@/features/pods/api/create-pod-api"
+import type {
+  PodNetworkProfile,
+  PodTemplateOption,
+} from "@/features/pods/api/create-pod-api"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { uuid } from "@/features/shared/utils/uuid"
 
-export type PodNetworkingMode =
-  | "none"
-  | "lan-router-v1"
-  | "lan-dmz-router-v1"
+export type PodNetworkingMode = "none" | "lan-router-v1" | "lan-dmz-router-v1"
 
 export type PodVmSegmentKey = "lan" | "dmz"
 
@@ -91,11 +91,7 @@ export const podNameSchema = z
 const createPodFormSchema = z
   .object({
     name: podNameSchema,
-    networkingMode: z.enum([
-      "none",
-      "lan-router-v1",
-      "lan-dmz-router-v1",
-    ]),
+    networkingMode: z.enum(["none", "lan-router-v1", "lan-dmz-router-v1"]),
     templates: z.array(createPodTemplateSchema),
   })
   .superRefine((values, ctx) => {
@@ -148,6 +144,22 @@ export function getPodNetworkingModeLabel(mode: PodNetworkingMode) {
 
 export function getPodSegmentLabel(segmentKey: PodVmSegmentKey) {
   return segmentKey === "dmz" ? "DMZ" : "LAN"
+}
+
+export function getPodDefaultVmSegmentKey(
+  networkingMode: PodNetworkingMode,
+  networkProfiles: Array<PodNetworkProfile>
+): PodVmSegmentKey | undefined {
+  if (networkingMode !== "lan-dmz-router-v1") return undefined
+
+  const profile = networkProfiles.find(
+    (option) => option.key === "lan-dmz-router-v1"
+  )
+  const defaultSegment = profile?.default_segment_key
+
+  return defaultSegment === "dmz" || defaultSegment === "lan"
+    ? defaultSegment
+    : "lan"
 }
 
 export function summarizeDmzWorkloadSegments(
@@ -246,7 +258,9 @@ export function syncSelectedTemplates(
   })
 }
 
-export function getReviewVms(values: CreatePodFormValues): Array<CreatePodReviewVm> {
+export function getReviewVms(
+  values: CreatePodFormValues
+): Array<CreatePodReviewVm> {
   const workloadVms = values.templates.flatMap((template) =>
     template.vms.map((vm) => ({
       id: vm.id,

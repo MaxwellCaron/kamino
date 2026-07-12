@@ -10,7 +10,6 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -279,68 +278,6 @@ export function CreatePodTemplateCard({
                         </Button>
                       </div>
 
-                      {networkingMode === "lan-dmz-router-v1" ? (
-                        <form.Field
-                          name={`templates[${templateIndex}].vms[${vmIndex}].segmentKey`}
-                        >
-                          {(segmentField) => {
-                            const showValidation =
-                              segmentField.state.meta.isTouched ||
-                              submissionAttempts > 0
-                            const isInvalid =
-                              showValidation && !segmentField.state.meta.isValid
-
-                            return (
-                              <Field data-invalid={isInvalid || undefined}>
-                                <FieldLabel className="text-xs text-muted-foreground">
-                                  Network segment
-                                </FieldLabel>
-                                <RadioGroup
-                                  value={segmentField.state.value ?? ""}
-                                  onValueChange={(value) =>
-                                    segmentField.handleChange(
-                                      value as "lan" | "dmz"
-                                    )
-                                  }
-                                  className="grid gap-2 sm:grid-cols-2"
-                                >
-                                  {networkSegments.map((segment) => (
-                                    <FieldLabel
-                                      key={segment.key}
-                                      htmlFor={`${segmentField.name}-${segment.key}`}
-                                    >
-                                      <Field orientation="horizontal">
-                                        <FieldContent>
-                                          <FieldTitle className="text-sm">
-                                            {segment.label}
-                                          </FieldTitle>
-                                        </FieldContent>
-                                        <RadioGroupItem
-                                          id={`${segmentField.name}-${segment.key}`}
-                                          value={segment.key}
-                                          onBlur={segmentField.handleBlur}
-                                        />
-                                      </Field>
-                                    </FieldLabel>
-                                  ))}
-                                </RadioGroup>
-                                <FieldDescription>
-                                  Both segments use static guest addresses. DMZ
-                                  addresses map to the same WAN host octet.
-                                </FieldDescription>
-                                <FieldError
-                                  errors={
-                                    showValidation
-                                      ? segmentField.state.meta.errors
-                                      : []
-                                  }
-                                />
-                              </Field>
-                            )
-                          }}
-                        </form.Field>
-                      ) : null}
-
                       <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         <CreatePodVmNumberField
                           form={form}
@@ -376,6 +313,64 @@ export function CreatePodTemplateCard({
                           submissionAttempts={submissionAttempts}
                         />
                       </div>
+
+                      {networkingMode === "lan-dmz-router-v1" ? (
+                        <form.Field
+                          name={`templates[${templateIndex}].vms[${vmIndex}].segmentKey`}
+                        >
+                          {(segmentField) => {
+                            const showValidation =
+                              segmentField.state.meta.isTouched ||
+                              submissionAttempts > 0
+                            const isInvalid =
+                              showValidation && !segmentField.state.meta.isValid
+
+                            return (
+                              <Field data-invalid={isInvalid || undefined}>
+                                <FieldLabel className="text-xs text-muted-foreground">
+                                  Network Segment
+                                </FieldLabel>
+                                <RadioGroup
+                                  value={segmentField.state.value ?? ""}
+                                  onValueChange={(value) =>
+                                    segmentField.handleChange(
+                                      value as "lan" | "dmz"
+                                    )
+                                  }
+                                  className="grid gap-2 sm:grid-cols-2"
+                                >
+                                  {networkSegments.map((segment) => (
+                                    <FieldLabel
+                                      key={segment.key}
+                                      htmlFor={`${segmentField.name}-${segment.key}`}
+                                    >
+                                      <Field orientation="horizontal">
+                                        <FieldContent>
+                                          <FieldTitle className="text-sm">
+                                            {segment.label}
+                                          </FieldTitle>
+                                        </FieldContent>
+                                        <RadioGroupItem
+                                          id={`${segmentField.name}-${segment.key}`}
+                                          value={segment.key}
+                                          onBlur={segmentField.handleBlur}
+                                        />
+                                      </Field>
+                                    </FieldLabel>
+                                  ))}
+                                </RadioGroup>
+                                <FieldError
+                                  errors={
+                                    showValidation
+                                      ? segmentField.state.meta.errors
+                                      : []
+                                  }
+                                />
+                              </Field>
+                            )
+                          }}
+                        </form.Field>
+                      ) : null}
                     </Item>
                   ))}
                 </ItemGroup>
