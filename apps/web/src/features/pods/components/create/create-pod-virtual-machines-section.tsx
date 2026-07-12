@@ -1,4 +1,5 @@
 import React from "react"
+import { Image } from "@unpic/react"
 import {
   Combobox,
   ComboboxChip,
@@ -38,7 +39,6 @@ import {
   Copy02Icon,
   Globe02Icon,
   Shield01Icon,
-  WifiOffIcon,
 } from "@hugeicons/core-free-icons"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
 import { syncSelectedTemplates } from "./create-pod-form"
@@ -67,14 +67,12 @@ const networkingModeCards: Array<{
   description: string
   icon: IconSvgElement
   requiresRouter: boolean
+  diagram?: {
+    light: { src: string; width: number; height: number }
+    dark: { src: string; width: number; height: number }
+    alt: string
+  }
 }> = [
-  {
-    value: "none",
-    title: "None",
-    description: "Keep template NIC settings without a managed router or VNet.",
-    icon: WifiOffIcon,
-    requiresRouter: false,
-  },
   {
     value: "lan-router-v1",
     title: "LAN Router",
@@ -82,6 +80,11 @@ const networkingModeCards: Array<{
       "One VyOS router with host-preserving 1:1 NAT into an isolated LAN.",
     icon: Globe02Icon,
     requiresRouter: true,
+    diagram: {
+      light: { src: "/lan_light.png", width: 440, height: 456 },
+      dark: { src: "/lan_dark.png", width: 441, height: 456 },
+      alt: "",
+    },
   },
   {
     value: "lan-dmz-router-v1",
@@ -90,6 +93,11 @@ const networkingModeCards: Array<{
       "Isolated LAN and DMZ segments. DMZ hosts are 1:1 NAT from WAN to DMZ",
     icon: Shield01Icon,
     requiresRouter: true,
+    diagram: {
+      light: { src: "/lan_dmz_light.png", width: 456, height: 456 },
+      dark: { src: "/lan_dmz_dark.png", width: 450, height: 456 },
+      alt: "",
+    },
   },
 ]
 
@@ -131,6 +139,40 @@ export function CreatePodVirtualMachinesSection({
               field.state.meta.isTouched || submissionAttempts > 0
             const isInvalid = showValidation && !field.state.meta.isValid
 
+            const setNetworkingMode = (nextMode: PodNetworkingMode) => {
+              field.handleChange(nextMode)
+
+              if (nextMode === "lan-dmz-router-v1") {
+                const defaultSegmentKey = getDefaultSegmentKey(
+                  nextMode,
+                  networkProfiles
+                )
+                const templates = form.getFieldValue("templates")
+                form.setFieldValue(
+                  "templates",
+                  templates.map((template) => ({
+                    ...template,
+                    vms: template.vms.map((vm) => ({
+                      ...vm,
+                      segmentKey: vm.segmentKey ?? defaultSegmentKey,
+                    })),
+                  }))
+                )
+                return
+              }
+
+              const templates = form.getFieldValue("templates")
+              form.setFieldValue(
+                "templates",
+                templates.map((template) => ({
+                  ...template,
+                  vms: template.vms.map(
+                    ({ segmentKey: _segmentKey, ...vm }) => vm
+                  ),
+                }))
+              )
+            }
+
             return (
               <FieldSet data-invalid={isInvalid || undefined}>
                 <FieldLegend>Automated Networking</FieldLegend>
@@ -140,42 +182,12 @@ export function CreatePodVirtualMachinesSection({
                     : "Router automation is unavailable until an admin configures a router VM template."}
                 </FieldDescription>
                 <RadioGroup
-                  value={field.state.value}
+                  value={field.state.value === "none" ? "" : field.state.value}
                   onValueChange={(value) => {
-                    const nextMode = value as PodNetworkingMode
-                    field.handleChange(nextMode)
-
-                    if (nextMode === "lan-dmz-router-v1") {
-                      const defaultSegmentKey = getDefaultSegmentKey(
-                        nextMode,
-                        networkProfiles
-                      )
-                      const templates = form.getFieldValue("templates")
-                      form.setFieldValue(
-                        "templates",
-                        templates.map((template) => ({
-                          ...template,
-                          vms: template.vms.map((vm) => ({
-                            ...vm,
-                            segmentKey: vm.segmentKey ?? defaultSegmentKey,
-                          })),
-                        }))
-                      )
-                      return
-                    }
-
-                    const templates = form.getFieldValue("templates")
-                    form.setFieldValue(
-                      "templates",
-                      templates.map((template) => ({
-                        ...template,
-                        vms: template.vms.map(
-                          ({ segmentKey: _segmentKey, ...vm }) => vm
-                        ),
-                      }))
-                    )
+                    if (!value) return
+                    setNetworkingMode(value as PodNetworkingMode)
                   }}
-                  className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3"
+                  className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2"
                 >
                   {networkingModeCards.map((mode) => {
                     const disabled =
@@ -186,33 +198,77 @@ export function CreatePodVirtualMachinesSection({
                         key={mode.value}
                         htmlFor={`create-pod-networking-${mode.value}`}
                         data-disabled={disabled || undefined}
-                        className="h-full cursor-pointer data-[disabled=true]:cursor-not-allowed"
+                        className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
+                        onClick={(event) => {
+                          if (disabled || field.state.value !== mode.value) {
+                            return
+                          }
+
+                          event.preventDefault()
+                          setNetworkingMode("none")
+                        }}
                       >
                         <Field
                           orientation="vertical"
-                          className="h-full justify-between gap-3"
+                          className="h-full min-h-0 gap-3"
                         >
-                          <div className="flex w-full items-start justify-between gap-3">
-                            <HugeiconsIcon
-                              icon={mode.icon}
-                              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                            />
-                            <RadioGroupItem
-                              id={`create-pod-networking-${mode.value}`}
-                              value={mode.value}
-                              disabled={disabled}
-                              onBlur={field.handleBlur}
-                              className="mt-0.5"
-                            />
+                          <div className="flex w-full shrink-0 flex-col gap-1.5">
+                            <div className="flex w-full items-start justify-between gap-3">
+                              <HugeiconsIcon
+                                icon={mode.icon}
+                                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                              />
+                              <RadioGroupItem
+                                id={`create-pod-networking-${mode.value}`}
+                                value={mode.value}
+                                disabled={disabled}
+                                onBlur={field.handleBlur}
+                                onClick={(event) => {
+                                  if (
+                                    disabled ||
+                                    field.state.value !== mode.value
+                                  ) {
+                                    return
+                                  }
+
+                                  event.preventDefault()
+                                  setNetworkingMode("none")
+                                }}
+                                className="mt-0.5"
+                              />
+                            </div>
+                            <FieldContent className="gap-1.5">
+                              <FieldTitle className="text-sm leading-snug">
+                                {mode.title}
+                              </FieldTitle>
+                              <FieldDescription className="text-pretty">
+                                {mode.description}
+                              </FieldDescription>
+                            </FieldContent>
                           </div>
-                          <FieldContent className="gap-1.5">
-                            <FieldTitle className="text-sm leading-snug">
-                              {mode.title}
-                            </FieldTitle>
-                            <FieldDescription className="text-pretty">
-                              {mode.description}
-                            </FieldDescription>
-                          </FieldContent>
+                          {mode.diagram ? (
+                            <div
+                              className="flex min-h-0 w-full flex-1 items-center justify-center"
+                              aria-hidden="true"
+                            >
+                              <Image
+                                src={mode.diagram.light.src}
+                                width={mode.diagram.light.width}
+                                height={mode.diagram.light.height}
+                                layout="constrained"
+                                alt=""
+                                className="h-auto w-full dark:hidden"
+                              />
+                              <Image
+                                src={mode.diagram.dark.src}
+                                width={mode.diagram.dark.width}
+                                height={mode.diagram.dark.height}
+                                layout="constrained"
+                                alt=""
+                                className="hidden h-auto w-full dark:block"
+                              />
+                            </div>
+                          ) : null}
                         </Field>
                       </FieldLabel>
                     )
