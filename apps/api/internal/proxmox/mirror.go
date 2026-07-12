@@ -78,6 +78,12 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		return nil
 	}
 
+	// Snapshot pools before inventory so new folder rows cannot race-delete their pool.
+	currentPools, err := m.client.GetPools(ctx)
+	if err != nil {
+		return fmt.Errorf("loading proxmox pools: %w", err)
+	}
+
 	rows, err := database.New(m.db).GetAllInventoryItems(ctx)
 	if err != nil {
 		return fmt.Errorf("loading inventory tree: %w", err)
@@ -132,11 +138,6 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	}
 
 	walk(*rootID, nil)
-
-	currentPools, err := m.client.GetPools(ctx)
-	if err != nil {
-		return fmt.Errorf("loading proxmox pools: %w", err)
-	}
 
 	currentPoolsByID := make(map[string]Pool, len(currentPools))
 	for _, pool := range currentPools {
@@ -205,6 +206,13 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	}
 	if err := poolGroup.Wait(); err != nil {
 		return err
+	}
+
+	finalVMCounts := finalPoolVMCounts(currentVMPools, desiredVMPools)
+	for _, poolID := range stalePoolIDs(currentPools, desiredPoolIDs(desiredPools), finalVMCounts) {
+		if err := m.client.DeletePool(ctx, poolID); err != nil {
+			log.Printf("proxmox mirror: failed to delete stale pool %q: %v", poolID, err)
+		}
 	}
 
 	notesGroup, notesCtx := errgroup.WithContext(ctx)
@@ -305,4 +313,50 @@ func poolDepth(poolID string) int {
 		return 0
 	}
 	return strings.Count(poolID, "/")
+}
+
+func finalPoolVMCounts(currentVMPools map[vmKey]string, desiredVMPools map[vmKey]string) map[string]int {
+	counts := make(map[string]int, len(currentVMPools))
+	for key, pool := range currentVMPools {
+		if desired, ok := desiredVMPools[key]; ok {
+			pool = desired
+		}
+		if pool != "" {
+			counts[pool]++
+		}
+	}
+	return counts
+}
+
+func stalePoolIDs(currentPools []Pool, desired map[string]struct{}, finalVMCounts map[string]int) []string {
+	currentIDs := make([]string, 0, len(currentPools))
+	for _, pool := range currentPools {
+		currentIDs = append(currentIDs, pool.PoolID)
+	}
+	sortPoolIDsByDepth(currentIDs, true)
+
+	kept := make(map[string]bool, len(currentIDs))
+	hasKeptDescendant := func(poolID string) bool {
+		prefix := poolID + "/"
+		for id, keep := range kept {
+			if keep && strings.HasPrefix(id, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+
+	stale := make([]string, 0)
+	for _, poolID := range currentIDs {
+		if _, ok := desired[poolID]; ok {
+			kept[poolID] = true
+			continue
+		}
+		if finalVMCounts[poolID] > 0 || hasKeptDescendant(poolID) {
+			kept[poolID] = true
+			continue
+		}
+		stale = append(stale, poolID)
+	}
+	return stale
 }

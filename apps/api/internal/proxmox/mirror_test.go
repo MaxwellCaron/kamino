@@ -148,3 +148,106 @@ func TestSortedPoolIDsByDepth(t *testing.T) {
 		}
 	})
 }
+
+func TestFinalPoolVMCounts(t *testing.T) {
+	keyA := vmKey{Node: "pve1", VMID: 101, GuestType: GuestQEMU}
+	keyB := vmKey{Node: "pve1", VMID: 102, GuestType: GuestQEMU}
+	keyC := vmKey{Node: "pve1", VMID: 103, GuestType: GuestQEMU}
+
+	t.Run("tracked VM moving pools counts toward desired pool", func(t *testing.T) {
+		current := map[vmKey]string{keyA: "old-pool"}
+		desired := map[vmKey]string{keyA: "new-pool"}
+		got := finalPoolVMCounts(current, desired)
+		want := map[string]int{"new-pool": 1}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("finalPoolVMCounts() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("untracked VM counts toward current pool", func(t *testing.T) {
+		current := map[vmKey]string{keyB: "orphan-pool"}
+		got := finalPoolVMCounts(current, nil)
+		want := map[string]int{"orphan-pool": 1}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("finalPoolVMCounts() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("root placement VMs are not counted", func(t *testing.T) {
+		current := map[vmKey]string{keyC: "stale-pool"}
+		desired := map[vmKey]string{keyC: ""}
+		got := finalPoolVMCounts(current, desired)
+		if len(got) != 0 {
+			t.Fatalf("finalPoolVMCounts() = %v, want empty map", got)
+		}
+	})
+}
+
+func TestStalePoolIDs(t *testing.T) {
+	desired := map[string]struct{}{
+		"students": {},
+	}
+
+	t.Run("desired pools are never returned", func(t *testing.T) {
+		pools := []Pool{{PoolID: "students"}}
+		got := stalePoolIDs(pools, desired, nil)
+		if len(got) != 0 {
+			t.Fatalf("stalePoolIDs() = %v, want empty", got)
+		}
+	})
+
+	t.Run("empty undesired leaf pool is returned", func(t *testing.T) {
+		pools := []Pool{{PoolID: "orphan"}}
+		got := stalePoolIDs(pools, desired, nil)
+		want := []string{"orphan"}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("stalePoolIDs() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("nested undesired chain deepest-first", func(t *testing.T) {
+		pools := []Pool{
+			{PoolID: "a"},
+			{PoolID: "a/b"},
+			{PoolID: "a/b/c"},
+		}
+		got := stalePoolIDs(pools, desired, nil)
+		want := []string{"a/b/c", "a/b", "a"}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("stalePoolIDs() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("pool with remaining VM is kept with empty ancestor", func(t *testing.T) {
+		pools := []Pool{
+			{PoolID: "parent"},
+			{PoolID: "parent/child"},
+		}
+		counts := map[string]int{"parent/child": 1}
+		got := stalePoolIDs(pools, desired, counts)
+		if len(got) != 0 {
+			t.Fatalf("stalePoolIDs() = %v, want empty", got)
+		}
+	})
+
+	t.Run("parent kept when child pool is desired", func(t *testing.T) {
+		pools := []Pool{
+			{PoolID: "parent"},
+			{PoolID: "parent/child"},
+		}
+		desiredWithChild := map[string]struct{}{
+			"parent/child": {},
+		}
+		got := stalePoolIDs(pools, desiredWithChild, nil)
+		if len(got) != 0 {
+			t.Fatalf("stalePoolIDs() = %v, want empty", got)
+		}
+	})
+
+	t.Run("no current pools", func(t *testing.T) {
+		got := stalePoolIDs(nil, desired, nil)
+		if len(got) != 0 {
+			t.Fatalf("stalePoolIDs() = %v, want empty", got)
+		}
+	})
+}
