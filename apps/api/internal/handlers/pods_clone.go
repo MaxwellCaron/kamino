@@ -20,6 +20,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -1269,13 +1270,26 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, inventoryRequestError(err)
 	}
 
+	var batch *vmidalloc.Batch
 	var created map[int]clonedVM
 	provisioned := false
 	defer func() {
 		if !provisioned {
 			h.cleanupFailedUserClone(targetFolderID, created)
 		}
+		batch.Release()
 	}()
+
+	var batchErr error
+	batch, batchErr = h.Allocator.NewBatch(ctx, h.CloneVMIDRange, len(publishedVMs))
+	if batchErr != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: fmt.Sprintf("insufficient VMID capacity in clone range (%d–%d) for %d VMs", h.CloneVMIDRange.Min, h.CloneVMIDRange.Max, len(publishedVMs)),
+			Operation:   "allocate clone VMID batch",
+			Err:         batchErr,
+		}
+	}
 
 	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, targetFolderID, int32(len(publishedVMs)), "pod_clone")
 	if err != nil {
@@ -1309,7 +1323,7 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, progress)
+	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, batch, progress)
 	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
@@ -1356,13 +1370,26 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
+	var batch *vmidalloc.Batch
 	var created map[int]clonedVM
 	provisioned := false
 	defer func() {
 		if !provisioned {
 			h.cleanupFailedUserClone(uuid.Nil, created)
 		}
+		batch.Release()
 	}()
+
+	var batchErr error
+	batch, batchErr = h.Allocator.NewBatch(ctx, h.CloneVMIDRange, len(publishedVMs))
+	if batchErr != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: fmt.Sprintf("insufficient VMID capacity in clone range (%d–%d) for %d VMs", h.CloneVMIDRange.Min, h.CloneVMIDRange.Max, len(publishedVMs)),
+			Operation:   "allocate clone VMID batch",
+			Err:         batchErr,
+		}
+	}
 
 	reservation, err := h.Service.ReserveFolderVMCapacity(ctx, clone.FolderID, int32(len(publishedVMs)), "pod_reclone")
 	if err != nil {
@@ -1387,7 +1414,7 @@ func (h *PodsHandler) reclonePublishedPod(
 		}
 	}
 
-	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, progress)
+	results, created, reqErr := h.provisionClonedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, clone, batch, progress)
 	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
@@ -1407,10 +1434,11 @@ func (h *PodsHandler) provisionClonedPodVMs(
 	targetNode string,
 	publishedVMs []database.ListPublishedPodVMsForCloneRow,
 	clone database.ClonedPods,
+	batch *vmidalloc.Batch,
 	progress *clonePodProgressReporter,
 ) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
 	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
-	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, progress)
+	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, batch, progress)
 	if reqErr != nil {
 		return nil, created, reqErr
 	}
@@ -1477,18 +1505,9 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	placement inventory.FolderPlacement,
 	targetNode string,
 	publishedVMs []database.ListPublishedPodVMsForCloneRow,
+	batch *vmidalloc.Batch,
 	progress *clonePodProgressReporter,
 ) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
-	batch, batchErr := h.Allocator.NewBatch(ctx, h.CloneVMIDRange, len(publishedVMs))
-	if batchErr != nil {
-		return nil, nil, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: fmt.Sprintf("insufficient VMID capacity in clone range (%d–%d) for %d VMs", h.CloneVMIDRange.Min, h.CloneVMIDRange.Max, len(publishedVMs)),
-			Operation:   "allocate clone VMID batch",
-			Err:         batchErr,
-		}
-	}
-
 	results := make([]clonePublishedVMResult, len(publishedVMs))
 	created := make(map[int]clonedVM, len(publishedVMs))
 	var createdMu sync.Mutex

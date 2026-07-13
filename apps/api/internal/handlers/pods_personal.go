@@ -294,6 +294,7 @@ func (h *PodsHandler) provisionPersonalPod(
 		h.cleanupFailedPodProvision(folderID, nil)
 		return database.PersonalPods{}, reqErr
 	}
+	defer personalBatch.Release()
 
 	created := make(map[int]clonedVM, 1)
 	clone, reqErr := h.cloneVerifiedVMIntoFolder(

@@ -395,6 +395,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			writeLoggedError(c, http.StatusBadGateway, fmt.Sprintf("insufficient VMID capacity in dev range (%d–%d) for %d VMs", h.DevVMIDRange.Min, h.DevVMIDRange.Max, len(specs)), "allocate dev VMID batch", batchErr)
 			return
 		}
+		defer devBatch.Release()
 
 		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), vmFolderID)
 		if err != nil {

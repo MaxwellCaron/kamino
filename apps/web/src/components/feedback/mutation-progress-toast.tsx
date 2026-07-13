@@ -16,6 +16,7 @@ export type MutationResult = {
 export type MutationItemUpdate =
   | { id: string; status: "done" }
   | { id: string; status: "error"; error: string }
+  | { id: string; status: "progress"; description: string }
 
 export type MutationUnitItem = {
   id: string

@@ -207,3 +207,157 @@ func TestBatchClaim_NonConflictErrorPropagates(t *testing.T) {
 		t.Fatalf("retry Claim vmid = %d, want 300 (candidate not marked used)", vmid)
 	}
 }
+
+func TestConcurrentBatches_DisjointClaims(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
+	alloc := New(px)
+
+	batchA, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 2)
+	if err != nil {
+		t.Fatalf("NewBatch A returned error: %v", err)
+	}
+	batchB, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 2)
+	if err != nil {
+		t.Fatalf("NewBatch B returned error: %v", err)
+	}
+
+	claim := func(b *Batch) []int {
+		var ids []int
+		for range 2 {
+			vmid, claimErr := b.Claim(context.Background(), func(id int) error {
+				ids = append(ids, id)
+				return nil
+			})
+			if claimErr != nil {
+				t.Fatalf("Claim returned error: %v", claimErr)
+			}
+			if vmid != ids[len(ids)-1] {
+				t.Fatalf("Claim vmid = %d, want %d", vmid, ids[len(ids)-1])
+			}
+		}
+		return ids
+	}
+
+	idsA := claim(batchA)
+	idsB := claim(batchB)
+	all := append(idsA, idsB...)
+	seen := make(map[int]struct{}, len(all))
+	for _, id := range all {
+		if _, dup := seen[id]; dup {
+			t.Fatalf("duplicate VMID claimed across batches: %d", id)
+		}
+		seen[id] = struct{}{}
+	}
+}
+
+func TestBatchRelease_FreesInflight(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
+	alloc := New(px)
+
+	batchA, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 1)
+	if err != nil {
+		t.Fatalf("NewBatch A returned error: %v", err)
+	}
+	vmid, err := batchA.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("batchA Claim returned error: %v", err)
+	}
+	if vmid != 100 {
+		t.Fatalf("batchA Claim vmid = %d, want 100", vmid)
+	}
+
+	batchB, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 1)
+	if err != nil {
+		t.Fatalf("NewBatch B returned error: %v", err)
+	}
+	vmid, err = batchB.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("batchB Claim returned error: %v", err)
+	}
+	if vmid != 101 {
+		t.Fatalf("batchB Claim vmid = %d, want 101", vmid)
+	}
+
+	batchA.Release()
+
+	batchC, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 1)
+	if err != nil {
+		t.Fatalf("NewBatch C returned error: %v", err)
+	}
+	vmid, err = batchC.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("batchC Claim returned error: %v", err)
+	}
+	if vmid != 100 {
+		t.Fatalf("batchC Claim vmid = %d, want 100 after release", vmid)
+	}
+}
+
+func TestNewBatch_CapacityCountsInflight(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
+	alloc := New(px)
+
+	batchA, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 2)
+	if err != nil {
+		t.Fatalf("NewBatch returned error: %v", err)
+	}
+	for range 2 {
+		_, err := batchA.Claim(context.Background(), func(int) error { return nil })
+		if err != nil {
+			t.Fatalf("Claim returned error: %v", err)
+		}
+	}
+
+	_, err = alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 1)
+	if !IsRangeExhausted(err) {
+		t.Fatalf("NewBatch error = %v, want range exhausted while inflight", err)
+	}
+}
+
+func TestBatchRelease_NilSafe(t *testing.T) {
+	t.Parallel()
+
+	var b *Batch
+	b.Release()
+}
+
+func TestRunSingle_SkipsInflight(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{
+		usedVMIDs: map[int]struct{}{},
+		nextID:    100,
+	}
+	alloc := New(px)
+
+	batch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 1)
+	if err != nil {
+		t.Fatalf("NewBatch returned error: %v", err)
+	}
+	vmid, err := batch.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("Claim returned error: %v", err)
+	}
+	if vmid != 100 {
+		t.Fatalf("Claim vmid = %d, want 100", vmid)
+	}
+
+	got, err := alloc.RunSingle(context.Background(), 0, func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("RunSingle returned error: %v", err)
+	}
+	if got != 101 {
+		t.Fatalf("RunSingle vmid = %d, want 101", got)
+	}
+
+	_, err = alloc.RunSingle(context.Background(), 100, func(int) error { return nil })
+	if !errors.Is(err, ErrVMIDUnavailable) {
+		t.Fatalf("RunSingle(100) error = %v, want ErrVMIDUnavailable", err)
+	}
+}

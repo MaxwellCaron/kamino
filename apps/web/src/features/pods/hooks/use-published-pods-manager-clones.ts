@@ -9,6 +9,8 @@ import {
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
+import { fetchClonePodProgress } from "@/features/pods/api/clone-pod-api"
+import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 export function usePublishedPodsManagerClones() {
@@ -41,11 +43,14 @@ export function usePublishedPodsManagerClones() {
 
       const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
 
-      const cloneOne = async (principal: PrincipalOption) => {
+      const cloneOne = async (
+        principal: PrincipalOption,
+        progressId: string
+      ) => {
         const summary = await createPublishedPodClone({
           podId: pod.id,
           principalId: principal.id,
-          progressId: uuid(),
+          progressId,
         })
         queryClient.setQueryData(
           clonesQueryKey,
@@ -69,10 +74,30 @@ export function usePublishedPodsManagerClones() {
               successDescription: "Cloned",
             },
           ],
-          run: async () => {
+          run: async (report) => {
+            const progressId = uuid()
+            const interval = setInterval(() => {
+              void fetchClonePodProgress(progressId)
+                .then((snapshot) => {
+                  if (snapshot.state !== "running") return
+                  const task = DEFAULT_CLONE_TASKS.find(
+                    (t) => t.id === snapshot.step_id
+                  )
+                  if (!task) return
+                  report({
+                    id: principal.id,
+                    status: "progress",
+                    description: `Step ${task.id}/${DEFAULT_CLONE_TASKS.length} — ${task.name}`,
+                  })
+                })
+                .catch(() => {
+                  // 404 until the backend writes the first snapshot; ignore.
+                })
+            }, 750)
             try {
-              await cloneOne(principal)
+              await cloneOne(principal, progressId)
             } finally {
+              clearInterval(interval)
               removePendingPrincipal(pod.id, principal.id)
             }
           },

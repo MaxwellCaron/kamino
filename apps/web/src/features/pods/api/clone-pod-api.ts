@@ -85,16 +85,22 @@ export function clonePodProgressQueryOptions(
   return {
     queryKey: ["pods", "clone", "progress", progressId] as const,
     queryFn: (): Promise<ClonePodProgress> =>
-      apiJson<ClonePodProgress>(
-        `/api/v1/pods/clones/progress/${encodeURIComponent(progressId ?? "")}`,
-        "fetch clone progress"
-      ),
+      fetchClonePodProgress(progressId ?? ""),
     enabled: enabled && !!progressId,
     retry: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     refetchInterval: 750,
   }
+}
+
+export async function fetchClonePodProgress(
+  progressId: string
+): Promise<ClonePodProgress> {
+  return apiJson<ClonePodProgress>(
+    `/api/v1/pods/clones/progress/${encodeURIComponent(progressId)}`,
+    "fetch clone progress"
+  )
 }
 
 export function podQuestionActivityQueryOptions() {

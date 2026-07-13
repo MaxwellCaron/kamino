@@ -48,10 +48,20 @@ function applyItemUpdate(
   prev: {
     itemStates: Record<string, ItemState>
     itemErrors: Record<string, string>
+    itemDescriptions: Record<string, string>
   },
   update: MutationItemUpdate,
   toastId: string | number
 ) {
+  if (update.status === "progress") {
+    return {
+      ...prev,
+      itemDescriptions: {
+        ...prev.itemDescriptions,
+        [update.id]: update.description,
+      },
+    }
+  }
   const nextStates: Record<string, ItemState> = {
     ...prev.itemStates,
     [update.id]: update.status,
@@ -60,7 +70,7 @@ function applyItemUpdate(
   if (update.status === "error") nextErrors[update.id] = update.error
   else delete nextErrors[update.id]
   dismissWhenComplete(toastId, nextStates)
-  return { itemStates: nextStates, itemErrors: nextErrors }
+  return { itemStates: nextStates, itemErrors: nextErrors, itemDescriptions: prev.itemDescriptions }
 }
 
 export function MutationProgressToast({
@@ -81,13 +91,15 @@ export function MutationProgressToast({
   const [toastState, setToastState] = useState<{
     itemStates: Record<string, ItemState>
     itemErrors: Record<string, string>
+    itemDescriptions: Record<string, string>
   }>(() => ({
     itemStates: Object.fromEntries(
       [...progressItems, ...items].map((item) => [item.id, "processing"])
     ),
     itemErrors: {},
+    itemDescriptions: {},
   }))
-  const { itemStates, itemErrors } = toastState
+  const { itemStates, itemErrors, itemDescriptions } = toastState
   const initialItemsRef = useRef([...progressItems, ...items])
   const runMutationRef = useRef(runMutation)
 
@@ -132,7 +144,11 @@ export function MutationProgressToast({
           for (const id of succeeded) delete nextErrors[id]
           for (const { id, error } of failed) nextErrors[id] = error
           dismissWhenComplete(toastId, nextStates)
-          return { itemStates: nextStates, itemErrors: nextErrors }
+          return {
+            itemStates: nextStates,
+            itemErrors: nextErrors,
+            itemDescriptions: prev.itemDescriptions,
+          }
         })
       })
       .catch((error) => {
@@ -145,7 +161,11 @@ export function MutationProgressToast({
             nextStates[item.id] = "error"
             nextErrors[item.id] = message
           }
-          return { itemStates: nextStates, itemErrors: nextErrors }
+          return {
+            itemStates: nextStates,
+            itemErrors: nextErrors,
+            itemDescriptions: prev.itemDescriptions,
+          }
         })
       })
 
@@ -163,6 +183,7 @@ export function MutationProgressToast({
       return {
         itemStates: { ...prev.itemStates, [item.id]: "processing" },
         itemErrors: nextErrors,
+        itemDescriptions: prev.itemDescriptions,
       }
     })
 
@@ -176,7 +197,11 @@ export function MutationProgressToast({
         dismissWhenComplete(toastId, next)
         const nextErrors = { ...prev.itemErrors }
         delete nextErrors[item.id]
-        return { itemStates: next, itemErrors: nextErrors }
+        return {
+          itemStates: next,
+          itemErrors: nextErrors,
+          itemDescriptions: prev.itemDescriptions,
+        }
       })
     } catch (error) {
       setToastState((prev) => ({
@@ -185,6 +210,7 @@ export function MutationProgressToast({
           ...prev.itemErrors,
           [item.id]: error instanceof Error ? error.message : "Failed",
         },
+        itemDescriptions: prev.itemDescriptions,
       }))
     }
   }
@@ -210,7 +236,9 @@ export function MutationProgressToast({
       <AttachmentContent>
         <AttachmentTitle>{item.name}</AttachmentTitle>
         {itemStates[item.id] === "processing" ? (
-          <AttachmentDescription>Processing</AttachmentDescription>
+          <AttachmentDescription>
+            {itemDescriptions[item.id] ?? "Processing"}
+          </AttachmentDescription>
         ) : itemStates[item.id] === "error" ? (
           <AttachmentDescription className="first-letter:uppercase">
             {itemErrors[item.id] ?? "Failed"}

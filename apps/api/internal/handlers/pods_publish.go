@@ -1358,6 +1358,7 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 				Err:         batchErr,
 			}
 		}
+		defer batch.Release()
 	}
 
 	created := make(map[int]clonedVM, len(vms))
