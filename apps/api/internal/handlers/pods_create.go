@@ -13,6 +13,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
+	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -312,9 +313,19 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+
+	var devBatch *vmidalloc.Batch
+	var created map[int]clonedVM
+	provisioned := false
+	defer func() {
+		if !provisioned {
+			h.cleanupFailedPodProvision(podFolderID, created)
+		}
+		devBatch.Release()
+	}()
+
 	if !requireInventoryPermission(c, h.Authz, principalID, podFolderID, authorization.CreateFolder) {
 		progress.fail("forbidden")
-		h.cleanupFailedPodProvision(podFolderID, nil)
 		return
 	}
 
@@ -326,7 +337,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	)
 	if err != nil {
 		progress.fail(inventoryRequestError(err).UserMessage)
-		h.cleanupFailedPodProvision(podFolderID, nil)
 		writeInventoryError(c, err)
 		return
 	}
@@ -334,13 +344,11 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	if len(specs) > 0 {
 		if !requireInventoryPermission(c, h.Authz, principalID, vmFolderID, authorization.CreateVM) {
 			progress.fail("forbidden")
-			h.cleanupFailedPodProvision(podFolderID, nil)
 			return
 		}
 		reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), vmFolderID, int32(len(specs)), "pod_create_vms")
 		if err != nil {
 			progress.fail(inventoryRequestError(err).UserMessage)
-			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeInventoryError(c, err)
 			return
 		}
@@ -363,13 +371,11 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			progress.fail("no pod dev network numbers available")
-			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeConflict(c, "no pod dev network numbers available")
 			return
 		}
 		if err != nil {
 			progress.fail("failed to reserve pod dev network")
-			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeLoggedError(c, http.StatusInternalServerError, "failed to reserve pod dev network", "insert pod dev network allocation", err)
 			return
 		}
@@ -378,7 +384,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		progress.set(createProgressStepNetwork, fmt.Sprintf("Checking dev VNets for profile %s.", profileKey))
 		if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey, devNetworkNumber); reqErr != nil {
 			progress.fail(reqErr.UserMessage)
-			h.cleanupFailedPodProvision(podFolderID, nil)
 			writeRequestError(c, reqErr)
 			return
 		}
@@ -386,28 +391,25 @@ func (h *PodsHandler) Create(c *gin.Context) {
 
 	createdVMs := make([]createPodVMResponse, 0, len(specs))
 	createdTargets := make([]podNetworkVMTarget, 0, len(specs))
-	created := make(map[int]clonedVM, len(specs))
 	if len(specs) > 0 {
-		devBatch, batchErr := h.Allocator.NewBatch(c.Request.Context(), h.DevVMIDRange, len(specs))
+		var batchErr error
+		devBatch, batchErr = h.Allocator.NewBatch(c.Request.Context(), h.DevVMIDRange, len(specs))
 		if batchErr != nil {
 			progress.fail("insufficient VMID capacity in the dev range")
-			h.cleanupFailedPodProvision(podFolderID, created)
 			writeLoggedError(c, http.StatusBadGateway, fmt.Sprintf("insufficient VMID capacity in dev range (%d–%d) for %d VMs", h.DevVMIDRange.Min, h.DevVMIDRange.Max, len(specs)), "allocate dev VMID batch", batchErr)
 			return
 		}
-		defer devBatch.Release()
+		created = make(map[int]clonedVM, len(specs))
 
 		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), vmFolderID)
 		if err != nil {
 			progress.fail(inventoryRequestError(err).UserMessage)
-			h.cleanupFailedPodProvision(podFolderID, created)
 			writeInventoryError(c, err)
 			return
 		}
 		targetNode, err := h.resolveCloneTargetNode(c.Request.Context())
 		if err != nil {
 			progress.fail("failed to resolve target node")
-			h.cleanupFailedPodProvision(podFolderID, created)
 			writeLoggedError(c, http.StatusBadGateway, "failed to resolve target node", "resolve pod clone target node", err)
 			return
 		}
@@ -440,7 +442,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			)
 			if reqErr != nil {
 				progress.fail(reqErr.UserMessage)
-				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
@@ -451,7 +452,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		progress.set(createProgressStepWaiting, "Preparing cloned virtual machines.")
 		if reqErr := h.waitForPodVMTargetsReady(c.Request.Context(), createdTargets); reqErr != nil {
 			progress.fail(reqErr.UserMessage)
-			h.cleanupFailedPodProvision(podFolderID, created)
 			writeRequestError(c, reqErr)
 			return
 		}
@@ -465,7 +465,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				segmentByTarget,
 			); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
-				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
@@ -478,7 +477,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				segmentByTarget,
 			); err != nil {
 				progress.fail("failed to save pod network assignments")
-				h.cleanupFailedPodProvision(podFolderID, created)
 				writeLoggedError(c, http.StatusInternalServerError, "failed to save pod network assignments", "insert pod dev vm network assignments", err)
 				return
 			}
@@ -486,7 +484,6 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			cloudInitConfig, err := buildRouterCloudInitConfigForProfile(devNetworkNumber, profileKey, h.RouterCloneConfig)
 			if err != nil {
 				progress.fail("failed to build router cloud-init configuration")
-				h.cleanupFailedPodProvision(podFolderID, created)
 				writeLoggedError(c, http.StatusInternalServerError, "failed to build router cloud-init configuration", "build cloned router cloud-init configuration", err)
 				return
 			}
@@ -494,13 +491,13 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			progress.set(createProgressStepRouter, "Starting router.")
 			if reqErr := h.configurePodRouterCloudInit(c.Request.Context(), cloudInitConfig, createdTargets); reqErr != nil {
 				progress.fail(reqErr.UserMessage)
-				h.cleanupFailedPodProvision(podFolderID, created)
 				writeRequestError(c, reqErr)
 				return
 			}
 		}
 	}
 
+	provisioned = true
 	progress.succeed("Pod created successfully.")
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
