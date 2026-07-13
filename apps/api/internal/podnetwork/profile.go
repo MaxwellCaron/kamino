@@ -33,7 +33,6 @@ type Interface struct {
 	Device     string
 	SegmentKey string
 	KeepUplink bool
-	LinkDown   bool
 }
 
 // PrefixNAT identifies the segment mapped host-for-host to the pod WAN /24.
@@ -68,7 +67,6 @@ type WorkloadAttachment struct {
 	VNetName   string
 	VNetTag    int
 	VMVLANTag  *int
-	LinkDown   bool
 	SegmentKey string
 }
 
@@ -79,7 +77,6 @@ type RouterAttachment struct {
 	VNetName   string
 	VNetTag    int
 	VMVLANTag  *int
-	LinkDown   bool
 	KeepUplink bool
 }
 
@@ -269,7 +266,6 @@ func (c *Catalog) ResolveWorkloadAttachment(
 		VNetName:   vnetName,
 		VNetTag:    vnetTag,
 		VMVLANTag:  nil,
-		LinkDown:   false,
 		SegmentKey: segmentKey,
 	}, nil
 }
@@ -293,14 +289,11 @@ func (c *Catalog) ResolveRouterAttachments(
 	for _, iface := range profile.RouterInterfaces {
 		attachment := RouterAttachment{
 			Device:     iface.Device,
-			LinkDown:   iface.LinkDown,
 			KeepUplink: iface.KeepUplink,
 		}
 
 		switch {
 		case iface.KeepUplink:
-			attachment.Bridge = wanBridge
-		case iface.LinkDown:
 			attachment.Bridge = wanBridge
 		default:
 			segment, ok := findSegment(profile, iface.SegmentKey)
@@ -400,7 +393,6 @@ func buildLANRouterV1Profile() Profile {
 		RouterInterfaces: []Interface{
 			{Device: "net0", KeepUplink: true},
 			{Device: "net1", SegmentKey: SegmentLAN},
-			{Device: "net2", LinkDown: true, KeepUplink: true},
 		},
 		Segments: []Segment{
 			{

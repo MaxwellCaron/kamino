@@ -77,6 +77,46 @@ func TestSetVMNetworkBridgePreservesNICShape(t *testing.T) {
 	}
 }
 
+func TestDeleteVMNetworkDevice(t *testing.T) {
+	var putForm url.Values
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/api2/json/nodes/node1/qemu/101/config" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		putForm = r.PostForm
+		writeAPIResponse(t, w, http.StatusOK, nil)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	if err := client.DeleteVMNetworkDevice(context.Background(), "node1", 101, "net2"); err != nil {
+		t.Fatalf("DeleteVMNetworkDevice() error = %v", err)
+	}
+
+	if got := putForm.Get("delete"); got != "net2" {
+		t.Fatalf("delete payload = %q, want %q", got, "net2")
+	}
+}
+
+func TestDeleteVMNetworkDeviceRejectsInvalidDevice(t *testing.T) {
+	client := &Client{
+		nodes:     []string{"node1"},
+		nodeIndex: map[string]int{"node1": 0},
+	}
+
+	for _, device := range []string{"", "eth2", "net-1", "net02", "net32"} {
+		t.Run(device, func(t *testing.T) {
+			if err := client.DeleteVMNetworkDevice(context.Background(), "node1", 101, device); err == nil {
+				t.Fatalf("DeleteVMNetworkDevice(%q) expected error", device)
+			}
+		})
+	}
+}
+
 func TestSetVMCloudInitCustomSendsExpectedPayload(t *testing.T) {
 	var (
 		putForm url.Values

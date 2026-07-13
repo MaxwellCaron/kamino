@@ -294,7 +294,23 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		return reqErr
 	}
 
-	if profileKey == podnetwork.ProfileLANDMZRouterV1 {
+	switch profileKey {
+	case podnetwork.ProfileLANRouterV1:
+		hasNet2, reqErr := h.routerHasManagedNIC(ctx, router.clone.TargetNode, router.clone.VMID, "net2")
+		if reqErr != nil {
+			return reqErr
+		}
+		if hasNet2 {
+			if err := h.PX.DeleteVMNetworkDevice(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); err != nil {
+				return &requestError{
+					Status:      http.StatusBadGateway,
+					UserMessage: "failed to remove unused router network interface",
+					Operation:   "delete cloned router net2",
+					Err:         err,
+				}
+			}
+		}
+	case podnetwork.ProfileLANDMZRouterV1:
 		hasNet2, reqErr := h.routerHasManagedNIC(ctx, router.clone.TargetNode, router.clone.VMID, "net2")
 		if reqErr != nil {
 			return reqErr
@@ -319,8 +335,7 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, attachment.Device, proxmox.NetworkAttachment{
 			Bridge:   attachment.Bridge,
 			VLANTag:  attachment.VMVLANTag,
-			LinkDown: attachment.LinkDown,
-			Firewall: !attachment.LinkDown,
+			Firewall: true,
 		}); err != nil {
 			return &requestError{
 				Status:      http.StatusBadGateway,
@@ -361,7 +376,6 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 			return h.PX.SetVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, attachment.Device, proxmox.NetworkAttachment{
 				Bridge:   attachment.VNetName,
 				VLANTag:  attachment.VMVLANTag,
-				LinkDown: attachment.LinkDown,
 				Firewall: true,
 			})
 		})

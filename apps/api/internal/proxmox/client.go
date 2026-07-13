@@ -832,6 +832,29 @@ func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, 
 	})
 }
 
+// DeleteVMNetworkDevice removes one network interface from a QEMU VM.
+func (c *Client) DeleteVMNetworkDevice(ctx context.Context, node string, vmid int, device string) error {
+	if err := c.requireAllowedNode(node); err != nil {
+		return err
+	}
+
+	device = strings.TrimSpace(device)
+	if !strings.HasPrefix(device, "net") {
+		return fmt.Errorf("invalid network device %q", device)
+	}
+	index, err := strconv.Atoi(strings.TrimPrefix(device, "net"))
+	if err != nil || index < 0 || index > 31 || device != fmt.Sprintf("net%d", index) {
+		return fmt.Errorf("invalid network device %q", device)
+	}
+
+	path := guestPath(GuestQEMU, node, vmid, "/config")
+	if err := c.put(ctx, path, map[string]string{"delete": device}, nil); err != nil {
+		return fmt.Errorf("deleting VM network device: %w", err)
+	}
+
+	return nil
+}
+
 // NetworkAttachment describes the desired Proxmox NIC state.
 type NetworkAttachment struct {
 	Bridge   string
