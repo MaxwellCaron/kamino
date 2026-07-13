@@ -22,12 +22,14 @@ import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-publish
 import {
   bulkActionPublishedPodClones,
   deletePublishedPod,
+  deletePublishedPodClone,
   podCatalogQueryOptions,
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
   setPublishedPodStatus,
 } from "@/features/pods/api/publish-pod-api"
 import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+import { formatToastError } from "@/features/shared/utils/format"
 
 const BULK_CLONE_DIALOG_CONFIG: Record<
   PodCloneAction,
@@ -155,6 +157,10 @@ export function PublishedPodsPage() {
     },
   })
 
+  const deleteCloneMutation = useMutation({
+    mutationFn: deletePublishedPodClone,
+  })
+
   const stats = useMemo(() => {
     const publishedPods = podsData ?? []
     const listed = publishedPods.filter((pod) => pod.status === "listed").length
@@ -191,13 +197,15 @@ export function PublishedPodsPage() {
         onCloneBulkAction: (pod, action) => {
           setPendingCloneBulkAction({ pod, action })
         },
-        cloneBulkActionPending: bulkCloneActionMutation.isPending,
+        cloneBulkActionPending:
+          bulkCloneActionMutation.isPending || deleteCloneMutation.isPending,
         onManagerClone: setPendingManagerClonePod,
       }),
     [
       navigate,
       statusMutation,
       bulkCloneActionMutation.isPending,
+      deleteCloneMutation.isPending,
       setPendingManagerClonePod,
     ]
   )
@@ -231,10 +239,81 @@ export function PublishedPodsPage() {
         icon: POD_CLONE_ACTION_CONFIG[pendingCloneBulkAction.action].icon,
         variant:
           BULK_CLONE_DIALOG_CONFIG[pendingCloneBulkAction.action].variant,
-        onConfirm: () => {
+        onConfirm: async () => {
           const action = pendingCloneBulkAction.action
           const pod = pendingCloneBulkAction.pod
           const actionConfig = POD_CLONE_ACTION_CONFIG[action]
+
+          if (action === "delete") {
+            let clones
+            try {
+              clones = await queryClient.fetchQuery(
+                publishedPodClonesQueryOptions(pod.id)
+              )
+            } catch (error) {
+              toast.error(
+                formatToastError(error, "Failed to load cloned instances")
+              )
+              return
+            }
+
+            if (clones.length === 0) {
+              toast.info("No clones to delete.")
+              void queryClient.invalidateQueries({
+                queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+              })
+              void queryClient.invalidateQueries({
+                queryKey: publishedPodsQueryOptions.queryKey,
+              })
+              void queryClient.invalidateQueries({
+                queryKey: podCatalogQueryOptions.queryKey,
+              })
+              return
+            }
+
+            const invalidateCloneQueries = () => {
+              void queryClient.invalidateQueries({
+                queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+              })
+              void queryClient.invalidateQueries({
+                queryKey: publishedPodsQueryOptions.queryKey,
+              })
+              void queryClient.invalidateQueries({
+                queryKey: podCatalogQueryOptions.queryKey,
+              })
+            }
+
+            showUnitMutationToast({
+              title: `Deleting ${clones.length} clone${clones.length === 1 ? "" : "s"}`,
+              concurrency: 1,
+              units: clones.map((clone) => ({
+                items: [
+                  {
+                    id: clone.id,
+                    name: clone.owner.label,
+                    successDescription: "Deleted",
+                    retry: async () => {
+                      await deleteCloneMutation.mutateAsync({
+                        podId: pod.id,
+                        clonedPodId: clone.id,
+                      })
+                      invalidateCloneQueries()
+                    },
+                  },
+                ],
+                run: async () => {
+                  await deleteCloneMutation.mutateAsync({
+                    podId: pod.id,
+                    clonedPodId: clone.id,
+                  })
+                },
+              })),
+              onSettled: () => {
+                invalidateCloneQueries()
+              },
+            })
+            return
+          }
 
           showUnitMutationToast({
             title: actionConfig.pendingLabel,
