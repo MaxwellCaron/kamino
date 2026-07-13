@@ -5,7 +5,7 @@
 
 -- name: ClaimPodClone :one
 WITH pod_lock AS MATERIALIZED (
-    SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(pod_id)::TEXT, 740020004))
+    SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(pod_id)::UUID::TEXT, 740020004))
 ),
 conflicting_claim AS (
     SELECT 1

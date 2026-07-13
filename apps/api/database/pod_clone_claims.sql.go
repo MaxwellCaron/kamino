@@ -15,7 +15,7 @@ import (
 const claimPodClone = `-- name: ClaimPodClone :one
 
 WITH pod_lock AS MATERIALIZED (
-    SELECT pg_advisory_xact_lock(hashtextextended($1::TEXT, 740020004))
+    SELECT pg_advisory_xact_lock(hashtextextended($1::UUID::TEXT, 740020004))
 ),
 conflicting_claim AS (
     SELECT 1
