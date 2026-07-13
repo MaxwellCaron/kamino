@@ -5,7 +5,6 @@ import {
   ChartTooltip,
   TooltipContent,
 } from "@workspace/ui/components/charts/tooltip"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import { XAxis } from "@workspace/ui/components/charts/x-axis"
 import {
   formatPercent,
@@ -91,6 +90,7 @@ function UsageChartBody({
   compact = false,
   showXAxis = true,
   showCapacitySeries = false,
+  isLoading,
 }: {
   chartData: Array<CapacityHistoryPoint>
   color: string
@@ -101,6 +101,7 @@ function UsageChartBody({
   compact?: boolean
   showXAxis?: boolean
   showCapacitySeries?: boolean
+  isLoading: boolean
 }) {
   const xAxisConfig = useMemo(() => getXAxisConfig(timeframe), [timeframe])
   const margin = compact
@@ -110,7 +111,12 @@ function UsageChartBody({
     : { top: 8, right: 6, bottom: 28, left: 6 }
 
   return (
-    <AreaChart aspectRatio={aspectRatio} data={chartData} margin={margin}>
+    <AreaChart
+      aspectRatio={aspectRatio}
+      data={chartData}
+      margin={margin}
+      status={isLoading ? "loading" : "ready"}
+    >
       <Grid
         fadeHorizontal={false}
         numTicksRows={compact ? 2 : 3}
@@ -135,6 +141,7 @@ function UsageChartBody({
         fill={color}
         fillOpacity={0.2}
         gradientToOpacity={0.02}
+        loading={showCapacitySeries ? false : undefined}
         showHighlight={false}
         stroke={color}
         strokeWidth={compact ? 1.5 : 2}
@@ -243,14 +250,13 @@ export function UsageAreaChart({
       </div>
 
       <div className="min-w-0">
-        {isLoading ? (
-          <Skeleton className="w-full rounded-lg" style={{ aspectRatio }} />
-        ) : chartData.length > 0 ? (
+        {isLoading || chartData.length > 0 ? (
           <UsageChartBody
             aspectRatio={aspectRatio}
             chartData={chartData}
             color={color}
             formatValue={formatValue}
+            isLoading={isLoading}
             label={label}
             showCapacitySeries
             timeframe={timeframe}
@@ -316,15 +322,14 @@ export function NodeUsageAreaChart({
         </div>
       ) : null}
       <div className="w-full">
-        {isLoading ? (
-          <Skeleton className="w-full rounded-md" style={{ aspectRatio }} />
-        ) : chartData.length > 0 ? (
+        {isLoading || chartData.length > 0 ? (
           <UsageChartBody
             aspectRatio={aspectRatio}
             chartData={chartData}
             color={color}
             compact
             formatValue={formatValue}
+            isLoading={isLoading}
             label={label}
             showCapacitySeries
             showXAxis={false}
