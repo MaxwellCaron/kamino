@@ -11,7 +11,7 @@ func buildLANRouterV1Profile() Profile {
 	return Profile{
 		Key:               ProfileLANRouterV1,
 		Label:             "LAN Router",
-		Description:       "Add one VyOS router with host-preserving 1:1 NAT into an isolated 192.168.1.0/24 LAN.",
+		Description:       "1:1 NAT into an isolated 192.168.1.0/24 LAN.",
 		RequiredVNets:     []string{VNetKindPrimary},
 		DefaultSegmentKey: SegmentLAN,
 		RouterInterfaces: []Interface{
@@ -42,7 +42,7 @@ func buildLANDMZRouterV1Profile() Profile {
 	return Profile{
 		Key:               ProfileLANDMZRouterV1,
 		Label:             "LAN + DMZ Router",
-		Description:       "Add one VyOS router, an isolated 192.168.1.0/24 network, and a 10.0.50.0/24 DMZ network.",
+		Description:       "1:1 NAT into a 10.0.50.0/24 DMZ network in addition to an isolated 192.168.1.0/24 network.",
 		RequiredVNets:     []string{VNetKindPrimary, VNetKindDMZ},
 		DefaultSegmentKey: SegmentLAN,
 		RouterInterfaces: []Interface{

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deletePodDevVMNetworkAssignments = `-- name: DeletePodDevVMNetworkAssignments :exec
@@ -23,18 +24,27 @@ func (q *Queries) DeletePodDevVMNetworkAssignments(ctx context.Context, podFolde
 
 const getPodDevNetworkAllocation = `-- name: GetPodDevNetworkAllocation :one
 SELECT
-    pod_folder_id,
+    folder_id AS pod_folder_id,
     network_number,
     network_profile_key,
     created_at,
     updated_at
-FROM pod_dev_network_allocations
-WHERE pod_folder_id = $1
+FROM pod_network_allocations
+WHERE folder_id = $1
+  AND kind = 'dev_pod'
 `
 
-func (q *Queries) GetPodDevNetworkAllocation(ctx context.Context, podFolderID uuid.UUID) (PodDevNetworkAllocations, error) {
-	row := q.db.QueryRow(ctx, getPodDevNetworkAllocation, podFolderID)
-	var i PodDevNetworkAllocations
+type GetPodDevNetworkAllocationRow struct {
+	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey *string            `json:"network_profile_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetPodDevNetworkAllocation(ctx context.Context, folderID uuid.UUID) (GetPodDevNetworkAllocationRow, error) {
+	row := q.db.QueryRow(ctx, getPodDevNetworkAllocation, folderID)
+	var i GetPodDevNetworkAllocationRow
 	err := row.Scan(
 		&i.PodFolderID,
 		&i.NetworkNumber,
@@ -47,58 +57,72 @@ func (q *Queries) GetPodDevNetworkAllocation(ctx context.Context, podFolderID uu
 
 const insertPodDevNetworkAllocation = `-- name: InsertPodDevNetworkAllocation :one
 WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020002)
+    SELECT pg_advisory_xact_lock(740020001)
 ),
 candidate AS (
     SELECT n::INTEGER AS network_number
     FROM allocation_lock,
-         generate_series($3::INTEGER, $4::INTEGER) AS n
+         generate_series($1::INTEGER, $2::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM cloned_pods cp
-        WHERE cp.network_number = n
-    )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM pod_dev_network_allocations pdna
-        WHERE pdna.network_number = n
+        FROM pod_network_allocations pna
+        WHERE pna.network_number = n
     )
     ORDER BY n
     LIMIT 1
-)
-INSERT INTO pod_dev_network_allocations (
-    pod_folder_id,
-    network_number,
-    network_profile_key
+),
+allocation AS (
+    INSERT INTO pod_network_allocations (
+        network_number,
+        kind,
+        network_profile_key,
+        folder_id
+    )
+    SELECT
+        candidate.network_number,
+        'dev_pod',
+        $3,
+        $4
+    FROM candidate
+    RETURNING
+        folder_id,
+        network_number,
+        network_profile_key,
+        created_at,
+        updated_at
 )
 SELECT
-    $1,
-    candidate.network_number,
-    $2
-FROM candidate
-RETURNING
-    pod_folder_id,
+    folder_id AS pod_folder_id,
     network_number,
     network_profile_key,
     created_at,
     updated_at
+FROM allocation
 `
 
 type InsertPodDevNetworkAllocationParams struct {
-	PodFolderID       uuid.UUID `json:"pod_folder_id"`
-	NetworkProfileKey string    `json:"network_profile_key"`
 	MinNetworkNumber  int32     `json:"min_network_number"`
 	MaxNetworkNumber  int32     `json:"max_network_number"`
+	NetworkProfileKey *string   `json:"network_profile_key"`
+	PodFolderID       uuid.UUID `json:"pod_folder_id"`
 }
 
-func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertPodDevNetworkAllocationParams) (PodDevNetworkAllocations, error) {
+type InsertPodDevNetworkAllocationRow struct {
+	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey *string            `json:"network_profile_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertPodDevNetworkAllocationParams) (InsertPodDevNetworkAllocationRow, error) {
 	row := q.db.QueryRow(ctx, insertPodDevNetworkAllocation,
-		arg.PodFolderID,
-		arg.NetworkProfileKey,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
+		arg.NetworkProfileKey,
+		arg.PodFolderID,
 	)
-	var i PodDevNetworkAllocations
+	var i InsertPodDevNetworkAllocationRow
 	err := row.Scan(
 		&i.PodFolderID,
 		&i.NetworkNumber,

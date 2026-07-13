@@ -55,8 +55,13 @@ func (h *PodsHandler) loadDevNetworkTopology(ctx context.Context, podFolderID uu
 		return nil, err
 	}
 
+	profileKey := ""
+	if allocation.NetworkProfileKey != nil {
+		profileKey = *allocation.NetworkProfileKey
+	}
+
 	topology := &podNetworkTopology{
-		ProfileKey:    allocation.NetworkProfileKey,
+		ProfileKey:    profileKey,
 		NetworkNumber: allocation.NetworkNumber,
 		Assignments:   make([]podDevVMNetworkAssignment, 0, len(assignments)),
 	}

@@ -203,32 +203,64 @@ WITH allocation_lock AS (
 candidate AS (
     SELECT n::INTEGER AS network_number
     FROM allocation_lock,
-         generate_series($6::INTEGER, $7::INTEGER) AS n
+         generate_series($1::INTEGER, $2::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM cloned_pods cp
-        WHERE cp.network_number = n
+        FROM pod_network_allocations pna
+        WHERE pna.network_number = n
     )
     ORDER BY n
     LIMIT 1
-)
-INSERT INTO cloned_pods (
-    id,
-    pod_id,
-    user_principal_id,
-    folder_id,
-    network_number,
-    network_profile_key
+),
+allocation AS (
+    INSERT INTO pod_network_allocations (
+        network_number,
+        kind,
+        network_profile_key,
+        folder_id
+    )
+    SELECT
+        candidate.network_number,
+        'published_clone',
+        $3,
+        $4
+    FROM candidate
+    RETURNING id, network_number
+),
+inserted AS (
+    INSERT INTO cloned_pods (
+        id,
+        pod_id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        network_profile_key
+    )
+    SELECT
+        $5,
+        $6,
+        $7,
+        $4,
+        allocation.network_number,
+        $3
+    FROM allocation
+    RETURNING
+        id,
+        pod_id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        network_profile_key,
+        created_at,
+        updated_at
+),
+_link AS (
+    UPDATE pod_network_allocations AS pna
+    SET cloned_pod_id = inserted.id
+    FROM inserted, allocation
+    WHERE pna.id = allocation.id
 )
 SELECT
-    $1,
-    $2,
-    $3,
-    $4,
-    candidate.network_number,
-    $5
-FROM candidate
-RETURNING
     id,
     pod_id,
     user_principal_id,
@@ -237,29 +269,41 @@ RETURNING
     network_profile_key,
     created_at,
     updated_at
+FROM inserted
 `
 
 type InsertClonedPodParams struct {
+	MinNetworkNumber  int32     `json:"min_network_number"`
+	MaxNetworkNumber  int32     `json:"max_network_number"`
+	NetworkProfileKey *string   `json:"network_profile_key"`
+	FolderID          uuid.UUID `json:"folder_id"`
 	ID                uuid.UUID `json:"id"`
 	PodID             uuid.UUID `json:"pod_id"`
 	UserPrincipalID   uuid.UUID `json:"user_principal_id"`
-	FolderID          uuid.UUID `json:"folder_id"`
-	NetworkProfileKey string    `json:"network_profile_key"`
-	MinNetworkNumber  int32     `json:"min_network_number"`
-	MaxNetworkNumber  int32     `json:"max_network_number"`
 }
 
-func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (ClonedPods, error) {
+type InsertClonedPodRow struct {
+	ID                uuid.UUID          `json:"id"`
+	PodID             uuid.UUID          `json:"pod_id"`
+	UserPrincipalID   uuid.UUID          `json:"user_principal_id"`
+	FolderID          uuid.UUID          `json:"folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (InsertClonedPodRow, error) {
 	row := q.db.QueryRow(ctx, insertClonedPod,
+		arg.MinNetworkNumber,
+		arg.MaxNetworkNumber,
+		arg.NetworkProfileKey,
+		arg.FolderID,
 		arg.ID,
 		arg.PodID,
 		arg.UserPrincipalID,
-		arg.FolderID,
-		arg.NetworkProfileKey,
-		arg.MinNetworkNumber,
-		arg.MaxNetworkNumber,
 	)
-	var i ClonedPods
+	var i InsertClonedPodRow
 	err := row.Scan(
 		&i.ID,
 		&i.PodID,

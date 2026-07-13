@@ -1,4 +1,6 @@
 import { hasDirectInventoryCapability } from "./inventory-capabilities"
+import { InventoryPermissionKeys } from "./inventory-permissions"
+import type { InventoryPermissionKey } from "./inventory-permissions"
 import type { ApiTreeNode } from "../types/inventory-types"
 
 const INVENTORY_KIND_SORT_ORDER = {
@@ -201,7 +203,8 @@ function encodeInventoryPoolPath(path: Array<string>): string {
 }
 
 export function getInventoryFolderOptions(
-  nodes: Array<ApiTreeNode> | undefined
+  nodes: Array<ApiTreeNode> | undefined,
+  requiredPermission: InventoryPermissionKey = InventoryPermissionKeys.view
 ): Array<InventoryFolderOption> {
   if (!nodes) return []
 
@@ -217,7 +220,7 @@ export function getInventoryFolderOptions(
 
       if (
         !isRootFolder &&
-        hasDirectInventoryCapability(entry.permissions, "view")
+        hasDirectInventoryCapability(entry.permissions, requiredPermission)
       ) {
         folders.push({
           id: entry.id,

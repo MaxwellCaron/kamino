@@ -28,6 +28,7 @@ import {
   optionalVmidSchema,
 } from "@/features/vms/components/create/create-vm-form"
 import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
+import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-api"
 import { toastCloneVm } from "@/features/vms/utils/vm-toasts"
@@ -78,7 +79,10 @@ export function CloneDialog({
     enabled: open,
   })
   const nodes = nodesData ?? []
-  const folderOptions = getInventoryFolderOptions(inventoryTree)
+  const folderOptions = getInventoryFolderOptions(
+    inventoryTree,
+    InventoryPermissionKeys.createVm
+  )
   const isLoadingOptions = isInventoryTreeLoading || isNodesLoading
   const optionsError = inventoryTreeError ?? nodesError
 

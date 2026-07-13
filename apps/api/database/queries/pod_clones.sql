@@ -212,29 +212,61 @@ candidate AS (
          generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM cloned_pods cp
-        WHERE cp.network_number = n
+        FROM pod_network_allocations pna
+        WHERE pna.network_number = n
     )
     ORDER BY n
     LIMIT 1
-)
-INSERT INTO cloned_pods (
-    id,
-    pod_id,
-    user_principal_id,
-    folder_id,
-    network_number,
-    network_profile_key
+),
+allocation AS (
+    INSERT INTO pod_network_allocations (
+        network_number,
+        kind,
+        network_profile_key,
+        folder_id
+    )
+    SELECT
+        candidate.network_number,
+        'published_clone',
+        sqlc.arg(network_profile_key),
+        sqlc.arg(folder_id)
+    FROM candidate
+    RETURNING id, network_number
+),
+inserted AS (
+    INSERT INTO cloned_pods (
+        id,
+        pod_id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        network_profile_key
+    )
+    SELECT
+        sqlc.arg(id),
+        sqlc.arg(pod_id),
+        sqlc.arg(user_principal_id),
+        sqlc.arg(folder_id),
+        allocation.network_number,
+        sqlc.arg(network_profile_key)
+    FROM allocation
+    RETURNING
+        id,
+        pod_id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        network_profile_key,
+        created_at,
+        updated_at
+),
+_link AS (
+    UPDATE pod_network_allocations AS pna
+    SET cloned_pod_id = inserted.id
+    FROM inserted, allocation
+    WHERE pna.id = allocation.id
 )
 SELECT
-    sqlc.arg(id),
-    sqlc.arg(pod_id),
-    sqlc.arg(user_principal_id),
-    sqlc.arg(folder_id),
-    candidate.network_number,
-    sqlc.arg(network_profile_key)
-FROM candidate
-RETURNING
     id,
     pod_id,
     user_principal_id,
@@ -242,5 +274,6 @@ RETURNING
     network_number,
     network_profile_key,
     created_at,
-    updated_at;
+    updated_at
+FROM inserted;
 

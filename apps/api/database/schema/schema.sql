@@ -44,6 +44,12 @@ CREATE TYPE inventory_request_power_action AS ENUM (
     'stop'
 );
 CREATE TYPE published_pod_status AS ENUM ('listed', 'unlisted');
+CREATE TYPE pod_network_allocation_kind AS ENUM (
+    'published_clone',
+    'dev_pod',
+    'personal_pod',
+    'manual_router'
+);
 
 -- ----------------------------------------------------------------------------
 -- Permission bit definitions (reference)
@@ -594,7 +600,6 @@ CREATE TABLE cloned_pods (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (pod_id, user_principal_id),
     UNIQUE (folder_id),
-    UNIQUE (network_number),
     CONSTRAINT cloned_pods_network_profile_key_not_empty
         CHECK (length(trim(network_profile_key)) > 0)
 );
@@ -604,17 +609,6 @@ CREATE INDEX ix_cloned_pods_user_created_at
 
 CREATE INDEX ix_cloned_pods_pod_created_at
     ON cloned_pods (pod_id, created_at DESC);
-
-CREATE TABLE pod_dev_network_allocations (
-    pod_folder_id         UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
-    network_number        INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
-    network_profile_key   TEXT NOT NULL,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (network_number),
-    CONSTRAINT pod_dev_network_allocations_network_profile_key_not_empty
-        CHECK (length(trim(network_profile_key)) > 0)
-);
 
 CREATE TABLE pod_dev_vm_network_assignments (
     inventory_item_id UUID PRIMARY KEY REFERENCES inventory_items(id) ON DELETE CASCADE,
@@ -642,9 +636,28 @@ CREATE TABLE personal_pods (
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_principal_id),
-    UNIQUE (folder_id),
-    UNIQUE (network_number)
+    UNIQUE (folder_id)
 );
+
+CREATE TABLE pod_network_allocations (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    network_number        INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    kind                  pod_network_allocation_kind NOT NULL,
+    network_profile_key   TEXT NULL,
+    folder_id             UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    inventory_item_id     UUID NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    cloned_pod_id         UUID NULL UNIQUE REFERENCES cloned_pods(id) ON DELETE CASCADE,
+    personal_pod_id       UUID NULL UNIQUE REFERENCES personal_pods(id) ON DELETE CASCADE,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (network_number),
+    CONSTRAINT pod_network_allocations_profile_key_not_empty
+        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0)
+);
+
+CREATE UNIQUE INDEX ux_pod_network_allocations_dev_pod_folder
+    ON pod_network_allocations (folder_id)
+    WHERE kind = 'dev_pod';
 
 CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
 RETURNS TRIGGER AS $$
@@ -783,6 +796,11 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_cloned_pods_set_updated_at
 BEFORE UPDATE ON cloned_pods
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_pod_network_allocations_set_updated_at
+BEFORE UPDATE ON pod_network_allocations
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

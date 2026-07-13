@@ -145,7 +145,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				PodFolderID:       podFolderID,
 				MinNetworkNumber:  h.RouterCloneConfig.DevNetworkMin,
 				MaxNetworkNumber:  h.RouterCloneConfig.DevNetworkMax,
-				NetworkProfileKey: profileKey,
+				NetworkProfileKey: &profileKey,
 			},
 		)
 		if errors.Is(err, pgx.ErrNoRows) {

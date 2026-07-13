@@ -51,6 +51,7 @@ import {
   getInventoryFolderOptions,
   getSelectedFolder,
 } from "@/features/inventory/utils/inventory-tree"
+import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
 import { toastCreateVm } from "@/features/vms/utils/vm-toasts"
 import {
   inventoryTreeQueryOptions,
@@ -146,7 +147,10 @@ export function CreateVmDialog({
   })
   const inventoryTree = inventoryTreeData ?? []
   const templateOptions = getVmTemplateOptions(inventoryTree)
-  const folderOptions = getInventoryFolderOptions(inventoryTree)
+  const folderOptions = getInventoryFolderOptions(
+    inventoryTree,
+    InventoryPermissionKeys.createVm
+  )
   const {
     data: createOptions,
     error: createOptionsError,

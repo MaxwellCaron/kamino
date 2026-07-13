@@ -52,6 +52,7 @@ selected.
 ### 3. Manage published pods and clones
 
 Open [Published Pods](/pods/published), from here you can see all published pods and can do the following:
+- Clone and configure a LAN or LAN + DMZ router into a permitted inventory folder.
 - Edit
 - Bulk clone on behalf of other principals
 - Start, shut down, re-clone, or delete all clones

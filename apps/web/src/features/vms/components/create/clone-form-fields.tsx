@@ -17,14 +17,6 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@workspace/ui/components/combobox"
-import {
   getFirstIssueMessage,
   optionalVmNameSchema,
   optionalVmidSchema,
@@ -34,7 +26,7 @@ import { formatFieldError } from "./create-vm-step-utils"
 import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"
-import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
+import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { validateVMID } from "@/features/vms/api/vm-api"
 
@@ -201,31 +193,13 @@ export function CloneDestinationFolderField({
       {(field: any) => (
         <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
           <FieldLabel>Destination Folder</FieldLabel>
-          <Combobox
-            items={folderOptions}
-            itemToStringValue={(folder) => folder.label}
-            value={
-              getSelectedFolder(folderOptions, field.state.value ?? "") ?? null
-            }
-            onValueChange={(folder) => field.handleChange(folder?.id ?? null)}
-            autoHighlight
-          >
-            <ComboboxInput
-              placeholder="Select a folder"
-              onBlur={field.handleBlur}
-              aria-invalid={field.state.meta.errors.length > 0 || undefined}
-            />
-            <ComboboxEmpty>No folders found.</ComboboxEmpty>
-            <ComboboxContent>
-              <ComboboxList>
-                {(folder) => (
-                  <ComboboxItem key={folder.id} value={folder}>
-                    {folder.label}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
+          <InventoryFolderCombobox
+            folderOptions={folderOptions}
+            selectedFolderId={field.state.value}
+            onSelectedFolderChange={(folderId) => field.handleChange(folderId)}
+            onBlur={field.handleBlur}
+            invalid={field.state.meta.errors.length > 0}
+          />
           <FieldError>
             {formatFieldError(field.state.meta.errors[0])}
           </FieldError>

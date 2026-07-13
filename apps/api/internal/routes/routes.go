@@ -131,6 +131,8 @@ func RegisterRoutes(
 		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
 		protected.POST("/pods/catalog/:slug/clone", pods.CloneCatalogPod)
 		protected.GET("/pods/catalog/clones/summary", pods.ListCatalogCloneSummaries)
+		protected.GET("/pods/router-clone/options", pods.GetRouterCloneOptions)
+		protected.POST("/pods/router-clone", pods.CloneRouter)
 		protected.POST("/pods", pods.Create)
 	}
 

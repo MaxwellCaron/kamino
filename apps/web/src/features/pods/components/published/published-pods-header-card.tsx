@@ -1,7 +1,11 @@
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PackageAddIcon, PackageCheck } from "@hugeicons/core-free-icons"
-import { buttonVariants } from "@workspace/ui/components/button"
+import {
+  PackageAddIcon,
+  PackageCheck,
+  RouterIcon,
+} from "@hugeicons/core-free-icons"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -15,8 +19,10 @@ import type { PublishedPodsStats } from "../../types/published-pods-types"
 
 export function PublishedPodsHeaderCard({
   stats,
+  onCloneRouter,
 }: {
   stats: PublishedPodsStats
+  onCloneRouter: () => void
 }) {
   return (
     <Card>
@@ -28,7 +34,7 @@ export function PublishedPodsHeaderCard({
           Review catalog metadata, flip visibility between listed and unlisted,
           and jump straight into the publish workflow for editing.
         </CardDescription>
-        <CardAction className="flex gap-2">
+        <CardAction className="flex flex-wrap justify-end gap-2">
           <Link
             to="/pods/create"
             className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
@@ -38,11 +44,15 @@ export function PublishedPodsHeaderCard({
           </Link>
           <Link
             to="/pods/publish"
-            className={`${buttonVariants({ variant: "default" })} cursor-pointer`}
+            className={`${buttonVariants({ variant: "outline" })} cursor-pointer`}
           >
             <HugeiconsIcon icon={PackageCheck} data-icon="inline-start" />
             Publish
           </Link>
+          <Button type="button" onClick={onCloneRouter}>
+            <HugeiconsIcon icon={RouterIcon} data-icon="inline-start" />
+            Clone Router
+          </Button>
         </CardAction>
       </CardHeader>
       <CardContent>

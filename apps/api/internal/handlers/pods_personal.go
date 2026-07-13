@@ -208,7 +208,7 @@ func (h *PodsHandler) provisionPersonalPod(
 		return database.PersonalPods{}, reqErr
 	}
 
-	personalPod, err := q.InsertPersonalPod(ctx, database.InsertPersonalPodParams{
+	personalPodRow, err := q.InsertPersonalPod(ctx, database.InsertPersonalPodParams{
 		ID:               uuid.New(),
 		UserPrincipalID:  userPrincipalID,
 		FolderID:         folderID,
@@ -234,6 +234,14 @@ func (h *PodsHandler) provisionPersonalPod(
 		recordFailure(reqErr)
 		h.cleanupFailedPodProvision(folderID, nil)
 		return database.PersonalPods{}, reqErr
+	}
+	personalPod := database.PersonalPods{
+		ID:              personalPodRow.ID,
+		UserPrincipalID: personalPodRow.UserPrincipalID,
+		FolderID:        personalPodRow.FolderID,
+		NetworkNumber:   personalPodRow.NetworkNumber,
+		CreatedAt:       personalPodRow.CreatedAt,
+		UpdatedAt:       personalPodRow.UpdatedAt,
 	}
 
 	vnetName := h.personalPodVNetName(personalPod.NetworkNumber)

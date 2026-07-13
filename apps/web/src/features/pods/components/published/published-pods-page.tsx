@@ -7,6 +7,7 @@ import { PublishedPodsCatalogCard } from "./published-pods-catalog-card"
 import { PublishedPodsHeaderCard } from "./published-pods-header-card"
 import { getPublishedPodsColumns } from "./published-pods-columns"
 import { ManagerCloneDialog } from "./manager-clone-dialog"
+import { ManualRouterCloneDialog } from "./manual-router-clone-dialog"
 import type { PendingCloneBulkAction } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
@@ -74,6 +75,7 @@ export function PublishedPodsPage() {
     useState<PublishedPodCatalogEntry | null>(null)
   const [pendingCloneBulkAction, setPendingCloneBulkAction] =
     useState<PendingCloneBulkAction>(null)
+  const [manualRouterCloneOpen, setManualRouterCloneOpen] = useState(false)
 
   const {
     pendingPrincipalIdsByPodId,
@@ -272,7 +274,10 @@ export function PublishedPodsPage() {
       {!isPodsLoading && (
         <>
           <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <PublishedPodsHeaderCard stats={stats} />
+        <PublishedPodsHeaderCard
+          stats={stats}
+          onCloneRouter={() => setManualRouterCloneOpen(true)}
+        />
         <PublishedPodsCatalogCard
           columns={columns}
           error={podsError}
@@ -301,6 +306,10 @@ export function PublishedPodsPage() {
         }}
         pendingPrincipalIdsByPodId={pendingPrincipalIdsByPodId}
         onConfirm={(pod, principals) => handleManagerClone(pod, principals)}
+      />
+      <ManualRouterCloneDialog
+        open={manualRouterCloneOpen}
+        onOpenChange={setManualRouterCloneOpen}
       />
         </>
       )}

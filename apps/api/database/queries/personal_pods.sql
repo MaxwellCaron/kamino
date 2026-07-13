@@ -11,7 +11,7 @@ WHERE user_principal_id = $1;
 
 -- name: InsertPersonalPod :one
 WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020003)
+    SELECT pg_advisory_xact_lock(740020001)
 ),
 candidate AS (
     SELECT n::INTEGER AS network_number
@@ -19,31 +19,60 @@ candidate AS (
          generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM personal_pods pp
-        WHERE pp.network_number = n
+        FROM pod_network_allocations pna
+        WHERE pna.network_number = n
     )
     ORDER BY n
     LIMIT 1
-)
-INSERT INTO personal_pods (
-    id,
-    user_principal_id,
-    folder_id,
-    network_number
+),
+allocation AS (
+    INSERT INTO pod_network_allocations (
+        network_number,
+        kind,
+        folder_id
+    )
+    SELECT
+        candidate.network_number,
+        'personal_pod',
+        sqlc.arg(folder_id)
+    FROM candidate
+    RETURNING id, network_number
+),
+inserted AS (
+    INSERT INTO personal_pods (
+        id,
+        user_principal_id,
+        folder_id,
+        network_number
+    )
+    SELECT
+        sqlc.arg(id),
+        sqlc.arg(user_principal_id),
+        sqlc.arg(folder_id),
+        allocation.network_number
+    FROM allocation
+    RETURNING
+        id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        created_at,
+        updated_at
+),
+_link AS (
+    UPDATE pod_network_allocations AS pna
+    SET personal_pod_id = inserted.id
+    FROM inserted, allocation
+    WHERE pna.id = allocation.id
 )
 SELECT
-    sqlc.arg(id),
-    sqlc.arg(user_principal_id),
-    sqlc.arg(folder_id),
-    candidate.network_number
-FROM candidate
-RETURNING
     id,
     user_principal_id,
     folder_id,
     network_number,
     created_at,
-    updated_at;
+    updated_at
+FROM inserted;
 
 -- name: GetPersonalPodForInventoryItem :one
 WITH RECURSIVE ancestors AS (
