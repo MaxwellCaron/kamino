@@ -9,7 +9,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -37,45 +36,25 @@ func cloneOwnerFromPrincipal(row database.ListPrincipalDetailsByIDsRow) publishe
 	}
 }
 
-func managerCloneFolderName(principalID uuid.UUID, principalType string, displayLabel string) (string, error) {
+func managerCloneFolderName(displayLabel string) (string, error) {
 	const maxLen = 63
 
-	if principalType == "group" || principalType == string(database.PrincipalTypeGroup) {
-		name := sanitizeFolderNameString("Group-" + displayLabel)
-		if name == "" {
-			return "", fmt.Errorf("principal cannot be used as a pod folder name")
-		}
-		if len(name) > maxLen {
-			return "", fmt.Errorf("principal cannot be used as a pod folder name")
-		}
-		if err := names.ValidateFolder(name); err != nil {
-			return "", fmt.Errorf("principal cannot be used as a pod folder name")
-		}
+	name := names.Normalize(displayLabel)
+	if err := names.ValidateFolder(name); err == nil {
 		return name, nil
 	}
 
-	suffix := principalID.String()[:8]
-	prefix := strings.ToLower(principalType) + "-" + displayLabel + "-" + suffix
-	name := sanitizeFolderNameString(prefix)
-	if name == "" {
+	folderName := sanitizeFolderNameString(name)
+	if folderName == "" {
 		return "", fmt.Errorf("principal cannot be used as a pod folder name")
 	}
-	if name[0] >= '0' && name[0] <= '9' {
-		name = "p-" + name
+	if len(folderName) > maxLen {
+		folderName = strings.TrimRight(folderName[:maxLen], "-")
 	}
-	if len(name) > maxLen {
-		suffixWithDash := "-" + suffix
-		if len(suffixWithDash) >= maxLen {
-			return "", fmt.Errorf("principal cannot be used as a pod folder name")
-		}
-		truncated := name[:maxLen-len(suffixWithDash)]
-		truncated = strings.TrimRight(truncated, "-")
-		name = truncated + suffixWithDash
-	}
-	if err := names.ValidateFolder(name); err != nil {
+	if err := names.ValidateFolder(folderName); err != nil {
 		return "", fmt.Errorf("principal cannot be used as a pod folder name")
 	}
-	return name, nil
+	return folderName, nil
 }
 
 func sanitizeFolderNameString(input string) string {

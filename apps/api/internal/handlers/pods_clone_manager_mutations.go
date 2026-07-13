@@ -220,7 +220,7 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 		displayLabel = *target.Name
 	}
 
-	folderName, err := managerCloneFolderName(req.PrincipalID, string(target.PrincipalType), displayLabel)
+	folderName, err := managerCloneFolderName(displayLabel)
 	if err != nil {
 		progress.fail(err.Error())
 		writeRequestError(c, &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()})
