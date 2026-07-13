@@ -4,12 +4,12 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ChevronRightIcon, CopyIcon } from "@hugeicons/core-free-icons"
 import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
-import type { QueryClient } from "@tanstack/react-query"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type { QueryClient } from "@tanstack/react-query"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { publishedPodClonesQueryOptions } from "@/features/pods/api/publish-pod-api"
 
-export async function preparePublishedPodClones(
+async function preparePublishedPodClones(
   queryClient: QueryClient,
   podId: string
 ) {
@@ -67,9 +67,7 @@ export function PublishedPodClonesDisclosureButton({
       aria-expanded={expanded}
       aria-label={ariaLabel}
       pending={isPreparing}
-      pendingLabel={
-        <span className="sr-only">Loading cloned instances</span>
-      }
+      pendingLabel={<span className="sr-only">Loading cloned instances</span>}
       onMouseEnter={prefetch}
       onFocus={prefetch}
       onClick={handleClick}
