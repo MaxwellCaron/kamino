@@ -1,0 +1,122 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
+import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import {
+  bulkActionPublishedPodClones,
+  deletePublishedPod,
+  deletePublishedPodClone,
+  podCatalogQueryOptions,
+  publishedPodClonesQueryOptions,
+  publishedPodsQueryOptions,
+  setPublishedPodStatus,
+} from "@/features/pods/api/publish-pod-api"
+
+type UsePublishedPodsPageMutationsOptions = {
+  pods: Array<PublishedPodCatalogEntry>
+  onDeleteSettled: () => void
+  onBulkActionSettled: () => void
+}
+
+export function usePublishedPodsPageMutations({
+  pods,
+  onDeleteSettled,
+  onBulkActionSettled,
+}: UsePublishedPodsPageMutationsOptions) {
+  const queryClient = useQueryClient()
+
+  const statusMutation = useMutation({
+    mutationFn: setPublishedPodStatus,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(
+        publishedPodsQueryOptions.queryKey,
+        pods.map((pod) => (pod.id === updated.id ? updated : pod))
+      )
+      toast.success(
+        updated.status === "listed"
+          ? `${updated.title} is now listed.`
+          : `${updated.title} is now unlisted.`
+      )
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update published pod status."
+      )
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePublishedPod,
+    onSuccess: (_, deletedPodID) => {
+      queryClient.setQueryData(
+        publishedPodsQueryOptions.queryKey,
+        (current: Array<PublishedPodCatalogEntry> | undefined) =>
+          current?.filter((pod) => pod.id !== deletedPodID) ?? []
+      )
+      queryClient.removeQueries({
+        queryKey: ["pods", "published", deletedPodID],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: podCatalogQueryOptions.queryKey,
+      })
+      onDeleteSettled()
+    },
+    onError: () => {
+      onDeleteSettled()
+    },
+  })
+
+  const bulkCloneActionMutation = useMutation({
+    mutationFn: (params: {
+      pod: PublishedPodCatalogEntry
+      action: PodCloneAction
+    }) =>
+      bulkActionPublishedPodClones({
+        podId: params.pod.id,
+        action: params.action,
+      }),
+    onSuccess: (_, { pod, action }) => {
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodsQueryOptions.queryKey,
+      })
+      if (action === "delete") {
+        void queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        })
+      }
+      onBulkActionSettled()
+    },
+    onError: () => {
+      onBulkActionSettled()
+    },
+  })
+
+  const deleteCloneMutation = useMutation({
+    mutationFn: deletePublishedPodClone,
+    onSuccess: (_, { podId, clonedPodId }) => {
+      queryClient.setQueryData(
+        publishedPodClonesQueryOptions(podId).queryKey,
+        (current: Array<PublishedPodCloneSummary> | undefined) =>
+          current?.filter((clone) => clone.id !== clonedPodId) ?? []
+      )
+      void queryClient.invalidateQueries({
+        queryKey: publishedPodsQueryOptions.queryKey,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: podCatalogQueryOptions.queryKey,
+      })
+    },
+  })
+
+  return {
+    statusMutation,
+    deleteMutation,
+    bulkCloneActionMutation,
+    deleteCloneMutation,
+  }
+}
