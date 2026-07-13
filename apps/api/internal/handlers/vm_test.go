@@ -10,6 +10,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -587,6 +588,26 @@ func TestVMRollbackSnapshot_Unauthenticated(t *testing.T) {
 
 	assertStatus(t, w, http.StatusUnauthorized)
 	assertBodyContains(t, w, "authentication required")
+}
+
+func TestVMActionTargetPropagatesAllFields(t *testing.T) {
+	itemID := uuid.New()
+	got := vmActionTarget(verifiedVMTarget{
+		ItemID:    itemID,
+		Node:      "node-a",
+		VMID:      101,
+		GuestType: proxmox.GuestLXC,
+	})
+
+	want := vmactions.Target{
+		ItemID:    itemID,
+		Node:      "node-a",
+		VMID:      101,
+		GuestType: proxmox.GuestLXC,
+	}
+	if got != want {
+		t.Errorf("vmActionTarget() = %#v, want %#v", got, want)
+	}
 }
 
 // --- requestError plumbing sanity check ----------------------------------

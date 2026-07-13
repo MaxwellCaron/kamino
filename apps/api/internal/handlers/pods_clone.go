@@ -1087,11 +1087,7 @@ func (h *PodsHandler) clonedPodActionTargets(
 		if reqErr != nil {
 			return database.ClonedPods{}, nil, reqErr
 		}
-		targets = append(targets, vmactions.Target{
-			ItemID: target.ItemID,
-			Node:   target.Node,
-			VMID:   target.VMID,
-		})
+		targets = append(targets, vmActionTarget(target))
 	}
 
 	if len(targets) == 0 {
