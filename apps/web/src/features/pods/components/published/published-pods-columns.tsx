@@ -14,8 +14,6 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ChevronRightIcon,
-  CopyIcon,
   Delete01Icon,
   ExternalLinkIcon,
   GlobeIcon,
@@ -27,6 +25,10 @@ import {
 } from "@hugeicons/core-free-icons"
 import { Link } from "@tanstack/react-router"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import {
+  PublishedPodClonesDisclosureButton,
+  PublishedPodManagerCloneMenuItem,
+} from "./published-pod-clones-disclosure"
 import { PublishedPodStatusBadge } from "./published-pod-status-badge"
 import type { ColumnDef } from "@tanstack/react-table"
 import type {
@@ -74,23 +76,11 @@ export function getPublishedPodsColumns({
         }
 
         return (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-expanded={row.getIsExpanded()}
-            aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
-            onClick={() => row.toggleExpanded()}
-          >
-            <HugeiconsIcon
-              icon={ChevronRightIcon}
-              data-icon="inline-start"
-              className={
-                row.getIsExpanded()
-                  ? "rotate-90 transition-transform"
-                  : "transition-transform"
-              }
-            />
-          </Button>
+          <PublishedPodClonesDisclosureButton
+            pod={pod}
+            expanded={row.getIsExpanded()}
+            onExpandedChange={(expanded) => row.toggleExpanded(expanded)}
+          />
         )
       },
       enableHiding: false,
@@ -277,19 +267,13 @@ export function getPublishedPodsColumns({
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Clones</DropdownMenuLabel>
-                  <DropdownMenuItem
+                  <PublishedPodManagerCloneMenuItem
+                    pod={pod}
                     disabled={managerClonePending}
-                    onClick={() => {
-                      row.toggleExpanded(true)
-                      onManagerClone(pod)
-                    }}
-                  >
-                    <HugeiconsIcon
-                      icon={CopyIcon}
-                      className="text-muted-foreground"
-                    />
-                    Clone
-                  </DropdownMenuItem>
+                    expanded={row.getIsExpanded()}
+                    onExpandedChange={(expanded) => row.toggleExpanded(expanded)}
+                    onManagerClone={onManagerClone}
+                  />
                   {POD_CLONE_ACTIONS.map((action) => {
                     const config = POD_CLONE_ACTION_CONFIG[action]
 

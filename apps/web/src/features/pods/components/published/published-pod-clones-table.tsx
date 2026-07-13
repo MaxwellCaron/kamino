@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Delete01Icon,
@@ -25,7 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { ClonesTableSkeleton } from "./clones-table-skeleton"
 import { PublishedPodCloneActionsMenu } from "./published-pod-clone-actions-menu"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
@@ -102,7 +102,10 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
     data: clones,
     isLoading,
     error,
-  } = useQuery(publishedPodClonesQueryOptions(pod.id))
+  } = useQuery({
+    ...publishedPodClonesQueryOptions(pod.id),
+    retryOnMount: false,
+  })
 
   const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
 
@@ -219,17 +222,19 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
 
   return (
     <div>
-      {isLoading ? (
-        <ClonesTableSkeleton />
-      ) : error ? (
-        <InlineErrorAlert
-          error={error}
-          fallback="Failed to load clones."
-          className="mx-4 my-3"
-        />
-      ) : (
-        <>
-          {clones && clones.length > 0 ? (
+      {isLoading ? null : (
+        <m.div
+          initial={{ opacity: 0, transform: "translateY(-4px)" }}
+          animate={{ opacity: 1, transform: "translateY(0px)" }}
+          transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+        >
+          {error ? (
+            <InlineErrorAlert
+              error={error}
+              fallback="Failed to load clones."
+              className="mx-4 my-3"
+            />
+          ) : clones && clones.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -310,7 +315,7 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
               </EmptyHeader>
             </Empty>
           )}
-        </>
+        </m.div>
       )}
 
       {confirm && (
