@@ -4,9 +4,9 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   DashboardSquare01Icon,
+  GitPullRequestIcon,
   Globe02Icon,
   Home03Icon,
-  Invoice01Icon,
   NotebookIcon,
   PackageAddIcon,
   PackageCheck,
@@ -110,7 +110,7 @@ const navItems = [
     title: "Requests",
     description: "Review pending and completed user requests.",
     url: "/manager/requests",
-    icon: Invoice01Icon,
+    icon: GitPullRequestIcon,
     group: "manager",
     visibility: "manager",
   },

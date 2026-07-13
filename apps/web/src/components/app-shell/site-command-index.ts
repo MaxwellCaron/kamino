@@ -3,9 +3,9 @@ import {
   Copy02Icon,
   DashboardSquare01Icon,
   FolderIcon,
+  GitPullRequestIcon,
   Globe02Icon,
   Home03Icon,
-  Invoice01Icon,
   Logout01Icon,
   Moon02Icon,
   NotebookIcon,
@@ -197,7 +197,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Requests",
     subtitle: "Review request queue",
-    icon: Invoice01Icon,
+    icon: GitPullRequestIcon,
     to: "/manager/requests",
     visibility: "manager",
     keywords: ["approval", "pending", "manager"],
@@ -425,20 +425,18 @@ function buildDocsCommands({
   query: string
 }) {
   const matches = searchDocs(query, { canAdminister, canManage })
-  return matches.map(
-    (match): SiteCommandResult => ({
-      id: `docs:${match.docKey}:${match.anchor}`,
-      group: "docs",
-      icon: NotebookIcon,
-      label: match.heading,
-      subtitle: match.docTitle,
-      preview: match.preview,
-      keywords: [match.docTitle, match.heading, match.anchor],
-      onSelect: runCommand(actions, () =>
-        actions.navigateToDocsSection(match.route, match.anchor)
-      ),
-    })
-  )
+  return matches.map((match): SiteCommandResult => ({
+    id: `docs:${match.docKey}:${match.anchor}`,
+    group: "docs",
+    icon: NotebookIcon,
+    label: match.heading,
+    subtitle: match.docTitle,
+    preview: match.preview,
+    keywords: [match.docTitle, match.heading, match.anchor],
+    onSelect: runCommand(actions, () =>
+      actions.navigateToDocsSection(match.route, match.anchor)
+    ),
+  }))
 }
 
 function buildInventoryCommands(
@@ -623,7 +621,7 @@ function buildRequestCommands({
     return {
       id: `request:${request.id}`,
       group: "requests",
-      icon: Invoice01Icon,
+      icon: GitPullRequestIcon,
       label: formatRequestLabel(request),
       subtitle: `${formatRequestStatus(request.status)} · ${request.requester_username}`,
       keywords: [

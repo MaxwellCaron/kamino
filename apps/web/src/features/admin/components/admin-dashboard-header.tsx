@@ -4,7 +4,7 @@ import {
   ComputerIcon,
   Copy02Icon,
   FolderIcon,
-  Invoice01Icon,
+  GitPullRequestIcon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
@@ -87,7 +87,7 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
     {
       icon: (
         <HugeiconsIcon
-          icon={Invoice01Icon}
+          icon={GitPullRequestIcon}
           className="size-5 text-muted-foreground"
         />
       ),
