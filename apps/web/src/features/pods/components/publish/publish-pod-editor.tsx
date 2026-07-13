@@ -42,6 +42,10 @@ type PublishPodSubmitOptions = {
 type PublishPodSubmitResult = {
   slug: string
 }
+type PublishPodSubmission = {
+  progressId: string
+  values: PublishPodFormValues
+}
 
 type PublishPodEditorProps = {
   initialValues?: PublishPodFormValues
@@ -69,13 +73,14 @@ export function PublishPodEditor({
       errorMessage: null,
     }
   )
-  const [progressId, setProgressId] = React.useState<string | null>(null)
-  const [submittedValues, setSubmittedValues] =
-    React.useState<PublishPodFormValues | null>(null)
+  const [submission, setSubmission] =
+    React.useState<PublishPodSubmission | null>(null)
   const submitCompletedRef = React.useRef(false)
   const onSubmitRef = React.useRef(onSubmit)
   const submitState = submitStatus.state
   const savedPodSlug = submitStatus.savedPodSlug
+  const progressId = submission?.progressId ?? null
+  const submittedValues = submission?.values ?? null
   const defaultValues = React.useMemo(
     () => initialValues ?? createInitialPublishPodValues(),
     [initialValues]
@@ -90,8 +95,7 @@ export function PublishPodEditor({
       const nextProgressId = uuid()
       let submitPromise: Promise<PublishPodSubmitResult>
 
-      setProgressId(nextProgressId)
-      setSubmittedValues(values)
+      setSubmission({ progressId: nextProgressId, values })
       submitCompletedRef.current = false
 
       try {

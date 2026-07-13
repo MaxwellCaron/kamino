@@ -245,9 +245,7 @@ export function useInventoryHeadlessTree({
       expandedItems: effectiveExpandedItems,
       selectedItems: selectedItemIds,
     },
-    setExpandedItems: (updater) => {
-      handleExpandedChange(updater)
-    },
+    setExpandedItems: handleExpandedChange,
     setSelectedItems: (updater) => {
       setSelectedItemIds((prev) =>
         typeof updater === "function" ? updater(prev) : updater

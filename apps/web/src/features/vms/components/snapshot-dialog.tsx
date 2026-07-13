@@ -67,7 +67,7 @@ type SnapshotDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
-function useDialogSessionKey(open: boolean) {
+function useDialogSessionKey({ open }: { open: boolean }) {
   const [sessionKey, setSessionKey] = useState(0)
   const prevOpenRef = useRef(open)
 
@@ -89,7 +89,7 @@ function DirectSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const sessionKey = useDialogSessionKey(open)
+  const sessionKey = useDialogSessionKey({ open })
 
   return (
     <AppDialog
@@ -240,7 +240,7 @@ function RequestSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const sessionKey = useDialogSessionKey(open)
+  const sessionKey = useDialogSessionKey({ open })
 
   const vmReference = formatVmReference(vmid, vmName)
 

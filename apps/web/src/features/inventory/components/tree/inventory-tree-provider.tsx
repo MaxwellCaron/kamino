@@ -107,13 +107,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     setSelectedItemIds([])
   }, [setSelectedItemIds])
 
-  const replaceSelection = useCallback(
-    (itemIds: Array<string>) => {
-      setSelectedItemIds(itemIds)
-    },
-    [setSelectedItemIds]
-  )
-
   const toggleFavorite = useCallback(
     (itemId: string) => {
       toggleSharedFavorite(itemId)
@@ -179,28 +172,18 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       setSelectedItemIds,
     })
 
-  const clearSearchAndQueueReveal = useCallback((itemId: string) => {
-    pendingRevealItemIdRef.current = itemId
-    setSearchQuery("")
-  }, [])
-
   const revealAndNavigateToItem = useCallback(
     (itemId: string) => {
       if (isSearchActive && !displayItems.has(itemId)) {
-        clearSearchAndQueueReveal(itemId)
+        pendingRevealItemIdRef.current = itemId
+        setSearchQuery("")
         return
       }
 
       void revealItem(itemId)
       handlePrimaryAction(itemId)
     },
-    [
-      clearSearchAndQueueReveal,
-      displayItems,
-      handlePrimaryAction,
-      isSearchActive,
-      revealItem,
-    ]
+    [displayItems, handlePrimaryAction, isSearchActive, revealItem]
   )
 
   const treeHasActiveItem =
@@ -225,18 +208,13 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     }
 
     if (isSearchActive) {
-      clearSearchAndQueueReveal(activeItemId)
+      pendingRevealItemIdRef.current = activeItemId
+      setSearchQuery("")
       return
     }
 
     void revealItem(activeItemId)
-  }, [
-    activeItemId,
-    clearSearchAndQueueReveal,
-    isSearchActive,
-    revealItem,
-    treeHasActiveItem,
-  ])
+  }, [activeItemId, isSearchActive, revealItem, treeHasActiveItem])
 
   useEffect(() => {
     const pendingItemId = pendingRevealItemIdRef.current
@@ -269,7 +247,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     handlePrimaryAction,
     revealAndNavigateToItem,
     selectedItemIds,
-    replaceSelection,
+    replaceSelection: setSelectedItemIds,
     clearSelection,
     scrollToItemHandlerRef,
   }

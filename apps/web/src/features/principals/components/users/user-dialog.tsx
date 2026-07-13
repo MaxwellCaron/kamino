@@ -113,7 +113,7 @@ export function UserDialog({
 
       await invalidatePrincipals
       if (result.failures.length > 0) {
-        setResultSummary(result)
+        setResultSummary(() => result)
       }
     },
   })

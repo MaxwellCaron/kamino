@@ -35,12 +35,17 @@ import {
 } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
-function useCloneProcess(
-  open: boolean,
-  pod: Pod | null,
-  clonedPodId?: string,
+function useCloneProcess({
+  open,
+  pod,
+  clonedPodId,
+  onCloned,
+}: {
+  open: boolean
+  pod: Pod | null
+  clonedPodId?: string
   onCloned?: (clone: ClonedPod) => void
-) {
+}) {
   const queryClient = useQueryClient()
   const [progressId, setProgressId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -164,7 +169,7 @@ export function ClonePodDialog({
     totalTasks,
     errorMessage,
     startCloning,
-  } = useCloneProcess(open, pod, clonedPodId, onCloned)
+  } = useCloneProcess({ open, pod, clonedPodId, onCloned })
 
   const podTitle = pod?.title ?? "Pod"
   const isReclone = clonedPodId != null

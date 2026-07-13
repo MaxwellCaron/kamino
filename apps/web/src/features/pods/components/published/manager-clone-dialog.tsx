@@ -92,7 +92,7 @@ export function ManagerCloneDialog({
           itemToStringLabel={(p) => p.label}
           itemToStringValue={(p) => p.label}
           value={resolvedSelected}
-          onValueChange={(value) => setSelectedPrincipals(value)}
+          onValueChange={setSelectedPrincipals}
         >
           <ComboboxChips ref={anchor}>
             <ComboboxValue>

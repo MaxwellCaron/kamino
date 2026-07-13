@@ -122,9 +122,6 @@ export function DataTable<TData, TValue>({
   const notReady = isLoading || error !== null
 
   const searchValue = isServerMode ? serverPagination.search : globalFilter
-  const onSearchChange = isServerMode
-    ? serverPagination.onSearchChange
-    : (value: string) => setGlobalFilter(value)
 
   const table = useReactTable({
     data,
@@ -185,7 +182,7 @@ export function DataTable<TData, TValue>({
             onChange={(e) => {
               const value = String(e.target.value)
               if (isServerMode) {
-                onSearchChange(value)
+                serverPagination.onSearchChange(value)
                 serverPagination.onPaginationChange((prev) => ({
                   ...prev,
                   pageIndex: 0,

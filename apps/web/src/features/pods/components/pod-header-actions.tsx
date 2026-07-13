@@ -112,7 +112,7 @@ export function PodHeaderActions({
   function openAction(action: ConfirmablePodAction) {
     powerMutation.reset()
     deleteMutation.reset()
-    setActiveAction(action)
+    setActiveAction(() => action)
   }
 
   function handleActionClose() {

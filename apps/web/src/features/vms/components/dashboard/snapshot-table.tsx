@@ -73,26 +73,19 @@ export function SnapshotsTable({
   const [requestRollbackSnapshot, setRequestRollbackSnapshot] = useState<
     string | null
   >(null)
-  const [requestRollbackOpen, setRequestRollbackOpen] = useState(false)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
   const vmReference = formatVmReference(vmid, vmName)
   const filtered =
     snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
 
-  const openRequestRollbackDialog = (snapshotName: string) => {
-    setRequestRollbackSnapshot(snapshotName)
-    setRequestRollbackOpen(true)
-  }
-
   const closeRequestRollbackDialog = () => {
-    setRequestRollbackOpen(false)
     setRequestRollbackSnapshot(null)
   }
   const columns = getSnapshotTableColumns({
     itemId,
     permissions,
     onOpenConfirm: setConfirm,
-    onOpenRequestRollback: openRequestRollbackDialog,
+    onOpenRequestRollback: setRequestRollbackSnapshot,
     rollback,
     remove,
     submitRollbackRequest,
@@ -148,7 +141,7 @@ export function SnapshotsTable({
       </CardFooter>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       <SnapshotRequestRollbackDialog
-        open={requestRollbackOpen}
+        open={requestRollbackSnapshot !== null}
         snapshotName={requestRollbackSnapshot}
         vmReference={vmReference}
         itemId={itemId}
