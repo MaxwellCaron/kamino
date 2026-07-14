@@ -190,19 +190,31 @@ func (h *PodsHandler) hydrateClonedPodVMs(
 			}
 		}
 
-		response = append(response, clonedPodVMResponse{
-			ID:        row.InventoryItemID,
-			Name:      row.Name,
-			Status:    status,
-			Resources: resource,
-			Uptime:    uptime,
-			Inventory: clonedPodVMInventoryResponse{
-				ItemID: row.InventoryItemID,
-			},
-		})
+		response = append(response, clonedPodVMResponseFromRow(row, status, resource, uptime))
 	}
 
 	return response, aggregateStatus, nil
+}
+
+func clonedPodVMResponseFromRow(
+	row database.ListClonedPodVMsRow,
+	status string,
+	resource vmstatus.VMResources,
+	uptime *int64,
+) clonedPodVMResponse {
+	return clonedPodVMResponse{
+		ID:        row.InventoryItemID,
+		Name:      row.Name,
+		Status:    status,
+		Resources: resource,
+		Uptime:    uptime,
+		CPUCount:  row.CpuCount,
+		MemoryMB:  row.MemoryMb,
+		DiskGB:    row.DiskGb,
+		Inventory: clonedPodVMInventoryResponse{
+			ItemID: row.InventoryItemID,
+		},
+	}
 }
 
 func (h *PodsHandler) runtimeStatusForClonedVMRow(

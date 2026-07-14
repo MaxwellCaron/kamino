@@ -16,6 +16,7 @@ import {
 import { Separator } from "@workspace/ui/components/separator"
 import type { ReactNode } from "react"
 import { VmIcon } from "@/components/status/vm-icon"
+import { formatMemory } from "@/features/shared/utils/format"
 
 export type InventoryVmItemProps = {
   itemId: string
@@ -24,8 +25,8 @@ export type InventoryVmItemProps = {
   guestType?: "qemu" | "lxc"
   isTemplate?: boolean
   cpuCount?: number
-  memoryLabel?: string
-  diskLabel?: string
+  memoryMb?: number
+  diskGb?: number
   openInNewTab?: boolean
   trailingContent?: ReactNode
   preventNavigationFromTrailingContent?: boolean
@@ -33,12 +34,12 @@ export type InventoryVmItemProps = {
 
 function VmResourceDescription({
   cpuCount,
-  memoryLabel,
-  diskLabel,
+  memoryMb,
+  diskGb,
 }: {
   cpuCount?: number
-  memoryLabel?: string
-  diskLabel?: string
+  memoryMb?: number
+  diskGb?: number
 }) {
   return (
     <>
@@ -49,12 +50,12 @@ function VmResourceDescription({
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
         <HugeiconsIcon icon={RamMemoryIcon} className="size-3.5" />
-        {memoryLabel ?? "—"}
+        {memoryMb != null ? formatMemory(memoryMb) : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
         <HugeiconsIcon icon={HardDriveIcon} className="size-3.5" />
-        {diskLabel ?? "—"}
+        {diskGb != null ? `${diskGb} GB` : "—"}
       </div>
     </>
   )
@@ -67,8 +68,8 @@ export function InventoryVmItem({
   guestType,
   isTemplate,
   cpuCount,
-  memoryLabel,
-  diskLabel,
+  memoryMb,
+  diskGb,
   openInNewTab = false,
   trailingContent,
   preventNavigationFromTrailingContent = false,
@@ -97,8 +98,8 @@ export function InventoryVmItem({
             <ItemDescription className="flex items-center gap-2">
               <VmResourceDescription
                 cpuCount={cpuCount}
-                memoryLabel={memoryLabel}
-                diskLabel={diskLabel}
+                memoryMb={memoryMb}
+                diskGb={diskGb}
               />
             </ItemDescription>
           </ItemContent>

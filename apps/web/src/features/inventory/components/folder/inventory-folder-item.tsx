@@ -16,7 +16,6 @@ import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
-import { formatMemory } from "@/features/shared/utils/format"
 
 function FolderDescription({ node }: { node: ApiTreeNode }) {
   const children = node.children ?? []
@@ -94,14 +93,8 @@ export function InventoryFolderItem({
         guestType={node.vm?.guest_type}
         isTemplate={node.vm?.is_template}
         cpuCount={node.vm?.cpu_count}
-        memoryLabel={
-          node.vm?.memory_mb != null
-            ? formatMemory(node.vm.memory_mb)
-            : undefined
-        }
-        diskLabel={
-          node.vm?.disk_gb != null ? `${node.vm.disk_gb} GB` : undefined
-        }
+        memoryMb={node.vm?.memory_mb}
+        diskGb={node.vm?.disk_gb}
         trailingContent={
           <FolderRowActions
             itemId={node.id}

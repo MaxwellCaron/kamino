@@ -24,7 +24,6 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
 import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 import { animateContainer, animateTableRow } from "@/components/animate"
-import { formatBytes } from "@/features/shared/utils/format"
 
 function NetworkItem({
   label,
@@ -105,19 +104,9 @@ export function PodVms({
                     itemId={vm.inventory.itemId}
                     name={vm.name}
                     status={vm.status}
-                    cpuCount={
-                      vm.resources.maxcpu > 0 ? vm.resources.maxcpu : undefined
-                    }
-                    memoryLabel={
-                      vm.resources.maxmem > 0
-                        ? formatBytes(vm.resources.maxmem)
-                        : undefined
-                    }
-                    diskLabel={
-                      vm.resources.maxdisk > 0
-                        ? formatBytes(vm.resources.maxdisk)
-                        : undefined
-                    }
+                    cpuCount={vm.cpu_count}
+                    memoryMb={vm.memory_mb}
+                    diskGb={vm.disk_gb}
                     openInNewTab
                     trailingContent={
                       <HugeiconsIcon

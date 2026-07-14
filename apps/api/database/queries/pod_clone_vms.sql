@@ -17,6 +17,9 @@ SELECT
     ii.name,
     pv.node,
     pv.vmid,
+    pv.cpu_count,
+    pv.memory_mb,
+    pv.disk_gb,
     cpv.sort_order
 FROM cloned_pod_vms cpv
 JOIN inventory_items ii

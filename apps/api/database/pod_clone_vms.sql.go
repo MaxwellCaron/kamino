@@ -54,6 +54,9 @@ SELECT
     ii.name,
     pv.node,
     pv.vmid,
+    pv.cpu_count,
+    pv.memory_mb,
+    pv.disk_gb,
     cpv.sort_order
 FROM cloned_pod_vms cpv
 JOIN inventory_items ii
@@ -70,6 +73,9 @@ type ListClonedPodVMsRow struct {
 	Name            string    `json:"name"`
 	Node            *string   `json:"node"`
 	Vmid            *int32    `json:"vmid"`
+	CpuCount        *int32    `json:"cpu_count"`
+	MemoryMb        *int32    `json:"memory_mb"`
+	DiskGb          *float64  `json:"disk_gb"`
 	SortOrder       int32     `json:"sort_order"`
 }
 
@@ -88,6 +94,9 @@ func (q *Queries) ListClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) (
 			&i.Name,
 			&i.Node,
 			&i.Vmid,
+			&i.CpuCount,
+			&i.MemoryMb,
+			&i.DiskGb,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err

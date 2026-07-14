@@ -55,6 +55,9 @@ export interface PodVM {
   status: string
   resources: VmResources
   uptime?: number
+  cpu_count?: number
+  memory_mb?: number
+  disk_gb?: number
   inventory: {
     itemId: string
   }
