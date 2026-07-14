@@ -82,6 +82,9 @@ type Config struct {
 	PodDevVMIDMax      int `envconfig:"POD_DEV_VMID_MAX" default:"19999"`
 	PersonalPodVMIDMin int `envconfig:"PERSONAL_POD_VMID_MIN" default:"20000"`
 	PersonalPodVMIDMax int `envconfig:"PERSONAL_POD_VMID_MAX" default:"20999"`
+
+	// --- Pod provisioning concurrency (optional) ---
+	PodProvisionConcurrency int `envconfig:"POD_PROVISION_CONCURRENCY" default:"2"`
 }
 
 func splitCSV(value string) []string {

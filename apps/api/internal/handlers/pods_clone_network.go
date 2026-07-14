@@ -136,7 +136,7 @@ func (h *PodsHandler) waitForPodVMTargetsReady(
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
-	group.SetLimit(publishCloneConcurrency)
+	group.SetLimit(h.podProvisionConcurrencyLimit())
 	for _, target := range targets {
 		group.Go(func() error {
 			if err := h.PX.WaitForVMConfigUnlocked(gctx, target.clone.TargetNode, target.clone.VMID, h.RouterCloneConfig.RouterWaitTimeout); err != nil {
@@ -192,7 +192,7 @@ func (h *PodsHandler) configurePodVNetBridges(
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
-	group.SetLimit(publishCloneConcurrency)
+	group.SetLimit(h.podProvisionConcurrencyLimit())
 	for _, target := range targets {
 		if target.router {
 			continue

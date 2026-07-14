@@ -97,7 +97,7 @@ func (h *PodsHandler) cleanupFailedPodProvision(folderID uuid.UUID, created map[
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := runFailedPodProvisionCleanup(ctx, folderID, created, 2, failedPodProvisionCleanupCallbacks{
+	if err := runFailedPodProvisionCleanup(ctx, folderID, created, h.podProvisionConcurrencyLimit(), failedPodProvisionCleanupCallbacks{
 		waitCloneTask:     h.PX.WaitForTask,
 		deleteProxmoxVM:   h.deleteClonedPodProxmoxVM,
 		deleteInventoryVM: h.Service.DeleteInventoryVM,

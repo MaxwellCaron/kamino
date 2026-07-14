@@ -71,6 +71,7 @@ type PodsHandler struct {
 	DevVMIDRange                    vmidalloc.Range
 	PersonalVMIDRange               vmidalloc.Range
 	PodCloneClaims                  PodCloneClaimStore
+	PodProvisionLimiter             *PodProvisionLimiter
 }
 
 type PodCloneClaimStore interface {

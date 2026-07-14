@@ -14,11 +14,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const (
-	// publishCloneConcurrency bounds how many Pod VMs are cloned at once.
-	publishCloneConcurrency = 2
-)
-
 type publishPodVMOption struct {
 	ID          uuid.UUID                      `json:"id"`
 	Name        string                         `json:"name"`

@@ -69,6 +69,17 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	full bool,
 	opts cloneVMOptions,
 ) (clonedVM, *requestError) {
+	release, err := h.acquirePodProvisionSlot(ctx)
+	if err != nil {
+		return clonedVM{}, &requestError{
+			Status:      http.StatusServiceUnavailable,
+			UserMessage: "pod provisioning is busy",
+			Operation:   "acquire pod provision slot",
+			Err:         err,
+		}
+	}
+	defer release()
+
 	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts.batch)
 	if reqErr != nil {
 		return clonedVM{}, reqErr
@@ -168,6 +179,17 @@ func (h *PodsHandler) startVMClone(
 }
 
 func (h *PodsHandler) convertCloneToTemplate(ctx context.Context, clone clonedVM) *requestError {
+	release, err := h.acquirePodProvisionSlot(ctx)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusServiceUnavailable,
+			UserMessage: "pod provisioning is busy",
+			Operation:   "acquire pod provision slot for template conversion",
+			Err:         err,
+		}
+	}
+	defer release()
+
 	if err := h.PX.ConvertToTemplate(ctx, clone.TargetNode, clone.VMID); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
