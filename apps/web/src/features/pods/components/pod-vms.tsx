@@ -8,7 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { ItemGroup } from "@workspace/ui/components/item"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@workspace/ui/components/item"
 import {
   Empty,
   EmptyDescription,
@@ -20,7 +26,7 @@ import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 import { animateContainer, animateTableRow } from "@/components/animate"
 import { formatBytes } from "@/features/shared/utils/format"
 
-function NetworkCard({
+function NetworkItem({
   label,
   subnet,
   className,
@@ -30,12 +36,15 @@ function NetworkCard({
   className?: string
 }) {
   return (
-    <Card className={cn("bg-muted shadow ring-1", className)}>
-      <CardHeader>
-        <CardTitle className="text-center">{label}</CardTitle>
-        <CardDescription className="text-center">{subnet}</CardDescription>
-      </CardHeader>
-    </Card>
+    <Item
+      variant="muted"
+      className={cn("shadow ring-1 ring-border", className)}
+    >
+      <ItemContent>
+        <ItemTitle className="w-full justify-center">{label}</ItemTitle>
+        <ItemDescription className="text-center">{subnet}</ItemDescription>
+      </ItemContent>
+    </Item>
   )
 }
 
@@ -46,15 +55,15 @@ function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
     <div
       className={cn(
         "grid grid-cols-2 gap-3 sm:gap-6",
-        isDmzProfile ? "sm:grid-cols-4" : "sm:grid-cols-3"
+        isDmzProfile ? "lg:grid-cols-4" : "sm:grid-cols-3"
       )}
     >
-      <NetworkCard label="VNet" subnet={network.vnet} />
-      <NetworkCard label="External" subnet={network.external_subnet} />
+      <NetworkItem label="VNet" subnet={network.vnet} />
+      <NetworkItem label="External" subnet={network.external_subnet} />
       {isDmzProfile ? (
-        <NetworkCard label="DMZ" subnet={network.dmz_subnet} />
+        <NetworkItem label="DMZ" subnet={network.dmz_subnet} />
       ) : null}
-      <NetworkCard
+      <NetworkItem
         className={!isDmzProfile ? "col-span-2 sm:col-span-1" : undefined}
         label="Internal"
         subnet={network.internal_subnet}
