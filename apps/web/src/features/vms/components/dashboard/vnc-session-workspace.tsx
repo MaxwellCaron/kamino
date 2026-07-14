@@ -6,8 +6,9 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-import { useParams, useRouterState } from "@tanstack/react-router"
+import { useParams } from "@tanstack/react-router"
 import { useQueries, useQuery } from "@tanstack/react-query"
+import { cn } from "@workspace/ui/lib/utils"
 
 import type {
   ApiInventoryItem,
@@ -80,6 +81,12 @@ function isRetainedStatus(status: VncConnectionStatus): boolean {
   )
 }
 
+function isPinnedConsoleStatus(
+  status: VncConnectionStatus | null
+): status is "connected" | "expired" {
+  return status === "connected" || status === "expired"
+}
+
 function subscribeToDocumentVisibility(onChange: () => void) {
   document.addEventListener("visibilitychange", onChange)
   return () => document.removeEventListener("visibilitychange", onChange)
@@ -95,7 +102,6 @@ function getServerDocumentVisibility(): boolean {
 
 export function VncSessionWorkspace() {
   const itemId = useParams({ strict: false }).itemId
-  const href = useRouterState({ select: (state) => state.location.href })
   const {
     getItemData,
     getStatus,
@@ -325,35 +331,13 @@ export function VncSessionWorkspace() {
     getServerDocumentVisibility
   )
 
-  const visiblePanelRef = useRef<HTMLDivElement>(null)
-  const lastScrollKeyRef = useRef<string | null>(null)
+  const activeRetainedStatus =
+    activeTarget && sessions.has(activeTarget.itemId)
+      ? (sessions.get(activeTarget.itemId)?.status ?? null)
+      : null
 
-  useEffect(() => {
-    if (!activeTarget) {
-      lastScrollKeyRef.current = null
-      return
-    }
-
-    const retained = sessions.get(activeTarget.itemId)
-    if (retained?.status !== "connected" && retained?.status !== "expired") {
-      return
-    }
-
-    const scrollKey = `${href}:${activeTarget.itemId}`
-    if (lastScrollKeyRef.current === scrollKey) {
-      return
-    }
-
-    const frameId = requestAnimationFrame(() => {
-      visiblePanelRef.current?.scrollIntoView({
-        block: "center",
-        behavior: "auto",
-      })
-      lastScrollKeyRef.current = scrollKey
-    })
-
-    return () => cancelAnimationFrame(frameId)
-  }, [activeTarget, href, sessions])
+  const shouldPinActiveConsole =
+    activeTarget !== null && isPinnedConsoleStatus(activeRetainedStatus)
 
   if (panels.length === 0) {
     return null
@@ -361,18 +345,23 @@ export function VncSessionWorkspace() {
 
   return (
     <div
-      hidden={!activeTarget}
-      className={
-        activeTarget
-          ? "flex flex-col gap-4 px-4 pb-4 md:gap-6 md:pb-6 lg:px-6"
-          : undefined
-      }
+      data-testid="vnc-session-workspace"
+      data-pinned={shouldPinActiveConsole ? "true" : "false"}
+      className={cn(
+        "grid grid-cols-1",
+        shouldPinActiveConsole
+          ? "absolute inset-x-0 bottom-0 top-0 z-20 overflow-y-auto bg-background px-4 pt-4 pb-4 md:pt-6 md:pb-6 lg:px-6"
+          : activeTarget
+            ? "px-4 pb-4 md:pb-6 lg:px-6"
+            : "fixed inset-0 invisible pointer-events-none"
+      )}
+      aria-hidden={activeTarget ? undefined : true}
+      inert={activeTarget ? undefined : true}
     >
       {panels.map((panel) => (
         <VncSessionPanel
           key={panel.itemId}
           panel={panel}
-          panelRef={panel.isActive ? visiblePanelRef : undefined}
           isViewed={panel.isActive && isDocumentVisible}
           onStatusChange={handleStatusChange}
         />
@@ -383,12 +372,10 @@ export function VncSessionWorkspace() {
 
 function VncSessionPanel({
   panel,
-  panelRef,
   isViewed,
   onStatusChange,
 }: {
   panel: ConsolePanel
-  panelRef: React.Ref<HTMLDivElement> | undefined
   isViewed: boolean
   onStatusChange: (itemId: string, status: VncConnectionStatus) => void
 }) {
@@ -399,8 +386,10 @@ function VncSessionPanel({
 
   return (
     <div
-      ref={panelRef}
-      hidden={!panel.isActive}
+      className={cn(
+        "col-start-1 row-start-1 min-w-0",
+        !panel.isActive && "invisible pointer-events-none"
+      )}
       aria-hidden={!panel.isActive}
       inert={!panel.isActive}
       data-testid={`vnc-panel-${panel.itemId}`}

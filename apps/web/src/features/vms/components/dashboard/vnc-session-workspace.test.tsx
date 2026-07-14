@@ -14,7 +14,6 @@ import { createTestQueryClient, renderWithQueryClient } from "@/test/test-utils"
 
 const {
   mockItemId,
-  mockHref,
   mockGetItemData,
   mockGetStatus,
   mockTreeLoading,
@@ -30,7 +29,6 @@ const {
 
   return {
     mockItemId: current<string | undefined>("vm-a"),
-    mockHref: current("/inventory/items/vm-a"),
     mockGetItemData: vi.fn(),
     mockGetStatus: vi.fn(),
     mockTreeLoading: current(false),
@@ -46,11 +44,6 @@ const {
 
 vi.mock("@tanstack/react-router", () => ({
   useParams: () => ({ itemId: mockItemId.current }),
-  useRouterState: ({
-    select,
-  }: {
-    select: (state: { location: { href: string } }) => string
-  }) => select({ location: { href: mockHref.current } }),
 }))
 
 vi.mock("@/features/inventory/components/tree/inventory-tree-context", () => ({
@@ -171,9 +164,8 @@ function renderWorkspace() {
   }
 }
 
-function setRoute(itemId: string | undefined, href?: string) {
+function setRoute(itemId: string | undefined) {
   mockItemId.current = itemId
-  mockHref.current = href ?? (itemId ? `/inventory/items/${itemId}` : "/docs")
 }
 
 function setConsoleStatus(itemId: string, status: VncConnectionStatus) {
@@ -186,7 +178,6 @@ describe("VncSessionWorkspace", () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     mockItemId.current = "vm-a"
-    mockHref.current = "/inventory/items/vm-a"
     mockTreeLoading.current = false
     mockTreeError.current = null
     mockFallbackItems.current = new Map()
@@ -312,18 +303,23 @@ describe("VncSessionWorkspace", () => {
     expect(screen.queryByTestId("console-vm-b")).not.toBeInTheDocument()
   })
 
-  it("hides the workspace without unmounting A on docs routes", () => {
+  it("stages the workspace offscreen without unmounting A on docs routes", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
 
-    setRoute(undefined, "/docs")
+    setRoute(undefined)
     rerenderWorkspace()
 
     expect(screen.getByTestId("console-vm-a")).toBeInTheDocument()
-    expect(screen.getByTestId("vnc-panel-vm-a")).toHaveAttribute("hidden")
-    expect(screen.getByTestId("vnc-panel-vm-a").parentElement).toHaveAttribute(
-      "hidden"
-    )
+
+    const workspace = screen.getByTestId("vnc-session-workspace")
+    expect(workspace).not.toHaveAttribute("hidden")
+    expect(workspace.className).toContain("fixed")
+    expect(workspace.className).toContain("inset-0")
+    expect(workspace.className).toContain("invisible")
+    expect(workspace.className).toContain("pointer-events-none")
+    expect(workspace).toHaveAttribute("aria-hidden", "true")
+    expect(workspace).toHaveAttribute("inert")
   })
 
   it("does not render consoles for templates, folders, or missing items", () => {
@@ -413,17 +409,43 @@ describe("VncSessionWorkspace", () => {
     expect(screen.getByTestId("console-vm-a")).toBeInTheDocument()
   })
 
-  it("marks inactive panels hidden, inert, and aria-hidden", () => {
+  it("marks inactive panels invisible, inert, and aria-hidden without display:none", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
 
     setRoute("vm-b")
     rerenderWorkspace()
 
-    const hiddenPanel = screen.getByTestId("vnc-panel-vm-a")
-    expect(hiddenPanel).toHaveAttribute("hidden")
-    expect(hiddenPanel).toHaveAttribute("aria-hidden", "true")
-    expect(hiddenPanel).toHaveAttribute("inert")
+    const inactivePanel = screen.getByTestId("vnc-panel-vm-a")
+    expect(consoleMounts.current.get("vm-a")).toBe(1)
+    expect(inactivePanel).not.toHaveAttribute("hidden")
+    expect(inactivePanel.className).toContain("invisible")
+    expect(inactivePanel.className).toContain("pointer-events-none")
+    expect(inactivePanel.className).toContain("col-start-1")
+    expect(inactivePanel.className).toContain("row-start-1")
+    expect(inactivePanel).toHaveAttribute("aria-hidden", "true")
+    expect(inactivePanel).toHaveAttribute("inert")
+  })
+
+  it("overlaps active and inactive panels in one grid cell", () => {
+    const { rerenderWorkspace } = renderWorkspace()
+    setConsoleStatus("vm-a", "connected")
+
+    setRoute("vm-b")
+    rerenderWorkspace()
+    setConsoleStatus("vm-b", "connected")
+
+    const workspace = screen.getByTestId("vnc-session-workspace")
+    expect(workspace.className).toContain("grid")
+
+    const panelA = screen.getByTestId("vnc-panel-vm-a")
+    const panelB = screen.getByTestId("vnc-panel-vm-b")
+    expect(panelA.className).toContain("col-start-1")
+    expect(panelA.className).toContain("row-start-1")
+    expect(panelB.className).toContain("col-start-1")
+    expect(panelB.className).toContain("row-start-1")
+    expect(panelA.parentElement).toBe(workspace)
+    expect(panelB.parentElement).toBe(workspace)
   })
 
   it("marks the active console unviewed while the browser tab is hidden", () => {
@@ -444,42 +466,38 @@ describe("VncSessionWorkspace", () => {
     )
   })
 
-  describe("scroll centering", () => {
-    let rafCallback: FrameRequestCallback | null = null
-    const scrollIntoView = vi.fn()
+  describe("pinned viewport placement", () => {
+    it("pins the workspace when the active console is connected", () => {
+      renderWorkspace()
+      setConsoleStatus("vm-a", "connected")
 
-    beforeEach(() => {
-      rafCallback = null
-      scrollIntoView.mockReset()
-      vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
-        rafCallback = cb
-        return 1
-      })
-      vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {
-        rafCallback = null
-      })
-      Element.prototype.scrollIntoView = scrollIntoView
+      const workspace = screen.getByTestId("vnc-session-workspace")
+      expect(workspace).toHaveAttribute("data-pinned", "true")
+      expect(workspace.className).toContain("absolute")
+      expect(workspace.className).toContain("inset-x-0")
+      expect(workspace.className).toContain("bg-background")
     })
 
-    function flushScrollFrame() {
-      act(() => {
-        rafCallback?.(0)
-        rafCallback = null
-      })
-    }
+    it("pins the workspace for an expired active console", () => {
+      renderWorkspace()
+      setConsoleStatus("vm-a", "expired")
 
-    it("does not center when routing to a disconnected destination", () => {
+      const workspace = screen.getByTestId("vnc-session-workspace")
+      expect(workspace).toHaveAttribute("data-pinned", "true")
+    })
+
+    it("keeps a disconnected destination inline in document flow", () => {
       const { rerenderWorkspace } = renderWorkspace()
-      setConsoleStatus("vm-a", "connected")
 
       setRoute("vm-b")
       rerenderWorkspace()
-      flushScrollFrame()
 
-      expect(scrollIntoView).not.toHaveBeenCalled()
+      const workspace = screen.getByTestId("vnc-session-workspace")
+      expect(workspace).toHaveAttribute("data-pinned", "false")
+      expect(workspace.className).not.toContain("absolute")
     })
 
-    it("centers once when returning to a connected destination", () => {
+    it("stays pinned when switching between retained connected consoles", () => {
       const { rerenderWorkspace } = renderWorkspace()
       setConsoleStatus("vm-a", "connected")
 
@@ -487,59 +505,26 @@ describe("VncSessionWorkspace", () => {
       rerenderWorkspace()
       setConsoleStatus("vm-b", "connected")
 
+      const workspace = screen.getByTestId("vnc-session-workspace")
+      expect(workspace).toHaveAttribute("data-pinned", "true")
+
       setRoute("vm-a")
       rerenderWorkspace()
-      flushScrollFrame()
 
-      expect(scrollIntoView).toHaveBeenCalledTimes(1)
-      expect(scrollIntoView).toHaveBeenCalledWith({
-        block: "center",
-        behavior: "auto",
-      })
+      expect(workspace).toHaveAttribute("data-pinned", "true")
     })
 
-    it("centers on the first successful connection", () => {
-      renderWorkspace()
-      setConsoleStatus("vm-a", "connected")
-      flushScrollFrame()
-
-      expect(scrollIntoView).toHaveBeenCalledTimes(1)
-    })
-
-    it("centers an expired destination so the timeout reason is visible", () => {
-      const { rerenderWorkspace } = renderWorkspace()
-      setConsoleStatus("vm-a", "expired")
-
-      setRoute("vm-b")
-      rerenderWorkspace()
-      setRoute("vm-a")
-      rerenderWorkspace()
-      flushScrollFrame()
-
-      expect(scrollIntoView).toHaveBeenCalledTimes(1)
-    })
-
-    it("does not repeatedly scroll on same-route status or power rerenders", () => {
+    it("returns to inline flow after disconnecting the active console", () => {
       const { rerenderWorkspace } = renderWorkspace()
       setConsoleStatus("vm-a", "connected")
-      flushScrollFrame()
-      scrollIntoView.mockClear()
 
-      mockGetStatus.mockReturnValue("stopped")
+      setConsoleStatus("vm-a", "disconnected")
       rerenderWorkspace()
-      flushScrollFrame()
 
-      expect(scrollIntoView).not.toHaveBeenCalled()
+      const workspace = screen.getByTestId("vnc-session-workspace")
+      expect(workspace).toHaveAttribute("data-pinned", "false")
+      expect(workspace.className).not.toContain("absolute")
     })
 
-    it("does not move focus to the console panel", () => {
-      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus")
-      renderWorkspace()
-      setConsoleStatus("vm-a", "connected")
-      flushScrollFrame()
-
-      expect(focusSpy).not.toHaveBeenCalled()
-      focusSpy.mockRestore()
-    })
   })
 })

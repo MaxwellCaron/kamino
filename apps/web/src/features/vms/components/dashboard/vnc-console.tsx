@@ -186,6 +186,31 @@ export function VncConsole({
 
   useVncIdleExpiry(status === "connected", isViewed, expireConnection)
 
+  useEffect(() => {
+    if (status !== "connected" || !isViewed) {
+      return
+    }
+
+    let secondFrameId = 0
+    const firstFrameId = requestAnimationFrame(() => {
+      secondFrameId = requestAnimationFrame(() => {
+        const rfb = vncRef.current?.rfb
+        if (!rfb) {
+          return
+        }
+        rfb.scaleViewport = false
+        rfb.scaleViewport = true
+      })
+    })
+
+    return () => {
+      cancelAnimationFrame(firstFrameId)
+      if (secondFrameId !== 0) {
+        cancelAnimationFrame(secondFrameId)
+      }
+    }
+  }, [status, isViewed])
+
   const isRunning = powerStatus === "running"
   const isExpired = status === "expired"
 

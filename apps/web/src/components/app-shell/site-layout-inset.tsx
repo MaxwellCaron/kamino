@@ -12,7 +12,7 @@ export function SiteLayoutInset({
   return (
     <SidebarInset>
       {header}
-      <div className="flex min-h-svh flex-col">{children}</div>
+      <div className="relative flex min-h-svh flex-col">{children}</div>
       <SiteFooter />
     </SidebarInset>
   )

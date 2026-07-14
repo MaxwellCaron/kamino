@@ -15,6 +15,8 @@ const { mockApiFetch, mockApiUrl, mockDisconnect } = vi.hoisted(() => ({
 }))
 
 let screenMountCount = 0
+let scaleViewportValue = true
+const scaleViewportWrites: Array<boolean> = []
 type FakeVncScreenProps = {
   onConnect?: () => void
   onDisconnect?: () => void
@@ -50,6 +52,17 @@ vi.mock("./vnc-screen-client", () => ({
             focus: vi.fn(),
             sendCtrlAltDel: vi.fn(),
             sendKey: vi.fn(),
+            get rfb() {
+              return {
+                get scaleViewport() {
+                  return scaleViewportValue
+                },
+                set scaleViewport(value: boolean) {
+                  scaleViewportValue = value
+                  scaleViewportWrites.push(value)
+                },
+              }
+            },
           }) as unknown as VncScreenHandle
       )
 
@@ -105,6 +118,28 @@ async function waitForVncScreen() {
   })
 }
 
+function mockAnimationFrames() {
+  const rafQueue: Array<FrameRequestCallback> = []
+  let nextId = 1
+
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+    const id = nextId++
+    rafQueue.push(cb)
+    return id
+  })
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {})
+
+  return {
+    flush() {
+      while (rafQueue.length > 0) {
+        act(() => {
+          rafQueue.shift()?.(0)
+        })
+      }
+    },
+  }
+}
+
 describe("VncConsole", () => {
   beforeEach(() => {
     mockApiFetch.mockReset()
@@ -113,6 +148,8 @@ describe("VncConsole", () => {
     mockDisconnect.mockReset()
     screenMountCount = 0
     latestScreenProps = null
+    scaleViewportValue = true
+    scaleViewportWrites.length = 0
   })
 
   afterEach(() => {
@@ -295,6 +332,63 @@ describe("VncConsole", () => {
 
     expect(screenMountCount).toBe(mountsBeforeToggle)
     expect(screen.getByTestId("vnc-screen")).toBe(screenNode)
+  })
+
+  it("refreshes the local viewport scale after becoming viewed again", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sessionId: "sess-1", password: "secret" }),
+    })
+
+    const frames = mockAnimationFrames()
+    const { onStatusChange, rerenderConsole } = renderConsole()
+
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }))
+    await waitForVncScreen()
+    act(() => {
+      latestScreenProps?.onConnect?.()
+    })
+    await waitFor(() =>
+      expect(onStatusChange).toHaveBeenCalledWith("connected")
+    )
+    frames.flush()
+
+    const mountsBeforeToggle = screenMountCount
+    scaleViewportWrites.length = 0
+    onStatusChange.mockClear()
+
+    rerenderConsole({ isViewed: false })
+    rerenderConsole({ isViewed: true })
+    frames.flush()
+
+    expect(screenMountCount).toBe(mountsBeforeToggle)
+    expect(scaleViewportWrites).toEqual([false, true])
+    expect(onStatusChange).not.toHaveBeenCalled()
+  })
+
+  it("cancels a queued viewport refresh after disconnect", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sessionId: "sess-1", password: "secret" }),
+    })
+
+    const frames = mockAnimationFrames()
+    const { rerenderConsole } = renderConsole()
+
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }))
+    await waitForVncScreen()
+    act(() => {
+      latestScreenProps?.onConnect?.()
+    })
+    frames.flush()
+
+    scaleViewportWrites.length = 0
+    rerenderConsole({ isViewed: false })
+    rerenderConsole({ isViewed: true })
+    clickDisconnect()
+    frames.flush()
+
+    expect(scaleViewportWrites).toEqual([])
   })
 
   it("expires and disconnects a session after 30 minutes away", async () => {
