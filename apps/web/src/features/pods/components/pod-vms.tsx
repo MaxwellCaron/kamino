@@ -1,3 +1,6 @@
+import { m } from "motion/react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ComputerIcon, ExternalLinkIcon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -11,26 +14,51 @@ import {
   EmptyDescription,
   EmptyHeader,
 } from "@workspace/ui/components/empty"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ComputerIcon } from "@hugeicons/core-free-icons"
+import { cn } from "@workspace/ui/lib/utils"
 import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
-import { VmListItem } from "@/features/vms/components/vm-list-item"
+import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
+import { animateContainer, animateTableRow } from "@/components/animate"
+import { formatBytes } from "@/features/shared/utils/format"
 
-function NetworkColumn({ label, subnet }: { label: string; subnet: string }) {
+function NetworkCard({
+  label,
+  subnet,
+  className,
+}: {
+  label: string
+  subnet: string
+  className?: string
+}) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 text-center">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span className="font-mono text-sm break-all tabular-nums">{subnet}</span>
-    </div>
+    <Card className={cn("bg-muted shadow ring-1", className)}>
+      <CardHeader>
+        <CardTitle className="text-center">{label}</CardTitle>
+        <CardDescription className="text-center">{subnet}</CardDescription>
+      </CardHeader>
+    </Card>
   )
 }
 
 function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
+  const isDmzProfile = network.profile_key === "lan-dmz-router-v1"
+
   return (
-    <div className="grid gap-3 rounded-4xl bg-muted px-6 py-4 sm:grid-cols-3">
-      <NetworkColumn label="VNet" subnet={network.vnet} />
-      <NetworkColumn label="External" subnet={network.external_subnet} />
-      <NetworkColumn label="Internal" subnet={network.internal_subnet} />
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3 sm:gap-6",
+        isDmzProfile ? "sm:grid-cols-4" : "sm:grid-cols-3"
+      )}
+    >
+      <NetworkCard label="VNet" subnet={network.vnet} />
+      <NetworkCard label="External" subnet={network.external_subnet} />
+      {isDmzProfile ? (
+        <NetworkCard label="DMZ" subnet={network.dmz_subnet} />
+      ) : null}
+      <NetworkCard
+        className={!isDmzProfile ? "col-span-2 sm:col-span-1" : undefined}
+        label="Internal"
+        subnet={network.internal_subnet}
+      />
     </div>
   )
 }
@@ -55,26 +83,48 @@ export function PodVms({
           </span>
         </CardTitle>
         <CardDescription>
-          List of virtual machines that you currently have access to. Please
-          note that this may not represent all the virtual machines available
-          within the pod environment.
+          List of virtual machines that you currently have access to view.
+          Please note that this may not represent all the virtual machines in
+          the pod environment.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {network ? <PodNetworkDetails network={network} /> : null}
         {vms.length > 0 ? (
-          <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {vms.map((vm) => (
-              <VmListItem
-                key={vm.id}
-                itemId={vm.inventory.itemId}
-                name={vm.name}
-                openInNewTab={true}
-                status={vm.status}
-                uptime={vm.uptime}
-              />
-            ))}
-          </ItemGroup>
+          <m.div initial="hidden" animate="show" variants={animateContainer}>
+            <ItemGroup>
+              {vms.map((vm) => (
+                <m.div key={vm.id} variants={animateTableRow}>
+                  <InventoryVmItem
+                    itemId={vm.inventory.itemId}
+                    name={vm.name}
+                    status={vm.status}
+                    cpuCount={
+                      vm.resources.maxcpu > 0 ? vm.resources.maxcpu : undefined
+                    }
+                    memoryLabel={
+                      vm.resources.maxmem > 0
+                        ? formatBytes(vm.resources.maxmem)
+                        : undefined
+                    }
+                    diskLabel={
+                      vm.resources.maxdisk > 0
+                        ? formatBytes(vm.resources.maxdisk)
+                        : undefined
+                    }
+                    openInNewTab
+                    trailingContent={
+                      <HugeiconsIcon
+                        icon={ExternalLinkIcon}
+                        className="size-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    }
+                  />
+                </m.div>
+              ))}
+            </ItemGroup>
+          </m.div>
         ) : (
           <Empty className="border border-dashed">
             <EmptyHeader>

@@ -59,9 +59,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
   )
-  const { data: providerCapabilities } = useQuery(
-    principalProviderQueryOptions
-  )
+  const { data: providerCapabilities } = useQuery(principalProviderQueryOptions)
   const canChangeOwnPassword =
     providerCapabilities?.can_change_own_password ?? true
   const {
@@ -125,6 +123,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           vnet: "",
           external_subnet: "",
           internal_subnet: "",
+          profile_key: "lan-router-v1",
         },
         vms: [],
         task_summary: item.summary.task_summary,
@@ -261,70 +260,70 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
       {!isDashboardLoading && (
         <>
           <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
-        <DashboardStatsGrid className="xl:col-span-7" stats={stats} />
-        <DashboardProfileCard
-          className="xl:col-span-5"
-          roleLabel={roleLabel}
-          user={user}
-          onSettingsClick={
-            canChangeOwnPassword ? () => setSettingsOpen(true) : undefined
-          }
-        />
-        <DashboardQuestionActivityCard
-          className="xl:col-span-4"
-          data={questionActivityHeatmapData}
-          error={questionActivityLoadError}
-        />
-        <DashboardCurrentClonedPodCard
-          className="xl:col-span-8"
-          entry={cloneStatus.current}
-          error={cloneStatus.error}
-        />
-        <DashboardRecentPodsCard
-          className="xl:col-span-7"
-          error={catalogError}
-          pods={recentPods}
-          username={user.username}
-        />
-        <DashboardFavoritesCard
-          className="xl:col-span-5"
-          favorites={favorites}
-          vmStatuses={vmStatuses}
-        />
-
-        <DashboardActivityTableCard
-          className="xl:col-span-12"
-          columns={activityColumns}
-          data={requests}
-          error={activityError}
-        />
-      </div>
-
-      <Suspense fallback={null}>
-        {settingsOpen && canChangeOwnPassword ? (
-          <ChangePasswordDialog
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
-          />
-        ) : null}
-        {selectedRequestId !== null && (
-          <RequestDetailDialog
-            canReview={false}
-            error={requestDetailError}
-            isLoading={isRequestDetailLoading}
-            onApprove={() => {}}
-            onDeny={() => {}}
-            onOpenChange={(open) => {
-              if (!open) {
-                setSelectedRequestId(null)
+            <DashboardStatsGrid className="xl:col-span-7" stats={stats} />
+            <DashboardProfileCard
+              className="xl:col-span-5"
+              roleLabel={roleLabel}
+              user={user}
+              onSettingsClick={
+                canChangeOwnPassword ? () => setSettingsOpen(true) : undefined
               }
-            }}
-            open={true}
-            request={requestDetail ?? null}
-            tree={tree}
-          />
-        )}
-      </Suspense>
+            />
+            <DashboardQuestionActivityCard
+              className="xl:col-span-4"
+              data={questionActivityHeatmapData}
+              error={questionActivityLoadError}
+            />
+            <DashboardCurrentClonedPodCard
+              className="xl:col-span-8"
+              entry={cloneStatus.current}
+              error={cloneStatus.error}
+            />
+            <DashboardRecentPodsCard
+              className="xl:col-span-7"
+              error={catalogError}
+              pods={recentPods}
+              username={user.username}
+            />
+            <DashboardFavoritesCard
+              className="xl:col-span-5"
+              favorites={favorites}
+              vmStatuses={vmStatuses}
+            />
+
+            <DashboardActivityTableCard
+              className="xl:col-span-12"
+              columns={activityColumns}
+              data={requests}
+              error={activityError}
+            />
+          </div>
+
+          <Suspense fallback={null}>
+            {settingsOpen && canChangeOwnPassword ? (
+              <ChangePasswordDialog
+                open={settingsOpen}
+                onOpenChange={setSettingsOpen}
+              />
+            ) : null}
+            {selectedRequestId !== null && (
+              <RequestDetailDialog
+                canReview={false}
+                error={requestDetailError}
+                isLoading={isRequestDetailLoading}
+                onApprove={() => {}}
+                onDeny={() => {}}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setSelectedRequestId(null)
+                  }
+                }}
+                open={true}
+                request={requestDetail ?? null}
+                tree={tree}
+              />
+            )}
+          </Suspense>
         </>
       )}
     </div>

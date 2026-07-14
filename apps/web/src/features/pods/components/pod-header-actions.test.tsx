@@ -26,6 +26,7 @@ const clonedPod = {
     vnet: "pod1",
     external_subnet: "10.0.0.0/24",
     internal_subnet: "192.168.1.0/24",
+    profile_key: "lan-router-v1" as const,
   },
   vms: [
     {

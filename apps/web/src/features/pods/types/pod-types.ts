@@ -67,12 +67,20 @@ export type PodPowerResult = {
   status: "succeeded" | "partial" | "failed"
 }
 
-export interface ClonedPodNetwork {
+interface ClonedPodNetworkBase {
   number: number
   vnet: string
   external_subnet: string
   internal_subnet: string
 }
+
+export type ClonedPodNetwork =
+  | (ClonedPodNetworkBase & { profile_key: "lan-router-v1" })
+  | (ClonedPodNetworkBase & {
+      profile_key: "lan-dmz-router-v1"
+      dmz_vnet: string
+      dmz_subnet: string
+    })
 
 // User-owned runtime instance of a pod.
 export interface ClonedPod {

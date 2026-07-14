@@ -14,12 +14,33 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
 import { PodHeaderActions } from "./pod-header-actions"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
+import type { ReactNode } from "react"
 import {
   FormatPodCreators,
   PodCreatorIcon,
 } from "@/features/pods/components/pod-creators"
 import { createTaskSummary } from "@/features/pods/utils/pod-runtime-state"
 import { GrainientBackground } from "@/components/grainient-background"
+
+function PodHeaderMetaChip({
+  icon,
+  value,
+  label,
+  className,
+}: {
+  icon?: ReactNode
+  value: ReactNode
+  label: string
+  className?: string
+}) {
+  return (
+    <div className={cn("flex items-center gap-1.5 text-sm", className)}>
+      {icon}
+      <span className="font-medium">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+    </div>
+  )
+}
 
 export function PodHeader({
   pod,
@@ -58,12 +79,7 @@ export function PodHeader({
             </div>
           </div>
 
-          <div
-            className={cn(
-              "relative flex flex-1 flex-col md:min-h-56",
-              clonedPod ? "md:pr-48" : "md:pr-24"
-            )}
-          >
+          <div className="relative flex flex-1 flex-col md:min-h-56">
             <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
               {clonedPod == null ? (
                 <Button onClick={onClone} disabled={!onClone}>
@@ -81,7 +97,12 @@ export function PodHeader({
             </div>
 
             <div className="flex flex-1 flex-col justify-center">
-              <div className="flex flex-col gap-2">
+              <div
+                className={cn(
+                  "flex flex-col gap-2",
+                  clonedPod ? "md:pr-48" : "md:pr-24"
+                )}
+              >
                 <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
                   {pod.title}
                 </h1>
@@ -91,21 +112,26 @@ export function PodHeader({
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-4">
-                <FormatPodCreators creators={pod.creators} />
+                <FormatPodCreators
+                  creators={pod.creators}
+                  className="text-sm"
+                />
 
                 <Separator
                   orientation="vertical"
                   className="bg-foreground/15"
                 />
 
-                <div className="flex items-center gap-1.5 text-sm">
-                  <HugeiconsIcon
-                    icon={CopyIcon}
-                    className="size-4 text-muted-foreground"
-                  />
-                  <span className="font-medium">{pod.clone_count}</span>
-                  <span className="text-muted-foreground">Clones</span>
-                </div>
+                <PodHeaderMetaChip
+                  icon={
+                    <HugeiconsIcon
+                      icon={CopyIcon}
+                      className="size-4 text-muted-foreground"
+                    />
+                  }
+                  value={pod.clone_count}
+                  label="Clones"
+                />
 
                 {taskSummary && (
                   <>
@@ -113,20 +139,21 @@ export function PodHeader({
                       orientation="vertical"
                       className="bg-foreground/15"
                     />
-                    <div className="flex items-center gap-2.5">
-                      <CircularProgress size={20} value={taskSummary.progress}>
-                        <CircularProgressIndicator>
-                          <CircularProgressTrack />
-                          <CircularProgressRange />
-                        </CircularProgressIndicator>
-                      </CircularProgress>
-                      <span className="flex items-center gap-1.5 text-sm">
-                        <span className="font-medium">
-                          {taskSummary.completed} / {taskSummary.total}
-                        </span>
-                        <span className="text-muted-foreground">Tasks</span>
-                      </span>
-                    </div>
+                    <PodHeaderMetaChip
+                      icon={
+                        <CircularProgress
+                          size={20}
+                          value={taskSummary.progress}
+                        >
+                          <CircularProgressIndicator>
+                            <CircularProgressTrack />
+                            <CircularProgressRange />
+                          </CircularProgressIndicator>
+                        </CircularProgress>
+                      }
+                      value={`${taskSummary.completed} / ${taskSummary.total}`}
+                      label="Tasks"
+                    />
                   </>
                 )}
 
@@ -134,19 +161,18 @@ export function PodHeader({
                   orientation="vertical"
                   className="bg-foreground/15"
                 />
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+
+                <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
                   {clonedPod ? (
                     <>
-                      <span>
-                        Cloned{" "}
-                        <RelativeTimeCard
-                          date={clonedPod.cloned_at}
-                          side="bottom"
-                          delay={50}
-                          closeDelay={150}
-                        />{" "}
-                        by
-                      </span>
+                      <span>Cloned</span>
+                      <RelativeTimeCard
+                        date={clonedPod.cloned_at}
+                        side="bottom"
+                        delay={50}
+                        closeDelay={150}
+                      />
+                      <span>by</span>
                       <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                         <PodCreatorIcon creator={clonedPod.owner} size={24} />
                         {clonedPod.owner.label}
@@ -154,7 +180,7 @@ export function PodHeader({
                     </>
                   ) : (
                     <>
-                      Created{" "}
+                      <span>Created</span>
                       <RelativeTimeCard
                         date={pod.created_at}
                         side="bottom"

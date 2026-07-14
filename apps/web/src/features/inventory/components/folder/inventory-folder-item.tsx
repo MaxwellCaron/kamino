@@ -1,13 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ComputerIcon,
-  CpuIcon,
-  FolderIcon,
-  HardDriveIcon,
-  RamMemoryIcon,
-  StarIcon,
-} from "@hugeicons/core-free-icons"
+import { ComputerIcon, FolderIcon, StarIcon } from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -22,6 +15,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 import { formatMemory } from "@/features/shared/utils/format"
 
 function FolderDescription({ node }: { node: ApiTreeNode }) {
@@ -44,25 +38,38 @@ function FolderDescription({ node }: { node: ApiTreeNode }) {
   )
 }
 
-function VmDescription({ vm }: { vm: ApiTreeNode["vm"] }) {
+function FolderRowActions({
+  itemId,
+  node,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  itemId: string
+  node: ApiTreeNode
+  isFavorite: boolean
+  onToggleFavorite: () => void
+}) {
   return (
     <>
-      <div className="flex items-center gap-1">
-        <HugeiconsIcon icon={CpuIcon} className="size-3.5" />
-        {vm?.cpu_count != null
-          ? `${vm.cpu_count} CPU${vm.cpu_count === 1 ? "" : "s"}`
-          : "—"}
-      </div>
-      <Separator orientation="vertical" className="mx-1" />
-      <div className="flex items-center gap-1">
-        <HugeiconsIcon icon={RamMemoryIcon} className="size-3.5" />
-        {vm?.memory_mb != null ? formatMemory(vm.memory_mb) : "—"}
-      </div>
-      <Separator orientation="vertical" className="mx-1" />
-      <div className="flex items-center gap-1">
-        <HugeiconsIcon icon={HardDriveIcon} className="size-3.5" />
-        {vm?.disk_gb != null ? `${vm.disk_gb} GB` : "—"}
-      </div>
+      <Button
+        size="icon"
+        variant="ghost"
+        className={cn(
+          "bg-transparent!",
+          isFavorite
+            ? "opacity-100!"
+            : "opacity-0 transition-opacity group-hover/folder-row:opacity-100"
+        )}
+        onClick={onToggleFavorite}
+      >
+        <HugeiconsIcon
+          icon={StarIcon}
+          className={
+            isFavorite ? "fill-muted-foreground dark:fill-muted-foreground" : ""
+          }
+        />
+      </Button>
+      <InventoryNodeMenu itemId={itemId} data={node} iconSize="icon" />
     </>
   )
 }
@@ -78,7 +85,35 @@ export function InventoryFolderItem({
   isFavorite: boolean
   onToggleFavorite: () => void
 }) {
-  const isFolder = node.kind === "folder"
+  if (node.kind === "vm") {
+    return (
+      <InventoryVmItem
+        itemId={node.id}
+        name={node.name}
+        status={status}
+        guestType={node.vm?.guest_type}
+        isTemplate={node.vm?.is_template}
+        cpuCount={node.vm?.cpu_count}
+        memoryLabel={
+          node.vm?.memory_mb != null
+            ? formatMemory(node.vm.memory_mb)
+            : undefined
+        }
+        diskLabel={
+          node.vm?.disk_gb != null ? `${node.vm.disk_gb} GB` : undefined
+        }
+        trailingContent={
+          <FolderRowActions
+            itemId={node.id}
+            node={node}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
+          />
+        }
+        preventNavigationFromTrailingContent
+      />
+    )
+  }
 
   return (
     <Item
@@ -95,11 +130,7 @@ export function InventoryFolderItem({
           <ItemContent>
             <ItemTitle>{node.name}</ItemTitle>
             <ItemDescription className="flex items-center gap-2">
-              {isFolder ? (
-                <FolderDescription node={node} />
-              ) : (
-                <VmDescription vm={node.vm} />
-              )}
+              <FolderDescription node={node} />
             </ItemDescription>
           </ItemContent>
           <ItemActions
@@ -110,27 +141,12 @@ export function InventoryFolderItem({
               }
             }}
           >
-            <Button
-              size="icon"
-              variant="ghost"
-              className={cn(
-                "bg-transparent!",
-                isFavorite
-                  ? "opacity-100!"
-                  : "opacity-0 transition-opacity group-hover/folder-row:opacity-100"
-              )}
-              onClick={onToggleFavorite}
-            >
-              <HugeiconsIcon
-                icon={StarIcon}
-                className={
-                  isFavorite
-                    ? "fill-muted-foreground dark:fill-muted-foreground"
-                    : ""
-                }
-              />
-            </Button>
-            <InventoryNodeMenu itemId={node.id} data={node} iconSize="icon" />
+            <FolderRowActions
+              itemId={node.id}
+              node={node}
+              isFavorite={isFavorite}
+              onToggleFavorite={onToggleFavorite}
+            />
           </ItemActions>
         </Link>
       }
