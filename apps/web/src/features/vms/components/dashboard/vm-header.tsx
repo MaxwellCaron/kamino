@@ -47,7 +47,7 @@ import {
   formatVmPowerStatus,
   getVmPowerStatusSurfaceClassName,
   getVmPowerStatusTextClassName,
-} from "@/components/status/vm-icon"
+} from "@/components/status/vm-power-status"
 import { animateChild, animateContainer } from "@/components/animate"
 
 type Stat = {

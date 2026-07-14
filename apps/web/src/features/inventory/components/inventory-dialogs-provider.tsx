@@ -1,7 +1,19 @@
-import { Suspense, createContext, lazy, use, useMemo, useReducer } from "react"
+import { Suspense, lazy, useMemo, useReducer } from "react"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { SnapshotDialogMode } from "@/features/vms/components/snapshot-dialog"
+import {
+  InventoryDialogsContext,
+  type CloneDialogConfig,
+  type CreateFolderDialogConfig,
+  type CreateVmDialogConfig,
+  type EditVmHardwareDialogConfig,
+  type FolderLimitDialogConfig,
+  type InventoryDialogsContextValue,
+  type PermissionsDialogConfig,
+  type RenameFolderDialogConfig,
+  type RenameVmDialogConfig,
+  type SnapshotDialogConfig,
+} from "./inventory-dialogs-context"
 
 const ConfirmDialog = lazy(() =>
   import("@/components/dialogs/confirm-dialog").then((module) => ({
@@ -47,62 +59,6 @@ const VmHardwareDialog = lazy(() =>
     })
   )
 )
-
-type PermissionsDialogConfig = {
-  itemId: string
-  itemKind: "folder" | "vm"
-  itemName: string
-  itemVmid?: number
-}
-
-type CreateFolderDialogConfig = {
-  parentId: string
-}
-
-type RenameFolderDialogConfig = {
-  folderId: string
-  currentName: string
-  currentDescription?: string | null
-}
-
-type FolderLimitDialogConfig = {
-  directVmLimit?: number | null
-  effectiveVmLimit?: number | null
-  folderId: string
-  folderName: string
-  vmCount?: number | null
-}
-
-type CreateVmDialogConfig = {
-  initialFolderId: string
-}
-
-type SnapshotDialogConfig = {
-  itemId: string
-  currentName?: string
-  currentVmid?: number
-  guestType?: "qemu" | "lxc"
-  mode?: SnapshotDialogMode
-}
-
-type CloneDialogConfig = {
-  itemId: string
-  currentName: string
-  currentVmid?: number
-  isTemplate?: boolean
-}
-
-type RenameVmDialogConfig = {
-  itemId: string
-  currentName: string
-  currentVmid?: number
-}
-
-type EditVmHardwareDialogConfig = {
-  itemId: string
-  currentName: string
-  currentVmid?: number
-}
 
 type InventoryDialogsState = {
   confirm: ConfirmConfig | null
@@ -200,34 +156,6 @@ function inventoryDialogsReducer(
     default:
       return state
   }
-}
-
-type InventoryDialogsContextValue = {
-  openConfirm: (config: ConfirmConfig) => void
-  openCreateFolder: (config: CreateFolderDialogConfig) => void
-  openRenameFolder: (config: RenameFolderDialogConfig) => void
-  openFolderLimit: (config: FolderLimitDialogConfig) => void
-  openCreateVm: (config: CreateVmDialogConfig) => void
-  openSnapshot: (config: SnapshotDialogConfig) => void
-  openClone: (config: CloneDialogConfig) => void
-  openRenameVm: (config: RenameVmDialogConfig) => void
-  openEditVmHardware: (config: EditVmHardwareDialogConfig) => void
-  openPermissions: (config: PermissionsDialogConfig) => void
-}
-
-const InventoryDialogsContext =
-  createContext<InventoryDialogsContextValue | null>(null)
-
-export function useInventoryDialogs() {
-  const context = use(InventoryDialogsContext)
-
-  if (!context) {
-    throw new Error(
-      "useInventoryDialogs must be used within an InventoryDialogsProvider."
-    )
-  }
-
-  return context
 }
 
 export function InventoryDialogsProvider({

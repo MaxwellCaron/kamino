@@ -10,11 +10,11 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
+import { VmIcon } from "@/components/status/vm-icon"
 import {
-  VmIcon,
   formatVmPowerStatus,
   getVmPowerStatusTextClassName,
-} from "@/components/status/vm-icon"
+} from "@/components/status/vm-power-status"
 import { formatUptime } from "@/features/shared/utils/format"
 
 export function VmListItem({

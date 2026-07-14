@@ -11,7 +11,7 @@ import {
   runInventoryPowerAction
 } from "../../utils/inventory-power-actions"
 import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
-import { useInventoryDialogs } from "../inventory-dialogs-provider"
+import { useInventoryDialogs } from "../inventory-dialogs-context"
 import { FolderMenuItems } from "./folder-menu-items"
 import { FOLDER_POWER_ACTION_DEFINITIONS } from "./folder-power-action-definitions"
 import { TemplateMenuItems } from "./template-menu-items"

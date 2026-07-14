@@ -10,7 +10,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { VmPowerActionItem } from "@/features/vms/hooks/use-vm-power-actions"
-import { useInventoryDialogs } from "@/features/inventory/components/inventory-dialogs-provider"
+import { useInventoryDialogs } from "@/features/inventory/components/inventory-dialogs-context"
 import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"
 
 interface VmPowerControlsProps {

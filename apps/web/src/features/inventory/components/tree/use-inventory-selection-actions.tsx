@@ -5,7 +5,7 @@ import {
   runInventoryPowerAction,
 } from "../../utils/inventory-power-actions"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
-import { useInventoryDialogs } from "../inventory-dialogs-provider"
+import { useInventoryDialogs } from "../inventory-dialogs-context"
 import { useInventoryTreeContext } from "./inventory-tree-context"
 import {
   collectDescendantIds,
