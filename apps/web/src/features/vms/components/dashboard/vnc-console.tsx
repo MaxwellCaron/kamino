@@ -43,6 +43,7 @@ import type { VncScreenHandle } from "react-vnc"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
+import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
 
 const LazyVncScreen = lazy(() =>
   import("./vnc-screen-client").then((module) => ({
@@ -84,6 +85,7 @@ export function VncConsole({
 
   async function startConnection() {
     if (connectingRef.current) return
+    alignVncLayoutAnchorIfOverscrolled()
     connectingRef.current = true
     setStatus("connecting")
     onStatusChange("connecting")

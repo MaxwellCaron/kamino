@@ -83,8 +83,12 @@ function isRetainedStatus(status: VncConnectionStatus): boolean {
 
 function isPinnedConsoleStatus(
   status: VncConnectionStatus | null
-): status is "connected" | "expired" {
-  return status === "connected" || status === "expired"
+): status is "connecting" | "connected" | "expired" {
+  return (
+    status === "connecting" ||
+    status === "connected" ||
+    status === "expired"
+  )
 }
 
 function subscribeToDocumentVisibility(onChange: () => void) {

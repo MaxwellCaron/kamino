@@ -486,6 +486,15 @@ describe("VncSessionWorkspace", () => {
       expect(workspace).toHaveAttribute("data-pinned", "true")
     })
 
+    it("pins the workspace while the active console is connecting", () => {
+      renderWorkspace()
+      setConsoleStatus("vm-a", "connecting")
+
+      const workspace = screen.getByTestId("vnc-session-workspace")
+      expect(workspace).toHaveAttribute("data-pinned", "true")
+      expect(workspace.className).toContain("absolute")
+    })
+
     it("keeps a disconnected destination inline in document flow", () => {
       const { rerenderWorkspace } = renderWorkspace()
 

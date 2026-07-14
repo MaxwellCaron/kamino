@@ -8,11 +8,13 @@ import type { ComponentProps } from "react"
 import type { VncScreenHandle } from "react-vnc"
 import { renderWithQueryClient } from "@/test/test-utils"
 
-const { mockApiFetch, mockApiUrl, mockDisconnect } = vi.hoisted(() => ({
-  mockApiFetch: vi.fn(),
-  mockApiUrl: vi.fn((path: string) => path),
-  mockDisconnect: vi.fn(),
-}))
+const { mockApiFetch, mockApiUrl, mockDisconnect, mockAlignVncLayoutAnchor } =
+  vi.hoisted(() => ({
+    mockApiFetch: vi.fn(),
+    mockApiUrl: vi.fn((path: string) => path),
+    mockDisconnect: vi.fn(),
+    mockAlignVncLayoutAnchor: vi.fn(),
+  }))
 
 let screenMountCount = 0
 let scaleViewportValue = true
@@ -31,6 +33,10 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 vi.mock("@/features/auth/api/auth-api", () => ({
   apiFetch: (...args: Array<unknown>) => mockApiFetch(...args),
   apiUrl: (path: string) => mockApiUrl(path),
+}))
+
+vi.mock("./vnc-layout-anchor", () => ({
+  alignVncLayoutAnchorIfOverscrolled: () => mockAlignVncLayoutAnchor(),
 }))
 
 vi.mock("./vnc-screen-client", () => ({
@@ -146,6 +152,7 @@ describe("VncConsole", () => {
     mockApiUrl.mockReset()
     mockApiUrl.mockImplementation((path: string) => path)
     mockDisconnect.mockReset()
+    mockAlignVncLayoutAnchor.mockReset()
     screenMountCount = 0
     latestScreenProps = null
     scaleViewportValue = true
@@ -166,6 +173,7 @@ describe("VncConsole", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Connect" }))
 
+    expect(mockAlignVncLayoutAnchor).toHaveBeenCalledTimes(1)
     expect(onStatusChange).toHaveBeenCalledWith("connecting")
     await waitForVncScreen()
 
