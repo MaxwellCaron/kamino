@@ -100,6 +100,7 @@ func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, erro
 		CPUCount:     int32(sockets * cores),
 		MemoryMB:     int32(memoryMB),
 		DiskGB:       float64(diskSizeGB),
+		Notes:        getStringValue(data["description"]),
 	}, nil
 }
 

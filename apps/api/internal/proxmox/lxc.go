@@ -40,6 +40,7 @@ func parseLXCConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, err
 		CPUCount:     int32(cores),
 		MemoryMB:     int32(memoryMB),
 		DiskGB:       diskGB,
+		Notes:        getStringValue(data["description"]),
 	}, nil
 }
 

@@ -253,7 +253,7 @@ func syncVMConfigSummary(
 			return fmt.Errorf("creating inventory item: %w", err)
 		}
 
-		return q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
+		if err := q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
 			InventoryItemID: itemID,
 			Node:            node,
 			Vmid:            int32(vmid),
@@ -263,7 +263,11 @@ func syncVMConfigSummary(
 			CpuCount:        &summary.CPUCount,
 			MemoryMb:        &summary.MemoryMB,
 			DiskGb:          &summary.DiskGB,
-		})
+		}); err != nil {
+			return fmt.Errorf("inserting proxmox_vms: %w", err)
+		}
+
+		return applyImportedVMNotes(ctx, q, itemID, summary.Notes)
 	}
 
 	existing := existingByUUID
@@ -313,7 +317,7 @@ func syncVMConfigSummary(
 		}
 	}
 
-	return nil
+	return applyImportedVMNotes(ctx, q, existing.InventoryItemID, summary.Notes)
 }
 
 func (s *InventoryImporter) ensureVMConfigSummary(
@@ -381,6 +385,14 @@ func decodePoolPath(poolID string) []string {
 
 const maxImportedPoolCommentLength = 256
 
+func normalizeImportedPoolDescription(comment string) *string {
+	value := strings.TrimSpace(comment)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 func applyImportedPoolDescription(
 	ctx context.Context,
 	q *database.Queries,
@@ -388,22 +400,34 @@ func applyImportedPoolDescription(
 	comment string,
 	folderID uuid.UUID,
 ) error {
-	value := strings.TrimSpace(comment)
-	if value == "" {
-		return nil
-	}
-	if len(value) > maxImportedPoolCommentLength {
+	description := normalizeImportedPoolDescription(comment)
+	if description != nil && len(*description) > maxImportedPoolCommentLength {
 		log.Printf(
 			"Warning: skipping pool %q comment import (%d characters exceeds %d limit)",
 			poolID,
-			len(value),
+			len(*description),
 			maxImportedPoolCommentLength,
 		)
 		return nil
 	}
 
 	return q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
-		Description: &value,
+		Description: description,
 		ID:          folderID,
 	})
+}
+
+func applyImportedVMNotes(
+	ctx context.Context,
+	q *database.Queries,
+	itemID uuid.UUID,
+	notes string,
+) error {
+	if err := q.UpdateProxmoxVMNotesByItemID(ctx, database.UpdateProxmoxVMNotesByItemIDParams{
+		Notes:           &notes,
+		InventoryItemID: itemID,
+	}); err != nil {
+		return fmt.Errorf("updating imported proxmox_vms notes for item %s: %w", itemID, err)
+	}
+	return nil
 }

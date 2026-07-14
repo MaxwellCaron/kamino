@@ -174,6 +174,7 @@ type VMConfigSummary struct {
 	CPUCount     int32
 	MemoryMB     int32
 	DiskGB       float64
+	Notes        string
 }
 
 type GuestExecStatus struct {

@@ -17,10 +17,11 @@ func TestParseLXCConfigSummary(t *testing.T) {
 		{
 			name: "hostname present",
 			data: map[string]any{
-				"hostname": "web-01",
-				"cores":    2,
-				"memory":   2048,
-				"rootfs":   "local-lvm:vm-616-disk-0,size=8G",
+				"hostname":    "web-01",
+				"cores":       2,
+				"memory":      2048,
+				"rootfs":      "local-lvm:vm-616-disk-0,size=8G",
+				"description": "  service web tier  ",
 			},
 			vmid: 616,
 			want: &VMConfigSummary{
@@ -30,6 +31,7 @@ func TestParseLXCConfigSummary(t *testing.T) {
 				CPUCount:     2,
 				MemoryMB:     2048,
 				DiskGB:       8,
+				Notes:        "service web tier",
 			},
 		},
 		{
@@ -84,7 +86,8 @@ func TestParseLXCConfigSummary(t *testing.T) {
 				got.UpstreamUUID != tc.want.UpstreamUUID ||
 				got.CPUCount != tc.want.CPUCount ||
 				got.MemoryMB != tc.want.MemoryMB ||
-				got.DiskGB != tc.want.DiskGB {
+				got.DiskGB != tc.want.DiskGB ||
+				got.Notes != tc.want.Notes {
 				t.Fatalf("parseLXCConfigSummary() = %+v, want %+v", got, tc.want)
 			}
 		})
