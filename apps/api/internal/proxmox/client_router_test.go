@@ -12,16 +12,7 @@ import (
 )
 
 func newTestClient(server *httptest.Server) *Client {
-	return &Client{
-		baseURL: server.URL,
-		tokenID: "token",
-		secret:  "secret",
-		nodes:   []string{"node1"},
-		nodeIndex: map[string]int{
-			"node1": 0,
-		},
-		httpClient: server.Client(),
-	}
+	return NewHTTPTestClient(server)
 }
 
 func writeAPIResponse(t *testing.T, w http.ResponseWriter, status int, data any) {
@@ -61,7 +52,7 @@ func TestSetVMNetworkBridgePreservesNICShape(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server)
+	client := NewHTTPTestClient(server)
 	if err := client.SetVMNetworkBridge(context.Background(), "node1", 101, "net1", "kamino24"); err != nil {
 		t.Fatalf("SetVMNetworkBridge() error = %v", err)
 	}
@@ -92,7 +83,7 @@ func TestDeleteVMNetworkDevice(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server)
+	client := NewHTTPTestClient(server)
 	if err := client.DeleteVMNetworkDevice(context.Background(), "node1", 101, "net2"); err != nil {
 		t.Fatalf("DeleteVMNetworkDevice() error = %v", err)
 	}
@@ -138,7 +129,7 @@ func TestSetVMCloudInitCustomSendsExpectedPayload(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server)
+	client := NewHTTPTestClient(server)
 	if err := client.SetVMCloudInitCustom(
 		context.Background(),
 		"node1",
@@ -174,7 +165,7 @@ func TestEnsureVMCloudInitDrive(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newTestClient(server)
+		client := NewHTTPTestClient(server)
 		if err := client.EnsureVMCloudInitDrive(context.Background(), "node1", 101); err != nil {
 			t.Fatalf("EnsureVMCloudInitDrive() error = %v", err)
 		}
@@ -191,7 +182,7 @@ func TestEnsureVMCloudInitDrive(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newTestClient(server)
+		client := NewHTTPTestClient(server)
 		err := client.EnsureVMCloudInitDrive(context.Background(), "node1", 101)
 		if err == nil {
 			t.Fatalf("expected missing cloud-init drive error")
@@ -211,7 +202,7 @@ func TestGetVMRuntimeStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server)
+	client := NewHTTPTestClient(server)
 	status, err := client.GetVMRuntimeStatus(context.Background(), GuestQEMU, "node1", 101)
 	if err != nil {
 		t.Fatalf("GetVMRuntimeStatus() error = %v", err)
@@ -230,7 +221,7 @@ func TestWaitForVMRuntimeStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server)
+	client := NewHTTPTestClient(server)
 	if err := client.WaitForVMRuntimeStatus(context.Background(), GuestQEMU, "node1", 101, "running", 3*time.Second); err != nil {
 		t.Fatalf("WaitForVMRuntimeStatus() error = %v", err)
 	}
@@ -258,7 +249,7 @@ func TestWaitForVMConfigUnlocked(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestClient(server)
+	client := NewHTTPTestClient(server)
 	if err := client.WaitForVMConfigUnlocked(context.Background(), "node1", 101, 3*time.Second); err != nil {
 		t.Fatalf("WaitForVMConfigUnlocked() error = %v", err)
 	}
@@ -301,7 +292,7 @@ func TestDeleteVMStopped(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newTestClient(server)
+		client := NewHTTPTestClient(server)
 		err := client.DeleteVMStopped(context.Background(), GuestQEMU, "node1", 101)
 		if err != nil {
 			t.Fatalf("DeleteVMStopped() error = %v", err)
@@ -357,7 +348,7 @@ func TestDeleteVMStopped(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newTestClient(server)
+		client := NewHTTPTestClient(server)
 		err := client.DeleteVMStopped(context.Background(), GuestQEMU, "node1", 101)
 		if err != nil {
 			t.Fatalf("DeleteVMStopped() error = %v", err)

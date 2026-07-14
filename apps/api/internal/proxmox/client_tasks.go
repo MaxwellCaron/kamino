@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+// Task is a handle to a started Proxmox background task.
+type Task struct {
+	Node string
+	UPID string
+}
+
 type TaskStatus struct {
 	Status     string `json:"status"`     // "running" or "stopped"
 	ExitStatus string `json:"exitstatus"` // OK, WARNINGS: <count>, or error

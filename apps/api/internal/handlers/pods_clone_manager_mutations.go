@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -107,44 +109,103 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 		Failed:    []publishedPodCloneBulkActionFailure{},
 	}
 
-	for _, clone := range clones {
-		var reqErr *requestError
-		switch req.Action {
-		case "start", "shutdown":
-			reqErr = h.powerPublishedPodCloneForManager(c.Request.Context(), q, clone, req.Action)
-		case "reclone":
-			reqErr = h.runClaimedPodCloneMutation(c.Request.Context(), clone, "reclone", principalID, func() *requestError {
-				_, reqErr := h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil)
-				return reqErr
-			})
-		case "delete":
-			reqErr = h.runClaimedPodCloneMutation(c.Request.Context(), clone, "delete", principalID, func() *requestError {
-				return h.deletePublishedPodCloneForManager(c.Request.Context(), q, clone)
-			})
+	switch req.Action {
+	case "start", "shutdown":
+		type bulkCloneOutcome struct {
+			cloneID   uuid.UUID
+			userID    uuid.UUID
+			succeeded bool
+			reqErr    *requestError
 		}
-		if reqErr != nil {
-			log.Printf("bulk clone action %s clone_id=%s: %v", req.Action, clone.ID, reqErr.UserMessage)
-			resp.Failed = append(resp.Failed, publishedPodCloneBulkActionFailure{
-				ID:    clone.ID,
-				Error: reqErr.UserMessage,
-			})
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+		outcomes := make([]bulkCloneOutcome, len(clones))
+		_ = runBoundedPowerActions(c.Request.Context(), h.Actions.PowerConcurrency(), clones, func(ctx context.Context, index int, clone database.ClonedPods) error {
+			outcome := bulkCloneOutcome{cloneID: clone.ID, userID: clone.UserPrincipalID}
+			if reqErr := h.claimPodCloneForMutation(ctx, clone.PodID, clone.UserPrincipalID, req.Action, principalID); reqErr != nil {
+				outcome.reqErr = reqErr
+				outcomes[index] = outcome
+				return nil
+			}
+			defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, ctx)
+
+			powerResult, powerErr := h.powerPublishedPodCloneForManager(ctx, q, clone, req.Action, principalID)
+			if powerErr != nil {
+				outcome.reqErr = powerErr
+			} else if cloneFailedFromPowerResult(powerResult) {
+				outcome.reqErr = &requestError{
+					UserMessage: fmt.Sprintf("%d vm power failures", len(powerResult.Failed)),
+				}
+			} else {
+				outcome.succeeded = true
+			}
+			outcomes[index] = outcome
+			return nil
+		})
+
+		for _, outcome := range outcomes {
+			if outcome.reqErr != nil {
+				log.Printf("bulk clone action %s clone_id=%s: %v", req.Action, outcome.cloneID, outcome.reqErr.UserMessage)
+				resp.Failed = append(resp.Failed, publishedPodCloneBulkActionFailure{
+					ID:    outcome.cloneID,
+					Error: outcome.reqErr.UserMessage,
+				})
+				h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+					ActorPrincipalID: &principalID,
+					ActionKind:       "pod." + req.Action,
+					TargetKind:       "pod",
+					PodID:            &podID,
+					Metadata:         map[string]any{"clone_id": outcome.cloneID.String()},
+				}, outcome.reqErr.UserMessage)
+				continue
+			}
+			if outcome.succeeded {
+				resp.Succeeded = append(resp.Succeeded, outcome.cloneID)
+				h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+					ActorPrincipalID: &principalID,
+					ActionKind:       "pod." + req.Action,
+					TargetKind:       "pod",
+					PodID:            &podID,
+					Metadata:         map[string]any{"clone_id": outcome.cloneID.String()},
+				})
+			}
+		}
+	default:
+		for _, clone := range clones {
+			var reqErr *requestError
+			switch req.Action {
+			case "reclone":
+				reqErr = h.runClaimedPodCloneMutation(c.Request.Context(), clone, "reclone", principalID, func() *requestError {
+					_, reqErr := h.reclonePublishedPod(c.Request.Context(), clone.UserPrincipalID, clone, nil)
+					return reqErr
+				})
+			case "delete":
+				reqErr = h.runClaimedPodCloneMutation(c.Request.Context(), clone, "delete", principalID, func() *requestError {
+					return h.deletePublishedPodCloneForManager(c.Request.Context(), q, clone)
+				})
+			}
+			if reqErr != nil {
+				log.Printf("bulk clone action %s clone_id=%s: %v", req.Action, clone.ID, reqErr.UserMessage)
+				resp.Failed = append(resp.Failed, publishedPodCloneBulkActionFailure{
+					ID:    clone.ID,
+					Error: reqErr.UserMessage,
+				})
+				h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+					ActorPrincipalID: &principalID,
+					ActionKind:       "pod." + req.Action,
+					TargetKind:       "pod",
+					PodID:            &podID,
+					Metadata:         map[string]any{"clone_id": clone.ID.String()},
+				}, reqErr.UserMessage)
+				continue
+			}
+			resp.Succeeded = append(resp.Succeeded, clone.ID)
+			h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 				ActorPrincipalID: &principalID,
 				ActionKind:       "pod." + req.Action,
 				TargetKind:       "pod",
 				PodID:            &podID,
 				Metadata:         map[string]any{"clone_id": clone.ID.String()},
-			}, reqErr.UserMessage)
-			continue
+			})
 		}
-		resp.Succeeded = append(resp.Succeeded, clone.ID)
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "pod." + req.Action,
-			TargetKind:       "pod",
-			PodID:            &podID,
-			Metadata:         map[string]any{"clone_id": clone.ID.String()},
-		})
 	}
 
 	c.JSON(http.StatusOK, resp)

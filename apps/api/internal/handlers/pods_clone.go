@@ -149,6 +149,7 @@ type clonedPodResponse struct {
 	TaskSummary     clonedPodTaskSummaryResponse      `json:"task_summary"`
 	TaskStates      []clonedPodTaskStateResponse      `json:"task_states"`
 	QuestionAnswers []clonedPodQuestionAnswerResponse `json:"question_answers"`
+	PowerResult     *podPowerResultResponse           `json:"power_result,omitempty"`
 }
 
 type clonedPodVMResponse struct {

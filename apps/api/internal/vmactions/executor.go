@@ -9,6 +9,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/google/uuid"
+	"golang.org/x/sync/semaphore"
 )
 
 type PowerAction string
@@ -22,6 +23,11 @@ const (
 	PowerActionStop     PowerAction = "stop"
 )
 
+type PowerConfig struct {
+	Concurrency int
+	TaskTimeout time.Duration
+}
+
 type Target struct {
 	ItemID    uuid.UUID
 	Node      string
@@ -30,50 +36,82 @@ type Target struct {
 }
 
 type Executor struct {
-	px        *proxmox.Client
-	inventory *inventory.Service
-	notifier  *vmstatus.Notifier
+	px           *proxmox.Client
+	inventory    *inventory.Service
+	notifier     *vmstatus.Notifier
+	powerConfig  PowerConfig
+	powerLimiter *semaphore.Weighted
 }
 
 func NewExecutor(
 	px *proxmox.Client,
 	inventoryService *inventory.Service,
 	notifier *vmstatus.Notifier,
+	powerConfig PowerConfig,
 ) *Executor {
 	return &Executor{
-		px:        px,
-		inventory: inventoryService,
-		notifier:  notifier,
+		px:           px,
+		inventory:    inventoryService,
+		notifier:     notifier,
+		powerConfig:  powerConfig,
+		powerLimiter: semaphore.NewWeighted(int64(powerConfig.Concurrency)),
 	}
+}
+
+func (e *Executor) PowerConcurrency() int {
+	return e.powerConfig.Concurrency
 }
 
 func (e *Executor) PowerAction(ctx context.Context, target Target, action PowerAction) error {
 	switch action {
-	case PowerActionStart:
-		if err := e.px.StartVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go e.waitForObservedVMStatus(target.VMID, "running")
-	case PowerActionShutdown:
-		if err := e.px.ShutdownVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go e.waitForObservedVMStatus(target.VMID, "stopped")
-	case PowerActionReboot:
-		if err := e.px.RebootVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go e.waitForObservedVMStatus(target.VMID, "running")
-	case PowerActionStop:
-		if err := e.px.StopVM(ctx, target.GuestType, target.Node, target.VMID); err != nil {
-			return err
-		}
-		go e.waitForObservedVMStatus(target.VMID, "stopped")
+	case PowerActionStart, PowerActionShutdown, PowerActionReboot, PowerActionStop:
 	default:
 		return ErrInvalidPowerAction
 	}
 
+	if err := e.powerLimiter.Acquire(ctx, 1); err != nil {
+		return err
+	}
+	defer e.powerLimiter.Release(1)
+
+	taskCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), e.powerConfig.TaskTimeout)
+	defer cancel()
+
+	task, err := e.startPowerTask(taskCtx, target, action)
+	if err != nil {
+		return err
+	}
+	if err := e.px.WaitForTask(taskCtx, task.Node, task.UPID); err != nil {
+		return err
+	}
+
+	switch action {
+	case PowerActionStart, PowerActionReboot:
+		go e.waitForObservedVMStatus(target.VMID, "running")
+	case PowerActionShutdown, PowerActionStop:
+		go e.waitForObservedVMStatus(target.VMID, "stopped")
+	}
+
 	return nil
+}
+
+func (e *Executor) startPowerTask(
+	ctx context.Context,
+	target Target,
+	action PowerAction,
+) (proxmox.Task, error) {
+	switch action {
+	case PowerActionStart:
+		return e.px.StartVMTask(ctx, target.GuestType, target.Node, target.VMID)
+	case PowerActionShutdown:
+		return e.px.ShutdownVMTask(ctx, target.GuestType, target.Node, target.VMID)
+	case PowerActionReboot:
+		return e.px.RebootVMTask(ctx, target.GuestType, target.Node, target.VMID)
+	case PowerActionStop:
+		return e.px.StopVMTask(ctx, target.GuestType, target.Node, target.VMID)
+	default:
+		return proxmox.Task{}, ErrInvalidPowerAction
+	}
 }
 
 func (e *Executor) DeleteVM(ctx context.Context, target Target) error {

@@ -72,6 +72,12 @@ type PodsHandler struct {
 	PersonalVMIDRange               vmidalloc.Range
 	PodCloneClaims                  PodCloneClaimStore
 	PodProvisionLimiter             *PodProvisionLimiter
+	VMActionClaims                  VMActionClaimStore
+}
+
+type VMActionClaimStore interface {
+	Claim(context.Context, uuid.UUID, string, uuid.UUID, string) error
+	Release(context.Context, uuid.UUID) error
 }
 
 type PodCloneClaimStore interface {
@@ -164,6 +170,12 @@ type clonedPodNetworkResponse struct {
 	PrefixNAT       *prefixNATResponse          `json:"prefix_nat,omitempty"`
 }
 
+type podPowerResultResponse struct {
+	Action    string                `json:"action"`
+	Succeeded []uuid.UUID           `json:"succeeded"`
+	Failed    []bulkVMActionFailure `json:"failed"`
+}
+
 type publishedPodCloneResponse struct {
 	ID          uuid.UUID                            `json:"id"`
 	PodID       uuid.UUID                            `json:"pod_id"`
@@ -174,6 +186,7 @@ type publishedPodCloneResponse struct {
 	Network     clonedPodNetworkResponse             `json:"network"`
 	VMCount     int32                                `json:"vm_count"`
 	TaskSummary publishedPodCloneTaskSummaryResponse `json:"task_summary"`
+	PowerResult *podPowerResultResponse              `json:"power_result,omitempty"`
 }
 
 type publishedPodBase struct {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -35,7 +36,18 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, targets, reqErr := h.clonedPodActionTargets(
+	clone, reqErr := h.loadAccessibleClonedPod(c.Request.Context(), q, principalID, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+
+	if !h.acquirePodCloneClaim(c, clone.PodID, clone.UserPrincipalID, req.Action, principalID) {
+		return
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
+
+	targets, reqErr := h.resolveClonedPodPowerTargets(
 		c.Request.Context(),
 		q,
 		principalID,
@@ -53,40 +65,43 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 		return
 	}
 
-	expectedStatus := "running"
-	if req.Action == string(vmactions.PowerActionShutdown) {
-		expectedStatus = "stopped"
-	}
-
-	for _, target := range targets {
-		if clonedPodVMAlreadyInPowerState(req.Action, statuses[target.VMID]) {
-			continue
-		}
-
-		if err := h.Actions.PowerAction(c.Request.Context(), target, vmactions.PowerAction(req.Action)); err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to update cloned pod power state", "power cloned pod vm", err)
-			return
-		}
-		if err := h.waitForVMStatus(c.Request.Context(), target.VMID, expectedStatus); err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to confirm cloned pod power state", "wait for cloned pod vm power state", err)
-			return
-		}
-	}
+	powerResult := h.runClaimedPodVMPowerActions(
+		c.Request.Context(),
+		principalID,
+		vmactions.PowerAction(req.Action),
+		targets,
+		statuses,
+	)
 
 	response, err := h.hydrateClonedPod(c.Request.Context(), q, principalID, clone)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after power action", err)
 		return
 	}
+	response.PowerResult = &powerResult
 
 	c.JSON(http.StatusOK, response)
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+	if len(powerResult.Failed) == 0 {
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "pod.power." + req.Action,
+			TargetKind:       "pod",
+			PodID:            &clone.PodID,
+			Metadata:         map[string]any{"clone_id": clone.ID.String()},
+		})
+		return
+	}
+
+	h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "pod.power." + req.Action,
 		TargetKind:       "pod",
 		PodID:            &clone.PodID,
-		Metadata:         map[string]any{"clone_id": clone.ID.String()},
-	})
+		Metadata: map[string]any{
+			"clone_id":      clone.ID.String(),
+			"failure_count": len(powerResult.Failed),
+		},
+	}, fmt.Sprintf("%d vm power failures", len(powerResult.Failed)))
 }
 
 func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {

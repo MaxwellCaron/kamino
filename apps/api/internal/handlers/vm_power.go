@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -46,7 +47,18 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 	)
 
 	ctx := c.Request.Context()
-	for _, target := range targets {
+	limit := 6
+	if h.Actions != nil {
+		limit = h.Actions.PowerConcurrency()
+	}
+
+	type vmPowerOutcome struct {
+		target  verifiedVMTarget
+		claimed bool
+		err     error
+	}
+	outcomes := make([]vmPowerOutcome, len(targets))
+	_ = runBoundedPowerActions(ctx, limit, targets, func(ctx context.Context, index int, target verifiedVMTarget) error {
 		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "power_action", principalID, func() error {
 			return h.Actions.PowerAction(
 				ctx,
@@ -54,21 +66,31 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 				vmactions.PowerAction(req.Action),
 			)
 		})
-		if !claimed {
+		outcomes[index] = vmPowerOutcome{
+			target:  target,
+			claimed: claimed,
+			err:     actionErr,
+		}
+		return nil
+	})
+
+	for _, outcome := range outcomes {
+		target := outcome.target
+		if !outcome.claimed {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "another action is already in progress for this VM",
 			})
 			continue
 		}
-		if actionErr != nil {
-			logRequestError(c, fmt.Sprintf("vm power action=%s item_id=%s", req.Action, target.ItemID), actionErr)
+		if outcome.err != nil {
+			logRequestError(c, fmt.Sprintf("vm power action=%s item_id=%s", req.Action, target.ItemID), outcome.err)
 			h.Audit.RecordFailure(ctx, audit.EventParams{
 				ActorPrincipalID: &principalID,
 				ActionKind:       "vm.power." + req.Action,
 				TargetKind:       "vm",
 				InventoryItemID:  &target.ItemID,
-			}, actionErr.Error())
+			}, outcome.err.Error())
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: fmt.Sprintf("%s failed", req.Action),

@@ -60,9 +60,27 @@ func (h *PodsHandler) getVMStatus(ctx context.Context, vmid int) (string, error)
 }
 
 func (h *PodsHandler) waitForVMStatus(ctx context.Context, vmid int, expected string) error {
+	unconfirmed, err := h.waitForVMStatuses(ctx, map[int]string{vmid: expected})
+	if err != nil {
+		return err
+	}
+	if len(unconfirmed) > 0 {
+		return fmt.Errorf("vm %d did not reach %s", vmid, expected)
+	}
+	return nil
+}
+
+func (h *PodsHandler) waitForVMStatuses(
+	ctx context.Context,
+	expected map[int]string,
+) ([]int, error) {
+	if len(expected) == 0 {
+		return nil, nil
+	}
+
 	if h.Notifier != nil {
-		if err := h.Notifier.RefreshUntilStatus(ctx, vmid, expected); err == nil {
-			return nil
+		if err := h.Notifier.RefreshUntilStatuses(ctx, expected); err == nil {
+			return nil, nil
 		}
 	}
 
@@ -71,22 +89,42 @@ func (h *PodsHandler) waitForVMStatus(ctx context.Context, vmid int, expected st
 	defer ticker.Stop()
 
 	for {
-		status, err := h.getVMStatus(ctx, vmid)
+		statuses, _, err := h.runtimeForVMIDs(ctx, vmidsFromExpectedStatuses(expected))
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if status == expected {
-			return nil
+
+		unconfirmed := unconfirmedVMStatuses(expected, statuses)
+		if len(unconfirmed) == 0 {
+			return nil, nil
 		}
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return unconfirmed, ctx.Err()
 		case <-deadline:
-			return fmt.Errorf("vm %d did not reach %s", vmid, expected)
+			return unconfirmedVMStatuses(expected, statuses), nil
 		case <-ticker.C:
 		}
 	}
+}
+
+func vmidsFromExpectedStatuses(expected map[int]string) []int {
+	vmids := make([]int, 0, len(expected))
+	for vmid := range expected {
+		vmids = append(vmids, vmid)
+	}
+	return vmids
+}
+
+func unconfirmedVMStatuses(expected map[int]string, statuses map[int]string) []int {
+	unconfirmed := make([]int, 0)
+	for vmid, want := range expected {
+		if statuses[vmid] != want {
+			unconfirmed = append(unconfirmed, vmid)
+		}
+	}
+	return unconfirmed
 }
 
 func vmResourcesFromProxmoxVM(vm proxmox.VM) vmstatus.VMResources {

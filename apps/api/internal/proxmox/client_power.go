@@ -5,55 +5,74 @@ import (
 	"fmt"
 )
 
-func (c *Client) StartVM(ctx context.Context, gt GuestType, node string, vmid int) error {
+func (c *Client) startPowerTask(
+	ctx context.Context,
+	gt GuestType,
+	node string,
+	vmid int,
+	actionSuffix string,
+	actionLabel string,
+) (Task, error) {
 	if err := c.requireAllowedNode(node); err != nil {
-		return err
+		return Task{}, err
 	}
-	path := guestPath(gt, node, vmid, "/status/start")
+	path := guestPath(gt, node, vmid, "/status/"+actionSuffix)
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return fmt.Errorf("starting VM: %w", err)
+		return Task{}, fmt.Errorf("%s VM: %w", actionLabel, err)
 	}
-	return c.waitForTask(ctx, node, resp.Data)
+	return Task{Node: node, UPID: resp.Data}, nil
+}
+
+func (c *Client) StartVMTask(ctx context.Context, gt GuestType, node string, vmid int) (Task, error) {
+	return c.startPowerTask(ctx, gt, node, vmid, "start", "starting")
+}
+
+func (c *Client) ShutdownVMTask(ctx context.Context, gt GuestType, node string, vmid int) (Task, error) {
+	return c.startPowerTask(ctx, gt, node, vmid, "shutdown", "shutting down")
+}
+
+func (c *Client) RebootVMTask(ctx context.Context, gt GuestType, node string, vmid int) (Task, error) {
+	return c.startPowerTask(ctx, gt, node, vmid, "reboot", "rebooting")
+}
+
+func (c *Client) StopVMTask(ctx context.Context, gt GuestType, node string, vmid int) (Task, error) {
+	return c.startPowerTask(ctx, gt, node, vmid, "stop", "stopping")
+}
+
+func (c *Client) StartVM(ctx context.Context, gt GuestType, node string, vmid int) error {
+	task, err := c.StartVMTask(ctx, gt, node, vmid)
+	if err != nil {
+		return err
+	}
+	return c.WaitForTask(ctx, task.Node, task.UPID)
 }
 
 // ShutdownVM sends a graceful shutdown signal to a guest and waits for the task to complete.
 func (c *Client) ShutdownVM(ctx context.Context, gt GuestType, node string, vmid int) error {
-	if err := c.requireAllowedNode(node); err != nil {
+	task, err := c.ShutdownVMTask(ctx, gt, node, vmid)
+	if err != nil {
 		return err
 	}
-	path := guestPath(gt, node, vmid, "/status/shutdown")
-	var resp apiResponse[string]
-	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return fmt.Errorf("shutting down VM: %w", err)
-	}
-	return c.waitForTask(ctx, node, resp.Data)
+	return c.WaitForTask(ctx, task.Node, task.UPID)
 }
 
 // RebootVM sends a reboot signal to a guest and waits for the task to complete.
 func (c *Client) RebootVM(ctx context.Context, gt GuestType, node string, vmid int) error {
-	if err := c.requireAllowedNode(node); err != nil {
+	task, err := c.RebootVMTask(ctx, gt, node, vmid)
+	if err != nil {
 		return err
 	}
-	path := guestPath(gt, node, vmid, "/status/reboot")
-	var resp apiResponse[string]
-	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return fmt.Errorf("rebooting VM: %w", err)
-	}
-	return c.waitForTask(ctx, node, resp.Data)
+	return c.WaitForTask(ctx, task.Node, task.UPID)
 }
 
 // StopVM immediately stops a guest and waits for the task to complete.
 func (c *Client) StopVM(ctx context.Context, gt GuestType, node string, vmid int) error {
-	if err := c.requireAllowedNode(node); err != nil {
+	task, err := c.StopVMTask(ctx, gt, node, vmid)
+	if err != nil {
 		return err
 	}
-	path := guestPath(gt, node, vmid, "/status/stop")
-	var resp apiResponse[string]
-	if err := c.post(ctx, path, nil, &resp); err != nil {
-		return fmt.Errorf("stopping VM: %w", err)
-	}
-	return c.waitForTask(ctx, node, resp.Data)
+	return c.WaitForTask(ctx, task.Node, task.UPID)
 }
 
 // DeleteVM deletes a guest and waits for the task to complete.

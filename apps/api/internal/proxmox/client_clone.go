@@ -22,10 +22,7 @@ func (c *Client) CloneVM(
 }
 
 // CloneTask is a handle to a started Proxmox clone task.
-type CloneTask struct {
-	Node string
-	UPID string
-}
+type CloneTask = Task
 
 // StartCloneVM starts a clone task without waiting; serialize it with VMID
 // allocation since Proxmox only reserves newid once the task is created.
@@ -37,9 +34,9 @@ func (c *Client) StartCloneVM(
 	name string,
 	full bool,
 	target string,
-) (CloneTask, error) {
+) (Task, error) {
 	if err := c.requireAllowedNode(node); err != nil {
-		return CloneTask{}, err
+		return Task{}, err
 	}
 	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/clone", node, vmid)
 	form := map[string]string{
@@ -51,15 +48,15 @@ func (c *Client) StartCloneVM(
 	}
 	if target != "" {
 		if err := c.requireAllowedNode(target); err != nil {
-			return CloneTask{}, err
+			return Task{}, err
 		}
 		form["target"] = target
 	}
 	var resp apiResponse[string]
 	if err := c.post(ctx, path, form, &resp); err != nil {
-		return CloneTask{}, fmt.Errorf("cloning VM: %w", err)
+		return Task{}, fmt.Errorf("cloning VM: %w", err)
 	}
-	return CloneTask{Node: node, UPID: resp.Data}, nil
+	return Task{Node: node, UPID: resp.Data}, nil
 }
 
 // WaitForTask polls a previously started task until it completes.

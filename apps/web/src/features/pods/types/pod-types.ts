@@ -62,6 +62,12 @@ export interface PodVM {
 
 export type ClonedPodStatus = "running" | "stopped" | "partial"
 
+export type PodPowerResult = {
+  action: "start" | "shutdown"
+  succeeded: Array<UUID>
+  failed: Array<{ id: UUID; error: string }>
+}
+
 export interface ClonedPodNetwork {
   number: number
   vnet: string
@@ -81,6 +87,7 @@ export interface ClonedPod {
   task_summary: ClonedPodTaskSummary
   task_states: Array<ClonedPodTaskState>
   question_answers: Array<PodTaskQuestionAnswer>
+  power_result?: PodPowerResult
 }
 
 export interface ClonedPodTaskSummary {
@@ -140,4 +147,5 @@ export interface PublishedPodCloneSummary {
   network: ClonedPodNetwork
   vm_count: number
   task_summary: ClonedPodTaskSummary
+  power_result?: PodPowerResult
 }

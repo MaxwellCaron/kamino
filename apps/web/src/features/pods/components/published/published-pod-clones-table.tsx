@@ -37,7 +37,7 @@ import type { PublishedPodClonePendingAction } from "@/features/pods/types/publi
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -182,30 +182,55 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
             pendingAction.type === "start" ||
             pendingAction.type === "shutdown"
           ) {
-            showSingleMutationToast({
+            showUnitMutationToast({
               title: actionConfig.pendingLabel,
-              name: cloneName,
-              promise: () =>
-                powerMutation.mutateAsync({
-                  clonedPodId: clone.id,
-                  action: pendingAction.type,
-                }),
-              successDescription:
-                pendingAction.type === "start" ? "Started" : "Shut down",
+              units: [
+                {
+                  items: [{ id: clone.id, name: cloneName }],
+                  run: async () => {
+                    const updated = await powerMutation.mutateAsync({
+                      clonedPodId: clone.id,
+                      action: pendingAction.type,
+                    })
+                    queryClient.setQueryData(
+                      clonesQueryKey,
+                      (current: Array<PublishedPodCloneSummary> | undefined) =>
+                        current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
+                    )
+                    return {
+                      failed:
+                        updated.power_result?.failed.map((entry) => ({
+                          id: entry.id,
+                          error: entry.error,
+                        })) ?? [],
+                    }
+                  },
+                },
+              ],
             })
           } else if (pendingAction.type === "reclone") {
-            showSingleMutationToast({
+            showUnitMutationToast({
               title: "Re-cloning",
-              name: cloneName,
-              promise: () => recloneMutation.mutateAsync(clone.id),
-              successDescription: "Re-cloned",
+              units: [
+                {
+                  items: [{ id: clone.id, name: cloneName, successDescription: "Re-cloned" }],
+                  run: async () => {
+                    await recloneMutation.mutateAsync(clone.id)
+                  },
+                },
+              ],
             })
           } else {
-            showSingleMutationToast({
+            showUnitMutationToast({
               title: "Deleting",
-              name: cloneName,
-              promise: () => deleteMutation.mutateAsync(clone.id),
-              successDescription: "Deleted",
+              units: [
+                {
+                  items: [{ id: clone.id, name: cloneName, successDescription: "Deleted" }],
+                  run: async () => {
+                    await deleteMutation.mutateAsync(clone.id)
+                  },
+                },
+              ],
             })
           }
         }

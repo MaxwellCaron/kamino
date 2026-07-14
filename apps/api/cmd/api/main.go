@@ -58,6 +58,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid pod provision concurrency configuration: %v", err)
 	}
+	vmPowerConfig, err := buildVMPowerConfig(&config)
+	if err != nil {
+		log.Fatalf("Invalid VM power configuration: %v", err)
+	}
 
 	// Initialize server with all dependencies
 	server, err := newServer(&config)
@@ -155,6 +159,7 @@ func main() {
 		server.ProxmoxClient,
 		inventoryService,
 		vmStatusNotifier,
+		vmPowerConfig,
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
 	podCloneClaims := vmactions.NewPodCloneClaims(server.DBPool)
@@ -228,6 +233,7 @@ func main() {
 		PersonalVMIDRange:               vmidRangeConfig.Personal,
 		PodCloneClaims:                  podCloneClaims,
 		PodProvisionLimiter:             podProvisionLimiter,
+		VMActionClaims:                  vmActionClaims,
 	}
 	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {
 		log.Printf("Purpose folder description sync failed: %v", err)

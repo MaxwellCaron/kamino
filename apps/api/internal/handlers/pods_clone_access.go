@@ -95,9 +95,24 @@ func (h *PodsHandler) clonedPodActionTargets(
 		return database.ClonedPods{}, nil, reqErr
 	}
 
+	targets, reqErr := h.resolveClonedPodPowerTargets(ctx, q, principalID, cloneID, required)
+	if reqErr != nil {
+		return database.ClonedPods{}, nil, reqErr
+	}
+
+	return clone, targets, nil
+}
+
+func (h *PodsHandler) resolveClonedPodPowerTargets(
+	ctx context.Context,
+	q *database.Queries,
+	principalID uuid.UUID,
+	cloneID uuid.UUID,
+	required authorization.Mask,
+) ([]vmactions.Target, *requestError) {
 	rows, err := q.ListClonedPodVMs(ctx, cloneID)
 	if err != nil {
-		return database.ClonedPods{}, nil, &requestError{
+		return nil, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to load cloned pod virtual machines",
 			Operation:   "list cloned pod VMs for action",
@@ -117,19 +132,19 @@ func (h *PodsHandler) clonedPodActionTargets(
 			true,
 		)
 		if reqErr != nil {
-			return database.ClonedPods{}, nil, reqErr
+			return nil, reqErr
 		}
 		targets = append(targets, vmActionTarget(target))
 	}
 
 	if len(targets) == 0 {
-		return database.ClonedPods{}, nil, &requestError{
+		return nil, &requestError{
 			Status:      http.StatusConflict,
 			UserMessage: "cloned pod has no virtual machines",
 		}
 	}
 
-	return clone, targets, nil
+	return targets, nil
 }
 
 func vmidsFromTargets(targets []vmactions.Target) []int {

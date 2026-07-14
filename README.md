@@ -178,6 +178,8 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PERSONAL_POD_VMID_MIN` | no | `20000` | First VMID available for personal pod router clones (inclusive) |
 | `PERSONAL_POD_VMID_MAX` | no | `20999` | Last VMID available for personal pod router clones (inclusive) |
 | `POD_PROVISION_CONCURRENCY` | no | `2` | Maximum concurrent Proxmox clone and template-conversion tasks per API process (accepted range `1`–`8`). Use `1` to roll back to fully serial provisioning. Effective cluster-wide maximum is this value times API replicas; Kamino's VMID allocator and current deployment assume one API replica. Raise above `2` only after observing Proxmox task duration, storage latency/IOPS, and failure/cleanup logs under representative pods. |
+| `VM_POWER_CONCURRENCY` | no | `6` | Maximum concurrent Proxmox power tasks per API process (accepted range `1`–`20`). Use `1` to roll back to fully serial power actions. Effective cluster-wide maximum is this value times API replicas; the current deployment assumes one API replica. Raise to `10` only after observing task duration, node CPU/memory, storage latency/IOPS, and failures under representative workloads. |
+| `VM_POWER_TASK_TIMEOUT` | no | `5m` | Positive duration bounding how long the API drains an accepted Proxmox power task after the HTTP client disconnects. |
 
 ### VMID allocation ranges
 

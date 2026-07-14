@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -47,65 +48,58 @@ func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
 	}
 
 	q := database.New(h.DB)
-	clone, err := q.GetClonedPodByID(c.Request.Context(), cloneID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
-		return
-	}
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod", "load cloned pod for manager power", err)
-		return
-	}
-	if clone.PodID != podID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "cloned pod not found"})
-		return
-	}
-
-	targets, reqErr := h.clonedPodManagerActionTargets(c.Request.Context(), q, cloneID)
+	clone, reqErr := h.loadPublishedPodCloneForManager(c.Request.Context(), q, podID, cloneID)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
 	}
 
-	statuses, _, err := h.runtimeForVMIDs(c.Request.Context(), vmidsFromTargets(targets))
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to load VM statuses", "load cloned pod vm statuses for manager power", err)
+	if !h.acquirePodCloneClaim(c, clone.PodID, clone.UserPrincipalID, req.Action, principalID) {
+		return
+	}
+	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
+
+	powerResult, reqErr := h.powerPublishedPodCloneForManager(
+		c.Request.Context(),
+		q,
+		clone,
+		req.Action,
+		principalID,
+	)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
 		return
 	}
 
-	expectedStatus := "running"
-	if req.Action == string(vmactions.PowerActionShutdown) {
-		expectedStatus = "stopped"
+	summary, reqErr := h.publishedPodCloneSummaryByID(c.Request.Context(), q, podID, cloneID)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
 	}
+	summary.PowerResult = &powerResult
 
-	for _, target := range targets {
-		if clonedPodVMAlreadyInPowerState(req.Action, statuses[target.VMID]) {
-			continue
-		}
-		if err := h.Actions.PowerAction(c.Request.Context(), target, vmactions.PowerAction(req.Action)); err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to update cloned pod power state", "manager power cloned pod vm", err)
-			return
-		}
-		if err := h.waitForVMStatus(c.Request.Context(), target.VMID, expectedStatus); err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to confirm cloned pod power state", "wait for manager cloned pod vm power state", err)
-			return
-		}
-	}
-
-	clones, err := h.hydratePublishedPodClones(c.Request.Context(), q, podID)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to reload cloned pods", "hydrate published pod clones after manager power", err)
+	c.JSON(http.StatusOK, summary)
+	if len(powerResult.Failed) == 0 {
+		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "pod.power." + req.Action,
+			TargetKind:       "pod",
+			PodID:            &clone.PodID,
+			Metadata:         map[string]any{"clone_id": clone.ID.String()},
+		})
 		return
 	}
 
-	for _, resp := range clones {
-		if resp.ID == cloneID {
-			c.JSON(http.StatusOK, resp)
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{})
+	h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "pod.power." + req.Action,
+		TargetKind:       "pod",
+		PodID:            &clone.PodID,
+		Metadata: map[string]any{
+			"clone_id":      clone.ID.String(),
+			"failure_count": len(powerResult.Failed),
+		},
+	}, fmt.Sprintf("%d vm power failures", len(powerResult.Failed)))
 }
 
 func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
@@ -291,15 +285,16 @@ func (h *PodsHandler) powerPublishedPodCloneForManager(
 	q *database.Queries,
 	clone database.ClonedPods,
 	action string,
-) *requestError {
+	principalID uuid.UUID,
+) (podPowerResultResponse, *requestError) {
 	targets, reqErr := h.clonedPodManagerActionTargets(ctx, q, clone.ID)
 	if reqErr != nil {
-		return reqErr
+		return podPowerResultResponse{}, reqErr
 	}
 
 	statuses, _, err := h.runtimeForVMIDs(ctx, vmidsFromTargets(targets))
 	if err != nil {
-		return &requestError{
+		return podPowerResultResponse{}, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to load VM statuses",
 			Operation:   "load cloned pod vm statuses for manager power",
@@ -307,33 +302,13 @@ func (h *PodsHandler) powerPublishedPodCloneForManager(
 		}
 	}
 
-	expectedStatus := "running"
-	if action == string(vmactions.PowerActionShutdown) {
-		expectedStatus = "stopped"
-	}
-
-	for _, target := range targets {
-		if clonedPodVMAlreadyInPowerState(action, statuses[target.VMID]) {
-			continue
-		}
-		if err := h.Actions.PowerAction(ctx, target, vmactions.PowerAction(action)); err != nil {
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "failed to update cloned pod power state",
-				Operation:   "manager power cloned pod vm",
-				Err:         err,
-			}
-		}
-		if err := h.waitForVMStatus(ctx, target.VMID, expectedStatus); err != nil {
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "failed to confirm cloned pod power state",
-				Operation:   "wait for manager cloned pod vm power state",
-				Err:         err,
-			}
-		}
-	}
-	return nil
+	return h.runClaimedPodVMPowerActions(
+		ctx,
+		principalID,
+		vmactions.PowerAction(action),
+		targets,
+		statuses,
+	), nil
 }
 
 func (h *PodsHandler) deletePublishedPodCloneForManager(

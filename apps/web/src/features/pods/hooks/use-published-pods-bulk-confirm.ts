@@ -9,6 +9,7 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { bulkActionPublishedPodClones } from "@/features/pods/api/publish-pod-api"
 import {
   podCatalogQueryOptions,
+  powerPublishedPodClone,
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
@@ -140,6 +141,60 @@ export function usePublishedPodsBulkConfirm({
                 })
               },
             })),
+          })
+          return
+        }
+
+        if (action === "start" || action === "shutdown") {
+          let clones
+          try {
+            clones = await queryClient.fetchQuery(
+              publishedPodClonesQueryOptions(pod.id)
+            )
+          } catch (error) {
+            toast.error(
+              formatToastError(error, "Failed to load cloned instances")
+            )
+            return
+          }
+
+          if (clones.length === 0) {
+            toast.info("No clones to update.")
+            return
+          }
+
+          showUnitMutationToast({
+            title: actionConfig.pendingLabel,
+            units: [
+              {
+                items: clones.map((clone) => ({
+                  id: clone.id,
+                  name: clone.owner.label,
+                  retry: async () => {
+                    await powerPublishedPodClone({
+                      podId: pod.id,
+                      clonedPodId: clone.id,
+                      action,
+                    })
+                    void queryClient.invalidateQueries({
+                      queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+                    })
+                  },
+                })),
+                run: async () => {
+                  const result = await bulkCloneActionMutation.mutateAsync({
+                    pod,
+                    action,
+                  })
+                  return {
+                    failed: result.failed.map((entry) => ({
+                      id: entry.id,
+                      error: entry.error,
+                    })),
+                  }
+                },
+              },
+            ],
           })
           return
         }
