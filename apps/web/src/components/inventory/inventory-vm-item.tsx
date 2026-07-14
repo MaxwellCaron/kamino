@@ -1,6 +1,10 @@
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { CpuIcon, HardDriveIcon, RamMemoryIcon } from "@hugeicons/core-free-icons"
+import {
+  CpuIcon,
+  HardDriveIcon,
+  RamMemoryIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -40,9 +44,7 @@ function VmResourceDescription({
     <>
       <div className="flex items-center gap-1">
         <HugeiconsIcon icon={CpuIcon} className="size-3.5" />
-        {cpuCount != null
-          ? `${cpuCount} CPU${cpuCount === 1 ? "" : "s"}`
-          : "—"}
+        {cpuCount != null ? `${cpuCount} CPU${cpuCount === 1 ? "" : "s"}` : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
