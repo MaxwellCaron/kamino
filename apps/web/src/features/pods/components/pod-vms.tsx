@@ -36,10 +36,7 @@ function NetworkItem({
   className?: string
 }) {
   return (
-    <Item
-      variant="muted"
-      className={cn("shadow ring-1 ring-border", className)}
-    >
+    <Item variant="muted" className={cn("shadow", className)}>
       <ItemContent>
         <ItemTitle className="w-full justify-center">{label}</ItemTitle>
         <ItemDescription className="text-center">{subnet}</ItemDescription>
