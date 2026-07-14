@@ -1,7 +1,6 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { PreloadOverlay } from "@/components/loading-overlay"
-import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import {
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
@@ -74,8 +73,6 @@ export function VmDashboardPage() {
   const canManageSnapshots = capabilities.snapshot.mode === "direct"
   const canViewSnapshots = capabilities.viewSnapshots.enabled
   const canRequestSnapshots = capabilities.snapshot.mode === "request"
-  const canUseConsole = capabilities.console.enabled
-
   if (!isLoading) {
     if (!node && isItemError) {
       if (isApiErrorStatus(itemError, 404)) {
@@ -130,13 +127,6 @@ export function VmDashboardPage() {
                 canManage: canManageSnapshots,
                 canRequest: canRequestSnapshots,
               }}
-            />
-          )}
-          {!isTemplate && canUseConsole && (
-            <VncConsole
-              key={itemId}
-              itemId={itemId}
-              powerStatus={powerStatus}
             />
           )}
         </div>
