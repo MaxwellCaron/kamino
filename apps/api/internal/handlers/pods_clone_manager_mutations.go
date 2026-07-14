@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -132,7 +131,7 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 				outcome.reqErr = powerErr
 			} else if cloneFailedFromPowerResult(powerResult) {
 				outcome.reqErr = &requestError{
-					UserMessage: fmt.Sprintf("%d vm power failures", len(powerResult.Failed)),
+					UserMessage: "pod power action did not fully complete",
 				}
 			} else {
 				outcome.succeeded = true

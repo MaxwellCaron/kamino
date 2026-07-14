@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { PodHeaderActions } from "./pod-header-actions"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { powerClonedPod } from "@/features/pods/api/clone-pod-api"
 
 vi.mock("@/components/feedback/mutation-progress-toast", () => ({
+  showSingleMutationToast: vi.fn(),
   showUnitMutationToast: vi.fn(),
 }))
 
@@ -28,8 +29,8 @@ const clonedPod = {
   },
   vms: [
     {
-      id: "vm-1",
-      name: "Router",
+      id: "vm-visible-alpha",
+      name: "Distinctive Router Alpha",
       status: "stopped",
       resources: {
         cpu: 0,
@@ -44,7 +45,26 @@ const clonedPod = {
         diskwrite: 0,
         uptime: 0,
       },
-      inventory: { itemId: "item-1" },
+      inventory: { itemId: "item-visible-alpha" },
+    },
+    {
+      id: "vm-visible-beta",
+      name: "Distinctive Workstation Beta",
+      status: "stopped",
+      resources: {
+        cpu: 0,
+        maxcpu: 1,
+        mem: 0,
+        maxmem: 1,
+        disk: 0,
+        maxdisk: 1,
+        netin: 0,
+        netout: 0,
+        diskread: 0,
+        diskwrite: 0,
+        uptime: 0,
+      },
+      inventory: { itemId: "item-visible-beta" },
     },
   ],
   task_summary: { total: 0, completed: 0, progress: 0 },
@@ -57,12 +77,18 @@ describe("PodHeaderActions", () => {
     vi.clearAllMocks()
   })
 
-  it("uses one pod request with per-VM progress items for start", () => {
-    vi.mocked(powerClonedPod).mockResolvedValue({
-      ...clonedPod,
-      status: "running",
-      power_result: { action: "start", succeeded: ["item-1"], failed: [] },
-    })
+  it("shows one pod-named toast without VM identifiers for start", async () => {
+    vi.mocked(powerClonedPod)
+      .mockResolvedValueOnce({
+        ...clonedPod,
+        status: "partial",
+        power_result: { action: "start", status: "partial" },
+      })
+      .mockResolvedValueOnce({
+        ...clonedPod,
+        status: "running",
+        power_result: { action: "start", status: "succeeded" },
+      })
 
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -73,9 +99,28 @@ describe("PodHeaderActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start" }))
     fireEvent.click(screen.getByRole("button", { name: "Start" }))
 
-    expect(showUnitMutationToast).toHaveBeenCalled()
-    const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
-    expect(config.units[0].items).toHaveLength(1)
-    expect(config.units[0].items[0].id).toBe("item-1")
+    expect(showSingleMutationToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Starting",
+        name: "Lab Pod",
+      })
+    )
+
+    const params = vi.mocked(showSingleMutationToast).mock.calls[0][0]
+    const serialized = JSON.stringify(params)
+    expect(serialized).not.toContain("Distinctive Router Alpha")
+    expect(serialized).not.toContain("Distinctive Workstation Beta")
+    expect(serialized).not.toContain("item-visible-alpha")
+    expect(serialized).not.toContain("item-visible-beta")
+
+    const runPodPower = params.promise as () => Promise<unknown>
+    await expect(runPodPower()).rejects.toThrow("Pod did not fully start.")
+    expect(powerClonedPod).toHaveBeenCalledWith({
+      clonedPodId: "clone-1",
+      action: "start",
+    })
+
+    await expect(runPodPower()).resolves.toBeUndefined()
+    expect(powerClonedPod).toHaveBeenCalledTimes(2)
   })
 })

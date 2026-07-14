@@ -76,7 +76,8 @@ func (h *PodsHandler) PowerPublishedPodClone(c *gin.Context) {
 		writeRequestError(c, reqErr)
 		return
 	}
-	summary.PowerResult = &powerResult
+	publicResult := powerResult.toPublicResponse()
+	summary.PowerResult = &publicResult
 
 	c.JSON(http.StatusOK, summary)
 	if len(powerResult.Failed) == 0 {
@@ -286,15 +287,15 @@ func (h *PodsHandler) powerPublishedPodCloneForManager(
 	clone database.ClonedPods,
 	action string,
 	principalID uuid.UUID,
-) (podPowerResultResponse, *requestError) {
+) (podPowerExecutionResult, *requestError) {
 	targets, reqErr := h.clonedPodManagerActionTargets(ctx, q, clone.ID)
 	if reqErr != nil {
-		return podPowerResultResponse{}, reqErr
+		return podPowerExecutionResult{}, reqErr
 	}
 
 	statuses, _, err := h.runtimeForVMIDs(ctx, vmidsFromTargets(targets))
 	if err != nil {
-		return podPowerResultResponse{}, &requestError{
+		return podPowerExecutionResult{}, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to load VM statuses",
 			Operation:   "load cloned pod vm statuses for manager power",

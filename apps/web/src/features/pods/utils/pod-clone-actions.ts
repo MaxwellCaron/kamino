@@ -81,3 +81,9 @@ export function canRunPodCloneAction(
   }
   return true
 }
+
+export function podPowerIncompleteMessage(action: PodClonePowerAction) {
+  return action === "start"
+    ? "Pod did not fully start."
+    : "Pod did not fully shut down."
+}

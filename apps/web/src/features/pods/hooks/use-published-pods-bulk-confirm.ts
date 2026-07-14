@@ -9,13 +9,15 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { bulkActionPublishedPodClones } from "@/features/pods/api/publish-pod-api"
 import {
   podCatalogQueryOptions,
-  powerPublishedPodClone,
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
-import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+import {
+  POD_CLONE_ACTION_CONFIG,
+  podPowerIncompleteMessage,
+} from "@/features/pods/utils/pod-clone-actions"
 import { formatToastError } from "@/features/shared/utils/format"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showSingleMutationToast, showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const BULK_CLONE_DIALOG_CONFIG: Record<
   PodCloneAction,
@@ -146,55 +148,26 @@ export function usePublishedPodsBulkConfirm({
         }
 
         if (action === "start" || action === "shutdown") {
-          let clones
-          try {
-            clones = await queryClient.fetchQuery(
-              publishedPodClonesQueryOptions(pod.id)
-            )
-          } catch (error) {
-            toast.error(
-              formatToastError(error, "Failed to load cloned instances")
-            )
-            return
-          }
-
-          if (clones.length === 0) {
+          if (pod.clone_count === 0) {
             toast.info("No clones to update.")
             return
           }
 
-          showUnitMutationToast({
+          showSingleMutationToast({
             title: actionConfig.pendingLabel,
-            units: [
-              {
-                items: clones.map((clone) => ({
-                  id: clone.id,
-                  name: clone.owner.label,
-                  retry: async () => {
-                    await powerPublishedPodClone({
-                      podId: pod.id,
-                      clonedPodId: clone.id,
-                      action,
-                    })
-                    void queryClient.invalidateQueries({
-                      queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
-                    })
-                  },
-                })),
-                run: async () => {
-                  const result = await bulkCloneActionMutation.mutateAsync({
-                    pod,
-                    action,
-                  })
-                  return {
-                    failed: result.failed.map((entry) => ({
-                      id: entry.id,
-                      error: entry.error,
-                    })),
-                  }
-                },
-              },
-            ],
+            name: pod.title,
+            promise: async () => {
+              const result = await bulkCloneActionMutation.mutateAsync({
+                pod,
+                action,
+              })
+              void queryClient.invalidateQueries({
+                queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
+              })
+              if (result.failed.length > 0) {
+                throw new Error(podPowerIncompleteMessage(action))
+              }
+            },
           })
           return
         }

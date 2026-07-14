@@ -37,7 +37,7 @@ import type { PublishedPodClonePendingAction } from "@/features/pods/types/publi
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showSingleMutationToast, showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -47,7 +47,7 @@ import {
   reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
-import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+import { POD_CLONE_ACTION_CONFIG, podPowerIncompleteMessage } from "@/features/pods/utils/pod-clone-actions"
 
 const CLONE_ACTION_DIALOG_CONFIG: Record<
   Exclude<PublishedPodClonePendingAction, null>["type"],
@@ -182,31 +182,24 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
             pendingAction.type === "start" ||
             pendingAction.type === "shutdown"
           ) {
-            showUnitMutationToast({
+            const powerAction = pendingAction.type
+            showSingleMutationToast({
               title: actionConfig.pendingLabel,
-              units: [
-                {
-                  items: [{ id: clone.id, name: cloneName }],
-                  run: async () => {
-                    const updated = await powerMutation.mutateAsync({
-                      clonedPodId: clone.id,
-                      action: pendingAction.type,
-                    })
-                    queryClient.setQueryData(
-                      clonesQueryKey,
-                      (current: Array<PublishedPodCloneSummary> | undefined) =>
-                        current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
-                    )
-                    return {
-                      failed:
-                        updated.power_result?.failed.map((entry) => ({
-                          id: entry.id,
-                          error: entry.error,
-                        })) ?? [],
-                    }
-                  },
-                },
-              ],
+              name: pod.title,
+              promise: async () => {
+                const updated = await powerMutation.mutateAsync({
+                  clonedPodId: clone.id,
+                  action: powerAction,
+                })
+                queryClient.setQueryData(
+                  clonesQueryKey,
+                  (current: Array<PublishedPodCloneSummary> | undefined) =>
+                    current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
+                )
+                if (updated.power_result?.status !== "succeeded") {
+                  throw new Error(podPowerIncompleteMessage(powerAction))
+                }
+              },
             })
           } else if (pendingAction.type === "reclone") {
             showUnitMutationToast({

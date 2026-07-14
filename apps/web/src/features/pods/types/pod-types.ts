@@ -64,8 +64,7 @@ export type ClonedPodStatus = "running" | "stopped" | "partial"
 
 export type PodPowerResult = {
   action: "start" | "shutdown"
-  succeeded: Array<UUID>
-  failed: Array<{ id: UUID; error: string }>
+  status: "succeeded" | "partial" | "failed"
 }
 
 export interface ClonedPodNetwork {

@@ -78,7 +78,8 @@ func (h *PodsHandler) PowerClonedPod(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod details", "hydrate cloned pod after power action", err)
 		return
 	}
-	response.PowerResult = &powerResult
+	publicResult := powerResult.toPublicResponse()
+	response.PowerResult = &publicResult
 
 	c.JSON(http.StatusOK, response)
 	if len(powerResult.Failed) == 0 {

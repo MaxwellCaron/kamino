@@ -17,14 +17,35 @@ type podPowerTargetOutcome struct {
 	Claimed     bool
 }
 
+type podPowerExecutionResult struct {
+	Action    string
+	Succeeded []uuid.UUID
+	Failed    []bulkVMActionFailure
+}
+
+func (result podPowerExecutionResult) toPublicResponse() podPowerResultResponse {
+	status := podPowerStatusSucceeded
+	if len(result.Failed) > 0 {
+		if len(result.Succeeded) > 0 {
+			status = podPowerStatusPartial
+		} else {
+			status = podPowerStatusFailed
+		}
+	}
+	return podPowerResultResponse{
+		Action: result.Action,
+		Status: status,
+	}
+}
+
 func (h *PodsHandler) runClaimedPodVMPowerActions(
 	ctx context.Context,
 	principalID uuid.UUID,
 	action vmactions.PowerAction,
 	targets []vmactions.Target,
 	initialStatuses map[int]string,
-) podPowerResultResponse {
-	result := podPowerResultResponse{
+) podPowerExecutionResult {
+	result := podPowerExecutionResult{
 		Action:    string(action),
 		Succeeded: make([]uuid.UUID, 0, len(targets)),
 		Failed:    make([]bulkVMActionFailure, 0),
@@ -157,6 +178,6 @@ func sanitizePodPowerError(action string, err error) string {
 	return fmt.Sprintf("%s failed", action)
 }
 
-func cloneFailedFromPowerResult(result podPowerResultResponse) bool {
+func cloneFailedFromPowerResult(result podPowerExecutionResult) bool {
 	return len(result.Failed) > 0
 }

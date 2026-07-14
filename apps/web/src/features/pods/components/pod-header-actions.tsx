@@ -22,17 +22,18 @@ import type { ClonedPod } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showSingleMutationToast, showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   deleteClonedPod,
   powerClonedPod,
 } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
-import { vmPowerAction, vmStatusQueryOptions } from "@/features/vms/api/vm-api"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import {
   POD_CLONE_ACTION_CONFIG,
   POD_CLONE_OVERFLOW_ACTIONS,
   POD_CLONE_POWER_ACTIONS_BY_STATUS,
+  podPowerIncompleteMessage,
 } from "@/features/pods/utils/pod-clone-actions"
 
 type VisiblePodHeaderAction = "start" | "shutdown"
@@ -81,19 +82,6 @@ export function PodHeaderActions({
   const [activeAction, setActiveAction] = useState<ConfirmablePodAction | null>(
     null
   )
-  const powerMutation = useMutation({
-    mutationFn: powerClonedPod,
-    onSuccess: async (nextClonedPod) => {
-      onClonedPodChange?.(nextClonedPod)
-      await queryClient.invalidateQueries({
-        queryKey: podCatalogQueryOptions.queryKey,
-      })
-      setActiveAction(null)
-    },
-    onError: () => {
-      setActiveAction(null)
-    },
-  })
   const deleteMutation = useMutation({
     mutationFn: deleteClonedPod,
     onSuccess: async () => {
@@ -107,11 +95,10 @@ export function PodHeaderActions({
       setActiveAction(null)
     },
   })
-  const actionPending = powerMutation.isPending || deleteMutation.isPending
+  const actionPending = deleteMutation.isPending
   const visibleActions = POD_CLONE_POWER_ACTIONS_BY_STATUS[clonedPod.status]
 
   function openAction(action: ConfirmablePodAction) {
-    powerMutation.reset()
     deleteMutation.reset()
     setActiveAction(() => action)
   }
@@ -124,7 +111,9 @@ export function PodHeaderActions({
     if (!activeAction) return
     const actionConfig = POD_CLONE_ACTION_CONFIG[activeAction]
 
-    if (activeAction === "delete") {
+    const action = activeAction
+
+    if (action === "delete") {
       showUnitMutationToast({
         title: actionConfig.pendingLabel,
         units: [
@@ -139,52 +128,24 @@ export function PodHeaderActions({
       return
     }
 
-    showUnitMutationToast({
+    showSingleMutationToast({
       title: actionConfig.pendingLabel,
-      units: [
-        {
-          items: clonedPod.vms.map((vm) => ({
-            id: vm.inventory.itemId,
-            name: vm.name,
-            retry: async () => {
-              const result = await vmPowerAction({
-                action: activeAction,
-                itemIds: [vm.inventory.itemId],
-              })
-              if (result.failed.length > 0) {
-                throw new Error(result.failed[0]?.error ?? actionConfig.pendingLabel)
-              }
-              void queryClient.invalidateQueries({
-                queryKey: vmStatusQueryOptions.queryKey,
-              })
-              void queryClient.invalidateQueries({
-                queryKey: podCatalogQueryOptions.queryKey,
-              })
-            },
-          })),
-          run: async () => {
-            const nextClonedPod = await powerMutation.mutateAsync({
-              clonedPodId: clonedPod.id,
-              action: activeAction,
-            })
-            onClonedPodChange?.(nextClonedPod)
-            return {
-              failed:
-                nextClonedPod.power_result?.failed.map((entry) => ({
-                  id: entry.id,
-                  error: entry.error,
-                })) ?? [],
-            }
-          },
-        },
-      ],
-      onSettled: async () => {
+      name: podTitle,
+      promise: async () => {
+        const nextClonedPod = await powerClonedPod({
+          clonedPodId: clonedPod.id,
+          action,
+        })
+        onClonedPodChange?.(nextClonedPod)
         await queryClient.invalidateQueries({
           queryKey: podCatalogQueryOptions.queryKey,
         })
         void queryClient.invalidateQueries({
           queryKey: vmStatusQueryOptions.queryKey,
         })
+        if (nextClonedPod.power_result?.status !== "succeeded") {
+          throw new Error(podPowerIncompleteMessage(action))
+        }
       },
     })
   }

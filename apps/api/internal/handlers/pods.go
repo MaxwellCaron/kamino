@@ -170,10 +170,17 @@ type clonedPodNetworkResponse struct {
 	PrefixNAT       *prefixNATResponse          `json:"prefix_nat,omitempty"`
 }
 
+type podPowerStatus string
+
+const (
+	podPowerStatusSucceeded podPowerStatus = "succeeded"
+	podPowerStatusPartial   podPowerStatus = "partial"
+	podPowerStatusFailed    podPowerStatus = "failed"
+)
+
 type podPowerResultResponse struct {
-	Action    string                `json:"action"`
-	Succeeded []uuid.UUID           `json:"succeeded"`
-	Failed    []bulkVMActionFailure `json:"failed"`
+	Action string         `json:"action"`
+	Status podPowerStatus `json:"status"`
 }
 
 type publishedPodCloneResponse struct {
