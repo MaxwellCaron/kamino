@@ -315,11 +315,8 @@ func (h *PodsHandler) provisionPersonalPod(
 		false,
 		cloneVMOptions{
 			batch: personalBatch,
-			onStarted: func(node string, vmid int) {
-				created[vmid] = clonedVM{
-					TargetNode: node,
-					VMID:       vmid,
-				}
+			onStarted: func(clone clonedVM) {
+				created[clone.VMID] = clone
 			},
 			onSynced: func(clone clonedVM) {
 				created[clone.VMID] = clone

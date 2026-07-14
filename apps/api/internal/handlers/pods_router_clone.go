@@ -355,11 +355,8 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		},
 		cloneVMOptions{
 			batch: batch,
-			onStarted: func(node string, vmid int) {
-				created[vmid] = clonedVM{
-					TargetNode: node,
-					VMID:       vmid,
-				}
+			onStarted: func(clone clonedVM) {
+				created[clone.VMID] = clone
 			},
 			onSynced: func(clone clonedVM) {
 				created[clone.VMID] = clone

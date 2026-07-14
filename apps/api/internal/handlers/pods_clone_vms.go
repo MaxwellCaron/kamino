@@ -61,9 +61,9 @@ func (h *PodsHandler) clonePublishedPodVMs(
 				false,
 				cloneVMOptions{
 					batch: batch,
-					onStarted: func(node string, vmid int) {
+					onStarted: func(clone clonedVM) {
 						createdMu.Lock()
-						created[vmid] = clonedVM{TargetNode: node, VMID: vmid}
+						created[clone.VMID] = clone
 						createdMu.Unlock()
 					},
 				},

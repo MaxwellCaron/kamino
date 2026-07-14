@@ -21,12 +21,13 @@ type clonedVM struct {
 	InventoryItemID uuid.UUID
 	TargetNode      string
 	VMID            int
+	CloneTask       proxmox.CloneTask
 }
 
 // cloneVMOptions holds concurrency/cleanup hooks for VM cloning.
 type cloneVMOptions struct {
 	batch     *vmidalloc.Batch
-	onStarted func(node string, vmid int)
+	onStarted func(clonedVM)
 	onSynced  func(clonedVM)
 }
 
@@ -72,8 +73,15 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	if reqErr != nil {
 		return clonedVM{}, reqErr
 	}
+
+	started := clonedVM{
+		SourceItemID: sourceItemID,
+		TargetNode:   targetNode,
+		VMID:         newID,
+		CloneTask:    task,
+	}
 	if opts.onStarted != nil {
-		opts.onStarted(targetNode, newID)
+		opts.onStarted(started)
 	}
 
 	if err := h.PX.WaitForTask(ctx, task.Node, task.UPID); err != nil {
@@ -116,6 +124,7 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 		InventoryItemID: clonedItemID,
 		TargetNode:      targetNode,
 		VMID:            newID,
+		CloneTask:       task,
 	}
 	if opts.onSynced != nil {
 		opts.onSynced(clone)
@@ -180,28 +189,6 @@ func (h *PodsHandler) convertCloneToTemplate(ctx context.Context, clone clonedVM
 	h.Service.NotifyInventoryChanged(ctx, clone.InventoryItemID)
 
 	return nil
-}
-
-// cleanupPublishClones best-effort deletes clones from a failed publish, using a
-// fresh context since the publish context is usually already cancelled.
-func (h *PodsHandler) cleanupPublishClones(created map[int]clonedVM) {
-	if len(created) == 0 {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	for _, clone := range created {
-		if err := h.PX.DeleteVM(ctx, proxmox.GuestQEMU, clone.TargetNode, clone.VMID); err != nil {
-			log.Printf("publish cleanup: failed to delete Proxmox VM %d on %s: %v", clone.VMID, clone.TargetNode, err)
-		}
-		if clone.InventoryItemID != uuid.Nil {
-			if err := h.Service.DeleteInventoryVM(ctx, clone.InventoryItemID); err != nil {
-				log.Printf("publish cleanup: failed to delete inventory item %s: %v", clone.InventoryItemID, err)
-			}
-		}
-	}
 }
 
 func (h *PodsHandler) cleanupPublishedPodTemplates(templateItemIDs []uuid.UUID) {

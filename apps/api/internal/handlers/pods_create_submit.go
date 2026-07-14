@@ -208,11 +208,8 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				spec,
 				cloneVMOptions{
 					batch: devBatch,
-					onStarted: func(node string, vmid int) {
-						created[vmid] = clonedVM{
-							TargetNode: node,
-							VMID:       vmid,
-						}
+					onStarted: func(clone clonedVM) {
+						created[clone.VMID] = clone
 					},
 					onSynced: func(clone clonedVM) {
 						created[clone.VMID] = clone

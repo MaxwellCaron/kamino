@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 type failedPodProvisionCleanupCallbacks struct {
+	waitCloneTask     func(ctx context.Context, node, upid string) error
 	deleteProxmoxVM   func(ctx context.Context, node string, vmid int) error
 	deleteInventoryVM func(ctx context.Context, itemID uuid.UUID) error
 	deleteFolder      func(ctx context.Context, folderID uuid.UUID) error
@@ -21,6 +24,7 @@ func runFailedPodProvisionCleanup(
 	ctx context.Context,
 	folderID uuid.UUID,
 	created map[int]clonedVM,
+	concurrency int,
 	cbs failedPodProvisionCleanupCallbacks,
 ) error {
 	vmids := make([]int, 0, len(created))
@@ -29,23 +33,51 @@ func runFailedPodProvisionCleanup(
 	}
 	slices.Sort(vmids)
 
-	var proxmoxErrs []error
-	var inventoryErrs []error
-	proxmoxFailed := false
+	var (
+		mu            sync.Mutex
+		proxmoxErrs   []error
+		inventoryErrs []error
+		proxmoxFailed bool
+	)
+
+	group := new(errgroup.Group)
+	group.SetLimit(concurrency)
 
 	for _, vmid := range vmids {
 		clone := created[vmid]
-		if err := cbs.deleteProxmoxVM(ctx, clone.TargetNode, clone.VMID); err != nil {
-			proxmoxFailed = true
-			proxmoxErrs = append(proxmoxErrs, fmt.Errorf("delete Proxmox VM %d on %s: %w", clone.VMID, clone.TargetNode, err))
-			continue
-		}
-		if clone.InventoryItemID != uuid.Nil {
-			if err := cbs.deleteInventoryVM(ctx, clone.InventoryItemID); err != nil {
-				inventoryErrs = append(inventoryErrs, fmt.Errorf("delete inventory item %s: %w", clone.InventoryItemID, err))
+		group.Go(func() error {
+			if clone.CloneTask.UPID != "" && cbs.waitCloneTask != nil {
+				if err := cbs.waitCloneTask(ctx, clone.CloneTask.Node, clone.CloneTask.UPID); err != nil {
+					mu.Lock()
+					proxmoxErrs = append(proxmoxErrs, fmt.Errorf(
+						"wait for clone task %s on %s: %w",
+						clone.CloneTask.UPID,
+						clone.CloneTask.Node,
+						err,
+					))
+					mu.Unlock()
+				}
 			}
-		}
+
+			if err := cbs.deleteProxmoxVM(ctx, clone.TargetNode, clone.VMID); err != nil {
+				mu.Lock()
+				proxmoxFailed = true
+				proxmoxErrs = append(proxmoxErrs, fmt.Errorf("delete Proxmox VM %d on %s: %w", clone.VMID, clone.TargetNode, err))
+				mu.Unlock()
+				return nil
+			}
+			if clone.InventoryItemID != uuid.Nil {
+				if err := cbs.deleteInventoryVM(ctx, clone.InventoryItemID); err != nil {
+					mu.Lock()
+					inventoryErrs = append(inventoryErrs, fmt.Errorf("delete inventory item %s: %w", clone.InventoryItemID, err))
+					mu.Unlock()
+				}
+			}
+			return nil
+		})
 	}
+
+	_ = group.Wait()
 
 	if proxmoxFailed {
 		return errors.Join(append(proxmoxErrs, inventoryErrs...)...)
@@ -65,7 +97,8 @@ func (h *PodsHandler) cleanupFailedPodProvision(folderID uuid.UUID, created map[
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := runFailedPodProvisionCleanup(ctx, folderID, created, failedPodProvisionCleanupCallbacks{
+	if err := runFailedPodProvisionCleanup(ctx, folderID, created, 2, failedPodProvisionCleanupCallbacks{
+		waitCloneTask:     h.PX.WaitForTask,
 		deleteProxmoxVM:   h.deleteClonedPodProxmoxVM,
 		deleteInventoryVM: h.Service.DeleteInventoryVM,
 		deleteFolder:      h.Service.DeleteFolder,
@@ -76,4 +109,8 @@ func (h *PodsHandler) cleanupFailedPodProvision(folderID uuid.UUID, created map[
 
 func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int]clonedVM) {
 	h.cleanupFailedPodProvision(folderID, created)
+}
+
+func (h *PodsHandler) cleanupPublishClones(created map[int]clonedVM) {
+	h.cleanupFailedPodProvision(uuid.Nil, created)
 }
