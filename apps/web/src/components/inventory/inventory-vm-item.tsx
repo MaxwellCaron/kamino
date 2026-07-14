@@ -16,7 +16,14 @@ import {
 import { Separator } from "@workspace/ui/components/separator"
 import type { ReactNode } from "react"
 import { VmIcon } from "@/components/status/vm-icon"
-import { formatMemory } from "@/features/shared/utils/format"
+
+function formatVmRowMemoryMb(mb: number): string {
+  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
+}
+
+function formatVmRowDiskGb(gb: number): string {
+  return `${gb.toFixed(1)} GB`
+}
 
 export type InventoryVmItemProps = {
   itemId: string
@@ -50,12 +57,12 @@ function VmResourceDescription({
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
         <HugeiconsIcon icon={RamMemoryIcon} className="size-3.5" />
-        {memoryMb != null ? formatMemory(memoryMb) : "—"}
+        {memoryMb != null ? formatVmRowMemoryMb(memoryMb) : "—"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
       <div className="flex items-center gap-1">
         <HugeiconsIcon icon={HardDriveIcon} className="size-3.5" />
-        {diskGb != null ? `${diskGb} GB` : "—"}
+        {diskGb != null ? formatVmRowDiskGb(diskGb) : "—"}
       </div>
     </>
   )
