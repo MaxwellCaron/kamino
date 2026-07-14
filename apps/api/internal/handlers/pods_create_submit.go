@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
@@ -179,6 +181,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			return
 		}
 		created = make(map[int]clonedVM, len(specs))
+		var createdMu sync.Mutex
 
 		placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), vmFolderID)
 		if err != nil {
@@ -193,15 +196,12 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			return
 		}
 
-		for _, spec := range specs {
-			message := fmt.Sprintf("Cloning %s into the Pod.", spec.Name)
-			if spec.Router {
-				message = "Cloning router into the Pod."
-			}
-			progress.set(createProgressStepCloning, message)
+		limit := h.podProvisionConcurrencyLimit()
+		progress.set(createProgressStepCloning, fmt.Sprintf("Cloning %d virtual machines (up to %d at a time).", len(specs), limit))
 
-			createdVM, reqErr := h.cloneTemplateIntoPod(
-				c.Request.Context(),
+		cloneResults, reqErr := runCreatePodClones(c.Request.Context(), limit, specs, func(ctx context.Context, index int, spec podCloneSpec) (createPodVMResult, *requestError) {
+			return h.cloneTemplateIntoPod(
+				ctx,
 				principalID,
 				placement,
 				targetNode,
@@ -209,20 +209,27 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				cloneVMOptions{
 					batch: devBatch,
 					onStarted: func(clone clonedVM) {
+						createdMu.Lock()
 						created[clone.VMID] = clone
+						createdMu.Unlock()
 					},
 					onSynced: func(clone clonedVM) {
+						createdMu.Lock()
 						created[clone.VMID] = clone
+						createdMu.Unlock()
 					},
 				},
 			)
-			if reqErr != nil {
-				progress.fail(reqErr.UserMessage)
-				writeRequestError(c, reqErr)
-				return
-			}
-			createdVMs = append(createdVMs, createdVM.response)
-			createdTargets = append(createdTargets, createdVM.target)
+		})
+		if reqErr != nil {
+			progress.fail(reqErr.UserMessage)
+			writeRequestError(c, reqErr)
+			return
+		}
+
+		for _, result := range cloneResults {
+			createdVMs = append(createdVMs, result.response)
+			createdTargets = append(createdTargets, result.target)
 		}
 
 		progress.set(createProgressStepWaiting, "Preparing cloned virtual machines.")
