@@ -1,19 +1,19 @@
 import { Suspense, lazy, useMemo, useReducer } from "react"
+import { InventoryDialogsContext } from "./inventory-dialogs-context"
+import type {
+  CloneDialogConfig,
+  CreateFolderDialogConfig,
+  CreateVmDialogConfig,
+  EditVmHardwareDialogConfig,
+  FolderLimitDialogConfig,
+  InventoryDialogsContextValue,
+  PermissionsDialogConfig,
+  RenameFolderDialogConfig,
+  RenameVmDialogConfig,
+  SnapshotDialogConfig,
+} from "./inventory-dialogs-context"
 import type { ReactNode } from "react"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import {
-  InventoryDialogsContext,
-  type CloneDialogConfig,
-  type CreateFolderDialogConfig,
-  type CreateVmDialogConfig,
-  type EditVmHardwareDialogConfig,
-  type FolderLimitDialogConfig,
-  type InventoryDialogsContextValue,
-  type PermissionsDialogConfig,
-  type RenameFolderDialogConfig,
-  type RenameVmDialogConfig,
-  type SnapshotDialogConfig,
-} from "./inventory-dialogs-context"
 
 const ConfirmDialog = lazy(() =>
   import("@/components/dialogs/confirm-dialog").then((module) => ({
