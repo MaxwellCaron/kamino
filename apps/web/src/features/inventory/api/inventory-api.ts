@@ -3,11 +3,7 @@ import type {
   ApiInventoryItem,
   ApiTreeNode,
 } from "../types/inventory-types"
-import {
-  ApiError,
-  apiFetch,
-  shouldRetryApiQuery,
-} from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
@@ -22,17 +18,11 @@ export const inventoryTreeQueryOptions = {
 export function inventoryItemQueryOptions(itemId: string) {
   return {
     queryKey: ["inventory", "item", itemId] as const,
-    queryFn: async (): Promise<ApiInventoryItem> => {
-      const res = await apiFetch(`/api/v1/inventory/items/${itemId}`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new ApiError(
-          body.error ?? `Failed to fetch inventory item: ${res.status}`,
-          res.status
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ApiInventoryItem> =>
+      apiJson<ApiInventoryItem>(
+        `/api/v1/inventory/items/${itemId}`,
+        "fetch inventory item"
+      ),
     enabled: !!itemId,
     retry: shouldRetryApiQuery,
   }

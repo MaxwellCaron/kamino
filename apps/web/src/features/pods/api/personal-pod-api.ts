@@ -1,8 +1,5 @@
-import {
-  ApiError,
-  apiFetch,
-  shouldRetryApiQuery,
-} from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 export type PersonalPodStatus = {
   configured: boolean
@@ -23,15 +20,10 @@ export type PersonalPodStatus = {
 }
 
 async function fetchPersonalPodStatus(): Promise<PersonalPodStatus> {
-  const res = await apiFetch("/api/v1/pods/personal")
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new ApiError(
-      body.error ?? `Failed to fetch personal pod status: ${res.status}`,
-      res.status
-    )
-  }
-  return res.json()
+  return apiJson<PersonalPodStatus>(
+    "/api/v1/pods/personal",
+    "fetch personal pod status"
+  )
 }
 
 export const personalPodQueryOptions = {
@@ -41,27 +33,15 @@ export const personalPodQueryOptions = {
 }
 
 export async function createPersonalPod(): Promise<{ folder_id: string }> {
-  const res = await apiFetch("/api/v1/pods/personal", { method: "POST" })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new ApiError(
-      body.error ?? `Failed to create personal pod: ${res.status}`,
-      res.status
-    )
-  }
-  return res.json()
+  return apiJson<{ folder_id: string }>(
+    "/api/v1/pods/personal",
+    "create personal pod",
+    { method: "POST" }
+  )
 }
 
 export async function requestPersonalPod(): Promise<unknown> {
-  const res = await apiFetch("/api/v1/requests/personal-pod", {
+  return apiJson<unknown>("/api/v1/requests/personal-pod", "request personal pod", {
     method: "POST",
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new ApiError(
-      body.error ?? `Failed to request personal pod: ${res.status}`,
-      res.status
-    )
-  }
-  return res.json()
 }

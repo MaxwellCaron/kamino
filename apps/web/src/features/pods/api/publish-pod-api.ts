@@ -6,11 +6,7 @@ import type {
 } from "@/features/pods/types/pod-types"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
-import {
-  ApiError,
-  apiFetch,
-  shouldRetryApiQuery,
-} from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 export type PublishedPodCloneBulkActionResponse = {
@@ -106,17 +102,11 @@ export const podCatalogQueryOptions = {
 export function podCatalogEntryQueryOptions(podSlug?: string) {
   return {
     queryKey: ["pods", "catalog", podSlug] as const,
-    queryFn: async (): Promise<PublishedPodCatalogEntry> => {
-      const res = await apiFetch(`/api/v1/pods/catalog/${podSlug}`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new ApiError(
-          body.error ?? `Failed to fetch pod: ${res.status}`,
-          res.status
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<PublishedPodCatalogEntry> =>
+      apiJson<PublishedPodCatalogEntry>(
+        `/api/v1/pods/catalog/${podSlug}`,
+        "fetch pod"
+      ),
     enabled: !!podSlug,
     retry: shouldRetryApiQuery,
   }

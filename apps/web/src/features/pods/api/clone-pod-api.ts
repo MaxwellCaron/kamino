@@ -3,11 +3,7 @@ import type {
   ClonedPodStatus,
   PodQuestionActivityAnswer,
 } from "@/features/pods/types/pod-types"
-import {
-  ApiError,
-  apiFetch,
-  shouldRetryApiQuery,
-} from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 export type CatalogCloneSummary = {
@@ -43,17 +39,11 @@ export type ClonePodProgress = {
 export function clonedPodQueryOptions(podSlug?: string) {
   return {
     queryKey: ["pods", "catalog", podSlug, "clone"] as const,
-    queryFn: async (): Promise<ClonedPod | null> => {
-      const res = await apiFetch(`/api/v1/pods/catalog/${podSlug}/clone`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new ApiError(
-          body.error ?? `Failed to fetch cloned pod: ${res.status}`,
-          res.status
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ClonedPod | null> =>
+      apiJson<ClonedPod | null>(
+        `/api/v1/pods/catalog/${podSlug}/clone`,
+        "fetch cloned pod"
+      ),
     enabled: !!podSlug,
     retry: shouldRetryApiQuery,
   }
@@ -62,18 +52,11 @@ export function clonedPodQueryOptions(podSlug?: string) {
 export function catalogCloneSummariesQueryOptions() {
   return {
     queryKey: ["pods", "catalog", "clones", "summary"] as const,
-    queryFn: async (): Promise<Array<CatalogCloneSummary>> => {
-      const res = await apiFetch("/api/v1/pods/catalog/clones/summary")
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new ApiError(
-          body.error ??
-            `Failed to fetch catalog clone summaries: ${res.status}`,
-          res.status
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<Array<CatalogCloneSummary>> =>
+      apiJson<Array<CatalogCloneSummary>>(
+        "/api/v1/pods/catalog/clones/summary",
+        "fetch catalog clone summaries"
+      ),
     retry: shouldRetryApiQuery,
   }
 }
@@ -106,17 +89,11 @@ export async function fetchClonePodProgress(
 export function podQuestionActivityQueryOptions() {
   return {
     queryKey: ["pods", "question-activity"] as const,
-    queryFn: async (): Promise<Array<PodQuestionActivityAnswer>> => {
-      const res = await apiFetch("/api/v1/pods/question-activity")
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new ApiError(
-          body.error ?? `Failed to fetch pod question activity: ${res.status}`,
-          res.status
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<Array<PodQuestionActivityAnswer>> =>
+      apiJson<Array<PodQuestionActivityAnswer>>(
+        "/api/v1/pods/question-activity",
+        "fetch pod question activity"
+      ),
     retry: shouldRetryApiQuery,
   }
 }
