@@ -1,5 +1,4 @@
 import { useMemo } from "react"
-import { toast } from "sonner"
 import { getRouteApi, redirect } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PublishPodEditor } from "@/features/pods/components/publish/publish-pod-editor"
@@ -64,12 +63,6 @@ export function PublishPodPage() {
                 queryKey: podCatalogQueryOptions.queryKey,
               }),
             ])
-
-            toast.success(
-              existingPod
-                ? `${savedPod.title} updated in the catalog.`
-                : `${savedPod.title} added to the catalog.`
-            )
 
             return savedPod
           }}
