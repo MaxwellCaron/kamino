@@ -53,6 +53,11 @@ function FolderRowActions({
       <Button
         size="icon"
         variant="ghost"
+        aria-label={
+          isFavorite
+            ? `Remove ${node.name} from favorites`
+            : `Add ${node.name} to favorites`
+        }
         className={cn(
           "bg-transparent!",
           isFavorite

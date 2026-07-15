@@ -108,13 +108,9 @@ function renderConsole(
 }
 
 function clickDisconnect() {
-  const button = document.querySelector(
-    'button[data-variant="destructive"][data-size="icon-xs"]'
+  fireEvent.click(
+    screen.getByRole("button", { name: "Disconnect VNC session" })
   )
-  if (!button) {
-    throw new Error("Disconnect button not found")
-  }
-  fireEvent.click(button)
 }
 
 async function waitForVncScreen() {
@@ -183,6 +179,25 @@ describe("VncConsole", () => {
     )
     expect(latestScreenProps?.url).toContain("sessionId=sess-1")
     expect(latestScreenProps?.rfbOptions?.credentials?.password).toBe("secret")
+  })
+
+  it("exposes an accessible name for the disconnect control when connected", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sessionId: "sess-1", password: "secret" }),
+    })
+
+    renderConsole()
+
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }))
+    await waitForVncScreen()
+    act(() => {
+      latestScreenProps?.onConnect?.()
+    })
+
+    expect(
+      screen.getByRole("button", { name: "Disconnect VNC session" })
+    ).toBeInTheDocument()
   })
 
   it("reports connected and disconnects only the active screen", async () => {

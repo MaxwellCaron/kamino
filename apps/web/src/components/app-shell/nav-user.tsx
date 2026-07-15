@@ -47,6 +47,7 @@ export function NavUser({
               <SidebarMenuButton
                 size="lg"
                 className="size-9! justify-center p-0!"
+                aria-label={`Open account menu for ${user.username}`}
               />
             }
           >

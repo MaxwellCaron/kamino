@@ -36,6 +36,7 @@ export function InventoryTreeHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Expand all inventory folders"
                   onClick={expandAll}
                   disabled={isLoading}
                 >
@@ -53,6 +54,7 @@ export function InventoryTreeHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Collapse all inventory folders"
                   onClick={collapseAll}
                   disabled={isLoading}
                 >

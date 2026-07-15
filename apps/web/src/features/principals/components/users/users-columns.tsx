@@ -179,7 +179,11 @@ export function getUserColumns({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="ghost" size="icon-xs">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Open actions for user ${user.name ?? user.external_id}`}
+                >
                   <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
                 </Button>
               }

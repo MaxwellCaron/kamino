@@ -60,7 +60,11 @@ export function VmOptionsMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Open actions for ${name ?? (isFolder ? "folder" : "virtual machine")}`}
+            >
               <HugeiconsIcon icon={MoreHorizontalIcon} />
             </Button>
           }

@@ -132,7 +132,11 @@ export function getGroupColumns({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button variant="ghost" size="icon-xs">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Open actions for group ${group.name ?? group.external_id}`}
+              >
                 <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
               </Button>
             }

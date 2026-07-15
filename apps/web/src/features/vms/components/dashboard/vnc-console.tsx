@@ -472,6 +472,7 @@ function ConsoleToolbar({
                   <Button
                     variant="destructive"
                     size="icon-xs"
+                    aria-label="Disconnect VNC session"
                     onClick={onDisconnect}
                   >
                     <HugeiconsIcon icon={Cancel01Icon} />

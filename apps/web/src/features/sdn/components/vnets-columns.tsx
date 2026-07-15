@@ -149,7 +149,11 @@ export function getVNetColumns({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="ghost" size="icon-xs">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Open actions for VNet ${vnet.vnet}`}
+                >
                   <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
                 </Button>
               }
