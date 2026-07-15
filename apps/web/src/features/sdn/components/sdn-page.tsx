@@ -126,8 +126,6 @@ export function SdnPage() {
 
   const showDeleteToast = useCallback(
     (targets: Array<ApiVNet>, onAllSucceeded?: () => void) => {
-      const targetIds = targets.map((vnet) => vnet.vnet)
-
       showUnitMutationToast({
         title: "Deleting",
         progressItems: [getSDNApplyProgressItem()],
@@ -147,30 +145,46 @@ export function SdnPage() {
               },
             })),
             run: async (report) => {
-              const result = await deleteVNet(targetIds, { apply: false })
-              const errorsById = new Map(
-                result.failed.map((failure) => [failure.id, failure.error])
-              )
+              const failed: Array<{ id: string; error: string }> = []
+              let deletedCount = 0
+
               for (const target of targets) {
-                const itemError = errorsById.get(target.vnet)
-                if (itemError) {
-                  report({ id: target.vnet, status: "error", error: itemError })
-                } else {
-                  report({ id: target.vnet, status: "done" })
+                try {
+                  // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential Proxmox SDN writes
+                  const result = await deleteVNet([target.vnet], { apply: false })
+                  const failure = result.failed.find(
+                    (item) => item.id === target.vnet
+                  )
+                  if (failure) {
+                    failed.push(failure)
+                    report({
+                      id: target.vnet,
+                      status: "error",
+                      error: failure.error,
+                    })
+                  } else {
+                    deletedCount += 1
+                    report({ id: target.vnet, status: "done" })
+                  }
+                } catch (err) {
+                  const message =
+                    err instanceof Error ? err.message : "delete failed"
+                  failed.push({ id: target.vnet, error: message })
+                  report({ id: target.vnet, status: "error", error: message })
                 }
               }
 
-              if (result.deleted.length === 0) {
+              if (deletedCount === 0) {
                 report({
                   id: SDN_APPLY_ITEM_ID,
                   status: "error",
                   error: "Skipped because no VNets were deleted",
                 })
-                return { failed: result.failed }
+                return { failed }
               }
 
               await reportSDNApply(report)
-              return { failed: result.failed }
+              return { failed }
             },
           },
         ],
