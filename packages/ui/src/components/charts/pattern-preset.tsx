@@ -3,18 +3,15 @@
 import { PatternCircles, PatternLines } from "./visx-pattern";
 import type { ReactNode } from "react";
 
-export const PATTERN_PRESET_IDS = [
-  "none",
-  "diagonal",
-  "horizontal",
-  "vertical",
-  "cross",
-  "dots",
-  "circles",
-  "accent",
-] as const;
-
-export type PatternPresetId = (typeof PATTERN_PRESET_IDS)[number];
+export type PatternPresetId =
+  | "none"
+  | "diagonal"
+  | "horizontal"
+  | "vertical"
+  | "cross"
+  | "dots"
+  | "circles"
+  | "accent";
 
 export interface PatternPresetOptions {
   color?: string;
@@ -31,11 +28,6 @@ export interface PatternPresetOptions {
 /** Presets rendered with @visx/pattern `PatternCircles`. */
 export function isCirclePattern(preset: PatternPresetId): boolean {
   return preset === "circles" || preset === "dots";
-}
-
-/** @deprecated Use `isCirclePattern`. */
-export function isCirclesPattern(preset: PatternPresetId): boolean {
-  return isCirclePattern(preset);
 }
 
 export function patternPresetTileSize(

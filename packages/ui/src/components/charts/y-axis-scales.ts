@@ -40,41 +40,6 @@ export function getPrimaryYScale(
   return first ?? fallback;
 }
 
-export function buildYScalesForLines({
-  lines,
-  innerHeight,
-  resolveDomain,
-}: {
-  lines: Array<LineConfig>;
-  /** Passed by callers; domain is resolved via `resolveDomain`. */
-  data?: Array<Record<string, unknown>>;
-  innerHeight: number;
-  resolveDomain: (dataKeys: Array<string>) => [number, number];
-}): Record<string, YScale> {
-  const groups = groupLinesByYAxisId(lines);
-  const scales: Record<string, YScale> = {};
-
-  for (const [axisId, axisLines] of groups) {
-    const dataKeys = axisLines.map((line) => line.dataKey);
-    const domain = resolveDomain(dataKeys);
-    scales[axisId] = scaleLinear({
-      range: [innerHeight, 0],
-      domain,
-      nice: true,
-    });
-  }
-
-  if (!scales[DEFAULT_Y_AXIS_ID]) {
-    scales[DEFAULT_Y_AXIS_ID] = scaleLinear({
-      range: [innerHeight, 0],
-      domain: [0, 100],
-      nice: true,
-    });
-  }
-
-  return scales;
-}
-
 /** Build y-scales from pre-computed (already nice'd) domain endpoints. */
 export function buildYScalesFromDomains({
   lines,

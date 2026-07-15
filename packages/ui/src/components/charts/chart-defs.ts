@@ -1,10 +1,4 @@
-import {
-  Children,
-  
-  
-  isValidElement
-} from "react";
-import type {ReactElement, ReactNode} from "react";
+import type { ReactElement } from "react";
 
 export function getChartChildComponentName(child: ReactElement): string {
   const childType = child.type as { displayName?: string; name?: string };
@@ -39,35 +33,4 @@ export function isGradientDefComponent(child: ReactElement): boolean {
 
 export function isChartDefsComponent(child: ReactElement): boolean {
   return isPatternDefComponent(child) || isGradientDefComponent(child);
-}
-
-/** Split hoisted defs: @visx/pattern nodes already wrap `<defs>` and render at the svg root. */
-export function partitionChartDefNodes(defNodes: Array<ReactElement>): {
-  patternDefNodes: Array<ReactElement>;
-  gradientDefNodes: Array<ReactElement>;
-} {
-  const patternDefNodes: Array<ReactElement> = [];
-  const gradientDefNodes: Array<ReactElement> = [];
-
-  for (const node of defNodes) {
-    if (isPatternDefComponent(node)) {
-      patternDefNodes.push(node);
-    } else {
-      gradientDefNodes.push(node);
-    }
-  }
-
-  return { patternDefNodes, gradientDefNodes };
-}
-
-export function collectChartDefsChildren(children: ReactNode): Array<ReactElement> {
-  const defNodes: Array<ReactElement> = [];
-
-  Children.forEach(children, (child) => {
-    if (isValidElement(child) && isChartDefsComponent(child)) {
-      defNodes.push(child);
-    }
-  });
-
-  return defNodes;
 }
