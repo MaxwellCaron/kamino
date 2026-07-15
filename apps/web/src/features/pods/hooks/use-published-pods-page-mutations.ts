@@ -13,13 +13,11 @@ import {
 } from "@/features/pods/api/publish-pod-api"
 
 type UsePublishedPodsPageMutationsOptions = {
-  pods: Array<PublishedPodCatalogEntry>
   onDeleteSettled: () => void
   onBulkActionSettled: () => void
 }
 
 export function usePublishedPodsPageMutations({
-  pods,
   onDeleteSettled,
   onBulkActionSettled,
 }: UsePublishedPodsPageMutationsOptions) {
@@ -28,9 +26,10 @@ export function usePublishedPodsPageMutations({
   const statusMutation = useMutation({
     mutationFn: setPublishedPodStatus,
     onSuccess: (updated) => {
-      queryClient.setQueryData(
+      queryClient.setQueryData<Array<PublishedPodCatalogEntry>>(
         publishedPodsQueryOptions.queryKey,
-        pods.map((pod) => (pod.id === updated.id ? updated : pod))
+        (current) =>
+          current?.map((pod) => (pod.id === updated.id ? updated : pod))
       )
       toast.success(
         updated.status === "listed"
@@ -45,6 +44,15 @@ export function usePublishedPodsPageMutations({
           : "Failed to update published pod status."
       )
     },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: publishedPodsQueryOptions.queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        }),
+      ]),
   })
 
   const deleteMutation = useMutation({

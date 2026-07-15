@@ -51,6 +51,7 @@ type PublishedPodColumnsOptions = {
     action: PodCloneAction
   ) => void
   cloneBulkActionPending?: boolean
+  statusChangePendingId?: string | null
   onManagerClone: (pod: PublishedPodCatalogEntry) => void
   managerClonePending?: boolean
 }
@@ -61,6 +62,7 @@ export function getPublishedPodsColumns({
   onStatusChange,
   onCloneBulkAction,
   cloneBulkActionPending,
+  statusChangePendingId,
   onManagerClone,
   managerClonePending,
 }: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
@@ -308,14 +310,20 @@ export function getPublishedPodsColumns({
                       onStatusChange(pod, value as PodStatus)
                     }
                   >
-                    <DropdownMenuRadioItem value="listed">
+                    <DropdownMenuRadioItem
+                      value="listed"
+                      disabled={statusChangePendingId === pod.id}
+                    >
                       <HugeiconsIcon
                         icon={ViewIcon}
                         className="text-muted-foreground"
                       />
                       Listed
                     </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="unlisted">
+                    <DropdownMenuRadioItem
+                      value="unlisted"
+                      disabled={statusChangePendingId === pod.id}
+                    >
                       <HugeiconsIcon
                         icon={ViewOffSlashIcon}
                         className="text-muted-foreground"

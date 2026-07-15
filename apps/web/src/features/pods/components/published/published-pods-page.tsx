@@ -67,7 +67,6 @@ export function PublishedPodsPage() {
     bulkCloneActionMutation,
     deleteCloneMutation,
   } = usePublishedPodsPageMutations({
-    pods,
     onDeleteSettled: () => setPendingDeletePod(null),
     onBulkActionSettled: () => setPendingCloneBulkAction(null),
   })
@@ -95,6 +94,8 @@ export function PublishedPodsPage() {
         },
         cloneBulkActionPending:
           bulkCloneActionMutation.isPending || deleteCloneMutation.isPending,
+        statusChangePendingId:
+          statusMutation.isPending ? statusMutation.variables.id : null,
         onManagerClone: setPendingManagerClonePod,
       }),
     [
