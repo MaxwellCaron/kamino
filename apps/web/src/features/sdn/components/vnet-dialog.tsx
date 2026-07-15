@@ -370,18 +370,26 @@ function VNetDialogForm({
               },
             })),
             run: async (report) => {
-              const result = await createVNetsInChunks(payload, { apply: false })
-              const errorsById = new Map(
-                result.failed.map((failure) => [failure.id, failure.error])
-              )
-              for (const input of payload) {
-                const error = errorsById.get(input.vnet)
-                if (error) {
-                  report({ id: input.vnet, status: "error", error })
-                } else {
-                  report({ id: input.vnet, status: "done" })
+              const result = await createVNetsInChunks(
+                payload,
+                { apply: false },
+                (chunk, chunkResult) => {
+                  const errorsById = new Map(
+                    chunkResult.failed.map((failure) => [
+                      failure.id,
+                      failure.error,
+                    ])
+                  )
+                  for (const input of chunk) {
+                    const error = errorsById.get(input.vnet)
+                    if (error) {
+                      report({ id: input.vnet, status: "error", error })
+                    } else {
+                      report({ id: input.vnet, status: "done" })
+                    }
+                  }
                 }
-              }
+              )
 
               if (result.created.length === 0) {
                 report({

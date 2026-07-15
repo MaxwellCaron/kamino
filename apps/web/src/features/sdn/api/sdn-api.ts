@@ -71,10 +71,18 @@ export async function createVNets(
 
 export async function createVNetsInChunks(
   params: Array<CreateVNetInput>,
-  options?: { apply?: boolean }
+  options?: { apply?: boolean },
+  onChunkResult?: (
+    chunk: Array<CreateVNetInput>,
+    result: ApiCreateVNetsResponse
+  ) => void
 ): Promise<ApiCreateVNetsResponse> {
   const results = await Promise.all(
-    chunkCreateVNetInputs(params).map((chunk) => createVNets(chunk, options))
+    chunkCreateVNetInputs(params).map(async (chunk) => {
+      const result = await createVNets(chunk, options)
+      onChunkResult?.(chunk, result)
+      return result
+    })
   )
 
   return {
