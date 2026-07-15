@@ -124,42 +124,6 @@ func (q *Queries) GetClonedPodByID(ctx context.Context, id uuid.UUID) (ClonedPod
 	return i, err
 }
 
-const getClonedPodForPrincipalByID = `-- name: GetClonedPodForPrincipalByID :one
-SELECT
-    id,
-    pod_id,
-    user_principal_id,
-    folder_id,
-    network_number,
-    network_profile_key,
-    created_at,
-    updated_at
-FROM cloned_pods
-WHERE id = $1
-  AND user_principal_id = $2
-`
-
-type GetClonedPodForPrincipalByIDParams struct {
-	ID              uuid.UUID `json:"id"`
-	UserPrincipalID uuid.UUID `json:"user_principal_id"`
-}
-
-func (q *Queries) GetClonedPodForPrincipalByID(ctx context.Context, arg GetClonedPodForPrincipalByIDParams) (ClonedPods, error) {
-	row := q.db.QueryRow(ctx, getClonedPodForPrincipalByID, arg.ID, arg.UserPrincipalID)
-	var i ClonedPods
-	err := row.Scan(
-		&i.ID,
-		&i.PodID,
-		&i.UserPrincipalID,
-		&i.FolderID,
-		&i.NetworkNumber,
-		&i.NetworkProfileKey,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getClonedPodForPrincipalByPodID = `-- name: GetClonedPodForPrincipalByPodID :one
 SELECT
     id,

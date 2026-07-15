@@ -75,26 +75,6 @@ LEFT JOIN proxmox_vms pv
 WHERE r.id = $1
 FOR UPDATE OF r;
 
--- name: GetInventoryRequestByRequestID :one
-SELECT
-    ir.request_id,
-    ir.inventory_item_id,
-    ir.power_action,
-    ir.snapshot_name,
-    ir.created_at,
-    ii.kind AS inventory_item_kind,
-    ii.name AS inventory_item_name,
-    ii.parent_id AS inventory_item_parent_id,
-    pv.node AS inventory_vm_node,
-    pv.vmid AS inventory_vm_vmid,
-    pv.is_template AS inventory_vm_is_template
-FROM inventory_requests ir
-JOIN inventory_items ii
-  ON ii.id = ir.inventory_item_id
-LEFT JOIN proxmox_vms pv
-  ON pv.inventory_item_id = ir.inventory_item_id
-WHERE ir.request_id = $1;
-
 -- name: ListRequestEventsByRequestID :many
 SELECT
     re.id,

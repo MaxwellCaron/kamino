@@ -12,60 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getInventoryRequestByRequestID = `-- name: GetInventoryRequestByRequestID :one
-SELECT
-    ir.request_id,
-    ir.inventory_item_id,
-    ir.power_action,
-    ir.snapshot_name,
-    ir.created_at,
-    ii.kind AS inventory_item_kind,
-    ii.name AS inventory_item_name,
-    ii.parent_id AS inventory_item_parent_id,
-    pv.node AS inventory_vm_node,
-    pv.vmid AS inventory_vm_vmid,
-    pv.is_template AS inventory_vm_is_template
-FROM inventory_requests ir
-JOIN inventory_items ii
-  ON ii.id = ir.inventory_item_id
-LEFT JOIN proxmox_vms pv
-  ON pv.inventory_item_id = ir.inventory_item_id
-WHERE ir.request_id = $1
-`
-
-type GetInventoryRequestByRequestIDRow struct {
-	RequestID             uuid.UUID                       `json:"request_id"`
-	InventoryItemID       uuid.UUID                       `json:"inventory_item_id"`
-	PowerAction           NullInventoryRequestPowerAction `json:"power_action"`
-	SnapshotName          *string                         `json:"snapshot_name"`
-	CreatedAt             pgtype.Timestamptz              `json:"created_at"`
-	InventoryItemKind     InventoryItemKind               `json:"inventory_item_kind"`
-	InventoryItemName     string                          `json:"inventory_item_name"`
-	InventoryItemParentID *uuid.UUID                      `json:"inventory_item_parent_id"`
-	InventoryVmNode       *string                         `json:"inventory_vm_node"`
-	InventoryVmVmid       *int32                          `json:"inventory_vm_vmid"`
-	InventoryVmIsTemplate *bool                           `json:"inventory_vm_is_template"`
-}
-
-func (q *Queries) GetInventoryRequestByRequestID(ctx context.Context, requestID uuid.UUID) (GetInventoryRequestByRequestIDRow, error) {
-	row := q.db.QueryRow(ctx, getInventoryRequestByRequestID, requestID)
-	var i GetInventoryRequestByRequestIDRow
-	err := row.Scan(
-		&i.RequestID,
-		&i.InventoryItemID,
-		&i.PowerAction,
-		&i.SnapshotName,
-		&i.CreatedAt,
-		&i.InventoryItemKind,
-		&i.InventoryItemName,
-		&i.InventoryItemParentID,
-		&i.InventoryVmNode,
-		&i.InventoryVmVmid,
-		&i.InventoryVmIsTemplate,
-	)
-	return i, err
-}
-
 const getRequestByID = `-- name: GetRequestByID :one
 SELECT
     r.id,

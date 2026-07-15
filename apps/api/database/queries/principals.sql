@@ -14,12 +14,6 @@ FROM principal_providers
 WHERE provider_type = $1
 LIMIT 1;
 
--- name: GetConfiguredPrincipalProvider :one
-SELECT id, provider_type, name
-FROM principal_providers
-WHERE provider_type <> 'system'
-LIMIT 1;
-
 -- name: CreatePrincipalProvider :one
 INSERT INTO principal_providers (provider_type, name)
 VALUES ($1, $2)

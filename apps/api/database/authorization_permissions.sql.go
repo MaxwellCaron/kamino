@@ -11,31 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const getEffectiveInventoryPermissions = `-- name: GetEffectiveInventoryPermissions :one
-SELECT gep.allowed_mask::BIGINT AS allowed_mask, gep.denied_mask::BIGINT AS denied_mask
-FROM get_effective_permissions(
-    $1,
-    $2
-) AS gep(allowed_mask, denied_mask)
-`
-
-type GetEffectiveInventoryPermissionsParams struct {
-	PrincipalID     uuid.UUID `json:"principal_id"`
-	InventoryItemID uuid.UUID `json:"inventory_item_id"`
-}
-
-type GetEffectiveInventoryPermissionsRow struct {
-	AllowedMask int64 `json:"allowed_mask"`
-	DeniedMask  int64 `json:"denied_mask"`
-}
-
-func (q *Queries) GetEffectiveInventoryPermissions(ctx context.Context, arg GetEffectiveInventoryPermissionsParams) (GetEffectiveInventoryPermissionsRow, error) {
-	row := q.db.QueryRow(ctx, getEffectiveInventoryPermissions, arg.PrincipalID, arg.InventoryItemID)
-	var i GetEffectiveInventoryPermissionsRow
-	err := row.Scan(&i.AllowedMask, &i.DeniedMask)
-	return i, err
-}
-
 const hasAnyInventoryPermission = `-- name: HasAnyInventoryPermission :one
 SELECT EXISTS (
     SELECT 1

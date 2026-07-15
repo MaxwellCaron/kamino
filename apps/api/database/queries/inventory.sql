@@ -2,13 +2,6 @@
 -- Sync queries
 -- ---------------------------------------------------------------------------
 
--- name: GetRootFolderByName :one
-SELECT id
-FROM inventory_items
-WHERE parent_id IS NULL
-  AND kind = 'folder'
-  AND name = $1;
-
 -- name: CreateRootFolder :one
 INSERT INTO inventory_items (parent_id, kind, name)
 VALUES (NULL, 'folder', $1)
@@ -138,10 +131,6 @@ SET node = $2,
     disk_gb = $9
 WHERE inventory_item_id = $1;
 
--- name: GetAllProxmoxVMNodeVMIDs :many
-SELECT pv.inventory_item_id, pv.node, pv.vmid
-FROM proxmox_vms pv;
-
 -- name: DeleteInventoryItem :exec
 DELETE FROM inventory_items WHERE id = $1;
 
@@ -181,12 +170,6 @@ FROM inventory_requests ir
 JOIN requests r ON r.id = ir.request_id
 WHERE ir.inventory_item_id IN (SELECT id FROM subtree)
 ORDER BY blocker_type, blocker_name;
-
--- name: GetChildFolderIDs :many
-SELECT id, name
-FROM inventory_items
-WHERE parent_id = $1
-  AND kind = 'folder';
 
 -- name: UpdateProxmoxVMIsTemplateByItemID :exec
 UPDATE proxmox_vms

@@ -1,10 +1,3 @@
--- name: GetEffectiveInventoryPermissions :one
-SELECT gep.allowed_mask::BIGINT AS allowed_mask, gep.denied_mask::BIGINT AS denied_mask
-FROM get_effective_permissions(
-    sqlc.arg(principal_id),
-    sqlc.arg(inventory_item_id)
-) AS gep(allowed_mask, denied_mask);
-
 -- name: ListEffectiveManagementPermissionKeys :many
 SELECT gep.permission_key::TEXT AS permission_key
 FROM get_effective_management_permissions(

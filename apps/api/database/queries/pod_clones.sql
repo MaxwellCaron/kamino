@@ -171,20 +171,6 @@ LEFT JOIN proxmox_vms pv
 WHERE cpv.cloned_pod_id = ANY(sqlc.arg(clone_ids)::UUID[])
 ORDER BY cpv.cloned_pod_id, cpv.sort_order ASC;
 
--- name: GetClonedPodForPrincipalByID :one
-SELECT
-    id,
-    pod_id,
-    user_principal_id,
-    folder_id,
-    network_number,
-    network_profile_key,
-    created_at,
-    updated_at
-FROM cloned_pods
-WHERE id = $1
-  AND user_principal_id = $2;
-
 -- name: GetAccessibleClonedPodByID :one
 SELECT
     cp.id,

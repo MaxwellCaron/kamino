@@ -11,18 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const countInventoryACLEntries = `-- name: CountInventoryACLEntries :one
-SELECT COUNT(*)::BIGINT
-FROM inventory_acl_entries
-`
-
-func (q *Queries) CountInventoryACLEntries(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countInventoryACLEntries)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
 const createInventoryACLEntry = `-- name: CreateInventoryACLEntry :exec
 INSERT INTO inventory_acl_entries (
     inventory_item_id,

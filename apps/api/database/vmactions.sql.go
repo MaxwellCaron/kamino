@@ -62,25 +62,6 @@ func (q *Queries) DeleteStaleVMActionClaims(ctx context.Context, claimedAt pgtyp
 	return result.RowsAffected(), nil
 }
 
-const getVMActionClaim = `-- name: GetVMActionClaim :one
-SELECT inventory_item_id, action, actor_principal_id, claimed_at, detail
-FROM vm_action_claims
-WHERE inventory_item_id = $1
-`
-
-func (q *Queries) GetVMActionClaim(ctx context.Context, inventoryItemID uuid.UUID) (VmActionClaims, error) {
-	row := q.db.QueryRow(ctx, getVMActionClaim, inventoryItemID)
-	var i VmActionClaims
-	err := row.Scan(
-		&i.InventoryItemID,
-		&i.Action,
-		&i.ActorPrincipalID,
-		&i.ClaimedAt,
-		&i.Detail,
-	)
-	return i, err
-}
-
 const releaseVMAction = `-- name: ReleaseVMAction :exec
 DELETE FROM vm_action_claims
 WHERE inventory_item_id = $1

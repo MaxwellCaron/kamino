@@ -158,16 +158,6 @@ func (q *Queries) DeletePublishedPodTasksExcept(ctx context.Context, arg DeleteP
 	return err
 }
 
-const deletePublishedPodVMs = `-- name: DeletePublishedPodVMs :exec
-DELETE FROM published_pod_vms
-WHERE pod_id = $1
-`
-
-func (q *Queries) DeletePublishedPodVMs(ctx context.Context, podID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deletePublishedPodVMs, podID)
-	return err
-}
-
 const deletePublishedPodVMsExcept = `-- name: DeletePublishedPodVMsExcept :exec
 DELETE FROM published_pod_vms
 WHERE pod_id = $1

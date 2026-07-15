@@ -1,7 +1,3 @@
--- name: CountInventoryACLEntries :one
-SELECT COUNT(*)::BIGINT
-FROM inventory_acl_entries;
-
 -- name: ListRootInventoryFolderIDs :many
 SELECT id
 FROM inventory_items

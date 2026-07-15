@@ -30,11 +30,15 @@ func (q *Queries) CreateChildFolder(ctx context.Context, arg CreateChildFolderPa
 }
 
 const createRootFolder = `-- name: CreateRootFolder :one
+
 INSERT INTO inventory_items (parent_id, kind, name)
 VALUES (NULL, 'folder', $1)
 RETURNING id
 `
 
+// ---------------------------------------------------------------------------
+// Sync queries
+// ---------------------------------------------------------------------------
 func (q *Queries) CreateRootFolder(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createRootFolder, name)
 	var id uuid.UUID
@@ -145,37 +149,6 @@ func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryIt
 	return items, nil
 }
 
-const getAllProxmoxVMNodeVMIDs = `-- name: GetAllProxmoxVMNodeVMIDs :many
-SELECT pv.inventory_item_id, pv.node, pv.vmid
-FROM proxmox_vms pv
-`
-
-type GetAllProxmoxVMNodeVMIDsRow struct {
-	InventoryItemID uuid.UUID `json:"inventory_item_id"`
-	Node            string    `json:"node"`
-	Vmid            int32     `json:"vmid"`
-}
-
-func (q *Queries) GetAllProxmoxVMNodeVMIDs(ctx context.Context) ([]GetAllProxmoxVMNodeVMIDsRow, error) {
-	rows, err := q.db.Query(ctx, getAllProxmoxVMNodeVMIDs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProxmoxVMNodeVMIDsRow
-	for rows.Next() {
-		var i GetAllProxmoxVMNodeVMIDsRow
-		if err := rows.Scan(&i.InventoryItemID, &i.Node, &i.Vmid); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getChildFolderByName = `-- name: GetChildFolderByName :one
 SELECT id
 FROM inventory_items
@@ -194,38 +167,6 @@ func (q *Queries) GetChildFolderByName(ctx context.Context, arg GetChildFolderBy
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
-}
-
-const getChildFolderIDs = `-- name: GetChildFolderIDs :many
-SELECT id, name
-FROM inventory_items
-WHERE parent_id = $1
-  AND kind = 'folder'
-`
-
-type GetChildFolderIDsRow struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-}
-
-func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID *uuid.UUID) ([]GetChildFolderIDsRow, error) {
-	rows, err := q.db.Query(ctx, getChildFolderIDs, parentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetChildFolderIDsRow
-	for rows.Next() {
-		var i GetChildFolderIDsRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getInventoryItemByID = `-- name: GetInventoryItemByID :one
@@ -510,25 +451,6 @@ func (q *Queries) GetProxmoxVMByUpstreamUUID(ctx context.Context, upstreamUuid u
 		&i.Name,
 	)
 	return i, err
-}
-
-const getRootFolderByName = `-- name: GetRootFolderByName :one
-
-SELECT id
-FROM inventory_items
-WHERE parent_id IS NULL
-  AND kind = 'folder'
-  AND name = $1
-`
-
-// ---------------------------------------------------------------------------
-// Sync queries
-// ---------------------------------------------------------------------------
-func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, getRootFolderByName, name)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
 }
 
 const insertProxmoxVM = `-- name: InsertProxmoxVM :exec

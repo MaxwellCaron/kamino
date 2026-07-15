@@ -190,10 +190,6 @@ WHERE pod_id = $1;
 DELETE FROM published_pod_audience
 WHERE pod_id = $1;
 
--- name: DeletePublishedPodVMs :exec
-DELETE FROM published_pod_vms
-WHERE pod_id = $1;
-
 -- name: DeletePublishedPodVMsExcept :exec
 DELETE FROM published_pod_vms
 WHERE pod_id = $1
