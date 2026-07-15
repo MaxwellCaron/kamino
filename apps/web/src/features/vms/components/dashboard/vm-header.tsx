@@ -344,7 +344,7 @@ export function VmHeader({
               <m.div key={stat.label} variants={animateChild}>
                 <Item
                   variant="muted"
-                  className={`${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
+                  className={`h-full ${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
                 >
                   <ItemMedia>{stat.icon}</ItemMedia>
                   <ItemContent
