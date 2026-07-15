@@ -36,7 +36,6 @@ export type InventoryVmItemProps = {
   diskGb?: number
   openInNewTab?: boolean
   trailingContent?: ReactNode
-  preventNavigationFromTrailingContent?: boolean
 }
 
 function VmResourceDescription({
@@ -79,55 +78,40 @@ export function InventoryVmItem({
   diskGb,
   openInNewTab = false,
   trailingContent,
-  preventNavigationFromTrailingContent = false,
 }: InventoryVmItemProps) {
   return (
-    <Item
-      className="group/folder-row flex-nowrap"
-      render={
-        <Link
-          to="/inventory/items/$itemId"
-          params={{ itemId }}
-          target={openInNewTab ? "_blank" : undefined}
-          rel={openInNewTab ? "noreferrer" : undefined}
-          aria-label={openInNewTab ? `Open ${name} in a new tab` : undefined}
-          className="flex min-w-0 flex-1 items-center gap-3.5"
-        >
-          <ItemMedia variant="icon">
-            <VmIcon
-              status={status}
-              isTemplate={isTemplate}
-              guestType={guestType}
+    <Item className="group/folder-row flex-nowrap hover:bg-muted [&_a]:hover:bg-transparent">
+      <Link
+        to="/inventory/items/$itemId"
+        params={{ itemId }}
+        target={openInNewTab ? "_blank" : undefined}
+        rel={openInNewTab ? "noreferrer" : undefined}
+        aria-label={openInNewTab ? `Open ${name} in a new tab` : undefined}
+        className="flex min-w-0 flex-1 items-center gap-3.5"
+      >
+        <ItemMedia variant="icon">
+          <VmIcon
+            status={status}
+            isTemplate={isTemplate}
+            guestType={guestType}
+          />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{name}</ItemTitle>
+          <ItemDescription className="flex items-center gap-2">
+            <VmResourceDescription
+              cpuCount={cpuCount}
+              memoryMb={memoryMb}
+              diskGb={diskGb}
             />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle>{name}</ItemTitle>
-            <ItemDescription className="flex items-center gap-2">
-              <VmResourceDescription
-                cpuCount={cpuCount}
-                memoryMb={memoryMb}
-                diskGb={diskGb}
-              />
-            </ItemDescription>
-          </ItemContent>
-          {trailingContent ? (
-            <ItemActions
-              className="gap-0.5"
-              onClickCapture={
-                preventNavigationFromTrailingContent
-                  ? (event) => {
-                      if (event.currentTarget.contains(event.target as Node)) {
-                        event.preventDefault()
-                      }
-                    }
-                  : undefined
-              }
-            >
-              {trailingContent}
-            </ItemActions>
-          ) : null}
-        </Link>
-      }
-    />
+          </ItemDescription>
+        </ItemContent>
+      </Link>
+      {trailingContent ? (
+        <ItemActions className="shrink-0 gap-0.5">
+          {trailingContent}
+        </ItemActions>
+      ) : null}
+    </Item>
   )
 }

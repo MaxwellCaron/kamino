@@ -103,46 +103,35 @@ export function InventoryFolderItem({
             onToggleFavorite={onToggleFavorite}
           />
         }
-        preventNavigationFromTrailingContent
       />
     )
   }
 
   return (
-    <Item
-      className="group/folder-row flex-nowrap"
-      render={
-        <Link
-          to="/inventory/items/$itemId"
-          params={{ itemId: node.id }}
-          className="flex min-w-0 flex-1 items-center gap-3.5"
-        >
-          <ItemMedia variant="icon">
-            <InventoryNodeIcon node={node} status={status} />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle>{node.name}</ItemTitle>
-            <ItemDescription className="flex items-center gap-2">
-              <FolderDescription node={node} />
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions
-            className="gap-0.5"
-            onClickCapture={(event) => {
-              if (event.currentTarget.contains(event.target as Node)) {
-                event.preventDefault()
-              }
-            }}
-          >
-            <FolderRowActions
-              itemId={node.id}
-              node={node}
-              isFavorite={isFavorite}
-              onToggleFavorite={onToggleFavorite}
-            />
-          </ItemActions>
-        </Link>
-      }
-    />
+    <Item className="group/folder-row flex-nowrap hover:bg-muted [&_a]:hover:bg-transparent">
+      <Link
+        to="/inventory/items/$itemId"
+        params={{ itemId: node.id }}
+        className="flex min-w-0 flex-1 items-center gap-3.5"
+      >
+        <ItemMedia variant="icon">
+          <InventoryNodeIcon node={node} status={status} />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{node.name}</ItemTitle>
+          <ItemDescription className="flex items-center gap-2">
+            <FolderDescription node={node} />
+          </ItemDescription>
+        </ItemContent>
+      </Link>
+      <ItemActions className="shrink-0 gap-0.5">
+        <FolderRowActions
+          itemId={node.id}
+          node={node}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+        />
+      </ItemActions>
+    </Item>
   )
 }
