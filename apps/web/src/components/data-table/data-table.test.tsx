@@ -36,6 +36,31 @@ function makeRows(count: number): Array<Row> {
 }
 
 describe("DataTable client mode", () => {
+  it("exposes the search input with the default accessible name", () => {
+    renderWithQueryClient(
+      <DataTable columns={columns} data={makeRows(1)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("textbox", { name: "Search table" })
+    ).toBeInTheDocument()
+  })
+
+  it("uses a custom searchLabel as the accessible name", () => {
+    renderWithQueryClient(
+      <DataTable
+        columns={columns}
+        data={makeRows(1)}
+        error={null}
+        searchLabel="Search groups"
+      />
+    )
+
+    expect(
+      screen.getByRole("textbox", { name: "Search groups" })
+    ).toBeInTheDocument()
+  })
+
   it("sorts rows through a sortable column header", () => {
     renderWithQueryClient(
       <DataTable
@@ -80,7 +105,7 @@ describe("DataTable client mode", () => {
       <DataTable columns={columns} data={makeRows(5)} error={null} />
     )
 
-    const search = screen.getByPlaceholderText("Search...")
+    const search = screen.getByRole("textbox", { name: "Search table" })
     fireEvent.change(search, { target: { value: "Row 3" } })
 
     expect(screen.getByText("Row 3")).toBeInTheDocument()
@@ -215,7 +240,7 @@ describe("DataTable server mode", () => {
       />
     )
 
-    const search = screen.getByPlaceholderText("Search...")
+    const search = screen.getByRole("textbox", { name: "Search table" })
     fireEvent.change(search, { target: { value: "vm-100" } })
 
     expect(onSearchChange).toHaveBeenCalledWith("vm-100")

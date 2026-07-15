@@ -119,6 +119,7 @@ export function RequestsPageQueueCard({
           data={activeRequests}
           features={{ loading: isActiveLoading }}
           error={activeError}
+          searchLabel="Search requests"
           getRowId={(request: ApiRequestSummary) => request.id}
           serverPagination={serverPagination}
           selectionActions={

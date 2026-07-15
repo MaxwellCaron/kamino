@@ -59,6 +59,7 @@ export function AuditPage() {
                 data={data?.items ?? []}
                 features={{ loading: isLoading }}
                 error={error}
+                searchLabel="Search audit logs"
                 serverPagination={{
                   mode: "server",
                   pagination,

@@ -266,6 +266,7 @@ export function SdnPage() {
               features={{ loading: isLoading, sorting: true }}
               initialSorting={[{ id: "tag", desc: false }]}
               error={error}
+              searchLabel="Search virtual networks"
               getRowId={(vnet) => vnet.vnet}
               selectionActions={
                 canAdminister

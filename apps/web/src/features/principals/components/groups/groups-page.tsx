@@ -227,6 +227,7 @@ export function GroupsPage() {
               features={{ loading: isLoading, sorting: true }}
               initialSorting={[{ id: "created_at", desc: true }]}
               error={error}
+              searchLabel="Search groups"
               getRowId={(group: ApiPrincipal) => group.id}
               selectionActions={
                 canAdminister

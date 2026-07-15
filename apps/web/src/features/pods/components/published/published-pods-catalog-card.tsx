@@ -36,6 +36,7 @@ export function PublishedPodsCatalogCard({
             columns={columns}
             data={pods}
             error={error}
+            searchLabel="Search published pods"
             expandedRowComponent={(props) => (
               <PublishedPodExpandedRow {...props} />
             )}

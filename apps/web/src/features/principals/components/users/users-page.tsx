@@ -209,6 +209,7 @@ export function UsersPage() {
               features={{ loading: isLoading, sorting: true }}
               initialSorting={[{ id: "created_at", desc: true }]}
               error={error}
+              searchLabel="Search users"
               getRowId={(tableUser: ApiPrincipal) => tableUser.id}
               selectionActions={
                 canAdminister

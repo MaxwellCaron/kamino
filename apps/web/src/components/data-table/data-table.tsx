@@ -92,6 +92,7 @@ interface DataTableProps<TData, TValue> {
   expandedRowComponent?: ComponentType<{ row: TData }>
   getRowCanExpand?: (row: TData) => boolean
   serverPagination?: DataTableServerPagination
+  searchLabel?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -106,6 +107,7 @@ export function DataTable<TData, TValue>({
   expandedRowComponent: ExpandedRowComponent,
   getRowCanExpand,
   serverPagination,
+  searchLabel = "Search table",
 }: DataTableProps<TData, TValue>) {
   const features = { ...defaultDataTableFeatures, ...featuresInput }
   const {
@@ -177,6 +179,7 @@ export function DataTable<TData, TValue>({
             <HugeiconsIcon icon={Search01Icon} />
           </InputGroupAddon>
           <InputGroupInput
+            aria-label={searchLabel}
             placeholder="Search..."
             value={searchValue}
             onChange={(e) => {

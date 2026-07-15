@@ -261,6 +261,7 @@ export function ProxmoxSyncPage() {
                 data={rows}
                 features={{ loading: isLoading }}
                 error={error}
+                searchLabel="Search sync changes"
                 getRowId={(c) => c.id}
                 selectionActions={({ selectedRows, clearSelection }) => {
                   const selectableRows = selectedRows.filter(
