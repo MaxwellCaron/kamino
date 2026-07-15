@@ -75,7 +75,7 @@ func (h *PodsHandler) runClaimedPodVMPowerActions(
 		outcomes[index] = outcome
 	}
 
-	powerResults := runBoundedPowerActions(ctx, h.Actions.PowerConcurrency(), targets, func(ctx context.Context, index int, target vmactions.Target) error {
+	powerResults := runBoundedActions(ctx, h.Actions.PowerConcurrency(), targets, func(ctx context.Context, index int, target vmactions.Target) error {
 		outcome := &outcomes[index]
 		if outcome.AlreadyDone {
 			return nil

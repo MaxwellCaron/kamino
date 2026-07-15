@@ -51,6 +51,7 @@ func TestPowerLimiterBoundsGlobalOverlap(t *testing.T) {
 		proxmox.NewHTTPTestClient(server),
 		nil,
 		nil,
+		OperationConfig{Concurrency: 2},
 		PowerConfig{Concurrency: 2, TaskTimeout: time.Minute},
 	)
 	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
@@ -92,6 +93,7 @@ func TestPowerActionRejectsInvalidActionBeforeAdmission(t *testing.T) {
 		proxmox.NewHTTPTestClient(server),
 		nil,
 		nil,
+		OperationConfig{Concurrency: 2},
 		PowerConfig{Concurrency: 2, TaskTimeout: time.Minute},
 	)
 
@@ -126,6 +128,7 @@ func TestPowerActionQueuedCancellationDoesNotStartTask(t *testing.T) {
 		proxmox.NewHTTPTestClient(server),
 		nil,
 		nil,
+		OperationConfig{Concurrency: 2},
 		PowerConfig{Concurrency: 1, TaskTimeout: time.Minute},
 	)
 	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
@@ -181,6 +184,7 @@ func TestPowerActionDrainsAcceptedTaskAfterCallerCancellation(t *testing.T) {
 		proxmox.NewHTTPTestClient(server),
 		nil,
 		nil,
+		OperationConfig{Concurrency: 2},
 		PowerConfig{Concurrency: 2, TaskTimeout: 200 * time.Millisecond},
 	)
 	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
@@ -234,6 +238,7 @@ func TestPowerActionTimeoutReleasesSlot(t *testing.T) {
 		proxmox.NewHTTPTestClient(server),
 		nil,
 		nil,
+		OperationConfig{Concurrency: 2},
 		PowerConfig{Concurrency: 1, TaskTimeout: 75 * time.Millisecond},
 	)
 	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}

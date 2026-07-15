@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -151,6 +152,12 @@ func clonedPodVMAlreadyInPowerState(action string, status string) bool {
 }
 
 func (h *PodsHandler) deleteClonedPodProxmoxVM(ctx context.Context, node string, vmid int) error {
+	release, err := h.acquireVMOperationSlot(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire VM operation slot for VM %d on %s: %w", vmid, node, err)
+	}
+	defer release()
+
 	if err := h.PX.DeleteVM(ctx, proxmox.GuestQEMU, node, vmid); err == nil || isMissingProxmoxVMError(err) {
 		return nil
 	}

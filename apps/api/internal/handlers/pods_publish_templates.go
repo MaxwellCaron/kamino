@@ -304,7 +304,7 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 	var createdMu sync.Mutex
 
 	group, gctx := errgroup.WithContext(ctx)
-	group.SetLimit(h.podProvisionConcurrencyLimit())
+	group.SetLimit(h.vmOperationConcurrencyLimit())
 
 	for i, vm := range vms {
 		if isPodRouterName(vm.Name) {

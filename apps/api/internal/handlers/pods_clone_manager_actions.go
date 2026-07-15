@@ -150,14 +150,9 @@ func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
 		return
 	}
 
-	for _, row := range rows {
-		if row.Node == nil || row.Vmid == nil {
-			continue
-		}
-		if err := h.deleteClonedPodProxmoxVM(c.Request.Context(), *row.Node, int(*row.Vmid)); err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to delete cloned pod virtual machine", "manager delete cloned pod VM", err)
-			return
-		}
+	if err := h.deleteClonedPodProxmoxVMs(c.Request.Context(), rows); err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to delete cloned pod virtual machine", "manager delete cloned pod VM", err)
+		return
 	}
 
 	if err := h.Service.DeleteFolder(c.Request.Context(), clone.FolderID); err != nil {
@@ -327,17 +322,12 @@ func (h *PodsHandler) deletePublishedPodCloneForManager(
 		}
 	}
 
-	for _, row := range rows {
-		if row.Node == nil || row.Vmid == nil {
-			continue
-		}
-		if err := h.deleteClonedPodProxmoxVM(ctx, *row.Node, int(*row.Vmid)); err != nil {
-			return &requestError{
-				Status:      http.StatusBadGateway,
-				UserMessage: "failed to delete cloned pod virtual machine",
-				Operation:   "manager delete cloned pod VM",
-				Err:         err,
-			}
+	if err := h.deleteClonedPodProxmoxVMs(ctx, rows); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to delete cloned pod virtual machine",
+			Operation:   "manager delete cloned pod VM",
+			Err:         err,
 		}
 	}
 

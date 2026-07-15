@@ -3,6 +3,7 @@ package vmactions
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -23,6 +24,10 @@ const (
 	PowerActionStop     PowerAction = "stop"
 )
 
+type OperationConfig struct {
+	Concurrency int
+}
+
 type PowerConfig struct {
 	Concurrency int
 	TaskTimeout time.Duration
@@ -36,26 +41,47 @@ type Target struct {
 }
 
 type Executor struct {
-	px           *proxmox.Client
-	inventory    *inventory.Service
-	notifier     *vmstatus.Notifier
-	powerConfig  PowerConfig
-	powerLimiter *semaphore.Weighted
+	px               *proxmox.Client
+	inventory        *inventory.Service
+	notifier         *vmstatus.Notifier
+	operationConfig  OperationConfig
+	operationLimiter *semaphore.Weighted
+	powerConfig      PowerConfig
+	powerLimiter     *semaphore.Weighted
 }
 
 func NewExecutor(
 	px *proxmox.Client,
 	inventoryService *inventory.Service,
 	notifier *vmstatus.Notifier,
+	operationConfig OperationConfig,
 	powerConfig PowerConfig,
 ) *Executor {
 	return &Executor{
-		px:           px,
-		inventory:    inventoryService,
-		notifier:     notifier,
-		powerConfig:  powerConfig,
-		powerLimiter: semaphore.NewWeighted(int64(powerConfig.Concurrency)),
+		px:               px,
+		inventory:        inventoryService,
+		notifier:         notifier,
+		operationConfig:  operationConfig,
+		operationLimiter: semaphore.NewWeighted(int64(operationConfig.Concurrency)),
+		powerConfig:      powerConfig,
+		powerLimiter:     semaphore.NewWeighted(int64(powerConfig.Concurrency)),
 	}
+}
+
+func (e *Executor) OperationConcurrency() int {
+	return e.operationConfig.Concurrency
+}
+
+func (e *Executor) AcquireOperationSlot(ctx context.Context) (release func(), err error) {
+	if err := e.operationLimiter.Acquire(ctx, 1); err != nil {
+		return nil, err
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			e.operationLimiter.Release(1)
+		})
+	}, nil
 }
 
 func (e *Executor) PowerConcurrency() int {

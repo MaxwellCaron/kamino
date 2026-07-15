@@ -83,12 +83,10 @@ type Config struct {
 	PersonalPodVMIDMin int `envconfig:"PERSONAL_POD_VMID_MIN" default:"20000"`
 	PersonalPodVMIDMax int `envconfig:"PERSONAL_POD_VMID_MAX" default:"20999"`
 
-	// --- Pod provisioning concurrency (optional) ---
-	PodProvisionConcurrency int `envconfig:"POD_PROVISION_CONCURRENCY" default:"2"`
-
-	// --- VM power concurrency (optional) ---
-	VMPowerConcurrency int    `envconfig:"VM_POWER_CONCURRENCY" default:"6"`
-	VMPowerTaskTimeout string `envconfig:"VM_POWER_TASK_TIMEOUT" default:"5m"`
+	// --- VM concurrency (optional) ---
+	VMOperationConcurrency int    `envconfig:"VM_OPERATION_CONCURRENCY" default:"2"`
+	VMPowerConcurrency     int    `envconfig:"VM_POWER_CONCURRENCY" default:"6"`
+	VMPowerTaskTimeout     string `envconfig:"VM_POWER_TASK_TIMEOUT" default:"5m"`
 }
 
 func splitCSV(value string) []string {

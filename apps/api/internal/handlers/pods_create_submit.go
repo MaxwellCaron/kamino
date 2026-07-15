@@ -196,7 +196,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			return
 		}
 
-		limit := h.podProvisionConcurrencyLimit()
+		limit := h.vmOperationConcurrencyLimit()
 		progress.set(createProgressStepCloning, fmt.Sprintf("Cloning %d virtual machines (up to %d at a time).", len(specs), limit))
 
 		cloneResults, reqErr := runCreatePodClones(c.Request.Context(), limit, specs, func(ctx context.Context, index int, spec podCloneSpec) (createPodVMResult, *requestError) {

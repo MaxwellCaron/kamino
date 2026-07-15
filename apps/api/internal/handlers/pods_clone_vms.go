@@ -29,7 +29,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	var createdMu sync.Mutex
 
 	group, gctx := errgroup.WithContext(ctx)
-	group.SetLimit(h.podProvisionConcurrencyLimit())
+	group.SetLimit(h.vmOperationConcurrencyLimit())
 
 	for index, publishedVM := range publishedVMs {
 		index, publishedVM := index, publishedVM

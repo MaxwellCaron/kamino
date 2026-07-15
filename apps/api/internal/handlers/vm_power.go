@@ -58,7 +58,7 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		err     error
 	}
 	outcomes := make([]vmPowerOutcome, len(targets))
-	_ = runBoundedPowerActions(ctx, limit, targets, func(ctx context.Context, index int, target verifiedVMTarget) error {
+	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target verifiedVMTarget) error {
 		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "power_action", principalID, func() error {
 			return h.Actions.PowerAction(
 				ctx,
@@ -141,25 +141,50 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 	)
 
 	ctx := c.Request.Context()
-	for _, target := range targets {
-		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "delete_vm", principalID, func() error {
-			return h.Actions.DeleteVM(ctx, vmActionTarget(target))
-		})
-		if !claimed {
+	operationLimit := 2
+	acquireOp := func(context.Context) (func(), error) { return func() {}, nil }
+	if h.Actions != nil {
+		operationLimit = h.Actions.OperationConcurrency()
+		acquireOp = h.Actions.AcquireOperationSlot
+	}
+	outcomes := runBoundedVMDeletes(
+		ctx,
+		operationLimit,
+		targets,
+		acquireOp,
+		func(ctx context.Context, target verifiedVMTarget) (bool, error) {
+			actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "delete_vm", principalID, func() error {
+				return h.Actions.DeleteVM(ctx, vmActionTarget(target))
+			})
+			return claimed, actionErr
+		},
+	)
+
+	for _, outcome := range outcomes {
+		target := outcome.target
+		if !outcome.admitted {
+			logRequestError(c, "acquire vm operation slot item_id="+target.ItemID.String(), outcome.err)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "delete failed",
+			})
+			continue
+		}
+		if !outcome.claimed {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "another action is already in progress for this VM",
 			})
 			continue
 		}
-		if actionErr != nil {
-			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), actionErr)
+		if outcome.err != nil {
+			logRequestError(c, "delete proxmox vm item_id="+target.ItemID.String(), outcome.err)
 			h.Audit.RecordFailure(ctx, audit.EventParams{
 				ActorPrincipalID: &principalID,
 				ActionKind:       "vm.delete",
 				TargetKind:       "vm",
 				InventoryItemID:  &target.ItemID,
-			}, actionErr.Error())
+			}, outcome.err.Error())
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "delete failed",

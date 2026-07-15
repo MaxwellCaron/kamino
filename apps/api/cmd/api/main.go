@@ -54,9 +54,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid VMID range configuration: %v", err)
 	}
-	podProvisionConcurrency, err := buildPodProvisionConcurrencyConfig(&config)
+	vmOperationConfig, err := buildVMOperationConfig(&config)
 	if err != nil {
-		log.Fatalf("Invalid pod provision concurrency configuration: %v", err)
+		log.Fatalf("Invalid VM operation concurrency configuration: %v", err)
 	}
 	vmPowerConfig, err := buildVMPowerConfig(&config)
 	if err != nil {
@@ -159,6 +159,7 @@ func main() {
 		server.ProxmoxClient,
 		inventoryService,
 		vmStatusNotifier,
+		vmOperationConfig,
 		vmPowerConfig,
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
@@ -209,7 +210,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid PERSONAL_PODS_FOLDER_ITEM_ID: %v", err)
 	}
-	podProvisionLimiter := handlers.NewPodProvisionLimiter(podProvisionConcurrency)
 	podsHandler := &handlers.PodsHandler{
 		PX:                              server.ProxmoxClient,
 		Importer:                        server.ProxmoxImport,
@@ -232,7 +232,6 @@ func main() {
 		DevVMIDRange:                    vmidRangeConfig.Dev,
 		PersonalVMIDRange:               vmidRangeConfig.Personal,
 		PodCloneClaims:                  podCloneClaims,
-		PodProvisionLimiter:             podProvisionLimiter,
 		VMActionClaims:                  vmActionClaims,
 	}
 	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {

@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestBuildPodProvisionConcurrencyConfig(t *testing.T) {
+func TestBuildVMOperationConfig(t *testing.T) {
 	baseConfig := func() Config {
-		return Config{PodProvisionConcurrency: 2}
+		return Config{VMOperationConcurrency: 2}
 	}
 
 	tests := []struct {
@@ -18,7 +18,7 @@ func TestBuildPodProvisionConcurrencyConfig(t *testing.T) {
 	}{
 		{
 			name:   "minimum accepted",
-			config: func() Config { cfg := baseConfig(); cfg.PodProvisionConcurrency = 1; return cfg }(),
+			config: func() Config { cfg := baseConfig(); cfg.VMOperationConcurrency = 1; return cfg }(),
 			want:   1,
 		},
 		{
@@ -28,24 +28,24 @@ func TestBuildPodProvisionConcurrencyConfig(t *testing.T) {
 		},
 		{
 			name:   "maximum accepted",
-			config: func() Config { cfg := baseConfig(); cfg.PodProvisionConcurrency = 8; return cfg }(),
+			config: func() Config { cfg := baseConfig(); cfg.VMOperationConcurrency = 8; return cfg }(),
 			want:   8,
 		},
 		{
 			name:    "zero rejected",
-			config:  func() Config { cfg := baseConfig(); cfg.PodProvisionConcurrency = 0; return cfg }(),
-			wantErr: "POD_PROVISION_CONCURRENCY",
+			config:  func() Config { cfg := baseConfig(); cfg.VMOperationConcurrency = 0; return cfg }(),
+			wantErr: "VM_OPERATION_CONCURRENCY",
 		},
 		{
 			name:    "above maximum rejected",
-			config:  func() Config { cfg := baseConfig(); cfg.PodProvisionConcurrency = 9; return cfg }(),
-			wantErr: "POD_PROVISION_CONCURRENCY",
+			config:  func() Config { cfg := baseConfig(); cfg.VMOperationConcurrency = 9; return cfg }(),
+			wantErr: "VM_OPERATION_CONCURRENCY",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildPodProvisionConcurrencyConfig(&tt.config)
+			got, err := buildVMOperationConfig(&tt.config)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
@@ -58,8 +58,8 @@ func TestBuildPodProvisionConcurrencyConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got != tt.want {
-				t.Fatalf("got %d, want %d", got, tt.want)
+			if got.Concurrency != tt.want {
+				t.Fatalf("got %d, want %d", got.Concurrency, tt.want)
 			}
 		})
 	}

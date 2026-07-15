@@ -137,7 +137,7 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
-	group.SetLimit(h.podProvisionConcurrencyLimit())
+	group.SetLimit(h.vmOperationConcurrencyLimit())
 	for _, target := range targets {
 		if target.router {
 			continue

@@ -117,7 +117,7 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 			reqErr    *requestError
 		}
 		outcomes := make([]bulkCloneOutcome, len(clones))
-		_ = runBoundedPowerActions(c.Request.Context(), h.Actions.PowerConcurrency(), clones, func(ctx context.Context, index int, clone database.ClonedPods) error {
+		_ = runBoundedActions(c.Request.Context(), h.Actions.PowerConcurrency(), clones, func(ctx context.Context, index int, clone database.ClonedPods) error {
 			outcome := bulkCloneOutcome{cloneID: clone.ID, userID: clone.UserPrincipalID}
 			if reqErr := h.claimPodCloneForMutation(ctx, clone.PodID, clone.UserPrincipalID, req.Action, principalID); reqErr != nil {
 				outcome.reqErr = reqErr

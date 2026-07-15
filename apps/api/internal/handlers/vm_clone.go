@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -95,72 +96,93 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	// The source VM is the inventory item being mutated for the duration of
 	// the clone (Proxmox reads its disks/config); claim it so a concurrent
 	// rename/delete/power action on the source cannot interleave.
-	h.runClaimedVMAction(c, source.ItemID, "clone_vm", principalID, func() bool {
-		newID, err := runWithAvailableVMID(c.Request.Context(), h.Allocator, req.NewID, func(vmid int) error {
-			return h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, vmid, req.Name, req.Full, targetNode)
+	acquireOp := func(context.Context) (func(), error) { return func() {}, nil }
+	if h.Actions != nil {
+		acquireOp = h.Actions.AcquireOperationSlot
+	}
+	runCloneWithOperationSlot(c, acquireOp, func() bool {
+		return h.runClaimedVMAction(c, source.ItemID, "clone_vm", principalID, func() bool {
+			newID, err := runWithAvailableVMID(c.Request.Context(), h.Allocator, req.NewID, func(vmid int) error {
+				return h.PX.CloneVM(c.Request.Context(), source.Node, source.VMID, vmid, req.Name, req.Full, targetNode)
+			})
+			switch {
+			case err == nil:
+			case isVMIDUnavailable(err):
+				writeConflict(c, "VM ID is already in use")
+				return false
+			default:
+				writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
+				return false
+			}
+
+			if err := h.PX.SetVMUpstreamUUID(c.Request.Context(), targetNode, newID, uuid.New()); err != nil {
+				cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM identity failure")
+				writeLoggedError(c, http.StatusBadGateway, "failed to assign clone identity", "assign cloned vm upstream uuid", err)
+				return false
+			}
+
+			if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
+				cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM pool sync failure")
+				writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
+				return false
+			}
+
+			clonedItemID, err := h.Importer.SyncVM(
+				c.Request.Context(),
+				placement.FolderID,
+				targetNode,
+				newID,
+				proxmox.GuestQEMU,
+			)
+			if err != nil {
+				cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM inventory sync failure")
+				writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to sync inventory metadata", "sync cloned vm inventory metadata", err)
+				return false
+			}
+
+			h.Service.NotifyInventoryChanged(c.Request.Context(), clonedItemID)
+
+			item, err := h.Service.GetInventoryItemWithPermissions(
+				c.Request.Context(),
+				principalID,
+				clonedItemID,
+			)
+			if err != nil {
+				writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to load inventory item", "load cloned vm inventory item", err)
+				return false
+			}
+
+			c.JSON(http.StatusOK, vmMutationResponse{
+				OK:     true,
+				VMID:   newID,
+				ItemID: clonedItemID,
+				Item:   buildInventoryItem(item),
+			})
+			h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+				ActorPrincipalID: &principalID,
+				ActionKind:       "vm.clone",
+				TargetKind:       "vm",
+				InventoryItemID:  &source.ItemID,
+				Metadata:         map[string]any{"new_vmid": newID, "cloned_item_id": clonedItemID.String()},
+			})
+			return true
 		})
-		switch {
-		case err == nil:
-		case isVMIDUnavailable(err):
-			writeConflict(c, "VM ID is already in use")
-			return false
-		default:
-			writeLoggedError(c, http.StatusBadGateway, "failed to clone VM", "clone proxmox vm", err)
-			return false
-		}
-
-		if err := h.PX.SetVMUpstreamUUID(c.Request.Context(), targetNode, newID, uuid.New()); err != nil {
-			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM identity failure")
-			writeLoggedError(c, http.StatusBadGateway, "failed to assign clone identity", "assign cloned vm upstream uuid", err)
-			return false
-		}
-
-		if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, newID, placement.PoolID, placement.Path); err != nil {
-			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM pool sync failure")
-			writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
-			return false
-		}
-
-		clonedItemID, err := h.Importer.SyncVM(
-			c.Request.Context(),
-			placement.FolderID,
-			targetNode,
-			newID,
-			proxmox.GuestQEMU,
-		)
-		if err != nil {
-			cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM inventory sync failure")
-			writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to sync inventory metadata", "sync cloned vm inventory metadata", err)
-			return false
-		}
-
-		h.Service.NotifyInventoryChanged(c.Request.Context(), clonedItemID)
-
-		item, err := h.Service.GetInventoryItemWithPermissions(
-			c.Request.Context(),
-			principalID,
-			clonedItemID,
-		)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "vm cloned in Proxmox but failed to load inventory item", "load cloned vm inventory item", err)
-			return false
-		}
-
-		c.JSON(http.StatusOK, vmMutationResponse{
-			OK:     true,
-			VMID:   newID,
-			ItemID: clonedItemID,
-			Item:   buildInventoryItem(item),
-		})
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "vm.clone",
-			TargetKind:       "vm",
-			InventoryItemID:  &source.ItemID,
-			Metadata:         map[string]any{"new_vmid": newID, "cloned_item_id": clonedItemID.String()},
-		})
-		return true
 	})
+}
+
+func runCloneWithOperationSlot(
+	c *gin.Context,
+	acquire func(context.Context) (func(), error),
+	fn func() bool,
+) bool {
+	release, err := acquire(c.Request.Context())
+	if err != nil {
+		logRequestError(c, "acquire vm operation slot", err)
+		writeLoggedError(c, http.StatusServiceUnavailable, "VM operations are busy", "acquire vm operation slot", err)
+		return false
+	}
+	defer release()
+	return fn()
 }
 
 // ConvertToTemplate converts one or more VMs to templates.
@@ -193,40 +215,65 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 	)
 
 	ctx := c.Request.Context()
-	for _, target := range targets {
-		if target.GuestType == proxmox.GuestLXC {
+	operationLimit := 2
+	acquireOp := func(context.Context) (func(), error) { return func() {}, nil }
+	if h.Actions != nil {
+		operationLimit = h.Actions.OperationConcurrency()
+		acquireOp = h.Actions.AcquireOperationSlot
+	}
+	outcomes := runBoundedVMTemplateConversions(
+		ctx,
+		operationLimit,
+		targets,
+		acquireOp,
+		func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
+			inventorySyncFailed := false
+			actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "convert_to_template", principalID, func() error {
+				if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
+					return err
+				}
+				if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
+					inventorySyncFailed = true
+					return err
+				}
+				return nil
+			})
+			return claimed, inventorySyncFailed, actionErr
+		},
+	)
+
+	for _, outcome := range outcomes {
+		target := outcome.target
+		if outcome.unsupported {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "not supported for containers",
 			})
 			continue
 		}
-		inventorySyncFailed := false
-		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "convert_to_template", principalID, func() error {
-			if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {
-				return err
-			}
-			if err := h.Service.UpdateInventoryVMIsTemplate(ctx, target.ItemID); err != nil {
-				inventorySyncFailed = true
-				return err
-			}
-			return nil
-		})
-		if !claimed {
+		if !outcome.admitted {
+			logRequestError(c, "acquire vm operation slot item_id="+target.ItemID.String(), outcome.err)
+			response.Failed = append(response.Failed, bulkVMActionFailure{
+				ID:    target.ItemID.String(),
+				Error: "templatize failed",
+			})
+			continue
+		}
+		if !outcome.claimed {
 			response.Failed = append(response.Failed, bulkVMActionFailure{
 				ID:    target.ItemID.String(),
 				Error: "another action is already in progress for this VM",
 			})
 			continue
 		}
-		if actionErr != nil {
+		if outcome.err != nil {
 			errMessage := "templatize failed"
 			operation := "convert vm to template"
-			if inventorySyncFailed {
+			if outcome.inventorySyncFailed {
 				errMessage = "inventory sync failed"
 				operation = "update vm template state in inventory"
 			}
-			logRequestError(c, operation+" item_id="+target.ItemID.String(), actionErr)
+			logRequestError(c, operation+" item_id="+target.ItemID.String(), outcome.err)
 			h.Audit.RecordFailure(ctx, audit.EventParams{
 				ActorPrincipalID: &principalID,
 				ActionKind:       "vm.template",
