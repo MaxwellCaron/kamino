@@ -83,26 +83,6 @@ func (h *PodsHandler) loadClonedPodForMutation(
 	return clone, nil
 }
 
-func (h *PodsHandler) clonedPodActionTargets(
-	ctx context.Context,
-	q *database.Queries,
-	principalID uuid.UUID,
-	cloneID uuid.UUID,
-	required authorization.Mask,
-) (database.ClonedPods, []vmactions.Target, *requestError) {
-	clone, reqErr := h.loadAccessibleClonedPod(ctx, q, principalID, cloneID)
-	if reqErr != nil {
-		return database.ClonedPods{}, nil, reqErr
-	}
-
-	targets, reqErr := h.resolveClonedPodPowerTargets(ctx, q, principalID, cloneID, required)
-	if reqErr != nil {
-		return database.ClonedPods{}, nil, reqErr
-	}
-
-	return clone, targets, nil
-}
-
 func (h *PodsHandler) resolveClonedPodPowerTargets(
 	ctx context.Context,
 	q *database.Queries,

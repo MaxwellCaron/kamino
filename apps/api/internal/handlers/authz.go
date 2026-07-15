@@ -71,32 +71,6 @@ func requireInventoryPermission(
 	}
 }
 
-func requireVMPermission(
-	c *gin.Context,
-	authzService *authorization.Service,
-	principalID uuid.UUID,
-	node string,
-	vmid int32,
-	required authorization.Mask,
-) (uuid.UUID, bool) {
-	itemID, err := authzService.ResolveVMItemID(c.Request.Context(), node, vmid)
-	switch {
-	case err == nil:
-	case errors.Is(err, pgx.ErrNoRows):
-		c.JSON(http.StatusNotFound, gin.H{"error": "vm not found"})
-		return uuid.Nil, false
-	default:
-		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "resolve vm inventory item", err)
-		return uuid.Nil, false
-	}
-
-	if !requireInventoryPermission(c, authzService, principalID, itemID, required) {
-		return uuid.Nil, false
-	}
-
-	return itemID, true
-}
-
 type verifiedVMTarget struct {
 	ItemID       uuid.UUID
 	Node         string

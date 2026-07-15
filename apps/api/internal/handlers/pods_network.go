@@ -120,14 +120,6 @@ func normalizeWANIPBase(value string) (string, error) {
 	return trimmed, nil
 }
 
-func (h *PodsHandler) dmzVNetName(networkNumber int32) string {
-	prefix := strings.TrimSpace(h.RouterCloneConfig.DMZVNetPrefix)
-	if prefix == "" {
-		prefix = "dmz"
-	}
-	return fmt.Sprintf("%s%d", prefix, h.RouterCloneConfig.DMZVLANBase+int(networkNumber))
-}
-
 func (h *PodsHandler) ensureProfileVNetsExist(ctx context.Context, profileKey string, networkNumber int32) *requestError {
 	if h.NetworkCatalog == nil {
 		return &requestError{

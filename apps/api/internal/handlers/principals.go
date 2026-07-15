@@ -16,27 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type principalDisabler interface {
-	DisableUser(context.Context, uuid.UUID) error
-}
-
 type principalSessionRevoker interface {
 	RevokePrincipalSessions(context.Context, uuid.UUID) error
-}
-
-func disableUserAndRevokeSessions(
-	ctx context.Context,
-	provider principalDisabler,
-	revoker principalSessionRevoker,
-	principalID uuid.UUID,
-) error {
-	if err := provider.DisableUser(ctx, principalID); err != nil {
-		return err
-	}
-	if err := revoker.RevokePrincipalSessions(ctx, principalID); err != nil {
-		return err
-	}
-	return nil
 }
 
 // PrincipalsHandler handles user and group CRUD via a generic principal provider.

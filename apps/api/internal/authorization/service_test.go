@@ -393,9 +393,6 @@ func TestGetVMRecordNotFound(t *testing.T) {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Errorf("GetVMRecord: expected error wrapping pgx.ErrNoRows, got %v", err)
 	}
-	if !IsMissingVM(err) {
-		t.Errorf("IsMissingVM(err): expected true, got false for err = %v", err)
-	}
 }
 
 func TestGetVMRecordFound(t *testing.T) {

@@ -257,10 +257,6 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 
 var FullAccessMask = KnownInventoryPermissionMask()
 
-func InventoryPermissionCatalog() []InventoryPermissionDefinition {
-	return slices.Clone(inventoryPermissionDefinitions)
-}
-
 func KnownInventoryPermissionMask() Mask {
 	var mask Mask
 	for _, definition := range inventoryPermissionDefinitions {
@@ -390,15 +386,6 @@ var managementPermissionDefinitionsByKey = func() map[ManagementPermission]Manag
 
 func ManagementPermissionCatalog() []ManagementPermissionDefinition {
 	return slices.Clone(managementPermissionDefinitions)
-}
-
-func AllManagementPermissions() []ManagementPermission {
-	permissions := make([]ManagementPermission, 0, len(managementPermissionDefinitions))
-	for _, definition := range managementPermissionDefinitions {
-		permissions = append(permissions, definition.Key)
-	}
-
-	return permissions
 }
 
 func NormalizeDirectManagementPermissions(

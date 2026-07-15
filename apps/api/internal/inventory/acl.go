@@ -2,8 +2,6 @@ package inventory
 
 import (
 	"context"
-	"sort"
-	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -79,87 +77,6 @@ func convertTreeRowsToVisibleRows(
 	return result
 }
 
-func expandVisibleInventoryRows(
-	visibleRows []database.GetVisibleInventoryItemsForPrincipalRow,
-	allRows []database.GetAllInventoryItemsRow,
-) []database.GetVisibleInventoryItemsForPrincipalRow {
-	rowsByID := make(map[uuid.UUID]database.GetAllInventoryItemsRow, len(allRows))
-	for _, row := range allRows {
-		rowsByID[row.ID] = row
-	}
-
-	expandedRows := make([]database.GetVisibleInventoryItemsForPrincipalRow, 0, len(visibleRows))
-	includedIDs := make(map[uuid.UUID]struct{}, len(visibleRows))
-
-	for _, row := range visibleRows {
-		expandedRows = append(expandedRows, row)
-		includedIDs[row.ID] = struct{}{}
-	}
-
-	for _, row := range visibleRows {
-		for parentID := row.ParentID; parentID != nil; {
-			parentRow, ok := rowsByID[*parentID]
-			if !ok {
-				break
-			}
-
-			if _, exists := includedIDs[parentRow.ID]; !exists {
-				expandedRows = append(expandedRows, database.GetVisibleInventoryItemsForPrincipalRow{
-					ID:                 parentRow.ID,
-					ParentID:           parentRow.ParentID,
-					Kind:               parentRow.Kind,
-					Name:               parentRow.Name,
-					Description:        parentRow.Description,
-					InheritPermissions: true,
-					DirectVmLimit:      parentRow.DirectVmLimit,
-					EffectiveVmLimit:   parentRow.EffectiveVmLimit,
-					VmCount:            parentRow.VmCount,
-					AllowedMask:        0,
-					DeniedMask:         0,
-				})
-				includedIDs[parentRow.ID] = struct{}{}
-			}
-
-			parentID = parentRow.ParentID
-		}
-	}
-
-	sort.SliceStable(expandedRows, func(i, j int) bool {
-		return compareVisibleInventoryRows(expandedRows[i], expandedRows[j]) < 0
-	})
-
-	return expandedRows
-}
-
-func compareVisibleInventoryRows(
-	left database.GetVisibleInventoryItemsForPrincipalRow,
-	right database.GetVisibleInventoryItemsForPrincipalRow,
-) int {
-	leftOrder := inventoryRowSortOrder(left.Kind)
-	rightOrder := inventoryRowSortOrder(right.Kind)
-	if leftOrder != rightOrder {
-		return leftOrder - rightOrder
-	}
-
-	leftLower := strings.ToLower(left.Name)
-	rightLower := strings.ToLower(right.Name)
-	if leftLower != rightLower {
-		if leftLower < rightLower {
-			return -1
-		}
-		return 1
-	}
-
-	if left.Name < right.Name {
-		return -1
-	}
-	if left.Name > right.Name {
-		return 1
-	}
-
-	return 0
-}
-
 func toFullAccessInventoryRows(
 	rows []database.GetAllInventoryItemsRow,
 ) []database.GetVisibleInventoryItemsForPrincipalRow {
@@ -188,14 +105,6 @@ func toFullAccessInventoryRows(
 	}
 
 	return visibleRows
-}
-
-func inventoryRowSortOrder(kind database.InventoryItemKind) int {
-	if kind == database.InventoryItemKindFolder {
-		return 0
-	}
-
-	return 1
 }
 
 func (s *Service) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (database.GetInventoryItemByIDRow, error) {

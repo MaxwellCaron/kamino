@@ -7,7 +7,6 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type GroupManagementPermissions struct {
@@ -168,10 +167,6 @@ func deref(value *string) string {
 
 func IsForbidden(err error) bool {
 	return errors.Is(err, ErrForbidden)
-}
-
-func IsMissingVM(err error) bool {
-	return errors.Is(err, pgx.ErrNoRows)
 }
 
 func IsManagementACLRequiresGroup(err error) bool {

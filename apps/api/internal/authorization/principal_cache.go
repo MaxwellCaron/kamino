@@ -2,12 +2,10 @@ package authorization
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type principalCacheKey struct{}
@@ -76,24 +74,6 @@ func HasProtectedPrincipalAccess(
 	}
 
 	return false, nil
-}
-
-func isForeignKeyViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23503"
-}
-
-func managementPermissionSliceHas(
-	permissions []ManagementPermission,
-	required ManagementPermission,
-) bool {
-	for _, permission := range permissions {
-		if permission == required {
-			return true
-		}
-	}
-
-	return false
 }
 
 func targetKindForInventoryItemKind(kind database.InventoryItemKind) InventoryPermissionTargetKind {

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -45,29 +44,6 @@ func (h *PodsHandler) runtimeForVMIDs(
 	}
 
 	return statuses, resources, nil
-}
-
-func (h *PodsHandler) getVMStatus(ctx context.Context, vmid int) (string, error) {
-	statuses, _, err := h.runtimeForVMIDs(ctx, []int{vmid})
-	if err != nil {
-		return "", err
-	}
-	status, ok := statuses[vmid]
-	if !ok {
-		return "", fmt.Errorf("vm %d not found", vmid)
-	}
-	return status, nil
-}
-
-func (h *PodsHandler) waitForVMStatus(ctx context.Context, vmid int, expected string) error {
-	unconfirmed, err := h.waitForVMStatuses(ctx, map[int]string{vmid: expected})
-	if err != nil {
-		return err
-	}
-	if len(unconfirmed) > 0 {
-		return fmt.Errorf("vm %d did not reach %s", vmid, expected)
-	}
-	return nil
 }
 
 func (h *PodsHandler) waitForVMStatuses(

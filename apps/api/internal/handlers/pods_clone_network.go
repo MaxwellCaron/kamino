@@ -26,10 +26,6 @@ func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
 	return h.podVNetName(networkNumber)
 }
 
-func (h *PodsHandler) podNetworkMetadata(profileKey string, networkNumber int32) (clonedPodNetworkResponse, error) {
-	return h.buildPodNetworkMetadata(profileKey, networkNumber)
-}
-
 func (h *PodsHandler) clonedPodNetworkMetadata(clone database.ClonedPods) (clonedPodNetworkResponse, error) {
 	return h.buildPodNetworkMetadata(clone.NetworkProfileKey, clone.NetworkNumber)
 }
@@ -118,13 +114,6 @@ func (h *PodsHandler) waitForPodVMTargetsVisible(
 		case <-ticker.C:
 		}
 	}
-}
-
-func (h *PodsHandler) waitForClonedVMsVisible(
-	ctx context.Context,
-	results []clonePublishedVMResult,
-) *requestError {
-	return h.waitForPodVMTargetsVisible(ctx, podNetworkTargetsFromCloneResults(results))
 }
 
 func (h *PodsHandler) waitForPodVMTargetsReady(
