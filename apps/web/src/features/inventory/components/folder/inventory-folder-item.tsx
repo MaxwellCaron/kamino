@@ -57,7 +57,7 @@ function FolderRowActions({
           "bg-transparent!",
           isFavorite
             ? "opacity-100!"
-            : "opacity-0 transition-opacity group-hover/folder-row:opacity-100"
+            : "opacity-0 transition-opacity group-focus-within/folder-row:opacity-100 group-hover/folder-row:opacity-100 focus-visible:opacity-100"
         )}
         onClick={onToggleFavorite}
       >

@@ -339,7 +339,7 @@ function InventoryTreeRow({
             className={cn(
               isFavorite
                 ? "bg-transparent! opacity-100!"
-                : "opacity-0 group-hover/row:opacity-100"
+                : "opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100"
             )}
             onClick={(event) => {
               event.stopPropagation()
@@ -356,7 +356,7 @@ function InventoryTreeRow({
           <InventoryNodeMenu
             itemId={id}
             data={data}
-            className="bg-transparent! opacity-0 transition-opacity group-hover/row:opacity-100 data-popup-open:opacity-100"
+            className="bg-transparent! opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
           />
         </div>
       </TreeItemLabel>
