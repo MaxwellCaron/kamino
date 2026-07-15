@@ -70,6 +70,14 @@ type tableRequestResponse struct {
 	Rows  int32                    `json:"rows"`
 }
 
+type managerRequestStatusCountsResponse struct {
+	Pending         int32 `json:"pending"`
+	Approved        int32 `json:"approved"`
+	Denied          int32 `json:"denied"`
+	Executed        int32 `json:"executed"`
+	ExecutionFailed int32 `json:"execution_failed"`
+}
+
 type requestInventoryPayload struct {
 	ItemID       *uuid.UUID `json:"item_id,omitempty"`
 	ItemName     *string    `json:"item_name,omitempty"`
@@ -91,6 +99,28 @@ type requestEventResponse struct {
 	ToStatus         string     `json:"to_status"`
 	ErrorMessage     *string    `json:"error_message,omitempty"`
 	CreatedAt        *time.Time `json:"created_at,omitempty"`
+}
+
+func (h *RequestsHandler) Counts(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		writeUnauthorized(c)
+		return
+	}
+
+	counts, err := h.Service.CountManagerRequestStatuses(c.Request.Context(), principalID)
+	if err != nil {
+		writeRequestServiceError(c, err, "count manager request statuses")
+		return
+	}
+
+	c.JSON(http.StatusOK, managerRequestStatusCountsResponse{
+		Pending:         counts.Pending,
+		Approved:        counts.Approved,
+		Denied:          counts.Denied,
+		Executed:        counts.Executed,
+		ExecutionFailed: counts.ExecutionFailed,
+	})
 }
 
 func (h *RequestsHandler) List(c *gin.Context) {

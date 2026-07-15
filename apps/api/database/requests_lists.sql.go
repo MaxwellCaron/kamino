@@ -61,6 +61,38 @@ func (q *Queries) CountCompletedRequestsForKindsFiltered(ctx context.Context, ar
 	return column_1, err
 }
 
+const countManagerRequestStatuses = `-- name: CountManagerRequestStatuses :one
+SELECT
+    count(*) FILTER (WHERE status = 'pending')::int AS pending,
+    count(*) FILTER (WHERE status = 'approved')::int AS approved,
+    count(*) FILTER (WHERE status = 'denied')::int AS denied,
+    count(*) FILTER (WHERE status = 'executed')::int AS executed,
+    count(*) FILTER (WHERE status = 'execution_failed')::int AS execution_failed
+FROM requests
+WHERE kind = ANY($1::TEXT[])
+`
+
+type CountManagerRequestStatusesRow struct {
+	Pending         int32 `json:"pending"`
+	Approved        int32 `json:"approved"`
+	Denied          int32 `json:"denied"`
+	Executed        int32 `json:"executed"`
+	ExecutionFailed int32 `json:"execution_failed"`
+}
+
+func (q *Queries) CountManagerRequestStatuses(ctx context.Context, kinds []string) (CountManagerRequestStatusesRow, error) {
+	row := q.db.QueryRow(ctx, countManagerRequestStatuses, kinds)
+	var i CountManagerRequestStatusesRow
+	err := row.Scan(
+		&i.Pending,
+		&i.Approved,
+		&i.Denied,
+		&i.Executed,
+		&i.ExecutionFailed,
+	)
+	return i, err
+}
+
 const countPendingRequestsByRequesterFiltered = `-- name: CountPendingRequestsByRequesterFiltered :one
 SELECT count(*)::int
 FROM requests r

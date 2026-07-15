@@ -181,6 +181,42 @@ func (s *Service) ListRequestHistoryByRequesterTable(
 	}, nil
 }
 
+// ManagerRequestStatusCounts holds per-status totals for requests the actor
+// may review, independent of table pagination or search.
+type ManagerRequestStatusCounts struct {
+	Pending         int32
+	Approved        int32
+	Denied          int32
+	Executed        int32
+	ExecutionFailed int32
+}
+
+// CountManagerRequestStatuses returns authorization-scoped status aggregates
+// for manager reviewable request kinds.
+func (s *Service) CountManagerRequestStatuses(
+	ctx context.Context,
+	actorPrincipalID uuid.UUID,
+) (ManagerRequestStatusCounts, error) {
+	reviewerPermissions, err := s.reviewerPermissions(ctx, actorPrincipalID)
+	if err != nil {
+		return ManagerRequestStatusCounts{}, err
+	}
+
+	kinds := reviewableRequestKinds(reviewerPermissions)
+	row, err := database.New(s.db).CountManagerRequestStatuses(ctx, kinds)
+	if err != nil {
+		return ManagerRequestStatusCounts{}, err
+	}
+
+	return ManagerRequestStatusCounts{
+		Pending:         row.Pending,
+		Approved:        row.Approved,
+		Denied:          row.Denied,
+		Executed:        row.Executed,
+		ExecutionFailed: row.ExecutionFailed,
+	}, nil
+}
+
 func reviewableRequestKinds(
 	perms authorization.EffectiveManagementPermissions,
 ) []string {

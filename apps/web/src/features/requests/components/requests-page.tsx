@@ -27,6 +27,7 @@ import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-ap
 import {
   approveRequest,
   denyRequest,
+  managerRequestStatusCountsQueryOptions,
   requestDetailQueryOptions,
   requestsTableQueryOptions,
 } from "@/features/requests/api/requests-api"
@@ -150,6 +151,10 @@ export function RequestsPage() {
     inventoryTreeQueryOptions
   )
 
+  const { data: statusCountsData } = useQuery(
+    managerRequestStatusCountsQueryOptions()
+  )
+
   const {
     data: pendingPage,
     error: pendingError,
@@ -194,24 +199,15 @@ export function RequestsPage() {
   const isRequestsLoading = isTreeLoading || isPendingLoading
   const pendingCount = pendingPage?.total ?? 0
   const completedCount = isCompletedLoading ? null : (completedPage?.total ?? 0)
-  const statusCounts = useMemo(() => {
-    const counts: Record<ApiRequestStatus, number> = {
-      pending: 0,
-      approved: 0,
-      denied: 0,
-      executed: 0,
-      execution_failed: 0,
+  const statusCounts = useMemo((): Record<ApiRequestStatus, number> => {
+    return {
+      pending: statusCountsData?.pending ?? 0,
+      approved: statusCountsData?.approved ?? 0,
+      denied: statusCountsData?.denied ?? 0,
+      executed: statusCountsData?.executed ?? 0,
+      execution_failed: statusCountsData?.execution_failed ?? 0,
     }
-
-    pendingPage?.items.forEach((r) => {
-      counts[r.status]++
-    })
-    completedPage?.items.forEach((r) => {
-      counts[r.status]++
-    })
-
-    return counts
-  }, [pendingPage, completedPage])
+  }, [statusCountsData])
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {

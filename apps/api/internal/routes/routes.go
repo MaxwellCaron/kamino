@@ -153,6 +153,7 @@ func RegisterRoutes(
 
 	if requests != nil {
 		protected.GET("/requests", requests.List)
+		protected.GET("/requests/counts", requests.Counts)
 		protected.GET("/requests/mine", requests.ListMine)
 		protected.POST("/requests/personal-pod", requests.SubmitPersonalPod)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)

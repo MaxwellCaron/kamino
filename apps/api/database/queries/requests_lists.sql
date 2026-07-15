@@ -359,6 +359,16 @@ ORDER BY r.updated_at DESC, r.created_at DESC, r.id DESC
 LIMIT @rows
 OFFSET @row_offset;
 
+-- name: CountManagerRequestStatuses :one
+SELECT
+    count(*) FILTER (WHERE status = 'pending')::int AS pending,
+    count(*) FILTER (WHERE status = 'approved')::int AS approved,
+    count(*) FILTER (WHERE status = 'denied')::int AS denied,
+    count(*) FILTER (WHERE status = 'executed')::int AS executed,
+    count(*) FILTER (WHERE status = 'execution_failed')::int AS execution_failed
+FROM requests
+WHERE kind = ANY(sqlc.arg(kinds)::TEXT[]);
+
 -- name: CountRequestHistoryByRequesterFiltered :one
 SELECT count(*)::int
 FROM requests r

@@ -34,6 +34,7 @@ import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import {
   requestDetailQueryOptions,
   requesterRequestSummariesQueryOptions,
+  requesterRequestSummaryCountQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
@@ -67,6 +68,9 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
   } = useQuery(requesterRequestSummariesQueryOptions("pending"))
+  const { data: pendingRequestsTotal } = useQuery(
+    requesterRequestSummaryCountQueryOptions("pending")
+  )
   const {
     data: historyRequests,
     error: historyRequestsError,
@@ -249,7 +253,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     {
       icon: Clock01Icon,
       label: "Pending Requests",
-      value: String(pendingRequests?.length ?? 0),
+      value: String(pendingRequestsTotal ?? 0),
     },
   ]
   const roleLabel = getManagementRoleLabel(user.management_permissions)

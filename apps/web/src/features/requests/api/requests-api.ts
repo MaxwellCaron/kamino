@@ -1,8 +1,8 @@
 import type {
+  ApiManagerRequestStatusCounts,
   ApiRequestActionResponse,
   ApiRequestDetail,
   ApiRequestScope,
-  ApiRequestSummary,
   ApiRequestTablePage,
   ApiRequesterRequestScope,
 } from "../types/request-types"
@@ -48,6 +48,57 @@ export function requestsTableQueryOptions(
   }
 }
 
+function requestSummaryPageQueryOptions(scope: ApiRequestScope, rows = 50) {
+  return {
+    queryKey: ["requests", scope, "summaries", { rows }] as const,
+    queryFn: () =>
+      fetchRequestsTablePage(scope, {
+        pageIndex: 0,
+        pageSize: rows,
+        search: "",
+      }),
+  }
+}
+
+/**
+ * Bounded page of request summaries for non-table consumers (dashboards,
+ * command palette). Shares cache with {@link requestSummaryCountQueryOptions}.
+ */
+export function requestSummariesQueryOptions(
+  scope: ApiRequestScope,
+  rows = 50
+) {
+  return {
+    ...requestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.items,
+  }
+}
+
+/** Authoritative total for a manager request scope summary query. */
+export function requestSummaryCountQueryOptions(
+  scope: ApiRequestScope,
+  rows = 50
+) {
+  return {
+    ...requestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.total,
+  }
+}
+
+async function fetchManagerRequestStatusCounts(): Promise<ApiManagerRequestStatusCounts> {
+  return apiJson<ApiManagerRequestStatusCounts>(
+    "/api/v1/requests/counts",
+    "fetch manager request counts"
+  )
+}
+
+export function managerRequestStatusCountsQueryOptions() {
+  return {
+    queryKey: ["requests", "counts"] as const,
+    queryFn: fetchManagerRequestStatusCounts,
+  }
+}
+
 async function fetchRequesterRequestsTablePage(
   scope: ApiRequesterRequestScope,
   params: RequestTableQueryParams
@@ -59,43 +110,19 @@ async function fetchRequesterRequestsTablePage(
   )
 }
 
-/**
- * Fetches a single bounded page of request summaries and returns only the
- * `items`. For non-table consumers (dashboards, the command palette) that
- * need a small, fixed-size list rather than full table pagination.
- */
-async function fetchRequestSummaries(
-  scope: ApiRequestScope,
-  rows: number
-): Promise<Array<ApiRequestSummary>> {
-  const page = await fetchRequestsTablePage(scope, {
-    pageIndex: 0,
-    pageSize: rows,
-    search: "",
-  })
-  return page.items
-}
-
-export function requestSummariesQueryOptions(
-  scope: ApiRequestScope,
+function requesterRequestSummaryPageQueryOptions(
+  scope: ApiRequesterRequestScope,
   rows = 50
 ) {
   return {
-    queryKey: ["requests", scope, "summaries", { rows }] as const,
-    queryFn: () => fetchRequestSummaries(scope, rows),
+    queryKey: ["requests", "mine", scope, "summaries", { rows }] as const,
+    queryFn: () =>
+      fetchRequesterRequestsTablePage(scope, {
+        pageIndex: 0,
+        pageSize: rows,
+        search: "",
+      }),
   }
-}
-
-async function fetchRequesterRequestSummaries(
-  scope: ApiRequesterRequestScope,
-  rows: number
-): Promise<Array<ApiRequestSummary>> {
-  const page = await fetchRequesterRequestsTablePage(scope, {
-    pageIndex: 0,
-    pageSize: rows,
-    search: "",
-  })
-  return page.items
 }
 
 export function requesterRequestSummariesQueryOptions(
@@ -103,8 +130,19 @@ export function requesterRequestSummariesQueryOptions(
   rows = 50
 ) {
   return {
-    queryKey: ["requests", "mine", scope, "summaries", { rows }] as const,
-    queryFn: () => fetchRequesterRequestSummaries(scope, rows),
+    ...requesterRequestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.items,
+  }
+}
+
+/** Authoritative total for a requester scope summary query. */
+export function requesterRequestSummaryCountQueryOptions(
+  scope: ApiRequesterRequestScope,
+  rows = 50
+) {
+  return {
+    ...requesterRequestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.total,
   }
 }
 

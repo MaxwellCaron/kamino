@@ -36,6 +36,7 @@ import {
   denyRequest,
   requestDetailQueryOptions,
   requestSummariesQueryOptions,
+  requestSummaryCountQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import {
@@ -74,8 +75,12 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
   } = useQuery(requestSummariesQueryOptions("pending"))
-  const { data: completedRequestsData, isLoading: isCompletedRequestsLoading } =
-    useQuery(requestSummariesQueryOptions("completed"))
+  const { data: pendingRequestsTotal, isLoading: isPendingRequestsTotalLoading } =
+    useQuery(requestSummaryCountQueryOptions("pending"))
+  const {
+    data: completedRequestsTotal,
+    isLoading: isCompletedRequestsTotalLoading,
+  } = useQuery(requestSummaryCountQueryOptions("completed"))
   const { data: nodesData } = useQuery(nodesQueryOptions)
   const {
     data: requestDetail,
@@ -144,8 +149,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       !users ||
       !groups ||
       !inventoryTree ||
-      !pendingRequestsData ||
-      !completedRequestsData
+      pendingRequestsTotal === undefined ||
+      completedRequestsTotal === undefined
     ) {
       return null
     }
@@ -156,9 +161,15 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
       folders,
       vms,
       templates,
-      requests: pendingRequestsData.length + completedRequestsData.length,
+      requests: pendingRequestsTotal + completedRequestsTotal,
     }
-  }, [users, groups, inventoryTree, pendingRequestsData, completedRequestsData])
+  }, [
+    users,
+    groups,
+    inventoryTree,
+    pendingRequestsTotal,
+    completedRequestsTotal,
+  ])
 
   const storageSummary = useMemo(() => {
     return buildStorageSummary(
@@ -214,7 +225,8 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     isGroupsLoading ||
     isInventoryLoading ||
     isPendingRequestsLoading ||
-    isCompletedRequestsLoading
+    isPendingRequestsTotalLoading ||
+    isCompletedRequestsTotalLoading
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">

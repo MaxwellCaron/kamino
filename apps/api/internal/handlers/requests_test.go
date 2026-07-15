@@ -21,8 +21,36 @@ func setupTestRouter(handler *RequestsHandler) *gin.Engine {
 		c.Next()
 	})
 	r.GET("/api/v1/requests", handler.List)
+	r.GET("/api/v1/requests/counts", handler.Counts)
 	r.GET("/api/v1/requests/mine", handler.ListMine)
 	return r
+}
+
+func TestCountsResponseShape(t *testing.T) {
+	response := managerRequestStatusCountsResponse{
+		Pending:         75,
+		Approved:        2,
+		Denied:          1,
+		Executed:        10,
+		ExecutionFailed: 3,
+	}
+
+	payload, err := json.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal response: %v", err)
+	}
+
+	var decoded map[string]int32
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+
+	if decoded["pending"] != 75 {
+		t.Fatalf("pending = %d, want 75", decoded["pending"])
+	}
+	if decoded["execution_failed"] != 3 {
+		t.Fatalf("execution_failed = %d, want 3", decoded["execution_failed"])
+	}
 }
 
 func TestListCompletedInvalidRows(t *testing.T) {
