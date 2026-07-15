@@ -97,9 +97,9 @@ export function runInventoryPowerAction({
 
   showUnitMutationToast({
     title: `${actionLabels.loading} ${targetItemIds.length} VM${targetItemIds.length === 1 ? "" : "s"}`,
-    units: [
-      {
-        items: targets.map((item) => ({
+    units: targets.map((item) => ({
+      items: [
+        {
           id: item.id,
           name: formatVmReference(item.vm.vmid, item.name),
           retry: async () => {
@@ -114,33 +114,21 @@ export function runInventoryPowerAction({
               queryKey: vmStatusQueryOptions.queryKey,
             })
           },
-        })),
-        run: async () => {
-          try {
-            const result = await vmPowerAction({
-              action,
-              itemIds: targetItemIds,
-            })
-            if (result.succeeded.length > 0) {
-              void queryClient.invalidateQueries({
-                queryKey: vmStatusQueryOptions.queryKey,
-              })
-            }
-            return { failed: result.failed }
-          } catch (error) {
-            return {
-              failed: targets.map((item) => ({
-                id: item.id,
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : actionLabels.failure,
-              })),
-            }
-          }
         },
+      ],
+      run: async () => {
+        const result = await vmPowerAction({
+          action,
+          itemIds: [item.id],
+        })
+        if (result.succeeded.length > 0) {
+          void queryClient.invalidateQueries({
+            queryKey: vmStatusQueryOptions.queryKey,
+          })
+        }
+        return { failed: result.failed }
       },
-    ],
+    })),
     onSettled: (result) => {
       stopPolling()
       void queryClient.invalidateQueries({

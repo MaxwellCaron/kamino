@@ -170,9 +170,9 @@ describe("runInventoryPowerAction", () => {
     })
   })
 
-  it("sends one request with all selected VM ids", async () => {
+  it("sends one request per selected VM", async () => {
     vi.mocked(vmPowerAction).mockResolvedValue({
-      succeeded: ["vm-1", "vm-2"],
+      succeeded: [],
       failed: [],
     })
 
@@ -183,20 +183,30 @@ describe("runInventoryPowerAction", () => {
     })
 
     const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
-    expect(config.units).toHaveLength(1)
+    expect(config.units).toHaveLength(2)
     await config.units[0].run(async () => {})
+    await config.units[1].run(async () => {})
 
     expect(vmPowerAction).toHaveBeenCalledWith({
       action: "start",
-      itemIds: ["vm-1", "vm-2"],
+      itemIds: ["vm-1"],
+    })
+    expect(vmPowerAction).toHaveBeenCalledWith({
+      action: "start",
+      itemIds: ["vm-2"],
     })
   })
 
   it("maps API failures and exposes one-id retry", async () => {
-    vi.mocked(vmPowerAction).mockResolvedValue({
-      succeeded: ["vm-1"],
-      failed: [{ id: "vm-2", error: "start failed" }],
-    })
+    vi.mocked(vmPowerAction)
+      .mockResolvedValueOnce({
+        succeeded: ["vm-1"],
+        failed: [],
+      })
+      .mockResolvedValueOnce({
+        succeeded: [],
+        failed: [{ id: "vm-2", error: "start failed" }],
+      })
 
     runInventoryPowerAction({
       queryClient,
@@ -205,14 +215,31 @@ describe("runInventoryPowerAction", () => {
     })
 
     const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
-    const items = config.units[0].items
-    expect(items).toHaveLength(2)
-    expect(items[0].retry).toBeTypeOf("function")
-    expect(items[1].retry).toBeTypeOf("function")
+    expect(config.units).toHaveLength(2)
+    expect(config.units[0].items[0].retry).toBeTypeOf("function")
+    expect(config.units[1].items[0].retry).toBeTypeOf("function")
 
-    const result = await config.units[0].run(async () => {})
-    expect(result).toEqual({
+    const firstResult = await config.units[0].run(async () => {})
+    expect(firstResult).toEqual({ failed: [] })
+
+    const secondResult = await config.units[1].run(async () => {})
+    expect(secondResult).toEqual({
       failed: [{ id: "vm-2", error: "start failed" }],
     })
+  })
+
+  it("propagates a rejected power action out of the unit's run", async () => {
+    vi.mocked(vmPowerAction).mockRejectedValueOnce(new Error("network down"))
+
+    runInventoryPowerAction({
+      queryClient,
+      action: "start",
+      targets: [makeTarget("vm-1")],
+    })
+
+    const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
+    await expect(config.units[0].run(async () => {})).rejects.toThrow(
+      "network down"
+    )
   })
 })
