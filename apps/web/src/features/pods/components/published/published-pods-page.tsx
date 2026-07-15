@@ -64,11 +64,9 @@ export function PublishedPodsPage() {
   const {
     statusMutation,
     deleteMutation,
-    bulkCloneActionMutation,
     deleteCloneMutation,
   } = usePublishedPodsPageMutations({
     onDeleteSettled: () => setPendingDeletePod(null),
-    onBulkActionSettled: () => setPendingCloneBulkAction(null),
   })
 
   const stats = useMemo(
@@ -92,8 +90,7 @@ export function PublishedPodsPage() {
         onCloneBulkAction: (pod, action) => {
           setPendingCloneBulkAction({ pod, action })
         },
-        cloneBulkActionPending:
-          bulkCloneActionMutation.isPending || deleteCloneMutation.isPending,
+        cloneBulkActionPending: deleteCloneMutation.isPending,
         statusChangePendingId:
           statusMutation.isPending ? statusMutation.variables.id : null,
         onManagerClone: setPendingManagerClonePod,
@@ -101,7 +98,6 @@ export function PublishedPodsPage() {
     [
       navigate,
       statusMutation,
-      bulkCloneActionMutation.isPending,
       deleteCloneMutation.isPending,
       setPendingManagerClonePod,
     ]
@@ -127,7 +123,6 @@ export function PublishedPodsPage() {
 
   const bulkConfirm = usePublishedPodsBulkConfirm({
     pendingCloneBulkAction,
-    bulkCloneActionMutation,
     deleteCloneMutation,
   })
 

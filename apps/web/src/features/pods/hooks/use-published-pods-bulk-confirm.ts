@@ -3,21 +3,25 @@ import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import type { UseMutationResult } from "@tanstack/react-query"
 import type { PendingCloneBulkAction } from "@/features/pods/types/published-pods-types"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type {
+  PublishedPodCatalogEntry,
+  PublishedPodCloneSummary,
+} from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { bulkActionPublishedPodClones } from "@/features/pods/api/publish-pod-api"
 import {
   podCatalogQueryOptions,
+  powerPublishedPodClone,
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
+  reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import {
   POD_CLONE_ACTION_CONFIG,
   podPowerIncompleteMessage,
 } from "@/features/pods/utils/pod-clone-actions"
 import { formatToastError } from "@/features/shared/utils/format"
-import { showSingleMutationToast, showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const BULK_CLONE_DIALOG_CONFIG: Record<
   PodCloneAction,
@@ -52,12 +56,6 @@ const BULK_CLONE_DIALOG_CONFIG: Record<
   },
 }
 
-type BulkCloneActionMutation = UseMutationResult<
-  Awaited<ReturnType<typeof bulkActionPublishedPodClones>>,
-  Error,
-  { pod: PublishedPodCatalogEntry; action: PodCloneAction }
->
-
 type DeleteCloneMutation = UseMutationResult<
   void,
   Error,
@@ -66,13 +64,11 @@ type DeleteCloneMutation = UseMutationResult<
 
 type UsePublishedPodsBulkConfirmOptions = {
   pendingCloneBulkAction: PendingCloneBulkAction
-  bulkCloneActionMutation: BulkCloneActionMutation
   deleteCloneMutation: DeleteCloneMutation
 }
 
 export function usePublishedPodsBulkConfirm({
   pendingCloneBulkAction,
-  bulkCloneActionMutation,
   deleteCloneMutation,
 }: UsePublishedPodsBulkConfirmOptions): ConfirmConfig | null {
   const queryClient = useQueryClient()
@@ -92,24 +88,24 @@ export function usePublishedPodsBulkConfirm({
       icon: actionConfig.icon,
       variant: BULK_CLONE_DIALOG_CONFIG[action].variant,
       onConfirm: async () => {
-        if (action === "delete") {
-          let clones
-          try {
-            clones = await queryClient.fetchQuery(
-              publishedPodClonesQueryOptions(pod.id)
-            )
-          } catch (error) {
-            toast.error(
-              formatToastError(error, "Failed to load cloned instances")
-            )
-            return
-          }
+        let clones
+        try {
+          clones = await queryClient.fetchQuery(
+            publishedPodClonesQueryOptions(pod.id)
+          )
+        } catch (error) {
+          toast.error(
+            formatToastError(error, "Failed to load cloned instances")
+          )
+          return
+        }
 
+        const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
+
+        if (action === "delete") {
           if (clones.length === 0) {
             toast.info("No clones to delete.")
-            void queryClient.invalidateQueries({
-              queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
-            })
+            void queryClient.invalidateQueries({ queryKey: clonesQueryKey })
             void queryClient.invalidateQueries({
               queryKey: publishedPodsQueryOptions.queryKey,
             })
@@ -147,65 +143,78 @@ export function usePublishedPodsBulkConfirm({
           return
         }
 
-        if (action === "start" || action === "shutdown") {
-          if (pod.clone_count === 0) {
-            toast.info("No clones to update.")
-            return
-          }
+        if (clones.length === 0) {
+          toast.info("No clones to update.")
+          return
+        }
 
-          showSingleMutationToast({
+        const upsertClone = (updated: PublishedPodCloneSummary) => {
+          queryClient.setQueryData(
+            clonesQueryKey,
+            (current: Array<PublishedPodCloneSummary> | undefined) =>
+              current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
+          )
+        }
+
+        const invalidateAfterCloneActions = () => {
+          void queryClient.invalidateQueries({ queryKey: clonesQueryKey })
+          void queryClient.invalidateQueries({
+            queryKey: publishedPodsQueryOptions.queryKey,
+          })
+        }
+
+        if (action === "start" || action === "shutdown") {
+          const powerAction = action
+          showUnitMutationToast({
             title: actionConfig.pendingLabel,
-            name: pod.title,
-            promise: async () => {
-              const result = await bulkCloneActionMutation.mutateAsync({
-                pod,
-                action,
-              })
-              void queryClient.invalidateQueries({
-                queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
-              })
-              if (result.failed.length > 0) {
-                throw new Error(podPowerIncompleteMessage(action))
-              }
-            },
+            units: clones.map((clone) => ({
+              items: [
+                {
+                  id: clone.id,
+                  name: clone.owner.label,
+                  successDescription:
+                    powerAction === "start" ? "Started" : "Shut down",
+                },
+              ],
+              run: async () => {
+                const updated = await powerPublishedPodClone({
+                  podId: pod.id,
+                  clonedPodId: clone.id,
+                  action: powerAction,
+                })
+                upsertClone(updated)
+                if (updated.power_result?.status !== "succeeded") {
+                  throw new Error(podPowerIncompleteMessage(powerAction))
+                }
+              },
+            })),
+            onSettled: invalidateAfterCloneActions,
           })
           return
         }
 
         showUnitMutationToast({
           title: actionConfig.pendingLabel,
-          units: [
-            {
-              items: [
-                {
-                  id: "bulk",
-                  name: pod.title,
-                },
-              ],
-              run: async () => {
-                const result = await bulkCloneActionMutation.mutateAsync({
-                  pod,
-                  action,
-                })
-                if (result.failed.length === 0) {
-                  return
-                }
-                if (result.succeeded.length === 0) {
-                  throw new Error("All clones failed")
-                }
-                throw new Error(
-                  `${result.failed.length} of ${result.succeeded.length + result.failed.length} clones failed`
-                )
+          concurrency: 1,
+          units: clones.map((clone) => ({
+            items: [
+              {
+                id: clone.id,
+                name: clone.owner.label,
+                successDescription: "Re-cloned",
               },
+            ],
+            run: async () => {
+              const updated = await reclonePublishedPodClone({
+                podId: pod.id,
+                clonedPodId: clone.id,
+              })
+              upsertClone(updated)
             },
-          ],
+          })),
+          onSettled: invalidateAfterCloneActions,
         })
       },
     }
-  }, [
-    bulkCloneActionMutation,
-    deleteCloneMutation,
-    pendingCloneBulkAction,
-    queryClient,
-  ])
+  }, [deleteCloneMutation, pendingCloneBulkAction, queryClient])
 }

@@ -5,18 +5,8 @@ import type {
   PublishedPodVirtualMachine,
 } from "@/features/pods/types/pod-types"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
-import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
-
-export type PublishedPodCloneBulkActionResponse = {
-  action: PodCloneAction
-  succeeded: Array<string>
-  failed: Array<{
-    id: string
-    error: string
-  }>
-}
 
 export type PublishPodFolder = {
   id: string
@@ -193,21 +183,6 @@ export async function createPublishedPodClone(
         principal_id: params.principalId,
         progress_id: params.progressId,
       }),
-    }
-  )
-}
-
-export async function bulkActionPublishedPodClones(params: {
-  podId: string
-  action: PodCloneAction
-}): Promise<PublishedPodCloneBulkActionResponse> {
-  return apiJson<PublishedPodCloneBulkActionResponse>(
-    `/api/v1/pods/published/${params.podId}/clone-actions`,
-    "apply bulk clone action",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: params.action }),
     }
   )
 }

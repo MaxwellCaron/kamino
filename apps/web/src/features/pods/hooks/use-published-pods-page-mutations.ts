@@ -1,9 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
-import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import {
-  bulkActionPublishedPodClones,
   deletePublishedPod,
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -14,12 +12,10 @@ import {
 
 type UsePublishedPodsPageMutationsOptions = {
   onDeleteSettled: () => void
-  onBulkActionSettled: () => void
 }
 
 export function usePublishedPodsPageMutations({
   onDeleteSettled,
-  onBulkActionSettled,
 }: UsePublishedPodsPageMutationsOptions) {
   const queryClient = useQueryClient()
 
@@ -76,34 +72,6 @@ export function usePublishedPodsPageMutations({
     },
   })
 
-  const bulkCloneActionMutation = useMutation({
-    mutationFn: (params: {
-      pod: PublishedPodCatalogEntry
-      action: PodCloneAction
-    }) =>
-      bulkActionPublishedPodClones({
-        podId: params.pod.id,
-        action: params.action,
-      }),
-    onSuccess: (_, { pod, action }) => {
-      void queryClient.invalidateQueries({
-        queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
-      })
-      void queryClient.invalidateQueries({
-        queryKey: publishedPodsQueryOptions.queryKey,
-      })
-      if (action === "delete") {
-        void queryClient.invalidateQueries({
-          queryKey: podCatalogQueryOptions.queryKey,
-        })
-      }
-      onBulkActionSettled()
-    },
-    onError: () => {
-      onBulkActionSettled()
-    },
-  })
-
   const deleteCloneMutation = useMutation({
     mutationFn: deletePublishedPodClone,
     onSuccess: (_, { podId, clonedPodId }) => {
@@ -124,7 +92,6 @@ export function usePublishedPodsPageMutations({
   return {
     statusMutation,
     deleteMutation,
-    bulkCloneActionMutation,
     deleteCloneMutation,
   }
 }
