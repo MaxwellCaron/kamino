@@ -28,7 +28,6 @@ import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 import { searchDocs } from "@/features/documentation/utils/docs-search"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   formatRequestKind,
   formatRequestPowerAction,
@@ -115,7 +114,6 @@ export type BuildSiteCommandsParams = {
   inventoryTree?: Array<ApiTreeNode>
   podCatalog?: Array<PublishedPodCatalogEntry>
   publishedPods?: Array<PublishedPodCatalogEntry>
-  query: string
   users?: Array<ApiPrincipal>
   vnets?: Array<ApiVNet>
   pendingRequests?: Array<ApiRequestSummary>
@@ -318,25 +316,6 @@ function principalLabel(principal: ApiPrincipal) {
   return formatPrincipalReference(principal)
 }
 
-function collectTreeNodes(tree: Array<ApiTreeNode>) {
-  const nodes: Array<ApiTreeNode> = []
-
-  function walk(node: ApiTreeNode) {
-    nodes.push(node)
-    node.children?.forEach(walk)
-  }
-
-  tree.forEach(walk)
-  return nodes
-}
-
-function formatInventoryPath(tree: Array<ApiTreeNode>, itemId: string) {
-  const path = findTreePath(tree, itemId)
-  if (!path) return "Inventory"
-  if (path.length <= 1) return "Inventory"
-  return path.map((item) => item.name).join(" / ")
-}
-
 function formatRequestLabel(request: ApiRequestSummary) {
   const itemName = request.inventory?.item_name
   if (itemName) {
@@ -445,17 +424,26 @@ function buildInventoryCommands(
 ) {
   const results: Array<SiteCommandResult> = []
 
-  for (const node of collectTreeNodes(tree)) {
-    const path = formatInventoryPath(tree, node.id)
+  function walk(nodes: Array<ApiTreeNode>, parentNames: Array<string>) {
+    for (const node of nodes) {
+      const path =
+        parentNames.length === 0
+          ? "Inventory"
+          : [...parentNames, node.name].join(" / ")
 
-    if (node.kind === "vm" && node.vm) {
-      appendVmCommands(results, node, path, actions)
-      continue
+      if (node.kind === "vm" && node.vm) {
+        appendVmCommands(results, node, path, actions)
+      } else {
+        appendFolderCommands(results, node, path, actions)
+      }
+
+      if (node.children) {
+        walk(node.children, [...parentNames, node.name])
+      }
     }
-
-    appendFolderCommands(results, node, path, actions)
   }
 
+  walk(tree, [])
   return results
 }
 
@@ -638,11 +626,18 @@ function buildRequestCommands({
   })
 }
 
+export function buildDocsCommandsForQuery(
+  query: string,
+  access: Pick<BuildSiteCommandsParams, "canAdminister" | "canManage">,
+  actions: BuildSiteCommandsActions
+) {
+  return buildDocsCommands({ ...access, actions, query })
+}
+
 export function buildSiteCommands(params: BuildSiteCommandsParams) {
   return [
     ...buildAccountCommands(params.actions),
     ...buildPageCommands(params),
-    ...buildDocsCommands(params),
     ...buildInventoryCommands(params.inventoryTree ?? [], params.actions),
     ...buildPodCommands(params),
     ...buildAdminCommands(params),

@@ -19,12 +19,13 @@ import {
 import { useTheme } from "@workspace/ui/components/theme-provider"
 
 import {
+  buildDocsCommandsForQuery,
   buildSiteCommands,
   groupLabels,
   groupOrder,
 } from "./site-command-index"
 import { commandMatchesQuery } from "./site-command-search"
-import type { BuildSiteCommandsActions } from "./site-command-index"
+import type { BuildSiteCommandsActions, CommandGroupKey } from "./site-command-index"
 import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
   canAccessAdmin,
@@ -42,6 +43,8 @@ import {
 } from "@/features/pods/api/publish-pod-api"
 import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
 import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
+
+const MAX_VISIBLE_COMMANDS_PER_GROUP = 12
 
 export function SiteCommandDialog({
   open,
@@ -168,7 +171,7 @@ export function SiteCommandDialog({
     [close, inventoryTreeContext, logoutMutation, navigate, setTheme]
   )
 
-  const commands = useMemo(() => {
+  const baseCommands = useMemo(() => {
     if (!sessionData?.user) return []
 
     return buildSiteCommands({
@@ -183,7 +186,6 @@ export function SiteCommandDialog({
       publishedPods,
       users,
       vnets,
-      query: searchQuery,
     })
   }, [
     canAdminister,
@@ -198,30 +200,38 @@ export function SiteCommandDialog({
     sessionData,
     users,
     vnets,
-    searchQuery,
   ])
+
+  const docsCommands = useMemo(() => {
+    const query = searchQuery.trim()
+    if (!query) return []
+
+    return buildDocsCommandsForQuery(
+      query,
+      { canAdminister, canManage },
+      commandActions
+    )
+  }, [canAdminister, canManage, commandActions, searchQuery])
 
   const filteredCommands = useMemo(() => {
     const query = searchQuery.trim()
-    if (!query) {
-      return commands
-    }
+    const filteredBase = query
+      ? baseCommands.filter((command) => commandMatchesQuery(command, query))
+      : baseCommands
 
-    return commands.filter((command) =>
-      command.group === "docs" ? true : commandMatchesQuery(command, query)
-    )
-  }, [commands, searchQuery])
+    return query ? [...filteredBase, ...docsCommands] : filteredBase
+  }, [baseCommands, docsCommands, searchQuery])
 
   const groupedCommands = useMemo(() => {
     const commandGroups: Array<{
-      group: (typeof groupOrder)[number]
+      group: CommandGroupKey
       commands: typeof filteredCommands
     }> = []
 
     for (const group of groupOrder) {
-      const groupCommands = filteredCommands.filter(
-        (command) => command.group === group
-      )
+      const groupCommands = filteredCommands
+        .filter((command) => command.group === group)
+        .slice(0, MAX_VISIBLE_COMMANDS_PER_GROUP)
       if (groupCommands.length > 0) {
         commandGroups.push({ group, commands: groupCommands })
       }
