@@ -14,6 +14,7 @@ import { columns } from "./audit-columns"
 import type { PaginationState } from "@tanstack/react-table"
 import { DataTable } from "@/components/data-table/data-table"
 import { PreloadOverlay } from "@/components/loading-overlay"
+import { useDebouncedValue } from "@/features/shared/hooks/use-debounced-value"
 
 export function AuditPage() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -21,12 +22,13 @@ export function AuditPage() {
     pageSize: 25,
   })
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebouncedValue(search, 250)
 
   const { data, error, isLoading } = useQuery({
     ...actionEventsQueryOptions({
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
-      search,
+      search: debouncedSearch,
     }),
     placeholderData: keepPreviousData,
   })

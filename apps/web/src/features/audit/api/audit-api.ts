@@ -35,11 +35,10 @@ type ActionEventsQueryParams = {
   search: string
 }
 
-async function fetchActionEvents({
-  pageIndex,
-  pageSize,
-  search,
-}: ActionEventsQueryParams): Promise<ApiActionEventsListResponse> {
+async function fetchActionEvents(
+  { pageIndex, pageSize, search }: ActionEventsQueryParams,
+  signal?: AbortSignal
+): Promise<ApiActionEventsListResponse> {
   const params = new URLSearchParams({
     page: String(pageIndex + 1),
     rows: String(pageSize),
@@ -48,13 +47,15 @@ async function fetchActionEvents({
 
   return apiJson<ApiActionEventsListResponse>(
     `/api/v1/admin/audit/actions?${params}`,
-    "fetch audit events"
+    "fetch audit events",
+    { signal }
   )
 }
 
 export function actionEventsQueryOptions(params: ActionEventsQueryParams) {
   return {
     queryKey: ["audit", "actions", params] as const,
-    queryFn: () => fetchActionEvents(params),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchActionEvents(params, signal),
   }
 }

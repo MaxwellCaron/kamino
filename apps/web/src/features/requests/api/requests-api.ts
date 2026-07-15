@@ -29,12 +29,14 @@ function tableSearchParams(
 
 async function fetchRequestsTablePage(
   scope: ApiRequestScope,
-  params: RequestTableQueryParams
+  params: RequestTableQueryParams,
+  signal?: AbortSignal
 ): Promise<ApiRequestTablePage> {
   const search = tableSearchParams(scope, params)
   return apiJson<ApiRequestTablePage>(
     `/api/v1/requests?${search}`,
-    `fetch ${scope} requests`
+    `fetch ${scope} requests`,
+    { signal }
   )
 }
 
@@ -44,19 +46,24 @@ export function requestsTableQueryOptions(
 ) {
   return {
     queryKey: ["requests", scope, "table", params] as const,
-    queryFn: () => fetchRequestsTablePage(scope, params),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchRequestsTablePage(scope, params, signal),
   }
 }
 
 function requestSummaryPageQueryOptions(scope: ApiRequestScope, rows = 50) {
   return {
     queryKey: ["requests", scope, "summaries", { rows }] as const,
-    queryFn: () =>
-      fetchRequestsTablePage(scope, {
-        pageIndex: 0,
-        pageSize: rows,
-        search: "",
-      }),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchRequestsTablePage(
+        scope,
+        {
+          pageIndex: 0,
+          pageSize: rows,
+          search: "",
+        },
+        signal
+      ),
   }
 }
 
@@ -101,12 +108,14 @@ export function managerRequestStatusCountsQueryOptions() {
 
 async function fetchRequesterRequestsTablePage(
   scope: ApiRequesterRequestScope,
-  params: RequestTableQueryParams
+  params: RequestTableQueryParams,
+  signal?: AbortSignal
 ): Promise<ApiRequestTablePage> {
   const search = tableSearchParams(scope, params)
   return apiJson<ApiRequestTablePage>(
     `/api/v1/requests/mine?${search}`,
-    `fetch your ${scope} requests`
+    `fetch your ${scope} requests`,
+    { signal }
   )
 }
 
@@ -116,12 +125,16 @@ function requesterRequestSummaryPageQueryOptions(
 ) {
   return {
     queryKey: ["requests", "mine", scope, "summaries", { rows }] as const,
-    queryFn: () =>
-      fetchRequesterRequestsTablePage(scope, {
-        pageIndex: 0,
-        pageSize: rows,
-        search: "",
-      }),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchRequesterRequestsTablePage(
+        scope,
+        {
+          pageIndex: 0,
+          pageSize: rows,
+          search: "",
+        },
+        signal
+      ),
   }
 }
 

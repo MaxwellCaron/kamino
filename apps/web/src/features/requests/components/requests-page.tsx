@@ -33,6 +33,7 @@ import {
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
+import { useDebouncedValue } from "@/features/shared/hooks/use-debounced-value"
 
 const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")
 
@@ -146,6 +147,14 @@ export function RequestsPage() {
     user.management_permissions,
     ManagementPermissionKeys.manager
   )
+  const debouncedPendingSearch = useDebouncedValue(
+    pendingTableState.search,
+    250
+  )
+  const debouncedCompletedSearch = useDebouncedValue(
+    completedTableState.search,
+    250
+  )
 
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
@@ -163,7 +172,7 @@ export function RequestsPage() {
     ...requestsTableQueryOptions("pending", {
       pageIndex: pendingTableState.pagination.pageIndex,
       pageSize: pendingTableState.pagination.pageSize,
-      search: pendingTableState.search,
+      search: debouncedPendingSearch,
     }),
     placeholderData: keepPreviousData,
   })
@@ -176,7 +185,7 @@ export function RequestsPage() {
     ...requestsTableQueryOptions("completed", {
       pageIndex: completedTableState.pagination.pageIndex,
       pageSize: completedTableState.pagination.pageSize,
-      search: completedTableState.search,
+      search: debouncedCompletedSearch,
     }),
     placeholderData: keepPreviousData,
     enabled: scope === "completed",
