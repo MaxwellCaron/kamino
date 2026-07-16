@@ -1,3 +1,4 @@
+import { inventoryTreeFixtureVmCount } from "../dev/inventory-tree-fixture-config"
 import type {
   ApiInventoryAcl,
   ApiInventoryItem,
@@ -6,8 +7,27 @@ import type {
 import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
+let inventoryTreeFixtureCache: Array<ApiTreeNode> | null = null
+
 async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
-  return apiJson<Array<ApiTreeNode>>("/api/v1/inventory/tree", "fetch inventory")
+  if (import.meta.env.DEV && inventoryTreeFixtureVmCount !== null) {
+    if (inventoryTreeFixtureCache) {
+      return inventoryTreeFixtureCache
+    }
+
+    const { createInventoryTreeFixture } = await import(
+      "../dev/inventory-tree-fixture"
+    )
+    inventoryTreeFixtureCache = createInventoryTreeFixture(
+      inventoryTreeFixtureVmCount
+    )
+    return inventoryTreeFixtureCache
+  }
+
+  return apiJson<Array<ApiTreeNode>>(
+    "/api/v1/inventory/tree",
+    "fetch inventory"
+  )
 }
 
 export const inventoryTreeQueryOptions = {

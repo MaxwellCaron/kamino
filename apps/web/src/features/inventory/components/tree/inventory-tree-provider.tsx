@@ -11,6 +11,7 @@ import { useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
+import { inventoryTreeFixtureVmCount } from "../../dev/inventory-tree-fixture-config"
 import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
@@ -161,6 +162,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       children: displayChildren,
       items: displayItems,
       folderIds: sourceFolderIds,
+      isReadOnly: import.meta.env.DEV && inventoryTreeFixtureVmCount !== null,
       isSearchActive,
       searchExpandedItemIds: isSearchActive
         ? filterResult.ancestorFolderIds

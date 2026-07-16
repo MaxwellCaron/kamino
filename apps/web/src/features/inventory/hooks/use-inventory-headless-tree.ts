@@ -26,6 +26,7 @@ interface UseInventoryHeadlessTreeOptions {
   children: Map<string, Array<string>>
   items: Map<string, ApiTreeNode>
   folderIds: Array<string>
+  isReadOnly?: boolean
   isSearchActive?: boolean
   searchExpandedItemIds?: Array<string>
   parentIds: Map<string, string>
@@ -114,6 +115,7 @@ export function useInventoryHeadlessTree({
   children,
   items,
   folderIds,
+  isReadOnly = false,
   isSearchActive = false,
   searchExpandedItemIds = NO_SEARCH_EXPANDED_ITEMS,
   parentIds,
@@ -222,7 +224,7 @@ export function useInventoryHeadlessTree({
     ],
     indent: TREE_INDENT,
     canReorder: false,
-    canDrag: (draggedItems) => draggedItems.length > 0,
+    canDrag: (draggedItems) => !isReadOnly && draggedItems.length > 0,
     canDrop: (_items, target) => {
       const data = target.item.getItemData()
       return data.kind === "folder"
