@@ -2,11 +2,34 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
+var ErrPoolLeafMustStartWithLetter = errors.New("pool leaf name must start with a letter")
+
+// poolLeafStartsWithLetter reports whether the final path segment of a
+// (possibly nested) pool ID starts with an ASCII letter — the only IDs
+// PVE9 allows POST /pools to create. Existing PVE8-era IDs bypass this.
+func poolLeafStartsWithLetter(poolID string) bool {
+	leaf := poolID
+	if i := strings.LastIndex(poolID, "/"); i >= 0 {
+		leaf = poolID[i+1:]
+	}
+	if leaf == "" {
+		return false
+	}
+	first := leaf[0]
+	return (first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z')
+}
+
 func (c *Client) CreatePool(ctx context.Context, poolID string, comment *string) error {
+	if !poolLeafStartsWithLetter(poolID) {
+		return fmt.Errorf("pool %q: %w", poolID, ErrPoolLeafMustStartWithLetter)
+	}
+
 	payload := map[string]string{
 		"poolid": poolID,
 	}

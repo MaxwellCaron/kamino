@@ -170,10 +170,6 @@ func (s *Service) EnsureFolderPathWithDescription(ctx context.Context, path []st
 		return uuid.Nil, err
 	}
 
-	if created || normalizedDescription != nil {
-		s.scheduleMirror()
-	}
-
 	return currentID, nil
 }
 
@@ -223,9 +219,6 @@ func (s *Service) EnsureChildFolderWithDescription(
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
-	}
-	if created || normalizedDescription != nil {
-		s.scheduleMirror()
 	}
 
 	return folderID, nil

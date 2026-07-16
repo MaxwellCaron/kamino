@@ -30,9 +30,6 @@ func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.U
 		return err
 	}
 
-	if moved {
-		s.scheduleMirror()
-	}
 	return nil
 }
 
@@ -66,9 +63,6 @@ func (s *Service) MoveInventoryItems(ctx context.Context, itemIDs []uuid.UUID, p
 		return err
 	}
 
-	if moved {
-		s.scheduleMirror()
-	}
 	return nil
 }
 

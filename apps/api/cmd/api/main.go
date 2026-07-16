@@ -138,7 +138,6 @@ func main() {
 	inventoryService := inventory.NewService(
 		server.DBPool,
 		inventoryNotifier,
-		proxmoxMirror,
 		protectedACLPrincipalIDs,
 	)
 	if err := inventoryService.NormalizeInheritance(context.Background()); err != nil {
@@ -245,6 +244,7 @@ func main() {
 	proxmoxSyncHandler := &handlers.ProxmoxSyncHandler{
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
+		Mirror:   proxmoxMirror,
 		Authz:    authzService,
 		Audit:    auditService,
 	}

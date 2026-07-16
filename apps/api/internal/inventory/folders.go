@@ -76,7 +76,6 @@ func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name str
 		return uuid.Nil, err
 	}
 
-	s.scheduleMirror()
 	return folderID, nil
 }
 
@@ -155,7 +154,6 @@ func (s *Service) UpdateFolderDetails(ctx context.Context, id uuid.UUID, name st
 		return err
 	}
 
-	s.scheduleMirror()
 	return nil
 }
 
@@ -197,6 +195,5 @@ func (s *Service) SetFolderDescription(ctx context.Context, id uuid.UUID, descri
 		return err
 	}
 
-	s.scheduleMirror()
 	return nil
 }

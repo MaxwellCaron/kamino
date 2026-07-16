@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -144,30 +145,16 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		currentPoolsByID[pool.PoolID] = pool
 	}
 
-	for _, poolID := range sortedPoolIDsByDepth(desiredPoolIDs(desiredPools), false) {
-		desiredComment := desiredPoolComment(desiredPools[poolID])
-		if existing, exists := currentPoolsByID[poolID]; exists {
-			if existing.Comment != desiredComment {
-				comment := desiredComment
-				var commentPtr *string
-				if desiredComment != "" {
-					commentPtr = &comment
-				}
-				if err := m.client.UpdatePoolComment(ctx, poolID, commentPtr); err != nil {
-					return fmt.Errorf("updating pool %q comment: %w", poolID, err)
-				}
-			}
-			continue
-		}
+	unavailable, poolErrs := m.reconcilePoolDefinitions(ctx, currentPoolsByID, desiredPools)
 
-		var commentPtr *string
-		if desiredComment != "" {
-			comment := desiredComment
-			commentPtr = &comment
+	effectiveDesiredVMPools := make(map[vmKey]string, len(desiredVMPools))
+	for key, desiredPool := range desiredVMPools {
+		if desiredPool != "" {
+			if _, bad := unavailable[desiredPool]; bad {
+				continue
+			}
 		}
-		if err := m.client.CreatePool(ctx, poolID, commentPtr); err != nil {
-			return fmt.Errorf("creating pool %q: %w", poolID, err)
-		}
+		effectiveDesiredVMPools[key] = desiredPool
 	}
 
 	currentVMs, err := m.client.GetVMs(ctx)
@@ -182,7 +169,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 
 	poolGroup, poolCtx := errgroup.WithContext(ctx)
 	poolGroup.SetLimit(8)
-	for key, desiredPool := range desiredVMPools {
+	for key, desiredPool := range effectiveDesiredVMPools {
 		poolGroup.Go(func() error {
 			currentPool, exists := currentVMPools[key]
 			if !exists || currentPool == desiredPool {
@@ -204,11 +191,9 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 			return nil
 		})
 	}
-	if err := poolGroup.Wait(); err != nil {
-		return err
-	}
+	membershipErr := poolGroup.Wait()
 
-	finalVMCounts := finalPoolVMCounts(currentVMPools, desiredVMPools)
+	finalVMCounts := finalPoolVMCounts(currentVMPools, effectiveDesiredVMPools)
 	for _, poolID := range stalePoolIDs(currentPools, desiredPoolIDs(desiredPools), finalVMCounts) {
 		if err := m.client.DeletePool(ctx, poolID); err != nil {
 			log.Printf("proxmox mirror: failed to delete stale pool %q: %v", poolID, err)
@@ -230,11 +215,78 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 			return nil
 		})
 	}
-	if err := notesGroup.Wait(); err != nil {
-		return err
+	notesErr := notesGroup.Wait()
+
+	return errors.Join(append(poolErrs, membershipErr, notesErr)...)
+}
+
+func (m *InventoryMirror) reconcilePoolDefinitions(
+	ctx context.Context,
+	currentPoolsByID map[string]Pool,
+	desiredPools map[string]*string,
+) (unavailable map[string]struct{}, errs []error) {
+	unavailable = make(map[string]struct{})
+	var skipped []string
+
+	for _, poolID := range sortedPoolIDsByDepth(desiredPoolIDs(desiredPools), false) {
+		desiredComment := desiredPoolComment(desiredPools[poolID])
+		if existing, exists := currentPoolsByID[poolID]; exists {
+			if existing.Comment != desiredComment {
+				comment := desiredComment
+				var commentPtr *string
+				if desiredComment != "" {
+					commentPtr = &comment
+				}
+				if err := m.client.UpdatePoolComment(ctx, poolID, commentPtr); err != nil {
+					errs = append(errs, fmt.Errorf("updating pool %q comment: %w", poolID, err))
+				}
+			}
+			continue
+		}
+
+		if parentID := parentPoolID(poolID); parentID != "" {
+			if _, bad := unavailable[parentID]; bad {
+				unavailable[poolID] = struct{}{}
+				continue
+			}
+		}
+
+		if !poolLeafStartsWithLetter(poolID) {
+			unavailable[poolID] = struct{}{}
+			skipped = append(skipped, poolID)
+			continue
+		}
+
+		var commentPtr *string
+		if desiredComment != "" {
+			comment := desiredComment
+			commentPtr = &comment
+		}
+		if err := m.client.CreatePool(ctx, poolID, commentPtr); err != nil {
+			errs = append(errs, fmt.Errorf("creating pool %q: %w", poolID, err))
+			unavailable[poolID] = struct{}{}
+			continue
+		}
+		currentPoolsByID[poolID] = Pool{PoolID: poolID, Comment: desiredComment}
 	}
 
-	return nil
+	if len(skipped) > 0 {
+		sort.Strings(skipped)
+		log.Printf(
+			"proxmox mirror: skipped %d pool(s) PVE9 cannot recreate unchanged: %s",
+			len(skipped),
+			strings.Join(skipped, ", "),
+		)
+	}
+
+	return unavailable, errs
+}
+
+func parentPoolID(poolID string) string {
+	if i := strings.LastIndex(poolID, "/"); i >= 0 {
+		return poolID[:i]
+	}
+	return ""
 }
 
 type vmKey struct {

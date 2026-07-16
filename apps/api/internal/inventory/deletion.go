@@ -139,7 +139,6 @@ func (s *Service) DeleteFolder(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	s.scheduleMirror()
 	return nil
 }
 

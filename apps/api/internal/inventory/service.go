@@ -39,18 +39,12 @@ const maxProxmoxPoolDepth = 3
 type Service struct {
 	db                       *pgxpool.Pool
 	notifier                 *Notifier
-	mirror                   Mirror
 	protectedACLPrincipalIDs map[uuid.UUID]struct{}
-}
-
-type Mirror interface {
-	ScheduleReconcile()
 }
 
 func NewService(
 	db *pgxpool.Pool,
 	notifier *Notifier,
-	mirror Mirror,
 	protectedACLPrincipalIDs []uuid.UUID,
 ) *Service {
 	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedACLPrincipalIDs))
@@ -64,7 +58,6 @@ func NewService(
 	return &Service{
 		db:                       db,
 		notifier:                 notifier,
-		mirror:                   mirror,
 		protectedACLPrincipalIDs: protectedIDs,
 	}
 }
@@ -204,12 +197,6 @@ func (s *Service) notify(ctx context.Context, exec database.DBTX, itemID ...*uui
 
 	if err := s.notifier.Notify(ctx, target, event); err != nil {
 		log.Printf("inventory notify failed: %v", err)
-	}
-}
-
-func (s *Service) scheduleMirror() {
-	if s.mirror != nil {
-		s.mirror.ScheduleReconcile()
 	}
 }
 
