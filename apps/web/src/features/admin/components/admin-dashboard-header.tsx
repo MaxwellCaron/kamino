@@ -125,7 +125,7 @@ export function AdminDashboardHeader({ stats }: { stats: AdminStats | null }) {
                 <Item
                   key={stat.label}
                   variant="muted"
-                  className="relative flex-col items-start overflow-hidden"
+                  className="relative h-full flex-col items-start overflow-hidden"
                 >
                   <div className="flex items-center gap-3.5">
                     <ItemMedia>{stat.icon}</ItemMedia>
