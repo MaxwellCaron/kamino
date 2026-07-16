@@ -15,7 +15,7 @@ describe("searchDocs", () => {
   it("matches a token that exists only in body text", () => {
     const matches = searchDocs("re-clone", noAccess)
     expect(matches.length).toBeGreaterThan(0)
-    const match = matches.find((m) => m.heading === "Work with your clone")
+    const match = matches.find((m) => m.heading === "Clone and run a pod")
     expect(match).toBeDefined()
     expect(match?.preview.toLowerCase()).toContain("re-clone")
   })
@@ -84,11 +84,11 @@ describe("searchDocs", () => {
   })
 
   it("produces anchors consistent with slugify", () => {
-    const matches = searchDocs("What is a pod", noAccess)
-    const match = matches.find((m) => m.heading === "What is a pod?")
+    const matches = searchDocs("Getting started", noAccess)
+    const match = matches.find((m) => m.heading === "Getting started")
     expect(match).toBeDefined()
-    expect(match?.anchor).toBe("what-is-a-pod")
-    expect(match?.anchor).toBe(slugify("What is a pod?"))
+    expect(match?.anchor).toBe("getting-started")
+    expect(match?.anchor).toBe(slugify("Getting started"))
   })
 
   it("caps total results at 8", () => {
