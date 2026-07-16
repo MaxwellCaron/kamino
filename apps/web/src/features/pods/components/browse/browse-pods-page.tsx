@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import {
@@ -17,6 +18,7 @@ import {
 } from "./browse-pods-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { GrainientBackground } from "@/components/grainient-background"
+import { catalogCloneSummariesQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
@@ -27,8 +29,13 @@ export function BrowsePodsPage() {
   const {
     data: catalog,
     isLoading: isCatalogLoading,
-    error,
+    error: catalogError,
   } = useQuery(podCatalogQueryOptions)
+  const {
+    data: cloneSummaries,
+    error: cloneSummariesError,
+    isLoading: isCloneSummariesLoading,
+  } = useQuery(catalogCloneSummariesQueryOptions())
   const {
     data: personalPodStatus,
     error: personalPodError,
@@ -38,6 +45,12 @@ export function BrowsePodsPage() {
     enabled: router !== null,
   })
   const visiblePods = catalog ?? []
+  const clonedPodIds = useMemo(
+    () => new Set(cloneSummaries?.map((item) => item.summary.pod_id) ?? []),
+    [cloneSummaries]
+  )
+  const isPublishedPodsLoading = isCatalogLoading || isCloneSummariesLoading
+  const publishedPodsError = catalogError ?? cloneSummariesError
   const username = router?.state.matches.find(
     (match) => match.routeId === "/_pods"
   )?.context.user.username
@@ -66,11 +79,11 @@ export function BrowsePodsPage() {
       </div>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
-        {isCatalogLoading ? (
+        {isPublishedPodsLoading ? (
           <BrowsePodsGridSkeleton />
-        ) : error ? (
+        ) : publishedPodsError ? (
           <InlineErrorAlert
-            error={error}
+            error={publishedPodsError}
             fallback="Failed to load pods."
             title="Pods Error"
             className="mx-auto max-w-lg"
@@ -107,7 +120,11 @@ export function BrowsePodsPage() {
             {visiblePods.length > 0 ? (
               <div className={browsePodsGridClassName}>
                 {visiblePods.map((pod) => (
-                  <BrowsePodsCard key={pod.id} pod={pod} />
+                  <BrowsePodsCard
+                    key={pod.id}
+                    pod={pod}
+                    hasClonedInstance={clonedPodIds.has(pod.id)}
+                  />
                 ))}
               </div>
             ) : null}

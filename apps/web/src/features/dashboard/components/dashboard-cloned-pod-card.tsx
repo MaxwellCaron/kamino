@@ -43,7 +43,7 @@ export function DashboardCurrentClonedPodCard({
   error: Error | null
 }) {
   return (
-    <Card className={cn(className)}>
+    <Card className={cn("h-full", className)}>
       <CardHeader>
         <CardTitle className="text-2xl font-semibold tracking-tight">
           Cloned Pod
@@ -62,9 +62,9 @@ export function DashboardCurrentClonedPodCard({
           )}
         </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-1 flex-col">
         {error ? (
-          <Empty className="h-full min-h-52 border border-dashed">
+          <Empty className="min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyTitle>Could not load clone status</EmptyTitle>
               <EmptyDescription>{error.message}</EmptyDescription>
@@ -74,7 +74,7 @@ export function DashboardCurrentClonedPodCard({
           <AnimatePresence mode="wait">
             <m.div
               key={entry.pod.slug}
-              className="flex gap-4"
+              className="flex w-full flex-1 items-center"
               initial="hidden"
               animate="show"
               exit="hidden"
@@ -83,63 +83,64 @@ export function DashboardCurrentClonedPodCard({
               <m.div variants={animateTableRow} className="w-full">
                 <Item
                   variant="muted"
+                  className="items-center"
                   render={
                     <Link
                       to="/pods/$podSlug"
                       params={{ podSlug: entry.pod.slug }}
-                    >
-                      <ItemMedia
-                        variant="image"
-                        className="hidden size-40 md:block"
-                      >
-                        <Image
-                          src={entry.pod.image}
-                          alt={entry.pod.title}
-                          width={256}
-                          height={256}
-                          className="rounded-3xl"
-                          loading="eager"
-                        />
-                      </ItemMedia>
-
-                      <ItemContent>
-                        <ItemTitle className="flex justify-between lg:w-full">
-                          <span className="line-clamp-1 text-2xl font-semibold tracking-tight">
-                            {entry.pod.title}
-                          </span>
-                          <ClonedPodStatusBadge
-                            status={entry.clonedPod.status}
-                          />
-                        </ItemTitle>
-                        <ItemDescription>
-                          {entry.pod.description}
-                        </ItemDescription>
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <HugeiconsIcon icon={CopyIcon} className="size-4" />
-                          Cloned{" "}
-                          <RelativeTimeCard
-                            date={entry.clonedPod.cloned_at}
-                            display="relative"
-                            timezones={["UTC"]}
-                            delay={50}
-                            closeDelay={150}
-                            variant="muted"
-                          />
-                        </span>
-                        <div className="w-full pt-4">
-                          <ProgressPills
-                            progress={entry.clonedPod.task_summary.progress}
-                          />
-                        </div>
-                      </ItemContent>
-                    </Link>
+                    />
                   }
-                />
+                >
+                  <ItemMedia
+                    variant="image"
+                    className="hidden size-40 self-center! translate-y-0! md:block"
+                  >
+                    <Image
+                      src={entry.pod.image}
+                      alt={entry.pod.title}
+                      width={256}
+                      height={256}
+                      className="rounded-3xl"
+                      loading="eager"
+                    />
+                  </ItemMedia>
+
+                  <ItemContent>
+                    <ItemTitle className="flex justify-between lg:w-full">
+                      <span className="line-clamp-1 text-2xl font-semibold tracking-tight">
+                        {entry.pod.title}
+                      </span>
+                      <ClonedPodStatusBadge
+                        status={entry.clonedPod.status}
+                      />
+                    </ItemTitle>
+                    <ItemDescription>
+                      {entry.pod.description}
+                    </ItemDescription>
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <HugeiconsIcon icon={CopyIcon} className="size-4" />
+                      Cloned{" "}
+                      <RelativeTimeCard
+                        date={entry.clonedPod.cloned_at}
+                        display="relative"
+                        timezones={["UTC"]}
+                        delay={50}
+                        closeDelay={150}
+                        variant="muted"
+                      />
+                    </span>
+                    <div className="w-full pt-4">
+                      <ProgressPills
+                        progress={entry.clonedPod.task_summary.progress}
+                      />
+                    </div>
+                  </ItemContent>
+                </Item>
               </m.div>
             </m.div>
           </AnimatePresence>
         ) : (
-          <Empty className="h-full min-h-52 border border-dashed">
+          <Empty className="min-h-52 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <HugeiconsIcon

@@ -167,6 +167,11 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     }
   }, [cloneSummaries, cloneSummariesError, isCloneSummariesLoading])
 
+  const clonedPodIds = useMemo(
+    () => new Set(cloneSummaries?.map((item) => item.summary.pod_id) ?? []),
+    [cloneSummaries]
+  )
+
   const inventoryStats = useMemo(
     () => countAccessibleInventory(tree ?? []),
     [tree]
@@ -285,6 +290,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
             />
             <DashboardRecentPodsCard
               className="xl:col-span-7"
+              clonedPodIds={clonedPodIds}
               error={catalogError}
               pods={recentPods}
               username={user.username}

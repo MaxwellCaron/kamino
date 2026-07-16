@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query"
-import { m } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -27,16 +26,18 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
 import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
+import { browsePodsCarouselItemClassName } from "@/features/pods/components/browse/browse-pods-skeleton"
 import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
-import { animateChild, animateContainer } from "@/components/animate"
 
 export function DashboardRecentPodsCard({
   className,
+  clonedPodIds,
   error,
   pods,
   username,
 }: {
   className?: string
+  clonedPodIds: Set<string>
   error: Error | null
   pods: Array<PublishedPodCatalogEntry>
   username: string
@@ -63,7 +64,7 @@ export function DashboardRecentPodsCard({
           </Link>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-6">
         {!isPersonalPodLoading && personalPodStatus?.configured ? (
           <PersonalPodCard status={personalPodStatus} username={username} />
         ) : null}
@@ -75,23 +76,17 @@ export function DashboardRecentPodsCard({
             </EmptyHeader>
           </Empty>
         ) : showPublishedPodCards ? (
-          <ScrollArea className="w-full **:scroll-fade-x firefox:**:scroll-fade-none">
-            <m.div
-              className="flex w-max gap-4 pb-4"
-              initial="hidden"
-              animate="show"
-              variants={animateContainer}
-            >
+          <ScrollArea className="w-full rounded-md">
+            <div className="flex w-max gap-6 pb-4">
               {pods.map((pod) => (
-                <m.div
-                  key={pod.id}
-                  variants={animateChild}
-                  className="max-w-100"
-                >
-                  <BrowsePodsCard pod={pod} />
-                </m.div>
+                <div key={pod.id} className={browsePodsCarouselItemClassName}>
+                  <BrowsePodsCard
+                    pod={pod}
+                    hasClonedInstance={clonedPodIds.has(pod.id)}
+                  />
+                </div>
               ))}
-            </m.div>
+            </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         ) : !showPersonalPodCard && !isPersonalPodLoading ? (

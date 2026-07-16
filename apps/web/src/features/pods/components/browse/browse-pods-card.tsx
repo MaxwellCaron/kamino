@@ -7,6 +7,7 @@ import {
   CutoutCardInsetLabel,
   CutoutCardMedia,
   CutoutCardOverlay,
+  CutoutCardPin,
   CutoutCorner,
   cutoutCardSurfaceClassName,
   useCutoutContentStaggerVariants,
@@ -22,14 +23,22 @@ const podDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 })
 
-export function BrowsePodsCard({ pod }: { pod: Pod }) {
+type BrowsePodsCardProps = {
+  pod: Pod
+  hasClonedInstance: boolean
+}
+
+export function BrowsePodsCard({
+  pod,
+  hasClonedInstance,
+}: BrowsePodsCardProps) {
   const stagger = useCutoutContentStaggerVariants()
 
   return (
     <Link
       to="/pods/$podSlug"
       params={{ podSlug: pod.slug }}
-      aria-label={`Open ${pod.title}`}
+      aria-label={`Open ${pod.title}${hasClonedInstance ? ", cloned" : ""}`}
       className="block rounded-[28px] outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
     >
       <CutoutCard className={cutoutCardSurfaceClassName}>
@@ -42,13 +51,26 @@ export function BrowsePodsCard({ pod }: { pod: Pod }) {
           <CutoutCardOverlay />
           <CutoutCardInsetLabel className="bottom-0 left-0 rounded-tr-[20px] bg-card px-5 py-3">
             <div className="flex items-center gap-1">
-              <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+              <span className="text-xs font-semibold text-muted-foreground">
                 {pod.clone_count} Clones
               </span>
             </div>
             <CutoutCorner className="absolute -right-7.75 -bottom-px rotate-90 text-card" />
             <CutoutCorner className="absolute -top-7.75 -left-px rotate-90 text-card" />
           </CutoutCardInsetLabel>
+          {hasClonedInstance ? (
+            <CutoutCardPin className="top-0 right-0 rounded-bl-[16px] bg-foreground px-4 py-2 text-sm font-semibold text-background shadow-md ring-1 shadow-foreground/10 ring-border/30">
+              Cloned
+              <CutoutCorner
+                className="absolute top-0 -left-5.75 -rotate-90 text-foreground"
+                size={24}
+              />
+              <CutoutCorner
+                className="absolute right-0 -bottom-5.75 -rotate-90 text-foreground"
+                size={24}
+              />
+            </CutoutCardPin>
+          ) : null}
         </CutoutCardMedia>
         <CutoutCardContent>
           <m.div
