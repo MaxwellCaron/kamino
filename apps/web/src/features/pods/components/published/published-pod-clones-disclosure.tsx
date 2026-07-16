@@ -87,16 +87,12 @@ export function PublishedPodClonesDisclosureButton({
 type PublishedPodManagerCloneMenuItemProps = {
   pod: PublishedPodCatalogEntry
   disabled?: boolean
-  expanded: boolean
-  onExpandedChange: (expanded: boolean) => void
   onManagerClone: (pod: PublishedPodCatalogEntry) => void
 }
 
 export function PublishedPodManagerCloneMenuItem({
   pod,
   disabled,
-  expanded,
-  onExpandedChange,
   onManagerClone,
 }: PublishedPodManagerCloneMenuItemProps) {
   const queryClient = useQueryClient()
@@ -105,21 +101,12 @@ export function PublishedPodManagerCloneMenuItem({
     void queryClient.prefetchQuery(publishedPodClonesQueryOptions(pod.id))
   }
 
-  const handleClick = () => {
-    onManagerClone(pod)
-    if (!expanded) {
-      void preparePublishedPodClones(queryClient, pod.id).then(() =>
-        onExpandedChange(true)
-      )
-    }
-  }
-
   return (
     <DropdownMenuItem
       disabled={disabled}
       onMouseEnter={prefetch}
       onFocus={prefetch}
-      onClick={handleClick}
+      onClick={() => onManagerClone(pod)}
     >
       <HugeiconsIcon icon={CopyIcon} className="text-muted-foreground" />
       Clone

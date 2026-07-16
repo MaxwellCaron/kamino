@@ -272,8 +272,6 @@ export function getPublishedPodsColumns({
                   <PublishedPodManagerCloneMenuItem
                     pod={pod}
                     disabled={managerClonePending}
-                    expanded={row.getIsExpanded()}
-                    onExpandedChange={(expanded) => row.toggleExpanded(expanded)}
                     onManagerClone={onManagerClone}
                   />
                   {POD_CLONE_ACTIONS.map((action) => {

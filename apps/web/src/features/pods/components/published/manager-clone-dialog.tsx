@@ -1,25 +1,35 @@
 import { useState } from "react"
-import { CopyIcon } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import {
-  Combobox,
-  ComboboxChip,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxValue,
-  useComboboxAnchor,
-} from "@workspace/ui/components/combobox"
+  CopyIcon,
+  FilterIcon,
+  Search01Icon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Button } from "@workspace/ui/components/button"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import { useQuery } from "@tanstack/react-query"
+import { ManagerClonePrincipalTable } from "./manager-clone-principal-table"
+import { managerClonePrincipalColumns } from "./manager-clone-principal-columns"
+import type { RowSelectionState } from "@tanstack/react-table"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
-import { AppDialog } from "@/components/dialogs/app-dialog"
+import { AppDialog, AppDialogScrollBody } from "@/components/dialogs/app-dialog"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -42,10 +52,10 @@ export function ManagerCloneDialog({
     principals: Array<PrincipalOption>
   ) => void
 }) {
-  const [selectedPrincipals, setSelectedPrincipals] = useState<
-    Array<PrincipalOption>
-  >([])
-  const anchor = useComboboxAnchor()
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [search, setSearch] = useState("")
+  const [showUsers, setShowUsers] = useState(true)
+  const [showGroups, setShowGroups] = useState(true)
 
   const { data: users } = useQuery(usersQueryOptions)
   const { data: groups } = useQuery(groupsQueryOptions)
@@ -63,78 +73,118 @@ export function ManagerCloneDialog({
     (o) => !existingOwnerIds.has(o.id) && !pendingPrincipalIds.has(o.id)
   )
 
-  const principalOptionMap = new Map(availableOptions.map((o) => [o.id, o]))
-  const resolvedSelected = selectedPrincipals
-    .map((p) => principalOptionMap.get(p.id))
-    .filter((p): p is PrincipalOption => !!p)
+  const normalizedSearch = search.trim().toLocaleLowerCase()
+  const visibleOptions = availableOptions.filter((option) => {
+    const typeIsVisible = option.type === "user" ? showUsers : showGroups
+    if (!typeIsVisible) return false
 
-  const noAvailable =
-    availableOptions.length === 0 && selectedPrincipals.length === 0
+    return (
+      normalizedSearch.length === 0 ||
+      [option.label, option.description, option.type].some((value) =>
+        value.toLocaleLowerCase().includes(normalizedSearch)
+      )
+    )
+  })
+
+  const resolvedSelected = availableOptions.filter(
+    (option) => rowSelection[option.id]
+  )
+
+  const noAvailable = availableOptions.length === 0
 
   return (
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
-      onClosed={() => setSelectedPrincipals([])}
+      onClosed={() => {
+        setRowSelection({})
+        setSearch("")
+        setShowUsers(true)
+        setShowGroups(true)
+      }}
       icon={CopyIcon}
       title="Clone"
       description={pod ? `Clone "${pod.title}" for selected principals.` : ""}
     >
+      <div className="flex items-center gap-2">
+        <InputGroup>
+          <InputGroupAddon>
+            <HugeiconsIcon icon={Search01Icon} />
+          </InputGroupAddon>
+          <InputGroupInput
+            aria-label="Search principals"
+            placeholder="Search..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </InputGroup>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                size="icon-lg"
+                variant="secondary"
+                className="bg-input/50 **:text-muted-foreground"
+                aria-label="Filter principals by type"
+              >
+                <HugeiconsIcon icon={FilterIcon} />
+              </Button>
+            }
+          />
+          <DropdownMenuContent className="w-40" align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Types</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={showUsers}
+                onCheckedChange={setShowUsers}
+              >
+                <HugeiconsIcon
+                  icon={UserIcon}
+                  className="text-muted-foreground"
+                />
+                Users
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showGroups}
+                onCheckedChange={setShowGroups}
+              >
+                <HugeiconsIcon
+                  icon={UserGroupIcon}
+                  className="text-muted-foreground"
+                />
+                Groups
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {noAvailable ? (
         <p className="py-2 text-sm text-muted-foreground">
           All principals already have a clone of this pod.
         </p>
       ) : (
-        <Combobox
-          multiple
-          autoHighlight
-          items={availableOptions}
-          itemToStringLabel={(p) => p.label}
-          itemToStringValue={(p) => p.label}
-          value={resolvedSelected}
-          onValueChange={setSelectedPrincipals}
-        >
-          <ComboboxChips ref={anchor}>
-            <ComboboxValue>
-              {(values) => (
-                <>
-                  {(values as Array<PrincipalOption>).map((p) => (
-                    <ComboboxChip key={p.id}>{p.label}</ComboboxChip>
-                  ))}
-                  <ComboboxChipsInput placeholder="Search for users or groups" />
-                </>
-              )}
-            </ComboboxValue>
-          </ComboboxChips>
-          <ComboboxContent anchor={anchor}>
-            <ComboboxEmpty>No principals found.</ComboboxEmpty>
-            <ComboboxList>
-              {(p) => (
-                <ComboboxItem key={p.id} value={p}>
-                  <span className="flex-1 truncate">{p.label}</span>
-                  <Badge variant="outline" className="ml-auto text-xs">
-                    {p.type.charAt(0).toUpperCase() + p.type.slice(1)}
-                  </Badge>
-                </ComboboxItem>
-              )}
-            </ComboboxList>
-          </ComboboxContent>
-        </Combobox>
+        <AppDialogScrollBody className="-mx-6 -mb-8 p-0">
+          <ManagerClonePrincipalTable
+            columns={managerClonePrincipalColumns}
+            data={visibleOptions}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+          />
+        </AppDialogScrollBody>
       )}
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Cancel
-        </Button>
         <Button
+          className="w-full"
           disabled={noAvailable || resolvedSelected.length === 0}
           onClick={() => {
             if (!pod) return
             onConfirm(pod, resolvedSelected)
-            setSelectedPrincipals([])
+            setRowSelection({})
             onOpenChange(false)
           }}
         >
-          Clone
+          <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
+          Clone ({resolvedSelected.length})
         </Button>
       </DialogFooter>
     </AppDialog>
