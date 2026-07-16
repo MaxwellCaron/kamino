@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/google/uuid"
@@ -102,6 +105,80 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	}
 
 	return results, created, nil
+}
+
+func (h *PodsHandler) preflightPublishedPodVMTemplatesForClone(
+	ctx context.Context,
+	publishedVMs []database.ListPublishedPodVMsForCloneRow,
+) *requestError {
+	group, gctx := errgroup.WithContext(ctx)
+	group.SetLimit(h.vmOperationConcurrencyLimit())
+
+	for _, publishedVM := range publishedVMs {
+		publishedVM := publishedVM
+		group.Go(func() error {
+			sourceItemID, err := publishedPodVMTemplateItemID(publishedVM, h.RouterTemplateItemID)
+			if err != nil {
+				return &requestError{
+					Status:      http.StatusConflict,
+					UserMessage: err.Error(),
+				}
+			}
+			source, reqErr := h.resolvePublishedPodVMTemplate(gctx, sourceItemID)
+			if reqErr != nil {
+				return reqErr
+			}
+			ready, err := h.PX.VMStorageReady(gctx, source.Node, source.VMID)
+			if err != nil {
+				log.Printf(
+					"preflight published pod template storage: vm=%q item=%s node=%s vmid=%d: %v",
+					publishedVM.Name,
+					sourceItemID,
+					source.Node,
+					source.VMID,
+					err,
+				)
+				return &requestError{
+					Status:      http.StatusBadGateway,
+					UserMessage: fmt.Sprintf("failed to verify published Pod Template VM %q", publishedVM.Name),
+					Operation:   "preflight published pod template storage",
+					Err:         err,
+				}
+			}
+			if !ready {
+				log.Printf(
+					"preflight published pod template storage unavailable: vm=%q item=%s node=%s vmid=%d",
+					publishedVM.Name,
+					sourceItemID,
+					source.Node,
+					source.VMID,
+				)
+				return &requestError{
+					Status: http.StatusConflict,
+					UserMessage: fmt.Sprintf(
+						`published Pod Template VM "%s" is unavailable; repair or republish the Pod`,
+						publishedVM.Name,
+					),
+					Operation: "preflight published pod template storage",
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		var reqErr *requestError
+		if errors.As(err, &reqErr) {
+			return reqErr
+		}
+		return &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to verify published Pod Template VMs",
+			Operation:   "preflight published pod template storage",
+			Err:         err,
+		}
+	}
+	return nil
 }
 
 func (h *PodsHandler) resolvePublishedPodVMTemplate(
@@ -205,15 +282,19 @@ func (h *PodsHandler) createClonedPodRecord(
 	folderID uuid.UUID,
 	networkProfileKey string,
 ) (database.ClonedPods, *requestError) {
-	q := database.New(h.DB)
-	cloneRow, err := q.InsertClonedPod(ctx, database.InsertClonedPodParams{
-		ID:                uuid.New(),
-		PodID:             podID,
-		UserPrincipalID:   principalID,
-		FolderID:          folderID,
-		NetworkProfileKey: &networkProfileKey,
-		MinNetworkNumber:  h.RouterCloneConfig.NetworkMin,
-		MaxNetworkNumber:  h.RouterCloneConfig.NetworkMax,
+	var cloneRow database.InsertClonedPodRow
+	err := podnetworks.WithPodNetworkAllocation(ctx, h.DB, func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		cloneRow, err = database.New(tx).InsertClonedPod(ctx, database.InsertClonedPodParams{
+			ID:                uuid.New(),
+			PodID:             podID,
+			UserPrincipalID:   principalID,
+			FolderID:          folderID,
+			NetworkProfileKey: &networkProfileKey,
+			MinNetworkNumber:  h.RouterCloneConfig.NetworkMin,
+			MaxNetworkNumber:  h.RouterCloneConfig.NetworkMax,
+		})
+		return err
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return database.ClonedPods{}, &requestError{

@@ -13,6 +13,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/gin-gonic/gin"
@@ -208,13 +209,31 @@ func (h *PodsHandler) provisionPersonalPod(
 		return database.PersonalPods{}, reqErr
 	}
 
-	personalPodRow, err := q.InsertPersonalPod(ctx, database.InsertPersonalPodParams{
-		ID:               uuid.New(),
-		UserPrincipalID:  userPrincipalID,
-		FolderID:         folderID,
-		MinNetworkNumber: h.RouterCloneConfig.PersonalNetworkMin,
-		MaxNetworkNumber: h.RouterCloneConfig.PersonalNetworkMax,
-	})
+	personalPodRow, err := func() (database.PersonalPods, error) {
+		var row database.InsertPersonalPodRow
+		err := podnetworks.WithPodNetworkAllocation(ctx, h.DB, func(ctx context.Context, tx pgx.Tx) error {
+			var err error
+			row, err = database.New(tx).InsertPersonalPod(ctx, database.InsertPersonalPodParams{
+				ID:               uuid.New(),
+				UserPrincipalID:  userPrincipalID,
+				FolderID:         folderID,
+				MinNetworkNumber: h.RouterCloneConfig.PersonalNetworkMin,
+				MaxNetworkNumber: h.RouterCloneConfig.PersonalNetworkMax,
+			})
+			return err
+		})
+		if err != nil {
+			return database.PersonalPods{}, err
+		}
+		return database.PersonalPods{
+			ID:              row.ID,
+			UserPrincipalID: row.UserPrincipalID,
+			FolderID:        row.FolderID,
+			NetworkNumber:   row.NetworkNumber,
+			CreatedAt:       row.CreatedAt,
+			UpdatedAt:       row.UpdatedAt,
+		}, nil
+	}()
 	if errors.Is(err, pgx.ErrNoRows) {
 		reqErr := &requestError{
 			Status:      http.StatusConflict,

@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -141,15 +142,20 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	var devNetworkNumber int32
 	if automatedNetworking {
 		progress.set(createProgressStepNetwork, "Reserving a dev network.")
-		allocation, err := database.New(h.DB).InsertPodDevNetworkAllocation(
-			c.Request.Context(),
-			database.InsertPodDevNetworkAllocationParams{
-				PodFolderID:       podFolderID,
-				MinNetworkNumber:  h.RouterCloneConfig.DevNetworkMin,
-				MaxNetworkNumber:  h.RouterCloneConfig.DevNetworkMax,
-				NetworkProfileKey: &profileKey,
-			},
-		)
+		var allocation database.InsertPodDevNetworkAllocationRow
+		err := podnetworks.WithPodNetworkAllocation(c.Request.Context(), h.DB, func(ctx context.Context, tx pgx.Tx) error {
+			var err error
+			allocation, err = database.New(tx).InsertPodDevNetworkAllocation(
+				ctx,
+				database.InsertPodDevNetworkAllocationParams{
+					PodFolderID:       podFolderID,
+					MinNetworkNumber:  h.RouterCloneConfig.DevNetworkMin,
+					MaxNetworkNumber:  h.RouterCloneConfig.DevNetworkMax,
+					NetworkProfileKey: &profileKey,
+				},
+			)
+			return err
+		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			progress.fail("no pod dev network numbers available")
 			writeConflict(c, "no pod dev network numbers available")

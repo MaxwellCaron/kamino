@@ -74,13 +74,9 @@ func (q *Queries) GetPersonalPodForInventoryItem(ctx context.Context, id uuid.UU
 }
 
 const insertPersonalPod = `-- name: InsertPersonalPod :one
-WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020001)
-),
-candidate AS (
+WITH candidate AS (
     SELECT n::INTEGER AS network_number
-    FROM allocation_lock,
-         generate_series($1::INTEGER, $2::INTEGER) AS n
+    FROM generate_series($1::INTEGER, $2::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
         FROM pod_network_allocations pna

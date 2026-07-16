@@ -13,6 +13,9 @@ import { fetchClonePodProgress } from "@/features/pods/api/clone-pod-api"
 import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
+// Manager clone batches are long-running; keep browser-side admission low.
+const MANAGER_CLONE_TOAST_CONCURRENCY = 2
+
 export function usePublishedPodsManagerClones() {
   const queryClient = useQueryClient()
   const [pendingPrincipalIdsByPodId, setPendingPrincipalIdsByPodId] = useState<
@@ -66,6 +69,7 @@ export function usePublishedPodsManagerClones() {
 
       showUnitMutationToast({
         title: `Cloning "${pod.title}"`,
+        concurrency: MANAGER_CLONE_TOAST_CONCURRENCY,
         units: principals.map((principal) => ({
           items: [
             {

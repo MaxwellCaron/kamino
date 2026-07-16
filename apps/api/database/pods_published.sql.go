@@ -232,6 +232,20 @@ func (q *Queries) GetPublishedPodByID(ctx context.Context, id uuid.UUID) (GetPub
 	return i, err
 }
 
+const getPublishedPodCloneCountForDelete = `-- name: GetPublishedPodCloneCountForDelete :one
+SELECT clone_count
+FROM published_pods
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetPublishedPodCloneCountForDelete(ctx context.Context, id uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, getPublishedPodCloneCountForDelete, id)
+	var clone_count int32
+	err := row.Scan(&clone_count)
+	return clone_count, err
+}
+
 const getPublishedPodSlugConflict = `-- name: GetPublishedPodSlugConflict :one
 SELECT id
 FROM published_pods

@@ -81,6 +81,34 @@ func (c *Client) GetStorageContentByVMID(ctx context.Context, node, storage stri
 	return resp.Data, nil
 }
 
+func (c *Client) VMStorageReady(ctx context.Context, node string, vmid int) (bool, error) {
+	if err := c.requireAllowedNode(node); err != nil {
+		return false, err
+	}
+
+	data, err := c.GetVMConfig(ctx, GuestQEMU, node, vmid)
+	if err != nil {
+		return false, fmt.Errorf("fetching VM %d config on node %s: %w", vmid, node, err)
+	}
+
+	_, storage, _, err := parseVMHardwareDiskConfig(data)
+	if err != nil {
+		return false, fmt.Errorf("parsing VM %d disk config on node %s: %w", vmid, node, err)
+	}
+
+	content, err := c.GetStorageContentByVMID(ctx, node, storage, vmid)
+	if err != nil {
+		return false, fmt.Errorf("fetching VM %d storage content on node %s storage %s: %w", vmid, node, storage, err)
+	}
+
+	for _, item := range content {
+		if item.Size > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid int, timeout time.Duration) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
@@ -96,25 +124,12 @@ func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid in
 	defer ticker.Stop()
 
 	for {
-		data, err := c.GetVMConfig(waitCtx, GuestQEMU, node, vmid)
+		ready, err := c.VMStorageReady(waitCtx, node, vmid)
 		if err != nil {
-			return fmt.Errorf("fetching VM config: %w", err)
+			return err
 		}
-
-		_, storage, _, err := parseVMHardwareDiskConfig(data)
-		if err != nil {
-			return fmt.Errorf("parsing VM disk config: %w", err)
-		}
-
-		content, err := c.GetStorageContentByVMID(waitCtx, node, storage, vmid)
-		if err != nil {
-			return fmt.Errorf("fetching VM storage content: %w", err)
-		}
-
-		for _, item := range content {
-			if item.Size > 0 {
-				return nil
-			}
+		if ready {
+			return nil
 		}
 
 		select {

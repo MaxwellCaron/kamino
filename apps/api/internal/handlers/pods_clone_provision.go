@@ -61,6 +61,10 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
+	if reqErr := h.preflightPublishedPodVMTemplatesForClone(ctx, publishedVMs); reqErr != nil {
+		return database.ClonedPods{}, reqErr
+	}
+
 	if exists, err := h.Service.ChildFolderExists(ctx, pod.SourceFolderID, folderName); err != nil {
 		return database.ClonedPods{}, inventoryRequestError(err)
 	} else if exists {
@@ -164,6 +168,10 @@ func (h *PodsHandler) reclonePublishedPod(
 			Status:      http.StatusConflict,
 			UserMessage: "pod has no virtual machines to clone",
 		}
+	}
+
+	if reqErr := h.preflightPublishedPodVMTemplatesForClone(ctx, publishedVMs); reqErr != nil {
+		return database.ClonedPods{}, reqErr
 	}
 
 	if reqErr := h.ensureClonedPodVNetExists(ctx, h.clonedPodVNetName(clone.NetworkNumber)); reqErr != nil {

@@ -2,11 +2,11 @@
 SELECT network_number
 FROM pod_network_allocations;
 
+-- name: AcquirePodNetworkAllocationLock :exec
+SELECT pg_advisory_xact_lock(740020001);
+
 -- name: ClaimPodNetworkNumber :one
-WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020001)
-),
-conflict AS (
+WITH conflict AS (
     SELECT 1
     FROM pod_network_allocations
     WHERE network_number = sqlc.arg(network_number)
@@ -22,7 +22,6 @@ SELECT
     sqlc.arg(kind),
     sqlc.arg(network_profile_key),
     sqlc.arg(folder_id)
-FROM allocation_lock
 WHERE NOT EXISTS (SELECT 1 FROM conflict)
 RETURNING
     id,

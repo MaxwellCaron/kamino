@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type publishPodVMOption struct {
@@ -258,9 +260,37 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 		return
 	}
 
-	q := database.New(h.DB)
-	deleted, err := q.DeletePublishedPod(c.Request.Context(), podID)
+	ctx := c.Request.Context()
+	tx, err := h.DB.Begin(ctx)
 	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "begin published pod delete tx", err)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	cloneCount, err := q.GetPublishedPodCloneCountForDelete(ctx, podID)
+	if status, message, decided := publishedPodDeleteDecision(cloneCount, err); decided {
+		if status == http.StatusNotFound {
+			c.JSON(status, gin.H{"error": message})
+			return
+		}
+		if status == http.StatusConflict {
+			c.JSON(status, gin.H{"error": message})
+			return
+		}
+	} else if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "load published pod clone count", err)
+		return
+	}
+
+	deleted, err := q.DeletePublishedPod(ctx, podID)
+	if err != nil {
+		if publishedPodDeleteHasCloneConflict(err) {
+			log.Printf("delete published pod invariant drift for %s: %v", podID, err)
+			writeConflict(c, publishedPodDeleteBlockedMessage)
+			return
+		}
 		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "delete published pod", err)
 		return
 	}
@@ -269,13 +299,43 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 		return
 	}
 
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+	if err := tx.Commit(ctx); err != nil {
+		if publishedPodDeleteHasCloneConflict(err) {
+			log.Printf("delete published pod commit invariant drift for %s: %v", podID, err)
+			writeConflict(c, publishedPodDeleteBlockedMessage)
+			return
+		}
+		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "commit published pod delete tx", err)
+		return
+	}
+
+	h.Audit.RecordSuccess(ctx, audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "pod.publish.delete",
 		TargetKind:       "pod",
 		PodID:            &podID,
 	})
 	c.Status(http.StatusNoContent)
+}
+
+const publishedPodDeleteBlockedMessage = "delete all cloned pods before deleting this published pod"
+
+func publishedPodDeleteHasCloneConflict(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && (pgErr.Code == "23001" || pgErr.Code == "23503")
+}
+
+func publishedPodDeleteDecision(cloneCount int32, err error) (status int, message string, decided bool) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return http.StatusNotFound, "pod not found", true
+	}
+	if err != nil {
+		return 0, "", false
+	}
+	if cloneCount > 0 {
+		return http.StatusConflict, publishedPodDeleteBlockedMessage, true
+	}
+	return 0, "", true
 }
 
 func (h *PodsHandler) savePublishedPod(

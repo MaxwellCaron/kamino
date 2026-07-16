@@ -11,11 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const acquirePodNetworkAllocationLock = `-- name: AcquirePodNetworkAllocationLock :exec
+SELECT pg_advisory_xact_lock(740020001)
+`
+
+func (q *Queries) AcquirePodNetworkAllocationLock(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, acquirePodNetworkAllocationLock)
+	return err
+}
+
 const claimPodNetworkNumber = `-- name: ClaimPodNetworkNumber :one
-WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020001)
-),
-conflict AS (
+WITH conflict AS (
     SELECT 1
     FROM pod_network_allocations
     WHERE network_number = $1
@@ -31,7 +37,6 @@ SELECT
     $2,
     $3,
     $4
-FROM allocation_lock
 WHERE NOT EXISTS (SELECT 1 FROM conflict)
 RETURNING
     id,

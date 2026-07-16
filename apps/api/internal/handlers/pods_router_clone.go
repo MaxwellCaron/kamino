@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
+	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -258,15 +259,20 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		return
 	}
 
-	networkClaim, err := database.New(h.DB).ClaimPodNetworkNumber(
-		c.Request.Context(),
-		database.ClaimPodNetworkNumberParams{
-			NetworkNumber:     networkNumber,
-			Kind:              database.PodNetworkAllocationKindManualRouter,
-			NetworkProfileKey: &profileKey,
-			FolderID:          targetFolderID,
-		},
-	)
+	var networkClaim database.PodNetworkAllocations
+	err := podnetworks.WithPodNetworkAllocation(c.Request.Context(), h.DB, func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		networkClaim, err = database.New(tx).ClaimPodNetworkNumber(
+			ctx,
+			database.ClaimPodNetworkNumberParams{
+				NetworkNumber:     networkNumber,
+				Kind:              database.PodNetworkAllocationKindManualRouter,
+				NetworkProfileKey: &profileKey,
+				FolderID:          targetFolderID,
+			},
+		)
+		return err
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeConflict(c, "pod network number is already in use")
 		return

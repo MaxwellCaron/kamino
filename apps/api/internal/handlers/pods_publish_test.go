@@ -1,13 +1,104 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+func TestPublishedPodDeleteDecision(t *testing.T) {
+	tests := []struct {
+		name        string
+		cloneCount  int32
+		err         error
+		wantStatus  int
+		wantMessage string
+		wantDecided bool
+	}{
+		{
+			name:        "not found",
+			err:         pgx.ErrNoRows,
+			wantStatus:  http.StatusNotFound,
+			wantMessage: "pod not found",
+			wantDecided: true,
+		},
+		{
+			name:        "zero clones proceed",
+			cloneCount:  0,
+			wantDecided: true,
+		},
+		{
+			name:        "positive clones blocked",
+			cloneCount:  2,
+			wantStatus:  http.StatusConflict,
+			wantMessage: publishedPodDeleteBlockedMessage,
+			wantDecided: true,
+		},
+		{
+			name:        "unrelated database error",
+			err:         errors.New("connection reset"),
+			wantDecided: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, message, decided := publishedPodDeleteDecision(tt.cloneCount, tt.err)
+			if decided != tt.wantDecided {
+				t.Fatalf("decided = %v, want %v", decided, tt.wantDecided)
+			}
+			if status != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", status, tt.wantStatus)
+			}
+			if message != tt.wantMessage {
+				t.Fatalf("message = %q, want %q", message, tt.wantMessage)
+			}
+		})
+	}
+}
+
+func TestPublishedPodDeleteHasCloneConflict(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "restrict violation",
+			err:  &pgconn.PgError{Code: "23001"},
+			want: true,
+		},
+		{
+			name: "foreign key violation",
+			err:  &pgconn.PgError{Code: "23503"},
+			want: true,
+		},
+		{
+			name: "unique violation",
+			err:  &pgconn.PgError{Code: "23505"},
+			want: false,
+		},
+		{
+			name: "unrelated error",
+			err:  errors.New("boom"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := publishedPodDeleteHasCloneConflict(tt.err); got != tt.want {
+				t.Fatalf("publishedPodDeleteHasCloneConflict() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestValidatePublishedPodPermissions(t *testing.T) {
 	tests := []struct {

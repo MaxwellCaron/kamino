@@ -10,13 +10,9 @@ FROM personal_pods
 WHERE user_principal_id = $1;
 
 -- name: InsertPersonalPod :one
-WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020001)
-),
-candidate AS (
+WITH candidate AS (
     SELECT n::INTEGER AS network_number
-    FROM allocation_lock,
-         generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+    FROM generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
         FROM pod_network_allocations pna

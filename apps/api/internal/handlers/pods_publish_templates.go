@@ -335,6 +335,19 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 			if reqErr := h.convertCloneToTemplate(gctx, clone); reqErr != nil {
 				return reqErr
 			}
+			if err := h.PX.WaitForVMStorageReady(
+				gctx,
+				clone.TargetNode,
+				clone.VMID,
+				h.RouterCloneConfig.RouterWaitTimeout,
+			); err != nil {
+				return &requestError{
+					Status:      http.StatusBadGateway,
+					UserMessage: fmt.Sprintf("prepared Pod Template VM %q is not storage-ready", vm.Name),
+					Operation:   "wait for published pod template storage readiness",
+					Err:         err,
+				}
+			}
 
 			out := vm
 			out.SourceInventoryItemID = clone.InventoryItemID

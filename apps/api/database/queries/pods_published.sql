@@ -173,6 +173,12 @@ UPDATE published_pods
 SET status = $2
 WHERE id = $1;
 
+-- name: GetPublishedPodCloneCountForDelete :one
+SELECT clone_count
+FROM published_pods
+WHERE id = $1
+FOR UPDATE;
+
 -- name: DeletePublishedPod :execrows
 DELETE FROM published_pods
 WHERE id = $1;
