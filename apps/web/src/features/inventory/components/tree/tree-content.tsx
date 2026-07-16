@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { StarIcon } from "@hugeicons/core-free-icons"
@@ -16,16 +22,12 @@ import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import { TREE_INDENT } from "../../utils/constants"
 import { useInventoryTreeContext } from "./inventory-tree-context"
-import {
-  INVENTORY_TREE_ROW_HEIGHT,
-  InventoryTreeRowSkeleton,
-} from "./inventory-tree-row-skeleton"
+import { INVENTORY_TREE_ROW_HEIGHT } from "./inventory-tree-row-skeleton"
 import type { MouseEvent as ReactMouseEvent } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
 
-const TREE_ROW_OVERSCAN = 24
-const TREE_ROW_ACTIVE_BUFFER = 6
+const TREE_ROW_OVERSCAN = 6
 
 interface SelectionDataRef {
   selectUpToAnchorId?: string | null
@@ -115,13 +117,18 @@ export function InventoryTreeContent({
 
   const items = tree.getItems()
 
+  const getItemKey = useCallback(
+    (index: number) => items[index]?.getId() ?? index,
+    [items]
+  )
+
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollElement,
     estimateSize: () => INVENTORY_TREE_ROW_HEIGHT,
     measureElement: () => INVENTORY_TREE_ROW_HEIGHT,
     overscan: TREE_ROW_OVERSCAN,
-    getItemKey: (index) => items[index]?.getId() ?? index,
+    getItemKey,
     scrollMargin,
     directDomUpdates: true,
     useFlushSync: false,
@@ -177,19 +184,6 @@ export function InventoryTreeContent({
     }
   }, [scrollToItemHandlerRef, tree, virtualizer])
 
-  const scrollOffset = virtualizer.scrollOffset ?? 0
-  const viewportHeight = virtualizer.scrollRect?.height ?? 0
-  const visibleStartIndex = Math.max(
-    0,
-    Math.floor(scrollOffset / INVENTORY_TREE_ROW_HEIGHT) -
-      TREE_ROW_ACTIVE_BUFFER
-  )
-  const visibleEndIndex = Math.min(
-    items.length - 1,
-    Math.ceil((scrollOffset + viewportHeight) / INVENTORY_TREE_ROW_HEIGHT) +
-      TREE_ROW_ACTIVE_BUFFER
-  )
-
   return (
     <div ref={wrapperRef}>
       <Tree
@@ -200,25 +194,9 @@ export function InventoryTreeContent({
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const item = items.at(virtualRow.index)
-          if (!item) {
-            return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 flex w-full flex-col pb-0.5"
-              >
-                <InventoryTreeRowSkeleton isFolder={false} level={0} />
-              </div>
-            )
-          }
+          if (!item) return null
 
           const id = item.getId()
-          const data = item.getItemData()
-          const shouldRenderSkeleton =
-            virtualizer.isScrolling &&
-            (virtualRow.index < visibleStartIndex ||
-              virtualRow.index > visibleEndIndex)
 
           return (
             <div
@@ -227,21 +205,14 @@ export function InventoryTreeContent({
               ref={virtualizer.measureElement}
               className="absolute top-0 left-0 flex w-full flex-col pb-0.5"
             >
-              {shouldRenderSkeleton ? (
-                <InventoryTreeRowSkeleton
-                  isFolder={data.kind === "folder"}
-                  level={item.getItemMeta().level}
-                />
-              ) : (
-                <InventoryTreeRow
-                  item={item}
-                  tree={tree}
-                  getStatus={getStatus}
-                  isFavorite={favoriteIds.has(id)}
-                  onPrimaryAction={handlePrimaryAction}
-                  onToggleFavorite={toggleFavorite}
-                />
-              )}
+              <InventoryTreeRow
+                item={item}
+                tree={tree}
+                getStatus={getStatus}
+                isFavorite={favoriteIds.has(id)}
+                onPrimaryAction={handlePrimaryAction}
+                onToggleFavorite={toggleFavorite}
+              />
             </div>
           )
         })}
