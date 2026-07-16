@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
@@ -15,200 +15,22 @@ import {
 } from "@workspace/ui/components/command"
 
 import { buildSiteCommandRows, groupLabels } from "./site-command-index"
-import type { SiteCommandResult, SiteCommandRow } from "./site-command-index"
-import type { Range } from "@tanstack/react-virtual"
+import {
+  createSiteCommandRangeExtractor,
+  estimateSiteCommandRowSize,
+  getFirstRowIndex,
+  resolveSiteCommandKeyNavigation,
+} from "./site-command-menu-utils"
+import type { SiteCommandResult } from "./site-command-index"
 import type { KeyboardEvent } from "react"
 
 const COMMAND_ROW_OVERSCAN = 8
-const ORDINARY_ROW_HEIGHT = 56
-const PREVIEW_ROW_HEIGHT = 140
-const GROUP_START_EXTRA = 38
-const FIRST_GROUP_START_EXTRA = 32
 
 export type SiteCommandMenuProps = {
   commands: Array<SiteCommandResult>
   emptyMessage: string
   searchQuery: string
   onSearchQueryChange: (value: string) => void
-}
-
-export function estimateSiteCommandRowSize(
-  row: SiteCommandRow | undefined,
-  rowIndex = 0
-) {
-  if (!row) return ORDINARY_ROW_HEIGHT
-
-  let height = row.command.preview ? PREVIEW_ROW_HEIGHT : ORDINARY_ROW_HEIGHT
-  if (row.startsGroup) {
-    height += rowIndex === 0 ? FIRST_GROUP_START_EXTRA : GROUP_START_EXTRA
-  }
-
-  return height
-}
-
-export function mergeActiveIndexIntoRange(
-  rangeIndexes: Array<number>,
-  activeIndex: number
-) {
-  if (activeIndex < 0) {
-    return [...rangeIndexes].sort((left, right) => left - right)
-  }
-
-  const merged = new Set(rangeIndexes)
-  merged.add(activeIndex)
-  return [...merged].sort((left, right) => left - right)
-}
-
-export function createSiteCommandRangeExtractor(activeIndex: number) {
-  return (range: Range) =>
-    mergeActiveIndexIntoRange(defaultRangeExtractor(range), activeIndex)
-}
-
-export function getNextRowIndex(
-  rows: Array<SiteCommandRow>,
-  currentIndex: number
-) {
-  if (rows.length === 0) return -1
-  return Math.min(Math.max(currentIndex, 0) + 1, rows.length - 1)
-}
-
-export function getPreviousRowIndex(
-  rows: Array<SiteCommandRow>,
-  currentIndex: number
-) {
-  if (rows.length === 0) return -1
-  return Math.max(Math.min(currentIndex, rows.length - 1) - 1, 0)
-}
-
-export function getFirstRowIndex(rows: Array<SiteCommandRow>) {
-  return rows.length > 0 ? 0 : -1
-}
-
-export function getLastRowIndex(rows: Array<SiteCommandRow>) {
-  return rows.length > 0 ? rows.length - 1 : -1
-}
-
-export function getNextGroupFirstRowIndex(
-  rows: Array<SiteCommandRow>,
-  currentIndex: number
-) {
-  if (rows.length === 0 || currentIndex < 0) return -1
-
-  const currentGroup = rows[currentIndex].group
-  for (let index = currentIndex + 1; index < rows.length; index++) {
-    const row = rows[index]
-    if (row.startsGroup && row.group !== currentGroup) {
-      return index
-    }
-  }
-
-  return currentIndex
-}
-
-export function getPreviousGroupFirstRowIndex(
-  rows: Array<SiteCommandRow>,
-  currentIndex: number
-) {
-  if (rows.length === 0 || currentIndex <= 0) return 0
-
-  const currentGroup = rows[currentIndex].group
-  let index = currentIndex - 1
-
-  while (index >= 0 && rows[index].group === currentGroup) {
-    index--
-  }
-
-  if (index < 0) return 0
-
-  const previousGroup = rows[index].group
-  while (index >= 0) {
-    const row = rows[index]
-    if (row.group === previousGroup && row.startsGroup) {
-      return index
-    }
-    index--
-  }
-
-  return 0
-}
-
-export function resolveSiteCommandKeyNavigation(
-  rows: Array<SiteCommandRow>,
-  currentIndex: number,
-  event: {
-    altKey: boolean
-    ctrlKey: boolean
-    key: string
-    metaKey: boolean
-    nativeEvent: Pick<KeyboardEvent["nativeEvent"], "isComposing">
-  }
-) {
-  if (event.nativeEvent.isComposing || event.key === "Process") {
-    return null
-  }
-
-  const { altKey, ctrlKey, key, metaKey } = event
-
-  if (key === "ArrowDown" && altKey && !ctrlKey && !metaKey) {
-    return getNextGroupFirstRowIndex(rows, currentIndex)
-  }
-
-  if (key === "ArrowUp" && altKey && !ctrlKey && !metaKey) {
-    return getPreviousGroupFirstRowIndex(rows, currentIndex)
-  }
-
-  if (
-    (key === "ArrowDown" || (ctrlKey && (key === "n" || key === "j"))) &&
-    !altKey &&
-    !metaKey
-  ) {
-    return getNextRowIndex(rows, currentIndex)
-  }
-
-  if (
-    (key === "ArrowUp" || (ctrlKey && (key === "p" || key === "k"))) &&
-    !altKey &&
-    !metaKey
-  ) {
-    return getPreviousRowIndex(rows, currentIndex)
-  }
-
-  if (
-    (key === "Home" || (metaKey && key === "ArrowUp")) &&
-    !altKey &&
-    !ctrlKey
-  ) {
-    return getFirstRowIndex(rows)
-  }
-
-  if (
-    (key === "End" || (metaKey && key === "ArrowDown")) &&
-    !altKey &&
-    !ctrlKey
-  ) {
-    return getLastRowIndex(rows)
-  }
-
-  return null
-}
-
-export function isSiteCommandNavigationKey(event: {
-  altKey: boolean
-  ctrlKey: boolean
-  key: string
-  metaKey: boolean
-}) {
-  const { altKey, ctrlKey, key, metaKey } = event
-
-  if (key === "Enter") return true
-
-  return resolveSiteCommandKeyNavigation([], 0, {
-    altKey,
-    ctrlKey,
-    key,
-    metaKey,
-    nativeEvent: { isComposing: false },
-  }) !== null
 }
 
 export function SiteCommandMenu({
@@ -220,6 +42,7 @@ export function SiteCommandMenu({
   const listRef = useRef<HTMLDivElement>(null)
   const rows = useMemo(() => buildSiteCommandRows(commands), [commands])
   const [activeCommandId, setActiveCommandId] = useState<string | null>(null)
+  const firstCommandId = rows[0]?.command.id ?? null
   const rowsSignature = useMemo(
     () => rows.map((row) => row.command.id).join("\n"),
     [rows]
@@ -230,16 +53,9 @@ export function SiteCommandMenu({
     return rows.findIndex((row) => row.command.id === activeCommandId)
   }, [activeCommandId, rows])
 
-  const activeIndexRef = useRef(activeIndex)
-  activeIndexRef.current = activeIndex
-
-  const rangeExtractor = useCallback(
-    (range: Range) =>
-      mergeActiveIndexIntoRange(
-        defaultRangeExtractor(range),
-        activeIndexRef.current
-      ),
-    []
+  const rangeExtractor = useMemo(
+    () => createSiteCommandRangeExtractor(activeIndex),
+    [activeIndex]
   )
 
   const getItemKey = useCallback(
@@ -271,15 +87,10 @@ export function SiteCommandMenu({
     [rows, virtualizer]
   )
 
-  const measureList = useRef(virtualizer.measure)
-  measureList.current = virtualizer.measure
+  const measureList = virtualizer.measure
 
   useEffect(() => {
-    if (rows.length === 0) {
-      setActiveCommandId(null)
-    } else {
-      setActiveCommandId(rows[0].command.id)
-    }
+    setActiveCommandId(firstCommandId)
 
     const listElement = listRef.current
     if (listElement) {
@@ -290,8 +101,8 @@ export function SiteCommandMenu({
       }
     }
 
-    measureList.current()
-  }, [rowsSignature, rows.length])
+    measureList()
+  }, [firstCommandId, measureList, rowsSignature])
 
   const handleActiveValueChange = useCallback(
     (value: string) => {
@@ -431,11 +242,7 @@ export function SiteCommandMenu({
   )
 }
 
-function SiteCommandOptionContent({
-  command,
-}: {
-  command: SiteCommandResult
-}) {
+function SiteCommandOptionContent({ command }: { command: SiteCommandResult }) {
   return (
     <>
       <HugeiconsIcon icon={command.icon} />
