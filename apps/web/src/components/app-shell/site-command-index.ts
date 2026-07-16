@@ -312,6 +312,33 @@ export const groupOrder = [
   "requests",
 ] as const satisfies Array<CommandGroupKey>
 
+export type SiteCommandRow = {
+  command: SiteCommandResult
+  group: CommandGroupKey
+  startsGroup: boolean
+}
+
+export function buildSiteCommandRows(
+  commands: Array<SiteCommandResult>
+): Array<SiteCommandRow> {
+  const rows: Array<SiteCommandRow> = []
+
+  for (const group of groupOrder) {
+    const groupCommands = commands.filter((command) => command.group === group)
+    if (groupCommands.length === 0) continue
+
+    for (let index = 0; index < groupCommands.length; index++) {
+      rows.push({
+        command: groupCommands[index],
+        group,
+        startsGroup: index === 0,
+      })
+    }
+  }
+
+  return rows
+}
+
 function principalLabel(principal: ApiPrincipal) {
   return formatPrincipalReference(principal)
 }

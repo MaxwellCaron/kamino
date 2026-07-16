@@ -3,29 +3,17 @@
 import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
 
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  CommandShortcut,
-} from "@workspace/ui/components/command"
+import { CommandDialog } from "@workspace/ui/components/command"
 import { useTheme } from "@workspace/ui/components/theme-provider"
 
 import {
   buildDocsCommandsForQuery,
   buildSiteCommands,
-  groupLabels,
-  groupOrder,
 } from "./site-command-index"
+import { SiteCommandMenu } from "./site-command-menu"
 import { commandMatchesQuery } from "./site-command-search"
-import type { BuildSiteCommandsActions, CommandGroupKey } from "./site-command-index"
+import type { BuildSiteCommandsActions } from "./site-command-index"
 import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
   canAccessAdmin,
@@ -43,8 +31,6 @@ import {
 } from "@/features/pods/api/publish-pod-api"
 import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
 import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
-
-const MAX_VISIBLE_COMMANDS_PER_GROUP = 12
 
 export function SiteCommandDialog({
   open,
@@ -222,24 +208,6 @@ export function SiteCommandDialog({
     return query ? [...filteredBase, ...docsCommands] : filteredBase
   }, [baseCommands, docsCommands, searchQuery])
 
-  const groupedCommands = useMemo(() => {
-    const commandGroups: Array<{
-      group: CommandGroupKey
-      commands: typeof filteredCommands
-    }> = []
-
-    for (const group of groupOrder) {
-      const groupCommands = filteredCommands
-        .filter((command) => command.group === group)
-        .slice(0, MAX_VISIBLE_COMMANDS_PER_GROUP)
-      if (groupCommands.length > 0) {
-        commandGroups.push({ group, commands: groupCommands })
-      }
-    }
-
-    return commandGroups
-  }, [filteredCommands])
-
   const isIndexing =
     isSessionLoading ||
     isInventoryLoading ||
@@ -259,68 +227,24 @@ export function SiteCommandDialog({
     isGroupsError ||
     isVnetsError
 
+  const emptyMessage = isIndexing
+    ? "Indexing Kamino..."
+    : hasIndexError
+      ? "Some results could not be loaded."
+      : "No results found."
+
   return (
     <CommandDialog
       open={open}
       onOpenChange={onOpenChange}
       className="top-1/2 max-w-xl! -translate-y-1/2"
     >
-      <Command shouldFilter={false}>
-        <CommandInput
-          placeholder="Search Kamino..."
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-        />
-        <CommandList className="max-h-[min(70dvh,42rem)]">
-          <CommandEmpty>
-            {isIndexing
-              ? "Indexing Kamino..."
-              : hasIndexError
-                ? "Some results could not be loaded."
-                : "No results found."}
-          </CommandEmpty>
-          {groupedCommands.map(({ group, commands: groupCommands }, index) => (
-            <div key={group}>
-              {index > 0 && <CommandSeparator />}
-              <CommandGroup heading={groupLabels[group]}>
-                {groupCommands.map((command) => {
-                  return (
-                    <CommandItem
-                      key={command.id}
-                      value={`${command.label} ${command.subtitle} ${command.id}`}
-                      keywords={command.keywords}
-                      onSelect={command.onSelect}
-                      variant={command.variant}
-                    >
-                      <HugeiconsIcon icon={command.icon} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{command.label}</span>
-                        {command.preview ? (
-                          <>
-                            <span className="block truncate text-xs font-normal text-muted-foreground">
-                              {command.subtitle}
-                            </span>
-                            <span className="mt-1 line-clamp-5 block text-xs font-normal whitespace-pre-line text-muted-foreground/80">
-                              {command.preview}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="block truncate text-xs font-normal text-muted-foreground">
-                            {command.subtitle}
-                          </span>
-                        )}
-                      </span>
-                      {command.shortcut && (
-                        <CommandShortcut>{command.shortcut}</CommandShortcut>
-                      )}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </div>
-          ))}
-        </CommandList>
-      </Command>
+      <SiteCommandMenu
+        commands={filteredCommands}
+        emptyMessage={emptyMessage}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+      />
     </CommandDialog>
   )
 }
