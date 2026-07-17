@@ -102,8 +102,9 @@ export function PersonalPodCard({
                             queryClient.invalidateQueries({
                               queryKey: personalPodQueryOptions.queryKey,
                             }),
-                            queryClient.invalidateQueries({
+                            queryClient.refetchQueries({
                               queryKey: inventoryTreeQueryOptions.queryKey,
+                              type: "all",
                             }),
                           ])
                           router.navigate({

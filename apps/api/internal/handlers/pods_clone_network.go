@@ -171,6 +171,10 @@ func (h *PodsHandler) configurePodVNetBridges(
 		return reqErr
 	}
 
+	if reqErr := h.removeRouterNetworkDeviceIfPresent(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); reqErr != nil {
+		return reqErr
+	}
+
 	if err := h.PX.SetVMNetworkBridge(ctx, router.clone.TargetNode, router.clone.VMID, "net1", vnetName); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,

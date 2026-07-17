@@ -60,6 +60,26 @@ func (h *PodsHandler) routerHasManagedNIC(ctx context.Context, node string, vmid
 	return false, nil
 }
 
+// removeRouterNetworkDeviceIfPresent idempotently removes a router NIC; a missing device is a no-op.
+func (h *PodsHandler) removeRouterNetworkDeviceIfPresent(ctx context.Context, node string, vmid int, device string) *requestError {
+	hasDevice, reqErr := h.routerHasManagedNIC(ctx, node, vmid, device)
+	if reqErr != nil {
+		return reqErr
+	}
+	if !hasDevice {
+		return nil
+	}
+	if err := h.PX.DeleteVMNetworkDevice(ctx, node, vmid, device); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to remove unused router network interface",
+			Operation:   "delete cloned router " + device,
+			Err:         err,
+		}
+	}
+	return nil
+}
+
 func (h *PodsHandler) configureProfileNetworkAttachments(
 	ctx context.Context,
 	profileKey string,
@@ -86,19 +106,8 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 
 	switch profileKey {
 	case podnetwork.ProfileLANRouterV1:
-		hasNet2, reqErr := h.routerHasManagedNIC(ctx, router.clone.TargetNode, router.clone.VMID, "net2")
-		if reqErr != nil {
+		if reqErr := h.removeRouterNetworkDeviceIfPresent(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); reqErr != nil {
 			return reqErr
-		}
-		if hasNet2 {
-			if err := h.PX.DeleteVMNetworkDevice(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); err != nil {
-				return &requestError{
-					Status:      http.StatusBadGateway,
-					UserMessage: "failed to remove unused router network interface",
-					Operation:   "delete cloned router net2",
-					Err:         err,
-				}
-			}
 		}
 	case podnetwork.ProfileLANDMZRouterV1:
 		hasNet2, reqErr := h.routerHasManagedNIC(ctx, router.clone.TargetNode, router.clone.VMID, "net2")
