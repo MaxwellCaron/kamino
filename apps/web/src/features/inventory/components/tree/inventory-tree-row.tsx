@@ -93,12 +93,14 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
     onClick: libOnClick,
     onFocus: libOnFocus,
     style: libStyle,
+    role,
     ...libProps
   } = item.getProps() as TreeItemDomProps
 
   return (
     <div
       {...libProps}
+      role={role ?? "treeitem"}
       data-slot="tree-item"
       data-focus={vm.isFocused || undefined}
       data-folder={vm.isFolder || undefined}
