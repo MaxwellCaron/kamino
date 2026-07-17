@@ -15,16 +15,14 @@ describe("searchDocs", () => {
   it("matches a token that exists only in body text", () => {
     const matches = searchDocs("re-clone", noAccess)
     expect(matches.length).toBeGreaterThan(0)
-    const match = matches.find((m) => m.heading === "Clone and run a pod")
+    const match = matches.find((m) => m.heading === "Cloning pods")
     expect(match).toBeDefined()
     expect(match?.preview.toLowerCase()).toContain("re-clone")
   })
 
   it("gates manager guide sections behind canManage", () => {
     const withoutManager = searchDocs("publish", noAccess)
-    expect(
-      withoutManager.some((m) => m.docKey === "manager")
-    ).toBe(false)
+    expect(withoutManager.some((m) => m.docKey === "manager")).toBe(false)
 
     const withManager = searchDocs("publish", managerAccess)
     expect(withManager.some((m) => m.docKey === "manager")).toBe(true)
@@ -84,11 +82,11 @@ describe("searchDocs", () => {
   })
 
   it("produces anchors consistent with slugify", () => {
-    const matches = searchDocs("Getting started", noAccess)
-    const match = matches.find((m) => m.heading === "Getting started")
+    const matches = searchDocs("Finding things", noAccess)
+    const match = matches.find((m) => m.heading === "Finding things")
     expect(match).toBeDefined()
-    expect(match?.anchor).toBe("getting-started")
-    expect(match?.anchor).toBe(slugify("Getting started"))
+    expect(match?.anchor).toBe("finding-things")
+    expect(match?.anchor).toBe(slugify("Finding things"))
   })
 
   it("caps total results at 8", () => {
