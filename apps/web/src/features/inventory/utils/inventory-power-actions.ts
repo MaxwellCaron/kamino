@@ -63,6 +63,48 @@ export function collectFolderPowerTargets(
   }
 }
 
+function buildFolderCanPowerSummary(
+  node: ApiTreeNode,
+  canPowerByFolderId: Map<string, boolean>
+): { vmCount: number; allPowerable: boolean } {
+  if (node.kind === "vm") {
+    if (!node.vm || node.vm.is_template) {
+      return { vmCount: 0, allPowerable: true }
+    }
+
+    return {
+      vmCount: 1,
+      allPowerable: hasDirectInventoryCapability(
+        node.permissions,
+        "powerVm"
+      ),
+    }
+  }
+
+  let vmCount = 0
+  let allPowerable = true
+
+  for (const child of node.children ?? []) {
+    const childSummary = buildFolderCanPowerSummary(child, canPowerByFolderId)
+    vmCount += childSummary.vmCount
+    allPowerable &&= childSummary.allPowerable
+  }
+
+  canPowerByFolderId.set(node.id, vmCount > 0 && allPowerable)
+
+  return { vmCount, allPowerable }
+}
+
+export function buildFolderCanPowerMap(tree: Array<ApiTreeNode>) {
+  const canPowerByFolderId = new Map<string, boolean>()
+
+  for (const node of tree) {
+    buildFolderCanPowerSummary(node, canPowerByFolderId)
+  }
+
+  return canPowerByFolderId
+}
+
 export function runInventoryPowerAction({
   queryClient,
   action,

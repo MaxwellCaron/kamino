@@ -2,7 +2,10 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { TREE_INDENT } from "../../utils/constants"
 import type { CSSProperties } from "react"
 
-export const INVENTORY_TREE_ROW_HEIGHT = 34
+export const INVENTORY_TREE_ROW_GAP = 2
+const INVENTORY_TREE_ROW_CONTENT_HEIGHT = 32
+export const INVENTORY_TREE_ROW_HEIGHT =
+  INVENTORY_TREE_ROW_CONTENT_HEIGHT + INVENTORY_TREE_ROW_GAP
 
 export function InventoryTreeRowSkeleton({
   isFolder,
@@ -19,7 +22,7 @@ export function InventoryTreeRowSkeleton({
     <div
       aria-hidden="true"
       data-testid="inventory-tree-row-skeleton"
-      className="pointer-events-none flex min-h-[34px] items-center gap-1 px-2 py-1.5"
+      className="pointer-events-none flex h-8 items-center gap-1 px-2"
       style={indentStyle}
     >
       {isFolder ? (

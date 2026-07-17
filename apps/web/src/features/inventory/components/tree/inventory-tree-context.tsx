@@ -7,6 +7,7 @@ export interface InventoryTreeContextValue {
   tree: TreeInstance<ApiTreeNode>
   expandAll: () => void
   collapseAll: () => void
+  canPowerByFolderId: Map<string, boolean>
   getStatus: (itemId: string) => string | undefined
   isLoading: boolean
   error: Error | null

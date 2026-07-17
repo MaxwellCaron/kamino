@@ -14,7 +14,13 @@ import { hasNodeActions } from "../../utils/inventory-capabilities"
 import { collectFolderPowerTargets } from "../../utils/inventory-power-actions"
 import { stopTreeItemEvent } from "./inventory-action-utils"
 import { InventoryNodeMenuBody } from "./inventory-node-menu-body"
+import type { FolderPowerTargets } from "../../utils/inventory-power-actions"
 import type { ApiTreeNode } from "../../types/inventory-types"
+
+const EMPTY_FOLDER_POWER: FolderPowerTargets = {
+  targets: [],
+  canPower: false,
+}
 
 export function InventoryNodeMenu({
   itemId,
@@ -22,27 +28,162 @@ export function InventoryNodeMenu({
   className,
   iconSize = "icon-xs",
   contentAlign,
+  canPower,
+  open,
+  onOpenChange,
 }: {
   itemId: string
   data: ApiTreeNode
   className?: string
   iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
   contentAlign?: "start" | "center" | "end"
+  canPower?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const { isMobile } = useSidebar()
+  if (canPower !== undefined) {
+    return (
+      <InventoryNodeMenuWithPrecomputedPower
+        itemId={itemId}
+        data={data}
+        className={className}
+        iconSize={iconSize}
+        contentAlign={contentAlign}
+        canPower={canPower}
+        open={open}
+        onOpenChange={onOpenChange}
+      />
+    )
+  }
+
+  return (
+    <InventoryNodeMenuSelfQuerying
+      itemId={itemId}
+      data={data}
+      className={className}
+      iconSize={iconSize}
+      contentAlign={contentAlign}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  )
+}
+
+function InventoryNodeMenuSelfQuerying({
+  itemId,
+  data,
+  className,
+  iconSize,
+  contentAlign,
+  open,
+  onOpenChange,
+}: {
+  itemId: string
+  data: ApiTreeNode
+  className?: string
+  iconSize: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
+  contentAlign?: "start" | "center" | "end"
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
   const { data: tree } = useQuery(inventoryTreeQueryOptions)
   const folderPower = useMemo(
     () =>
       data.kind === "folder"
         ? collectFolderPowerTargets(tree ?? [], itemId)
-        : { targets: [], canPower: false },
+        : EMPTY_FOLDER_POWER,
     [data.kind, itemId, tree]
   )
 
-  if (!hasNodeActions(data, folderPower.canPower)) return null
+  return (
+    <InventoryNodeMenuDropdown
+      data={data}
+      className={className}
+      iconSize={iconSize}
+      contentAlign={contentAlign}
+      canPower={folderPower.canPower}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <InventoryNodeMenuBody
+        itemId={itemId}
+        data={data}
+        folderPower={folderPower}
+      />
+    </InventoryNodeMenuDropdown>
+  )
+}
+
+function InventoryNodeMenuWithPrecomputedPower({
+  itemId,
+  data,
+  className,
+  iconSize,
+  contentAlign,
+  canPower,
+  open,
+  onOpenChange,
+}: {
+  itemId: string
+  data: ApiTreeNode
+  className?: string
+  iconSize: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
+  contentAlign?: "start" | "center" | "end"
+  canPower: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const body =
+    data.kind === "folder" ? (
+      <LazyFolderPowerBody itemId={itemId} data={data} />
+    ) : (
+      <InventoryNodeMenuBody
+        itemId={itemId}
+        data={data}
+        folderPower={EMPTY_FOLDER_POWER}
+      />
+    )
 
   return (
-    <DropdownMenu>
+    <InventoryNodeMenuDropdown
+      data={data}
+      className={className}
+      iconSize={iconSize}
+      contentAlign={contentAlign}
+      canPower={canPower}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      {body}
+    </InventoryNodeMenuDropdown>
+  )
+}
+
+function InventoryNodeMenuDropdown({
+  data,
+  className,
+  iconSize = "icon-xs",
+  contentAlign,
+  canPower,
+  open,
+  onOpenChange,
+  children,
+}: {
+  data: ApiTreeNode
+  className?: string
+  iconSize?: "icon-xs" | "icon-sm" | "icon" | "icon-lg"
+  contentAlign?: "start" | "center" | "end"
+  canPower: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  children: React.ReactNode
+}) {
+  const { isMobile } = useSidebar()
+
+  if (!hasNodeActions(data, canPower)) return null
+
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
         render={
           <Button
@@ -65,12 +206,30 @@ export function InventoryNodeMenu({
       >
         {/* Body renders inside the portal, so its hooks (favorites, dialogs,
             vm-status query) only run once the menu is actually opened. */}
-        <InventoryNodeMenuBody
-          itemId={itemId}
-          data={data}
-          folderPower={folderPower}
-        />
+        {children}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function LazyFolderPowerBody({
+  itemId,
+  data,
+}: {
+  itemId: string
+  data: ApiTreeNode
+}) {
+  const { data: tree } = useQuery(inventoryTreeQueryOptions)
+  const folderPower = useMemo(
+    () => collectFolderPowerTargets(tree ?? [], itemId),
+    [itemId, tree]
+  )
+
+  return (
+    <InventoryNodeMenuBody
+      itemId={itemId}
+      data={data}
+      folderPower={folderPower}
+    />
   )
 }

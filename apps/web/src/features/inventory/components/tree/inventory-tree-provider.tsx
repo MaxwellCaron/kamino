@@ -16,6 +16,7 @@ import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
 import { VIRTUAL_ROOT } from "../../utils/constants"
+import { buildFolderCanPowerMap } from "../../utils/inventory-power-actions"
 import { filterInventoryTreeByName } from "../../utils/inventory-tree"
 import { InventoryTreeContext } from "./inventory-tree-context"
 import type { ReactNode } from "react"
@@ -118,6 +119,10 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const vmIdMap = useMemo(
     () => buildVmIdMap(sourceTree.items),
     [sourceTree.items]
+  )
+  const canPowerByFolderId = useMemo(
+    () => buildFolderCanPowerMap(apiTree),
+    [apiTree]
   )
 
   const getStatus = useCallback(
@@ -235,6 +240,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     tree,
     expandAll,
     collapseAll,
+    canPowerByFolderId,
     getStatus,
     isLoading,
     error: error,

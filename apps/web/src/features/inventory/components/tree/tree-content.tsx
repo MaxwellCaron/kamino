@@ -1,82 +1,29 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { StarIcon } from "@hugeicons/core-free-icons"
-import {
-  Tree,
-  TreeDragLine,
-  TreeItem,
-  TreeItemLabel,
-  TreeItemToggle,
-} from "@workspace/ui/components/reui/tree"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
-import { InventoryNodeIcon } from "../inventory-node-icon"
+import { Tree, TreeDragLine } from "@workspace/ui/components/reui/tree"
 import { TREE_INDENT } from "../../utils/constants"
+import { hasNodeActions } from "../../utils/inventory-capabilities"
 import { useInventoryTreeContext } from "./inventory-tree-context"
+import { InventoryTreeRow } from "./inventory-tree-row"
 import {
+  INVENTORY_TREE_ROW_GAP,
   INVENTORY_TREE_ROW_HEIGHT,
-  InventoryTreeRowSkeleton,
 } from "./inventory-tree-row-skeleton"
-import type { MouseEvent as ReactMouseEvent } from "react"
-import type { ItemInstance, TreeInstance } from "@headless-tree/core"
+import { createTreeRangeExtractor, upsertRowVm } from "./tree-content-utils"
+import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import type { InventoryTreeRowVm } from "./tree-content-utils"
 
-const TREE_ROW_OVERSCAN = 24
-const TREE_ROW_ACTIVE_BUFFER = 6
-
-interface SelectionDataRef {
-  selectUpToAnchorId?: string | null
-}
-
-type TreeRowMouseEvent = ReactMouseEvent<HTMLElement, globalThis.MouseEvent> & {
-  preventBaseUIHandler?: () => void
-}
-
-function hasSelectionModifier(event: TreeRowMouseEvent) {
-  return event.shiftKey || event.ctrlKey || event.metaKey
-}
-
-function preventBaseTreeHandler(event: TreeRowMouseEvent) {
-  event.preventBaseUIHandler?.()
-}
-
-function focusTreeItem(item: ItemInstance<ApiTreeNode>) {
-  item.setFocused()
-  item.getElement()?.focus({ preventScroll: true })
-}
-
-function toggleFolder(item: ItemInstance<ApiTreeNode>) {
-  if (item.isExpanded()) {
-    item.collapse()
-    return
-  }
-
-  item.expand()
-}
-
-function applySelectionFromClick(
-  event: TreeRowMouseEvent,
-  item: ItemInstance<ApiTreeNode>,
-  tree: TreeInstance<ApiTreeNode>
-) {
-  if (event.shiftKey) {
-    item.selectUpTo(event.ctrlKey || event.metaKey)
-  } else if (event.ctrlKey || event.metaKey) {
-    item.toggleSelect()
-  } else {
-    tree.setSelectedItems([item.getId()])
-  }
-
-  if (!event.shiftKey) {
-    tree.getDataRef<SelectionDataRef>().current.selectUpToAnchorId =
-      item.getId()
-  }
-
-  focusTreeItem(item)
-}
+const TREE_ROW_OVERSCAN = 50
+const TREE_ROW_CONTENT_HEIGHT =
+  INVENTORY_TREE_ROW_HEIGHT - INVENTORY_TREE_ROW_GAP
 
 export function InventoryTreeContent({
   getStatus,
@@ -86,12 +33,14 @@ export function InventoryTreeContent({
   tree: TreeInstance<ApiTreeNode>
 }) {
   const {
+    canPowerByFolderId,
     favoriteIds,
     toggleFavorite,
     handlePrimaryAction,
     scrollToItemHandlerRef,
   } = useInventoryTreeContext()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const rowVmCacheRef = useRef(new Map<string, InventoryTreeRowVm>())
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
 
@@ -115,58 +64,76 @@ export function InventoryTreeContent({
 
   const items = tree.getItems()
 
+  const getItemKey = useCallback(
+    (index: number) => items[index]?.getId() ?? index,
+    [items]
+  )
+
+  const focusedItemId = tree.getState().focusedItem
+  const focusedIndex = focusedItemId
+    ? items.findIndex((item) => item.getId() === focusedItemId)
+    : -1
+  const rangeExtractor = useMemo(
+    () => createTreeRangeExtractor(focusedIndex),
+    [focusedIndex]
+  )
+
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollElement,
-    estimateSize: () => INVENTORY_TREE_ROW_HEIGHT,
-    measureElement: () => INVENTORY_TREE_ROW_HEIGHT,
+    estimateSize: () => TREE_ROW_CONTENT_HEIGHT,
+    gap: INVENTORY_TREE_ROW_GAP,
     overscan: TREE_ROW_OVERSCAN,
-    getItemKey: (index) => items[index]?.getId() ?? index,
+    getItemKey,
     scrollMargin,
+    rangeExtractor,
     directDomUpdates: true,
     useFlushSync: false,
   })
 
   useEffect(() => {
     scrollToItemHandlerRef.current = (itemId: string) => {
-      let settledOffset: number | null = null
+      let lastIndex = -1
       let stableFrames = 0
 
       const tick = (attempt: number) => {
         if (attempt > 30) return
 
-        if (!virtualizer.scrollElement) {
-          requestAnimationFrame(() => tick(attempt + 1))
-          return
-        }
-
         const index = tree
           .getItems()
           .findIndex((item) => item.getId() === itemId)
-        const offsetInfo =
-          index >= 0 ? virtualizer.getOffsetForIndex(index, "auto") : undefined
 
-        if (!offsetInfo) {
+        if (index < 0 || !virtualizer.scrollElement) {
           requestAnimationFrame(() => tick(attempt + 1))
           return
         }
 
-        const [targetOffset] = offsetInfo
-        if (targetOffset === (virtualizer.scrollOffset ?? 0)) return
-
-        if (targetOffset === settledOffset) {
+        if (index === lastIndex) {
           stableFrames += 1
         } else {
-          settledOffset = targetOffset
+          lastIndex = index
           stableFrames = 0
         }
 
+        // Wait until the tree has settled (expansion rebuilds finished) before scrolling.
         if (stableFrames < 2) {
           requestAnimationFrame(() => tick(attempt + 1))
           return
         }
 
-        virtualizer.scrollToOffset(targetOffset, { behavior: "auto" })
+        const [targetOffset] = virtualizer.getOffsetForIndex(index, "auto") ?? [
+          null,
+        ]
+        if (targetOffset === null) return
+
+        const distance = Math.abs(
+          targetOffset - (virtualizer.scrollOffset ?? 0)
+        )
+        const viewportHeight = virtualizer.scrollRect?.height ?? 0
+        // Uniform row heights: smooth scroll for nearby targets, instant for long jumps.
+        const behavior = distance <= viewportHeight * 3 ? "smooth" : "auto"
+
+        virtualizer.scrollToIndex(index, { align: "auto", behavior })
       }
 
       tick(0)
@@ -177,18 +144,7 @@ export function InventoryTreeContent({
     }
   }, [scrollToItemHandlerRef, tree, virtualizer])
 
-  const scrollOffset = virtualizer.scrollOffset ?? 0
-  const viewportHeight = virtualizer.scrollRect?.height ?? 0
-  const visibleStartIndex = Math.max(
-    0,
-    Math.floor(scrollOffset / INVENTORY_TREE_ROW_HEIGHT) -
-      TREE_ROW_ACTIVE_BUFFER
-  )
-  const visibleEndIndex = Math.min(
-    items.length - 1,
-    Math.ceil((scrollOffset + viewportHeight) / INVENTORY_TREE_ROW_HEIGHT) +
-      TREE_ROW_ACTIVE_BUFFER
-  )
+  const virtualRows = virtualizer.getVirtualItems()
 
   return (
     <div ref={wrapperRef}>
@@ -198,7 +154,7 @@ export function InventoryTreeContent({
         indent={TREE_INDENT}
         className="relative"
       >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
+        {virtualRows.map((virtualRow) => {
           const item = items.at(virtualRow.index)
           if (!item) {
             return (
@@ -206,160 +162,56 @@ export function InventoryTreeContent({
                 key={virtualRow.key}
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 flex w-full flex-col pb-0.5"
-              >
-                <InventoryTreeRowSkeleton isFolder={false} level={0} />
-              </div>
+                className="absolute top-0 left-0 flex w-full flex-col"
+              />
             )
           }
 
           const id = item.getId()
           const data = item.getItemData()
-          const shouldRenderSkeleton =
-            virtualizer.isScrolling &&
-            (virtualRow.index < visibleStartIndex ||
-              virtualRow.index > visibleEndIndex)
+          const canPower = canPowerByFolderId.get(id) ?? false
+          const vm = upsertRowVm(rowVmCacheRef.current, {
+            id,
+            name: item.getItemName(),
+            kind: data.kind,
+            level: item.getItemMeta().level,
+            isFolder: data.kind === "folder",
+            isExpanded: item.isExpanded(),
+            isSelected: item.isSelected(),
+            isFocused: item.isFocused(),
+            isDragTarget: item.isDragTarget(),
+            isSearchMatch:
+              typeof item.isMatchingSearch === "function"
+                ? item.isMatchingSearch() || false
+                : false,
+            isFavorite: favoriteIds.has(id),
+            status: getStatus(id),
+            vmCount: data.vm_count ?? null,
+            vmLimit: data.effective_vm_limit ?? null,
+            canPower,
+            hasActions: hasNodeActions(data, canPower),
+          })
 
           return (
             <div
               key={virtualRow.key}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 flex w-full flex-col pb-0.5"
+              className="absolute top-0 left-0 flex w-full flex-col"
             >
-              {shouldRenderSkeleton ? (
-                <InventoryTreeRowSkeleton
-                  isFolder={data.kind === "folder"}
-                  level={item.getItemMeta().level}
-                />
-              ) : (
-                <InventoryTreeRow
-                  item={item}
-                  tree={tree}
-                  getStatus={getStatus}
-                  isFavorite={favoriteIds.has(id)}
-                  onPrimaryAction={handlePrimaryAction}
-                  onToggleFavorite={toggleFavorite}
-                />
-              )}
+              <InventoryTreeRow
+                vm={vm}
+                data={data}
+                item={item}
+                tree={tree}
+                onPrimaryAction={handlePrimaryAction}
+                onToggleFavorite={toggleFavorite}
+              />
             </div>
           )
         })}
         <TreeDragLine />
       </Tree>
     </div>
-  )
-}
-
-interface InventoryTreeRowProps {
-  getStatus: (itemId: string) => string | undefined
-  isFavorite: boolean
-  item: ItemInstance<ApiTreeNode>
-  onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
-  onToggleFavorite: (itemId: string) => void
-  tree: TreeInstance<ApiTreeNode>
-}
-
-function InventoryTreeRow({
-  getStatus,
-  isFavorite,
-  item,
-  onPrimaryAction,
-  onToggleFavorite,
-  tree,
-}: InventoryTreeRowProps) {
-  const data = item.getItemData()
-  const id = item.getId()
-  const isFolder = data.kind === "folder"
-  const itemName = item.getItemName()
-
-  return (
-    <TreeItem
-      item={item}
-      className="group/row"
-      render={<div />}
-      onClick={(event) => {
-        const rowEvent = event as TreeRowMouseEvent
-
-        if (hasSelectionModifier(rowEvent)) {
-          applySelectionFromClick(rowEvent, item, tree)
-          preventBaseTreeHandler(rowEvent)
-          return
-        }
-
-        if (!isFolder) {
-          return
-        }
-
-        focusTreeItem(item)
-        onPrimaryAction(id, data)
-        preventBaseTreeHandler(rowEvent)
-      }}
-      onDoubleClick={(event) => {
-        const rowEvent = event as TreeRowMouseEvent
-
-        if (!isFolder || hasSelectionModifier(rowEvent)) {
-          return
-        }
-
-        focusTreeItem(item)
-        toggleFolder(item)
-      }}
-    >
-      <TreeItemLabel
-        hideToggle
-        className="w-full group-has-[button[data-popup-open]]/row:bg-muted"
-      >
-        {isFolder && <TreeItemToggle />}
-        <InventoryNodeIcon
-          node={data}
-          status={getStatus(id)}
-          isExpanded={item.isExpanded()}
-        />
-        <span
-          className={cn("ml-1 flex-1 truncate", isFolder && "font-semibold")}
-        >
-          {itemName}
-        </span>
-        <div className="ml-auto flex items-center gap-0.5">
-          {isFolder && data.effective_vm_limit != null && (
-            <Badge variant="secondary">
-              {data.vm_count ?? 0} / {data.effective_vm_limit}
-            </Badge>
-          )}
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            aria-label={
-              isFavorite
-                ? `Remove ${itemName} from favorites`
-                : `Add ${itemName} to favorites`
-            }
-            className={cn(
-              isFavorite
-                ? "bg-transparent! opacity-100!"
-                : "opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100"
-            )}
-            onClick={(event) => {
-              event.stopPropagation()
-              onToggleFavorite(id)
-            }}
-          >
-            <HugeiconsIcon
-              icon={StarIcon}
-              className={cn(
-                isFavorite && "fill-muted-foreground dark:fill-muted-foreground"
-              )}
-            />
-          </Button>
-          <InventoryNodeMenu
-            itemId={id}
-            data={data}
-            className="bg-transparent! opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
-          />
-        </div>
-      </TreeItemLabel>
-    </TreeItem>
   )
 }

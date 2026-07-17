@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  buildFolderCanPowerMap,
   collectFolderPowerTargets,
   runInventoryPowerAction,
 } from "./inventory-power-actions"
@@ -61,6 +62,26 @@ function folderNode(
     },
     children,
   }
+}
+
+function collectFolderIds(tree: Array<ApiTreeNode>): Array<string> {
+  const folderIds: Array<string> = []
+
+  function visit(node: ApiTreeNode) {
+    if (node.kind === "folder") {
+      folderIds.push(node.id)
+    }
+
+    for (const child of node.children ?? []) {
+      visit(child)
+    }
+  }
+
+  for (const node of tree) {
+    visit(node)
+  }
+
+  return folderIds
 }
 
 function makeTarget(id: string): SelectedVmItem {
@@ -154,6 +175,53 @@ describe("collectFolderPowerTargets", () => {
       targets: [],
       canPower: false,
     })
+  })
+
+  it("builds a folder canPower map that matches collectFolderPowerTargets for every folder", () => {
+    const sharedVm = vmNode("vm-shared", "Shared VM", powerVmMask)
+    const tree = [
+      folderNode("folder-all", "All Powerable", [
+        vmNode("vm-1", "VM One", powerVmMask),
+        folderNode("folder-all-nested", "Nested", [
+          vmNode("vm-2", "VM Two", powerVmMask),
+        ]),
+      ]),
+      folderNode("folder-mixed", "Mixed", [
+        vmNode("vm-3", "VM Three", powerVmMask),
+        vmNode("vm-4", "VM Four", viewMask),
+      ]),
+      folderNode("folder-empty", "Empty"),
+      folderNode("folder-template", "Template Only", [
+        vmNode("vm-tpl", "Template VM", powerVmMask, true),
+      ]),
+      folderNode("folder-parent", "Parent", [
+        folderNode("folder-parent-nested", "Nested child", [
+          vmNode("vm-5", "VM Five", powerVmMask),
+        ]),
+      ]),
+      folderNode("folder-duplicate", "Duplicate VM ids", [
+        folderNode("folder-duplicate-a", "Branch A", [sharedVm]),
+        folderNode("folder-duplicate-b", "Branch B", [sharedVm]),
+      ]),
+    ]
+
+    const canPowerByFolderId = buildFolderCanPowerMap(tree)
+    const folderIds = collectFolderIds(tree)
+
+    expect([...canPowerByFolderId.keys()].sort()).toEqual(folderIds.sort())
+    expect(canPowerByFolderId.get("folder-all")).toBe(true)
+    expect(canPowerByFolderId.get("folder-mixed")).toBe(false)
+    expect(canPowerByFolderId.get("folder-empty")).toBe(false)
+    expect(canPowerByFolderId.get("folder-template")).toBe(false)
+    expect(canPowerByFolderId.get("folder-parent")).toBe(true)
+    expect(canPowerByFolderId.get("folder-parent-nested")).toBe(true)
+    expect(canPowerByFolderId.get("folder-duplicate")).toBe(true)
+
+    for (const folderId of folderIds) {
+      expect(canPowerByFolderId.get(folderId)).toBe(
+        collectFolderPowerTargets(tree, folderId).canPower
+      )
+    }
   })
 })
 
