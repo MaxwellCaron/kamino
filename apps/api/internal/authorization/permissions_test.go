@@ -1,6 +1,9 @@
 package authorization
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // TestMaskHas characterizes the Mask.Has bit-check helper.
 func TestMaskHas(t *testing.T) {
@@ -196,5 +199,68 @@ func TestKnownInventoryPermissionMask(t *testing.T) {
 
 	if (mask & View) != View {
 		t.Errorf("KnownInventoryPermissionMask() does not include View bit; got %b", mask)
+	}
+}
+
+func definitionByKey(t *testing.T, key InventoryPermission) InventoryPermissionDefinition {
+	t.Helper()
+
+	for _, definition := range inventoryPermissionDefinitions {
+		if definition.Key == key {
+			return definition
+		}
+	}
+
+	t.Fatalf("no definition found for key %q", key)
+	return InventoryPermissionDefinition{}
+}
+
+// TestInventoryPermissionDefinitionSections characterizes the grouping of
+// Create VM into the VM section rather than the Folder section.
+func TestInventoryPermissionDefinitionSections(t *testing.T) {
+	createVM := definitionByKey(t, InventoryPermissionCreateVM)
+
+	if createVM.SectionKey != "vm" || createVM.SectionLabel != "VM" {
+		t.Errorf("Create VM section = (%q, %q), want (\"vm\", \"VM\")", createVM.SectionKey, createVM.SectionLabel)
+	}
+	if createVM.SectionOrder != 2 {
+		t.Errorf("Create VM SectionOrder = %d, want 2", createVM.SectionOrder)
+	}
+	if createVM.Order != 0 {
+		t.Errorf("Create VM Order = %d, want 0", createVM.Order)
+	}
+
+	wantKinds := []InventoryPermissionTargetKind{InventoryPermissionTargetKindFolder}
+	if !slices.Equal(createVM.AppliesToKinds, wantKinds) {
+		t.Errorf("Create VM AppliesToKinds = %v, want %v", createVM.AppliesToKinds, wantKinds)
+	}
+
+	createFolder := definitionByKey(t, InventoryPermissionCreateFolder)
+	if createFolder.SectionKey != "folder" || createFolder.SectionLabel != "Folder" {
+		t.Errorf("Create Folder section = (%q, %q), want (\"folder\", \"Folder\")", createFolder.SectionKey, createFolder.SectionLabel)
+	}
+
+	var vmOrders []int
+	seenVMOrders := map[int]bool{}
+	for _, definition := range inventoryPermissionDefinitions {
+		if definition.SectionKey != "vm" {
+			continue
+		}
+		if seenVMOrders[definition.Order] {
+			t.Errorf("duplicate VM section Order %d (key %q)", definition.Order, definition.Key)
+		}
+		seenVMOrders[definition.Order] = true
+		vmOrders = append(vmOrders, definition.Order)
+	}
+
+	if !slices.IsSorted(vmOrders) {
+		t.Errorf("VM section Order values not ascending in source order: %v", vmOrders)
+	}
+	if len(vmOrders) == 0 || vmOrders[0] != 0 {
+		t.Errorf("VM section Order values = %v, want to start at 0", vmOrders)
+	}
+
+	if mask := KnownInventoryPermissionMask(); mask != FullAccessMask {
+		t.Errorf("KnownInventoryPermissionMask() = %b, want FullAccessMask = %b", mask, FullAccessMask)
 	}
 }

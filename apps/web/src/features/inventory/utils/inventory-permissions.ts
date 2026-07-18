@@ -89,17 +89,6 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
   },
   {
     appliesToKinds: ["folder"],
-    bit: InventoryPermissionBits.createVm,
-    key: InventoryPermissionKeys.createVm,
-    label: "Create VM",
-    description: "Create new VMs inside this folder.",
-    sectionKey: "folder",
-    sectionLabel: "Folder",
-    sectionOrder: 1,
-    order: 0,
-  },
-  {
-    appliesToKinds: ["folder"],
     bit: InventoryPermissionBits.createFolder,
     key: InventoryPermissionKeys.createFolder,
     label: "Create Folder",
@@ -107,7 +96,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "folder",
     sectionLabel: "Folder",
     sectionOrder: 1,
-    order: 1,
+    order: 0,
   },
   {
     appliesToKinds: ["folder"],
@@ -118,7 +107,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "folder",
     sectionLabel: "Folder",
     sectionOrder: 1,
-    order: 2,
+    order: 1,
   },
   {
     appliesToKinds: ["folder"],
@@ -129,7 +118,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "folder",
     sectionLabel: "Folder",
     sectionOrder: 1,
-    order: 3,
+    order: 2,
   },
   {
     appliesToKinds: ["folder"],
@@ -140,7 +129,18 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "folder",
     sectionLabel: "Folder",
     sectionOrder: 1,
-    order: 4,
+    order: 3,
+  },
+  {
+    appliesToKinds: ["folder"],
+    bit: InventoryPermissionBits.createVm,
+    key: InventoryPermissionKeys.createVm,
+    label: "Create VM",
+    description: "Create new VMs inside this folder.",
+    sectionKey: "vm",
+    sectionLabel: "VM",
+    sectionOrder: 2,
+    order: 0,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -152,7 +152,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 0,
+    order: 1,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -163,7 +163,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 1,
+    order: 2,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -175,7 +175,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 2,
+    order: 3,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -186,7 +186,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 3,
+    order: 4,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -198,7 +198,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 4,
+    order: 5,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -209,7 +209,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 5,
+    order: 6,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -220,7 +220,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 6,
+    order: 7,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -232,7 +232,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 7,
+    order: 8,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -243,7 +243,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 8,
+    order: 9,
   },
   {
     appliesToKinds: ["folder", "vm"],
@@ -254,7 +254,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,
-    order: 9,
+    order: 10,
   },
 ]
 
