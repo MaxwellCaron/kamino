@@ -46,7 +46,7 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   getInventoryFolderOptions,
   getSelectedFolder,
@@ -271,15 +271,17 @@ export function CreateVmDialog({
           </StepperList>
 
           <form action={() => {}}>
-            <AppDialogScrollBody className="h-[40vh]">
+            <AppDialogScrollBody className="relative h-[40vh]">
+              <PreloadOverlay
+                active={isLoadingInitialOptions}
+                label="Loading VM creation options"
+              />
               {initialOptionsError ? (
                 <InlineErrorAlert
                   error={initialOptionsError}
                   fallback="Failed to load VM creation options."
                 />
-              ) : isLoadingInitialOptions ? (
-                <DialogBodySkeleton rows={4} />
-              ) : (
+              ) : !isLoadingInitialOptions ? (
                 <>
                   <StepperContent value="method">
                     <CreateVmMethodStep form={form} />
@@ -305,7 +307,7 @@ export function CreateVmDialog({
                     />
                   </StepperContent>
                 </>
-              )}
+              ) : null}
             </AppDialogScrollBody>
 
             <DialogFooter className="grid grid-cols-3 items-center">
