@@ -8,6 +8,7 @@ import { z } from "zod"
 import { vmNameSchema } from "../../utils/vm-name"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
+import { optionalVmidSchema } from "@/components/vms/vmid-field"
 import { uuid } from "@/features/shared/utils/uuid"
 
 const createVmMethodSchema = z.enum(["template", "iso", "upload"])
@@ -30,10 +31,6 @@ export const optionalVmNameSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? "" : value),
   z.union([vmNameSchema, z.literal("")])
 )
-export const optionalVmidSchema = z.union([
-  z.literal(0),
-  z.number().int().min(100, "VM ID must be at least 100"),
-])
 
 const templateConfigurationSchema = z.object({
   template_id: z.string().trim().min(1, "Template is required"),

@@ -21,12 +21,9 @@ import {
   CloneFullCloneField,
   CloneNameField,
   CloneNodeField,
-  CloneVmidField,
 } from "@/features/vms/components/create/clone-form-fields"
-import {
-  optionalVmNameSchema,
-  optionalVmidSchema,
-} from "@/features/vms/components/create/create-vm-form"
+import { optionalVmNameSchema } from "@/features/vms/components/create/create-vm-form"
+import { VMIDField, optionalVmidSchema } from "@/components/vms/vmid-field"
 import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
@@ -157,7 +154,7 @@ export function CloneDialog({
                     inputId="clone-node"
                     nodes={nodes}
                   />
-                  <CloneVmidField
+                  <VMIDField
                     FieldComponent={form.Field}
                     fieldName="newid"
                     inputId="clone-vmid"

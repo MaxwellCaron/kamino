@@ -18,6 +18,7 @@ import {
   cloneRouter,
   routerCloneOptionsQueryOptions,
 } from "@/features/pods/api/router-clone-api"
+import { optionalVmidSchema } from "@/components/vms/vmid-field"
 import {
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
@@ -29,6 +30,7 @@ export type RouterCloneFormValues = {
   target_folder_id: string | null
   network_number: string
   network_profile_key: PodNetworkProfile["key"]
+  vmid: number
 }
 
 const routerCloneFormSchema = z.object({
@@ -53,6 +55,7 @@ const routerCloneFormSchema = z.object({
       "Pod VNet number must be between 1 and 254"
     ),
   network_profile_key: z.enum(["lan-router-v1", "lan-dmz-router-v1"]),
+  vmid: optionalVmidSchema,
 })
 
 function getRouterCloneToastName(
@@ -107,6 +110,7 @@ export function ManualRouterCloneDialog({
       target_folder_id: null as string | null,
       network_number: "",
       network_profile_key: "lan-router-v1" as PodNetworkProfile["key"],
+      vmid: 0,
     },
     onSubmit: ({ value }) => {
       const parsed = routerCloneFormSchema.parse(value)
@@ -124,6 +128,7 @@ export function ManualRouterCloneDialog({
             target_folder_id: parsed.target_folder_id,
             network_number: parsed.network_number,
             network_profile_key: parsed.network_profile_key,
+            vmid: parsed.vmid,
           })
           seedInventoryItemCache(queryClient, result.item_id, result.item)
           await queryClient.invalidateQueries({

@@ -24,7 +24,6 @@ import {
   createVmFormOptions,
   getFirstIssueMessage,
   networkInterfaceSchema,
-  optionalVmidSchema,
   parseNumberInput,
   withCreateVmForm,
 } from "./create-vm-form"
@@ -32,7 +31,7 @@ import { formatFieldError } from "./create-vm-step-utils"
 import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import type { NetworkData } from "./create-vm-step-utils"
 import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
-import { validateVMID } from "@/features/vms/api/vm-api"
+import { VMIDField } from "@/components/vms/vmid-field"
 import {
   biosTypes,
   cpuTypes,
@@ -152,52 +151,11 @@ export const IsoConfigurationFields = withCreateVmForm({
                 )}
               </form.AppField>
 
-              <form.AppField
-                name="vmid"
-                validators={{
-                  onBlur: ({ value }) =>
-                    getFirstIssueMessage(optionalVmidSchema.safeParse(value)),
-                  onBlurAsync: async ({ value }) => {
-                    if (value === 0) return undefined
-                    try {
-                      const valid = await validateVMID(value)
-                      return valid ? undefined : "VMID is already in use"
-                    } catch (error) {
-                      return error instanceof Error
-                        ? error.message
-                        : "Failed to validate VMID"
-                    }
-                  },
-                }}
-              >
-                {(field) => (
-                  <Field
-                    data-invalid={
-                      field.state.meta.errors.length > 0 || undefined
-                    }
-                  >
-                    <FieldLabel htmlFor="iso-vmid">VMID</FieldLabel>
-                    <Input
-                      id="iso-vmid"
-                      type="number"
-                      value={field.state.value || ""}
-                      placeholder="Next (Default)"
-                      onBlur={field.handleBlur}
-                      onChange={(event) =>
-                        field.handleChange(
-                          parseNumberInput(event.target.value, 0)
-                        )
-                      }
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                    <FieldError>
-                      {formatFieldError(field.state.meta.errors[0])}
-                    </FieldError>
-                  </Field>
-                )}
-              </form.AppField>
+              <VMIDField
+                FieldComponent={form.AppField}
+                fieldName="vmid"
+                inputId="iso-vmid"
+              />
             </div>
           </FieldGroup>
         </FieldSet>

@@ -1,28 +1,23 @@
 package handlers
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
-	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
-	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type podRouterCloneRequest struct {
 	TargetFolderID    string `json:"target_folder_id" binding:"required"`
 	NetworkNumber     int32  `json:"network_number" binding:"required"`
 	NetworkProfileKey string `json:"network_profile_key" binding:"required"`
+	VMID              int    `json:"vmid"`
 }
 
 type podRouterCloneNetworkOption struct {
@@ -50,7 +45,6 @@ type podRouterCloneResponse struct {
 func suggestPodRouterCloneNetworkOptions(
 	catalog *podnetwork.Catalog,
 	vnets []proxmox.VNet,
-	usedNetworkNumbers map[int32]struct{},
 ) ([]podRouterCloneNetworkOption, error) {
 	available := make(map[string]proxmox.VNet, len(vnets))
 	for _, vnet := range vnets {
@@ -65,9 +59,6 @@ func suggestPodRouterCloneNetworkOptions(
 		}
 
 		for networkNumber := int32(1); networkNumber <= 254; networkNumber++ {
-			if _, used := usedNetworkNumbers[networkNumber]; used {
-				continue
-			}
 			requiredVNets, err := catalog.RequiredVNets(profile.Key, networkNumber)
 			if err != nil {
 				return nil, err
@@ -108,22 +99,6 @@ func suggestPodRouterCloneNetworkOptions(
 	return options, nil
 }
 
-func usedPodNetworkNumberSet(numbers []int32) map[int32]struct{} {
-	used := make(map[int32]struct{}, len(numbers))
-	for _, number := range numbers {
-		used[number] = struct{}{}
-	}
-	return used
-}
-
-func (h *PodsHandler) loadUsedPodNetworkNumbers(ctx context.Context) (map[int32]struct{}, error) {
-	numbers, err := database.New(h.DB).ListUsedPodNetworkNumbers(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return usedPodNetworkNumberSet(numbers), nil
-}
-
 func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -155,13 +130,7 @@ func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 		return
 	}
 
-	usedPodNetworkNumbers, err := h.loadUsedPodNetworkNumbers(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load pod network allocations", "list used pod network numbers", err)
-		return
-	}
-
-	options, err := suggestPodRouterCloneNetworkOptions(h.NetworkCatalog, vnets, usedPodNetworkNumbers)
+	options, err := suggestPodRouterCloneNetworkOptions(h.NetworkCatalog, vnets)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to build pod router clone options", "build pod router clone network options", err)
 		return
@@ -177,17 +146,17 @@ func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 func parsePodRouterCloneRequest(
 	catalog *podnetwork.Catalog,
 	req podRouterCloneRequest,
-) (uuid.UUID, int32, string, *requestError) {
+) (uuid.UUID, int32, string, int, *requestError) {
 	targetFolderID, err := uuid.Parse(strings.TrimSpace(req.TargetFolderID))
 	if err != nil {
-		return uuid.Nil, 0, "", &requestError{
+		return uuid.Nil, 0, "", 0, &requestError{
 			Status:      http.StatusUnprocessableEntity,
 			UserMessage: "invalid target folder id",
 		}
 	}
 
 	if req.NetworkNumber < 1 || req.NetworkNumber > 254 {
-		return uuid.Nil, 0, "", &requestError{
+		return uuid.Nil, 0, "", 0, &requestError{
 			Status:      http.StatusUnprocessableEntity,
 			UserMessage: "network number must be between 1 and 254",
 		}
@@ -197,7 +166,7 @@ func parsePodRouterCloneRequest(
 	switch profileKey {
 	case podnetwork.ProfileLANRouterV1, podnetwork.ProfileLANDMZRouterV1:
 	default:
-		return uuid.Nil, 0, "", &requestError{
+		return uuid.Nil, 0, "", 0, &requestError{
 			Status:      http.StatusUnprocessableEntity,
 			UserMessage: fmt.Sprintf("unsupported network profile %q", profileKey),
 		}
@@ -205,14 +174,21 @@ func parsePodRouterCloneRequest(
 
 	if catalog != nil {
 		if _, err := catalog.Profile(profileKey); err != nil {
-			return uuid.Nil, 0, "", &requestError{
+			return uuid.Nil, 0, "", 0, &requestError{
 				Status:      http.StatusUnprocessableEntity,
 				UserMessage: err.Error(),
 			}
 		}
 	}
 
-	return targetFolderID, req.NetworkNumber, profileKey, nil
+	if req.VMID != 0 && req.VMID < 100 {
+		return uuid.Nil, 0, "", 0, &requestError{
+			Status:      http.StatusUnprocessableEntity,
+			UserMessage: "VM ID must be at least 100",
+		}
+	}
+
+	return targetFolderID, req.NetworkNumber, profileKey, req.VMID, nil
 }
 
 func (h *PodsHandler) CloneRouter(c *gin.Context) {
@@ -231,7 +207,7 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		return
 	}
 
-	targetFolderID, networkNumber, profileKey, reqErr := parsePodRouterCloneRequest(h.NetworkCatalog, req)
+	targetFolderID, networkNumber, profileKey, requestedVMID, reqErr := parsePodRouterCloneRequest(h.NetworkCatalog, req)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
@@ -259,38 +235,6 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		return
 	}
 
-	var networkClaim database.PodNetworkAllocations
-	err := podnetworks.WithPodNetworkAllocation(c.Request.Context(), h.DB, func(ctx context.Context, tx pgx.Tx) error {
-		var err error
-		networkClaim, err = database.New(tx).ClaimPodNetworkNumber(
-			ctx,
-			database.ClaimPodNetworkNumberParams{
-				NetworkNumber:     networkNumber,
-				Kind:              database.PodNetworkAllocationKindManualRouter,
-				NetworkProfileKey: &profileKey,
-				FolderID:          targetFolderID,
-			},
-		)
-		return err
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeConflict(c, "pod network number is already in use")
-		return
-	}
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to reserve pod network number", "claim pod network number", err)
-		return
-	}
-	networkClaimed := true
-	defer func() {
-		if !networkClaimed {
-			return
-		}
-		if releaseErr := database.New(h.DB).ReleasePodNetworkAllocation(c.Request.Context(), networkClaim.ID); releaseErr != nil {
-			log.Printf("manual router clone cleanup: failed to release network claim %s: %v", networkClaim.ID, releaseErr)
-		}
-	}()
-
 	reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), targetFolderID, 1, "pod_router_clone")
 	if err != nil {
 		writeInventoryError(c, err)
@@ -312,19 +256,6 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		return
 	}
 
-	batch, batchErr := h.Allocator.NewBatch(c.Request.Context(), h.CloneVMIDRange, 1)
-	if batchErr != nil {
-		writeLoggedError(
-			c,
-			http.StatusBadGateway,
-			fmt.Sprintf("insufficient VMID capacity in clone range (%d–%d)", h.CloneVMIDRange.Min, h.CloneVMIDRange.Max),
-			"allocate pod router clone VMID batch",
-			batchErr,
-		)
-		return
-	}
-	defer batch.Release()
-
 	var created map[int]clonedVM
 	provisioned := false
 	recordFailure := func(reqErr *requestError) {
@@ -339,6 +270,7 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 				"target_folder_id":    targetFolderID.String(),
 				"network_number":      networkNumber,
 				"network_profile_key": profileKey,
+				"requested_vmid":      requestedVMID,
 			},
 		}, reqErr.UserMessage)
 	}
@@ -360,7 +292,7 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 			Router:         true,
 		},
 		cloneVMOptions{
-			batch: batch,
+			requestedVMID: &requestedVMID,
 			onStarted: func(clone clonedVM) {
 				created[clone.VMID] = clone
 			},
@@ -427,14 +359,6 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 	}
 
 	provisioned = true
-	networkClaimed = false
-	if err := database.New(h.DB).CompletePodNetworkAllocationInventoryItem(c.Request.Context(), database.CompletePodNetworkAllocationInventoryItemParams{
-		ID:              networkClaim.ID,
-		InventoryItemID: &createdVM.response.ItemID,
-	}); err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "router cloned but failed to record network allocation", "complete manual pod router network", err)
-		return
-	}
 
 	if h.Audit != nil {
 		itemID := createdVM.response.ItemID

@@ -24,11 +24,12 @@ type clonedVM struct {
 	CloneTask       proxmox.CloneTask
 }
 
-// cloneVMOptions holds concurrency/cleanup hooks for VM cloning.
+// cloneVMOptions holds concurrency/cleanup hooks; exactly one of batch or requestedVMID must be set.
 type cloneVMOptions struct {
-	batch     *vmidalloc.Batch
-	onStarted func(clonedVM)
-	onSynced  func(clonedVM)
+	batch         *vmidalloc.Batch
+	requestedVMID *int
+	onStarted     func(clonedVM)
+	onSynced      func(clonedVM)
 }
 
 // cloneVMIntoFolder authorizes the source, clones it into the folder, stamps a
@@ -80,7 +81,7 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	}
 	defer release()
 
-	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts.batch)
+	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts)
 	if reqErr != nil {
 		return clonedVM{}, reqErr
 	}
@@ -144,38 +145,73 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	return clone, nil
 }
 
-// startVMClone claims a VMID via batch and starts the clone task.
+// startVMClone allocates a VMID and starts the clone task.
 func (h *PodsHandler) startVMClone(
 	ctx context.Context,
 	source verifiedVMTarget,
 	targetNode string,
 	name string,
 	full bool,
-	batch *vmidalloc.Batch,
+	opts cloneVMOptions,
 ) (proxmox.CloneTask, int, *requestError) {
-	var task proxmox.CloneTask
-	newID, err := batch.Claim(ctx, func(vmid int) error {
-		var cloneErr error
-		task, cloneErr = h.PX.StartCloneVM(ctx, source.Node, source.VMID, vmid, name, full, targetNode)
-		return cloneErr
-	})
-	if err != nil {
-		if vmidalloc.IsRangeExhausted(err) {
+	startClone := func(task *proxmox.CloneTask) func(vmid int) error {
+		return func(vmid int) error {
+			var cloneErr error
+			*task, cloneErr = h.PX.StartCloneVM(ctx, source.Node, source.VMID, vmid, name, full, targetNode)
+			return cloneErr
+		}
+	}
+
+	switch {
+	case opts.requestedVMID != nil && opts.batch == nil:
+		var task proxmox.CloneTask
+		newID, err := runWithAvailableVMID(ctx, h.Allocator, *opts.requestedVMID, startClone(&task))
+		if err != nil {
+			if isVMIDUnavailable(err) {
+				return proxmox.CloneTask{}, 0, &requestError{
+					Status:      http.StatusConflict,
+					UserMessage: errVMIDUnavailable.Error(),
+					Operation:   "allocate pod router clone vmid",
+				}
+			}
 			return proxmox.CloneTask{}, 0, &requestError{
 				Status:      http.StatusBadGateway,
-				UserMessage: "no available VMID in the configured workflow range",
-				Operation:   "allocate pod clone vmid",
+				UserMessage: "failed to clone VM",
+				Operation:   "start pod clone",
 				Err:         err,
 			}
 		}
+		return task, newID, nil
+
+	case opts.requestedVMID == nil && opts.batch != nil:
+		var task proxmox.CloneTask
+		newID, err := opts.batch.Claim(ctx, startClone(&task))
+		if err != nil {
+			if vmidalloc.IsRangeExhausted(err) {
+				return proxmox.CloneTask{}, 0, &requestError{
+					Status:      http.StatusBadGateway,
+					UserMessage: "no available VMID in the configured workflow range",
+					Operation:   "allocate pod clone vmid",
+					Err:         err,
+				}
+			}
+			return proxmox.CloneTask{}, 0, &requestError{
+				Status:      http.StatusBadGateway,
+				UserMessage: "failed to clone VM",
+				Operation:   "start pod clone",
+				Err:         err,
+			}
+		}
+		return task, newID, nil
+
+	default:
 		return proxmox.CloneTask{}, 0, &requestError{
-			Status:      http.StatusBadGateway,
+			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to clone VM",
 			Operation:   "start pod clone",
-			Err:         err,
+			Err:         errors.New("cloneVMOptions must set exactly one of batch or requestedVMID"),
 		}
 	}
-	return task, newID, nil
 }
 
 func (h *PodsHandler) convertCloneToTemplate(ctx context.Context, clone clonedVM) *requestError {

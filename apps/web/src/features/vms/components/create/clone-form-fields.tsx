@@ -19,8 +19,6 @@ import {
 import {
   getFirstIssueMessage,
   optionalVmNameSchema,
-  optionalVmidSchema,
-  parseNumberInput,
 } from "./create-vm-form"
 import { formatFieldError } from "./create-vm-step-utils"
 import type { ComponentType } from "react"
@@ -28,7 +26,6 @@ import type { InventoryFolderOption } from "@/features/inventory/utils/inventory
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
-import { validateVMID } from "@/features/vms/api/vm-api"
 
 type AppFieldComponent = ComponentType<any>
 
@@ -114,57 +111,6 @@ export function CloneNodeField({
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
-      )}
-    </FieldComponent>
-  )
-}
-
-export function CloneVmidField({
-  FieldComponent,
-  fieldName,
-  inputId,
-}: {
-  FieldComponent: AppFieldComponent
-  fieldName: string
-  inputId: string
-}) {
-  return (
-    <FieldComponent
-      name={fieldName}
-      validators={{
-        onBlur: ({ value }: { value: number }) =>
-          getFirstIssueMessage(optionalVmidSchema.safeParse(value)),
-        onBlurAsync: async ({ value }: { value: number }) => {
-          if (value === 0) return undefined
-          try {
-            const valid = await validateVMID(value)
-            return valid ? undefined : "VM ID is already in use"
-          } catch (error) {
-            return error instanceof Error
-              ? error.message
-              : "Failed to validate VM ID"
-          }
-        },
-      }}
-    >
-      {(field: any) => (
-        <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-          <FieldLabel htmlFor={inputId}>VMID</FieldLabel>
-          <Input
-            id={inputId}
-            type="number"
-            value={field.state.value || ""}
-            placeholder="Next (Default)"
-            onBlur={field.handleBlur}
-            onChange={(event) =>
-              field.handleChange(parseNumberInput(event.target.value, 0))
-            }
-            aria-invalid={field.state.meta.errors.length > 0 || undefined}
-          />
-          <FieldError>
-            {formatFieldError(field.state.meta.errors[0])}
-          </FieldError>
         </Field>
       )}
     </FieldComponent>

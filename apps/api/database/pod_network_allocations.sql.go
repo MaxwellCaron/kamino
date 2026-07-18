@@ -7,8 +7,6 @@ package database
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 const acquirePodNetworkAllocationLock = `-- name: AcquirePodNetworkAllocationLock :exec
@@ -17,120 +15,5 @@ SELECT pg_advisory_xact_lock(740020001)
 
 func (q *Queries) AcquirePodNetworkAllocationLock(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, acquirePodNetworkAllocationLock)
-	return err
-}
-
-const claimPodNetworkNumber = `-- name: ClaimPodNetworkNumber :one
-WITH conflict AS (
-    SELECT 1
-    FROM pod_network_allocations
-    WHERE network_number = $1
-)
-INSERT INTO pod_network_allocations (
-    network_number,
-    kind,
-    network_profile_key,
-    folder_id
-)
-SELECT
-    $1,
-    $2,
-    $3,
-    $4
-WHERE NOT EXISTS (SELECT 1 FROM conflict)
-RETURNING
-    id,
-    network_number,
-    kind,
-    network_profile_key,
-    folder_id,
-    inventory_item_id,
-    cloned_pod_id,
-    personal_pod_id,
-    created_at,
-    updated_at
-`
-
-type ClaimPodNetworkNumberParams struct {
-	NetworkNumber     int32                    `json:"network_number"`
-	Kind              PodNetworkAllocationKind `json:"kind"`
-	NetworkProfileKey *string                  `json:"network_profile_key"`
-	FolderID          uuid.UUID                `json:"folder_id"`
-}
-
-func (q *Queries) ClaimPodNetworkNumber(ctx context.Context, arg ClaimPodNetworkNumberParams) (PodNetworkAllocations, error) {
-	row := q.db.QueryRow(ctx, claimPodNetworkNumber,
-		arg.NetworkNumber,
-		arg.Kind,
-		arg.NetworkProfileKey,
-		arg.FolderID,
-	)
-	var i PodNetworkAllocations
-	err := row.Scan(
-		&i.ID,
-		&i.NetworkNumber,
-		&i.Kind,
-		&i.NetworkProfileKey,
-		&i.FolderID,
-		&i.InventoryItemID,
-		&i.ClonedPodID,
-		&i.PersonalPodID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const completePodNetworkAllocationInventoryItem = `-- name: CompletePodNetworkAllocationInventoryItem :exec
-UPDATE pod_network_allocations
-SET inventory_item_id = $1
-WHERE id = $2
-`
-
-type CompletePodNetworkAllocationInventoryItemParams struct {
-	InventoryItemID *uuid.UUID `json:"inventory_item_id"`
-	ID              uuid.UUID  `json:"id"`
-}
-
-func (q *Queries) CompletePodNetworkAllocationInventoryItem(ctx context.Context, arg CompletePodNetworkAllocationInventoryItemParams) error {
-	_, err := q.db.Exec(ctx, completePodNetworkAllocationInventoryItem, arg.InventoryItemID, arg.ID)
-	return err
-}
-
-const listUsedPodNetworkNumbers = `-- name: ListUsedPodNetworkNumbers :many
-SELECT network_number
-FROM pod_network_allocations
-`
-
-func (q *Queries) ListUsedPodNetworkNumbers(ctx context.Context) ([]int32, error) {
-	rows, err := q.db.Query(ctx, listUsedPodNetworkNumbers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []int32
-	for rows.Next() {
-		var network_number int32
-		if err := rows.Scan(&network_number); err != nil {
-			return nil, err
-		}
-		items = append(items, network_number)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const releasePodNetworkAllocation = `-- name: ReleasePodNetworkAllocation :exec
-DELETE FROM pod_network_allocations
-WHERE id = $1
-  AND inventory_item_id IS NULL
-  AND cloned_pod_id IS NULL
-  AND personal_pod_id IS NULL
-`
-
-func (q *Queries) ReleasePodNetworkAllocation(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, releasePodNetworkAllocation, id)
 	return err
 }

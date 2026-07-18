@@ -20,7 +20,6 @@ import {
   CloneFullCloneField,
   CloneNameField,
   CloneNodeField,
-  CloneVmidField,
 } from "./clone-form-fields"
 import {
   createVmFormOptions,
@@ -30,6 +29,7 @@ import {
 import { formatFieldError } from "./create-vm-step-utils"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
+import { VMIDField } from "@/components/vms/vmid-field"
 
 export const TemplateConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -107,7 +107,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
                 inputId="template-node"
                 nodes={nodes}
               />
-              <CloneVmidField
+              <VMIDField
                 FieldComponent={form.AppField}
                 fieldName="vmid"
                 inputId="template-vmid"

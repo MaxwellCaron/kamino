@@ -28,6 +28,7 @@ import type { PodRouterCloneNetworkOption } from "@/features/pods/api/router-clo
 import type { RouterCloneFormValues } from "./manual-router-clone-dialog"
 import type { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
+import { VMIDField } from "@/components/vms/vmid-field"
 
 type RouterCloneFormLike = {
   Field: any
@@ -386,6 +387,11 @@ export function ManualRouterCloneFormFields({
           <RouterCloneNetworkNumberField
             form={form}
             networkOptions={networkOptions}
+          />
+          <VMIDField
+            FieldComponent={form.Field}
+            fieldName="vmid"
+            inputId="router-clone-vmid"
           />
           <RouterCloneDestinationFolderField
             form={form}

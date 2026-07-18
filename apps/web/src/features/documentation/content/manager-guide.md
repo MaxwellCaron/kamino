@@ -78,8 +78,10 @@ progress. Per-clone actions mirror the bulk set: **Start**, **Shutdown**,
 clone are excluded. Select one or more rows, then confirm with **Clone (n)**.
 
 **Clone router** — Manually clone a pod router. Pick a destination folder (you need create-VM permission
-there), a pod VNet number, and a network profile (LAN or LAN + DMZ). Submit
-**Clone router** to provision and start the router in that folder.
+there), a pod VNet number (an existing, correctly configured pod VNet may be
+selected), and a network profile (LAN or LAN + DMZ). VMID is optional — leave
+it blank to use the next available ID, or enter a specific available VMID.
+Submit **Clone router** to provision and start the router in that folder.
 
 ## Review requests
 

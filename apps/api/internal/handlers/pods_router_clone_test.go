@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
@@ -32,7 +33,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			{VNet: "dmz1024", Tag: 1024},
 		}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, nil)
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -71,7 +72,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 	t.Run("LAN still suggested when DMZ is absent", func(t *testing.T) {
 		vnets := []proxmox.VNet{{VNet: "pod24", Tag: 24}}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, nil)
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -96,21 +97,26 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("used network numbers are omitted from suggestions", func(t *testing.T) {
+	t.Run("a correctly named and tagged VNet is suggested regardless of allocation state", func(t *testing.T) {
+		// A network already owned by an existing pod/dev/personal allocation must still be offered.
 		vnets := []proxmox.VNet{
 			{VNet: "pod24", Tag: 24},
 			{VNet: "dmz1024", Tag: 1024},
 		}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, map[int32]struct{}{24: {}})
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
 
+		var found bool
 		for _, option := range options {
-			if option.NetworkNumber == 24 {
-				t.Fatalf("did not expect suggestions for used network number 24: %#v", option)
+			if option.NetworkNumber == 24 && option.NetworkProfileKey == podnetwork.ProfileLANRouterV1 {
+				found = true
 			}
+		}
+		if !found {
+			t.Fatal("expected network 24 to be suggested for the LAN profile")
 		}
 	})
 
@@ -120,7 +126,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			{VNet: "dmz1024", Tag: 1024},
 		}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, nil)
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -138,7 +144,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			{VNet: "dmz1024", Tag: 1023},
 		}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, nil)
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -158,7 +164,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			{VNet: "dmz1002", Tag: 1002},
 		}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, nil)
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -192,7 +198,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			{VNet: "dmz1255", Tag: 1255},
 		}
 
-		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets, nil)
+		options, err := suggestPodRouterCloneNetworkOptions(catalog, vnets)
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -209,7 +215,7 @@ func TestParsePodRouterCloneRequest(t *testing.T) {
 	catalog := testPodRouterCloneCatalog(t)
 
 	t.Run("unknown profile", func(t *testing.T) {
-		_, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
+		_, _, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
 			TargetFolderID:    "00000000-0000-0000-0000-000000000001",
 			NetworkNumber:     24,
 			NetworkProfileKey: "unknown-profile",
@@ -220,7 +226,7 @@ func TestParsePodRouterCloneRequest(t *testing.T) {
 	})
 
 	t.Run("network number 0", func(t *testing.T) {
-		_, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
+		_, _, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
 			TargetFolderID:    "00000000-0000-0000-0000-000000000001",
 			NetworkNumber:     0,
 			NetworkProfileKey: podnetwork.ProfileLANRouterV1,
@@ -231,13 +237,60 @@ func TestParsePodRouterCloneRequest(t *testing.T) {
 	})
 
 	t.Run("network number 255", func(t *testing.T) {
-		_, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
+		_, _, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
 			TargetFolderID:    "00000000-0000-0000-0000-000000000001",
 			NetworkNumber:     255,
 			NetworkProfileKey: podnetwork.ProfileLANRouterV1,
 		})
 		if reqErr == nil {
 			t.Fatal("expected error for network number 255")
+		}
+	})
+
+	t.Run("zero VMID is automatic", func(t *testing.T) {
+		_, _, _, vmid, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
+			TargetFolderID:    "00000000-0000-0000-0000-000000000001",
+			NetworkNumber:     24,
+			NetworkProfileKey: podnetwork.ProfileLANRouterV1,
+			VMID:              0,
+		})
+		if reqErr != nil {
+			t.Fatalf("parsePodRouterCloneRequest() error = %v", reqErr)
+		}
+		if vmid != 0 {
+			t.Fatalf("vmid = %d, want 0", vmid)
+		}
+	})
+
+	t.Run("positive VMID outside the configured workflow range is accepted", func(t *testing.T) {
+		_, _, _, vmid, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
+			TargetFolderID:    "00000000-0000-0000-0000-000000000001",
+			NetworkNumber:     24,
+			NetworkProfileKey: podnetwork.ProfileLANRouterV1,
+			VMID:              54321,
+		})
+		if reqErr != nil {
+			t.Fatalf("parsePodRouterCloneRequest() error = %v", reqErr)
+		}
+		if vmid != 54321 {
+			t.Fatalf("vmid = %d, want 54321", vmid)
+		}
+	})
+
+	t.Run("VMID below the minimum is rejected", func(t *testing.T) {
+		for _, vmid := range []int{1, 99} {
+			_, _, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
+				TargetFolderID:    "00000000-0000-0000-0000-000000000001",
+				NetworkNumber:     24,
+				NetworkProfileKey: podnetwork.ProfileLANRouterV1,
+				VMID:              vmid,
+			})
+			if reqErr == nil {
+				t.Fatalf("expected error for vmid %d", vmid)
+			}
+			if reqErr.Status != http.StatusUnprocessableEntity {
+				t.Fatalf("vmid %d: status = %d, want %d", vmid, reqErr.Status, http.StatusUnprocessableEntity)
+			}
 		}
 	})
 }

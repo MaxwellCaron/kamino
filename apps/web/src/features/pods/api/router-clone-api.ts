@@ -28,6 +28,7 @@ export type CloneRouterParams = {
   target_folder_id: string
   network_number: number
   network_profile_key: PodNetworkProfile["key"]
+  vmid: number
 }
 
 export const routerCloneOptionsQueryOptions = {
