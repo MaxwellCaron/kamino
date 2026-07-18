@@ -23,7 +23,8 @@ import {
   CloneNodeField,
 } from "@/features/vms/components/create/clone-form-fields"
 import { optionalVmNameSchema } from "@/features/vms/components/create/create-vm-form"
-import { VMIDField, optionalVmidSchema } from "@/components/vms/vmid-field"
+import { VMIDField } from "@/components/vms/vmid-field"
+import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"

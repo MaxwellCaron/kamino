@@ -1,9 +1,4 @@
-import { z } from "zod"
-import {
-  Field,
-  FieldError,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import type { ComponentType } from "react"
 import {
@@ -11,12 +6,8 @@ import {
   parseNumberInput,
 } from "@/features/vms/components/create/create-vm-form"
 import { formatFieldError } from "@/components/forms/form-errors"
+import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import { validateVMID } from "@/features/vms/api/vm-api"
-
-export const optionalVmidSchema = z.union([
-  z.literal(0),
-  z.number().int().min(100, "VM ID must be at least 100"),
-])
 
 export type VMIDFieldProps = {
   FieldComponent: ComponentType<any>
@@ -24,7 +15,11 @@ export type VMIDFieldProps = {
   inputId: string
 }
 
-export function VMIDField({ FieldComponent, fieldName, inputId }: VMIDFieldProps) {
+export function VMIDField({
+  FieldComponent,
+  fieldName,
+  inputId,
+}: VMIDFieldProps) {
   return (
     <FieldComponent
       name={fieldName}

@@ -146,7 +146,7 @@ function NetworkingStatContent({
     <div className="flex min-h-15 w-full flex-col justify-between">
       {networks.map((network, index) => (
         <div
-          key={`${network.device ?? index}-${network.bridge}`}
+          key={network.device}
           className="flex items-center justify-between gap-3 text-sm"
         >
           <span className="text-xl font-semibold tracking-tight">

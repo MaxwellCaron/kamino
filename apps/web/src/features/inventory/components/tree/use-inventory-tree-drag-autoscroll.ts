@@ -61,7 +61,10 @@ function clamp01(value: number): number {
 }
 
 function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
     return false
   }
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -73,10 +76,15 @@ export function useInventoryTreeDragAutoscroll(
   tree: TreeInstance<ApiTreeNode>
 ): void {
   const scrollElementRef = useRef(scrollElement)
-  scrollElementRef.current = scrollElement
-
   const treeRef = useRef(tree)
-  treeRef.current = tree
+
+  useEffect(() => {
+    scrollElementRef.current = scrollElement
+  }, [scrollElement])
+
+  useEffect(() => {
+    treeRef.current = tree
+  }, [tree])
 
   useEffect(() => {
     if (!scrollElement) {

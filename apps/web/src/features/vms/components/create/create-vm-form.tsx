@@ -8,7 +8,7 @@ import { z } from "zod"
 import { vmNameSchema } from "../../utils/vm-name"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
-import { optionalVmidSchema } from "@/components/vms/vmid-field"
+import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import { uuid } from "@/features/shared/utils/uuid"
 
 const createVmMethodSchema = z.enum(["template", "iso", "upload"])

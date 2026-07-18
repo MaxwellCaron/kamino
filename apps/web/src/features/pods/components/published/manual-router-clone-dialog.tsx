@@ -18,7 +18,7 @@ import {
   cloneRouter,
   routerCloneOptionsQueryOptions,
 } from "@/features/pods/api/router-clone-api"
-import { optionalVmidSchema } from "@/components/vms/vmid-field"
+import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import {
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
