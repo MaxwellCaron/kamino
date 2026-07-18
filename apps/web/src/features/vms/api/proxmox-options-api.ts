@@ -28,29 +28,35 @@ export function bridgesQueryOptions(node: string, scopeItemId?: string) {
   }
 }
 
-export function createVmOptionsQueryOptions(scopeItemId?: string) {
+export function createVmOptionsQueryOptions(
+  scopeItemId: string,
+  enabled: boolean
+) {
   return {
-    queryKey: ["proxmox", "create", "options", scopeItemId ?? ""] as const,
-    queryFn: async (): Promise<{
+    queryKey: ["proxmox", "create", "options", scopeItemId] as const,
+    queryFn: async ({
+      signal,
+    }: {
+      signal: AbortSignal
+    }): Promise<{
       nodes: Array<ApiNode>
       disk_storages: Array<ApiStorage>
       iso_storages: Array<ApiStorage>
       bridges: Array<ApiNetworkBridge>
       vnets: Array<ApiVNet>
     }> => {
-      const params = new URLSearchParams()
-      if (scopeItemId) {
-        params.set("scope_item_id", scopeItemId)
-      }
-      const suffix = params.size > 0 ? `?${params.toString()}` : ""
+      const params = new URLSearchParams({ scope_item_id: scopeItemId })
       return apiJson<{
         nodes: Array<ApiNode>
         disk_storages: Array<ApiStorage>
         iso_storages: Array<ApiStorage>
         bridges: Array<ApiNetworkBridge>
         vnets: Array<ApiVNet>
-      }>(`/api/v1/proxmox/create/options${suffix}`, "fetch create options")
+      }>(`/api/v1/proxmox/create/options?${params.toString()}`, "fetch create options", {
+        signal,
+      })
     },
+    enabled: enabled && !!scopeItemId,
   }
 }
 

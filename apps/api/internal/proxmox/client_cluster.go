@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func (c *Client) GetNodes(ctx context.Context) ([]Node, error) {
@@ -134,17 +136,33 @@ func (c *Client) GetCreateNetworks(
 	ctx context.Context,
 	node string,
 ) ([]NetworkBridge, []VNet, error) {
-	bridges, err := c.GetBridges(ctx, node)
-	if err != nil {
-		return nil, nil, fmt.Errorf("fetching bridges for %s: %w", node, err)
+	var (
+		bridges    []NetworkBridge
+		bridgesErr error
+		vnets      []VNet
+		vnetsErr   error
+	)
+
+	group := new(errgroup.Group)
+	group.Go(func() error {
+		bridges, bridgesErr = c.GetBridges(ctx, node)
+		return nil
+	})
+	group.Go(func() error {
+		vnets, vnetsErr = c.GetVNets(ctx)
+		return nil
+	})
+	_ = group.Wait()
+
+	if bridgesErr != nil {
+		return nil, nil, fmt.Errorf("fetching bridges for %s: %w", node, bridgesErr)
 	}
 	slices.SortFunc(bridges, func(left, right NetworkBridge) int {
 		return strings.Compare(left.Iface, right.Iface)
 	})
 
-	vnets, err := c.GetVNets(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("fetching vnets: %w", err)
+	if vnetsErr != nil {
+		return nil, nil, fmt.Errorf("fetching vnets: %w", vnetsErr)
 	}
 	slices.SortFunc(vnets, func(left, right VNet) int {
 		return strings.Compare(left.VNet, right.VNet)

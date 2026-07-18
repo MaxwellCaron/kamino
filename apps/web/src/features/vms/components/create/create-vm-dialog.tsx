@@ -155,10 +155,7 @@ export function CreateVmDialog({
     data: createOptions,
     error: createOptionsError,
     isLoading: isCreateOptionsLoading,
-  } = useQuery({
-    ...createVmOptionsQueryOptions(selectedTargetFolderId || undefined),
-    enabled: open,
-  })
+  } = useQuery(createVmOptionsQueryOptions(selectedTargetFolderId, open))
   const { data: isos } = useQuery({
     ...createVmIsosQueryOptions(selectedIsoStorage),
     enabled: open && !!selectedIsoStorage,

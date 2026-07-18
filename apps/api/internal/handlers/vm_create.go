@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 type vmCreateProxmox interface {
@@ -123,28 +125,44 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch create options nodes", err)
 		return
 	}
-
-	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", err)
+	if len(nodes) == 0 {
+		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", fmt.Errorf("no managed cluster nodes available"))
 		return
 	}
+	createOptionsNode := nodes[0]
 
-	diskStorages, isoStorages, err := h.PX.GetCreateStorages(
-		c.Request.Context(),
-		createOptionsNode.Node,
+	var (
+		diskStorages []proxmox.Storage
+		isoStorages  []proxmox.Storage
+		storagesErr  error
+		bridges      []proxmox.NetworkBridge
+		vnets        []proxmox.VNet
+		networksErr  error
 	)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch create option storages", err)
+
+	group := new(errgroup.Group)
+	group.Go(func() error {
+		diskStorages, isoStorages, storagesErr = h.PX.GetCreateStorages(
+			c.Request.Context(),
+			createOptionsNode.Node,
+		)
+		return nil
+	})
+	group.Go(func() error {
+		bridges, vnets, networksErr = h.PX.GetCreateNetworks(
+			c.Request.Context(),
+			createOptionsNode.Node,
+		)
+		return nil
+	})
+	_ = group.Wait()
+
+	if storagesErr != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch create option storages", storagesErr)
 		return
 	}
-
-	bridges, vnets, err := h.PX.GetCreateNetworks(
-		c.Request.Context(),
-		createOptionsNode.Node,
-	)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch networks", "fetch create option networks", err)
+	if networksErr != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch networks", "fetch create option networks", networksErr)
 		return
 	}
 
