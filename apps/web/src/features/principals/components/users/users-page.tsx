@@ -182,7 +182,17 @@ export function UsersPage() {
               {canAdminister && providerCapabilities?.can_sync ? (
                 <AppActionButton
                   variant="outline"
-                  onClick={() => syncMutation.mutate()}
+                  onClick={() =>
+                    setConfirm({
+                      title: "Sync Principals",
+                      icon: ReloadIcon,
+                      description:
+                        "Kamino will reconcile users, groups, and memberships with the configured principal provider. Principals no longer returned by the provider will be removed from Kamino.",
+                      actionLabel: "Sync",
+                      variant: "default",
+                      onConfirm: () => syncMutation.mutateAsync(),
+                    })
+                  }
                   disabled={error !== null}
                   pending={syncMutation.isPending}
                   pendingLabel="Syncing..."
