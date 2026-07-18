@@ -153,8 +153,8 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_BIND_DN` | when AD | — | Service account DN |
 | `LDAP_BIND_PASSWORD` | when AD | — | Service account password |
 | `LDAP_SEARCH_BASE_DN` | when AD | — | LDAP search base |
-| `LDAP_USER_OU` | no | — | OU containing user accounts |
-| `LDAP_GROUP_OU` | no | — | OU containing groups |
+| `LDAP_USER_OU` | when AD | — | Full DN of the OU subtree searched for users during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
+| `LDAP_GROUP_OU` | when AD | — | Full DN of the OU subtree searched for groups during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
 | `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
@@ -265,6 +265,10 @@ On startup the API performs these steps in order:
 7. Bootstrap admin group ACLs from `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` when configured.
 8. Normalize permission inheritance across the inventory tree.
 9. Register HTTP routes and begin serving.
+
+### Active Directory principal sync scope
+
+When `PRINCIPAL_PROVIDER=active_directory`, both startup and manual (`POST /api/v1/principals/sync`) sync search only the two configured OU subtrees: every user under `LDAP_USER_OU` and every group under `LDAP_GROUP_OU`. Kamino principals returned by a provider outside those subtrees are treated as stale: a successful sync deletes their principal rows and memberships. Verify `LDAP_USER_OU` and `LDAP_GROUP_OU` point at the intended subtrees before enabling or rolling out AD sync in production; principals previously imported from outside those OUs are removed on the next successful sync.
 
 ### Mirror reconcile and managed pool deletion
 

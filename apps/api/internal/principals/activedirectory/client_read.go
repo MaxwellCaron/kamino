@@ -13,24 +13,52 @@ func allUsersFilter() string {
 	return "(&(objectClass=user)(objectCategory=person))"
 }
 
-// FetchUsers returns all user accounts under the configured base DN.
+func allGroupsFilter() string {
+	return "(objectClass=group)"
+}
+
+// newUserSearchRequest builds the paged whole-subtree request used for full
+// user sync. It is a pure constructor so the search boundary can be tested
+// without a network connection.
+func newUserSearchRequest(baseDN string) *ldap.SearchRequest {
+	return ldap.NewSearchRequest(
+		baseDN,
+		ldap.ScopeWholeSubtree,
+		ldap.NeverDerefAliases, 0, 0, false,
+		allUsersFilter(),
+		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated", "userAccountControl"},
+		nil,
+	)
+}
+
+// newGroupSearchRequest builds the paged whole-subtree request used for
+// group reads. It is a pure constructor so the search boundary can be tested
+// without a network connection.
+func newGroupSearchRequest(baseDN string) *ldap.SearchRequest {
+	return ldap.NewSearchRequest(
+		baseDN,
+		ldap.ScopeWholeSubtree,
+		ldap.NeverDerefAliases, 0, 0, false,
+		allGroupsFilter(),
+		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member", "whenCreated"},
+		nil,
+	)
+}
+
+// FetchUsers returns all user accounts under the configured user OU.
 func (c *Client) FetchUsers(ctx context.Context) ([]User, error) {
+	userOU := strings.TrimSpace(c.userOU)
+	if userOU == "" {
+		return nil, fmt.Errorf("LDAP_USER_OU is required to sync users")
+	}
+
 	conn, err := c.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
 
-	filter := allUsersFilter()
-
-	result, err := conn.SearchWithPaging(ldap.NewSearchRequest(
-		c.baseDN,
-		ldap.ScopeWholeSubtree,
-		ldap.NeverDerefAliases, 0, 0, false,
-		filter,
-		[]string{"objectSid", "sAMAccountName", "displayName", "description", "distinguishedName", "whenCreated", "userAccountControl"},
-		nil,
-	), 1000)
+	result, err := conn.SearchWithPaging(newUserSearchRequest(userOU), 1000)
 	if err != nil {
 		return nil, fmt.Errorf("ldap search users: %w", err)
 	}
@@ -87,9 +115,13 @@ func (c *Client) fetchUserByDN(conn *ldap.Conn, userDN string) (*User, error) {
 	return &user, nil
 }
 
-// FetchGroups returns all groups under the configured base DN.
+// FetchGroups returns all groups under the configured group OU.
 func (c *Client) FetchGroups(ctx context.Context) ([]Group, error) {
-	return c.fetchGroups(ctx, c.baseDN)
+	groupOU := strings.TrimSpace(c.groupOU)
+	if groupOU == "" {
+		return nil, fmt.Errorf("LDAP_GROUP_OU is required to sync groups")
+	}
+	return c.fetchGroups(ctx, groupOU)
 }
 
 // FetchGroupByDN returns a single group for an exact distinguished name.
@@ -149,14 +181,7 @@ func (c *Client) fetchGroups(ctx context.Context, baseDN string) ([]Group, error
 		searchBase = c.baseDN
 	}
 
-	result, err := conn.SearchWithPaging(ldap.NewSearchRequest(
-		searchBase,
-		ldap.ScopeWholeSubtree,
-		ldap.NeverDerefAliases, 0, 0, false,
-		"(objectClass=group)",
-		[]string{"objectSid", "sAMAccountName", "displayName", "distinguishedName", "member", "whenCreated"},
-		nil,
-	), 1000)
+	result, err := conn.SearchWithPaging(newGroupSearchRequest(searchBase), 1000)
 	if err != nil {
 		return nil, fmt.Errorf("ldap search groups: %w", err)
 	}

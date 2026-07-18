@@ -38,6 +38,12 @@ func validatePrincipalProviderConfig(config *Config) error {
 		if strings.TrimSpace(config.LDAPSearchBaseDN) == "" {
 			return fmt.Errorf("PRINCIPAL_PROVIDER=active_directory requires LDAP_SEARCH_BASE_DN")
 		}
+		if strings.TrimSpace(config.LDAPUserOU) == "" {
+			return fmt.Errorf("PRINCIPAL_PROVIDER=active_directory requires LDAP_USER_OU")
+		}
+		if strings.TrimSpace(config.LDAPGroupOU) == "" {
+			return fmt.Errorf("PRINCIPAL_PROVIDER=active_directory requires LDAP_GROUP_OU")
+		}
 		if strings.TrimSpace(config.ProxmoxManagedUserRealm) != "" {
 			return fmt.Errorf("PROXMOX_MANAGED_USER_REALM is only valid when PRINCIPAL_PROVIDER=proxmox")
 		}

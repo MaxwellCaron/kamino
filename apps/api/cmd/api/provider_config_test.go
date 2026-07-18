@@ -41,6 +41,61 @@ func TestValidatePrincipalProviderConfig(t *testing.T) {
 		}
 	})
 
+	validAD := func() Config {
+		cfg := base
+		cfg.PrincipalProvider = principalProviderActiveDirectory
+		cfg.LDAPUrl = "ldaps://ad.example.internal"
+		cfg.LDAPBindDN = "CN=svc-kamino,DC=example,DC=internal"
+		cfg.LDAPBindPassword = "secret"
+		cfg.LDAPSearchBaseDN = "DC=example,DC=internal"
+		cfg.LDAPUserOU = "OU=KaminoUsers,DC=example,DC=internal"
+		cfg.LDAPGroupOU = "OU=KaminoGroups,DC=example,DC=internal"
+		return cfg
+	}
+
+	t.Run("fully configured active directory passes", func(t *testing.T) {
+		cfg := validAD()
+		if err := validatePrincipalProviderConfig(&cfg); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("active directory requires user ou", func(t *testing.T) {
+		cfg := validAD()
+		cfg.LDAPUserOU = ""
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "LDAP_USER_OU") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("active directory rejects whitespace-only user ou", func(t *testing.T) {
+		cfg := validAD()
+		cfg.LDAPUserOU = "   "
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "LDAP_USER_OU") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("active directory requires group ou", func(t *testing.T) {
+		cfg := validAD()
+		cfg.LDAPGroupOU = ""
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "LDAP_GROUP_OU") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("active directory rejects whitespace-only group ou", func(t *testing.T) {
+		cfg := validAD()
+		cfg.LDAPGroupOU = "   "
+		err := validatePrincipalProviderConfig(&cfg)
+		if err == nil || !strings.Contains(err.Error(), "LDAP_GROUP_OU") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
 	t.Run("proxmox rejects ldap configuration", func(t *testing.T) {
 		cfg := base
 		cfg.PrincipalProvider = principalProviderProxmox
