@@ -17,6 +17,7 @@ import {
   INVENTORY_TREE_ROW_HEIGHT,
 } from "./inventory-tree-row-skeleton"
 import { createTreeRangeExtractor, upsertRowVm } from "./tree-content-utils"
+import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import type { InventoryTreeRowVm } from "./tree-content-utils"
@@ -43,6 +44,8 @@ export function InventoryTreeContent({
   const rowVmCacheRef = useRef(new Map<string, InventoryTreeRowVm>())
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
+
+  useInventoryTreeDragAutoscroll(scrollElement, tree)
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current
