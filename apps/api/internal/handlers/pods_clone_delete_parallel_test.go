@@ -2,7 +2,12 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -10,6 +15,7 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
 )
 
@@ -161,6 +167,146 @@ func TestRunBoundedClonedPodVMDeletesJoinsErrorsWithTargetContext(t *testing.T) 
 	for _, part := range []string{"node-a", "201", "node-b", "202"} {
 		if !strings.Contains(message, part) {
 			t.Fatalf("error text = %q, want substring %q", message, part)
+		}
+	}
+}
+
+func TestDeleteClonedPodProxmoxVMsShareGlobalOperationLimitAcrossPods(t *testing.T) {
+	const operationLimit = 5
+
+	var (
+		destroyMu         sync.Mutex
+		destroyCounts     = make(map[int]int)
+		destroyStarted    = make(chan int, 6)
+		activeDestroys    atomic.Int32
+		maxActiveDestroys atomic.Int32
+		statusUnblock     = make(chan struct{}, 6)
+	)
+
+	recordDestroy := func(vmid int) {
+		destroyMu.Lock()
+		destroyCounts[vmid]++
+		destroyMu.Unlock()
+
+		current := activeDestroys.Add(1)
+		for {
+			seen := maxActiveDestroys.Load()
+			if current <= seen || maxActiveDestroys.CompareAndSwap(seen, current) {
+				break
+			}
+		}
+		destroyStarted <- vmid
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/qemu/"):
+			parts := strings.Split(strings.TrimSuffix(r.URL.Path, "/"), "/")
+			vmid, err := strconv.Atoi(parts[len(parts)-1])
+			if err != nil {
+				t.Fatalf("parse vmid from %q: %v", r.URL.Path, err)
+			}
+			recordDestroy(vmid)
+			upid := fmt.Sprintf("UPID:node1:00000000:00000000:00000000:qmdestroy:%d:user@pve:", vmid)
+			writeProxmoxAPIResponse(t, w, http.StatusOK, upid)
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/tasks/"):
+			select {
+			case <-statusUnblock:
+			case <-time.After(5 * time.Second):
+				t.Error("timed out waiting for task-status unblock")
+			}
+			activeDestroys.Add(-1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(map[string]any{
+				"data": proxmox.TaskStatus{Status: "stopped", ExitStatus: "OK"},
+			}); err != nil {
+				t.Fatalf("encode task status: %v", err)
+			}
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	handler := newDeleteTestHandler(proxmox.NewHTTPTestClient(server), operationLimit)
+
+	makeBatch := func(clonedPodID uuid.UUID, baseVMID int32) []database.ListClonedPodVMsRow {
+		node := "node1"
+		rows := make([]database.ListClonedPodVMsRow, 3)
+		for i := range rows {
+			vmid := baseVMID + int32(i)
+			rows[i] = database.ListClonedPodVMsRow{
+				ClonedPodID: clonedPodID,
+				Node:        &node,
+				Vmid:        &vmid,
+			}
+		}
+		return rows
+	}
+
+	batch1 := makeBatch(uuid.New(), 101)
+	batch2 := makeBatch(uuid.New(), 201)
+
+	done := make(chan error, 2)
+	go func() {
+		done <- handler.deleteClonedPodProxmoxVMs(context.Background(), batch1)
+	}()
+	go func() {
+		done <- handler.deleteClonedPodProxmoxVMs(context.Background(), batch2)
+	}()
+
+	for i := 0; i < operationLimit; i++ {
+		select {
+		case <-destroyStarted:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out waiting for destroy request %d", i+1)
+		}
+	}
+	if maxActiveDestroys.Load() != operationLimit {
+		t.Fatalf("max active destroys = %d, want %d", maxActiveDestroys.Load(), operationLimit)
+	}
+
+	select {
+	case vmid := <-destroyStarted:
+		t.Fatalf("sixth destroy for VMID %d started before a shared slot was released", vmid)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	statusUnblock <- struct{}{}
+	select {
+	case <-destroyStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for sixth destroy after releasing a shared slot")
+	}
+
+	if maxActiveDestroys.Load() != operationLimit {
+		t.Fatalf("max active destroys after release = %d, want %d", maxActiveDestroys.Load(), operationLimit)
+	}
+
+	for i := 0; i < operationLimit; i++ {
+		statusUnblock <- struct{}{}
+	}
+
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("deleteClonedPodProxmoxVMs() error = %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for pod delete batches")
+		}
+	}
+
+	destroyMu.Lock()
+	defer destroyMu.Unlock()
+	if len(destroyCounts) != 6 {
+		t.Fatalf("destroy VMIDs = %d, want 6", len(destroyCounts))
+	}
+	for _, vmid := range []int{101, 102, 103, 201, 202, 203} {
+		if count := destroyCounts[vmid]; count != 1 {
+			t.Fatalf("VMID %d destroy count = %d, want 1", vmid, count)
 		}
 	}
 }

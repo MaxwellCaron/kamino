@@ -1,14 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { renderHook } from "@testing-library/react"
+import { renderHook, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { usePublishedPodsBulkConfirm } from "./use-published-pods-bulk-confirm"
+import type * as MutationProgressToastModule from "@/components/feedback/mutation-progress-toast"
 import { powerPublishedPodClone, reclonePublishedPodClone } from "@/features/pods/api/publish-pod-api"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  runMutationUnits,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 
-vi.mock("@/components/feedback/mutation-progress-toast", () => ({
-  showUnitMutationToast: vi.fn(),
-}))
+vi.mock("@/components/feedback/mutation-progress-toast", async (importOriginal) => {
+  const actual = await importOriginal<typeof MutationProgressToastModule>()
+  return {
+    ...actual,
+    showUnitMutationToast: vi.fn(),
+  }
+})
 
 vi.mock("@/features/pods/api/publish-pod-api", () => ({
   podCatalogQueryOptions: { queryKey: ["pods", "catalog"] },
@@ -67,6 +75,16 @@ function makeClone(id: string, label: string, powerStatus?: string): never {
         ? undefined
         : { action: "start", status: powerStatus },
   } as never
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
 }
 
 function renderBulkConfirm(
@@ -161,7 +179,7 @@ describe("usePublishedPodsBulkConfirm", () => {
     })
   })
 
-  it("reclone: one unit per clone, concurrency 1, owner-label names", () => {
+  it("reclone: one unit per clone with shared manager concurrency", () => {
     const clones = [makeClone("clone-1", "Alice"), makeClone("clone-2", "Bob")]
     vi.mocked(reclonePublishedPodClone).mockImplementation((params) =>
       Promise.resolve(makeClone(params.clonedPodId, "Re-cloned", "succeeded"))
@@ -171,7 +189,7 @@ describe("usePublishedPodsBulkConfirm", () => {
 
     return Promise.resolve(result.current!.onConfirm()).then(() => {
       const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
-      expect(config.concurrency).toBe(1)
+      expect(config.concurrency).toBe(5)
       expect(config.units).toHaveLength(2)
       expect(config.units[0].items[0].name).toBe("Alice")
       expect(config.units[1].items[0].name).toBe("Bob")
@@ -209,20 +227,92 @@ describe("usePublishedPodsBulkConfirm", () => {
     })
   })
 
-  it("delete: still per-clone with owner-label names and concurrency 1", () => {
-    const clones = [makeClone("clone-1", "Alice"), makeClone("clone-2", "Bob")]
-    const deleteMutateAsync = vi.fn().mockResolvedValue(undefined)
+  it("delete: shared manager concurrency with backpressure and clone-specific retry", async () => {
+    const cloneIds = Array.from({ length: 6 }, (_, index) => `clone-${index + 1}`)
+    const clones = cloneIds.map((cloneId, index) =>
+      makeClone(cloneId, `User ${index + 1}`)
+    )
+    const deferredByClone = new Map<string, ReturnType<typeof createDeferred<void>>>(
+      cloneIds.map((cloneId) => [cloneId, createDeferred<void>()])
+    )
+    let activeRequests = 0
+    let maxActiveRequests = 0
+    const deleteMutateAsync = vi.fn(
+      async ({ clonedPodId }: { podId: string; clonedPodId: string }) => {
+        activeRequests += 1
+        maxActiveRequests = Math.max(maxActiveRequests, activeRequests)
+        const deferred = deferredByClone.get(clonedPodId)
+        if (!deferred) {
+          throw new Error(`missing deferred for ${clonedPodId}`)
+        }
+        try {
+          await deferred.promise
+        } finally {
+          activeRequests -= 1
+        }
+      }
+    )
 
     const { result } = renderBulkConfirm("delete", clones, deleteMutateAsync)
 
-    return Promise.resolve(result.current!.onConfirm()).then(() => {
-      const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
-      expect(config.concurrency).toBe(1)
-      expect(config.units).toHaveLength(2)
-      expect(config.units[0].items[0].name).toBe("Alice")
-      expect(config.units[1].items[0].name).toBe("Bob")
-      expect(config.units[0].items[0].successDescription).toBe("Deleted")
+    await result.current!.onConfirm()
+
+    const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
+    expect(config.concurrency).toBe(5)
+    expect(config.units).toHaveLength(6)
+    config.units.forEach((unit, index) => {
+      expect(unit.items[0].name).toBe(`User ${index + 1}`)
+      expect(unit.items[0].successDescription).toBe("Deleted")
     })
+
+    const runPromise = runMutationUnits(config.units, () => {}, config.concurrency!)
+
+    await waitFor(() => {
+      expect(deleteMutateAsync).toHaveBeenCalledTimes(5)
+    })
+    expect(maxActiveRequests).toBe(5)
+    expect(deleteMutateAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ clonedPodId: "clone-6" })
+    )
+
+    deferredByClone.get("clone-1")!.resolve()
+
+    await waitFor(() => {
+      expect(deleteMutateAsync).toHaveBeenCalledWith({
+        podId: "pod-1",
+        clonedPodId: "clone-6",
+      })
+    })
+    expect(maxActiveRequests).toBeLessThanOrEqual(5)
+
+    for (const cloneId of cloneIds.slice(1)) {
+      deferredByClone.get(cloneId)!.resolve()
+    }
+
+    await expect(runPromise).resolves.toEqual({
+      succeeded: cloneIds,
+      failed: [],
+    })
+    expect(maxActiveRequests).toBeLessThanOrEqual(5)
+    expect(deleteMutateAsync).toHaveBeenCalledTimes(6)
+    for (const cloneId of cloneIds) {
+      expect(deleteMutateAsync).toHaveBeenCalledWith({
+        podId: "pod-1",
+        clonedPodId: cloneId,
+      })
+    }
+
+    const retryDeferred = createDeferred<void>()
+    deleteMutateAsync.mockImplementationOnce(
+      async ({ clonedPodId }: { podId: string; clonedPodId: string }) => {
+        expect(clonedPodId).toBe("clone-2")
+        await retryDeferred.promise
+      }
+    )
+
+    const retryPromise = config.units[1].items[0].retry!()
+    retryDeferred.resolve()
+    await retryPromise
   })
 
   it("empty clones for start shows info toast without a mutation toast", () => {

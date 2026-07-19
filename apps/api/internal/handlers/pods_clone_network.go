@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 )
@@ -300,7 +302,20 @@ func (h *PodsHandler) configurePodRouterCloudInit(
 		}
 	}
 
-	if err := h.PX.StartVM(ctx, proxmox.GuestQEMU, router.clone.TargetNode, router.clone.VMID); err != nil {
+	if h.Actions == nil {
+		return &requestError{
+			Status:      http.StatusServiceUnavailable,
+			UserMessage: "failed to start router",
+			Operation:   "start cloned router",
+			Err:         errors.New("vm actions are unavailable"),
+		}
+	}
+	if err := h.Actions.PowerAction(ctx, vmactions.Target{
+		ItemID:    router.clone.InventoryItemID,
+		Node:      router.clone.TargetNode,
+		VMID:      router.clone.VMID,
+		GuestType: proxmox.GuestQEMU,
+	}, vmactions.PowerActionStart); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to start router",

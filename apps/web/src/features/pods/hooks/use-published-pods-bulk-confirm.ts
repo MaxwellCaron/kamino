@@ -17,6 +17,7 @@ import {
   reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import {
+  MANAGER_POD_WORKFLOW_CONCURRENCY,
   POD_CLONE_ACTION_CONFIG,
   podPowerIncompleteMessage,
 } from "@/features/pods/utils/pod-clone-actions"
@@ -117,7 +118,7 @@ export function usePublishedPodsBulkConfirm({
 
           showUnitMutationToast({
             title: `Deleting ${clones.length} clone${clones.length === 1 ? "" : "s"}`,
-            concurrency: 1,
+            concurrency: MANAGER_POD_WORKFLOW_CONCURRENCY,
             units: clones.map((clone) => ({
               items: [
                 {
@@ -195,7 +196,7 @@ export function usePublishedPodsBulkConfirm({
 
         showUnitMutationToast({
           title: actionConfig.pendingLabel,
-          concurrency: 1,
+          concurrency: MANAGER_POD_WORKFLOW_CONCURRENCY,
           units: clones.map((clone) => ({
             items: [
               {

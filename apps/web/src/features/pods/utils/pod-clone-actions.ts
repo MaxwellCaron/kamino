@@ -12,6 +12,10 @@ export type PodClonePowerAction = Extract<PodCloneAction, "start" | "shutdown">
 
 type PodCloneActionIcon = IconSvgElement
 
+// Browser-side admission for manager clone, delete, and reclone workflows.
+// The API operation limiter remains the authoritative Proxmox work limit.
+export const MANAGER_POD_WORKFLOW_CONCURRENCY = 5
+
 export const POD_CLONE_ACTIONS = [
   "start",
   "shutdown",
