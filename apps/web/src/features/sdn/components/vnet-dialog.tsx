@@ -31,7 +31,7 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
@@ -179,48 +179,83 @@ export function VNetDialog({
   const zonesUnavailable = !isZonesLoading && !zonesError && zones.length === 0
   const defaultZone = zones[0]?.zone ?? ""
 
-  if (zonesError || isZonesLoading) {
-    return (
-      <AppDialog
-        open={open}
-        onOpenChange={onOpenChange}
-        initialFocus={false}
-        icon={isEdit ? PencilEdit01Icon : Add01Icon}
-        title={isEdit ? "Edit VNet" : "Create VNets"}
-        description={
-          isEdit
-            ? `Update VNet configuration for ${vnet.vnet}.`
-            : "Create one or more VNets."
-        }
-      >
-        {zonesError ? (
-          <InlineErrorAlert
-            error={zonesError}
-            fallback="Failed to load SDN zones."
-          />
-        ) : (
-          <DialogBodySkeleton rows={4} />
-        )}
-      </AppDialog>
-    )
+  const [mode, setMode] = useState<VNetCreateMode>("single")
+  const [sessionKey, setSessionKey] = useState(0)
+
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: () => {
+      setMode("single")
+      setSessionKey((key) => key + 1)
+    },
+    initialFocus: false as const,
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit VNet" : "Create VNets",
+    description: isEdit
+      ? `Update VNet configuration for ${vnet.vnet}.`
+      : "Create one or more VNets.",
+  }
+
+  const body = (
+    <div className="relative min-h-[22rem]">
+      <PreloadOverlay active={isZonesLoading} label="Loading SDN zones" />
+      {zonesError ? (
+        <InlineErrorAlert
+          error={zonesError}
+          fallback="Failed to load SDN zones."
+        />
+      ) : !isZonesLoading ? (
+        <VNetDialogForm
+          key={sessionKey}
+          vnet={vnet}
+          mode={mode}
+          onModeSettled={() => setMode("single")}
+          onOpenChange={onOpenChange}
+          zones={zones}
+          zonesByName={zonesByName}
+          zonesUnavailable={zonesUnavailable}
+          defaultZone={defaultZone}
+        />
+      ) : null}
+    </div>
+  )
+
+  if (isEdit) {
+    return <AppDialog {...dialogProps}>{body}</AppDialog>
   }
 
   return (
-    <VNetDialogForm
-      vnet={vnet}
-      open={open}
-      onOpenChange={onOpenChange}
-      zones={zones}
-      zonesByName={zonesByName}
-      zonesUnavailable={zonesUnavailable}
-      defaultZone={defaultZone}
-    />
+    <Tabs
+      value={mode}
+      onValueChange={(value) => setMode(value as VNetCreateMode)}
+      className="gap-0"
+    >
+      <AppDialog
+        {...dialogProps}
+        headerAfter={
+          <AppDialogHeaderTabs>
+            <TabsTrigger value="single">
+              <HugeiconsIcon icon={Globe02Icon} />
+              Single
+            </TabsTrigger>
+            <TabsTrigger value="prefix">
+              <HugeiconsIcon icon={RegexIcon} />
+              Prefix
+            </TabsTrigger>
+          </AppDialogHeaderTabs>
+        }
+      >
+        {body}
+      </AppDialog>
+    </Tabs>
   )
 }
 
 function VNetDialogForm({
   vnet,
-  open,
+  mode,
+  onModeSettled,
   onOpenChange,
   zones,
   zonesByName,
@@ -228,7 +263,8 @@ function VNetDialogForm({
   defaultZone,
 }: {
   vnet?: ApiVNet
-  open: boolean
+  mode: VNetCreateMode
+  onModeSettled: () => void
   onOpenChange: (open: boolean) => void
   zones: Array<ApiSDNZone>
   zonesByName: Map<string, ApiSDNZone>
@@ -237,7 +273,6 @@ function VNetDialogForm({
 }) {
   const isEdit = !!vnet
   const queryClient = useQueryClient()
-  const [mode, setMode] = useState<VNetCreateMode>("single")
 
   const mutation = useMutation({
     mutationFn: async (values: VNetFormValues) => {
@@ -408,7 +443,7 @@ function VNetDialogForm({
         onSettled: () => {
           queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
           form.reset()
-          setMode("single")
+          onModeSettled()
         },
       })
     },
@@ -425,22 +460,7 @@ function VNetDialogForm({
     }
   }
 
-  const dialogProps = {
-    open,
-    onOpenChange,
-    onClosed: () => {
-      form.reset(getDefaultVNetFormValues(vnet, defaultZone || undefined))
-      setMode("single")
-    },
-    initialFocus: false as const,
-    icon: isEdit ? PencilEdit01Icon : Add01Icon,
-    title: isEdit ? "Edit VNet" : "Create VNets",
-    description: isEdit
-      ? `Update VNet configuration for ${vnet.vnet}.`
-      : "Create one or more VNets.",
-  }
-
-  const formContent = (
+  return (
     <form
       action={() => {
         void form.handleSubmit()
@@ -475,35 +495,5 @@ function VNetDialogForm({
         zonesUnavailable={zonesUnavailable}
       />
     </form>
-  )
-
-  if (isEdit) {
-    return <AppDialog {...dialogProps}>{formContent}</AppDialog>
-  }
-
-  return (
-    <Tabs
-      value={mode}
-      onValueChange={(value) => setMode(value as VNetCreateMode)}
-      className="gap-0"
-    >
-      <AppDialog
-        {...dialogProps}
-        headerAfter={
-          <AppDialogHeaderTabs>
-            <TabsTrigger value="single">
-              <HugeiconsIcon icon={Globe02Icon} />
-              Single
-            </TabsTrigger>
-            <TabsTrigger value="prefix">
-              <HugeiconsIcon icon={RegexIcon} />
-              Prefix
-            </TabsTrigger>
-          </AppDialogHeaderTabs>
-        }
-      >
-        {formContent}
-      </AppDialog>
-    </Tabs>
   )
 }

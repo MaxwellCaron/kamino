@@ -54,7 +54,7 @@ import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
 } from "@/features/principals/api/principals-api"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { formatToastError } from "@/features/shared/utils/format"
 
 function getGroupLabel(group: ApiPrincipal) {
@@ -325,37 +325,39 @@ export function GroupPermissionsDialog({
         title="Management Roles"
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
-        {isAccessLoading ? (
-          <AppDialogScrollBody>
-            <DialogBodySkeleton rows={3} />
-          </AppDialogScrollBody>
-        ) : isAccessError ? (
-          <AppDialogScrollBody>
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon
-                    icon={Alert01Icon}
-                    className="text-muted-foreground"
-                  />
-                </EmptyMedia>
-                <EmptyTitle>Could Not Load Roles</EmptyTitle>
-                <EmptyDescription>{accessError.message}</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </AppDialogScrollBody>
-        ) : (
-          <GroupPermissionsForm
-            key={`${group.id}:${initialRole}`}
-            group={group}
-            initialRole={initialRole}
-            roleDefinitions={roleDefinitions}
-            canEditBootstrapOnly={canEditBootstrapOnly}
-            immutable={immutable}
-            controlsDisabled={controlsDisabled}
-            onOpenChange={onOpenChange}
+        <div className="relative min-h-[16.5rem]">
+          <PreloadOverlay
+            active={isAccessLoading}
+            label="Loading management roles"
           />
-        )}
+          {isAccessError ? (
+            <AppDialogScrollBody>
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <HugeiconsIcon
+                      icon={Alert01Icon}
+                      className="text-muted-foreground"
+                    />
+                  </EmptyMedia>
+                  <EmptyTitle>Could Not Load Roles</EmptyTitle>
+                  <EmptyDescription>{accessError.message}</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            </AppDialogScrollBody>
+          ) : !isAccessLoading ? (
+            <GroupPermissionsForm
+              key={`${group.id}:${initialRole}`}
+              group={group}
+              initialRole={initialRole}
+              roleDefinitions={roleDefinitions}
+              canEditBootstrapOnly={canEditBootstrapOnly}
+              immutable={immutable}
+              controlsDisabled={controlsDisabled}
+              onOpenChange={onOpenChange}
+            />
+          ) : null}
+        </div>
       </AppDialogContent>
     </Dialog>
   )

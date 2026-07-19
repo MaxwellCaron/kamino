@@ -37,7 +37,7 @@ import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   addGroupMember,
   groupsQueryOptions,
@@ -150,105 +150,106 @@ export function UserGroupBulkDialog({
       }
       descriptionProps={{ render: <div /> }}
     >
-      {isLoading ? (
-        <DialogBodySkeleton rows={3} />
-      ) : error ? (
-        <Item variant="muted">
-          <ItemContent>
-            <ItemDescription>
-              {error instanceof Error
-                ? error.message
-                : "Failed to load groups."}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-      ) : (
-        <form
-          action={() => {
-            void form.handleSubmit()
-          }}
-        >
-          <FieldGroup className="-mt-2 pb-3">
-            <form.Field name="group">
-              {(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched && !field.state.meta.isValid
+      <div className="relative min-h-[16.5rem]">
+        <PreloadOverlay active={isLoading} label="Loading groups" />
+        {error ? (
+          <Item variant="muted">
+            <ItemContent>
+              <ItemDescription>
+                {error instanceof Error
+                  ? error.message
+                  : "Failed to load groups."}
+              </ItemDescription>
+            </ItemContent>
+          </Item>
+        ) : !isLoading ? (
+          <form
+            action={() => {
+              void form.handleSubmit()
+            }}
+          >
+            <FieldGroup className="-mt-2 pb-3">
+              <form.Field name="group">
+                {(field) => {
+                  const isInvalid =
+                    field.state.meta.isTouched && !field.state.meta.isValid
 
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldContent>
-                      <Combobox
-                        items={groups ?? []}
-                        itemToStringLabel={(group) =>
-                          formatPrincipalReference(group)
-                        }
-                        value={field.state.value}
-                        onValueChange={(group) => field.handleChange(group)}
-                      >
-                        <ComboboxInput
-                          id={field.name}
-                          placeholder="Select a group"
-                          aria-invalid={isInvalid}
-                        />
-                        <ComboboxContent>
-                          <ComboboxEmpty>No groups found.</ComboboxEmpty>
-                          <ComboboxList>
-                            {(group) => (
-                              <ComboboxItem key={group.id} value={group}>
-                                {formatPrincipalReference(group)}
-                              </ComboboxItem>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                    </FieldContent>
-                    {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-          </FieldGroup>
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldContent>
+                        <Combobox
+                          items={groups ?? []}
+                          itemToStringLabel={(group) =>
+                            formatPrincipalReference(group)
+                          }
+                          value={field.state.value}
+                          onValueChange={(group) => field.handleChange(group)}
+                        >
+                          <ComboboxInput
+                            id={field.name}
+                            placeholder="Select a group"
+                            aria-invalid={isInvalid}
+                          />
+                          <ComboboxContent>
+                            <ComboboxEmpty>No groups found.</ComboboxEmpty>
+                            <ComboboxList>
+                              {(group) => (
+                                <ComboboxItem key={group.id} value={group}>
+                                  {formatPrincipalReference(group)}
+                                </ComboboxItem>
+                              )}
+                            </ComboboxList>
+                          </ComboboxContent>
+                        </Combobox>
+                      </FieldContent>
+                      {isInvalid && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            </FieldGroup>
 
-          <AppDialogScrollBody className="gap-4">
-            <ItemGroup>
-              {users.map((user) => (
-                <Item key={user.id} variant="muted">
-                  <ItemMedia variant="icon">
-                    <FacehashIcon
-                      name={getPrincipalBaseName(user)}
-                      size={28}
-                    />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{formatPrincipalReference(user)}</ItemTitle>
-                  </ItemContent>
-                </Item>
-              ))}
-            </ItemGroup>
-          </AppDialogScrollBody>
+            <AppDialogScrollBody className="gap-4">
+              <ItemGroup>
+                {users.map((user) => (
+                  <Item key={user.id} variant="muted">
+                    <ItemMedia variant="icon">
+                      <FacehashIcon
+                        name={getPrincipalBaseName(user)}
+                        size={28}
+                      />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{formatPrincipalReference(user)}</ItemTitle>
+                    </ItemContent>
+                  </Item>
+                ))}
+              </ItemGroup>
+            </AppDialogScrollBody>
 
-          <DialogFooter>
-            <form.Subscribe
-              selector={(state) =>
-                [state.values.group, state.isSubmitting] as const
-              }
-            >
-              {([group, isSubmitting]) => (
-                <AppDialogPrimaryButton
-                  disabled={!group}
-                  pending={isSubmitting}
-                  pendingLabel={mode === "add" ? "Adding..." : "Removing..."}
-                  variant={mode === "add" ? "default" : "destructive"}
-                >
-                  {mode === "add" ? "Add" : "Remove"}
-                </AppDialogPrimaryButton>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      )}
+            <DialogFooter>
+              <form.Subscribe
+                selector={(state) =>
+                  [state.values.group, state.isSubmitting] as const
+                }
+              >
+                {([group, isSubmitting]) => (
+                  <AppDialogPrimaryButton
+                    disabled={!group}
+                    pending={isSubmitting}
+                    pendingLabel={mode === "add" ? "Adding..." : "Removing..."}
+                    variant={mode === "add" ? "default" : "destructive"}
+                  >
+                    {mode === "add" ? "Add" : "Remove"}
+                  </AppDialogPrimaryButton>
+                )}
+              </form.Subscribe>
+            </DialogFooter>
+          </form>
+        ) : null}
+      </div>
     </AppDialog>
   )
 }

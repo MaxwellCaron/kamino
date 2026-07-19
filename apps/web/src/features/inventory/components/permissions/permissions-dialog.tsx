@@ -58,7 +58,7 @@ import {
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 
 function InventoryPermissionsFormBody({
   props,
@@ -360,7 +360,11 @@ export function InventoryPermissionsDialog(
         descriptionProps={{ render: <div /> }}
         className={nestedDialogAnimationClassName}
       >
-        {loadError ? (
+        {loading ? (
+          <div className="relative min-h-[16.5rem]">
+            <PreloadOverlay active={loading} label="Loading permissions" />
+          </div>
+        ) : loadError || !acl ? (
           <Item variant="muted">
             <ItemContent>
               <ItemTitle>Failed to Load ACL</ItemTitle>
@@ -371,8 +375,6 @@ export function InventoryPermissionsDialog(
               </ItemDescription>
             </ItemContent>
           </Item>
-        ) : loading || !acl ? (
-          <DialogBodySkeleton rows={3} />
         ) : (
           <InventoryPermissionsFormBody
             key={`${itemId}-${open}`}

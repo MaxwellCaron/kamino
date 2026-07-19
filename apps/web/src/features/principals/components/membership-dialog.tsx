@@ -24,7 +24,7 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import {
   addGroupMember,
@@ -148,28 +148,25 @@ function MembershipEditor({
     [allGroups, allUsers, mode]
   )
 
-  if (loadError) {
-    return (
-      <InlineErrorAlert
-        error={loadError}
-        fallback="Failed to load memberships."
-      />
-    )
-  }
-
-  if (isLoading) {
-    return <DialogBodySkeleton rows={3} />
-  }
-
   return (
-    <MembershipForm
-      key={`${mode}:${principal.id}`}
-      mode={mode}
-      principal={principal}
-      serverIds={serverIds}
-      options={options}
-      onOpenChange={onOpenChange}
-    />
+    <div className="relative min-h-[16.5rem]">
+      <PreloadOverlay active={isLoading} label="Loading memberships" />
+      {loadError ? (
+        <InlineErrorAlert
+          error={loadError}
+          fallback="Failed to load memberships."
+        />
+      ) : !isLoading ? (
+        <MembershipForm
+          key={`${mode}:${principal.id}`}
+          mode={mode}
+          principal={principal}
+          serverIds={serverIds}
+          options={options}
+          onOpenChange={onOpenChange}
+        />
+      ) : null}
+    </div>
   )
 }
 

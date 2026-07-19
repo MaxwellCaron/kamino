@@ -13,7 +13,7 @@ import {
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   cloneRouter,
   routerCloneOptionsQueryOptions,
@@ -161,46 +161,50 @@ export function ManualRouterCloneDialog({
       onClosed={resetDialog}
       initialFocus={false}
       icon={RouterIcon}
-      title="Clone router"
+      title="Clone Router"
       description="Clone, configure, and start the pod router in a selected folder."
     >
-      {optionsError ? (
-        <InlineErrorAlert
-          error={optionsError}
-          fallback="Failed to load router clone options."
+      <div className="relative min-h-[22rem]">
+        <PreloadOverlay
+          active={isLoadingOptions}
+          label="Loading router clone options"
         />
-      ) : isLoadingOptions ? (
-        <DialogBodySkeleton rows={4} />
-      ) : (
-        <form
-          action={() => {
-            void form.handleSubmit()
-          }}
-        >
-          <AppDialogScrollBody>
-            <ManualRouterCloneFormFields
-              form={form}
-              routerTemplateConfigured={routerTemplateConfigured}
-              hasDestinationFolders={hasDestinationFolders}
-              networkProfiles={networkProfiles}
-              networkOptions={routerOptions?.network_options}
-              folderOptions={folderOptions}
-            />
-          </AppDialogScrollBody>
+        {optionsError ? (
+          <InlineErrorAlert
+            error={optionsError}
+            fallback="Failed to load router clone options."
+          />
+        ) : !isLoadingOptions ? (
+          <form
+            action={() => {
+              void form.handleSubmit()
+            }}
+          >
+            <AppDialogScrollBody>
+              <ManualRouterCloneFormFields
+                form={form}
+                routerTemplateConfigured={routerTemplateConfigured}
+                hasDestinationFolders={hasDestinationFolders}
+                networkProfiles={networkProfiles}
+                networkOptions={routerOptions?.network_options}
+                folderOptions={folderOptions}
+              />
+            </AppDialogScrollBody>
 
-          <DialogFooter>
-            <form.Subscribe selector={(state) => state.canSubmit}>
-              {(canSubmit) => (
-                <AppDialogPrimaryButton
-                  disabled={submitUnavailable || !canSubmit}
-                >
-                  Clone router
-                </AppDialogPrimaryButton>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      )}
+            <DialogFooter>
+              <form.Subscribe selector={(state) => state.canSubmit}>
+                {(canSubmit) => (
+                  <AppDialogPrimaryButton
+                    disabled={submitUnavailable || !canSubmit}
+                  >
+                    Clone
+                  </AppDialogPrimaryButton>
+                )}
+              </form.Subscribe>
+            </DialogFooter>
+          </form>
+        ) : null}
+      </div>
     </AppDialog>
   )
 }

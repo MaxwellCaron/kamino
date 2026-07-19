@@ -1,12 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { Dialog } from "@workspace/ui/components/dialog"
-import {
-  AppDialogContent,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
+import { AppDialogContent } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   bridgesQueryOptions,
@@ -36,7 +33,11 @@ export function VmHardwareDialog({
   open,
   onOpenChange,
 }: VmHardwareDialogProps) {
-  const { data: item } = useQuery({
+  const {
+    data: item,
+    error: itemError,
+    isLoading: isItemLoading,
+  } = useQuery({
     ...inventoryItemQueryOptions(itemId),
     enabled: open,
   })
@@ -47,15 +48,24 @@ export function VmHardwareDialog({
     data: hardware,
     error: hardwareError,
     isError: isHardwareError,
+    isLoading: isHardwareLoading,
   } = useQuery({
     ...vmHardwareQueryOptions(itemId),
     enabled: isDialogOpen,
   })
-  const { data: storages, error: storagesError } = useQuery({
+  const {
+    data: storages,
+    error: storagesError,
+    isLoading: isStoragesLoading,
+  } = useQuery({
     ...storagesQueryOptions(node),
     enabled: isDialogOpen,
   })
-  const { data: networks, error: networksError } = useQuery({
+  const {
+    data: networks,
+    error: networksError,
+    isLoading: isNetworksLoading,
+  } = useQuery({
     ...bridgesQueryOptions(node, itemId),
     enabled: isDialogOpen,
   })
@@ -63,8 +73,11 @@ export function VmHardwareDialog({
   const { bridgeOptions, vnetOptions, networkOptions } =
     buildVmHardwareNetworkOptions(networks ?? {})
   const storageOptions = (storages ?? []) as Array<StorageOption>
-  const loadError = hardwareError ?? storagesError ?? networksError
-  const isLoadError = isHardwareError || !!storagesError || !!networksError
+  const loadError = itemError ?? hardwareError ?? storagesError ?? networksError
+  const isLoadError =
+    !!itemError || isHardwareError || !!storagesError || !!networksError
+  const isLoadingHardware =
+    isItemLoading || isHardwareLoading || isStoragesLoading || isNetworksLoading
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,26 +91,30 @@ export function VmHardwareDialog({
           vmName
         )}.`}
       >
-        {isLoadError ? (
-          <InlineErrorAlert error={loadError} fallback="Failed to load VM hardware." />
-        ) : hardware ? (
-          <VmHardwareDialogForm
-            key={itemId}
-            itemId={itemId}
-            vmName={vmName}
-            vmid={initialVmid ?? vmid}
-            hardware={hardware}
-            bridgeOptions={bridgeOptions}
-            vnetOptions={vnetOptions}
-            networkOptions={networkOptions}
-            storageOptions={storageOptions}
-            onOpenChange={onOpenChange}
-          />
-        ) : (
-          <AppDialogScrollBody className="mb-0 h-[40vh] px-1 py-4">
-            <DialogBodySkeleton rows={4} />
-          </AppDialogScrollBody>
-        )}
+        <div className="relative min-h-[40vh]">
+          <PreloadOverlay active={isLoadingHardware} label="Loading VM hardware" />
+          {isLoadError ? (
+            <InlineErrorAlert
+              error={loadError}
+              fallback="Failed to load VM hardware."
+            />
+          ) : hardware ? (
+            <VmHardwareDialogForm
+              key={itemId}
+              itemId={itemId}
+              vmName={vmName}
+              vmid={initialVmid ?? vmid}
+              hardware={hardware}
+              bridgeOptions={bridgeOptions}
+              vnetOptions={vnetOptions}
+              networkOptions={networkOptions}
+              storageOptions={storageOptions}
+              onOpenChange={onOpenChange}
+            />
+          ) : !isLoadingHardware ? (
+            <InlineErrorAlert fallback="Failed to load VM hardware." />
+          ) : null}
+        </div>
       </AppDialogContent>
     </Dialog>
   )

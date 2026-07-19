@@ -14,7 +14,7 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
 import {
   CloneDestinationFolderField,
@@ -125,77 +125,81 @@ export function CloneDialog({
         currentName
       )} into a new virtual machine.`}
     >
-      {optionsError ? (
-        <InlineErrorAlert
-          error={optionsError}
-          fallback="Failed to load clone options."
+      <div className="relative min-h-[22rem]">
+        <PreloadOverlay
+          active={isLoadingOptions}
+          label="Loading VM clone options"
         />
-      ) : isLoadingOptions ? (
-        <DialogBodySkeleton rows={4} />
-      ) : (
-        <form
-          action={() => {
-            void form.handleSubmit()
-          }}
-        >
-          <AppDialogScrollBody>
-            <FieldSet>
-              <FieldGroup>
-                <CloneNameField
-                  FieldComponent={form.Field}
-                  fieldName="name"
-                  inputId="clone-name"
-                  placeholder={`${currentName} (Default)`}
-                />
-
-                <div className="grid grid-cols-2 gap-6">
-                  <CloneNodeField
+        {optionsError ? (
+          <InlineErrorAlert
+            error={optionsError}
+            fallback="Failed to load clone options."
+          />
+        ) : !isLoadingOptions ? (
+          <form
+            action={() => {
+              void form.handleSubmit()
+            }}
+          >
+            <AppDialogScrollBody>
+              <FieldSet>
+                <FieldGroup>
+                  <CloneNameField
                     FieldComponent={form.Field}
-                    fieldName="node"
-                    inputId="clone-node"
-                    nodes={nodes}
+                    fieldName="name"
+                    inputId="clone-name"
+                    placeholder={`${currentName} (Default)`}
                   />
-                  <VMIDField
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <CloneNodeField
+                      FieldComponent={form.Field}
+                      fieldName="node"
+                      inputId="clone-node"
+                      nodes={nodes}
+                    />
+                    <VMIDField
+                      FieldComponent={form.Field}
+                      fieldName="newid"
+                      inputId="clone-vmid"
+                    />
+                  </div>
+
+                  <FieldSeparator />
+
+                  <CloneDestinationFolderField
                     FieldComponent={form.Field}
-                    fieldName="newid"
-                    inputId="clone-vmid"
+                    fieldName="target_folder_id"
+                    folderOptions={folderOptions}
                   />
-                </div>
 
-                <FieldSeparator />
+                  {isTemplate && (
+                    <CloneFullCloneField
+                      FieldComponent={form.Field}
+                      fieldName="full"
+                      inputId="clone-full"
+                      dependencyLabel="source VM"
+                    />
+                  )}
+                </FieldGroup>
+              </FieldSet>
+            </AppDialogScrollBody>
 
-                <CloneDestinationFolderField
-                  FieldComponent={form.Field}
-                  fieldName="target_folder_id"
-                  folderOptions={folderOptions}
-                />
-
-                {isTemplate && (
-                  <CloneFullCloneField
-                    FieldComponent={form.Field}
-                    fieldName="full"
-                    inputId="clone-full"
-                    dependencyLabel="source VM"
-                  />
+            <DialogFooter>
+              <form.Subscribe selector={(state) => state.isSubmitting}>
+                {(isSubmitting) => (
+                  <AppDialogPrimaryButton
+                    pending={isSubmitting}
+                    pendingLabel="Cloning..."
+                  >
+                    Clone
+                  </AppDialogPrimaryButton>
                 )}
-              </FieldGroup>
-            </FieldSet>
-          </AppDialogScrollBody>
-
-          <DialogFooter>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <AppDialogPrimaryButton
-                  pending={isSubmitting}
-                  pendingLabel="Cloning..."
-                >
-                  Clone
-                </AppDialogPrimaryButton>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      )}
+              </form.Subscribe>
+            </DialogFooter>
+          </form>
+        ) : null}
+      </div>
     </AppDialog>
   )
 }

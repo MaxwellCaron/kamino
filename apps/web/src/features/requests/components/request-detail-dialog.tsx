@@ -54,7 +54,7 @@ import {
   AppDialogContent,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { RequestDetailSkeleton } from "@/features/requests/components/request-detail-skeleton"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestDetailDialogProps = {
@@ -111,10 +111,9 @@ export function RequestDetailDialog({
         title="Review"
         description="Review the request and determine the outcome."
       >
-        <AppDialogScrollBody className="-mb-8 px-4">
-          {isLoading ? (
-            <RequestDetailSkeleton />
-          ) : error ? (
+        <AppDialogScrollBody className="relative min-h-125 -mb-8 px-4">
+          <PreloadOverlay active={isLoading} label="Loading request details" />
+          {isLoading ? null : error ? (
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia
