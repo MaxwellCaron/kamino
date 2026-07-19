@@ -167,7 +167,7 @@ export function UserGroupBulkDialog({
       }
       descriptionProps={{ render: <div /> }}
     >
-      <div className="relative min-h-[16.5rem]">
+      <div className="relative min-h-66">
         <PreloadOverlay active={isLoading} label="Loading groups" />
         {error ? (
           <Item variant="muted">

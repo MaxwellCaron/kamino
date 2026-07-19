@@ -193,7 +193,7 @@ export function VNetDialog({
   }
 
   const body = (
-    <div className="relative min-h-[22rem]">
+    <div className="relative min-h-88">
       <PreloadOverlay active={isZonesLoading} label="Loading SDN zones" />
       {zonesError ? (
         <InlineErrorAlert

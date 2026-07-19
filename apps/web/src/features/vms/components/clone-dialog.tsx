@@ -125,7 +125,7 @@ export function CloneDialog({
         currentName
       )} into a new virtual machine.`}
     >
-      <div className="relative min-h-[22rem]">
+      <div className="relative min-h-88">
         <PreloadOverlay
           active={isLoadingOptions}
           label="Loading VM clone options"

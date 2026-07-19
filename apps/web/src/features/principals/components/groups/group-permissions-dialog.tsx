@@ -328,7 +328,7 @@ export function GroupPermissionsDialog({
         title="Management Roles"
         description={`Choose the management role for ${getGroupLabel(group)}.`}
       >
-        <div className="relative min-h-[16.5rem]">
+        <div className="relative min-h-66">
           <PreloadOverlay
             active={isAccessLoading}
             label="Loading management roles"

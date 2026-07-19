@@ -164,7 +164,7 @@ export function ManualRouterCloneDialog({
       title="Clone Router"
       description="Clone, configure, and start the pod router in a selected folder."
     >
-      <div className="relative min-h-[22rem]">
+      <div className="relative min-h-88">
         <PreloadOverlay
           active={isLoadingOptions}
           label="Loading router clone options"
