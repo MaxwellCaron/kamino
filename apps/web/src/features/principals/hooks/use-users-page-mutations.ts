@@ -1,6 +1,5 @@
 import { useCallback } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   deleteUser,
@@ -8,9 +7,11 @@ import {
   enableUser,
   triggerPrincipalSync,
 } from "@/features/principals/api/principals-api"
-import { formatToastError } from "@/features/shared/utils/format"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 
 export function useUsersPageMutations() {
   const queryClient = useQueryClient()
@@ -37,13 +38,18 @@ export function useUsersPageMutations() {
   const syncMutation = useMutation({
     mutationFn: triggerPrincipalSync,
     onSuccess: () => {
-      toast.success("Sync complete")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
+
+  const showSyncToast = useCallback(() => {
+    showSingleMutationToast({
+      title: "Syncing",
+      name: "Principals",
+      promise: () => syncMutation.mutateAsync(),
+      successDescription: "Synced",
+    })
+  }, [syncMutation])
 
   const showDeleteToast = useCallback(
     (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
@@ -107,6 +113,7 @@ export function useUsersPageMutations() {
 
   return {
     syncMutation,
+    showSyncToast,
     showDeleteToast,
     showEnabledToast,
   }

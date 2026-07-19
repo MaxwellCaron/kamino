@@ -2,7 +2,6 @@ import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
-import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Field,
@@ -22,6 +21,7 @@ import {
   authSessionQueryOptions,
   changeOwnPassword,
 } from "@/features/auth/api/auth-api"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const changePasswordSchema = z
   .object({
@@ -46,13 +46,10 @@ export function ChangePasswordDialog({
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: changeOwnPassword,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
+    onSuccess: () =>
+      queryClient.invalidateQueries({
         queryKey: authSessionQueryOptions.queryKey,
-      })
-      toast.success("Password updated")
-      onOpenChange(false)
-    },
+      }),
   })
 
   const form = useForm({
@@ -64,11 +61,18 @@ export function ChangePasswordDialog({
     validators: {
       onSubmit: changePasswordSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const parsed = changePasswordSchema.parse(value)
-      await mutation.mutateAsync({
+      const promise = mutation.mutateAsync({
         current_password: parsed.currentPassword,
         new_password: parsed.newPassword,
+      })
+      onOpenChange(false)
+      showSingleMutationToast({
+        title: "Updating password",
+        name: "Account",
+        promise,
+        successDescription: "Password updated",
       })
     },
   })
@@ -79,7 +83,6 @@ export function ChangePasswordDialog({
       onOpenChange={onOpenChange}
       onClosed={() => {
         form.reset()
-        mutation.reset()
       }}
       initialFocus={false}
       icon={Settings01Icon}
@@ -94,8 +97,7 @@ export function ChangePasswordDialog({
         <FieldGroup>
           <form.Field name="currentPassword">
             {(field) => {
-              const isInvalid =
-                isTouchedInvalid(field.state.meta)
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -124,8 +126,7 @@ export function ChangePasswordDialog({
 
           <form.Field name="newPassword">
             {(field) => {
-              const isInvalid =
-                isTouchedInvalid(field.state.meta)
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -157,8 +158,7 @@ export function ChangePasswordDialog({
 
           <form.Field name="confirmPassword">
             {(field) => {
-              const isInvalid =
-                isTouchedInvalid(field.state.meta)
+              const isInvalid = isTouchedInvalid(field.state.meta)
 
               return (
                 <Field data-invalid={isInvalid}>
@@ -184,25 +184,12 @@ export function ChangePasswordDialog({
               )
             }}
           </form.Field>
-
-          {mutation.error && (
-            <FieldError className="text-center">
-              {mutation.error.message}
-            </FieldError>
-          )}
         </FieldGroup>
 
         <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton
-                pending={isSubmitting}
-                pendingLabel="Updating..."
-              >
-                Update
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
+          <AppDialogPrimaryButton pending={mutation.isPending}>
+            Update
+          </AppDialogPrimaryButton>
         </DialogFooter>
       </form>
     </AppDialog>

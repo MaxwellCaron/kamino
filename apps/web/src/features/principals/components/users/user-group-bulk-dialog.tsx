@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { UserAdd01Icon, UserMinusIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -27,7 +26,10 @@ import {
   ComboboxList,
 } from "@workspace/ui/components/combobox"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import type {
+  ApiBulkMembershipResponse,
+  ApiPrincipal,
+} from "@/features/principals/types/principals-types"
 import {
   formatPrincipalReference,
   getPrincipalBaseName,
@@ -38,15 +40,12 @@ import {
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { PreloadOverlay } from "@/components/loading-overlay"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   addGroupMember,
   groupsQueryOptions,
   removeGroupMember,
 } from "@/features/principals/api/principals-api"
-import {
-  capitalizeFirstLetter,
-  formatToastError,
-} from "@/features/shared/utils/format"
 
 type UserGroupBulkDialogProps = {
   clearSelection: () => void
@@ -81,6 +80,22 @@ export function UserGroupBulkDialog({
       ? formatPrincipalReference(users[0])
       : `${users.length} selected users`
 
+  const membershipMutation = useMutation({
+    mutationFn: ({
+      groupId,
+      userIds,
+    }: {
+      groupId: string
+      userIds: Array<string>
+    }): Promise<ApiBulkMembershipResponse> =>
+      mode === "add"
+        ? addGroupMember(groupId, userIds)
+        : removeGroupMember(groupId, userIds),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["principals"] })
+    },
+  })
+
   const form = useForm({
     defaultValues: {
       group: null as ApiPrincipal | null,
@@ -88,50 +103,52 @@ export function UserGroupBulkDialog({
     validators: {
       onSubmit: userGroupBulkFormSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       const group = value.group
       if (!group) {
         return
       }
 
-      try {
-        const userIds = users.map((user) => user.id)
-        const result =
+      const groupLabel = formatPrincipalReference(group)
+      const selectedUsers = users
+
+      clearSelection()
+      onOpenChange(false)
+
+      showUnitMutationToast({
+        title:
           mode === "add"
-            ? await addGroupMember(group.id, userIds)
-            : await removeGroupMember(group.id, userIds)
-
-        const succeededCount = result.succeeded.length
-        const failedCount = result.failed.length
-        const groupLabel = formatPrincipalReference(group)
-
-        if (succeededCount > 0) {
-          toast.success(
-            mode === "add"
-              ? `Added ${succeededCount} user${succeededCount === 1 ? "" : "s"} to ${groupLabel}`
-              : `Removed ${succeededCount} user${succeededCount === 1 ? "" : "s"} from ${groupLabel}`
-          )
-        }
-
-        if (failedCount === 1) {
-          toast.error(
-            `${mode === "add" ? "Failed to add" : "Failed to remove"} ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
-          )
-        } else if (failedCount > 1) {
-          toast.error(
-            `${mode === "add" ? "Failed to add" : "Failed to remove"} ${failedCount} users`
-          )
-        }
-
-        await queryClient.invalidateQueries({ queryKey: ["principals"] })
-
-        if (failedCount === 0) {
-          clearSelection()
-          onOpenChange(false)
-        }
-      } catch (err) {
-        toast.error(formatToastError(err))
-      }
+            ? `Adding users to ${groupLabel}`
+            : `Removing users from ${groupLabel}`,
+        units: [
+          {
+            items: selectedUsers.map((user) => ({
+              id: user.id,
+              name: formatPrincipalReference(user),
+              successDescription: mode === "add" ? "Added" : "Removed",
+              retry: async () => {
+                const result = await membershipMutation.mutateAsync({
+                  groupId: group.id,
+                  userIds: [user.id],
+                })
+                const failure = result.failed.find(
+                  (entry) => entry.id === user.id
+                )
+                if (failure) {
+                  throw new Error(failure.error)
+                }
+              },
+            })),
+            run: async () => {
+              const result = await membershipMutation.mutateAsync({
+                groupId: group.id,
+                userIds: selectedUsers.map((user) => user.id),
+              })
+              return { failed: result.failed }
+            },
+          },
+        ],
+      })
     },
   })
 
@@ -230,16 +247,11 @@ export function UserGroupBulkDialog({
             </AppDialogScrollBody>
 
             <DialogFooter>
-              <form.Subscribe
-                selector={(state) =>
-                  [state.values.group, state.isSubmitting] as const
-                }
-              >
-                {([group, isSubmitting]) => (
+              <form.Subscribe selector={(state) => state.values.group}>
+                {(group) => (
                   <AppDialogPrimaryButton
                     disabled={!group}
-                    pending={isSubmitting}
-                    pendingLabel={mode === "add" ? "Adding..." : "Removing..."}
+                    pending={membershipMutation.isPending}
                     variant={mode === "add" ? "default" : "destructive"}
                   >
                     {mode === "add" ? "Add" : "Remove"}

@@ -97,10 +97,7 @@ export function VmNotesDialog({
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton
-                pending={isSubmitting}
-                pendingLabel="Saving..."
-              >
+              <AppDialogPrimaryButton pending={isSubmitting}>
                 Save
               </AppDialogPrimaryButton>
             )}

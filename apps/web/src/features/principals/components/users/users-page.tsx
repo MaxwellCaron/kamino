@@ -82,13 +82,12 @@ export function UsersPage() {
     ...usersQueryOptions,
     enabled: canAdminister,
   })
-  const {
-    data: providerCapabilities,
-    isLoading: isProviderLoading,
-  } = useQuery({
-    ...principalProviderQueryOptions,
-    enabled: canAdminister,
-  })
+  const { data: providerCapabilities, isLoading: isProviderLoading } = useQuery(
+    {
+      ...principalProviderQueryOptions,
+      enabled: canAdminister,
+    }
+  )
   const isLoading = isUsersLoading || isProviderLoading
   const userCountLabel = error ? "!" : String(users?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
@@ -100,14 +99,15 @@ export function UsersPage() {
   }>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
-  const { syncMutation, showDeleteToast, showEnabledToast } =
+  const { syncMutation, showSyncToast, showDeleteToast, showEnabledToast } =
     useUsersPageMutations()
 
   const columns = useMemo(
     () =>
       getUserColumns({
         canManage: canAdminister,
-        canManageMemberships: providerCapabilities?.can_manage_memberships ?? true,
+        canManageMemberships:
+          providerCapabilities?.can_manage_memberships ?? true,
         canEnableUsers: providerCapabilities?.can_enable_users ?? false,
         canDisableUsers: providerCapabilities?.can_disable_users ?? false,
         onEditClick: editDialog.openWith,
@@ -161,98 +161,99 @@ export function UsersPage() {
       <PreloadOverlay active={isLoading} label="Loading users" />
       {!isLoading && (
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <HugeiconsIcon
-                icon={UserIcon}
-                className="size-7 text-muted-foreground"
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HugeiconsIcon
+                  icon={UserIcon}
+                  className="size-7 text-muted-foreground"
+                />
+                <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
+                  Users
+                </h1>
+                <Badge variant="outline" className="tabular-nums">
+                  {userCountLabel}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                List of users from your principal provider.
+              </CardDescription>
+              <CardAction className="flex items-center gap-2">
+                {canAdminister && providerCapabilities?.can_sync ? (
+                  <AppActionButton
+                    variant="outline"
+                    onClick={() =>
+                      setConfirm({
+                        title: "Sync Principals",
+                        icon: ReloadIcon,
+                        description:
+                          "Kamino will reconcile users, groups, and memberships with the configured principal provider. Principals no longer returned by the provider will be removed from Kamino.",
+                        actionLabel: "Sync",
+                        variant: "default",
+                        onConfirm: () => showSyncToast(),
+                      })
+                    }
+                    disabled={error !== null}
+                    pending={syncMutation.isPending}
+                  >
+                    <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                    <span className="hidden lg:block">Sync</span>
+                  </AppActionButton>
+                ) : null}
+                {canAdminister && providerCapabilities?.can_create_users ? (
+                  <Button
+                    onClick={() => setCreateOpen(true)}
+                    disabled={error !== null}
+                  >
+                    <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+                    <span className="hidden lg:block">Create</span>
+                  </Button>
+                ) : null}
+              </CardAction>
+            </CardHeader>
+            <CardContent className="px-0">
+              <DataTable
+                columns={columns}
+                data={users || []}
+                features={{ loading: isLoading, sorting: true }}
+                initialSorting={[{ id: "created_at", desc: true }]}
+                error={error}
+                searchLabel="Search users"
+                getRowId={(tableUser: ApiPrincipal) => tableUser.id}
+                selectionActions={
+                  canAdminister
+                    ? ({
+                        clearSelection,
+                        selectedRows,
+                      }: {
+                        clearSelection: () => void
+                        selectedRows: Array<ApiPrincipal>
+                      }) => (
+                        <UsersSelectionActions
+                          clearSelection={clearSelection}
+                          selectedRows={selectedRows}
+                          canEnableUsers={
+                            providerCapabilities?.can_enable_users ?? false
+                          }
+                          canDisableUsers={
+                            providerCapabilities?.can_disable_users ?? false
+                          }
+                          onAddToGroup={bulkGroupDialog.openWith}
+                          onEnableUsers={(usr) =>
+                            showEnabledToast(usr, "enable")
+                          }
+                          onDisableUsers={(usr, clear) =>
+                            showEnabledToast(usr, "disable", clear)
+                          }
+                          onDeleteUsers={showDeleteToast}
+                          onConfirm={setConfirm}
+                        />
+                      )
+                    : undefined
+                }
               />
-              <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-                Users
-              </h1>
-              <Badge variant="outline" className="tabular-nums">
-                {userCountLabel}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              List of users from your principal provider.
-            </CardDescription>
-            <CardAction className="flex items-center gap-2">
-              {canAdminister && providerCapabilities?.can_sync ? (
-                <AppActionButton
-                  variant="outline"
-                  onClick={() =>
-                    setConfirm({
-                      title: "Sync Principals",
-                      icon: ReloadIcon,
-                      description:
-                        "Kamino will reconcile users, groups, and memberships with the configured principal provider. Principals no longer returned by the provider will be removed from Kamino.",
-                      actionLabel: "Sync",
-                      variant: "default",
-                      onConfirm: () => syncMutation.mutateAsync(),
-                    })
-                  }
-                  disabled={error !== null}
-                  pending={syncMutation.isPending}
-                  pendingLabel="Syncing..."
-                >
-                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
-                  <span className="hidden lg:block">Sync</span>
-                </AppActionButton>
-              ) : null}
-              {canAdminister && providerCapabilities?.can_create_users ? (
-                <Button
-                  onClick={() => setCreateOpen(true)}
-                  disabled={error !== null}
-                >
-                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-                  <span className="hidden lg:block">Create</span>
-                </Button>
-              ) : null}
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <DataTable
-              columns={columns}
-              data={users || []}
-              features={{ loading: isLoading, sorting: true }}
-              initialSorting={[{ id: "created_at", desc: true }]}
-              error={error}
-              searchLabel="Search users"
-              getRowId={(tableUser: ApiPrincipal) => tableUser.id}
-              selectionActions={
-                canAdminister
-                  ? ({
-                      clearSelection,
-                      selectedRows,
-                    }: {
-                      clearSelection: () => void
-                      selectedRows: Array<ApiPrincipal>
-                    }) => (
-                      <UsersSelectionActions
-                        clearSelection={clearSelection}
-                        selectedRows={selectedRows}
-                        canEnableUsers={
-                          providerCapabilities?.can_enable_users ?? false
-                        }
-                        canDisableUsers={
-                          providerCapabilities?.can_disable_users ?? false
-                        }
-                        onAddToGroup={bulkGroupDialog.openWith}
-                        onEnableUsers={(usr) => showEnabledToast(usr, "enable")}
-                        onDisableUsers={(usr, clear) =>
-                          showEnabledToast(usr, "disable", clear)
-                        }
-                        onDeleteUsers={showDeleteToast}
-                        onConfirm={setConfirm}
-                      />
-                    )
-                  : undefined
-              }
-            />
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
         </div>
       )}
 

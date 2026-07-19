@@ -8,7 +8,6 @@ import {
 } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import { toast } from "sonner"
 
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { inventoryTreeFixtureVmCount } from "../../dev/inventory-tree-fixture-config"
@@ -22,6 +21,7 @@ import { InventoryTreeContext } from "./inventory-tree-context"
 import type { ReactNode } from "react"
 import type { InventoryTreeContextValue } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { formatToastError } from "@/features/shared/utils/format"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
@@ -140,18 +140,35 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [sourceTree.items]
   )
 
-  const handleMove = useCallback(
-    (itemIds: Array<string>, parentId: string) => {
-      moveItems.mutate(
-        { itemIds, parentId },
-        {
-          onError: (moveError) => {
-            toast.error(formatToastError(moveError, "Move failed"))
-          },
-        }
-      )
+  const runMove = useCallback(
+    async (ids: Array<string>, parentId: string) => {
+      try {
+        await moveItems.mutateAsync({ itemIds: ids, parentId })
+      } catch (moveError) {
+        throw new Error(formatToastError(moveError, "Move failed"))
+      }
     },
     [moveItems]
+  )
+
+  const handleMove = useCallback(
+    (itemIds: Array<string>, parentId: string) => {
+      showUnitMutationToast({
+        title: "Moving inventory items",
+        units: [
+          {
+            items: itemIds.map((itemId) => ({
+              id: itemId,
+              name: sourceItems.get(itemId)?.name ?? itemId,
+              successDescription: "Moved",
+              retry: () => runMove([itemId], parentId),
+            })),
+            run: () => runMove(itemIds, parentId),
+          },
+        ],
+      })
+    },
+    [runMove, sourceItems]
   )
 
   const handlePrimaryAction = useCallback(

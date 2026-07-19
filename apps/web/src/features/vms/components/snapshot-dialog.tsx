@@ -220,10 +220,7 @@ function DirectSnapshotForm({
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              pending={isSubmitting}
-              pendingLabel="Creating..."
-            >
+            <AppDialogPrimaryButton pending={isSubmitting}>
               Create
             </AppDialogPrimaryButton>
           )}
@@ -321,10 +318,7 @@ function RequestSnapshotForm({
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              pending={isSubmitting}
-              pendingLabel="Submitting..."
-            >
+            <AppDialogPrimaryButton pending={isSubmitting}>
               Submit
             </AppDialogPrimaryButton>
           )}

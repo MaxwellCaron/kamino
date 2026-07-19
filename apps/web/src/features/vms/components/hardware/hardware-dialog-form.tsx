@@ -143,10 +143,7 @@ export function VmHardwareDialogForm({
       </AppDialogScrollBody>
 
       <DialogFooter>
-        <AppDialogPrimaryButton
-          pending={updateHardware.isPending}
-          pendingLabel="Saving..."
-        >
+        <AppDialogPrimaryButton pending={updateHardware.isPending}>
           Save
         </AppDialogPrimaryButton>
       </DialogFooter>

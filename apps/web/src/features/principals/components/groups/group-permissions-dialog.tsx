@@ -1,8 +1,7 @@
 import React from "react"
 import { useForm } from "@tanstack/react-form"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
-import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert01Icon,
@@ -55,7 +54,7 @@ import {
   updateGroupManagementAcl,
 } from "@/features/principals/api/principals-api"
 import { PreloadOverlay } from "@/components/loading-overlay"
-import { formatToastError } from "@/features/shared/utils/format"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id
@@ -133,21 +132,27 @@ function GroupPermissionsForm({
   const queryClient = useQueryClient()
   const baselineRoleRef = React.useRef(initialRole)
 
+  const updateRole = useMutation({
+    mutationFn: (role: ManagementPermissionKey | "") =>
+      updateGroupManagementAcl(group.id, role ? [role] : []),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["principals", "groups", group.id, "management-access"],
+      }),
+  })
+
   const form = useForm({
     defaultValues: {
       role: initialRole,
     } satisfies RoleFormValues,
-    onSubmit: async ({ value }) => {
-      try {
-        await updateGroupManagementAcl(group.id, value.role ? [value.role] : [])
-        toast.success("Management role updated")
-        await queryClient.invalidateQueries({
-          queryKey: ["principals", "groups", group.id, "management-access"],
-        })
-        onOpenChange(false)
-      } catch (error) {
-        toast.error(formatToastError(error))
-      }
+    onSubmit: ({ value }) => {
+      onOpenChange(false)
+      showSingleMutationToast({
+        title: "Updating management role",
+        name: getGroupLabel(group),
+        promise: () => updateRole.mutateAsync(value.role),
+        successDescription: "Role updated",
+      })
     },
   })
 
@@ -158,7 +163,6 @@ function GroupPermissionsForm({
 
   const selectedRole = useSelector(form.store, (state) => state.values.role)
   const hasChanges = selectedRole !== baselineRoleRef.current
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting)
 
   return (
     <form
@@ -276,8 +280,7 @@ function GroupPermissionsForm({
       <DialogFooter>
         <AppDialogPrimaryButton
           disabled={controlsDisabled || immutable || !hasChanges}
-          pending={isSubmitting}
-          pendingLabel="Saving..."
+          pending={updateRole.isPending}
         >
           Save
         </AppDialogPrimaryButton>

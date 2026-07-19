@@ -331,7 +331,6 @@ export function CreateVmDialog({
                   <AppDialogPrimaryButton
                     type="button"
                     pending={mutation.isPending}
-                    pendingLabel="Creating..."
                     disabled={
                       isLoadingInitialOptions ||
                       initialOptionsError !== null ||

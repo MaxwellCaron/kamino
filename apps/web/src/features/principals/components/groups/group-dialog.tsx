@@ -180,10 +180,7 @@ export function GroupDialog({
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              pending={isSubmitting}
-              pendingLabel={isEdit ? "Saving..." : "Creating..."}
-            >
+            <AppDialogPrimaryButton pending={isSubmitting}>
               {isEdit ? "Save" : "Create"}
             </AppDialogPrimaryButton>
           )}

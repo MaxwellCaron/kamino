@@ -141,10 +141,7 @@ export function FolderLimitDialog({
           </form.Field>
         </FieldGroup>
         <DialogFooter className="mt-6">
-          <AppDialogPrimaryButton
-            pending={updateLimit.isPending}
-            pendingLabel="Saving..."
-          >
+          <AppDialogPrimaryButton pending={updateLimit.isPending}>
             Save Limit
           </AppDialogPrimaryButton>
         </DialogFooter>

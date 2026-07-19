@@ -279,7 +279,9 @@ function MembershipForm({
               itemToStringLabel={(option) => option.label}
               value={selectedOptions}
               onValueChange={(newValue) =>
-                field.handleChange(uniqueIds(newValue.map((option) => option.id)))
+                field.handleChange(
+                  uniqueIds(newValue.map((option) => option.id))
+                )
               }
             >
               <ComboboxChips ref={anchor} className="w-full p-3!">
@@ -322,7 +324,6 @@ function MembershipForm({
             <AppDialogPrimaryButton
               disabled={!hasChanges}
               pending={isSubmitting}
-              pendingLabel="Saving..."
             >
               Save
             </AppDialogPrimaryButton>

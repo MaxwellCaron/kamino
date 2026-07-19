@@ -1,6 +1,10 @@
+import { useCallback } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
+import type {
+  PodStatus,
+  PublishedPodCatalogEntry,
+  PublishedPodCloneSummary,
+} from "@/features/pods/types/pod-types"
 import {
   deletePublishedPod,
   deletePublishedPodClone,
@@ -9,6 +13,7 @@ import {
   publishedPodsQueryOptions,
   setPublishedPodStatus,
 } from "@/features/pods/api/publish-pod-api"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 type UsePublishedPodsPageMutationsOptions = {
   onDeleteSettled: () => void
@@ -27,18 +32,6 @@ export function usePublishedPodsPageMutations({
         (current) =>
           current?.map((pod) => (pod.id === updated.id ? updated : pod))
       )
-      toast.success(
-        updated.status === "listed"
-          ? `${updated.title} is now listed.`
-          : `${updated.title} is now unlisted.`
-      )
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to update published pod status."
-      )
     },
     onSettled: () =>
       Promise.all([
@@ -50,6 +43,18 @@ export function usePublishedPodsPageMutations({
         }),
       ]),
   })
+
+  const showStatusToast = useCallback(
+    (pod: PublishedPodCatalogEntry, status: PodStatus) => {
+      showSingleMutationToast({
+        title: status === "listed" ? "Listing" : "Unlisting",
+        name: pod.title,
+        promise: () => statusMutation.mutateAsync({ id: pod.id, status }),
+        successDescription: status === "listed" ? "Listed" : "Unlisted",
+      })
+    },
+    [statusMutation]
+  )
 
   const deleteMutation = useMutation({
     mutationFn: deletePublishedPod,
@@ -91,6 +96,7 @@ export function usePublishedPodsPageMutations({
 
   return {
     statusMutation,
+    showStatusToast,
     deleteMutation,
     deleteCloneMutation,
   }

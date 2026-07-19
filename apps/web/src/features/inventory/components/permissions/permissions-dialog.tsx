@@ -293,7 +293,6 @@ function InventoryPermissionsFormBody({
           onClick={() => void actions.handleSubmit()}
           disabled={!state.hasChanges}
           pending={state.isSaving}
-          pendingLabel="Submitting..."
         >
           Submit
         </AppDialogPrimaryButton>

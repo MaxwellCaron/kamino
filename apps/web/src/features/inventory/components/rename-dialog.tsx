@@ -41,10 +41,7 @@ const folderNameSchema = z
     "Name can only contain letters, numbers, and hyphens"
   )
 
-const folderDescriptionSchema = z
-  .string()
-  .trim()
-  .max(256, "Max 256 characters")
+const folderDescriptionSchema = z.string().trim().max(256, "Max 256 characters")
 
 type RenameDialogProps =
   | {
@@ -85,7 +82,6 @@ export function RenameDialog(props: RenameDialogProps) {
           title: "New Folder",
           description: "Enter a name for the new folder.",
           submitLabel: "Create Folder",
-          pendingLabel: "Creating...",
           placeholder: "Folder",
           icon: FolderAddIcon,
           schema: folderNameSchema,
@@ -95,7 +91,6 @@ export function RenameDialog(props: RenameDialogProps) {
           title: "Edit Folder",
           description: `Update the name and description for folder "${props.currentName}".`,
           submitLabel: "Save Folder",
-          pendingLabel: "Saving...",
           placeholder: "Folder",
           icon: PencilEdit01Icon,
           schema: folderNameSchema,
@@ -108,7 +103,6 @@ export function RenameDialog(props: RenameDialogProps) {
             props.currentName
           )}.`,
           submitLabel: "Rename",
-          pendingLabel: "Renaming...",
           placeholder: "Name",
           icon: PencilEdit01Icon,
           schema: vmNameSchema,
@@ -154,7 +148,10 @@ export function RenameDialog(props: RenameDialogProps) {
         showSingleMutationToast({
           title: "Renaming",
           name: parsedName,
-          promise: renameVm.mutateAsync({ itemId: props.itemId, name: parsedName }),
+          promise: renameVm.mutateAsync({
+            itemId: props.itemId,
+            name: parsedName,
+          }),
           successDescription: "Renamed",
         })
       }
@@ -228,10 +225,7 @@ export function RenameDialog(props: RenameDialogProps) {
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton
-                pending={isSubmitting}
-                pendingLabel={ui.pendingLabel}
-              >
+              <AppDialogPrimaryButton pending={isSubmitting}>
                 {ui.submitLabel}
               </AppDialogPrimaryButton>
             )}

@@ -9,11 +9,7 @@ import {
   RegexIcon,
 } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import {
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
+import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiSDNZone,
   ApiVNet,
@@ -141,7 +137,6 @@ function VNetDialogFooter({
         {(isSubmitting: boolean) => (
           <AppDialogPrimaryButton
             pending={isSubmitting}
-            pendingLabel={isEdit ? "Saving..." : "Creating..."}
             disabled={zonesUnavailable}
           >
             {isEdit ? "Save" : mode === "prefix" ? "Create VNets" : "Create"}

@@ -188,10 +188,7 @@ export function CloneDialog({
             <DialogFooter>
               <form.Subscribe selector={(state) => state.isSubmitting}>
                 {(isSubmitting) => (
-                  <AppDialogPrimaryButton
-                    pending={isSubmitting}
-                    pendingLabel="Cloning..."
-                  >
+                  <AppDialogPrimaryButton pending={isSubmitting}>
                     Clone
                   </AppDialogPrimaryButton>
                 )}

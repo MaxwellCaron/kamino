@@ -63,6 +63,7 @@ export function PublishedPodsPage() {
 
   const {
     statusMutation,
+    showStatusToast,
     deleteMutation,
     deleteCloneMutation,
   } = usePublishedPodsPageMutations({
@@ -85,19 +86,21 @@ export function PublishedPodsPage() {
           })
         },
         onStatusChange: (pod, status) => {
-          statusMutation.mutate({ id: pod.id, status })
+          showStatusToast(pod, status)
         },
         onCloneBulkAction: (pod, action) => {
           setPendingCloneBulkAction({ pod, action })
         },
         cloneBulkActionPending: deleteCloneMutation.isPending,
-        statusChangePendingId:
-          statusMutation.isPending ? statusMutation.variables.id : null,
+        statusChangePendingId: statusMutation.isPending
+          ? statusMutation.variables.id
+          : null,
         onManagerClone: setPendingManagerClonePod,
       }),
     [
       navigate,
       statusMutation,
+      showStatusToast,
       deleteCloneMutation.isPending,
       setPendingManagerClonePod,
     ]
