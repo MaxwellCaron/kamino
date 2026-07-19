@@ -22,16 +22,33 @@ func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) e
 	for i := range path {
 		currentPath := path[:i+1]
 		currentPoolID := EncodePoolPath(currentPath)
-		index := slices.IndexFunc(pools, func(pool Pool) bool {
+		if slices.ContainsFunc(pools, func(pool Pool) bool {
 			return pool.PoolID == currentPoolID
-		})
-
-		if index == -1 {
-			if err := c.CreatePool(ctx, currentPoolID, nil); err != nil {
-				return fmt.Errorf("creating pool %q: %w", currentPoolID, err)
-			}
-			pools = append(pools, Pool{PoolID: currentPoolID})
+		}) {
+			continue
 		}
+
+		if createErr := c.CreatePool(ctx, currentPoolID, nil); createErr != nil {
+			// Another workflow may have created the pool after the initial list.
+			refreshedPools, refreshErr := c.GetPools(ctx)
+			if refreshErr != nil {
+				return fmt.Errorf(
+					"creating pool %q: %w (verifying pool existence: %v)",
+					currentPoolID,
+					createErr,
+					refreshErr,
+				)
+			}
+			if !slices.ContainsFunc(refreshedPools, func(pool Pool) bool {
+				return pool.PoolID == currentPoolID
+			}) {
+				return fmt.Errorf("creating pool %q: %w", currentPoolID, createErr)
+			}
+			pools = refreshedPools
+			continue
+		}
+
+		pools = append(pools, Pool{PoolID: currentPoolID})
 	}
 
 	return nil

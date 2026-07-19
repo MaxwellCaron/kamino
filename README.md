@@ -181,6 +181,12 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `VM_POWER_CONCURRENCY` | no | `6` | Maximum concurrent Proxmox power tasks per API process (accepted range `1`–`20`), including automatic pod-router starts during provisioning as well as user-initiated VM power actions. Use `1` to roll back to fully serial power actions. Effective cluster-wide maximum is this value times API replicas; the current deployment assumes one API replica. Raise to `10` only after observing task duration, node CPU/memory, storage latency/IOPS, and failures under representative workloads. |
 | `VM_POWER_TASK_TIMEOUT` | no | `5m` | Positive duration bounding how long the API drains an accepted Proxmox power task after the HTTP client disconnects, including automatic pod-router power tasks started during provisioning. |
 
+On startup, Kamino clears persisted pod clone/reclone/delete claims left by the
+previous API process so interrupted pods can be retried or deleted immediately.
+This recovery relies on the documented single-API-replica deployment model and
+does not cancel Proxmox tasks that survived the process restart; allow those
+tasks to settle before retrying if Proxmox still reports them as running.
+
 ### VMID allocation ranges
 
 Each pod workflow draws VMIDs from its own configured inclusive range. All four

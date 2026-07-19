@@ -60,6 +60,5 @@ DELETE FROM pod_clone_claims
 WHERE pod_id = $1
   AND user_principal_id = $2;
 
--- name: DeleteStalePodCloneClaims :execrows
-DELETE FROM pod_clone_claims
-WHERE claimed_at < $1;
+-- name: DeleteAllPodCloneClaims :execrows
+DELETE FROM pod_clone_claims;

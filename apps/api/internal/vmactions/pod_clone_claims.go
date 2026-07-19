@@ -3,12 +3,10 @@ package vmactions
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type PodCloneClaims struct {
@@ -49,10 +47,6 @@ func (c *PodCloneClaims) Release(ctx context.Context, podID uuid.UUID, userPrinc
 	})
 }
 
-func (c *PodCloneClaims) SweepStale(ctx context.Context, olderThan time.Duration) (int64, error) {
-	cutoff := pgtype.Timestamptz{
-		Time:  time.Now().Add(-olderThan).UTC(),
-		Valid: true,
-	}
-	return database.New(c.db).DeleteStalePodCloneClaims(ctx, cutoff)
+func (c *PodCloneClaims) ClearAll(ctx context.Context) (int64, error) {
+	return database.New(c.db).DeleteAllPodCloneClaims(ctx)
 }

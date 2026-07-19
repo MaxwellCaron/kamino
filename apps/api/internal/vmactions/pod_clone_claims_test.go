@@ -6,12 +6,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func TestPodCloneClaimsSecondClaimReportsConflict(t *testing.T) {
@@ -96,34 +94,36 @@ func TestPodCloneClaimsGroupAndMemberConflictBothWays(t *testing.T) {
 	}
 }
 
-func TestPodCloneClaimsSweepStaleDeletesOnlyOldRows(t *testing.T) {
+func TestPodCloneClaimsClearAllDeletesEveryRow(t *testing.T) {
 	db := newFakePodCloneClaimsDB()
 	claims := NewPodCloneClaims(db)
-	podID := uuid.New()
-	userID := uuid.New()
 	actorID := uuid.New()
-
-	if err := claims.Claim(context.Background(), podID, userID, "clone", actorID); err != nil {
-		t.Fatalf("claim: unexpected error: %v", err)
+	targets := []struct {
+		podID  uuid.UUID
+		userID uuid.UUID
+	}{
+		{podID: uuid.New(), userID: uuid.New()},
+		{podID: uuid.New(), userID: uuid.New()},
 	}
 
-	db.mu.Lock()
-	key := fakePodCloneClaimKey{podID: podID, userPrincipalID: userID}
-	row := db.claims[key]
-	row.claimedAt = time.Now().Add(-30 * time.Minute)
-	db.claims[key] = row
-	db.mu.Unlock()
+	for _, target := range targets {
+		if err := claims.Claim(context.Background(), target.podID, target.userID, "clone", actorID); err != nil {
+			t.Fatalf("claim: unexpected error: %v", err)
+		}
+	}
 
-	swept, err := claims.SweepStale(context.Background(), 15*time.Minute)
+	cleared, err := claims.ClearAll(context.Background())
 	if err != nil {
-		t.Fatalf("sweep stale: unexpected error: %v", err)
+		t.Fatalf("clear all: unexpected error: %v", err)
 	}
-	if swept != 1 {
-		t.Fatalf("sweep stale: expected 1 row deleted, got %d", swept)
+	if cleared != int64(len(targets)) {
+		t.Fatalf("clear all: cleared %d rows, want %d", cleared, len(targets))
 	}
 
-	if err := claims.Claim(context.Background(), podID, userID, "clone", actorID); err != nil {
-		t.Errorf("claim after sweep: expected success, got %v", err)
+	for _, target := range targets {
+		if err := claims.Claim(context.Background(), target.podID, target.userID, "delete", actorID); err != nil {
+			t.Errorf("claim after clear: unexpected error: %v", err)
+		}
 	}
 }
 
@@ -137,7 +137,6 @@ type fakePodCloneClaimRow struct {
 	userPrincipalID  uuid.UUID
 	action           string
 	actorPrincipalID uuid.UUID
-	claimedAt        time.Time
 }
 
 type fakePodCloneClaimsDB struct {
@@ -166,17 +165,11 @@ func (f *fakePodCloneClaimsDB) setEffectivePrincipals(principalID uuid.UUID, eff
 
 func (f *fakePodCloneClaimsDB) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	switch {
-	case strings.Contains(sql, "DELETE FROM pod_clone_claims") && strings.Contains(sql, "claimed_at <"):
-		cutoff := args[0].(pgtype.Timestamptz).Time
+	case strings.Contains(sql, "DELETE FROM pod_clone_claims") && len(args) == 0:
 		f.mu.Lock()
-		defer f.mu.Unlock()
-		var deleted int64
-		for key, row := range f.claims {
-			if row.claimedAt.Before(cutoff) {
-				delete(f.claims, key)
-				deleted++
-			}
-		}
+		deleted := int64(len(f.claims))
+		clear(f.claims)
+		f.mu.Unlock()
 		return pgconn.NewCommandTag("DELETE " + formatInt64(deleted)), nil
 	case strings.Contains(sql, "DELETE FROM pod_clone_claims"):
 		podID := args[0].(uuid.UUID)
@@ -214,7 +207,6 @@ func (f *fakePodCloneClaimsDB) QueryRow(_ context.Context, sql string, args ...a
 			userPrincipalID:  userPrincipalID,
 			action:           action,
 			actorPrincipalID: actorID,
-			claimedAt:        time.Now(),
 		}
 		f.claims[key] = row
 		return fakePodCloneClaimRowScanner{row: row}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/auth"
@@ -278,10 +277,11 @@ func main() {
 		log.Printf("Swept %d expired folder VM capacity reservation(s)", swept)
 	}
 
-	if swept, err := podCloneClaims.SweepStale(context.Background(), 15*time.Minute); err != nil {
-		log.Printf("Stale pod clone claim sweep failed: %v", err)
-	} else if swept > 0 {
-		log.Printf("Swept %d stale pod clone claim(s)", swept)
+	// Clear claims stranded by the previous process; Kamino currently supports one API replica.
+	if cleared, err := podCloneClaims.ClearAll(context.Background()); err != nil {
+		log.Printf("Stranded pod clone claim recovery failed: %v", err)
+	} else if cleared > 0 {
+		log.Printf("Recovered %d stranded pod clone claim(s)", cleared)
 	}
 
 	if swept, err := vmActionClaims.SweepStale(context.Background(), vmactions.VMActionClaimStaleAge); err != nil {

@@ -69,13 +69,12 @@ func (q *Queries) ClaimPodClone(ctx context.Context, arg ClaimPodCloneParams) (P
 	return i, err
 }
 
-const deleteStalePodCloneClaims = `-- name: DeleteStalePodCloneClaims :execrows
+const deleteAllPodCloneClaims = `-- name: DeleteAllPodCloneClaims :execrows
 DELETE FROM pod_clone_claims
-WHERE claimed_at < $1
 `
 
-func (q *Queries) DeleteStalePodCloneClaims(ctx context.Context, claimedAt pgtype.Timestamptz) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteStalePodCloneClaims, claimedAt)
+func (q *Queries) DeleteAllPodCloneClaims(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAllPodCloneClaims)
 	if err != nil {
 		return 0, err
 	}
