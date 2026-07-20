@@ -33,6 +33,62 @@ func TestClonedPodVNetName(t *testing.T) {
 	}
 }
 
+func TestConfigurePersonalPodNetworkAttachmentsSetsWANAndLANBridges(t *testing.T) {
+	var net0Payload string
+	var net1Payload string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api2/json/cluster/sdn/vnets":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, []proxmox.VNet{{VNet: "prsn4001"}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, map[string]any{
+				"scsi0": "local-lvm:vm-101-disk-0,size=10G",
+				"net0":  "virtio=AA:BB:CC:DD:EE:FF,bridge=sharedwan",
+				"net1":  "virtio=11:22:33:44:55:66,bridge=pod1",
+			})
+		case r.Method == http.MethodPut && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse form: %v", err)
+			}
+			if value := r.PostForm.Get("net0"); value != "" {
+				net0Payload = value
+			}
+			if value := r.PostForm.Get("net1"); value != "" {
+				net1Payload = value
+			}
+			writeProxmoxAPIResponse(t, w, http.StatusOK, nil)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	handler := &PodsHandler{PX: proxmox.NewHTTPTestClient(server)}
+	reqErr := handler.configurePersonalPodNetworkAttachments(
+		context.Background(),
+		"personalwan",
+		"prsn4001",
+		[]podNetworkVMTarget{{
+			name:   "router",
+			router: true,
+			clone: clonedVM{
+				TargetNode: "node1",
+				VMID:       101,
+			},
+		}},
+	)
+	if reqErr != nil {
+		t.Fatalf("configurePersonalPodNetworkAttachments() error = %v", reqErr)
+	}
+	if !strings.Contains(net0Payload, "bridge=personalwan") {
+		t.Fatalf("net0 payload = %q, want personal WAN bridge", net0Payload)
+	}
+	if !strings.Contains(net1Payload, "bridge=prsn4001") {
+		t.Fatalf("net1 payload = %q, want personal LAN VNet", net1Payload)
+	}
+}
+
 func TestClonedPodNetworkMetadata(t *testing.T) {
 	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
 		VNetPrefix:    "pod",

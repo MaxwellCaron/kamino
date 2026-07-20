@@ -87,6 +87,25 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "enabled personal pods require a WAN bridge",
+			config: func() Config {
+				cfg := baseConfig()
+				cfg.PersonalPodsEnabled = true
+				cfg.PersonalPodWANBridge = "   "
+				return cfg
+			}(),
+			wantErr: "PERSONAL_POD_WAN_BRIDGE must not be empty when PERSONAL_PODS_ENABLED is true",
+		},
+		{
+			name: "enabled personal pods accept a WAN bridge",
+			config: func() Config {
+				cfg := baseConfig()
+				cfg.PersonalPodsEnabled = true
+				cfg.PersonalPodWANBridge = "  personalwan  "
+				return cfg
+			}(),
+		},
+		{
 			name: "overlapping personal and LAN VLAN ranges rejected",
 			config: func() Config {
 				cfg := baseConfig()

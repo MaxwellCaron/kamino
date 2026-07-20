@@ -358,7 +358,12 @@ func (h *PodsHandler) provisionPersonalPod(
 		h.cleanupFailedPodProvision(folderID, created)
 		return database.PersonalPods{}, reqErr
 	}
-	if reqErr := h.configurePodVNetBridges(ctx, vnetName, targets); reqErr != nil {
+	if reqErr := h.configurePersonalPodNetworkAttachments(
+		ctx,
+		h.RouterCloneConfig.PersonalWANBridge,
+		vnetName,
+		targets,
+	); reqErr != nil {
 		recordFailure(reqErr)
 		h.cleanupFailedPodProvision(folderID, created)
 		return database.PersonalPods{}, reqErr

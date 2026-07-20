@@ -69,6 +69,10 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if personalPrefix == "" {
 		personalPrefix = vnetPrefix
 	}
+	personalWANBridge := strings.TrimSpace(config.PersonalPodWANBridge)
+	if config.PersonalPodsEnabled && personalWANBridge == "" {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_WAN_BRIDGE must not be empty when PERSONAL_PODS_ENABLED is true")
+	}
 	personalWANBase := strings.TrimSpace(config.PersonalPodWANIPBase)
 	if personalWANBase == "" {
 		personalWANBase = config.PodRouterWANIPBase
@@ -228,12 +232,13 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		PersonalVLANBase:                 config.PersonalPodVLANBase,
 		PersonalNetworkMin:               config.PersonalPodNetworkMin,
 		PersonalNetworkMax:               config.PersonalPodNetworkMax,
+		PersonalWANBridge:                personalWANBridge,
 		PersonalWANIPBase:                personalWANBase,
 		PersonalCloudInitUserFilePattern: personalCloudInitUserFilePattern,
 	}
 
 	log.Printf(
-		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d personal_range=%d-%d personal_prefix=%q personal_vlan_base=%d wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
+		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d personal_range=%d-%d personal_prefix=%q personal_vlan_base=%d personal_wan_bridge=%q wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
 		routerConfig.VNetPrefix,
 		routerConfig.NetworkMin,
 		routerConfig.NetworkMax,
@@ -243,6 +248,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		routerConfig.PersonalNetworkMax,
 		routerConfig.PersonalVNetPrefix,
 		routerConfig.PersonalVLANBase,
+		routerConfig.PersonalWANBridge,
 		routerConfig.RouterWaitTimeout,
 		routerConfig.CloudInitStorage,
 		routerConfig.InternalSubnet,

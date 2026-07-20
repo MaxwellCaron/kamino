@@ -180,6 +180,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PERSONAL_POD_VLAN_BASE` | no | `4000` | VLAN tag offset for personal pod VNets (`tag = base + N`) |
 | `PERSONAL_POD_NETWORK_MIN` | no | `1` | First personal pod network number |
 | `PERSONAL_POD_NETWORK_MAX` | no | `94` | Last personal pod network number; base `4000` derives the highest valid VLAN tag, `4094` |
+| `PERSONAL_POD_WAN_BRIDGE` | when personal pods enabled | — | Proxmox bridge or SDN VNet attached to personal router `net0` |
 | `PERSONAL_POD_WAN_IP_BASE` | no | `172.25.` | External NAT subnet prefix for personal pods |
 | `PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-personal-router-{network}-user-data.yaml` | Personal router user-data snippet filename pattern |
 | `POD_PUBLISH_VMID_MIN` | no | `1000` | First VMID available for publish/template-preparation clones (inclusive) |
@@ -304,6 +305,7 @@ Pod cloning requires the following to be configured and healthy:
 | VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_LAN_VLAN_BASE` | Each `{prefix}{LAN_VLAN_BASE + N}` VNet must be present with tag `POD_LAN_VLAN_BASE + N` |
 | DMZ VNets exist for DMZ profile pods | `POD_DMZ_VNET_PREFIX` + `POD_DMZ_VLAN_BASE` | Each `dmz{DMZ_VLAN_BASE + N}` VNet must exist with tag `POD_DMZ_VLAN_BASE + N` |
 | Personal VNets exist for all personal network numbers | `PERSONAL_POD_VNET_PREFIX` + `PERSONAL_POD_VLAN_BASE` | With the defaults, create `pod4001` through `pod4094` with matching VLAN tags; network `N` still maps to `172.25.N.0/24` and snippet `{network}=N` |
+| Personal WAN bridge exists | `PERSONAL_POD_WAN_BRIDGE` | Must name the bridge or SDN VNet in the personal `172.25.0.0/16` zone; Kamino assigns it to cloned router `net0` |
 | Router template has three NICs for DMZ profile | `POD_ROUTER_TEMPLATE_ITEM_ID` | `net0` WAN, `net1` LAN, `net2` DMZ |
 | LAN + DMZ router cloud-init snippets exist | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_*` | `kamino-router-lan-dmz-{network}-user-data.yaml` per network |
 | WAN IP prefix is a valid dotted numeric value | `POD_ROUTER_WAN_IP_BASE` | Each segment must be 0-255 |

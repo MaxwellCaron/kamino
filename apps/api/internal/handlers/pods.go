@@ -46,6 +46,7 @@ type PodRouterCloneConfig struct {
 	PersonalVLANBase                 int
 	PersonalNetworkMin               int32
 	PersonalNetworkMax               int32
+	PersonalWANBridge                string
 	PersonalWANIPBase                string
 	PersonalCloudInitUserFilePattern string
 }

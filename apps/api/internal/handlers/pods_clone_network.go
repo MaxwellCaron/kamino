@@ -159,8 +159,9 @@ func (h *PodsHandler) waitForClonedVMsReady(
 	return h.waitForPodVMTargetsReady(ctx, podNetworkTargetsFromCloneResults(results))
 }
 
-func (h *PodsHandler) configurePodVNetBridges(
+func (h *PodsHandler) configurePersonalPodNetworkAttachments(
 	ctx context.Context,
+	wanBridge string,
 	vnetName string,
 	targets []podNetworkVMTarget,
 ) *requestError {
@@ -175,6 +176,15 @@ func (h *PodsHandler) configurePodVNetBridges(
 
 	if reqErr := h.removeRouterNetworkDeviceIfPresent(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); reqErr != nil {
 		return reqErr
+	}
+
+	if err := h.PX.SetVMNetworkBridge(ctx, router.clone.TargetNode, router.clone.VMID, "net0", wanBridge); err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to configure personal router WAN network",
+			Operation:   "set personal router net0 bridge",
+			Err:         err,
+		}
 	}
 
 	if err := h.PX.SetVMNetworkBridge(ctx, router.clone.TargetNode, router.clone.VMID, "net1", vnetName); err != nil {

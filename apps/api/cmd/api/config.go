@@ -74,6 +74,7 @@ type Config struct {
 	PersonalPodVLANBase                 int    `envconfig:"PERSONAL_POD_VLAN_BASE" default:"4000"`
 	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"1"`
 	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"94"`
+	PersonalPodWANBridge                string `envconfig:"PERSONAL_POD_WAN_BRIDGE"`
 	PersonalPodWANIPBase                string `envconfig:"PERSONAL_POD_WAN_IP_BASE" default:"172.25."`
 	PersonalPodCloudInitUserFilePattern string `envconfig:"PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-personal-router-{network}-user-data.yaml"`
 
