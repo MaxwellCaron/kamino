@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -66,13 +67,15 @@ type Config struct {
 	PodRouterLANDMZCloudInitUserPattern string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-lan-dmz-{network}-user-data.yaml"`
 	PodRouterLANDMZCloudInitNetworkFile string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-lan-dmz-network-config.yaml"`
 
-	// --- Personal pods (optional; PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID gates the feature) ---
+	// --- Personal pods (optional; defaults to the pod router template) ---
+	PersonalPodsEnabled                 bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
 	PersonalPodRouterTemplateItemID     string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
 	PersonalPodVNetPrefix               string `envconfig:"PERSONAL_POD_VNET_PREFIX" default:"pod"`
-	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"200"`
-	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"254"`
-	PersonalPodWANIPBase                string `envconfig:"PERSONAL_POD_WAN_IP_BASE" default:"172.16."`
-	PersonalPodCloudInitUserFilePattern string `envconfig:"PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
+	PersonalPodVLANBase                 int    `envconfig:"PERSONAL_POD_VLAN_BASE" default:"4000"`
+	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"1"`
+	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"94"`
+	PersonalPodWANIPBase                string `envconfig:"PERSONAL_POD_WAN_IP_BASE" default:"172.25."`
+	PersonalPodCloudInitUserFilePattern string `envconfig:"PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-personal-router-{network}-user-data.yaml"`
 
 	// --- VMID allocation ranges (optional defaults shown) ---
 	PodPublishVMIDMin  int `envconfig:"POD_PUBLISH_VMID_MIN" default:"1000"`
@@ -115,4 +118,21 @@ func parseOptionalUUID(value string) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+func resolvePersonalPodRouterTemplateItemID(enabled bool, value string, podRouterTemplateItemID uuid.UUID) (uuid.UUID, error) {
+	templateItemID := podRouterTemplateItemID
+	if strings.TrimSpace(value) != "" {
+		var err error
+		templateItemID, err = parseOptionalUUID(value)
+		if err != nil {
+			return uuid.Nil, err
+		}
+	}
+
+	if enabled && templateItemID == uuid.Nil {
+		return uuid.Nil, errors.New("PERSONAL_PODS_ENABLED requires POD_ROUTER_TEMPLATE_ITEM_ID or PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID")
+	}
+
+	return templateItemID, nil
 }

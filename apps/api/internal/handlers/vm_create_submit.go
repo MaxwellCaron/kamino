@@ -88,7 +88,7 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 			c.Request.Context(),
 			h.DB,
 			h.PersonalPodVNetPrefix,
-			h.PodLANVLANBase,
+			h.PersonalPodVLANBase,
 			targetFolderID,
 		)
 		if err != nil {

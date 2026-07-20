@@ -47,12 +47,13 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	) {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN..POD_CLONE_NETWORK_MAX must not overlap POD_DEV_NETWORK_MIN..POD_DEV_NETWORK_MAX")
 	}
+	minNetworkNumber := config.PodCloneNetworkMin
+	if config.PodDevNetworkMin < minNetworkNumber {
+		minNetworkNumber = config.PodDevNetworkMin
+	}
 	maxNetworkNumber := config.PodCloneNetworkMax
 	if config.PodDevNetworkMax > maxNetworkNumber {
 		maxNetworkNumber = config.PodDevNetworkMax
-	}
-	if config.PersonalPodNetworkMax > maxNetworkNumber {
-		maxNetworkNumber = config.PersonalPodNetworkMax
 	}
 	if config.PersonalPodNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN must be at least 1")
@@ -128,21 +129,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, err
 	}
-	if personalPrefix == vnetPrefix &&
-		(rangesOverlap(
-			config.PersonalPodNetworkMin,
-			config.PersonalPodNetworkMax,
-			config.PodCloneNetworkMin,
-			config.PodCloneNetworkMax,
-		) ||
-			rangesOverlap(
-				config.PersonalPodNetworkMin,
-				config.PersonalPodNetworkMax,
-				config.PodDevNetworkMin,
-				config.PodDevNetworkMax,
-			)) {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN..PERSONAL_POD_NETWORK_MAX must not overlap pod ranges when PERSONAL_POD_VNET_PREFIX matches POD_CLONE_VNET_PREFIX")
-	}
 	if personalCloudInitUserFilePattern == cloudInitUserFilePattern &&
 		(rangesOverlap(
 			config.PersonalPodNetworkMin,
@@ -169,6 +155,9 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if config.PodLANVLANBase < 0 || config.PodLANVLANBase > 4094 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_LAN_VLAN_BASE must be within 0..4094")
 	}
+	if config.PersonalPodVLANBase < 0 || config.PersonalPodVLANBase > 4094 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_VLAN_BASE must be within 0..4094")
+	}
 	lanDMZCloudInitUserFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
 		"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN",
 		config.PodRouterLANDMZCloudInitUserPattern,
@@ -184,24 +173,38 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		return handlers.PodRouterCloneConfig{}, err
 	}
 
-	lanMinTag := config.PodLANVLANBase + 1
+	lanMinTag := config.PodLANVLANBase + int(minNetworkNumber)
 	lanMaxTag := config.PodLANVLANBase + int(maxNetworkNumber)
-	dmzMinTag := config.PodDMZVLANBase + 1
+	dmzMinTag := config.PodDMZVLANBase + int(minNetworkNumber)
 	dmzMaxTag := config.PodDMZVLANBase + int(maxNetworkNumber)
+	personalMinTag := config.PersonalPodVLANBase + int(config.PersonalPodNetworkMin)
+	personalMaxTag := config.PersonalPodVLANBase + int(config.PersonalPodNetworkMax)
 	if lanMinTag < 1 || lanMaxTag > 4094 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived LAN VLAN tags must be within 1..4094")
 	}
 	if dmzMinTag < 1 || dmzMaxTag > 4094 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived DMZ VLAN tags must be within 1..4094")
 	}
+	if personalMinTag < 1 || personalMaxTag > 4094 {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived personal pod VLAN tags must be within 1..4094")
+	}
 	if rangesOverlap(int32(lanMinTag), int32(lanMaxTag), int32(dmzMinTag), int32(dmzMaxTag)) {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("LAN and DMZ VLAN tag ranges must not overlap")
+	}
+	if rangesOverlap(int32(personalMinTag), int32(personalMaxTag), int32(lanMinTag), int32(lanMaxTag)) {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("personal pod and LAN VLAN tag ranges must not overlap")
+	}
+	if rangesOverlap(int32(personalMinTag), int32(personalMaxTag), int32(dmzMinTag), int32(dmzMaxTag)) {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("personal pod and DMZ VLAN tag ranges must not overlap")
 	}
 	if len(fmt.Sprintf("%s%d", vnetPrefix, config.PodLANVLANBase+int(maxNetworkNumber))) > proxmoxVNetIDMaxLength {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived LAN VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
 	}
 	if len(fmt.Sprintf("%s%d", dmzVNetPrefix, config.PodDMZVLANBase+int(maxNetworkNumber))) > proxmoxVNetIDMaxLength {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived DMZ VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
+	}
+	if len(fmt.Sprintf("%s%d", personalPrefix, personalMaxTag)) > proxmoxVNetIDMaxLength {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived personal pod VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
 	}
 
 	routerConfig := handlers.PodRouterCloneConfig{
@@ -222,6 +225,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		LANDMZCloudInitUserFilePattern:   lanDMZCloudInitUserFilePattern,
 		LANDMZCloudInitNetworkFile:       lanDMZCloudInitNetworkFile,
 		PersonalVNetPrefix:               personalPrefix,
+		PersonalVLANBase:                 config.PersonalPodVLANBase,
 		PersonalNetworkMin:               config.PersonalPodNetworkMin,
 		PersonalNetworkMax:               config.PersonalPodNetworkMax,
 		PersonalWANIPBase:                personalWANBase,
@@ -229,7 +233,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	}
 
 	log.Printf(
-		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d personal_range=%d-%d personal_prefix=%q wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
+		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d personal_range=%d-%d personal_prefix=%q personal_vlan_base=%d wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
 		routerConfig.VNetPrefix,
 		routerConfig.NetworkMin,
 		routerConfig.NetworkMax,
@@ -238,6 +242,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		routerConfig.PersonalNetworkMin,
 		routerConfig.PersonalNetworkMax,
 		routerConfig.PersonalVNetPrefix,
+		routerConfig.PersonalVLANBase,
 		routerConfig.RouterWaitTimeout,
 		routerConfig.CloudInitStorage,
 		routerConfig.InternalSubnet,

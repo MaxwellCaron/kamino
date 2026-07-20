@@ -182,7 +182,7 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 				c.Request.Context(),
 				h.DB,
 				h.PersonalPodVNetPrefix,
-				h.PodLANVLANBase,
+				h.PersonalPodVLANBase,
 				scopeItemID,
 			)
 			if err != nil {

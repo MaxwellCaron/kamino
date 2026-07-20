@@ -43,6 +43,7 @@ type PodRouterCloneConfig struct {
 	LANDMZCloudInitUserFilePattern   string
 	LANDMZCloudInitNetworkFile       string
 	PersonalVNetPrefix               string
+	PersonalVLANBase                 int
 	PersonalNetworkMin               int32
 	PersonalNetworkMax               int32
 	PersonalWANIPBase                string
@@ -58,6 +59,7 @@ type PodsHandler struct {
 	Notifier                        *vmstatus.Notifier
 	Actions                         *vmactions.Executor
 	RouterTemplateItemID            uuid.UUID
+	PersonalPodsFeatureEnabled      bool
 	PersonalPodRouterTemplateItemID uuid.UUID
 	RouterCloneConfig               PodRouterCloneConfig
 	NetworkCatalog                  *podnetwork.Catalog

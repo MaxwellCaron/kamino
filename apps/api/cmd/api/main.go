@@ -183,7 +183,7 @@ func main() {
 		Claims:                vmActionClaims,
 		Audit:                 auditService,
 		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
-		PodLANVLANBase:        routerCloneConfig.LANVLANBase,
+		PersonalPodVLANBase:   routerCloneConfig.PersonalVLANBase,
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
 	vmHandler.Allocator = vmidAllocator
@@ -196,15 +196,19 @@ func main() {
 		Audit:                 auditService,
 		Allocator:             vmidAllocator,
 		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
-		PodLANVLANBase:        routerCloneConfig.LANVLANBase,
+		PersonalPodVLANBase:   routerCloneConfig.PersonalVLANBase,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {
 		log.Fatalf("Invalid POD_ROUTER_TEMPLATE_ITEM_ID: %v", err)
 	}
-	personalPodRouterTemplateItemID, err := parseOptionalUUID(server.Config.PersonalPodRouterTemplateItemID)
+	personalPodRouterTemplateItemID, err := resolvePersonalPodRouterTemplateItemID(
+		server.Config.PersonalPodsEnabled,
+		server.Config.PersonalPodRouterTemplateItemID,
+		routerTemplateItemID,
+	)
 	if err != nil {
-		log.Fatalf("Invalid PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID: %v", err)
+		log.Fatalf("Invalid personal pod configuration: %v", err)
 	}
 	templatesFolderItemID, err := parseOptionalUUID(server.Config.TemplatesFolderItemID)
 	if err != nil {
@@ -227,6 +231,7 @@ func main() {
 		Notifier:                        vmStatusNotifier,
 		Actions:                         vmActionExecutor,
 		RouterTemplateItemID:            routerTemplateItemID,
+		PersonalPodsFeatureEnabled:      server.Config.PersonalPodsEnabled,
 		PersonalPodRouterTemplateItemID: personalPodRouterTemplateItemID,
 		RouterCloneConfig:               routerCloneConfig,
 		NetworkCatalog:                  networkCatalog,

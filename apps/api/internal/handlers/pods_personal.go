@@ -41,10 +41,10 @@ type personalPodCreateResponse struct {
 }
 
 func (h *PodsHandler) personalPodVNetName(networkNumber int32) string {
-	return fmt.Sprintf(
-		"%s%d",
-		strings.TrimSpace(h.RouterCloneConfig.PersonalVNetPrefix),
-		h.RouterCloneConfig.LANVLANBase+int(networkNumber),
+	return personalPodScopedVNet(
+		h.RouterCloneConfig.PersonalVNetPrefix,
+		h.RouterCloneConfig.PersonalVLANBase,
+		networkNumber,
 	)
 }
 
@@ -102,7 +102,7 @@ func (h *PodsHandler) provisionPersonalPod(
 	ctx context.Context,
 	userPrincipalID uuid.UUID,
 ) (database.PersonalPods, *requestError) {
-	if h.PersonalPodRouterTemplateItemID == uuid.Nil {
+	if !h.PersonalPodsFeatureEnabled {
 		return database.PersonalPods{}, &requestError{
 			Status:      http.StatusConflict,
 			UserMessage: "personal pods are not configured",
@@ -449,7 +449,7 @@ func (h *PodsHandler) GetPersonalPod(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, personalPodStatusResponse{
-		Configured:       h.PersonalPodRouterTemplateItemID != uuid.Nil,
+		Configured:       h.PersonalPodsFeatureEnabled,
 		CanCreate:        canCreate,
 		PersonalPod:      personalPod,
 		PendingRequestID: pendingRequestID,
@@ -478,7 +478,7 @@ func (h *PodsHandler) CreatePersonalPod(c *gin.Context) {
 }
 
 func (h *PodsHandler) PersonalPodsEnabled() bool {
-	return h.PersonalPodRouterTemplateItemID != uuid.Nil
+	return h.PersonalPodsFeatureEnabled
 }
 
 func (h *PodsHandler) ProvisionPersonalPod(ctx context.Context, userPrincipalID uuid.UUID) error {

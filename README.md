@@ -161,15 +161,27 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
 | `POD_LAN_VLAN_BASE` | no | `0` | VLAN tag offset for `{prefix}<N>` LAN VNets (`tag = base + N`) |
 | `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
-| `POD_CLONE_NETWORK_MAX` | no | `244` | Last published-clone network number |
-| `POD_DEV_NETWORK_MIN` | no | `245` | First create-pod developer network number |
-| `POD_DEV_NETWORK_MAX` | no | `254` | Last create-pod developer network number |
+| `POD_CLONE_NETWORK_MAX` | no | `174` | Last published-clone network number |
+| `POD_DEV_NETWORK_MIN` | no | `175` | First create-pod developer network number |
+| `POD_DEV_NETWORK_MAX` | no | `199` | Last create-pod developer network number |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
 | `POD_ROUTER_INTERNAL_SUBNET` | no | `192.168.1.0/24` | Fixed internal LAN every pod router uses; must match the `INTERNAL_SUBNET` used to generate router snippets (see below) |
 | `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
 | `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
+| `POD_DMZ_VNET_PREFIX` | no | `dmz` | Prefix for pre-created DMZ VNets |
+| `POD_DMZ_VLAN_BASE` | no | `1000` | VLAN tag offset for DMZ VNets (`tag = base + N`) |
+| `POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-lan-dmz-{network}-user-data.yaml` | LAN + DMZ router user-data snippet filename pattern |
+| `POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-lan-dmz-network-config.yaml` | Shared three-NIC network-config snippet filename |
+| `PERSONAL_PODS_ENABLED` | no | `false` | Enables personal pod status, requests, and provisioning; when enabled, a standard or personal router template must be configured |
+| `PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID` | no | `POD_ROUTER_TEMPLATE_ITEM_ID` | Optional router template override for personal pods |
+| `PERSONAL_POD_VNET_PREFIX` | no | `pod` | Prefix for pre-created personal pod VNets |
+| `PERSONAL_POD_VLAN_BASE` | no | `4000` | VLAN tag offset for personal pod VNets (`tag = base + N`) |
+| `PERSONAL_POD_NETWORK_MIN` | no | `1` | First personal pod network number |
+| `PERSONAL_POD_NETWORK_MAX` | no | `94` | Last personal pod network number; base `4000` derives the highest valid VLAN tag, `4094` |
+| `PERSONAL_POD_WAN_IP_BASE` | no | `172.25.` | External NAT subnet prefix for personal pods |
+| `PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-personal-router-{network}-user-data.yaml` | Personal router user-data snippet filename pattern |
 | `POD_PUBLISH_VMID_MIN` | no | `1000` | First VMID available for publish/template-preparation clones (inclusive) |
 | `POD_PUBLISH_VMID_MAX` | no | `1999` | Last VMID available for publish/template-preparation clones (inclusive) |
 | `POD_CLONE_VMID_MIN` | no | `2000` | First VMID available for catalog clone/reclone operations (inclusive) |
@@ -291,6 +303,7 @@ Pod cloning requires the following to be configured and healthy:
 | Cloud-init snippets exist on Proxmox storage | `POD_ROUTER_CLOUD_INIT_*` | Filenames must pass validation (no path separators, no `..`) |
 | VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_LAN_VLAN_BASE` | Each `{prefix}{LAN_VLAN_BASE + N}` VNet must be present with tag `POD_LAN_VLAN_BASE + N` |
 | DMZ VNets exist for DMZ profile pods | `POD_DMZ_VNET_PREFIX` + `POD_DMZ_VLAN_BASE` | Each `dmz{DMZ_VLAN_BASE + N}` VNet must exist with tag `POD_DMZ_VLAN_BASE + N` |
+| Personal VNets exist for all personal network numbers | `PERSONAL_POD_VNET_PREFIX` + `PERSONAL_POD_VLAN_BASE` | With the defaults, create `pod4001` through `pod4094` with matching VLAN tags; network `N` still maps to `172.25.N.0/24` and snippet `{network}=N` |
 | Router template has three NICs for DMZ profile | `POD_ROUTER_TEMPLATE_ITEM_ID` | `net0` WAN, `net1` LAN, `net2` DMZ |
 | LAN + DMZ router cloud-init snippets exist | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_*` | `kamino-router-lan-dmz-{network}-user-data.yaml` per network |
 | WAN IP prefix is a valid dotted numeric value | `POD_ROUTER_WAN_IP_BASE` | Each segment must be 0-255 |

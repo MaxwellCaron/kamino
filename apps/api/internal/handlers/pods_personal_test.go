@@ -6,7 +6,21 @@ import (
 	"testing"
 
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/google/uuid"
 )
+
+func TestPersonalPodsEnabledUsesFeatureFlag(t *testing.T) {
+	handler := &PodsHandler{PersonalPodRouterTemplateItemID: uuid.New()}
+	if handler.PersonalPodsEnabled() {
+		t.Fatal("personal pods should remain disabled when only a router template is configured")
+	}
+
+	handler.PersonalPodsFeatureEnabled = true
+	handler.PersonalPodRouterTemplateItemID = uuid.Nil
+	if !handler.PersonalPodsEnabled() {
+		t.Fatal("personal pods should be enabled by the feature flag")
+	}
+}
 
 func TestPersonalPodFolderName(t *testing.T) {
 	longName := strings.Repeat("a", 80)
@@ -51,15 +65,16 @@ func TestPersonalPodVNetName(t *testing.T) {
 	handler := &PodsHandler{
 		RouterCloneConfig: PodRouterCloneConfig{
 			PersonalVNetPrefix: "pod",
+			PersonalVLANBase:   4000,
 		},
 	}
-	if got := handler.personalPodVNetName(200); got != "pod200" {
-		t.Fatalf("personalPodVNetName() = %q, want %q", got, "pod200")
+	if got := handler.personalPodVNetName(1); got != "pod4001" {
+		t.Fatalf("personalPodVNetName() = %q, want %q", got, "pod4001")
 	}
 
 	handler.RouterCloneConfig.PersonalVNetPrefix = "  lab- "
-	if got := handler.personalPodVNetName(200); got != "lab-200" {
-		t.Fatalf("personalPodVNetName() = %q, want %q", got, "lab-200")
+	if got := handler.personalPodVNetName(1); got != "lab-4001" {
+		t.Fatalf("personalPodVNetName() = %q, want %q", got, "lab-4001")
 	}
 }
 
@@ -67,19 +82,20 @@ func TestPersonalPodNetworkMetadata(t *testing.T) {
 	handler := &PodsHandler{
 		RouterCloneConfig: PodRouterCloneConfig{
 			PersonalVNetPrefix: "pod",
-			PersonalWANIPBase:  "172.16.",
+			PersonalVLANBase:   4000,
+			PersonalWANIPBase:  "172.25.",
 			InternalSubnet:     netip.MustParsePrefix("192.168.1.0/24"),
 		},
 	}
 
-	got, err := handler.personalPodNetworkMetadata(200)
+	got, err := handler.personalPodNetworkMetadata(1)
 	if err != nil {
 		t.Fatalf("personalPodNetworkMetadata() error = %v", err)
 	}
-	if got.Number != 200 || got.VNet != "pod200" {
+	if got.Number != 1 || got.VNet != "pod4001" {
 		t.Fatalf("network metadata = %#v", got)
 	}
-	if got.ExternalSubnet != "172.16.200.0/24" || got.ExternalGateway != "172.16.200.1" {
+	if got.ExternalSubnet != "172.25.1.0/24" || got.ExternalGateway != "172.25.1.1" {
 		t.Fatalf("external metadata = %#v", got)
 	}
 	if got.InternalSubnet != "192.168.1.0/24" || got.InternalGateway != "192.168.1.1" {

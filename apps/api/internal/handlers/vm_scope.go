@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func personalPodScopedVNet(prefix string, vlanBase int, n int32) string {
-	return fmt.Sprintf("%s%d", strings.TrimSpace(prefix), vlanBase+int(n))
+func personalPodScopedVNet(prefix string, personalVLANBase int, n int32) string {
+	return fmt.Sprintf("%s%d", strings.TrimSpace(prefix), personalVLANBase+int(n))
 }
 
 // personalPodNetworkScope reports whether itemID sits inside a personal pod
@@ -21,7 +21,7 @@ func personalPodNetworkScope(
 	ctx context.Context,
 	db *pgxpool.Pool,
 	personalVNetPrefix string,
-	vlanBase int,
+	personalVLANBase int,
 	itemID uuid.UUID,
 ) (vnetName string, scoped bool, err error) {
 	pod, err := database.New(db).GetPersonalPodForInventoryItem(ctx, itemID)
@@ -32,5 +32,5 @@ func personalPodNetworkScope(
 		return "", false, err
 	}
 
-	return personalPodScopedVNet(personalVNetPrefix, vlanBase, pod.NetworkNumber), true, nil
+	return personalPodScopedVNet(personalVNetPrefix, personalVLANBase, pod.NetworkNumber), true, nil
 }

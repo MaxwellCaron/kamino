@@ -158,7 +158,7 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 			c.Request.Context(),
 			h.DB,
 			h.PersonalPodVNetPrefix,
-			h.PodLANVLANBase,
+			h.PersonalPodVLANBase,
 			itemID,
 		)
 		if err != nil {

@@ -69,7 +69,7 @@ type VMHandler struct {
 	Audit                 *audit.Service
 	Allocator             *vmidalloc.Allocator
 	PersonalPodVNetPrefix string
-	PodLANVLANBase        int
+	PersonalPodVLANBase   int
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a
