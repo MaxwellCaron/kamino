@@ -54,8 +54,10 @@ export type ApiVmNetworkSummary = {
   bridge: string
 }
 
-export type ApiVmNetworksResponse = {
+export type ApiVmOverviewResponse = {
   networks: Array<ApiVmNetworkSummary>
+  display?: string
+  resources?: VmResources
 }
 
 export type ApiSnapshot = {

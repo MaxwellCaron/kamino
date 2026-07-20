@@ -99,16 +99,13 @@ func (f *fakeVMAuthz) IsManager(ctx context.Context, principalID uuid.UUID) (boo
 
 var _ vmAuthz = (*fakeVMAuthz)(nil)
 
-// fakeVMProxmox is a minimal, configurable vmProxmox implementation used to
-// characterize the identity-verification branches of the VM mutation
-// handlers without a live Proxmox client. Only GetVMIdentity is exercised by
-// the permission/error-branch characterization tests in this file; every
-// other method is implemented to satisfy the interface and panics if called,
-// so a test that unexpectedly reaches Proxmox wire calls fails loudly rather
-// than silently returning a zero value.
+// fakeVMProxmox is a minimal, configurable vmProxmox implementation. Methods
+// without a configured function panic so unexpected Proxmox calls fail loudly.
 type fakeVMProxmox struct {
-	identity    *proxmox.VMIdentity
-	identityErr error
+	identity            *proxmox.VMIdentity
+	identityErr         error
+	hardwareConfigFn    func(context.Context, string, int) (*proxmox.VMHardwareConfig, error)
+	lxcNetworksConfigFn func(context.Context, string, int) ([]proxmox.VMHardwareNetwork, error)
 }
 
 func (f *fakeVMProxmox) GetVMIdentity(ctx context.Context, gt proxmox.GuestType, node string, vmid int) (*proxmox.VMIdentity, error) {
@@ -128,11 +125,17 @@ func (f *fakeVMProxmox) UpdateVMNotes(ctx context.Context, gt proxmox.GuestType,
 }
 
 func (f *fakeVMProxmox) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error) {
-	panic("fakeVMProxmox: GetVMHardwareConfig not configured for this test")
+	if f.hardwareConfigFn == nil {
+		panic("fakeVMProxmox: GetVMHardwareConfig not configured for this test")
+	}
+	return f.hardwareConfigFn(ctx, node, vmid)
 }
 
 func (f *fakeVMProxmox) GetLXCNetworks(ctx context.Context, node string, vmid int) ([]proxmox.VMHardwareNetwork, error) {
-	panic("fakeVMProxmox: GetLXCNetworks not configured for this test")
+	if f.lxcNetworksConfigFn == nil {
+		panic("fakeVMProxmox: GetLXCNetworks not configured for this test")
+	}
+	return f.lxcNetworksConfigFn(ctx, node, vmid)
 }
 
 func (f *fakeVMProxmox) UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error {

@@ -8,6 +8,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,9 +47,15 @@ type vmNetworkSummaryResponse struct {
 	Bridge string `json:"bridge"`
 }
 
-// GetNetworking returns the current network interface summary for a VM.
-// GET /api/v1/inventory/items/:id/vm/networking
-func (h *VMHandler) GetNetworking(c *gin.Context) {
+type vmOverviewResponse struct {
+	Networks  []vmNetworkSummaryResponse `json:"networks"`
+	Display   string                     `json:"display,omitempty"`
+	Resources *vmstatus.VMResources      `json:"resources,omitempty"`
+}
+
+// GetOverview returns the Proxmox-backed data needed to render the VM dashboard.
+// GET /api/v1/inventory/items/:id/vm/overview
+func (h *VMHandler) GetOverview(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
 		writeUnauthorized(c)
@@ -65,23 +72,35 @@ func (h *VMHandler) GetNetworking(c *gin.Context) {
 		return
 	}
 
-	var networks []proxmox.VMHardwareNetwork
+	response := vmOverviewResponse{
+		Networks: make([]vmNetworkSummaryResponse, 0),
+	}
+
 	var err error
 	if target.GuestType == proxmox.GuestLXC {
+		var networks []proxmox.VMHardwareNetwork
 		networks, err = h.PX.GetLXCNetworks(c.Request.Context(), target.Node, target.VMID)
+		response.Networks = summarizeVMHardwareNetworks(networks)
 	} else {
 		var config *proxmox.VMHardwareConfig
 		config, err = h.PX.GetVMHardwareConfig(c.Request.Context(), target.Node, target.VMID)
 		if err == nil {
-			networks = config.Networks
+			response.Networks = summarizeVMHardwareNetworks(config.Networks)
+			response.Display = config.Display
 		}
 	}
 	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM networks", "fetch vm network config", err)
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VM overview", "fetch vm overview config", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"networks": summarizeVMHardwareNetworks(networks)})
+	if h.Notifier != nil {
+		if resources, ok := h.Notifier.Resources(target.VMID); ok {
+			response.Resources = &resources
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func summarizeVMHardwareNetworks(networks []proxmox.VMHardwareNetwork) []vmNetworkSummaryResponse {

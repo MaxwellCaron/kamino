@@ -3,7 +3,7 @@ import type {
   ApiSnapshot,
   ApiVmHardwareConfig,
   ApiVmHardwareUpdate,
-  ApiVmNetworksResponse,
+  ApiVmOverviewResponse,
   CreateVMParams,
   VmResources,
 } from "../types/vm-types"
@@ -12,7 +12,10 @@ import type { ApiRequestDetail } from "@/features/requests/types/request-types"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 async function fetchVmStatuses(): Promise<Record<number, string>> {
-  return apiJson<Record<number, string>>("/api/v1/vms/status", "fetch VM statuses")
+  return apiJson<Record<number, string>>(
+    "/api/v1/vms/status",
+    "fetch VM statuses"
+  )
 }
 
 export const vmStatusQueryOptions = {
@@ -32,6 +35,7 @@ export function vmResourcesQueryOptions(itemId: string) {
     queryKey: ["inventory", "item", itemId, "vm", "resources"] as const,
     queryFn: () => fetchVmResources(itemId),
     refetchInterval: 10_000,
+    staleTime: 10_000,
     enabled: !!itemId,
   }
 }
@@ -133,13 +137,13 @@ export function vmHardwareQueryOptions(itemId: string) {
   }
 }
 
-export function vmNetworksQueryOptions(itemId: string) {
+export function vmOverviewQueryOptions(itemId: string) {
   return {
-    queryKey: ["inventory", "item", itemId, "vm", "networks"] as const,
-    queryFn: (): Promise<ApiVmNetworksResponse> =>
-      apiJson<ApiVmNetworksResponse>(
-        `/api/v1/inventory/items/${itemId}/vm/networking`,
-        "fetch VM networks"
+    queryKey: ["inventory", "item", itemId, "vm", "overview"] as const,
+    queryFn: (): Promise<ApiVmOverviewResponse> =>
+      apiJson<ApiVmOverviewResponse>(
+        `/api/v1/inventory/items/${itemId}/vm/overview`,
+        "fetch VM overview"
       ),
     enabled: !!itemId,
   }

@@ -45,7 +45,7 @@ import type { VncScreenHandle } from "react-vnc"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
-import { vmHardwareQueryOptions } from "@/features/vms/api/vm-api"
+import { vmOverviewQueryOptions } from "@/features/vms/api/vm-api"
 import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
 import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
 import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
@@ -95,11 +95,11 @@ export function VncConsole({
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
   const [spiceDownloadInFlight, setSpiceDownloadInFlight] = useState(false)
-  const { data: hardware } = useQuery({
-    ...vmHardwareQueryOptions(itemId),
+  const { data: overview } = useQuery({
+    ...vmOverviewQueryOptions(itemId),
     enabled: Boolean(itemId) && guestType === "qemu",
   })
-  const showSpiceDownload = supportsNativeSpice(guestType, hardware?.display)
+  const showSpiceDownload = supportsNativeSpice(guestType, overview?.display)
 
   function handleDownloadSpiceConfig() {
     if (spiceDownloadInFlight || !itemId || powerStatus !== "running") {

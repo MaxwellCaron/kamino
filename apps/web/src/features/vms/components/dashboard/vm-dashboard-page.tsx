@@ -7,10 +7,10 @@ import {
 } from "@/features/inventory/api/inventory-api"
 import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
 import {
-  vmNetworksQueryOptions,
-  vmResourcesQueryOptions,
+  vmOverviewQueryOptions,
   vmStatusQueryOptions,
 } from "@/features/vms/api/vm-api"
+import { useVmDashboardResources } from "@/features/vms/hooks/use-vm-dashboard-resources"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-table"
 import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
@@ -53,18 +53,20 @@ export function VmDashboardPage() {
   const isVmRunning = powerStatus === "running"
   const isLoading = isTreeLoading || (!treeNode && isItemLoading)
   const shouldFetchResources = !!vm && !isTemplate && isVmRunning
-  const { data: resources } = useQuery({
-    ...vmResourcesQueryOptions(itemId),
-    enabled: shouldFetchResources,
-  })
-  const shouldFetchNetworks = !!vm
+  const shouldFetchOverview = !!vm
   const {
-    data: networks,
-    isError: isNetworksError,
-    isLoading: isNetworksLoading,
+    data: overview,
+    isError: isOverviewError,
+    isPending: isOverviewPending,
   } = useQuery({
-    ...vmNetworksQueryOptions(itemId),
-    enabled: shouldFetchNetworks,
+    ...vmOverviewQueryOptions(itemId),
+    enabled: shouldFetchOverview,
+  })
+  const { data: resources } = useVmDashboardResources({
+    itemId,
+    enabled: shouldFetchResources,
+    overviewSettled: shouldFetchOverview && !isOverviewPending,
+    initialResources: overview?.resources,
   })
   const capabilities = getVmCapabilities(node?.permissions, {
     isTemplate,
@@ -98,9 +100,9 @@ export function VmDashboardPage() {
             vm={vm}
             powerStatus={powerStatus}
             resources={shouldFetchResources ? resources : undefined}
-            networks={networks?.networks}
-            isNetworksLoading={isNetworksLoading}
-            isNetworksError={isNetworksError}
+            networks={overview?.networks}
+            isNetworksLoading={isOverviewPending}
+            isNetworksError={isOverviewError}
             isTemplate={isTemplate}
           />
           <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">

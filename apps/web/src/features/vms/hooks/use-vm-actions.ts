@@ -14,6 +14,7 @@ import {
   updateVMHardware,
   updateVMNotes,
   vmHardwareQueryOptions,
+  vmOverviewQueryOptions,
   vmPowerAction,
   vmStatusQueryOptions,
 } from "../api/vm-api"
@@ -144,6 +145,9 @@ export function useUpdateVMHardware(itemId: string) {
       })
       queryClient.invalidateQueries({
         queryKey: vmHardwareQueryOptions(itemId).queryKey,
+      })
+      queryClient.invalidateQueries({
+        queryKey: vmOverviewQueryOptions(itemId).queryKey,
       })
       queryClient.invalidateQueries({ queryKey: ["inventory", "item", itemId] })
     },

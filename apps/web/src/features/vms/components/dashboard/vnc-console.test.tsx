@@ -15,7 +15,7 @@ const {
   mockAlignVncLayoutAnchor,
   mockToastDownloadSpiceConfig,
   mockDownloadSpiceConfig,
-  mockVmHardwareQueryOptions,
+  mockVmOverviewQueryOptions,
 } = vi.hoisted(() => ({
   mockApiFetch: vi.fn(),
   mockApiUrl: vi.fn((path: string) => path),
@@ -23,7 +23,7 @@ const {
   mockAlignVncLayoutAnchor: vi.fn(),
   mockToastDownloadSpiceConfig: vi.fn(),
   mockDownloadSpiceConfig: vi.fn(),
-  mockVmHardwareQueryOptions: vi.fn(),
+  mockVmOverviewQueryOptions: vi.fn(),
 }))
 
 let screenMountCount = 0
@@ -40,10 +40,10 @@ let latestScreenProps: FakeVncScreenProps | null = null
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 
-function mockHardwareQuery(display = "qxl") {
-  mockVmHardwareQueryOptions.mockImplementation((itemId: string) => ({
-    queryKey: ["inventory", "item", itemId, "vm", "hardware"] as const,
-    queryFn: () => Promise.resolve({ display }),
+function mockOverviewQuery(display = "qxl") {
+  mockVmOverviewQueryOptions.mockImplementation((itemId: string) => ({
+    queryKey: ["inventory", "item", itemId, "vm", "overview"] as const,
+    queryFn: () => Promise.resolve({ display, networks: [] }),
     enabled: !!itemId,
   }))
 }
@@ -54,11 +54,13 @@ vi.mock("@/features/auth/api/auth-api", () => ({
 }))
 
 vi.mock("@/features/vms/api/vm-console-api", () => ({
-  downloadSpiceConfig: (...args: Array<unknown>) => mockDownloadSpiceConfig(...args),
+  downloadSpiceConfig: (...args: Array<unknown>) =>
+    mockDownloadSpiceConfig(...args),
 }))
 
 vi.mock("@/features/vms/api/vm-api", () => ({
-  vmHardwareQueryOptions: (itemId: string) => mockVmHardwareQueryOptions(itemId),
+  vmOverviewQueryOptions: (itemId: string) =>
+    mockVmOverviewQueryOptions(itemId),
 }))
 
 vi.mock("@/features/vms/utils/vm-toasts", () => ({
@@ -189,8 +191,8 @@ describe("VncConsole", () => {
     mockToastDownloadSpiceConfig.mockReset()
     mockDownloadSpiceConfig.mockReset()
     mockDownloadSpiceConfig.mockResolvedValue(undefined)
-    mockVmHardwareQueryOptions.mockReset()
-    mockHardwareQuery("qxl")
+    mockVmOverviewQueryOptions.mockReset()
+    mockOverviewQuery("qxl")
     screenMountCount = 0
     latestScreenProps = null
     scaleViewportValue = true
@@ -504,7 +506,7 @@ describe("VncConsole", () => {
   })
 
   it("hides SPICE download when the guest does not support native SPICE", async () => {
-    mockHardwareQuery("std")
+    mockOverviewQuery("std")
 
     renderConsole()
 
@@ -545,9 +547,11 @@ describe("VncConsole", () => {
     mockDownloadSpiceConfig.mockRejectedValue(
       new Error("failed to create SPICE configuration")
     )
-    mockToastDownloadSpiceConfig.mockImplementation((promise: Promise<unknown>) => {
-      void promise.catch(() => {})
-    })
+    mockToastDownloadSpiceConfig.mockImplementation(
+      (promise: Promise<unknown>) => {
+        void promise.catch(() => {})
+      }
+    )
 
     renderConsole()
 
