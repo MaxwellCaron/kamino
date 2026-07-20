@@ -15,6 +15,7 @@ const {
   mockAlignVncLayoutAnchor,
   mockToastDownloadSpiceConfig,
   mockDownloadSpiceConfig,
+  mockVmHardwareQueryOptions,
 } = vi.hoisted(() => ({
   mockApiFetch: vi.fn(),
   mockApiUrl: vi.fn((path: string) => path),
@@ -22,6 +23,7 @@ const {
   mockAlignVncLayoutAnchor: vi.fn(),
   mockToastDownloadSpiceConfig: vi.fn(),
   mockDownloadSpiceConfig: vi.fn(),
+  mockVmHardwareQueryOptions: vi.fn(),
 }))
 
 let screenMountCount = 0
@@ -38,6 +40,14 @@ let latestScreenProps: FakeVncScreenProps | null = null
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 
+function mockHardwareQuery(display = "qxl") {
+  mockVmHardwareQueryOptions.mockImplementation((itemId: string) => ({
+    queryKey: ["inventory", "item", itemId, "vm", "hardware"] as const,
+    queryFn: () => Promise.resolve({ display }),
+    enabled: !!itemId,
+  }))
+}
+
 vi.mock("@/features/auth/api/auth-api", () => ({
   apiFetch: (...args: Array<unknown>) => mockApiFetch(...args),
   apiUrl: (path: string) => mockApiUrl(path),
@@ -45,6 +55,10 @@ vi.mock("@/features/auth/api/auth-api", () => ({
 
 vi.mock("@/features/vms/api/vm-console-api", () => ({
   downloadSpiceConfig: (...args: Array<unknown>) => mockDownloadSpiceConfig(...args),
+}))
+
+vi.mock("@/features/vms/api/vm-api", () => ({
+  vmHardwareQueryOptions: (itemId: string) => mockVmHardwareQueryOptions(itemId),
 }))
 
 vi.mock("@/features/vms/utils/vm-toasts", () => ({
@@ -101,6 +115,7 @@ function renderConsole(
   const view = renderWithQueryClient(
     <VncConsole
       itemId="vm-a"
+      guestType="qemu"
       powerStatus="running"
       vmName="Lab VM"
       vmid={113}
@@ -116,6 +131,7 @@ function renderConsole(
       <QueryClientProvider client={view.queryClient}>
         <VncConsole
           itemId="vm-a"
+          guestType="qemu"
           powerStatus="running"
           vmName="Lab VM"
           vmid={113}
@@ -173,6 +189,8 @@ describe("VncConsole", () => {
     mockToastDownloadSpiceConfig.mockReset()
     mockDownloadSpiceConfig.mockReset()
     mockDownloadSpiceConfig.mockResolvedValue(undefined)
+    mockVmHardwareQueryOptions.mockReset()
+    mockHardwareQuery("qxl")
     screenMountCount = 0
     latestScreenProps = null
     scaleViewportValue = true
@@ -485,8 +503,27 @@ describe("VncConsole", () => {
     expect(screen.queryByTestId("vnc-screen")).not.toBeInTheDocument()
   })
 
+  it("hides SPICE download when the guest does not support native SPICE", async () => {
+    mockHardwareQuery("std")
+
+    renderConsole()
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Download SPICE config" })
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument()
+  })
+
   it("downloads a SPICE config without changing VNC state", async () => {
     renderConsole()
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Download SPICE config" })
+      ).toBeInTheDocument()
+    })
 
     fireEvent.click(
       screen.getByRole("button", { name: "Download SPICE config" })
@@ -514,6 +551,12 @@ describe("VncConsole", () => {
 
     renderConsole()
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Download SPICE config" })
+      ).toBeInTheDocument()
+    })
+
     fireEvent.click(
       screen.getByRole("button", { name: "Download SPICE config" })
     )
@@ -539,6 +582,12 @@ describe("VncConsole", () => {
 
     renderConsole()
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Download SPICE config" })
+      ).toBeInTheDocument()
+    })
+
     const downloadButton = screen.getByRole("button", {
       name: "Download SPICE config",
     })
@@ -559,13 +608,16 @@ describe("VncConsole", () => {
     })
   })
 
-  it("disables Connect and SPICE download when the guest is stopped", () => {
+  it("disables Connect and SPICE download when the guest is stopped", async () => {
     renderConsole({ powerStatus: "stopped" })
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Download SPICE config" })
+      ).toBeDisabled()
+    })
+
     expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled()
-    expect(
-      screen.getByRole("button", { name: "Download SPICE config" })
-    ).toBeDisabled()
   })
 
   it("cancels idle expiry when the session is viewed again", async () => {

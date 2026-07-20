@@ -34,6 +34,7 @@ func parseVMHardwareConfig(data map[string]any) (*VMHardwareConfig, error) {
 	config.DiskDevice = diskDevice
 	config.Storage = storage
 	config.DiskSize = diskSize
+	config.Display = normalizeVGAType(getStringValue(data["vga"]))
 
 	networks := make([]VMHardwareNetwork, 0)
 	for key, value := range data {
@@ -401,6 +402,17 @@ func normalizeMachineHardwareValue(machine string) string {
 	default:
 		return trimmed
 	}
+}
+
+func normalizeVGAType(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "" {
+		return "std"
+	}
+	if idx := strings.Index(raw, ","); idx >= 0 {
+		raw = raw[:idx]
+	}
+	return raw
 }
 
 func coalesceString(value, fallback string) string {

@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
@@ -44,9 +45,11 @@ import type { VncScreenHandle } from "react-vnc"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
+import { vmHardwareQueryOptions } from "@/features/vms/api/vm-api"
 import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
 import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
 import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
+import { supportsNativeSpice } from "@/features/vms/utils/vm-console-utils"
 
 const LazyVncScreen = lazy(() =>
   import("./vnc-screen-client").then((module) => ({
@@ -59,6 +62,7 @@ export type VncConnectionStatus =
 
 type VncConsoleProps = {
   itemId: string
+  guestType?: "qemu" | "lxc"
   powerStatus?: string
   vmName?: string | null
   vmid?: number | null
@@ -76,6 +80,7 @@ const VNC_IDLE_TIMEOUT_MS = 30 * 60 * 1000
 
 export function VncConsole({
   itemId,
+  guestType,
   powerStatus,
   vmName,
   vmid,
@@ -90,6 +95,11 @@ export function VncConsole({
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
   const [spiceDownloadInFlight, setSpiceDownloadInFlight] = useState(false)
+  const { data: hardware } = useQuery({
+    ...vmHardwareQueryOptions(itemId),
+    enabled: Boolean(itemId) && guestType === "qemu",
+  })
+  const showSpiceDownload = supportsNativeSpice(guestType, hardware?.display)
 
   function handleDownloadSpiceConfig() {
     if (spiceDownloadInFlight || !itemId || powerStatus !== "running") {
@@ -250,8 +260,9 @@ export function VncConsole({
           Console
         </CardTitle>
         <CardDescription>
-          Connect to this VM&apos;s console in Kamino or open it in a native
-          SPICE client.
+          {showSpiceDownload
+            ? "Connect to this VM's console in Kamino or open it in a native SPICE client."
+            : "Connect to this VM's console in Kamino."}
         </CardDescription>
 
         <CardAction>
@@ -312,14 +323,19 @@ export function VncConsole({
               >
                 Connect
               </AppActionButton>
-              <AppActionButton
-                variant="outline"
-                onClick={handleDownloadSpiceConfig}
-                disabled={!isRunning || !itemId || spiceDownloadInFlight}
-              >
-                <HugeiconsIcon icon={Download01Icon} data-icon="inline-start" />
-                Download SPICE config
-              </AppActionButton>
+              {showSpiceDownload && (
+                <AppActionButton
+                  variant="outline"
+                  onClick={handleDownloadSpiceConfig}
+                  disabled={!isRunning || !itemId || spiceDownloadInFlight}
+                >
+                  <HugeiconsIcon
+                    icon={Download01Icon}
+                    data-icon="inline-start"
+                  />
+                  Download SPICE config
+                </AppActionButton>
+              )}
             </EmptyContent>
           </Empty>
         )}

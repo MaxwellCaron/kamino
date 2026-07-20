@@ -156,6 +156,7 @@ type VMHardwareConfig struct {
 	DiskDevice string              `json:"disk_device,omitempty"`
 	Storage    string              `json:"storage"`
 	DiskSize   int                 `json:"disk_size"`
+	Display    string              `json:"display"`
 	Networks   []VMHardwareNetwork `json:"networks"`
 }
 

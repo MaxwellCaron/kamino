@@ -2,6 +2,7 @@ import type {
   ApiBulkVmMutationResponse,
   ApiSnapshot,
   ApiVmHardwareConfig,
+  ApiVmHardwareUpdate,
   ApiVmNetworksResponse,
   CreateVMParams,
   VmResources,
@@ -146,7 +147,7 @@ export function vmNetworksQueryOptions(itemId: string) {
 
 export async function updateVMHardware(params: {
   itemId: string
-  hardware: ApiVmHardwareConfig
+  hardware: ApiVmHardwareUpdate
 }): Promise<void> {
   await apiVoid(
     `/api/v1/inventory/items/${params.itemId}/vm/hardware`,

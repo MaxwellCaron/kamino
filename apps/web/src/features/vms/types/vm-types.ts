@@ -43,8 +43,11 @@ export type ApiVmHardwareConfig = {
   balloon: number
   storage: string
   disk_size: number
+  display: string
   networks: Array<ApiVmHardwareNetwork>
 }
+
+export type ApiVmHardwareUpdate = Omit<ApiVmHardwareConfig, "display">
 
 export type ApiVmNetworkSummary = {
   device?: string

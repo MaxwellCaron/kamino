@@ -24,6 +24,7 @@ import { isApiErrorStatus } from "@/features/auth/api/auth-api"
 
 type ConsoleTarget = {
   itemId: string
+  guestType?: "qemu" | "lxc"
   powerStatus: string | undefined
   vmName?: string | null
   vmid?: number | null
@@ -73,6 +74,7 @@ function resolveConsoleTarget(
 
   return {
     itemId,
+    guestType: node.vm.guest_type,
     powerStatus,
     vmName: node.name,
     vmid: node.vm.vmid,
@@ -405,6 +407,7 @@ function VncSessionPanel({
     >
       <VncConsole
         itemId={panel.target.itemId}
+        guestType={panel.target.guestType}
         powerStatus={panel.target.powerStatus}
         vmName={panel.target.vmName}
         vmid={panel.target.vmid}

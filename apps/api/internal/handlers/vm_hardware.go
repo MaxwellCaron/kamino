@@ -23,7 +23,7 @@ func (h *VMHandler) GetHardware(c *gin.Context) {
 		return
 	}
 
-	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.EditVMHardware, false)
+	target, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.View, false)
 	if !ok {
 		return
 	}
