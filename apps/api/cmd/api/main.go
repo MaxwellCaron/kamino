@@ -41,6 +41,11 @@ func main() {
 	if err := validatePrincipalProviderConfig(&config); err != nil {
 		log.Fatalf("Invalid principal provider configuration: %v", err)
 	}
+	spiceProxyHost, err := resolveSPICEProxyHost(config.ProxmoxURL, config.ProxmoxSPICEProxyHost)
+	if err != nil {
+		log.Fatalf("Invalid SPICE proxy host configuration: %v", err)
+	}
+	config.ProxmoxSPICEProxyHost = spiceProxyHost
 	routerCloneConfig, err := buildPodRouterCloneConfig(&config)
 	if err != nil {
 		log.Fatalf("Invalid pod router clone configuration: %v", err)
@@ -153,6 +158,11 @@ func main() {
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
 	vncHandler.Authz = authzService
+	consoleHandler := &handlers.ConsoleHandler{
+		PX:             server.ProxmoxClient,
+		Authz:          authzService,
+		SPICEProxyHost: config.ProxmoxSPICEProxyHost,
+	}
 	vmActionExecutor := vmactions.NewExecutor(
 		server.ProxmoxClient,
 		inventoryService,
@@ -339,6 +349,7 @@ func main() {
 		sessionManager,
 		inventoryHandler,
 		vncHandler,
+		consoleHandler,
 		vmHandler,
 		vmCreateHandler,
 		podsHandler,

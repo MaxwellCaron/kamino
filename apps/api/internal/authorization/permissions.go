@@ -201,7 +201,7 @@ var inventoryPermissionDefinitions = []InventoryPermissionDefinition{
 	{
 		Key:            InventoryPermissionConsoleVM,
 		Label:          "Console VM",
-		Description:    "Open the VNC console for VMs covered by this rule.",
+		Description:    "Open the console for VMs covered by this rule.",
 		SectionKey:     "vm",
 		SectionLabel:   "VM",
 		SectionOrder:   2,

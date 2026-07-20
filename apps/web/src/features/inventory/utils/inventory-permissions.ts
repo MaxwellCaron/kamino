@@ -205,7 +205,7 @@ const inventoryPermissionDefinitions: Array<InventoryPermissionDefinition> = [
     bit: InventoryPermissionBits.consoleVm,
     key: InventoryPermissionKeys.consoleVm,
     label: "Console VM",
-    description: "Open the VNC console for VMs covered by this rule.",
+    description: "Open the console for VMs covered by this rule.",
     sectionKey: "vm",
     sectionLabel: "VM",
     sectionOrder: 2,

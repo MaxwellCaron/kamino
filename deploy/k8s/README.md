@@ -21,6 +21,10 @@ hostname, image repositories, and the independently configured cluster secrets.
 - PostgreSQL is reachable from the cluster and the Kamino schema has been
   initialized.
 - Proxmox is reachable on TCP 8006 and AD is reachable on TCP 636.
+- Workstations that use **Download SPICE config** can reach the Proxmox SPICE
+  proxy on TCP 3128. By default Kamino uses the hostname from `PROXMOX_URL`;
+  set `PROXMOX_SPICE_PROXY_HOST` when workstations need a different
+  client-reachable address (host only, no scheme or port).
 
 The API requires only normal pod egress. If the namespace later receives a
 default-deny NetworkPolicy, explicitly allow cluster DNS, PostgreSQL, Proxmox,

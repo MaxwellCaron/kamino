@@ -17,6 +17,7 @@ func RegisterRoutes(
 	sessionManager *auth.SessionManager,
 	inventory *handlers.InventoryHandler,
 	vnc *handlers.VNCHandler,
+	console *handlers.ConsoleHandler,
 	vm *handlers.VMHandler,
 	vmCreate *handlers.VMCreateHandler,
 	pods *handlers.PodsHandler,
@@ -204,4 +205,7 @@ func RegisterRoutes(
 	// VNC proxy endpoints
 	protected.POST("/inventory/items/:id/vm/vnc/proxy", vnc.PostProxy)
 	protected.GET("/vnc/ws", vnc.WebSocket)
+
+	// Console endpoints
+	protected.POST("/inventory/items/:id/vm/console/spice-config", console.DownloadSPICEConfig)
 }

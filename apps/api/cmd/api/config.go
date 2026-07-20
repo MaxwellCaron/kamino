@@ -22,6 +22,7 @@ type Config struct {
 	ProxmoxTokenSecret        string `envconfig:"PROXMOX_TOKEN_SECRET" required:"true"`
 	ProxmoxInsecure           bool   `envconfig:"PROXMOX_INSECURE" default:"false"`
 	ProxmoxNodes              string `envconfig:"PROXMOX_NODES" required:"true"`
+	ProxmoxSPICEProxyHost     string `envconfig:"PROXMOX_SPICE_PROXY_HOST"`
 	ProxmoxSharedStorageNames string `envconfig:"PROXMOX_SHARED_STORAGE_NAMES"`
 	ProxmoxInitialSyncEnabled bool   `envconfig:"PROXMOX_INITIAL_SYNC_ENABLED" default:"true"`
 

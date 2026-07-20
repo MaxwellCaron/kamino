@@ -139,6 +139,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_TOKEN_ID` | yes | — | Proxmox API token ID |
 | `PROXMOX_TOKEN_SECRET` | yes | — | Proxmox API token secret |
 | `PROXMOX_NODES` | yes | — | Comma-separated Proxmox node names |
+| `PROXMOX_SPICE_PROXY_HOST` | no | `PROXMOX_URL` hostname | Client-reachable Proxmox SPICE proxy hostname or IP literal (no scheme or port; native clients use TCP 3128) |
 | `PROXMOX_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup Proxmox-to-database inventory import |
 | `PRINCIPAL_PROVIDER` | yes | — | `active_directory` or `proxmox` |

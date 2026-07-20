@@ -10,6 +10,19 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
+    date: "Jul 20, 2026",
+    highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added an optional Download SPICE config action on VM consoles for native remote-viewer clients.",
+        ],
+      },
+    ],
+  },
+  {
     date: "Jul 17, 2026",
     highlight: true,
     groups: [

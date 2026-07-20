@@ -4,6 +4,7 @@ import {
   Cancel01Icon,
   Clock01Icon,
   ConnectIcon,
+  Download01Icon,
   KeyboardIcon,
   Plug01Icon,
   PowerIcon,
@@ -43,7 +44,9 @@ import type { VncScreenHandle } from "react-vnc"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
+import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
 import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
+import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
 
 const LazyVncScreen = lazy(() =>
   import("./vnc-screen-client").then((module) => ({
@@ -57,6 +60,8 @@ export type VncConnectionStatus =
 type VncConsoleProps = {
   itemId: string
   powerStatus?: string
+  vmName?: string | null
+  vmid?: number | null
   isViewed: boolean
   onStatusChange: (status: VncConnectionStatus) => void
 }
@@ -72,6 +77,8 @@ const VNC_IDLE_TIMEOUT_MS = 30 * 60 * 1000
 export function VncConsole({
   itemId,
   powerStatus,
+  vmName,
+  vmid,
   isViewed,
   onStatusChange,
 }: VncConsoleProps) {
@@ -82,6 +89,22 @@ export function VncConsole({
   const [status, setStatus] = useState<VncConnectionStatus>("disconnected")
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
+  const [spiceDownloadInFlight, setSpiceDownloadInFlight] = useState(false)
+
+  function handleDownloadSpiceConfig() {
+    if (spiceDownloadInFlight || !itemId || powerStatus !== "running") {
+      return
+    }
+
+    setSpiceDownloadInFlight(true)
+    toastDownloadSpiceConfig(
+      downloadSpiceConfig(itemId).finally(() => {
+        setSpiceDownloadInFlight(false)
+      }),
+      vmid,
+      vmName
+    )
+  }
 
   async function startConnection() {
     if (connectingRef.current) return
@@ -227,8 +250,8 @@ export function VncConsole({
           Console
         </CardTitle>
         <CardDescription>
-          Connect directly to the GUI interface of this VM using a VNC client
-          connection.
+          Connect to this VM&apos;s console in Kamino or open it in a native
+          SPICE client.
         </CardDescription>
 
         <CardAction>
@@ -274,13 +297,13 @@ export function VncConsole({
               </EmptyTitle>
               <EmptyDescription>
                 {!isRunning
-                  ? "The VM must be running to create a VNC session."
+                  ? "The VM must be running to open a console."
                   : isExpired
                     ? "This console was closed after 30 minutes away. Connect to start a new session."
-                    : "You haven't created a VNC session. Start a new session to connect."}
+                    : "Connect to start an in-app console session."}
               </EmptyDescription>
             </EmptyHeader>
-            <EmptyContent className="flex-row justify-center gap-2">
+            <EmptyContent className="flex flex-row flex-wrap justify-center gap-2">
               <AppActionButton
                 onClick={startConnection}
                 disabled={!isRunning || !itemId}
@@ -288,6 +311,14 @@ export function VncConsole({
                 pendingLabel="Connecting..."
               >
                 Connect
+              </AppActionButton>
+              <AppActionButton
+                variant="outline"
+                onClick={handleDownloadSpiceConfig}
+                disabled={!isRunning || !itemId || spiceDownloadInFlight}
+              >
+                <HugeiconsIcon icon={Download01Icon} data-icon="inline-start" />
+                Download SPICE config
               </AppActionButton>
             </EmptyContent>
           </Empty>

@@ -8,13 +8,21 @@ import type { ComponentProps } from "react"
 import type { VncScreenHandle } from "react-vnc"
 import { renderWithQueryClient } from "@/test/test-utils"
 
-const { mockApiFetch, mockApiUrl, mockDisconnect, mockAlignVncLayoutAnchor } =
-  vi.hoisted(() => ({
-    mockApiFetch: vi.fn(),
-    mockApiUrl: vi.fn((path: string) => path),
-    mockDisconnect: vi.fn(),
-    mockAlignVncLayoutAnchor: vi.fn(),
-  }))
+const {
+  mockApiFetch,
+  mockApiUrl,
+  mockDisconnect,
+  mockAlignVncLayoutAnchor,
+  mockToastDownloadSpiceConfig,
+  mockDownloadSpiceConfig,
+} = vi.hoisted(() => ({
+  mockApiFetch: vi.fn(),
+  mockApiUrl: vi.fn((path: string) => path),
+  mockDisconnect: vi.fn(),
+  mockAlignVncLayoutAnchor: vi.fn(),
+  mockToastDownloadSpiceConfig: vi.fn(),
+  mockDownloadSpiceConfig: vi.fn(),
+}))
 
 let screenMountCount = 0
 let scaleViewportValue = true
@@ -33,6 +41,15 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 vi.mock("@/features/auth/api/auth-api", () => ({
   apiFetch: (...args: Array<unknown>) => mockApiFetch(...args),
   apiUrl: (path: string) => mockApiUrl(path),
+}))
+
+vi.mock("@/features/vms/api/vm-console-api", () => ({
+  downloadSpiceConfig: (...args: Array<unknown>) => mockDownloadSpiceConfig(...args),
+}))
+
+vi.mock("@/features/vms/utils/vm-toasts", () => ({
+  toastDownloadSpiceConfig: (...args: Array<unknown>) =>
+    mockToastDownloadSpiceConfig(...args),
 }))
 
 vi.mock("./vnc-layout-anchor", () => ({
@@ -85,6 +102,8 @@ function renderConsole(
     <VncConsole
       itemId="vm-a"
       powerStatus="running"
+      vmName="Lab VM"
+      vmid={113}
       isViewed
       onStatusChange={onStatusChange}
       {...overrides}
@@ -98,6 +117,8 @@ function renderConsole(
         <VncConsole
           itemId="vm-a"
           powerStatus="running"
+          vmName="Lab VM"
+          vmid={113}
           isViewed
           onStatusChange={onStatusChange}
           {...props}
@@ -149,6 +170,9 @@ describe("VncConsole", () => {
     mockApiUrl.mockImplementation((path: string) => path)
     mockDisconnect.mockReset()
     mockAlignVncLayoutAnchor.mockReset()
+    mockToastDownloadSpiceConfig.mockReset()
+    mockDownloadSpiceConfig.mockReset()
+    mockDownloadSpiceConfig.mockResolvedValue(undefined)
     screenMountCount = 0
     latestScreenProps = null
     scaleViewportValue = true
@@ -459,6 +483,89 @@ describe("VncConsole", () => {
     expect(onStatusChange).toHaveBeenCalledWith("expired")
     expect(screen.getByText("Session Expired")).toBeInTheDocument()
     expect(screen.queryByTestId("vnc-screen")).not.toBeInTheDocument()
+  })
+
+  it("downloads a SPICE config without changing VNC state", async () => {
+    renderConsole()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Download SPICE config" })
+    )
+
+    await waitFor(() => {
+      expect(mockToastDownloadSpiceConfig).toHaveBeenCalledWith(
+        expect.any(Promise),
+        113,
+        "Lab VM"
+      )
+      expect(mockDownloadSpiceConfig).toHaveBeenCalledWith("vm-a")
+    })
+    expect(screen.queryByTestId("vnc-screen")).not.toBeInTheDocument()
+    expect(screenMountCount).toBe(0)
+  })
+
+  it("routes SPICE download failures through the mutation toast", async () => {
+    mockDownloadSpiceConfig.mockRejectedValue(
+      new Error("failed to create SPICE configuration")
+    )
+    mockToastDownloadSpiceConfig.mockImplementation((promise: Promise<unknown>) => {
+      void promise.catch(() => {})
+    })
+
+    renderConsole()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Download SPICE config" })
+    )
+
+    await waitFor(() => {
+      expect(mockToastDownloadSpiceConfig).toHaveBeenCalledTimes(1)
+    })
+
+    const passedPromise = mockToastDownloadSpiceConfig.mock
+      .calls[0][0] as Promise<unknown>
+    await expect(passedPromise).rejects.toThrow(
+      "failed to create SPICE configuration"
+    )
+    expect(screen.queryByTestId("vnc-screen")).not.toBeInTheDocument()
+  })
+
+  it("prevents duplicate SPICE downloads while in flight", async () => {
+    let resolveDownload: (() => void) | undefined
+    const pending = new Promise<void>((resolve) => {
+      resolveDownload = resolve
+    })
+    mockDownloadSpiceConfig.mockReturnValue(pending)
+
+    renderConsole()
+
+    const downloadButton = screen.getByRole("button", {
+      name: "Download SPICE config",
+    })
+    fireEvent.click(downloadButton)
+    fireEvent.click(downloadButton)
+
+    expect(mockToastDownloadSpiceConfig).toHaveBeenCalledTimes(1)
+    expect(mockDownloadSpiceConfig).toHaveBeenCalledTimes(1)
+    expect(downloadButton).toBeDisabled()
+
+    await act(async () => {
+      resolveDownload?.()
+      await pending
+    })
+
+    await waitFor(() => {
+      expect(downloadButton).not.toBeDisabled()
+    })
+  })
+
+  it("disables Connect and SPICE download when the guest is stopped", () => {
+    renderConsole({ powerStatus: "stopped" })
+
+    expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "Download SPICE config" })
+    ).toBeDisabled()
   })
 
   it("cancels idle expiry when the session is viewed again", async () => {

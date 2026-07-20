@@ -25,6 +25,8 @@ import { isApiErrorStatus } from "@/features/auth/api/auth-api"
 type ConsoleTarget = {
   itemId: string
   powerStatus: string | undefined
+  vmName?: string | null
+  vmid?: number | null
 }
 
 type RetainedSession = {
@@ -72,6 +74,8 @@ function resolveConsoleTarget(
   return {
     itemId,
     powerStatus,
+    vmName: node.name,
+    vmid: node.vm.vmid,
   }
 }
 
@@ -402,6 +406,8 @@ function VncSessionPanel({
       <VncConsole
         itemId={panel.target.itemId}
         powerStatus={panel.target.powerStatus}
+        vmName={panel.target.vmName}
+        vmid={panel.target.vmid}
         isViewed={isViewed}
         onStatusChange={handleStatusChange}
       />
