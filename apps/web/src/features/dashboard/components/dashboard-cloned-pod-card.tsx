@@ -93,7 +93,7 @@ export function DashboardCurrentClonedPodCard({
                 >
                   <ItemMedia
                     variant="image"
-                    className="hidden size-40 self-center! translate-y-0! md:block"
+                    className="hidden size-40 translate-y-0! self-center! md:block"
                   >
                     <Image
                       src={entry.pod.image}
@@ -110,13 +110,9 @@ export function DashboardCurrentClonedPodCard({
                       <span className="line-clamp-1 text-2xl font-semibold tracking-tight">
                         {entry.pod.title}
                       </span>
-                      <ClonedPodStatusBadge
-                        status={entry.clonedPod.status}
-                      />
+                      <ClonedPodStatusBadge status={entry.clonedPod.status} />
                     </ItemTitle>
-                    <ItemDescription>
-                      {entry.pod.description}
-                    </ItemDescription>
+                    <ItemDescription>{entry.pod.description}</ItemDescription>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <HugeiconsIcon icon={CopyIcon} className="size-4" />
                       Cloned{" "}

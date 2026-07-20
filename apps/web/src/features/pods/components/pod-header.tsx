@@ -11,7 +11,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { cn } from "@workspace/ui/lib/utils"
-import { ClonedPodStatusBadge } from "./cloned-pod-status-badge"
+import { ClonedPodStatusHoverCard } from "./cloned-pod-status-badge"
 import { PodHeaderActions } from "./pod-header-actions"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import type { ReactNode } from "react"
@@ -197,7 +197,7 @@ export function PodHeader({
                       orientation="vertical"
                       className="bg-foreground/15"
                     />
-                    <ClonedPodStatusBadge status={clonedPod.status} />
+                    <ClonedPodStatusHoverCard status={clonedPod.status} />
                   </>
                 )}
               </div>

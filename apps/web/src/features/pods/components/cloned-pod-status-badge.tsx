@@ -5,9 +5,11 @@ import {
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
 import { Separator } from "@workspace/ui/components/separator"
+import { cn } from "@workspace/ui/lib/utils"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InformationCircleIcon } from "@hugeicons/core-free-icons"
 import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
+import type { ComponentProps } from "react"
 
 type ClonedPodStatusConfig = {
   status: ClonedPodStatus
@@ -25,19 +27,19 @@ const statusMap: Record<ClonedPodStatus, ClonedPodStatusConfig> = {
   running: {
     status: "running",
     className: "bg-primary",
-    description: "All virutal machines in the pod are running.",
+    description: "All virtual machines in the pod are running.",
   },
   partial: {
     status: "partial",
     className:
       "bg-amber-600/20 dark:bg-amber-400/20 text-amber-600 dark:text-amber-400",
     description:
-      "Some virutal machines in the pod are running, while others are not.",
+      "Some virtual machines in the pod are running, while others are not.",
   },
   stopped: {
     status: "stopped",
     className: "bg-destructive/20 text-destructive",
-    description: "All virutal machines in the pod are not running.",
+    description: "All virtual machines in the pod are not running.",
   },
 }
 
@@ -45,19 +47,41 @@ function formatClonedPodStatusLabel(status: ClonedPodStatus): string {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
-export function ClonedPodStatusBadge({ status }: { status: ClonedPodStatus }) {
-  const current = statusMap[status]
+export type ClonedPodStatusBadgeProps = Omit<
+  ComponentProps<typeof Badge>,
+  "children" | "variant"
+> & {
+  status: ClonedPodStatus
+}
 
+export function ClonedPodStatusBadge({
+  status,
+  className,
+  ...props
+}: ClonedPodStatusBadgeProps) {
+  const current = statusMap[status]
+  return (
+    <Badge
+      {...props}
+      variant="default"
+      className={cn(current.className, className)}
+    >
+      {formatClonedPodStatusLabel(status)}
+    </Badge>
+  )
+}
+
+export function ClonedPodStatusHoverCard({
+  status,
+}: {
+  status: ClonedPodStatus
+}) {
   return (
     <HoverCard>
       <HoverCardTrigger
         delay={10}
         closeDelay={100}
-        render={
-          <Badge variant="default" className={current.className}>
-            {formatClonedPodStatusLabel(status)}
-          </Badge>
-        }
+        render={<ClonedPodStatusBadge status={status} />}
       />
       <HoverCardContent className="flex w-100 flex-col gap-3">
         {clonedPodStatuses.map((statusKey) => {
