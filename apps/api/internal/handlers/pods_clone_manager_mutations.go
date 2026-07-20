@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
@@ -231,8 +232,12 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 		writeInvalidRequest(c, "invalid request body")
 		return
 	}
+	if strings.TrimSpace(req.ProgressID) == "" || strings.TrimSpace(req.ProgressBatchID) == "" {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
 
-	progress := newClonePodProgressReporter(req.ProgressID)
+	progress := newBatchClonePodProgressReporter(req.ProgressID, req.ProgressBatchID)
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
 	q := database.New(h.DB)

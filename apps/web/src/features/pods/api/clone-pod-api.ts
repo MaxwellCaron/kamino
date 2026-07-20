@@ -36,6 +36,15 @@ export type ClonePodProgress = {
   updated_at: string
 }
 
+export type ClonePodProgressBatchChild = ClonePodProgress & {
+  batch_id: string
+}
+
+export type ClonePodProgressBatch = {
+  id: string
+  items: Array<ClonePodProgressBatchChild>
+}
+
 export function clonedPodQueryOptions(podSlug?: string) {
   return {
     queryKey: ["pods", "catalog", podSlug, "clone"] as const,
@@ -83,6 +92,15 @@ export async function fetchClonePodProgress(
   return apiJson<ClonePodProgress>(
     `/api/v1/pods/clones/progress/${encodeURIComponent(progressId)}`,
     "fetch clone progress"
+  )
+}
+
+export async function fetchClonePodProgressBatch(
+  batchId: string
+): Promise<ClonePodProgressBatch> {
+  return apiJson<ClonePodProgressBatch>(
+    `/api/v1/pods/clones/progress-batches/${encodeURIComponent(batchId)}`,
+    "fetch clone progress batch"
   )
 }
 

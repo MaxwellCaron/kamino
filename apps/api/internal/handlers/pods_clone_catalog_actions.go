@@ -33,6 +33,35 @@ func (h *PodsHandler) GetCloneProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, snapshot)
 }
 
+type cloneProgressBatchResponse struct {
+	ID    string                       `json:"id"`
+	Items []publishPodProgressSnapshot `json:"items"`
+}
+
+func (h *PodsHandler) GetCloneProgressBatch(c *gin.Context) {
+	if _, ok := currentPrincipalID(c); !ok {
+		writeUnauthorized(c)
+		return
+	}
+
+	batchID := strings.TrimSpace(c.Param("id"))
+	if batchID == "" {
+		writeInvalidRequest(c, "invalid progress id")
+		return
+	}
+
+	items := clonedPodProgress.getBatch(batchID)
+	if len(items) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "progress batch not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, cloneProgressBatchResponse{
+		ID:    batchID,
+		Items: items,
+	})
+}
+
 func (h *PodsHandler) GetCatalogPodClone(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {

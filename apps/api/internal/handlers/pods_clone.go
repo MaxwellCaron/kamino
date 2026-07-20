@@ -114,10 +114,11 @@ func (h *PodsHandler) runClaimedPodCloneMutation(
 var clonedPodProgress = newPublishPodProgressStore()
 
 type clonePodProgressReporter struct {
-	id    string
-	store *publishPodProgressStore
-	mu    sync.Mutex
-	step  int
+	id      string
+	batchID string
+	store   *publishPodProgressStore
+	mu      sync.Mutex
+	step    int
 }
 
 type clonePublishedVMResult struct {
@@ -233,8 +234,9 @@ type publishedPodCloneBulkActionRequest struct {
 }
 
 type createPublishedPodCloneRequest struct {
-	PrincipalID uuid.UUID `json:"principal_id" binding:"required"`
-	ProgressID  string    `json:"progress_id"`
+	PrincipalID     uuid.UUID `json:"principal_id" binding:"required"`
+	ProgressID      string    `json:"progress_id" binding:"required"`
+	ProgressBatchID string    `json:"progress_batch_id" binding:"required"`
 }
 
 type publishedPodCloneBulkActionFailure struct {
@@ -249,11 +251,19 @@ type publishedPodCloneBulkActionResponse struct {
 }
 
 func newClonePodProgressReporter(id string) *clonePodProgressReporter {
+	return newBatchClonePodProgressReporter(id, "")
+}
+
+func newBatchClonePodProgressReporter(id, batchID string) *clonePodProgressReporter {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return nil
 	}
-	return &clonePodProgressReporter{id: id, store: clonedPodProgress}
+	return &clonePodProgressReporter{
+		id:      id,
+		batchID: strings.TrimSpace(batchID),
+		store:   clonedPodProgress,
+	}
 }
 
 func (r *clonePodProgressReporter) set(step int, message string) {
@@ -287,6 +297,7 @@ func (r *clonePodProgressReporter) emit(step int, state, message string) {
 	r.store.set(publishPodProgressSnapshot{
 		Type:    cloneProgressEventType,
 		ID:      r.id,
+		BatchID: r.batchID,
 		State:   state,
 		StepID:  step,
 		Message: message,

@@ -1,18 +1,79 @@
 import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
+import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
-import { uuid } from "@/features/shared/utils/uuid"
+import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
+import {
+  runMutationUnits,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
+import { fetchClonePodProgressBatch } from "@/features/pods/api/clone-pod-api"
 import {
   createPublishedPodClone,
   podCatalogQueryOptions,
   publishedPodClonesQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
-import { fetchClonePodProgress } from "@/features/pods/api/clone-pod-api"
 import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
 import { MANAGER_POD_WORKFLOW_CONCURRENCY } from "@/features/pods/utils/pod-clone-actions"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { uuid } from "@/features/shared/utils/uuid"
+
+function startBatchProgressPoll(
+  progressBatchId: string,
+  childToPrincipal: Map<string, string>,
+  report: (update: MutationItemUpdate) => void
+) {
+  let stopped = false
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const scheduleNext = () => {
+    if (stopped) {
+      return
+    }
+    timeoutId = setTimeout(() => {
+      void tick()
+    }, 750)
+  }
+
+  const tick = async () => {
+    if (stopped) {
+      return
+    }
+    try {
+      const batch = await fetchClonePodProgressBatch(progressBatchId)
+      for (const snapshot of batch.items) {
+        if (snapshot.state !== "running") {
+          continue
+        }
+        const principalId = childToPrincipal.get(snapshot.id)
+        if (!principalId) {
+          continue
+        }
+        const task = DEFAULT_CLONE_TASKS.find((t) => t.id === snapshot.step_id)
+        if (!task) {
+          continue
+        }
+        report({
+          id: principalId,
+          status: "progress",
+          description: `Step ${task.id}/${DEFAULT_CLONE_TASKS.length} — ${task.name}`,
+        })
+      }
+    } catch {
+      // 404 until the backend writes the first snapshot; ignore.
+    }
+    scheduleNext()
+  }
+
+  void tick()
+
+  return () => {
+    stopped = true
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
 
 export function usePublishedPodsManagerClones() {
   const queryClient = useQueryClient()
@@ -43,15 +104,19 @@ export function usePublishedPodsManagerClones() {
       }))
 
       const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
+      const progressBatchId = uuid()
+      const childToPrincipal = new Map<string, string>()
 
       const cloneOne = async (
         principal: PrincipalOption,
-        progressId: string
+        progressId: string,
+        batchId: string
       ) => {
         const summary = await createPublishedPodClone({
           podId: pod.id,
           principalId: principal.id,
           progressId,
+          progressBatchId: batchId,
         })
         queryClient.setQueryData(
           clonesQueryKey,
@@ -65,45 +130,58 @@ export function usePublishedPodsManagerClones() {
         )
       }
 
+      const innerUnits = principals.map((principal) => ({
+        items: [
+          {
+            id: principal.id,
+            name: principal.label,
+            successDescription: "Cloned",
+          },
+        ],
+        run: async () => {
+          const progressId = uuid()
+          childToPrincipal.set(progressId, principal.id)
+          try {
+            await cloneOne(principal, progressId, progressBatchId)
+          } finally {
+            removePendingPrincipal(pod.id, principal.id)
+          }
+        },
+      }))
+
       showUnitMutationToast({
         title: `Cloning "${pod.title}"`,
-        concurrency: MANAGER_POD_WORKFLOW_CONCURRENCY,
-        units: principals.map((principal) => ({
-          items: [
-            {
+        units: [
+          {
+            items: principals.map((principal) => ({
               id: principal.id,
               name: principal.label,
               successDescription: "Cloned",
+              retry: async () => {
+                const retryProgressId = uuid()
+                const retryBatchId = uuid()
+                await cloneOne(principal, retryProgressId, retryBatchId)
+              },
+            })),
+            run: async (report) => {
+              const stopPoll = startBatchProgressPoll(
+                progressBatchId,
+                childToPrincipal,
+                report
+              )
+              try {
+                const result = await runMutationUnits(
+                  innerUnits,
+                  report,
+                  MANAGER_POD_WORKFLOW_CONCURRENCY
+                )
+                return { failed: result.failed }
+              } finally {
+                stopPoll()
+              }
             },
-          ],
-          run: async (report) => {
-            const progressId = uuid()
-            const interval = setInterval(() => {
-              void fetchClonePodProgress(progressId)
-                .then((snapshot) => {
-                  if (snapshot.state !== "running") return
-                  const task = DEFAULT_CLONE_TASKS.find(
-                    (t) => t.id === snapshot.step_id
-                  )
-                  if (!task) return
-                  report({
-                    id: principal.id,
-                    status: "progress",
-                    description: `Step ${task.id}/${DEFAULT_CLONE_TASKS.length} — ${task.name}`,
-                  })
-                })
-                .catch(() => {
-                  // 404 until the backend writes the first snapshot; ignore.
-                })
-            }, 750)
-            try {
-              await cloneOne(principal, progressId)
-            } finally {
-              clearInterval(interval)
-              removePendingPrincipal(pod.id, principal.id)
-            }
           },
-        })),
+        ],
         onSettled: (result) => {
           if (result.succeeded.length > 0) {
             void queryClient.invalidateQueries({

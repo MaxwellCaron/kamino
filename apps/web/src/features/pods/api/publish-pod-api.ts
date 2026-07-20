@@ -168,6 +168,7 @@ export type CreatePublishedPodCloneParams = {
   podId: string
   principalId: string
   progressId: string
+  progressBatchId: string
 }
 
 export async function createPublishedPodClone(
@@ -182,6 +183,7 @@ export async function createPublishedPodClone(
       body: JSON.stringify({
         principal_id: params.principalId,
         progress_id: params.progressId,
+        progress_batch_id: params.progressBatchId,
       }),
     }
   )
