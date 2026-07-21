@@ -13,6 +13,7 @@ import {
 } from "@/features/inventory/hooks/use-inventory-sidebar-resize"
 import { CommandManyItems } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
+import { VncSessionVisibilityProvider } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { VncSessionWorkspace } from "@/features/vms/components/dashboard/vnc-session-workspace"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
@@ -58,8 +59,10 @@ export function DashboardLayout() {
           <SiteLayoutInset
             header={<SiteHeader command={commandManyItemsElement} />}
           >
-            <Outlet />
-            <VncSessionWorkspace />
+            <VncSessionVisibilityProvider>
+              <Outlet />
+              <VncSessionWorkspace />
+            </VncSessionVisibilityProvider>
           </SiteLayoutInset>
         </InventoryTreeProvider>
       </InventoryDialogsProvider>

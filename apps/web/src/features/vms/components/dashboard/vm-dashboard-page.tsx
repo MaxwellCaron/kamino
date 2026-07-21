@@ -12,6 +12,7 @@ import {
 } from "@/features/vms/api/vm-api"
 import { useVmDashboardResources } from "@/features/vms/hooks/use-vm-dashboard-resources"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import { useIsVncSessionPinned } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-table"
 import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
 import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
@@ -53,6 +54,7 @@ export function VmDashboardPage() {
   const isVmRunning = powerStatus === "running"
   const isLoading = isTreeLoading || (!treeNode && isItemLoading)
   const shouldFetchResources = !!vm && !isTemplate && isVmRunning
+  const isConsolePinned = useIsVncSessionPinned(itemId)
   const shouldFetchOverview = !!vm
   const {
     data: overview,
@@ -64,7 +66,7 @@ export function VmDashboardPage() {
   })
   const { data: resources } = useVmDashboardResources({
     itemId,
-    enabled: shouldFetchResources,
+    enabled: shouldFetchResources && !isConsolePinned,
     overviewSettled: shouldFetchOverview && !isOverviewPending,
     initialResources: overview?.resources,
   })

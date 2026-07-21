@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useEffect } from "react"
 
 import { VncSessionWorkspace } from "./vnc-session-workspace"
+import { VncSessionVisibilityProvider, useIsVncSessionPinned } from "./vnc-session-visibility-context"
 import type { VncConnectionStatus } from "./vnc-console"
 import type {
   ApiInventoryItem,
@@ -149,16 +150,34 @@ function makeInventoryItem(node: ApiTreeNode): ApiInventoryItem {
   }
 }
 
-function renderWorkspace() {
+function PinnedItemMarker({ itemId }: { itemId: string }) {
+  const isPinned = useIsVncSessionPinned(itemId)
+  return (
+    <div data-testid={`pinned-marker-${itemId}`} data-pinned={isPinned ? "true" : "false"} />
+  )
+}
+
+function renderWorkspace(options: { markerItemId?: string } = {}) {
   const queryClient = createTestQueryClient()
-  const view = renderWithQueryClient(<VncSessionWorkspace />, queryClient)
+  const view = renderWithQueryClient(
+    <VncSessionVisibilityProvider>
+      <VncSessionWorkspace />
+      {options.markerItemId ? (
+        <PinnedItemMarker itemId={options.markerItemId} />
+      ) : null}
+    </VncSessionVisibilityProvider>,
+    queryClient
+  )
 
   return {
     ...view,
-    rerenderWorkspace: () =>
+    rerenderWorkspace: (markerItemId = options.markerItemId) =>
       view.rerender(
         <QueryClientProvider client={queryClient}>
-          <VncSessionWorkspace />
+          <VncSessionVisibilityProvider>
+            <VncSessionWorkspace />
+            {markerItemId ? <PinnedItemMarker itemId={markerItemId} /> : null}
+          </VncSessionVisibilityProvider>
         </QueryClientProvider>
       ),
   }
@@ -535,5 +554,89 @@ describe("VncSessionWorkspace", () => {
       expect(workspace.className).not.toContain("absolute")
     })
 
+  })
+
+  describe("pinned visibility context", () => {
+    it("publishes no item when the active console is disconnected or inline", () => {
+      const { rerenderWorkspace } = renderWorkspace({ markerItemId: "vm-a" })
+
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "false"
+      )
+
+      setRoute("vm-b")
+      rerenderWorkspace("vm-a")
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "false"
+      )
+    })
+
+    it.each(["connecting", "connected", "expired"] as const)(
+      "publishes vm-a while the active console is %s",
+      (status) => {
+        renderWorkspace({ markerItemId: "vm-a" })
+        setConsoleStatus("vm-a", status)
+
+        expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+          "data-pinned",
+          "true"
+        )
+      }
+    )
+
+    it("clears the published item when disconnecting", () => {
+      const { rerenderWorkspace } = renderWorkspace({ markerItemId: "vm-a" })
+      setConsoleStatus("vm-a", "connected")
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "true"
+      )
+
+      setConsoleStatus("vm-a", "disconnected")
+      rerenderWorkspace("vm-a")
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "false"
+      )
+    })
+
+    it("publishes only the active route item when switching retained consoles", () => {
+      const { rerenderWorkspace } = renderWorkspace({ markerItemId: "vm-a" })
+      setConsoleStatus("vm-a", "connected")
+
+      setRoute("vm-b")
+      rerenderWorkspace("vm-b")
+      setConsoleStatus("vm-b", "connected")
+
+      expect(screen.getByTestId("pinned-marker-vm-b")).toHaveAttribute(
+        "data-pinned",
+        "true"
+      )
+
+      setRoute("vm-a")
+      rerenderWorkspace("vm-a")
+
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "true"
+      )
+    })
+
+    it("clears published state on unmount without warnings", () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+      const { unmount } = renderWorkspace({ markerItemId: "vm-a" })
+      setConsoleStatus("vm-a", "connected")
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "true"
+      )
+
+      unmount()
+
+      expect(consoleError).not.toHaveBeenCalled()
+      consoleError.mockRestore()
+    })
   })
 })

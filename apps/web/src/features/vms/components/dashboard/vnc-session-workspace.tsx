@@ -20,6 +20,7 @@ import { useInventoryTreeContext } from "@/features/inventory/components/tree/in
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
+import { useVncSessionVisibilityPublisher } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
 
 type ConsoleTarget = {
@@ -348,6 +349,21 @@ export function VncSessionWorkspace() {
 
   const shouldPinActiveConsole =
     activeTarget !== null && isPinnedConsoleStatus(activeRetainedStatus)
+
+  const setPinnedItemId = useVncSessionVisibilityPublisher()
+  const publishedPinnedItemId = shouldPinActiveConsole
+    ? activeTarget.itemId
+    : null
+
+  useEffect(() => {
+    setPinnedItemId(publishedPinnedItemId)
+
+    return () => {
+      setPinnedItemId((current) =>
+        current === publishedPinnedItemId ? null : current
+      )
+    }
+  }, [publishedPinnedItemId, setPinnedItemId])
 
   if (panels.length === 0) {
     return null
