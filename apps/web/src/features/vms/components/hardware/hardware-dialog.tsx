@@ -91,7 +91,7 @@ export function VmHardwareDialog({
           vmName
         )}.`}
       >
-        <div className="relative min-h-[40vh]">
+        <div className="min-h-[40vh]">
           <PreloadOverlay active={isLoadingHardware} label="Loading VM hardware" />
           {isLoadError ? (
             <InlineErrorAlert
