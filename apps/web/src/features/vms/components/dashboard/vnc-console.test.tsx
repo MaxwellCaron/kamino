@@ -34,6 +34,7 @@ type FakeVncScreenProps = {
   onDisconnect?: () => void
   url?: string
   rfbOptions?: { credentials?: { password?: string } }
+  focusOnClick?: boolean
 }
 
 let latestScreenProps: FakeVncScreenProps | null = null
@@ -223,6 +224,20 @@ describe("VncConsole", () => {
     )
     expect(latestScreenProps?.url).toContain("sessionId=sess-1")
     expect(latestScreenProps?.rfbOptions?.credentials?.password).toBe("secret")
+  })
+
+  it("enables screen focus on the first console click", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sessionId: "sess-1", password: "secret" }),
+    })
+
+    renderConsole()
+
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }))
+    await waitForVncScreen()
+
+    expect(latestScreenProps?.focusOnClick).toBe(true)
   })
 
   it("exposes an accessible name for the disconnect control when connected", async () => {

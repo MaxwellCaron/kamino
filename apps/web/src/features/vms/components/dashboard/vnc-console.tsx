@@ -347,6 +347,7 @@ export function VncConsole({
               ref={vncRef}
               url={session.url}
               rfbOptions={{ credentials: { password: session.password } }}
+              focusOnClick
               scaleViewport
               resizeSession={false}
               qualityLevel={8}
