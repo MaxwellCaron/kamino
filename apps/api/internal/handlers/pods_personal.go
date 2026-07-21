@@ -48,6 +48,14 @@ func (h *PodsHandler) personalPodVNetName(networkNumber int32) string {
 	)
 }
 
+func personalPodFolderDescription(vnetName string) string {
+	vnetName = strings.TrimSpace(vnetName)
+	return fmt.Sprintf(
+		"To add another VM, choose Create VM from this folder and attach its network interface to VNet %s. You can confirm the VNet from the router VM dashboard.",
+		vnetName,
+	)
+}
+
 func personalPodFolderName(username string) string {
 	trimmed := strings.TrimSpace(username)
 	var builder strings.Builder
@@ -264,6 +272,21 @@ func (h *PodsHandler) provisionPersonalPod(
 	}
 
 	vnetName := h.personalPodVNetName(personalPod.NetworkNumber)
+	if err := h.Service.SetFolderDescription(
+		ctx,
+		folderID,
+		personalPodFolderDescription(vnetName),
+	); err != nil {
+		reqErr := &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to set personal pod folder guidance",
+			Operation:   "set personal pod folder description",
+			Err:         err,
+		}
+		recordFailure(reqErr)
+		h.cleanupFailedPodProvision(folderID, nil)
+		return database.PersonalPods{}, reqErr
+	}
 	if reqErr := h.ensurePodVNetExists(ctx, vnetName); reqErr != nil {
 		recordFailure(reqErr)
 		h.cleanupFailedPodProvision(folderID, nil)

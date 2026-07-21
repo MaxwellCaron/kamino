@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/google/uuid"
 )
@@ -59,6 +60,31 @@ func TestPersonalPodFolderName(t *testing.T) {
 			t.Fatalf("ValidateFolder(%q) = %v", got, err)
 		}
 	})
+}
+
+func TestPersonalPodFolderDescription(t *testing.T) {
+	const representativeVNet = "pod4001"
+	want := "To add another VM, choose Create VM from this folder and attach its network interface to VNet pod4001. You can confirm the VNet from the router VM dashboard."
+
+	got := personalPodFolderDescription(representativeVNet)
+	if got != want {
+		t.Fatalf("personalPodFolderDescription() = %q, want %q", got, want)
+	}
+
+	trimmed := personalPodFolderDescription("  pod4001  ")
+	if trimmed != want {
+		t.Fatalf("personalPodFolderDescription() with whitespace = %q, want %q", trimmed, want)
+	}
+
+	longestVNet := personalPodScopedVNet("pod", 4094, 254)
+	if len(personalPodFolderDescription(longestVNet)) > inventory.MaxFolderDescriptionLength {
+		t.Fatalf(
+			"personalPodFolderDescription(%q) length = %d, want <= %d",
+			longestVNet,
+			len(personalPodFolderDescription(longestVNet)),
+			inventory.MaxFolderDescriptionLength,
+		)
+	}
 }
 
 func TestPersonalPodVNetName(t *testing.T) {
