@@ -324,7 +324,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
 
   return (
     <>
-      <SidebarHeader>
+      <SidebarHeader className="shrink-0">
         <SidebarMenu className="items-center">
           <SidebarMenuItem>
             <IconRailHoverCard
@@ -348,7 +348,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent className="overflow-visible group-data-[collapsible=icon]:overflow-visible!">
+      <SidebarContent className="overscroll-y-contain overflow-x-hidden group-data-[collapsible=icon]:overflow-y-auto!">
         <SidebarGroup className="overflow-visible">
           <SidebarGroupContent className="overflow-visible">
             <SidebarMenu className="flex flex-col items-center gap-2 overflow-visible">
@@ -375,7 +375,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="shrink-0">
         <NavUser user={user} />
       </SidebarFooter>
     </>
