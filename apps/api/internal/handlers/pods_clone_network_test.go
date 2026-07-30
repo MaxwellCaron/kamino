@@ -17,46 +17,45 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestClonedPodVNetName(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			VNetPrefix: "pod",
+func TestConfigurePersonalPodNetworkAttachmentsSetsWANAndLANBridges(t *testing.T) {
+	networks := map[string]map[string]string{
+		"101": {
+			"net0": "virtio=AA:BB:CC:DD:EE:FF,bridge=sharedwan",
+			"net1": "virtio=11:22:33:44:55:66,bridge=personal,tag=1",
+		},
+		"102": {
+			"net0": "virtio=22:33:44:55:66:77,bridge=personal,tag=1",
 		},
 	}
-	if got := handler.clonedPodVNetName(17); got != "pod17" {
-		t.Fatalf("clonedPodVNetName() = %q, want %q", got, "pod17")
-	}
-
-	handler.RouterCloneConfig.VNetPrefix = "  lab- "
-	if got := handler.clonedPodVNetName(17); got != "lab-17" {
-		t.Fatalf("clonedPodVNetName() trimmed prefix = %q, want %q", got, "lab-17")
-	}
-}
-
-func TestConfigurePersonalPodNetworkAttachmentsSetsWANAndLANBridges(t *testing.T) {
-	var net0Payload string
-	var net1Payload string
+	var mu sync.Mutex
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api2/json/cluster/sdn/vnets":
-			writeProxmoxAPIResponse(t, w, http.StatusOK, []proxmox.VNet{{VNet: "prsn4001"}})
-		case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
-			writeProxmoxAPIResponse(t, w, http.StatusOK, map[string]any{
-				"scsi0": "local-lvm:vm-101-disk-0,size=10G",
-				"net0":  "virtio=AA:BB:CC:DD:EE:FF,bridge=sharedwan",
-				"net1":  "virtio=11:22:33:44:55:66,bridge=pod1",
+			writeProxmoxAPIResponse(t, w, http.StatusOK, []map[string]any{
+				{"vnet": "personal", "vlanaware": 1, "isolate-ports": 0, "tag": 5000},
 			})
-		case r.Method == http.MethodPut && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/") && strings.HasSuffix(r.URL.Path, "/config"):
+			vmid := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/"), "/config")
+			mu.Lock()
+			payload := map[string]any{"scsi0": "local-lvm:vm-101-disk-0,size=10G"}
+			for device, value := range networks[vmid] {
+				payload[device] = value
+			}
+			mu.Unlock()
+			writeProxmoxAPIResponse(t, w, http.StatusOK, payload)
+		case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/") && strings.HasSuffix(r.URL.Path, "/config"):
+			vmid := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/"), "/config")
 			if err := r.ParseForm(); err != nil {
 				t.Fatalf("parse form: %v", err)
 			}
-			if value := r.PostForm.Get("net0"); value != "" {
-				net0Payload = value
+			mu.Lock()
+			for device := range r.PostForm {
+				if strings.HasPrefix(device, "net") {
+					networks[vmid][device] = r.PostForm.Get(device)
+				}
 			}
-			if value := r.PostForm.Get("net1"); value != "" {
-				net1Payload = value
-			}
+			mu.Unlock()
 			writeProxmoxAPIResponse(t, w, http.StatusOK, nil)
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -68,34 +67,47 @@ func TestConfigurePersonalPodNetworkAttachmentsSetsWANAndLANBridges(t *testing.T
 	reqErr := handler.configurePersonalPodNetworkAttachments(
 		context.Background(),
 		"personalwan",
-		"prsn4001",
-		[]podNetworkVMTarget{{
-			name:   "router",
-			router: true,
-			clone: clonedVM{
-				TargetNode: "node1",
-				VMID:       101,
+		VMNetworkScope{VNet: "personal", VLANTag: 1},
+		[]podNetworkVMTarget{
+			{
+				name:   "router",
+				router: true,
+				clone: clonedVM{
+					TargetNode: "node1",
+					VMID:       101,
+				},
 			},
-		}},
+			{
+				name: "workstation",
+				clone: clonedVM{
+					TargetNode: "node1",
+					VMID:       102,
+				},
+			},
+		},
 	)
 	if reqErr != nil {
 		t.Fatalf("configurePersonalPodNetworkAttachments() error = %v", reqErr)
 	}
-	if !strings.Contains(net0Payload, "bridge=personalwan") {
-		t.Fatalf("net0 payload = %q, want personal WAN bridge", net0Payload)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if got := networks["101"]["net0"]; !strings.Contains(got, "bridge=personalwan") || strings.Contains(got, "tag=") {
+		t.Fatalf("router net0 (WAN uplink) payload = %q, want untagged personalwan bridge", got)
 	}
-	if !strings.Contains(net1Payload, "bridge=prsn4001") {
-		t.Fatalf("net1 payload = %q, want personal LAN VNet", net1Payload)
+	if got := networks["101"]["net1"]; !strings.Contains(got, "bridge=personal") || !strings.Contains(got, "tag=1") {
+		t.Fatalf("router net1 payload = %q, want bridge=personal,tag=1", got)
+	}
+	if got := networks["102"]["net0"]; !strings.Contains(got, "bridge=personal") || !strings.Contains(got, "tag=1") {
+		t.Fatalf("workload net0 payload = %q, want bridge=personal,tag=1", got)
 	}
 }
 
 func TestClonedPodNetworkMetadata(t *testing.T) {
 	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
-		VNetPrefix:    "pod",
-		LANVLANBase:   0,
-		DMZVNetPrefix: "dmz",
-		DMZVLANBase:   1000,
-		WANIPBase:     "172.16.",
+		LANVNet:   "pod",
+		DMZVNet:   "dmz",
+		WANIPBase: "172.16.",
 	})
 	if err != nil {
 		t.Fatalf("NewCatalog() error = %v", err)
@@ -105,11 +117,12 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 		name           string
 		clone          database.ClonedPods
 		wantVNet       string
+		wantTag        int
 		wantExtSubnet  string
 		wantExtGateway string
 	}{
-		{"published clone", database.ClonedPods{NetworkNumber: 24, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod24", "172.16.24.0/24", "172.16.24.1"},
-		{"development", database.ClonedPods{NetworkNumber: 245, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod245", "172.16.245.0/24", "172.16.245.1"},
+		{"published clone", database.ClonedPods{NetworkNumber: 24, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod", 24, "172.16.24.0/24", "172.16.24.1"},
+		{"development", database.ClonedPods{NetworkNumber: 199, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod", 199, "172.16.199.0/24", "172.16.199.1"},
 	}
 
 	for _, tt := range tests {
@@ -117,8 +130,9 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 			handler := &PodsHandler{
 				NetworkCatalog: catalog,
 				RouterCloneConfig: PodRouterCloneConfig{
-					VNetPrefix: "pod",
-					WANIPBase:  "172.16.",
+					LANVNet:   "pod",
+					DMZVNet:   "dmz",
+					WANIPBase: "172.16.",
 				},
 			}
 
@@ -128,6 +142,9 @@ func TestClonedPodNetworkMetadata(t *testing.T) {
 			}
 			if got.Number != tt.clone.NetworkNumber || got.VNet != tt.wantVNet {
 				t.Fatalf("metadata identity = %#v", got)
+			}
+			if got.LANVLANTag != tt.wantTag {
+				t.Fatalf("LAN VLAN tag = %d, want %d", got.LANVLANTag, tt.wantTag)
 			}
 			if got.ExternalSubnet != tt.wantExtSubnet || got.ExternalGateway != tt.wantExtGateway {
 				t.Fatalf("external metadata = %#v", got)

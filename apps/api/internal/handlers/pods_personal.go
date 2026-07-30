@@ -41,11 +41,11 @@ type personalPodCreateResponse struct {
 }
 
 func (h *PodsHandler) personalPodVNetName(networkNumber int32) string {
-	return personalPodScopedVNet(
-		h.RouterCloneConfig.PersonalVNetPrefix,
-		h.RouterCloneConfig.PersonalVLANBase,
-		networkNumber,
-	)
+	return h.RouterCloneConfig.PersonalVNet
+}
+
+func (h *PodsHandler) personalPodNetworkScope(networkNumber int32) VMNetworkScope {
+	return personalPodVNetScope(h.RouterCloneConfig.PersonalVNet, networkNumber)
 }
 
 func personalPodFolderDescription(vnetName string) string {
@@ -53,6 +53,15 @@ func personalPodFolderDescription(vnetName string) string {
 	return fmt.Sprintf(
 		"To add another VM, choose Create VM from this folder and attach its network interface to VNet %s. You can confirm the VNet from the router VM dashboard.",
 		vnetName,
+	)
+}
+
+func personalPodFolderDescriptionWithTag(vnetName string, vlanTag int32) string {
+	vnetName = strings.TrimSpace(vnetName)
+	return fmt.Sprintf(
+		"To add another VM, choose Create VM from this folder and attach its network interface to VNet %s with VLAN tag %d. Both are pre-filled and locked when you create or edit hardware from this folder.",
+		vnetName,
+		vlanTag,
 	)
 }
 
@@ -103,6 +112,7 @@ func (h *PodsHandler) personalPodNetworkMetadata(networkNumber int32) (clonedPod
 		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
 		InternalSubnet:  h.RouterCloneConfig.InternalSubnet.String(),
 		InternalGateway: h.RouterCloneConfig.InternalSubnet.Addr().Next().String(),
+		LANVLANTag:      int(networkNumber),
 	}, nil
 }
 
@@ -275,7 +285,7 @@ func (h *PodsHandler) provisionPersonalPod(
 	if err := h.Service.SetFolderDescription(
 		ctx,
 		folderID,
-		personalPodFolderDescription(vnetName),
+		personalPodFolderDescriptionWithTag(vnetName, personalPod.NetworkNumber),
 	); err != nil {
 		reqErr := &requestError{
 			Status:      http.StatusInternalServerError,
@@ -287,7 +297,7 @@ func (h *PodsHandler) provisionPersonalPod(
 		h.cleanupFailedPodProvision(folderID, nil)
 		return database.PersonalPods{}, reqErr
 	}
-	if reqErr := h.ensurePodVNetExists(ctx, vnetName); reqErr != nil {
+	if reqErr := h.ensureSharedVNetsValid(ctx, []string{vnetName}); reqErr != nil {
 		recordFailure(reqErr)
 		h.cleanupFailedPodProvision(folderID, nil)
 		return database.PersonalPods{}, reqErr
@@ -384,7 +394,7 @@ func (h *PodsHandler) provisionPersonalPod(
 	if reqErr := h.configurePersonalPodNetworkAttachments(
 		ctx,
 		h.RouterCloneConfig.PersonalWANBridge,
-		vnetName,
+		h.personalPodNetworkScope(personalPod.NetworkNumber),
 		targets,
 	); reqErr != nil {
 		recordFailure(reqErr)

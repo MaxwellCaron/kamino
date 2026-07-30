@@ -75,6 +75,7 @@ interface ClonedPodNetworkBase {
   vnet: string
   external_subnet: string
   internal_subnet: string
+  lan_vlan_tag?: number
 }
 
 export type ClonedPodNetwork =
@@ -83,6 +84,7 @@ export type ClonedPodNetwork =
       profile_key: "lan-dmz-router-v1"
       dmz_vnet: string
       dmz_subnet: string
+      dmz_vlan_tag?: number
     })
 
 // User-owned runtime instance of a pod.

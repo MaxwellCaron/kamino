@@ -46,15 +46,14 @@ type vmCreateAuthz interface {
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX                    vmCreateProxmox
-	DB                    *pgxpool.Pool
-	Importer              *proxmox.InventoryImporter
-	Service               *inventory.Service
-	Authz                 vmCreateAuthz
-	Audit                 *audit.Service
-	Allocator             *vmidalloc.Allocator
-	PersonalPodVNetPrefix string
-	PersonalPodVLANBase   int
+	PX              vmCreateProxmox
+	DB              *pgxpool.Pool
+	Importer        *proxmox.InventoryImporter
+	Service         *inventory.Service
+	Authz           vmCreateAuthz
+	Audit           *audit.Service
+	Allocator       *vmidalloc.Allocator
+	PersonalPodVNet string
 }
 
 // GetNodes returns all cluster nodes.
@@ -77,12 +76,25 @@ func (h *VMCreateHandler) GetNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, nodes)
 }
 
+// scopedNetworkResponse is the exact bridge/inner-VLAN-tag pair a caller is
+// authorized to use, e.g. for a personal pod. It is authoritative display
+// data only; the server enforces the same pair independently on mutation.
+type scopedNetworkResponse struct {
+	Bridge  string `json:"bridge"`
+	VLANTag int    `json:"vlan_tag"`
+}
+
+func scopedNetworkResponseFromScope(scope VMNetworkScope) *scopedNetworkResponse {
+	return &scopedNetworkResponse{Bridge: scope.VNet, VLANTag: scope.VLANTag}
+}
+
 type createOptionsResponse struct {
-	Nodes        []proxmox.Node          `json:"nodes"`
-	DiskStorages []proxmox.Storage       `json:"disk_storages"`
-	ISOStorages  []proxmox.Storage       `json:"iso_storages"`
-	Bridges      []proxmox.NetworkBridge `json:"bridges"`
-	VNets        []proxmox.VNet          `json:"vnets"`
+	Nodes         []proxmox.Node          `json:"nodes"`
+	DiskStorages  []proxmox.Storage       `json:"disk_storages"`
+	ISOStorages   []proxmox.Storage       `json:"iso_storages"`
+	Bridges       []proxmox.NetworkBridge `json:"bridges"`
+	VNets         []proxmox.VNet          `json:"vnets"`
+	ScopedNetwork *scopedNetworkResponse  `json:"scoped_network,omitempty"`
 }
 
 func filterVNetsByName(vnets []proxmox.VNet, scopedVNetName string) []proxmox.VNet {
@@ -166,6 +178,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
+	var scopedNetwork *scopedNetworkResponse
 	if scopeItemID != uuid.Nil {
 		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 		if err != nil {
@@ -173,11 +186,10 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 			return
 		}
 		if !isManager {
-			scopedVNetName, scoped, err := personalPodNetworkScope(
+			scope, scoped, err := personalPodNetworkScope(
 				c.Request.Context(),
 				h.DB,
-				h.PersonalPodVNetPrefix,
-				h.PersonalPodVLANBase,
+				h.PersonalPodVNet,
 				scopeItemID,
 			)
 			if err != nil {
@@ -186,16 +198,18 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 			}
 			if scoped {
 				bridges = []proxmox.NetworkBridge{}
-				vnets = filterVNetsByName(vnets, scopedVNetName)
+				vnets = filterVNetsByName(vnets, scope.VNet)
+				scopedNetwork = scopedNetworkResponseFromScope(scope)
 			}
 		}
 	}
 
 	c.JSON(http.StatusOK, createOptionsResponse{
-		Nodes:        nodes,
-		DiskStorages: diskStorages,
-		ISOStorages:  isoStorages,
-		Bridges:      bridges,
-		VNets:        vnets,
+		Nodes:         nodes,
+		DiskStorages:  diskStorages,
+		ISOStorages:   isoStorages,
+		Bridges:       bridges,
+		VNets:         vnets,
+		ScopedNetwork: scopedNetwork,
 	})
 }

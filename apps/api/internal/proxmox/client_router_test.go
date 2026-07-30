@@ -53,18 +53,64 @@ func TestSetVMNetworkBridgePreservesNICShape(t *testing.T) {
 	defer server.Close()
 
 	client := NewHTTPTestClient(server)
-	if err := client.SetVMNetworkBridge(context.Background(), "node1", 101, "net1", "kamino24"); err != nil {
+	if err := client.SetVMNetworkBridge(context.Background(), "node1", 101, "net1", "pod"); err != nil {
 		t.Fatalf("SetVMNetworkBridge() error = %v", err)
 	}
 
 	if putPath == "" {
 		t.Fatalf("expected PUT request")
 	}
-	if got := putForm.Get("net1"); got != "virtio=11:22:33:44:55:66,bridge=kamino24,firewall=1" {
+	if got := putForm.Get("net1"); got != "virtio=11:22:33:44:55:66,bridge=pod,firewall=1" {
 		t.Fatalf("net1 payload = %q", got)
 	}
 	if got := putForm.Get("net0"); got != "" {
 		t.Fatalf("unexpected net0 payload = %q", got)
+	}
+}
+
+func TestSetVMNetworkAttachmentAppliesInnerVLANTag(t *testing.T) {
+	var (
+		putForm url.Values
+		putPath string
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			writeAPIResponse(t, w, http.StatusOK, map[string]any{
+				"name":  "workload",
+				"scsi0": "local-lvm:vm-101-disk-0,size=10G",
+				"net0":  "virtio=11:22:33:44:55:66,bridge=old,tag=99",
+			})
+		case r.Method == http.MethodPut && r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse form: %v", err)
+			}
+			putPath = r.URL.Path
+			putForm = r.PostForm
+			writeAPIResponse(t, w, http.StatusOK, nil)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	client := NewHTTPTestClient(server)
+	tag := 24
+	if err := client.SetVMNetworkAttachment(context.Background(), "node1", 101, "net0", NetworkAttachment{
+		Bridge:   "pod",
+		VLANTag:  &tag,
+		Firewall: true,
+	}); err != nil {
+		t.Fatalf("SetVMNetworkAttachment() error = %v", err)
+	}
+
+	if putPath == "" {
+		t.Fatalf("expected PUT request")
+	}
+	// Model and MAC address must be preserved; only bridge and tag change.
+	if got := putForm.Get("net0"); got != "virtio=11:22:33:44:55:66,bridge=pod,firewall=1,tag=24" {
+		t.Fatalf("net0 payload = %q", got)
 	}
 }
 

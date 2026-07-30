@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,7 +9,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -42,52 +42,20 @@ type podRouterCloneResponse struct {
 	VNets             []string      `json:"vnets"`
 }
 
-func suggestPodRouterCloneNetworkOptions(
-	catalog *podnetwork.Catalog,
-	vnets []proxmox.VNet,
-) ([]podRouterCloneNetworkOption, error) {
-	available := make(map[string]proxmox.VNet, len(vnets))
-	for _, vnet := range vnets {
-		available[vnet.VNet] = vnet
-	}
-
+func (h *PodsHandler) suggestPodRouterCloneNetworkOptions(ctx context.Context) ([]podRouterCloneNetworkOption, error) {
+	catalog := h.NetworkCatalog
 	options := make([]podRouterCloneNetworkOption, 0)
 	for _, profile := range catalog.PublicProfiles() {
-		fullProfile, err := catalog.Profile(profile.Key)
+		requiredVNets, err := catalog.RequiredVNets(profile.Key)
 		if err != nil {
 			return nil, err
 		}
 
+		if reqErr := h.ensureSharedVNetsValid(ctx, requiredVNets); reqErr != nil {
+			continue
+		}
+
 		for networkNumber := int32(1); networkNumber <= 254; networkNumber++ {
-			requiredVNets, err := catalog.RequiredVNets(profile.Key, networkNumber)
-			if err != nil {
-				return nil, err
-			}
-
-			matches := true
-			for _, segment := range fullProfile.Segments {
-				if segment.VNetKind == "" {
-					continue
-				}
-				vnetName, err := catalog.VNetName(segment.VNetKind, networkNumber)
-				if err != nil {
-					return nil, err
-				}
-				expectedTag, err := catalog.VNetTag(segment.VNetKind, networkNumber)
-				if err != nil {
-					return nil, err
-				}
-
-				vnet, ok := available[vnetName]
-				if !ok || vnet.Tag != expectedTag {
-					matches = false
-					break
-				}
-			}
-			if !matches {
-				continue
-			}
-
 			options = append(options, podRouterCloneNetworkOption{
 				NetworkNumber:     networkNumber,
 				NetworkProfileKey: profile.Key,
@@ -124,13 +92,7 @@ func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 		return
 	}
 
-	vnets, err := h.PX.GetVNets(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to load pod clone networks", "list pod clone VNets", err)
-		return
-	}
-
-	options, err := suggestPodRouterCloneNetworkOptions(h.NetworkCatalog, vnets)
+	options, err := h.suggestPodRouterCloneNetworkOptions(c.Request.Context())
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to build pod router clone options", "build pod router clone network options", err)
 		return
@@ -230,7 +192,7 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		return
 	}
 
-	if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey, networkNumber); reqErr != nil {
+	if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey); reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
 	}
@@ -345,7 +307,7 @@ func (h *PodsHandler) CloneRouter(c *gin.Context) {
 		return
 	}
 
-	vnetNames, err := h.NetworkCatalog.RequiredVNets(profileKey, networkNumber)
+	vnetNames, err := h.NetworkCatalog.RequiredVNets(profileKey)
 	if err != nil {
 		reqErr := &requestError{
 			Status:      http.StatusInternalServerError,

@@ -169,7 +169,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 
 		devNetworkNumber = allocation.NetworkNumber
 		progress.set(createProgressStepNetwork, fmt.Sprintf("Checking dev VNets for profile %s.", profileKey))
-		if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey, devNetworkNumber); reqErr != nil {
+		if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey); reqErr != nil {
 			progress.fail(reqErr.UserMessage)
 			writeRequestError(c, reqErr)
 			return

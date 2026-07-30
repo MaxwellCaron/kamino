@@ -40,43 +40,25 @@ func (c *Catalog) PublicProfiles() []PublicProfile {
 	return result
 }
 
-func (c *Catalog) VNetName(kind string, networkNumber int32) (string, error) {
-	if networkNumber < 1 || networkNumber > 4094 {
-		return "", fmt.Errorf("network number %d is out of range", networkNumber)
-	}
+func (c *Catalog) VNetName(kind string) (string, error) {
 	switch kind {
 	case VNetKindPrimary:
-		return fmt.Sprintf("%s%d", c.config.VNetPrefix, c.config.LANVLANBase+int(networkNumber)), nil
+		return c.config.LANVNet, nil
 	case VNetKindDMZ:
-		return fmt.Sprintf("%s%d", c.config.DMZVNetPrefix, c.config.DMZVLANBase+int(networkNumber)), nil
+		return c.config.DMZVNet, nil
 	default:
 		return "", fmt.Errorf("unknown VNet kind %q", kind)
 	}
 }
 
-func (c *Catalog) VNetTag(kind string, networkNumber int32) (int, error) {
-	if networkNumber < 1 || networkNumber > 4094 {
+func (c *Catalog) InnerVLANTag(networkNumber int32) (int, error) {
+	if networkNumber < 1 || networkNumber > 254 {
 		return 0, fmt.Errorf("network number %d is out of range", networkNumber)
 	}
-	switch kind {
-	case VNetKindPrimary:
-		tag := c.config.LANVLANBase + int(networkNumber)
-		if tag < 1 || tag > 4094 {
-			return 0, fmt.Errorf("derived LAN VLAN tag %d is out of range", tag)
-		}
-		return tag, nil
-	case VNetKindDMZ:
-		tag := c.config.DMZVLANBase + int(networkNumber)
-		if tag < 1 || tag > 4094 {
-			return 0, fmt.Errorf("derived DMZ VLAN tag %d is out of range", tag)
-		}
-		return tag, nil
-	default:
-		return 0, fmt.Errorf("unknown VNet kind %q", kind)
-	}
+	return int(networkNumber), nil
 }
 
-func (c *Catalog) RequiredVNets(profileKey string, networkNumber int32) ([]string, error) {
+func (c *Catalog) RequiredVNets(profileKey string) ([]string, error) {
 	profile, err := c.Profile(profileKey)
 	if err != nil {
 		return nil, err
@@ -85,7 +67,7 @@ func (c *Catalog) RequiredVNets(profileKey string, networkNumber int32) ([]strin
 	seen := make(map[string]struct{}, len(profile.RequiredVNets))
 	names := make([]string, 0, len(profile.RequiredVNets))
 	for _, kind := range profile.RequiredVNets {
-		name, err := c.VNetName(kind, networkNumber)
+		name, err := c.VNetName(kind)
 		if err != nil {
 			return nil, err
 		}
@@ -116,11 +98,11 @@ func (c *Catalog) ResolveWorkloadAttachment(
 		return WorkloadAttachment{}, fmt.Errorf("segment %q is not workload-assignable", segmentKey)
 	}
 
-	vnetName, err := c.VNetName(segment.VNetKind, networkNumber)
+	vnetName, err := c.VNetName(segment.VNetKind)
 	if err != nil {
 		return WorkloadAttachment{}, err
 	}
-	vnetTag, err := c.VNetTag(segment.VNetKind, networkNumber)
+	tag, err := c.InnerVLANTag(networkNumber)
 	if err != nil {
 		return WorkloadAttachment{}, err
 	}
@@ -128,8 +110,7 @@ func (c *Catalog) ResolveWorkloadAttachment(
 	return WorkloadAttachment{
 		Device:     "net0",
 		VNetName:   vnetName,
-		VNetTag:    vnetTag,
-		VMVLANTag:  nil,
+		VMVLANTag:  &tag,
 		SegmentKey: segmentKey,
 	}, nil
 }
@@ -164,18 +145,17 @@ func (c *Catalog) ResolveRouterAttachments(
 			if !ok {
 				return nil, fmt.Errorf("router interface %s references unknown segment %q", iface.Device, iface.SegmentKey)
 			}
-			vnetName, err := c.VNetName(segment.VNetKind, networkNumber)
+			vnetName, err := c.VNetName(segment.VNetKind)
 			if err != nil {
 				return nil, err
 			}
-			vnetTag, err := c.VNetTag(segment.VNetKind, networkNumber)
+			tag, err := c.InnerVLANTag(networkNumber)
 			if err != nil {
 				return nil, err
 			}
 			attachment.VNetName = vnetName
-			attachment.VNetTag = vnetTag
 			attachment.Bridge = vnetName
-			attachment.VMVLANTag = nil
+			attachment.VMVLANTag = &tag
 		}
 
 		attachments = append(attachments, attachment)

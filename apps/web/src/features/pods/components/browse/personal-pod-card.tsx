@@ -49,7 +49,10 @@ export function PersonalPodCard({
     ? {
         description:
           "Open your personal pod folder and continue where you left off.",
-        footerLabel: existingPersonalPod.network.vnet,
+        footerLabel:
+          existingPersonalPod.network.lan_vlan_tag == null
+            ? existingPersonalPod.network.vnet
+            : `${existingPersonalPod.network.vnet} · VLAN ${existingPersonalPod.network.lan_vlan_tag}`,
         action: (
           <Button
             type="button"

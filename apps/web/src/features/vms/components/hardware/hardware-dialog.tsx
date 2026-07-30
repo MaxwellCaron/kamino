@@ -110,6 +110,7 @@ export function VmHardwareDialog({
               networkOptions={networkOptions}
               storageOptions={storageOptions}
               onOpenChange={onOpenChange}
+              scopedNetwork={networks?.scoped_network}
             />
           ) : !isLoadingHardware ? (
             <InlineErrorAlert fallback="Failed to load VM hardware." />

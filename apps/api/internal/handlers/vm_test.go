@@ -102,10 +102,11 @@ var _ vmAuthz = (*fakeVMAuthz)(nil)
 // fakeVMProxmox is a minimal, configurable vmProxmox implementation. Methods
 // without a configured function panic so unexpected Proxmox calls fail loudly.
 type fakeVMProxmox struct {
-	identity            *proxmox.VMIdentity
-	identityErr         error
-	hardwareConfigFn    func(context.Context, string, int) (*proxmox.VMHardwareConfig, error)
-	lxcNetworksConfigFn func(context.Context, string, int) ([]proxmox.VMHardwareNetwork, error)
+	identity                 *proxmox.VMIdentity
+	identityErr              error
+	hardwareConfigFn         func(context.Context, string, int) (*proxmox.VMHardwareConfig, error)
+	lxcNetworksConfigFn      func(context.Context, string, int) ([]proxmox.VMHardwareNetwork, error)
+	setVMNetworkAttachmentFn func(context.Context, string, int, string, proxmox.NetworkAttachment) error
 }
 
 func (f *fakeVMProxmox) GetVMIdentity(ctx context.Context, gt proxmox.GuestType, node string, vmid int) (*proxmox.VMIdentity, error) {
@@ -140,6 +141,13 @@ func (f *fakeVMProxmox) GetLXCNetworks(ctx context.Context, node string, vmid in
 
 func (f *fakeVMProxmox) UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error {
 	panic("fakeVMProxmox: UpdateVMHardware not configured for this test")
+}
+
+func (f *fakeVMProxmox) SetVMNetworkAttachment(ctx context.Context, node string, vmid int, device string, attachment proxmox.NetworkAttachment) error {
+	if f.setVMNetworkAttachmentFn == nil {
+		panic("fakeVMProxmox: SetVMNetworkAttachment not configured for this test")
+	}
+	return f.setVMNetworkAttachmentFn(ctx, node, vmid, device, attachment)
 }
 
 func (f *fakeVMProxmox) GetOptimalNode(ctx context.Context) (proxmox.Node, error) {

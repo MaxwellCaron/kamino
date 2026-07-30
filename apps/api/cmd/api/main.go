@@ -173,30 +173,28 @@ func main() {
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
 	podCloneClaims := vmactions.NewPodCloneClaims(server.DBPool)
 	vmHandler := &handlers.VMHandler{
-		PX:                    server.ProxmoxClient,
-		DB:                    server.DBPool,
-		Importer:              server.ProxmoxImport,
-		Service:               inventoryService,
-		Notifier:              vmStatusNotifier,
-		Authz:                 authzService,
-		Actions:               vmActionExecutor,
-		Claims:                vmActionClaims,
-		Audit:                 auditService,
-		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
-		PersonalPodVLANBase:   routerCloneConfig.PersonalVLANBase,
+		PX:              server.ProxmoxClient,
+		DB:              server.DBPool,
+		Importer:        server.ProxmoxImport,
+		Service:         inventoryService,
+		Notifier:        vmStatusNotifier,
+		Authz:           authzService,
+		Actions:         vmActionExecutor,
+		Claims:          vmActionClaims,
+		Audit:           auditService,
+		PersonalPodVNet: routerCloneConfig.PersonalVNet,
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
 	vmHandler.Allocator = vmidAllocator
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:                    server.ProxmoxClient,
-		DB:                    server.DBPool,
-		Importer:              server.ProxmoxImport,
-		Service:               inventoryService,
-		Authz:                 authzService,
-		Audit:                 auditService,
-		Allocator:             vmidAllocator,
-		PersonalPodVNetPrefix: routerCloneConfig.PersonalVNetPrefix,
-		PersonalPodVLANBase:   routerCloneConfig.PersonalVLANBase,
+		PX:              server.ProxmoxClient,
+		DB:              server.DBPool,
+		Importer:        server.ProxmoxImport,
+		Service:         inventoryService,
+		Authz:           authzService,
+		Audit:           auditService,
+		Allocator:       vmidAllocator,
+		PersonalPodVNet: routerCloneConfig.PersonalVNet,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {

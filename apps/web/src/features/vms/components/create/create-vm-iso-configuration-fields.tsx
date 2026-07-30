@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { BoltIcon, Settings01Icon } from "@hugeicons/core-free-icons"
 import {
@@ -71,6 +72,29 @@ export const IsoConfigurationFields = withCreateVmForm({
   }) {
     const { bridgeOptions, vnetOptions, networkOptions } =
       buildVmHardwareNetworkOptions(networks ?? {})
+    const scopedNetwork = networks?.scoped_network
+
+    useEffect(() => {
+      if (!scopedNetwork) {
+        return
+      }
+      const current = form.getFieldValue("networks")
+      const needsSync = current.some(
+        (network) =>
+          network.bridge !== scopedNetwork.bridge ||
+          network.vlan_tag !== scopedNetwork.vlan_tag
+      )
+      if (needsSync) {
+        form.setFieldValue(
+          "networks",
+          current.map((network) => ({
+            ...network,
+            bridge: scopedNetwork.bridge,
+            vlan_tag: scopedNetwork.vlan_tag,
+          }))
+        )
+      }
+    }, [scopedNetwork?.bridge, scopedNetwork?.vlan_tag, form])
 
     return (
       <div className="flex flex-col gap-6">
@@ -592,17 +616,28 @@ export const IsoConfigurationFields = withCreateVmForm({
               "Configure connectivity for this interface."
             }
             resolveCardKey={(network) => network.id ?? "network"}
-            createNetworkValue={() => ({
-              id: uuid(),
-              bridge: "vmbr0",
-              model: "virtio",
-              firewall: true,
-            })}
+            createNetworkValue={() =>
+              scopedNetwork
+                ? {
+                    id: uuid(),
+                    bridge: scopedNetwork.bridge,
+                    model: "virtio",
+                    vlan_tag: scopedNetwork.vlan_tag,
+                    firewall: true,
+                  }
+                : {
+                    id: uuid(),
+                    bridge: "vmbr0",
+                    model: "virtio",
+                    firewall: true,
+                  }
+            }
             validateBridge={(value) =>
               getFirstIssueMessage(
                 networkInterfaceSchema.shape.bridge.safeParse(value)
               )
             }
+            scopedNetwork={scopedNetwork}
           />
         </VmHardwareNetworkSection>
       </div>

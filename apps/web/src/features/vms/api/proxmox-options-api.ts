@@ -7,12 +7,18 @@ import type {
 } from "../types/vm-types"
 import { apiJson } from "@/features/shared/api/api-json"
 
+export type ApiScopedNetwork = {
+  bridge: string
+  vlan_tag: number
+}
+
 export function bridgesQueryOptions(node: string, scopeItemId?: string) {
   return {
     queryKey: ["proxmox", "bridges", node, scopeItemId ?? ""] as const,
     queryFn: async (): Promise<{
       bridges: Array<ApiNetworkBridge>
       vnets: Array<ApiVNet>
+      scoped_network?: ApiScopedNetwork
     }> => {
       const params = new URLSearchParams()
       if (scopeItemId) {
@@ -22,6 +28,7 @@ export function bridgesQueryOptions(node: string, scopeItemId?: string) {
       return apiJson<{
         bridges: Array<ApiNetworkBridge>
         vnets: Array<ApiVNet>
+        scoped_network?: ApiScopedNetwork
       }>(`/api/v1/proxmox/nodes/${node}/bridges${suffix}`, "fetch bridges")
     },
     enabled: !!node,
@@ -44,6 +51,7 @@ export function createVmOptionsQueryOptions(
       iso_storages: Array<ApiStorage>
       bridges: Array<ApiNetworkBridge>
       vnets: Array<ApiVNet>
+      scoped_network?: ApiScopedNetwork
     }> => {
       const params = new URLSearchParams({ scope_item_id: scopeItemId })
       return apiJson<{
@@ -52,9 +60,14 @@ export function createVmOptionsQueryOptions(
         iso_storages: Array<ApiStorage>
         bridges: Array<ApiNetworkBridge>
         vnets: Array<ApiVNet>
-      }>(`/api/v1/proxmox/create/options?${params.toString()}`, "fetch create options", {
-        signal,
-      })
+        scoped_network?: ApiScopedNetwork
+      }>(
+        `/api/v1/proxmox/create/options?${params.toString()}`,
+        "fetch create options",
+        {
+          signal,
+        }
+      )
     },
     enabled: enabled && !!scopeItemId,
   }

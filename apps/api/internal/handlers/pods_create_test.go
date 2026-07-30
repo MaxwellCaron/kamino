@@ -8,10 +8,9 @@ import (
 
 func TestResolveCreateNetworkProfile(t *testing.T) {
 	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
-		VNetPrefix:    "pod",
-		DMZVNetPrefix: "dmz",
-		DMZVLANBase:   1000,
-		WANIPBase:     "172.16.",
+		LANVNet:   "pod",
+		DMZVNet:   "dmz",
+		WANIPBase: "172.16.",
 	})
 	if err != nil {
 		t.Fatalf("NewCatalog() error = %v", err)

@@ -44,6 +44,10 @@ function NetworkItem({
   )
 }
 
+function vnetIdentity(vnet: string, vlanTag: number | undefined) {
+  return vlanTag == null ? vnet : `${vnet} · VLAN ${vlanTag}`
+}
+
 function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
   const isDmzProfile = network.profile_key === "lan-dmz-router-v1"
 
@@ -54,10 +58,16 @@ function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
         isDmzProfile ? "lg:grid-cols-4" : "sm:grid-cols-3"
       )}
     >
-      <NetworkItem label="VNet" subnet={network.vnet} />
+      <NetworkItem
+        label="VNet"
+        subnet={vnetIdentity(network.vnet, network.lan_vlan_tag)}
+      />
       <NetworkItem label="External" subnet={network.external_subnet} />
       {isDmzProfile ? (
-        <NetworkItem label="DMZ" subnet={network.dmz_subnet} />
+        <NetworkItem
+          label="DMZ"
+          subnet={vnetIdentity(network.dmz_vnet, network.dmz_vlan_tag)}
+        />
       ) : null}
       <NetworkItem
         className={!isDmzProfile ? "col-span-2 sm:col-span-1" : undefined}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,14 +14,50 @@ import (
 
 // Config holds all application configuration
 
+var sharedVNetIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
+
 const proxmoxVNetIDMaxLength = 8
+
+func validateSharedVNetID(envVar, id string) error {
+	if id == "" {
+		return fmt.Errorf("%s must not be empty", envVar)
+	}
+	if len(id) > proxmoxVNetIDMaxLength {
+		return fmt.Errorf("%s must be at most %d characters", envVar, proxmoxVNetIDMaxLength)
+	}
+	if !sharedVNetIDPattern.MatchString(id) {
+		return fmt.Errorf("%s must start with a letter and contain only letters and numbers", envVar)
+	}
+	return nil
+}
 
 func rangesOverlap(leftMin, leftMax, rightMin, rightMax int32) bool {
 	return leftMin <= rightMax && rightMin <= leftMax
 }
 
 func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, error) {
-	vnetPrefix := strings.TrimSpace(config.PodCloneVNetPrefix)
+	lanVNet := strings.TrimSpace(config.PodLANVNet)
+	if err := validateSharedVNetID("POD_LAN_VNET", lanVNet); err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+	dmzVNet := strings.TrimSpace(config.PodDMZVNet)
+	if err := validateSharedVNetID("POD_DMZ_VNET", dmzVNet); err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+	personalVNet := strings.TrimSpace(config.PersonalPodVNet)
+	if err := validateSharedVNetID("PERSONAL_POD_VNET", personalVNet); err != nil {
+		return handlers.PodRouterCloneConfig{}, err
+	}
+	if lanVNet == dmzVNet {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_LAN_VNET and POD_DMZ_VNET must be distinct")
+	}
+	if lanVNet == personalVNet {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_LAN_VNET and PERSONAL_POD_VNET must be distinct")
+	}
+	if dmzVNet == personalVNet {
+		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DMZ_VNET and PERSONAL_POD_VNET must be distinct")
+	}
+
 	if config.PodCloneNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN must be at least 1")
 	}
@@ -47,14 +84,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	) {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN..POD_CLONE_NETWORK_MAX must not overlap POD_DEV_NETWORK_MIN..POD_DEV_NETWORK_MAX")
 	}
-	minNetworkNumber := config.PodCloneNetworkMin
-	if config.PodDevNetworkMin < minNetworkNumber {
-		minNetworkNumber = config.PodDevNetworkMin
-	}
-	maxNetworkNumber := config.PodCloneNetworkMax
-	if config.PodDevNetworkMax > maxNetworkNumber {
-		maxNetworkNumber = config.PodDevNetworkMax
-	}
 	if config.PersonalPodNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN must be at least 1")
 	}
@@ -65,10 +94,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN must be less than or equal to PERSONAL_POD_NETWORK_MAX")
 	}
 
-	personalPrefix := strings.TrimSpace(config.PersonalPodVNetPrefix)
-	if personalPrefix == "" {
-		personalPrefix = vnetPrefix
-	}
 	personalWANBridge := strings.TrimSpace(config.PersonalPodWANBridge)
 	if config.PersonalPodsEnabled && personalWANBridge == "" {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_WAN_BRIDGE must not be empty when PERSONAL_PODS_ENABLED is true")
@@ -133,35 +158,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	if err != nil {
 		return handlers.PodRouterCloneConfig{}, err
 	}
-	if personalCloudInitUserFilePattern == cloudInitUserFilePattern &&
-		(rangesOverlap(
-			config.PersonalPodNetworkMin,
-			config.PersonalPodNetworkMax,
-			config.PodCloneNetworkMin,
-			config.PodCloneNetworkMax,
-		) ||
-			rangesOverlap(
-				config.PersonalPodNetworkMin,
-				config.PersonalPodNetworkMax,
-				config.PodDevNetworkMin,
-				config.PodDevNetworkMax,
-			)) {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN..PERSONAL_POD_NETWORK_MAX must not overlap pod ranges when the cloud-init user file pattern is shared")
-	}
-
-	dmzVNetPrefix := strings.TrimSpace(config.PodDMZVNetPrefix)
-	if dmzVNetPrefix == "" {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DMZ_VNET_PREFIX must not be empty")
-	}
-	if config.PodDMZVLANBase < 0 || config.PodDMZVLANBase > 4094 {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DMZ_VLAN_BASE must be within 0..4094")
-	}
-	if config.PodLANVLANBase < 0 || config.PodLANVLANBase > 4094 {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_LAN_VLAN_BASE must be within 0..4094")
-	}
-	if config.PersonalPodVLANBase < 0 || config.PersonalPodVLANBase > 4094 {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_VLAN_BASE must be within 0..4094")
-	}
 	lanDMZCloudInitUserFilePattern, err := routerconfig.NormalizeCloudInitFilePattern(
 		"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN",
 		config.PodRouterLANDMZCloudInitUserPattern,
@@ -177,45 +173,9 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		return handlers.PodRouterCloneConfig{}, err
 	}
 
-	lanMinTag := config.PodLANVLANBase + int(minNetworkNumber)
-	lanMaxTag := config.PodLANVLANBase + int(maxNetworkNumber)
-	dmzMinTag := config.PodDMZVLANBase + int(minNetworkNumber)
-	dmzMaxTag := config.PodDMZVLANBase + int(maxNetworkNumber)
-	personalMinTag := config.PersonalPodVLANBase + int(config.PersonalPodNetworkMin)
-	personalMaxTag := config.PersonalPodVLANBase + int(config.PersonalPodNetworkMax)
-	if lanMinTag < 1 || lanMaxTag > 4094 {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived LAN VLAN tags must be within 1..4094")
-	}
-	if dmzMinTag < 1 || dmzMaxTag > 4094 {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived DMZ VLAN tags must be within 1..4094")
-	}
-	if personalMinTag < 1 || personalMaxTag > 4094 {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived personal pod VLAN tags must be within 1..4094")
-	}
-	if rangesOverlap(int32(lanMinTag), int32(lanMaxTag), int32(dmzMinTag), int32(dmzMaxTag)) {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("LAN and DMZ VLAN tag ranges must not overlap")
-	}
-	if rangesOverlap(int32(personalMinTag), int32(personalMaxTag), int32(lanMinTag), int32(lanMaxTag)) {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("personal pod and LAN VLAN tag ranges must not overlap")
-	}
-	if rangesOverlap(int32(personalMinTag), int32(personalMaxTag), int32(dmzMinTag), int32(dmzMaxTag)) {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("personal pod and DMZ VLAN tag ranges must not overlap")
-	}
-	if len(fmt.Sprintf("%s%d", vnetPrefix, config.PodLANVLANBase+int(maxNetworkNumber))) > proxmoxVNetIDMaxLength {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived LAN VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
-	}
-	if len(fmt.Sprintf("%s%d", dmzVNetPrefix, config.PodDMZVLANBase+int(maxNetworkNumber))) > proxmoxVNetIDMaxLength {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived DMZ VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
-	}
-	if len(fmt.Sprintf("%s%d", personalPrefix, personalMaxTag)) > proxmoxVNetIDMaxLength {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("derived personal pod VNet IDs must be at most %d characters", proxmoxVNetIDMaxLength)
-	}
-
 	routerConfig := handlers.PodRouterCloneConfig{
-		VNetPrefix:                       vnetPrefix,
-		LANVLANBase:                      config.PodLANVLANBase,
-		DMZVNetPrefix:                    dmzVNetPrefix,
-		DMZVLANBase:                      config.PodDMZVLANBase,
+		LANVNet:                          lanVNet,
+		DMZVNet:                          dmzVNet,
 		NetworkMin:                       config.PodCloneNetworkMin,
 		NetworkMax:                       config.PodCloneNetworkMax,
 		DevNetworkMin:                    config.PodDevNetworkMin,
@@ -228,8 +188,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		CloudInitNetworkFile:             cloudInitNetworkFile,
 		LANDMZCloudInitUserFilePattern:   lanDMZCloudInitUserFilePattern,
 		LANDMZCloudInitNetworkFile:       lanDMZCloudInitNetworkFile,
-		PersonalVNetPrefix:               personalPrefix,
-		PersonalVLANBase:                 config.PersonalPodVLANBase,
+		PersonalVNet:                     personalVNet,
 		PersonalNetworkMin:               config.PersonalPodNetworkMin,
 		PersonalNetworkMax:               config.PersonalPodNetworkMax,
 		PersonalWANBridge:                personalWANBridge,
@@ -238,16 +197,16 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	}
 
 	log.Printf(
-		"Published pod clone networking configured: prefix=%q clone_range=%d-%d dev_range=%d-%d personal_range=%d-%d personal_prefix=%q personal_vlan_base=%d personal_wan_bridge=%q wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
-		routerConfig.VNetPrefix,
+		"Published pod clone networking configured: lan_vnet=%q dmz_vnet=%q personal_vnet=%q clone_range=%d-%d dev_range=%d-%d personal_range=%d-%d personal_wan_bridge=%q wait_timeout=%s cloud_init_storage=%q internal_subnet=%s",
+		routerConfig.LANVNet,
+		routerConfig.DMZVNet,
+		routerConfig.PersonalVNet,
 		routerConfig.NetworkMin,
 		routerConfig.NetworkMax,
 		routerConfig.DevNetworkMin,
 		routerConfig.DevNetworkMax,
 		routerConfig.PersonalNetworkMin,
 		routerConfig.PersonalNetworkMax,
-		routerConfig.PersonalVNetPrefix,
-		routerConfig.PersonalVLANBase,
 		routerConfig.PersonalWANBridge,
 		routerConfig.RouterWaitTimeout,
 		routerConfig.CloudInitStorage,
@@ -259,10 +218,8 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 
 func buildPodNetworkCatalog(config handlers.PodRouterCloneConfig) (*podnetwork.Catalog, error) {
 	return podnetwork.NewCatalog(podnetwork.Config{
-		VNetPrefix:    config.VNetPrefix,
-		LANVLANBase:   config.LANVLANBase,
-		DMZVNetPrefix: config.DMZVNetPrefix,
-		DMZVLANBase:   config.DMZVLANBase,
-		WANIPBase:     config.WANIPBase,
+		LANVNet:   config.LANVNet,
+		DMZVNet:   config.DMZVNet,
+		WANIPBase: config.WANIPBase,
 	})
 }

@@ -75,11 +75,8 @@ const routerProfileIcons: Record<
   "lan-dmz-router-v1": RouterIcon,
 }
 
-function formatNetworkOptionLabel(option: PodRouterCloneNetworkOption) {
-  if (option.vnets.length <= 1) {
-    return `${option.network_number} — ${option.vnets[0] ?? ""}`
-  }
-  return `${option.network_number} — ${option.vnets.join(" + ")}`
+export function formatNetworkOptionLabel(option: PodRouterCloneNetworkOption) {
+  return `${option.network_number} · ${option.vnets.join(" + ")}`
 }
 
 function getNetworkNumberOptions(
@@ -122,17 +119,17 @@ function validateDestinationFolder(value: string | null | undefined) {
   return value ? undefined : "Destination folder is required"
 }
 
-function validateNetworkNumber(value: string) {
+export function validateNetworkNumber(value: string) {
   const trimmed = value.trim()
   if (!trimmed) {
-    return "Pod VNet number is required"
+    return "Inner VLAN tag is required"
   }
   if (!/^\d+$/.test(trimmed)) {
-    return "Pod VNet number must be a whole number"
+    return "Inner VLAN tag must be a whole number"
   }
   const parsed = Number.parseInt(trimmed, 10)
   if (parsed < 1 || parsed > 254) {
-    return "Pod VNet number must be between 1 and 254"
+    return "Inner VLAN tag must be between 1 and 254"
   }
   return undefined
 }
@@ -261,7 +258,7 @@ function RouterCloneNetworkNumberField({
                   }
                 >
                   <FieldLabel htmlFor="router-network-number">
-                    Pod VNet
+                    Inner VLAN tag
                   </FieldLabel>
                   <Combobox
                     items={numberOptions}
@@ -283,15 +280,15 @@ function RouterCloneNetworkNumberField({
                     <ComboboxInput
                       id="router-network-number"
                       inputMode="numeric"
-                      placeholder="Select or enter a number"
+                      placeholder="Select or enter a tag"
                       onBlur={field.handleBlur}
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
                     />
                     <ComboboxEmpty>
-                      No matching configured VNets. You can still enter a
-                      number.
+                      No matching shared VNets are validated yet. You can
+                      still enter a tag (1–254) to join an existing pod.
                     </ComboboxEmpty>
                     <ComboboxContent>
                       <ComboboxList>
@@ -303,6 +300,10 @@ function RouterCloneNetworkNumberField({
                       </ComboboxList>
                     </ComboboxContent>
                   </Combobox>
+                  <FieldDescription>
+                    Every VM in the router&apos;s pod shares this tag on the
+                    shared VNet. Choose an existing tag to join that pod.
+                  </FieldDescription>
                   <FieldError>{field.state.meta.errors[0]}</FieldError>
                 </Field>
               )

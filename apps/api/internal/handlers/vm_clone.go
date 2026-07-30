@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -69,6 +70,47 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 
+	// A generic template clone into a personal pod folder must not inherit
+	// an arbitrary network. Resolve the folder's exact scope up front (a
+	// no-op for managers and non-personal folders) so an unsupported
+	// multi-NIC/zero-NIC template is rejected before any Proxmox mutation.
+	var (
+		networkScope   VMNetworkScope
+		scopedToFolder bool
+	)
+	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm clone management permission", err)
+		return
+	}
+	if !isManager {
+		scope, scoped, err := personalPodNetworkScope(
+			c.Request.Context(),
+			h.DB,
+			h.PersonalPodVNet,
+			targetFolderID,
+		)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm clone network scope", err)
+			return
+		}
+		if scoped {
+			sourceHardware, err := h.PX.GetVMHardwareConfig(c.Request.Context(), source.Node, source.VMID)
+			if err != nil {
+				writeLoggedError(c, http.StatusBadGateway, "failed to load source virtual machine hardware", "load vm clone source hardware config", err)
+				return
+			}
+			if len(sourceHardware.Networks) != 1 {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"error": "templates cloned into a personal pod must have exactly one network interface",
+				})
+				return
+			}
+			networkScope = scope
+			scopedToFolder = true
+		}
+	}
+
 	placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), targetFolderID)
 	if err != nil {
 		writeInventoryError(c, err)
@@ -125,6 +167,40 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 				cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM pool sync failure")
 				writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync cloned vm pool membership", err)
 				return false
+			}
+
+			if scopedToFolder {
+				vlanTag := networkScope.VLANTag
+				if err := h.PX.SetVMNetworkAttachment(c.Request.Context(), targetNode, newID, "net0", proxmox.NetworkAttachment{
+					Bridge:   networkScope.VNet,
+					VLANTag:  &vlanTag,
+					Firewall: true,
+				}); err != nil {
+					cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM personal pod network scope failure")
+					writeLoggedError(c, http.StatusBadGateway, "failed to scope cloned VM network to its personal pod", "set cloned vm personal pod network scope", err)
+					return false
+				}
+				clonedHardware, err := h.PX.GetVMHardwareConfig(c.Request.Context(), targetNode, newID)
+				if err != nil {
+					cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM network scope verification failure")
+					writeLoggedError(c, http.StatusBadGateway, "failed to verify cloned VM network scope", "verify cloned vm personal pod network scope", err)
+					return false
+				}
+				verified := false
+				for _, network := range clonedHardware.Networks {
+					if network.Device != "net0" {
+						continue
+					}
+					if network.Bridge == networkScope.VNet && network.VLANTag != nil && *network.VLANTag == networkScope.VLANTag {
+						verified = true
+					}
+					break
+				}
+				if !verified {
+					cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, newID, "cloned VM network scope mismatch")
+					writeLoggedError(c, http.StatusBadGateway, "cloned VM network did not verify against its personal pod scope", "verify cloned vm personal pod network scope", fmt.Errorf("net0 bridge/tag mismatch after rewrite"))
+					return false
+				}
 			}
 
 			clonedItemID, err := h.Importer.SyncVM(

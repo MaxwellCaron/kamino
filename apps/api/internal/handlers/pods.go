@@ -26,10 +26,8 @@ import (
 )
 
 type PodRouterCloneConfig struct {
-	VNetPrefix                       string
-	LANVLANBase                      int
-	DMZVNetPrefix                    string
-	DMZVLANBase                      int
+	LANVNet                          string
+	DMZVNet                          string
 	NetworkMin                       int32
 	NetworkMax                       int32
 	DevNetworkMin                    int32
@@ -42,8 +40,7 @@ type PodRouterCloneConfig struct {
 	CloudInitNetworkFile             string
 	LANDMZCloudInitUserFilePattern   string
 	LANDMZCloudInitNetworkFile       string
-	PersonalVNetPrefix               string
-	PersonalVLANBase                 int
+	PersonalVNet                     string
 	PersonalNetworkMin               int32
 	PersonalNetworkMax               int32
 	PersonalWANBridge                string

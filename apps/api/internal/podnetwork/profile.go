@@ -24,7 +24,6 @@ type Segment struct {
 	Subnet             netip.Prefix
 	Gateway            netip.Addr
 	VNetKind           string
-	VLANBase           int
 	WorkloadAssignable bool
 }
 
@@ -52,20 +51,17 @@ type Profile struct {
 	PrefixNAT         *PrefixNAT
 }
 
-// Config supplies deployment-specific VNet naming and VLAN bases.
+// Config supplies the exact shared VNet IDs used by every managed pod
 type Config struct {
-	VNetPrefix    string
-	LANVLANBase   int
-	DMZVNetPrefix string
-	DMZVLANBase   int
-	WANIPBase     string
+	LANVNet   string
+	DMZVNet   string
+	WANIPBase string
 }
 
 // WorkloadAttachment is the resolved Proxmox attachment for a workload NIC.
 type WorkloadAttachment struct {
 	Device     string
 	VNetName   string
-	VNetTag    int
 	VMVLANTag  *int
 	SegmentKey string
 }
@@ -75,7 +71,6 @@ type RouterAttachment struct {
 	Device     string
 	Bridge     string
 	VNetName   string
-	VNetTag    int
 	VMVLANTag  *int
 	KeepUplink bool
 }
@@ -102,21 +97,18 @@ type Catalog struct {
 }
 
 func NewCatalog(config Config) (*Catalog, error) {
-	config.VNetPrefix = strings.TrimSpace(config.VNetPrefix)
-	config.DMZVNetPrefix = strings.TrimSpace(config.DMZVNetPrefix)
+	config.LANVNet = strings.TrimSpace(config.LANVNet)
+	config.DMZVNet = strings.TrimSpace(config.DMZVNet)
 	config.WANIPBase = strings.TrimSpace(config.WANIPBase)
 
-	if config.VNetPrefix == "" {
-		return nil, fmt.Errorf("pod VNet prefix is required")
+	if err := validateSharedVNetID(config.LANVNet); err != nil {
+		return nil, fmt.Errorf("LAN VNet: %w", err)
 	}
-	if config.LANVLANBase < 0 || config.LANVLANBase > 4094 {
-		return nil, fmt.Errorf("LAN VLAN base must be within 0..4094")
+	if err := validateSharedVNetID(config.DMZVNet); err != nil {
+		return nil, fmt.Errorf("DMZ VNet: %w", err)
 	}
-	if config.DMZVNetPrefix == "" {
-		return nil, fmt.Errorf("DMZ VNet prefix is required")
-	}
-	if config.DMZVLANBase < 0 || config.DMZVLANBase > 4094 {
-		return nil, fmt.Errorf("DMZ VLAN base must be within 0..4094")
+	if config.LANVNet == config.DMZVNet {
+		return nil, fmt.Errorf("LAN and DMZ VNet IDs must be distinct")
 	}
 	if config.WANIPBase == "" {
 		return nil, fmt.Errorf("WAN IP base is required")

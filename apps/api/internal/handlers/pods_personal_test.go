@@ -76,41 +76,64 @@ func TestPersonalPodFolderDescription(t *testing.T) {
 		t.Fatalf("personalPodFolderDescription() with whitespace = %q, want %q", trimmed, want)
 	}
 
-	longestVNet := personalPodScopedVNet("pod", 4094, 254)
-	if len(personalPodFolderDescription(longestVNet)) > inventory.MaxFolderDescriptionLength {
+	const longestVNet = "personal"
+	longest := personalPodFolderDescriptionWithTag(longestVNet, 254)
+	if len(longest) > inventory.MaxFolderDescriptionLength {
 		t.Fatalf(
-			"personalPodFolderDescription(%q) length = %d, want <= %d",
+			"personalPodFolderDescriptionWithTag(%q, 254) length = %d, want <= %d",
 			longestVNet,
-			len(personalPodFolderDescription(longestVNet)),
+			len(longest),
 			inventory.MaxFolderDescriptionLength,
 		)
+	}
+}
+
+func TestPersonalPodFolderDescriptionWithTag(t *testing.T) {
+	want := "To add another VM, choose Create VM from this folder and attach its network interface to VNet personal with VLAN tag 24. Both are pre-filled and locked when you create or edit hardware from this folder."
+
+	got := personalPodFolderDescriptionWithTag("personal", 24)
+	if got != want {
+		t.Fatalf("personalPodFolderDescriptionWithTag() = %q, want %q", got, want)
+	}
+
+	trimmed := personalPodFolderDescriptionWithTag("  personal  ", 24)
+	if trimmed != want {
+		t.Fatalf("personalPodFolderDescriptionWithTag() with whitespace = %q, want %q", trimmed, want)
 	}
 }
 
 func TestPersonalPodVNetName(t *testing.T) {
 	handler := &PodsHandler{
 		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNetPrefix: "pod",
-			PersonalVLANBase:   4000,
+			PersonalVNet: "personal",
 		},
 	}
-	if got := handler.personalPodVNetName(1); got != "pod4001" {
-		t.Fatalf("personalPodVNetName() = %q, want %q", got, "pod4001")
+	if got := handler.personalPodVNetName(1); got != "personal" {
+		t.Fatalf("personalPodVNetName(1) = %q, want %q", got, "personal")
 	}
+	if got := handler.personalPodVNetName(94); got != "personal" {
+		t.Fatalf("personalPodVNetName(94) = %q, want %q", got, "personal")
+	}
+}
 
-	handler.RouterCloneConfig.PersonalVNetPrefix = "  lab- "
-	if got := handler.personalPodVNetName(1); got != "lab-4001" {
-		t.Fatalf("personalPodVNetName() = %q, want %q", got, "lab-4001")
+func TestPersonalPodNetworkScope(t *testing.T) {
+	handler := &PodsHandler{
+		RouterCloneConfig: PodRouterCloneConfig{
+			PersonalVNet: "personal",
+		},
+	}
+	scope := handler.personalPodNetworkScope(24)
+	if scope.VNet != "personal" || scope.VLANTag != 24 {
+		t.Fatalf("personalPodNetworkScope(24) = %+v, want {personal 24}", scope)
 	}
 }
 
 func TestPersonalPodNetworkMetadata(t *testing.T) {
 	handler := &PodsHandler{
 		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNetPrefix: "pod",
-			PersonalVLANBase:   4000,
-			PersonalWANIPBase:  "172.25.",
-			InternalSubnet:     netip.MustParsePrefix("192.168.1.0/24"),
+			PersonalVNet:      "personal",
+			PersonalWANIPBase: "172.25.",
+			InternalSubnet:    netip.MustParsePrefix("192.168.1.0/24"),
 		},
 	}
 
@@ -118,8 +141,11 @@ func TestPersonalPodNetworkMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("personalPodNetworkMetadata() error = %v", err)
 	}
-	if got.Number != 1 || got.VNet != "pod4001" {
+	if got.Number != 1 || got.VNet != "personal" {
 		t.Fatalf("network metadata = %#v", got)
+	}
+	if got.LANVLANTag != 1 {
+		t.Fatalf("LAN VLAN tag = %d, want 1", got.LANVLANTag)
 	}
 	if got.ExternalSubnet != "172.25.1.0/24" || got.ExternalGateway != "172.25.1.1" {
 		t.Fatalf("external metadata = %#v", got)

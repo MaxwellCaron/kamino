@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -11,26 +10,36 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func personalPodScopedVNet(prefix string, personalVLANBase int, n int32) string {
-	return fmt.Sprintf("%s%d", strings.TrimSpace(prefix), personalVLANBase+int(n))
+type VMNetworkScope struct {
+	VNet    string
+	VLANTag int
+}
+
+func personalPodVNetScope(personalVNet string, networkNumber int32) VMNetworkScope {
+	return VMNetworkScope{
+		VNet:    personalVNet,
+		VLANTag: int(networkNumber),
+	}
 }
 
 // personalPodNetworkScope reports whether itemID sits inside a personal pod
-// and, if so, the only VNet the actor may use.
 func personalPodNetworkScope(
 	ctx context.Context,
 	db *pgxpool.Pool,
-	personalVNetPrefix string,
-	personalVLANBase int,
+	personalVNet string,
 	itemID uuid.UUID,
-) (vnetName string, scoped bool, err error) {
+) (scope VMNetworkScope, scoped bool, err error) {
 	pod, err := database.New(db).GetPersonalPodForInventoryItem(ctx, itemID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return "", false, nil
+			return VMNetworkScope{}, false, nil
 		}
-		return "", false, err
+		return VMNetworkScope{}, false, err
 	}
 
-	return personalPodScopedVNet(personalVNetPrefix, personalVLANBase, pod.NetworkNumber), true, nil
+	return personalPodVNetScope(personalVNet, pod.NetworkNumber), true, nil
+}
+
+func personalPodNetworkMismatch(scope VMNetworkScope, bridge string, vlanTag int) bool {
+	return strings.TrimSpace(bridge) != scope.VNet || vlanTag != scope.VLANTag
 }

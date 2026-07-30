@@ -50,8 +50,8 @@ type Config struct {
 	PodRouterTemplate        string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
 
 	// --- Pod clone networking (optional defaults shown) ---
-	PodCloneVNetPrefix                  string `envconfig:"POD_CLONE_VNET_PREFIX" default:"pod"`
-	PodLANVLANBase                      int    `envconfig:"POD_LAN_VLAN_BASE" default:"0"`
+	PodLANVNet                          string `envconfig:"POD_LAN_VNET" default:"pod"`
+	PodDMZVNet                          string `envconfig:"POD_DMZ_VNET" default:"dmz"`
 	PodCloneNetworkMin                  int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
 	PodCloneNetworkMax                  int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"174"`
 	PodDevNetworkMin                    int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
@@ -62,16 +62,13 @@ type Config struct {
 	PodRouterCloudInitStorage           string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
 	PodRouterCloudInitUserFilePattern   string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
 	PodRouterCloudInitNetworkFile       string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
-	PodDMZVNetPrefix                    string `envconfig:"POD_DMZ_VNET_PREFIX" default:"dmz"`
-	PodDMZVLANBase                      int    `envconfig:"POD_DMZ_VLAN_BASE" default:"1000"`
 	PodRouterLANDMZCloudInitUserPattern string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-lan-dmz-{network}-user-data.yaml"`
 	PodRouterLANDMZCloudInitNetworkFile string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-lan-dmz-network-config.yaml"`
 
 	// --- Personal pods (optional; defaults to the pod router template) ---
 	PersonalPodsEnabled                 bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
 	PersonalPodRouterTemplateItemID     string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
-	PersonalPodVNetPrefix               string `envconfig:"PERSONAL_POD_VNET_PREFIX" default:"pod"`
-	PersonalPodVLANBase                 int    `envconfig:"PERSONAL_POD_VLAN_BASE" default:"4000"`
+	PersonalPodVNet                     string `envconfig:"PERSONAL_POD_VNET" default:"personal"`
 	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"1"`
 	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"94"`
 	PersonalPodWANBridge                string `envconfig:"PERSONAL_POD_WAN_BRIDGE"`

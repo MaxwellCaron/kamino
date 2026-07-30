@@ -25,7 +25,6 @@ func buildLANRouterV1Profile() Profile {
 				Subnet:             lanSubnet,
 				Gateway:            lanGateway,
 				VNetKind:           VNetKindPrimary,
-				VLANBase:           0,
 				WorkloadAssignable: true,
 			},
 		},
@@ -57,7 +56,6 @@ func buildLANDMZRouterV1Profile() Profile {
 				Subnet:             lanSubnet,
 				Gateway:            lanGateway,
 				VNetKind:           VNetKindPrimary,
-				VLANBase:           0,
 				WorkloadAssignable: true,
 			},
 			{
@@ -66,7 +64,6 @@ func buildLANDMZRouterV1Profile() Profile {
 				Subnet:             dmzSubnet,
 				Gateway:            dmzGateway,
 				VNetKind:           VNetKindDMZ,
-				VLANBase:           1000,
 				WorkloadAssignable: true,
 			},
 		},

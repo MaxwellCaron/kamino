@@ -178,11 +178,10 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 			return
 		}
 		if !isManager {
-			scopedVNetName, scoped, err := personalPodNetworkScope(
+			scope, scoped, err := personalPodNetworkScope(
 				c.Request.Context(),
 				h.DB,
-				h.PersonalPodVNetPrefix,
-				h.PersonalPodVLANBase,
+				h.PersonalPodVNet,
 				scopeItemID,
 			)
 			if err != nil {
@@ -191,8 +190,9 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 			}
 			if scoped {
 				c.JSON(http.StatusOK, gin.H{
-					"bridges": []proxmox.NetworkBridge{},
-					"vnets":   filterVNetsByName(vnets, scopedVNetName),
+					"bridges":        []proxmox.NetworkBridge{},
+					"vnets":          filterVNetsByName(vnets, scope.VNet),
+					"scoped_network": scopedNetworkResponseFromScope(scope),
 				})
 				return
 			}

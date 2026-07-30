@@ -34,6 +34,7 @@ type vmProxmox interface {
 	GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error)
 	GetLXCNetworks(ctx context.Context, node string, vmid int) ([]proxmox.VMHardwareNetwork, error)
 	UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error
+	SetVMNetworkAttachment(ctx context.Context, node string, vmid int, device string, attachment proxmox.NetworkAttachment) error
 	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
 	GetNextVMID(ctx context.Context) (int, error)
 	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
@@ -58,18 +59,17 @@ type vmAuthz interface {
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX                    vmProxmox
-	DB                    *pgxpool.Pool
-	Importer              *proxmox.InventoryImporter
-	Service               *inventory.Service
-	Notifier              *vmstatus.Notifier
-	Authz                 vmAuthz
-	Actions               *vmactions.Executor
-	Claims                *vmactions.Claims
-	Audit                 *audit.Service
-	Allocator             *vmidalloc.Allocator
-	PersonalPodVNetPrefix string
-	PersonalPodVLANBase   int
+	PX              vmProxmox
+	DB              *pgxpool.Pool
+	Importer        *proxmox.InventoryImporter
+	Service         *inventory.Service
+	Notifier        *vmstatus.Notifier
+	Authz           vmAuthz
+	Actions         *vmactions.Executor
+	Claims          *vmactions.Claims
+	Audit           *audit.Service
+	Allocator       *vmidalloc.Allocator
+	PersonalPodVNet string
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a

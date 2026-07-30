@@ -128,7 +128,7 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	if reqErr := h.ensureProfileVNetsExist(ctx, pod.NetworkProfileKey, clone.NetworkNumber); reqErr != nil {
+	if reqErr := h.ensureProfileVNetsExist(ctx, pod.NetworkProfileKey); reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
 
@@ -174,8 +174,16 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	if reqErr := h.ensureClonedPodVNetExists(ctx, h.clonedPodVNetName(clone.NetworkNumber)); reqErr != nil {
+	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey); reqErr != nil {
 		return database.ClonedPods{}, reqErr
+	}
+	if _, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, h.RouterCloneConfig); err != nil {
+		return database.ClonedPods{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to build router cloud-init configuration",
+			Operation:   "preflight recloned router cloud-init configuration",
+			Err:         err,
+		}
 	}
 
 	progress.set(cloneProgressStepCloning, "Deleting existing cloned pod virtual machines.")

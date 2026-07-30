@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
+import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
 import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
@@ -52,6 +53,7 @@ type VmHardwareNetworksFieldProps = {
   resolveCardDescription?: (network: NetworkInterfaceValue) => string
   resolveCardKey?: (network: NetworkInterfaceValue, index: number) => string
   createNetworkValue?: () => NetworkInterfaceValue
+  scopedNetwork?: ApiScopedNetwork
 }
 
 export function VmHardwareNetworksField({
@@ -67,11 +69,20 @@ export function VmHardwareNetworksField({
       ? `MAC ${network.mac_address}`
       : "Configure connectivity for this interface.",
   resolveCardKey = (network, index) => network.device ?? `network-${index}`,
-  createNetworkValue = () => ({
-    bridge: "vmbr0",
-    model: "virtio",
-    firewall: true,
-  }),
+  scopedNetwork,
+  createNetworkValue = () =>
+    scopedNetwork
+      ? {
+          bridge: scopedNetwork.bridge,
+          model: "virtio",
+          vlan_tag: scopedNetwork.vlan_tag,
+          firewall: true,
+        }
+      : {
+          bridge: "vmbr0",
+          model: "virtio",
+          firewall: true,
+        },
 }: VmHardwareNetworksFieldProps) {
   return (
     <form.Field name="networks" mode="array">
@@ -127,11 +138,21 @@ export function VmHardwareNetworksField({
                           bridgeOptions={bridgeOptions}
                           vnetOptions={vnetOptions}
                           networkOptions={networkOptions}
-                          value={field.state.value}
+                          value={
+                            scopedNetwork
+                              ? scopedNetwork.bridge
+                              : field.state.value
+                          }
                           invalid={field.state.meta.errors.length > 0}
+                          disabled={Boolean(scopedNetwork)}
                           onBlur={field.handleBlur}
                           onValueChange={field.handleChange}
                         />
+                        {scopedNetwork ? (
+                          <FieldDescription>
+                            Assigned by personal pod.
+                          </FieldDescription>
+                        ) : null}
                         <FieldError>
                           {formatFieldError(field.state.meta.errors[0])}
                         </FieldError>
@@ -199,7 +220,12 @@ export function VmHardwareNetworksField({
                         id={`${fieldIdPrefix}-vlan-${index}`}
                         type="number"
                         placeholder="Optional"
-                        value={field.state.value ?? ""}
+                        value={
+                          scopedNetwork
+                            ? scopedNetwork.vlan_tag
+                            : (field.state.value ?? "")
+                        }
+                        disabled={Boolean(scopedNetwork)}
                         onBlur={field.handleBlur}
                         onChange={(event) =>
                           field.handleChange(
@@ -210,6 +236,11 @@ export function VmHardwareNetworksField({
                           field.state.meta.errors.length > 0 || undefined
                         }
                       />
+                      {scopedNetwork ? (
+                        <FieldDescription>
+                          Assigned by personal pod.
+                        </FieldDescription>
+                      ) : null}
                       <FieldError>
                         {formatFieldError(field.state.meta.errors[0])}
                       </FieldError>

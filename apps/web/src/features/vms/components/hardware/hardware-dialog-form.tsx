@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
 import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
 import type {
@@ -39,9 +40,13 @@ type VmHardwareDialogFormProps = {
   networkOptions: Array<NetworkOption>
   storageOptions: Array<StorageOption>
   onOpenChange: (open: boolean) => void
+  scopedNetwork?: ApiScopedNetwork
 }
 
-function toFormValues(hardware: ApiVmHardwareConfig): VmHardwareFormValues {
+function toFormValues(
+  hardware: ApiVmHardwareConfig,
+  scopedNetwork?: ApiScopedNetwork
+): VmHardwareFormValues {
   return {
     ostype: hardware.ostype,
     bios: hardware.bios,
@@ -57,9 +62,9 @@ function toFormValues(hardware: ApiVmHardwareConfig): VmHardwareFormValues {
     networks: hardware.networks.map((network) => ({
       device: network.device,
       mac_address: network.mac_address,
-      bridge: network.bridge,
+      bridge: scopedNetwork ? scopedNetwork.bridge : network.bridge,
       model: network.model,
-      vlan_tag: network.vlan_tag,
+      vlan_tag: scopedNetwork ? scopedNetwork.vlan_tag : network.vlan_tag,
       firewall: network.firewall,
     })),
   }
@@ -75,12 +80,13 @@ export function VmHardwareDialogForm({
   networkOptions,
   storageOptions,
   onOpenChange,
+  scopedNetwork,
 }: VmHardwareDialogFormProps) {
   const updateHardware = useUpdateVMHardware(itemId)
   const minimumDiskSize = hardware.disk_size
 
   const form = useForm({
-    defaultValues: toFormValues(hardware),
+    defaultValues: toFormValues(hardware, scopedNetwork),
     onSubmit: ({ value }) => {
       const parsed = vmHardwareFormSchema.parse(value)
       if (parsed.disk_size < minimumDiskSize) {
@@ -137,6 +143,7 @@ export function VmHardwareDialogForm({
                   hardwareNetworkInterfaceSchema.shape.bridge.safeParse(value)
                 )
               }
+              scopedNetwork={scopedNetwork}
             />
           </VmHardwareNetworkSection>
         </div>

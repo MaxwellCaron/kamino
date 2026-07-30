@@ -167,7 +167,11 @@ export function CreateVmDialog({
   const diskStorages = createOptions?.disk_storages ?? []
   const isoStorages = createOptions?.iso_storages ?? []
   const networks = createOptions
-    ? { bridges: createOptions.bridges, vnets: createOptions.vnets }
+    ? {
+        bridges: createOptions.bridges,
+        vnets: createOptions.vnets,
+        scoped_network: createOptions.scoped_network,
+      }
     : undefined
 
   const mutation = useMutation({

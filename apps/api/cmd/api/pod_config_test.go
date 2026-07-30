@@ -35,43 +35,41 @@ func TestResolvePersonalPodRouterTemplateItemID(t *testing.T) {
 	}
 }
 
-func TestBuildPodRouterCloneConfig(t *testing.T) {
-	baseConfig := func() Config {
-		return Config{
-			PodCloneVNetPrefix:                  "pod",
-			PodLANVLANBase:                      0,
-			PodCloneNetworkMin:                  1,
-			PodCloneNetworkMax:                  174,
-			PodDevNetworkMin:                    175,
-			PodDevNetworkMax:                    199,
-			PodRouterWait:                       "5m",
-			PodRouterWANIPBase:                  "172.16.",
-			PodRouterInternalSubnet:             "192.168.1.0/24",
-			PodRouterCloudInitStorage:           "local",
-			PodRouterCloudInitUserFilePattern:   "kamino-router-{network}-user-data.yaml",
-			PodRouterCloudInitNetworkFile:       "kamino-router-network-config.yaml",
-			PodDMZVNetPrefix:                    "dmz",
-			PodDMZVLANBase:                      1000,
-			PodRouterLANDMZCloudInitUserPattern: "kamino-router-lan-dmz-{network}-user-data.yaml",
-			PodRouterLANDMZCloudInitNetworkFile: "kamino-router-lan-dmz-network-config.yaml",
-			PersonalPodNetworkMin:               1,
-			PersonalPodNetworkMax:               94,
-			PersonalPodVLANBase:                 4000,
-			PersonalPodWANIPBase:                "172.25.",
-			PersonalPodCloudInitUserFilePattern: "kamino-personal-router-{network}-user-data.yaml",
-		}
+func baseTestConfig() Config {
+	return Config{
+		PodLANVNet:                          "pod",
+		PodDMZVNet:                          "dmz",
+		PodCloneNetworkMin:                  1,
+		PodCloneNetworkMax:                  174,
+		PodDevNetworkMin:                    175,
+		PodDevNetworkMax:                    199,
+		PodRouterWait:                       "5m",
+		PodRouterWANIPBase:                  "172.16.",
+		PodRouterInternalSubnet:             "192.168.1.0/24",
+		PodRouterCloudInitStorage:           "local",
+		PodRouterCloudInitUserFilePattern:   "kamino-router-{network}-user-data.yaml",
+		PodRouterCloudInitNetworkFile:       "kamino-router-network-config.yaml",
+		PodRouterLANDMZCloudInitUserPattern: "kamino-router-lan-dmz-{network}-user-data.yaml",
+		PodRouterLANDMZCloudInitNetworkFile: "kamino-router-lan-dmz-network-config.yaml",
+		PersonalPodVNet:                     "personal",
+		PersonalPodNetworkMin:               1,
+		PersonalPodNetworkMax:               94,
+		PersonalPodWANIPBase:                "172.25.",
+		PersonalPodCloudInitUserFilePattern: "kamino-personal-router-{network}-user-data.yaml",
 	}
+}
 
+func TestBuildPodRouterCloneConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  Config
 		wantErr string
-		check   func(t *testing.T, cloneMin, cloneMax, devMin, devMax, personalMin, personalMax int32, personalVLANBase int)
+		check   func(t *testing.T, cloneMin, cloneMax, devMin, devMax, personalMin, personalMax int32, lanVNet, dmzVNet, personalVNet string)
 	}{
 		{
-			name:   "defaults valid",
-			config: baseConfig(),
-			check: func(t *testing.T, cloneMin, cloneMax, devMin, devMax, personalMin, personalMax int32, personalVLANBase int) {
+			name:   "defaults valid: exact shared VNet IDs wire through unchanged",
+			config: baseTestConfig(),
+			check: func(t *testing.T, cloneMin, cloneMax, devMin, devMax, personalMin, personalMax int32, lanVNet, dmzVNet, personalVNet string) {
 				if cloneMin != 1 || cloneMax != 174 {
 					t.Fatalf("clone range = %d-%d, want 1-174", cloneMin, cloneMax)
 				}
@@ -81,15 +79,93 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 				if personalMin != 1 || personalMax != 94 {
 					t.Fatalf("personal range = %d-%d, want 1-94", personalMin, personalMax)
 				}
-				if personalVLANBase != 4000 {
-					t.Fatalf("personal VLAN base = %d, want 4000", personalVLANBase)
+				if lanVNet != "pod" {
+					t.Fatalf("LAN VNet = %q, want %q", lanVNet, "pod")
+				}
+				if dmzVNet != "dmz" {
+					t.Fatalf("DMZ VNet = %q, want %q", dmzVNet, "dmz")
+				}
+				if personalVNet != "personal" {
+					t.Fatalf("personal VNet = %q, want %q", personalVNet, "personal")
 				}
 			},
 		},
 		{
+			name: "empty LAN VNet fails startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PodLANVNet = ""
+				return cfg
+			}(),
+			wantErr: "POD_LAN_VNET must not be empty",
+		},
+		{
+			name: "empty DMZ VNet fails startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PodDMZVNet = ""
+				return cfg
+			}(),
+			wantErr: "POD_DMZ_VNET must not be empty",
+		},
+		{
+			name: "empty personal VNet fails startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PersonalPodVNet = ""
+				return cfg
+			}(),
+			wantErr: "PERSONAL_POD_VNET must not be empty",
+		},
+		{
+			name: "malformed VNet ID fails startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PodLANVNet = "24pod"
+				return cfg
+			}(),
+			wantErr: "must start with a letter",
+		},
+		{
+			name: "too-long VNet ID fails startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PodDMZVNet = "waytoolongvnetid"
+				return cfg
+			}(),
+			wantErr: "POD_DMZ_VNET must be at most 8 characters",
+		},
+		{
+			name: "duplicate LAN/DMZ VNet IDs fail startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PodDMZVNet = cfg.PodLANVNet
+				return cfg
+			}(),
+			wantErr: "POD_LAN_VNET and POD_DMZ_VNET must be distinct",
+		},
+		{
+			name: "duplicate LAN/personal VNet IDs fail startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PersonalPodVNet = cfg.PodLANVNet
+				return cfg
+			}(),
+			wantErr: "POD_LAN_VNET and PERSONAL_POD_VNET must be distinct",
+		},
+		{
+			name: "duplicate DMZ/personal VNet IDs fail startup",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PersonalPodVNet = cfg.PodDMZVNet
+				return cfg
+			}(),
+			wantErr: "POD_DMZ_VNET and PERSONAL_POD_VNET must be distinct",
+		},
+		{
 			name: "enabled personal pods require a WAN bridge",
 			config: func() Config {
-				cfg := baseConfig()
+				cfg := baseTestConfig()
 				cfg.PersonalPodsEnabled = true
 				cfg.PersonalPodWANBridge = "   "
 				return cfg
@@ -99,73 +175,62 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 		{
 			name: "enabled personal pods accept a WAN bridge",
 			config: func() Config {
-				cfg := baseConfig()
+				cfg := baseTestConfig()
 				cfg.PersonalPodsEnabled = true
 				cfg.PersonalPodWANBridge = "  personalwan  "
 				return cfg
 			}(),
 		},
 		{
-			name: "overlapping personal and LAN VLAN ranges rejected",
+			name: "clone and dev ranges must not overlap",
 			config: func() Config {
-				cfg := baseConfig()
-				cfg.PersonalPodVLANBase = 0
-				cfg.PersonalPodNetworkMin = 190
-				cfg.PersonalPodNetworkMax = 210
+				cfg := baseTestConfig()
+				cfg.PodDevNetworkMin = 100
+				cfg.PodDevNetworkMax = 200
 				return cfg
 			}(),
-			wantErr: "personal pod and LAN VLAN tag ranges must not overlap",
+			wantErr: "must not overlap",
 		},
 		{
-			name: "distinct personal base and pattern allow network number overlap",
+			name: "personal range may overlap clone/dev ranges: bases no longer exist",
 			config: func() Config {
-				cfg := baseConfig()
-				cfg.PersonalPodVLANBase = 2000
-				cfg.PersonalPodCloudInitUserFilePattern = "personal-router-{network}-user-data.yaml"
-				cfg.PersonalPodNetworkMin = 190
-				cfg.PersonalPodNetworkMax = 210
-				return cfg
-			}(),
-		},
-		{
-			name: "personal base 4000 supports VLANs through 4094",
-			config: func() Config {
-				cfg := baseConfig()
-				cfg.PersonalPodVLANBase = 4000
+				cfg := baseTestConfig()
 				cfg.PersonalPodNetworkMin = 1
-				cfg.PersonalPodNetworkMax = 94
-				cfg.PersonalPodCloudInitUserFilePattern = "kamino-personal-router-{network}-user-data.yaml"
+				cfg.PersonalPodNetworkMax = 174
 				return cfg
 			}(),
-			check: func(t *testing.T, _, _, _, _, personalMin, personalMax int32, personalVLANBase int) {
-				if personalMin != 1 || personalMax != 94 {
-					t.Fatalf("personal range = %d-%d, want 1-94", personalMin, personalMax)
-				}
-				if personalVLANBase != 4000 {
-					t.Fatalf("personal VLAN base = %d, want 4000", personalVLANBase)
+			check: func(t *testing.T, _, _, _, _, personalMin, personalMax int32, _, _, _ string) {
+				if personalMin != 1 || personalMax != 174 {
+					t.Fatalf("personal range = %d-%d, want 1-174", personalMin, personalMax)
 				}
 			},
 		},
 		{
-			name: "personal VLAN tags above 4094 rejected",
+			name: "clone network max above 254 rejected",
 			config: func() Config {
-				cfg := baseConfig()
-				cfg.PersonalPodVLANBase = 4000
-				cfg.PersonalPodNetworkMin = 1
-				cfg.PersonalPodNetworkMax = 95
-				cfg.PersonalPodCloudInitUserFilePattern = "kamino-personal-router-{network}-user-data.yaml"
+				cfg := baseTestConfig()
+				cfg.PodCloneNetworkMax = 255
 				return cfg
 			}(),
-			wantErr: "derived personal pod VLAN tags must be within 1..4094",
+			wantErr: "POD_CLONE_NETWORK_MAX must be at most 254",
 		},
 		{
-			name: "overlapping LAN and DMZ VLAN ranges rejected",
+			name: "personal network max above 254 rejected",
 			config: func() Config {
-				cfg := baseConfig()
-				cfg.PodLANVLANBase = 900
+				cfg := baseTestConfig()
+				cfg.PersonalPodNetworkMax = 255
 				return cfg
 			}(),
-			wantErr: "LAN and DMZ VLAN tag ranges must not overlap",
+			wantErr: "PERSONAL_POD_NETWORK_MAX must be at most 254",
+		},
+		{
+			name: "network number min below 1 rejected",
+			config: func() Config {
+				cfg := baseTestConfig()
+				cfg.PodCloneNetworkMin = 0
+				return cfg
+			}(),
+			wantErr: "POD_CLONE_NETWORK_MIN must be at least 1",
 		},
 	}
 
@@ -174,7 +239,7 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 			routerConfig, err := buildPodRouterCloneConfig(&tt.config)
 			if tt.wantErr != "" {
 				if err == nil {
-					t.Fatalf("expected error %q", tt.wantErr)
+					t.Fatalf("expected error containing %q", tt.wantErr)
 				}
 				if !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("error = %q, want substring %q", err.Error(), tt.wantErr)
@@ -193,9 +258,29 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 					routerConfig.DevNetworkMax,
 					routerConfig.PersonalNetworkMin,
 					routerConfig.PersonalNetworkMax,
-					routerConfig.PersonalVLANBase,
+					routerConfig.LANVNet,
+					routerConfig.DMZVNet,
+					routerConfig.PersonalVNet,
 				)
 			}
 		})
+	}
+}
+
+func TestBuildPodNetworkCatalogFromRouterConfig(t *testing.T) {
+	routerConfig, err := buildPodRouterCloneConfig(func() *Config {
+		cfg := baseTestConfig()
+		return &cfg
+	}())
+	if err != nil {
+		t.Fatalf("buildPodRouterCloneConfig() error = %v", err)
+	}
+
+	catalog, err := buildPodNetworkCatalog(routerConfig)
+	if err != nil {
+		t.Fatalf("buildPodNetworkCatalog() error = %v", err)
+	}
+	if catalog == nil {
+		t.Fatal("buildPodNetworkCatalog() returned a nil catalog")
 	}
 }

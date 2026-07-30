@@ -12,6 +12,76 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+func (h *PodsHandler) verifyVMNetworkAttachment(
+	ctx context.Context,
+	node string,
+	vmid int,
+	device string,
+	expectedBridge string,
+	expectedTag *int,
+) *requestError {
+	config, err := h.PX.GetVMHardwareConfig(ctx, node, vmid)
+	if err != nil {
+		return &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to verify configured network attachment",
+			Operation:   "verify vm network attachment",
+			Err:         err,
+		}
+	}
+
+	for _, network := range config.Networks {
+		if network.Device != device {
+			continue
+		}
+		if strings.TrimSpace(network.Bridge) != expectedBridge {
+			return &requestError{
+				Status: http.StatusBadGateway,
+				UserMessage: fmt.Sprintf(
+					"network interface %s has bridge %q, expected %q",
+					device, network.Bridge, expectedBridge,
+				),
+			}
+		}
+		if expectedTag == nil {
+			if network.VLANTag != nil {
+				return &requestError{
+					Status: http.StatusBadGateway,
+					UserMessage: fmt.Sprintf(
+						"network interface %s must not carry an inner VLAN tag, found %d",
+						device, *network.VLANTag,
+					),
+				}
+			}
+			return nil
+		}
+		if network.VLANTag == nil {
+			return &requestError{
+				Status: http.StatusBadGateway,
+				UserMessage: fmt.Sprintf(
+					"network interface %s is missing its inner VLAN tag %d",
+					device, *expectedTag,
+				),
+			}
+		}
+		if *network.VLANTag != *expectedTag {
+			return &requestError{
+				Status: http.StatusBadGateway,
+				UserMessage: fmt.Sprintf(
+					"network interface %s has inner VLAN tag %d, expected %d",
+					device, *network.VLANTag, *expectedTag,
+				),
+			}
+		}
+		return nil
+	}
+
+	return &requestError{
+		Status:      http.StatusBadGateway,
+		UserMessage: fmt.Sprintf("network interface %s is missing", device),
+	}
+}
+
 func (h *PodsHandler) routerWANBridge(ctx context.Context, node string, vmid int) (string, *requestError) {
 	config, err := h.PX.GetVMHardwareConfig(ctx, node, vmid)
 	if err != nil {
@@ -131,8 +201,12 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 	}
 
 	for _, attachment := range routerAttachments {
+		if attachment.KeepUplink {
+			continue
+		}
+		bridge := attachment.Bridge
 		if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, attachment.Device, proxmox.NetworkAttachment{
-			Bridge:   attachment.Bridge,
+			Bridge:   bridge,
 			VLANTag:  attachment.VMVLANTag,
 			Firewall: true,
 		}); err != nil {
@@ -143,6 +217,12 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 				Err:         err,
 			}
 		}
+		if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, attachment.Device, bridge, attachment.VMVLANTag); reqErr != nil {
+			return reqErr
+		}
+	}
+	if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net0", wanBridge, nil); reqErr != nil {
+		return reqErr
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
@@ -172,15 +252,24 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		}
 
 		group.Go(func() error {
-			return h.PX.SetVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, attachment.Device, proxmox.NetworkAttachment{
+			if err := h.PX.SetVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, attachment.Device, proxmox.NetworkAttachment{
 				Bridge:   attachment.VNetName,
 				VLANTag:  attachment.VMVLANTag,
 				Firewall: true,
-			})
+			}); err != nil {
+				return err
+			}
+			if reqErr := h.verifyVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, attachment.Device, attachment.VNetName, attachment.VMVLANTag); reqErr != nil {
+				return reqErr
+			}
+			return nil
 		})
 	}
 
 	if err := group.Wait(); err != nil {
+		if reqErr, ok := err.(*requestError); ok {
+			return reqErr
+		}
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to configure cloned pod networks",

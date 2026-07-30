@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -16,47 +15,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (h *PodsHandler) podVNetName(networkNumber int32) string {
-	return fmt.Sprintf(
-		"%s%d",
-		strings.TrimSpace(h.RouterCloneConfig.VNetPrefix),
-		h.RouterCloneConfig.LANVLANBase+int(networkNumber),
-	)
-}
-
-func (h *PodsHandler) clonedPodVNetName(networkNumber int32) string {
-	return h.podVNetName(networkNumber)
-}
-
 func (h *PodsHandler) clonedPodNetworkMetadata(clone database.ClonedPods) (clonedPodNetworkResponse, error) {
 	return h.buildPodNetworkMetadata(clone.NetworkProfileKey, clone.NetworkNumber)
-}
-
-func (h *PodsHandler) ensurePodVNetExists(ctx context.Context, vnetName string) *requestError {
-	vnets, err := h.PX.GetVNets(ctx)
-	if err != nil {
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to load pod clone networks",
-			Operation:   "list pod clone VNets",
-			Err:         err,
-		}
-	}
-
-	for _, vnet := range vnets {
-		if vnet.VNet == vnetName {
-			return nil
-		}
-	}
-
-	return &requestError{
-		Status:      http.StatusBadGateway,
-		UserMessage: "allocated pod clone network is not available in Proxmox",
-	}
-}
-
-func (h *PodsHandler) ensureClonedPodVNetExists(ctx context.Context, vnetName string) *requestError {
-	return h.ensurePodVNetExists(ctx, vnetName)
 }
 
 func (h *PodsHandler) waitForPodVMTargetsVisible(
@@ -162,7 +122,7 @@ func (h *PodsHandler) waitForClonedVMsReady(
 func (h *PodsHandler) configurePersonalPodNetworkAttachments(
 	ctx context.Context,
 	wanBridge string,
-	vnetName string,
+	scope VMNetworkScope,
 	targets []podNetworkVMTarget,
 ) *requestError {
 	router, reqErr := findPodNetworkRouterTarget(targets)
@@ -170,7 +130,7 @@ func (h *PodsHandler) configurePersonalPodNetworkAttachments(
 		return reqErr
 	}
 
-	if reqErr := h.ensurePodVNetExists(ctx, vnetName); reqErr != nil {
+	if reqErr := h.ensureSharedVNetsValid(ctx, []string{scope.VNet}); reqErr != nil {
 		return reqErr
 	}
 
@@ -178,7 +138,12 @@ func (h *PodsHandler) configurePersonalPodNetworkAttachments(
 		return reqErr
 	}
 
-	if err := h.PX.SetVMNetworkBridge(ctx, router.clone.TargetNode, router.clone.VMID, "net0", wanBridge); err != nil {
+	// net0 is the personal router's WAN uplink; it never carries an inner
+	// VLAN tag.
+	if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net0", proxmox.NetworkAttachment{
+		Bridge:   wanBridge,
+		Firewall: true,
+	}); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to configure personal router WAN network",
@@ -186,14 +151,25 @@ func (h *PodsHandler) configurePersonalPodNetworkAttachments(
 			Err:         err,
 		}
 	}
+	if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net0", wanBridge, nil); reqErr != nil {
+		return reqErr
+	}
 
-	if err := h.PX.SetVMNetworkBridge(ctx, router.clone.TargetNode, router.clone.VMID, "net1", vnetName); err != nil {
+	vlanTag := scope.VLANTag
+	if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net1", proxmox.NetworkAttachment{
+		Bridge:   scope.VNet,
+		VLANTag:  &vlanTag,
+		Firewall: true,
+	}); err != nil {
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to configure cloned router network",
 			Operation:   "set cloned router VNet bridge",
 			Err:         err,
 		}
+	}
+	if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net1", scope.VNet, &vlanTag); reqErr != nil {
+		return reqErr
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
@@ -204,11 +180,24 @@ func (h *PodsHandler) configurePersonalPodNetworkAttachments(
 		}
 		target := target
 		group.Go(func() error {
-			return h.PX.SetVMNetworkBridge(gctx, target.clone.TargetNode, target.clone.VMID, "net0", vnetName)
+			if err := h.PX.SetVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, "net0", proxmox.NetworkAttachment{
+				Bridge:   scope.VNet,
+				VLANTag:  &vlanTag,
+				Firewall: true,
+			}); err != nil {
+				return err
+			}
+			if reqErr := h.verifyVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, "net0", scope.VNet, &vlanTag); reqErr != nil {
+				return reqErr
+			}
+			return nil
 		})
 	}
 
 	if err := group.Wait(); err != nil {
+		if reqErr, ok := err.(*requestError); ok {
+			return reqErr
+		}
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to configure cloned pod networks",
@@ -225,7 +214,7 @@ func (h *PodsHandler) configureClonedPodNetwork(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey, clone.NetworkNumber); reqErr != nil {
+	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey); reqErr != nil {
 		return reqErr
 	}
 

@@ -23,6 +23,7 @@ type VmHardwareNetworkBridgeComboboxProps = {
   networkOptions: Array<NetworkOption>
   value: string
   invalid?: boolean
+  disabled?: boolean
   onBlur: () => void
   onValueChange: (value: string) => void
 }
@@ -50,6 +51,7 @@ export function VmHardwareNetworkBridgeCombobox({
   networkOptions,
   value,
   invalid,
+  disabled,
   onBlur,
   onValueChange,
 }: VmHardwareNetworkBridgeComboboxProps) {
@@ -62,6 +64,7 @@ export function VmHardwareNetworkBridgeCombobox({
       itemToStringValue={(option) => option.value}
       value={networkOptions.find((option) => option.value === value) ?? null}
       onValueChange={(option) => onValueChange(option?.value ?? "")}
+      disabled={disabled}
       autoHighlight
     >
       <ComboboxInput

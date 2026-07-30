@@ -14,6 +14,7 @@ export type PersonalPodStatus = {
       external_gateway: string
       internal_subnet: string
       internal_gateway: string
+      lan_vlan_tag?: number
     }
   } | null
   pending_request_id: string | null
@@ -41,7 +42,11 @@ export async function createPersonalPod(): Promise<{ folder_id: string }> {
 }
 
 export async function requestPersonalPod(): Promise<unknown> {
-  return apiJson<unknown>("/api/v1/requests/personal-pod", "request personal pod", {
-    method: "POST",
-  })
+  return apiJson<unknown>(
+    "/api/v1/requests/personal-pod",
+    "request personal pod",
+    {
+      method: "POST",
+    }
+  )
 }

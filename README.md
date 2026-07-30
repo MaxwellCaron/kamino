@@ -158,28 +158,25 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_GROUP_OU` | when AD | — | Full DN of the OU subtree searched for groups during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
-| `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
-| `POD_LAN_VLAN_BASE` | no | `0` | VLAN tag offset for `{prefix}<N>` LAN VNets (`tag = base + N`) |
-| `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
-| `POD_CLONE_NETWORK_MAX` | no | `174` | Last published-clone network number |
-| `POD_DEV_NETWORK_MIN` | no | `175` | First create-pod developer network number |
-| `POD_DEV_NETWORK_MAX` | no | `199` | Last create-pod developer network number |
+| `POD_LAN_VNET` | no | `pod` | Exact, pre-created, VLAN-aware Proxmox VNet ID shared by every published/development pod LAN. The allocated network number becomes the inner (access) VLAN tag on every LAN NIC attached to it |
+| `POD_DMZ_VNET` | no | `dmz` | Exact, pre-created, VLAN-aware Proxmox VNet ID shared by every LAN+DMZ profile pod's DMZ segment. Must differ from `POD_LAN_VNET` |
+| `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number (also the inner VLAN tag) |
+| `POD_CLONE_NETWORK_MAX` | no | `174` | Last published-clone network number (also the inner VLAN tag) |
+| `POD_DEV_NETWORK_MIN` | no | `175` | First create-pod developer network number (also the inner VLAN tag) |
+| `POD_DEV_NETWORK_MAX` | no | `199` | Last create-pod developer network number (also the inner VLAN tag) |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
 | `POD_ROUTER_INTERNAL_SUBNET` | no | `192.168.1.0/24` | Fixed internal LAN every pod router uses; must match the `INTERNAL_SUBNET` used to generate router snippets (see below) |
 | `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
 | `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
 | `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
-| `POD_DMZ_VNET_PREFIX` | no | `dmz` | Prefix for pre-created DMZ VNets |
-| `POD_DMZ_VLAN_BASE` | no | `1000` | VLAN tag offset for DMZ VNets (`tag = base + N`) |
 | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-lan-dmz-{network}-user-data.yaml` | LAN + DMZ router user-data snippet filename pattern |
 | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-lan-dmz-network-config.yaml` | Shared three-NIC network-config snippet filename |
 | `PERSONAL_PODS_ENABLED` | no | `false` | Enables personal pod status, requests, and provisioning; when enabled, a standard or personal router template must be configured |
 | `PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID` | no | `POD_ROUTER_TEMPLATE_ITEM_ID` | Optional router template override for personal pods |
-| `PERSONAL_POD_VNET_PREFIX` | no | `pod` | Prefix for pre-created personal pod VNets |
-| `PERSONAL_POD_VLAN_BASE` | no | `4000` | VLAN tag offset for personal pod VNets (`tag = base + N`) |
-| `PERSONAL_POD_NETWORK_MIN` | no | `1` | First personal pod network number |
-| `PERSONAL_POD_NETWORK_MAX` | no | `94` | Last personal pod network number; base `4000` derives the highest valid VLAN tag, `4094` |
+| `PERSONAL_POD_VNET` | no | `personal` | Exact, pre-created, VLAN-aware Proxmox VNet ID shared by every personal pod's internal NICs. Must differ from `POD_LAN_VNET` and `POD_DMZ_VNET` |
+| `PERSONAL_POD_NETWORK_MIN` | no | `1` | First personal pod network number (also the inner VLAN tag) |
+| `PERSONAL_POD_NETWORK_MAX` | no | `94` | Last personal pod network number (also the inner VLAN tag) |
 | `PERSONAL_POD_WAN_BRIDGE` | when personal pods enabled | — | Proxmox bridge or SDN VNet attached to personal router `net0` |
 | `PERSONAL_POD_WAN_IP_BASE` | no | `172.25.` | External NAT subnet prefix for personal pods |
 | `PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-personal-router-{network}-user-data.yaml` | Personal router user-data snippet filename pattern |
@@ -222,38 +219,55 @@ ranges must be pairwise non-overlapping and within the Proxmox VMID bounds
 - Inventory current VMIDs before adopting custom ranges to avoid accidental
   overlap with existing machines.
 
-By default, published pod clones reserve network numbers `1-244` and create-pod
-developer environments reserve `245-254`. These ranges must not overlap.
-Generated VNet IDs must also fit Proxmox's 8-character VNet limit; with the
-default prefix and ranges, the longest generated ID is `pod254`.
+By default, published pod clones reserve network numbers `1-174` and create-pod
+developer environments reserve `175-199`. Personal pods separately reserve
+`1-94`. The clone and dev ranges must not overlap; the personal range may
+overlap them because personal pods live on their own shared VNet
+(`PERSONAL_POD_VNET`), a distinct broadcast domain from `POD_LAN_VNET`. Every
+allocated network number remains globally unique across published,
+development, and personal allocations regardless of range overlap (enforced
+by the database), which prevents two active pods from ever receiving the same
+inner VLAN tag on the same shared VNet.
 
 Development and published pod routers clone directly from
 `POD_ROUTER_TEMPLATE_ITEM_ID`; publishing snapshots only non-router VMs.
 
 ### Pod router networking
 
-Every pod VNet is isolated at Layer 2, so every pod router can safely reuse
-the same internal LAN (`POD_ROUTER_INTERNAL_SUBNET`, default `192.168.1.0/24`)
-— only the external (WAN) `/24` differs per allocated network number. The
-router NATs between the two, preserving the workload's host octet:
+Kamino uses shared, pre-created, VLAN-aware Proxmox VNets
+(`POD_LAN_VNET`, `POD_DMZ_VNET`, `PERSONAL_POD_VNET`) instead of generating
+one VNet per pod. The allocated `network_number` becomes the inner
+(access/802.1Q) VLAN tag Kamino applies to every internal NIC — for example,
+pod network `24` uses `bridge=pod,tag=24` on every LAN-facing NIC. Pods stay
+isolated from each other because every VM sharing one pod's tag is the only
+traffic Proxmox forwards within that tag on the shared VNet; a LAN+DMZ router
+uses `bridge=pod,tag=24` on its LAN NIC and `bridge=dmz,tag=24` on its DMZ
+NIC, and the two segments remain isolated because they sit on different
+outer VNets. Every pod router can safely reuse the same internal LAN
+(`POD_ROUTER_INTERNAL_SUBNET`, default `192.168.1.0/24`) — only the external
+(WAN) `/24` differs per allocated network number. The router NATs between the
+two, preserving the workload's host octet:
 
-| | Development (network `245`) | Published clone (network `24`) |
+| | Development (network `199`) | Published clone (network `24`) |
 |---|---|---|
-| WAN subnet | `172.16.245.0/24` | `172.16.24.0/24` |
+| WAN subnet | `172.16.199.0/24` | `172.16.24.0/24` |
 | LAN subnet (both) | `192.168.1.0/24` | `192.168.1.0/24` |
-| Workload at `192.168.1.50` | reachable at `172.16.245.50` | reachable at `172.16.24.50` |
+| LAN VNet + inner VLAN tag (both) | `pod`, tag `199` | `pod`, tag `24` |
+| Workload at `192.168.1.50` | reachable at `172.16.199.50` | reachable at `172.16.24.50` |
 
 Configure workload guests once, as `192.168.1.<host>/24` with gateway
 `192.168.1.1` — Kamino does not rewrite addressing inside guests, so existing
 VMs must be readdressed to this LAN (then republished/recloned) before this
-networking model takes effect for them.
+networking model takes effect for them. Guests see ordinary untagged
+Ethernet: Kamino sets the VLAN tag on the Proxmox NIC (access mode), not
+inside the guest, so no guest-side VLAN interface or trunk is required.
 
 Supported automated profiles:
 
 | Profile | Key | Router NICs | Workload segments | Notes |
 |---|---|---|---|---|
-| LAN Router | `lan-router-v1` (default) | WAN `net0`, LAN `net1`, `net2` link-down | one LAN on `pod<N>` | `172.16.<N>.0/24` ↔ `192.168.1.0/24` 1:1 prefix NAT |
-| LAN + DMZ Router | `lan-dmz-router-v1` | WAN `net0`, LAN `net1`, DMZ `net2` | explicit LAN or DMZ per workload | `172.16.<N>.0/24` ↔ `10.0.50.0/24` 1:1 prefix NAT |
+| LAN Router | `lan-router-v1` (default) | WAN `net0` (untagged, preserved), LAN `net1` (`POD_LAN_VNET`, tag `N`), `net2` link-down | one LAN on `POD_LAN_VNET`, tag `N` | `172.16.<N>.0/24` ↔ `192.168.1.0/24` 1:1 prefix NAT |
+| LAN + DMZ Router | `lan-dmz-router-v1` | WAN `net0` (untagged, preserved), LAN `net1` (`POD_LAN_VNET`, tag `N`), DMZ `net2` (`POD_DMZ_VNET`, tag `N`) | explicit LAN or DMZ per workload | `172.16.<N>.0/24` ↔ `10.0.50.0/24` 1:1 prefix NAT |
 
 The router template must expose `net0`, `net1`, and `net2` for the DMZ profile.
 DMZ workloads must use static `10.0.50.<host>/24` addresses with gateway
@@ -302,11 +316,44 @@ Pod cloning requires the following to be configured and healthy:
 |---|---|---|
 | Router template VM exists in inventory | `POD_ROUTER_TEMPLATE_ITEM_ID` | Must point to a valid template inventory item |
 | Cloud-init snippets exist on Proxmox storage | `POD_ROUTER_CLOUD_INIT_*` | Filenames must pass validation (no path separators, no `..`) |
-| VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_LAN_VLAN_BASE` | Each `{prefix}{LAN_VLAN_BASE + N}` VNet must be present with tag `POD_LAN_VLAN_BASE + N` |
-| DMZ VNets exist for DMZ profile pods | `POD_DMZ_VNET_PREFIX` + `POD_DMZ_VLAN_BASE` | Each `dmz{DMZ_VLAN_BASE + N}` VNet must exist with tag `POD_DMZ_VLAN_BASE + N` |
-| Personal VNets exist for all personal network numbers | `PERSONAL_POD_VNET_PREFIX` + `PERSONAL_POD_VLAN_BASE` | With the defaults, create `pod4001` through `pod4094` with matching VLAN tags; network `N` still maps to `172.25.N.0/24` and snippet `{network}=N` |
+| Shared LAN VNet exists and is ready for tagged NICs | `POD_LAN_VNET` | Must exist, have `vlanaware=true`, and `isolate-ports=false`. Kamino validates and consumes this VNet; it never creates or mutates it. Kamino never compares this VNet's own outer tag to a pod's `network_number` |
+| Shared DMZ VNet exists and is ready for tagged NICs | `POD_DMZ_VNET` | Same checks as the LAN VNet, required only for the LAN+DMZ profile. Must be distinct from `POD_LAN_VNET`; startup rejects equal values |
+| Shared personal VNet exists and is ready for tagged NICs | `PERSONAL_POD_VNET` | Same checks as the LAN VNet. Must be distinct from `POD_LAN_VNET` and `POD_DMZ_VNET` |
+| Configured shared VNets have distinct outer VLAN tags | `POD_LAN_VNET`, `POD_DMZ_VNET`, `PERSONAL_POD_VNET` | Kamino rejects any pair of configured shared VNets that resolve to the same outer Proxmox VLAN tag on the one physical bridge |
 | Personal WAN bridge exists | `PERSONAL_POD_WAN_BRIDGE` | Must name the bridge or SDN VNet in the personal `172.25.0.0/16` zone; Kamino assigns it to cloned router `net0` |
 | Router template has three NICs for DMZ profile | `POD_ROUTER_TEMPLATE_ITEM_ID` | `net0` WAN, `net1` LAN, `net2` DMZ |
 | LAN + DMZ router cloud-init snippets exist | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_*` | `kamino-router-lan-dmz-{network}-user-data.yaml` per network |
 | WAN IP prefix is a valid dotted numeric value | `POD_ROUTER_WAN_IP_BASE` | Each segment must be 0-255 |
 | Internal subnet is a valid IPv4 `/24` network | `POD_ROUTER_INTERNAL_SUBNET` | Must be a canonical `/24` network address, not a host address |
+
+### Shared VNet maintenance cutover
+
+Moving to (or reconfiguring) the shared-VNet model in a live deployment is a
+maintenance operation, not a rolling change — Kamino only validates and
+consumes the shared VNets in `POD_LAN_VNET`, `POD_DMZ_VNET`, and
+`PERSONAL_POD_VNET`; it never creates, renames, or mutates Proxmox SDN
+resources, and a cutover must not silently relabel an active legacy
+allocation.
+
+1. Schedule a maintenance window and stop pod provisioning.
+2. Query `pod_network_allocations` and confirm it is empty. If any row
+   exists, stop — this is not an in-place migration for active
+   `podNNN`/`dmzNNN` legacy VM NICs; a separate migration plan is required.
+3. Verify the operator-created shared VNets exist on every node with the
+   expected zones/outer tags, `vlanaware=true`, and `isolate-ports=false`.
+4. Verify the shared VNets have unique outer VLAN tags, and that the
+   physical switch trunk allows the resulting QinQ (outer + inner tag) and
+   MTU overhead on the one physical bridge.
+5. Replace the old `*_VNET_PREFIX`/`*_VLAN_BASE` environment variables with
+   the exact `POD_LAN_VNET`, `POD_DMZ_VNET`, and `PERSONAL_POD_VNET` values.
+6. Deploy the API and confirm startup validation passes.
+7. Provision canaries using at least two different inner tags.
+8. Inspect every Proxmox NIC created by the canaries for the expected
+   bridge/tag pair.
+9. Verify same-pod LAN reachability, different-tag isolation, LAN/DMZ
+   separation, router WAN reachability, personal-pod create/edit, cross-node
+   operation, and VM migration.
+10. Confirm no VM NIC still references a legacy generated VNet
+    (`podNNN`/`dmzNNN`).
+11. Only then delete unused legacy VNets through the operator's normal
+    Proxmox process.

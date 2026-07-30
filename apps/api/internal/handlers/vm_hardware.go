@@ -154,11 +154,10 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		return
 	}
 	if !isManager {
-		scopedVNetName, scoped, err := personalPodNetworkScope(
+		scope, scoped, err := personalPodNetworkScope(
 			c.Request.Context(),
 			h.DB,
-			h.PersonalPodVNetPrefix,
-			h.PersonalPodVLANBase,
+			h.PersonalPodVNet,
 			itemID,
 		)
 		if err != nil {
@@ -167,9 +166,9 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		}
 		if scoped {
 			for _, network := range req.Networks {
-				if strings.TrimSpace(network.Bridge) != scopedVNetName {
+				if personalPodNetworkMismatch(scope, network.Bridge, network.VLANTag) {
 					c.JSON(http.StatusUnprocessableEntity, gin.H{
-						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s", scopedVNetName),
+						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s (VLAN %d)", scope.VNet, scope.VLANTag),
 					})
 					return
 				}

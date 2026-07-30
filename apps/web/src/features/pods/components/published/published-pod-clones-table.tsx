@@ -37,7 +37,10 @@ import type { PublishedPodClonePendingAction } from "@/features/pods/types/publi
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { showSingleMutationToast, showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -47,7 +50,14 @@ import {
   reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
-import { POD_CLONE_ACTION_CONFIG, podPowerIncompleteMessage } from "@/features/pods/utils/pod-clone-actions"
+import {
+  POD_CLONE_ACTION_CONFIG,
+  podPowerIncompleteMessage,
+} from "@/features/pods/utils/pod-clone-actions"
+
+function vnetIdentity(vnet: string, vlanTag: number | undefined) {
+  return vlanTag == null ? vnet : `${vnet} · VLAN ${vlanTag}`
+}
 
 const CLONE_ACTION_DIALOG_CONFIG: Record<
   Exclude<PublishedPodClonePendingAction, null>["type"],
@@ -93,7 +103,11 @@ const CLONE_ACTION_DIALOG_CONFIG: Record<
   },
 }
 
-export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry }) {
+export function PublishedPodClonesTable({
+  pod,
+}: {
+  pod: PublishedPodCatalogEntry
+}) {
   const queryClient = useQueryClient()
   const [pendingAction, setPendingAction] =
     useState<PublishedPodClonePendingAction>(null)
@@ -194,7 +208,8 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
                 queryClient.setQueryData(
                   clonesQueryKey,
                   (current: Array<PublishedPodCloneSummary> | undefined) =>
-                    current?.map((c) => (c.id === updated.id ? updated : c)) ?? []
+                    current?.map((c) => (c.id === updated.id ? updated : c)) ??
+                    []
                 )
                 if (updated.power_result?.status !== "succeeded") {
                   throw new Error(podPowerIncompleteMessage(powerAction))
@@ -206,7 +221,13 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
               title: "Re-cloning",
               units: [
                 {
-                  items: [{ id: clone.id, name: cloneName, successDescription: "Re-cloned" }],
+                  items: [
+                    {
+                      id: clone.id,
+                      name: cloneName,
+                      successDescription: "Re-cloned",
+                    },
+                  ],
                   run: async () => {
                     await recloneMutation.mutateAsync(clone.id)
                   },
@@ -218,7 +239,13 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
               title: "Deleting",
               units: [
                 {
-                  items: [{ id: clone.id, name: cloneName, successDescription: "Deleted" }],
+                  items: [
+                    {
+                      id: clone.id,
+                      name: cloneName,
+                      successDescription: "Deleted",
+                    },
+                  ],
                   run: async () => {
                     await deleteMutation.mutateAsync(clone.id)
                   },
@@ -290,7 +317,12 @@ export function PublishedPodClonesTable({ pod }: { pod: PublishedPodCatalogEntry
                       <TableCell>
                         <ClonedPodStatusBadge status={clone.status} />
                       </TableCell>
-                      <TableCell>{clone.network.vnet}</TableCell>
+                      <TableCell>
+                        {vnetIdentity(
+                          clone.network.vnet,
+                          clone.network.lan_vlan_tag
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm tabular-nums">
                         {clone.vm_count}
                       </TableCell>

@@ -2,8 +2,21 @@ package podnetwork
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+var vnetIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
+
+func validateSharedVNetID(id string) error {
+	if len(id) < 2 || len(id) > 8 {
+		return fmt.Errorf("VNet ID %q must be 2-8 characters", id)
+	}
+	if !vnetIDPattern.MatchString(id) {
+		return fmt.Errorf("VNet ID %q must start with a letter and contain only letters and numbers", id)
+	}
+	return nil
+}
 
 func validateProfile(profile Profile, config Config) error {
 	if strings.TrimSpace(profile.Key) == "" {
@@ -35,21 +48,8 @@ func validateProfile(profile Profile, config Config) error {
 		}
 		vnetKinds[segment.VNetKind] = struct{}{}
 
-		for network := int32(1); network <= 254; network++ {
-			tag := config.LANVLANBase + int(network)
-			if segment.VNetKind == VNetKindDMZ {
-				tag = config.DMZVLANBase + int(network)
-			}
-			if tag < 1 || tag > 4094 {
-				return fmt.Errorf("segment %s VLAN tag %d is out of range", segment.Key, tag)
-			}
-			name, err := vnetNameForKind(config, segment.VNetKind, network)
-			if err != nil {
-				return err
-			}
-			if len(name) > 8 {
-				return fmt.Errorf("derived VNet name %q exceeds eight characters", name)
-			}
+		if _, err := vnetNameForKind(config, segment.VNetKind); err != nil {
+			return err
 		}
 	}
 
@@ -89,12 +89,12 @@ func validateProfile(profile Profile, config Config) error {
 	return nil
 }
 
-func vnetNameForKind(config Config, kind string, networkNumber int32) (string, error) {
+func vnetNameForKind(config Config, kind string) (string, error) {
 	switch kind {
 	case VNetKindPrimary:
-		return fmt.Sprintf("%s%d", config.VNetPrefix, config.LANVLANBase+int(networkNumber)), nil
+		return config.LANVNet, nil
 	case VNetKindDMZ:
-		return fmt.Sprintf("%s%d", config.DMZVNetPrefix, config.DMZVLANBase+int(networkNumber)), nil
+		return config.DMZVNet, nil
 	default:
 		return "", fmt.Errorf("unknown VNet kind %q", kind)
 	}
