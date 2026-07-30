@@ -27,7 +27,7 @@ export function DashboardStatsGrid({
       {stats.map((stat) => {
         return (
           <m.div key={stat.label} variants={animateChild}>
-            <Card key={stat.label} className="min-h-36">
+            <Card key={stat.label} className="h-full min-h-36">
               <CardHeader className="pb-2">
                 <HugeiconsIcon
                   icon={stat.icon}
