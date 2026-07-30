@@ -77,6 +77,9 @@ func (h *PodsHandler) updatePublishedPodTemplates(
 				StorageGB:              diskGBToInt(&existing.DiskGb),
 				AllowMask:              requestVM.AllowMask,
 				DenyMask:               requestVM.DenyMask,
+				IsRouter:               requestVM.IsRouter,
+				SegmentKey:             requestVM.SegmentKey,
+				HostOctet:              requestVM.HostOctet,
 			}
 			continue
 		}

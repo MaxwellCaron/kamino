@@ -122,10 +122,41 @@ func normalizePublishPodVMs(
 			StorageGB:              podVM.StorageGB,
 			AllowMask:              vm.Permissions.AllowMask,
 			DenyMask:               vm.Permissions.DenyMask,
+			HostOctet:              vm.HostOctet,
 		})
 	}
 
 	return vms, nil
+}
+
+func validatePublishedPodHostOctets(vms []normalizedPublishPodVM) *requestError {
+	type segmentKey struct {
+		segment string
+		octet   int32
+	}
+	seen := make(map[segmentKey]struct{}, len(vms))
+	for _, vm := range vms {
+		if vm.HostOctet == nil {
+			continue
+		}
+		if vm.IsRouter {
+			return invalidPublishPod("router VMs cannot have a host octet")
+		}
+		octet := *vm.HostOctet
+		if octet < 2 || octet > 254 {
+			return invalidPublishPod("host octet must be between 2 and 254")
+		}
+		segment := ""
+		if vm.SegmentKey != nil {
+			segment = *vm.SegmentKey
+		}
+		key := segmentKey{segment: segment, octet: octet}
+		if _, ok := seen[key]; ok {
+			return invalidPublishPod("host octet must be unique within its network segment")
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
 }
 
 func normalizePublishPodUpdateVMs(values []string) ([]uuid.UUID, *requestError) {
@@ -190,6 +221,9 @@ func preservePublishedPodTemplateRefs(
 			StorageGB:              diskGBToInt(&existing.DiskGb),
 			AllowMask:              requestVM.AllowMask,
 			DenyMask:               requestVM.DenyMask,
+			IsRouter:               requestVM.IsRouter,
+			SegmentKey:             requestVM.SegmentKey,
+			HostOctet:              requestVM.HostOctet,
 		})
 	}
 

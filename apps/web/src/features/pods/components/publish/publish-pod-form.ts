@@ -40,6 +40,13 @@ const publishPodVmSchema = z.object({
   storageGb: z.number().int().min(1),
   is_router: z.boolean().optional(),
   segment_key: z.string().nullable().optional(),
+  host_octet: z
+    .number()
+    .int("Host octet must be a whole number.")
+    .min(2, "Host octet must be between 2 and 254.")
+    .max(254, "Host octet must be between 2 and 254.")
+    .nullable()
+    .optional(),
   permissions: publishPodVmPermissionSchema,
 })
 
@@ -215,36 +222,63 @@ Quoted filenames are supported too:
 
 Use this space for task instructions, lab notes, walkthroughs, code snippets, reference commands, and any rich markdown content you want end users to read.`
 
-const publishPodFormSchema = z.object({
-  id: z.string().min(1),
-  title: z
-    .string()
-    .trim()
-    .min(1, "Pod title is required.")
-    .max(32, "Pod title must be at most 32 characters."),
-  slug: z.string().trim().min(1),
-  description: z
-    .string()
-    .trim()
-    .min(1, "Description is required.")
-    .max(128, "Description must be at most 128 characters."),
-  image: z.string().trim().pipe(z.url("Enter a valid image URL.")),
-  creators: z
-    .array(publishPodAudiencePrincipalSchema)
-    .min(1, "Add at least one creator.")
-    .max(5, "You can add up to 5 creators."),
-  created_at: z.string().min(1),
-  clone_count: z.number().int().min(0),
-  status: z.enum(["listed", "unlisted"] satisfies Array<PodStatus>),
-  audience: z.array(publishPodAudiencePrincipalSchema),
-  virtual_machines: z.array(publishPodVmSchema).min(1),
-  update_virtual_machines: z.array(z.string()),
-  tasks: z
-    .array(publishPodTaskSchema)
-    .min(1, "Add at least one task.")
-    .max(20, "You can add up to 20 tasks."),
-  source_folder: z.string().trim().min(1, "Select a Pod Folder."),
-})
+export const publishPodFormSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z
+      .string()
+      .trim()
+      .min(1, "Pod title is required.")
+      .max(32, "Pod title must be at most 32 characters."),
+    slug: z.string().trim().min(1),
+    description: z
+      .string()
+      .trim()
+      .min(1, "Description is required.")
+      .max(128, "Description must be at most 128 characters."),
+    image: z.string().trim().pipe(z.url("Enter a valid image URL.")),
+    creators: z
+      .array(publishPodAudiencePrincipalSchema)
+      .min(1, "Add at least one creator.")
+      .max(5, "You can add up to 5 creators."),
+    created_at: z.string().min(1),
+    clone_count: z.number().int().min(0),
+    status: z.enum(["listed", "unlisted"] satisfies Array<PodStatus>),
+    audience: z.array(publishPodAudiencePrincipalSchema),
+    virtual_machines: z.array(publishPodVmSchema).min(1),
+    update_virtual_machines: z.array(z.string()),
+    tasks: z
+      .array(publishPodTaskSchema)
+      .min(1, "Add at least one task.")
+      .max(20, "You can add up to 20 tasks."),
+    source_folder: z.string().trim().min(1, "Select a Pod Folder."),
+  })
+  .superRefine((values, ctx) => {
+    const seen = new Map<string, number>()
+    values.virtual_machines.forEach((vm, index) => {
+      if (vm.host_octet == null) return
+
+      if (vm.is_router) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["virtual_machines", index, "host_octet"],
+          message: "Router VMs cannot have a host octet.",
+        })
+        return
+      }
+
+      const key = `${vm.segment_key ?? ""}:${vm.host_octet}`
+      if (seen.has(key)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["virtual_machines", index, "host_octet"],
+          message: "Host octet must be unique within its network segment.",
+        })
+        return
+      }
+      seen.set(key, index)
+    })
+  })
 
 export type PublishPodFormValues = z.infer<typeof publishPodFormSchema>
 

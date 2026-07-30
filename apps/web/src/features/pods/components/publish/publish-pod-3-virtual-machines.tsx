@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Checkbox } from "@workspace/ui/components/checkbox"
+import { Input } from "@workspace/ui/components/input"
 import {
   Combobox,
   ComboboxContent,
@@ -110,8 +111,67 @@ function createEditingVmPrincipal(
   }
 }
 
+function validatePublishPodHostOctetOnBlur(value: number | null | undefined) {
+  if (value == null) return undefined
+  if (!Number.isInteger(value) || value < 2 || value > 254) {
+    return { message: "Host octet must be between 2 and 254." }
+  }
+  return undefined
+}
+
+function PublishPodVmHostOctetField({
+  form,
+  index,
+  vmName,
+}: {
+  form: PublishPodFormApi
+  index: number
+  vmName: string
+}) {
+  return (
+    <form.Field
+      name={`virtual_machines[${index}].host_octet`}
+      validators={{
+        onBlur: ({ value }) => validatePublishPodHostOctetOnBlur(value),
+      }}
+    >
+      {(field) => {
+        const isInvalid = field.state.meta.errors.length > 0
+        const fieldId = `publish-pod-vm-host-octet-${index}`
+
+        return (
+          <Field className="w-24 gap-1" data-invalid={isInvalid || undefined}>
+            <FieldLabel htmlFor={fieldId} className="sr-only">
+              Host octet for {vmName}
+            </FieldLabel>
+            <Input
+              id={fieldId}
+              name={field.name}
+              type="number"
+              min={2}
+              max={254}
+              step={1}
+              placeholder="Optional"
+              value={field.state.value ?? ""}
+              onBlur={field.handleBlur}
+              onChange={(event) => {
+                const raw = event.target.value
+                field.handleChange(raw === "" ? null : Number(raw))
+              }}
+              aria-invalid={isInvalid || undefined}
+              data-invalid={isInvalid || undefined}
+            />
+            <FieldError errors={field.state.meta.errors} />
+          </Field>
+        )
+      }}
+    </form.Field>
+  )
+}
+
 type PublishPodVirtualMachinesTableProps = {
   canUpdatePodTemplates: boolean
+  form: PublishPodFormApi
   onPermissionChange: (
     vm: PublishPodVM,
     index: number,
@@ -126,6 +186,7 @@ type PublishPodVirtualMachinesTableProps = {
 
 function PublishPodVirtualMachinesTable({
   canUpdatePodTemplates,
+  form,
   onPermissionChange,
   onResetPermissions,
   onUpdateVirtualMachinesChange,
@@ -197,6 +258,22 @@ function PublishPodVirtualMachinesTable({
         ),
       },
       {
+        id: "host_octet",
+        header: "Host octet",
+        cell: ({ row }) =>
+          row.original.vm.is_router ? (
+            <span className="text-muted-foreground" aria-hidden="true">
+              —
+            </span>
+          ) : (
+            <PublishPodVmHostOctetField
+              form={form}
+              index={row.original.index}
+              vmName={row.original.vm.name}
+            />
+          ),
+      },
+      {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => `${row.original.vm.cpuCount} CPUs`,
@@ -258,7 +335,7 @@ function PublishPodVirtualMachinesTable({
         enableSorting: false,
       },
     ],
-    [canUpdatePodTemplates, updateVirtualMachines]
+    [canUpdatePodTemplates, form, updateVirtualMachines]
   )
 
   const table = useReactTable({
@@ -443,7 +520,7 @@ export function PublishPodVirtualMachinesStep({
           </CardTitle>
           <CardDescription>
             Choose the Pod Folder, review the included VMs, and adjust their
-            default permissions.
+            default permissions and optional host octets.
           </CardDescription>
         </CardHeader>
         <CardContent className="border-t pt-6">
@@ -570,6 +647,7 @@ export function PublishPodVirtualMachinesStep({
                                 ) : null}
                                 <PublishPodVirtualMachinesTable
                                   canUpdatePodTemplates={canUpdatePodTemplates}
+                                  form={form}
                                   onPermissionChange={handleVmPermissionChange}
                                   onResetPermissions={handleResetVmPermissions}
                                   onUpdateVirtualMachinesChange={

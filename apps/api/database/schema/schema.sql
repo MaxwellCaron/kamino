@@ -533,6 +533,7 @@ CREATE TABLE published_pod_vms (
     deny_mask                 BIGINT NOT NULL CHECK (deny_mask >= 0),
     is_router                 BOOLEAN NOT NULL DEFAULT false,
     segment_key               TEXT NULL,
+    host_octet                INTEGER NULL,
     sort_order                INTEGER NOT NULL CHECK (sort_order >= 0),
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT published_pod_vms_name_not_empty
@@ -541,7 +542,15 @@ CREATE TABLE published_pod_vms (
         CHECK (
             (is_router AND segment_key IS NULL)
             OR (NOT is_router AND segment_key IS NOT NULL AND length(trim(segment_key)) > 0)
-        )
+        ),
+    CONSTRAINT published_pod_vms_host_octet_valid
+        CHECK (
+            host_octet IS NULL
+            OR (NOT is_router AND host_octet BETWEEN 2 AND 254)
+        ),
+    CONSTRAINT published_pod_vms_host_octet_per_segment
+        UNIQUE (pod_id, segment_key, host_octet)
+        DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE UNIQUE INDEX ux_published_pod_vms_source
@@ -690,11 +699,14 @@ CREATE TABLE cloned_pod_vms (
     cloned_pod_id       UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
     published_pod_vm_id UUID NOT NULL REFERENCES published_pod_vms(id) ON DELETE RESTRICT,
     inventory_item_id   UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    host_octet          INTEGER NULL,
     sort_order          INTEGER NOT NULL CHECK (sort_order >= 0),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (cloned_pod_id, published_pod_vm_id),
     UNIQUE (inventory_item_id),
-    UNIQUE (cloned_pod_id, sort_order)
+    UNIQUE (cloned_pod_id, sort_order),
+    CONSTRAINT cloned_pod_vms_host_octet_valid
+        CHECK (host_octet IS NULL OR host_octet BETWEEN 2 AND 254)
 );
 
 CREATE TABLE cloned_pod_task_states (

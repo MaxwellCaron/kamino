@@ -40,6 +40,7 @@ type normalizedPublishPodVM struct {
 	DenyMask               int64
 	IsRouter               bool
 	SegmentKey             *string
+	HostOctet              *int32
 }
 
 type normalizedPublishPodTask struct {
@@ -147,6 +148,12 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		return normalizedPublishPodRequest{}, reqErr
 	}
 	vms, reqErr = applyPublishNetworkAssignments(vms, vmAssignments)
+	if reqErr != nil {
+		return normalizedPublishPodRequest{}, reqErr
+	}
+	if reqErr := validatePublishedPodHostOctets(vms); reqErr != nil {
+		return normalizedPublishPodRequest{}, reqErr
+	}
 
 	return normalizedPublishPodRequest{
 		ID:                    podID,
@@ -272,6 +279,7 @@ func (h *PodsHandler) replacePublishedPodChildren(
 				DenyMask:              vm.DenyMask,
 				IsRouter:              vm.IsRouter,
 				SegmentKey:            vm.SegmentKey,
+				HostOctet:             vm.HostOctet,
 				SortOrder:             int32(index),
 			}); err != nil {
 				return childInsertError("insert published pod vm", err)
@@ -292,6 +300,7 @@ func (h *PodsHandler) replacePublishedPodChildren(
 			DenyMask:              vm.DenyMask,
 			IsRouter:              vm.IsRouter,
 			SegmentKey:            vm.SegmentKey,
+			HostOctet:             vm.HostOctet,
 			SortOrder:             int32(index),
 		}); err != nil {
 			return childInsertError("update published pod vm", err)

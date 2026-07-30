@@ -17,6 +17,7 @@ func publishedVMFromRow(row database.ListPublishedPodVMsByPodIDsRow) publishedPo
 		StorageGB:  diskGBToInt(&row.DiskGb),
 		IsRouter:   row.IsRouter,
 		SegmentKey: row.SegmentKey,
+		HostOctet:  row.HostOctet,
 		Permissions: publishedPodPermissionResponse{
 			AllowMask: row.AllowMask,
 			DenyMask:  row.DenyMask,

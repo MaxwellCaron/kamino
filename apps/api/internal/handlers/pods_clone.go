@@ -154,15 +154,18 @@ type clonedPodResponse struct {
 }
 
 type clonedPodVMResponse struct {
-	ID        uuid.UUID                    `json:"id"`
-	Name      string                       `json:"name"`
-	Status    string                       `json:"status"`
-	Resources vmstatus.VMResources         `json:"resources"`
-	Uptime    *int64                       `json:"uptime,omitempty"`
-	CPUCount  *int32                       `json:"cpu_count,omitempty"`
-	MemoryMB  *int32                       `json:"memory_mb,omitempty"`
-	DiskGB    *float64                     `json:"disk_gb,omitempty"`
-	Inventory clonedPodVMInventoryResponse `json:"inventory"`
+	ID         uuid.UUID                    `json:"id"`
+	Name       string                       `json:"name"`
+	Status     string                       `json:"status"`
+	Resources  vmstatus.VMResources         `json:"resources"`
+	Uptime     *int64                       `json:"uptime,omitempty"`
+	CPUCount   *int32                       `json:"cpu_count,omitempty"`
+	MemoryMB   *int32                       `json:"memory_mb,omitempty"`
+	DiskGB     *float64                     `json:"disk_gb,omitempty"`
+	HostOctet  *int32                       `json:"host_octet,omitempty"`
+	IsRouter   bool                         `json:"is_router,omitempty"`
+	SegmentKey *string                      `json:"segment_key,omitempty"`
+	Inventory  clonedPodVMInventoryResponse `json:"inventory"`
 }
 
 type clonedPodVMInventoryResponse struct {

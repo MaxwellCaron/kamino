@@ -26,14 +26,16 @@ INSERT INTO cloned_pod_vms (
     cloned_pod_id,
     published_pod_vm_id,
     inventory_item_id,
+    host_octet,
     sort_order
-) VALUES ($1, $2, $3, $4)
+) VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertClonedPodVMParams struct {
 	ClonedPodID      uuid.UUID `json:"cloned_pod_id"`
 	PublishedPodVmID uuid.UUID `json:"published_pod_vm_id"`
 	InventoryItemID  uuid.UUID `json:"inventory_item_id"`
+	HostOctet        *int32    `json:"host_octet"`
 	SortOrder        int32     `json:"sort_order"`
 }
 
@@ -42,6 +44,7 @@ func (q *Queries) InsertClonedPodVM(ctx context.Context, arg InsertClonedPodVMPa
 		arg.ClonedPodID,
 		arg.PublishedPodVmID,
 		arg.InventoryItemID,
+		arg.HostOctet,
 		arg.SortOrder,
 	)
 	return err
@@ -57,10 +60,15 @@ SELECT
     pv.cpu_count,
     pv.memory_mb,
     pv.disk_gb,
+    cpv.host_octet,
+    ppv.is_router,
+    ppv.segment_key,
     cpv.sort_order
 FROM cloned_pod_vms cpv
 JOIN inventory_items ii
   ON ii.id = cpv.inventory_item_id
+JOIN published_pod_vms ppv
+  ON ppv.id = cpv.published_pod_vm_id
 LEFT JOIN proxmox_vms pv
   ON pv.inventory_item_id = cpv.inventory_item_id
 WHERE cpv.cloned_pod_id = $1
@@ -76,6 +84,9 @@ type ListClonedPodVMsRow struct {
 	CpuCount        *int32    `json:"cpu_count"`
 	MemoryMb        *int32    `json:"memory_mb"`
 	DiskGb          *float64  `json:"disk_gb"`
+	HostOctet       *int32    `json:"host_octet"`
+	IsRouter        bool      `json:"is_router"`
+	SegmentKey      *string   `json:"segment_key"`
 	SortOrder       int32     `json:"sort_order"`
 }
 
@@ -97,6 +108,9 @@ func (q *Queries) ListClonedPodVMs(ctx context.Context, clonedPodID uuid.UUID) (
 			&i.CpuCount,
 			&i.MemoryMb,
 			&i.DiskGb,
+			&i.HostOctet,
+			&i.IsRouter,
+			&i.SegmentKey,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err

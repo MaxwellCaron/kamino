@@ -36,8 +36,8 @@ existing one.
 #### Start and stop
 
 After cloning, the pod page shows your assigned virtual machines along with
-VNet, external, and internal network details. DMZ details appear when the
-pod uses a LAN + DMZ router profile.
+VNet, WAN, and LAN network details. DMZ details appear when the pod uses a
+LAN + DMZ router profile.
 
 From the pod header you can:
 
@@ -58,6 +58,13 @@ When some VMs are running and others are stopped, both **Start** and
 The **Virtual Machines** card lists VMs you can view in your clone. Each
 entry links to that VM's inventory dashboard in a new browser tab. The list
 may not include every VM in the environment.
+
+When a manager has assigned a workload VM a host address, its entry shows the
+full address on that VM's network segment (LAN or DMZ), for example
+`10.20.30.50`. If that segment is externally reachable through the pod's
+prefix NAT, an additional WAN address appears, for example `10.20.99.50`.
+The clone's router shows its own LAN, DMZ, and WAN gateway addresses the same
+way. No address appears for a workload a manager left unset.
 
 #### Open a VM console
 

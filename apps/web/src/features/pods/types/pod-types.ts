@@ -38,6 +38,7 @@ export interface PublishedPodVirtualMachine {
   storageGb: number
   is_router?: boolean
   segment_key?: string | null
+  host_octet?: number | null
   permissions: {
     allowMask: number
     denyMask: number
@@ -58,6 +59,9 @@ export interface PodVM {
   cpu_count?: number
   memory_mb?: number
   disk_gb?: number
+  host_octet?: number
+  is_router?: boolean
+  segment_key?: string | null
   inventory: {
     itemId: string
   }
@@ -70,12 +74,20 @@ export type PodPowerResult = {
   status: "succeeded" | "partial" | "failed"
 }
 
+export interface ClonedPodNetworkPrefixNAT {
+  external: string
+  internal: string
+}
+
 interface ClonedPodNetworkBase {
   number: number
   vnet: string
   external_subnet: string
+  external_gateway?: string
   internal_subnet: string
+  internal_gateway?: string
   lan_vlan_tag?: number
+  prefix_nat?: ClonedPodNetworkPrefixNAT
 }
 
 export type ClonedPodNetwork =
@@ -84,6 +96,7 @@ export type ClonedPodNetwork =
       profile_key: "lan-dmz-router-v1"
       dmz_vnet: string
       dmz_subnet: string
+      dmz_gateway?: string
       dmz_vlan_tag?: number
     })
 

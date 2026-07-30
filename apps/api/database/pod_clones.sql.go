@@ -559,6 +559,7 @@ SELECT
     deny_mask,
     is_router,
     segment_key,
+    host_octet,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = $1
@@ -577,6 +578,7 @@ type ListPublishedPodVMsForCloneRow struct {
 	DenyMask              int64     `json:"deny_mask"`
 	IsRouter              bool      `json:"is_router"`
 	SegmentKey            *string   `json:"segment_key"`
+	HostOctet             *int32    `json:"host_octet"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -601,6 +603,7 @@ func (q *Queries) ListPublishedPodVMsForClone(ctx context.Context, podID uuid.UU
 			&i.DenyMask,
 			&i.IsRouter,
 			&i.SegmentKey,
+			&i.HostOctet,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err

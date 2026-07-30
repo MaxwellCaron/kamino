@@ -56,6 +56,7 @@ type publishPodVMRequest struct {
 	StorageGB   int32                       `json:"storageGb"`
 	IsRouter    bool                        `json:"is_router"`
 	SegmentKey  *string                     `json:"segment_key"`
+	HostOctet   *int32                      `json:"host_octet"`
 	Permissions publishPodPermissionRequest `json:"permissions"`
 }
 

@@ -222,8 +222,9 @@ INSERT INTO published_pod_vms (
     deny_mask,
     is_router,
     segment_key,
+    host_octet,
     sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: UpdatePublishedPodVM :exec
 UPDATE published_pod_vms
@@ -237,7 +238,8 @@ SET
     deny_mask = $9,
     is_router = $10,
     segment_key = $11,
-    sort_order = $12
+    host_octet = $12,
+    sort_order = $13
 WHERE id = $1
   AND pod_id = $2;
 
@@ -345,6 +347,7 @@ SELECT
     deny_mask,
     is_router,
     segment_key,
+    host_octet,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = ANY(sqlc.arg(pod_ids)::UUID[])

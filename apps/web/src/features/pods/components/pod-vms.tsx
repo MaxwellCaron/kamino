@@ -10,9 +10,11 @@ import {
 } from "@workspace/ui/components/card"
 import {
   Item,
+  ItemActions,
   ItemContent,
   ItemDescription,
   ItemGroup,
+  ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
 import {
@@ -21,25 +23,33 @@ import {
   EmptyHeader,
 } from "@workspace/ui/components/empty"
 import { cn } from "@workspace/ui/lib/utils"
+import { getPodVmAddresses, podNetworkSegments } from "../utils/pod-networking"
+import type { PodNetworkSegmentKind } from "../utils/pod-networking"
 import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
 import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 import { animateContainer, animateTableRow } from "@/components/animate"
 
 function NetworkItem({
-  label,
+  kind,
   subnet,
   className,
 }: {
-  label: string
+  kind: PodNetworkSegmentKind
   subnet: string
   className?: string
 }) {
+  const { icon, description } = podNetworkSegments[kind]
+
   return (
     <Item variant="muted" className={cn("shadow", className)}>
+      <ItemMedia>
+        <HugeiconsIcon icon={icon} className="size-4 text-muted-foreground" />
+      </ItemMedia>
       <ItemContent>
-        <ItemTitle className="w-full justify-center">{label}</ItemTitle>
-        <ItemDescription className="text-center">{subnet}</ItemDescription>
+        <ItemTitle className="w-full">{kind}</ItemTitle>
+        <ItemDescription>{description}</ItemDescription>
       </ItemContent>
+      <ItemActions>{subnet}</ItemActions>
     </Item>
   )
 }
@@ -55,23 +65,19 @@ function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
     <div
       className={cn(
         "grid grid-cols-2 gap-3 sm:gap-6",
-        isDmzProfile ? "lg:grid-cols-4" : "sm:grid-cols-3"
+        isDmzProfile ? "lg:grid-cols-3" : "sm:grid-cols-2"
       )}
     >
-      <NetworkItem
-        label="VNet"
-        subnet={vnetIdentity(network.vnet, network.lan_vlan_tag)}
-      />
-      <NetworkItem label="External" subnet={network.external_subnet} />
+      <NetworkItem kind="WAN" subnet={network.external_subnet} />
       {isDmzProfile ? (
         <NetworkItem
-          label="DMZ"
+          kind="DMZ"
           subnet={vnetIdentity(network.dmz_vnet, network.dmz_vlan_tag)}
         />
       ) : null}
       <NetworkItem
         className={!isDmzProfile ? "col-span-2 sm:col-span-1" : undefined}
-        label="Internal"
+        kind="LAN"
         subnet={network.internal_subnet}
       />
     </div>
@@ -117,6 +123,7 @@ export function PodVms({
                     cpuCount={vm.cpu_count}
                     memoryMb={vm.memory_mb}
                     diskGb={vm.disk_gb}
+                    addresses={network ? getPodVmAddresses(vm, network) : []}
                     openInNewTab
                     trailingContent={
                       <HugeiconsIcon

@@ -11,6 +11,7 @@ SELECT
     deny_mask,
     is_router,
     segment_key,
+    host_octet,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = $1

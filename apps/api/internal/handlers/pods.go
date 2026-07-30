@@ -104,6 +104,7 @@ type publishedPodVMResponse struct {
 	StorageGB   int32                          `json:"storageGb"`
 	IsRouter    bool                           `json:"is_router,omitempty"`
 	SegmentKey  *string                        `json:"segment_key,omitempty"`
+	HostOctet   *int32                         `json:"host_octet,omitempty"`
 	Permissions publishedPodPermissionResponse `json:"permissions"`
 }
 

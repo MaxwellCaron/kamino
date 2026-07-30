@@ -40,6 +40,28 @@ func TestNonNilVMs(t *testing.T) {
 	})
 }
 
+func TestPublishedVMFromRow(t *testing.T) {
+	t.Run("set value copied", func(t *testing.T) {
+		row := database.ListPublishedPodVMsByPodIDsRow{
+			Name:      "web-1",
+			HostOctet: int32Ptr(50),
+		}
+		got := publishedVMFromRow(row)
+		if got.HostOctet == nil || *got.HostOctet != 50 {
+			t.Errorf("HostOctet = %v, want 50", got.HostOctet)
+		}
+	})
+	t.Run("unset value left nil", func(t *testing.T) {
+		row := database.ListPublishedPodVMsByPodIDsRow{
+			Name: "web-1",
+		}
+		got := publishedVMFromRow(row)
+		if got.HostOctet != nil {
+			t.Errorf("HostOctet = %v, want nil", got.HostOctet)
+		}
+	})
+}
+
 func TestInventoryPath(t *testing.T) {
 	rootID := uuid.New()
 	childID := uuid.New()

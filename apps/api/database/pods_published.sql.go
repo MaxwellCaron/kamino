@@ -453,8 +453,9 @@ INSERT INTO published_pod_vms (
     deny_mask,
     is_router,
     segment_key,
+    host_octet,
     sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type InsertPublishedPodVMParams struct {
@@ -469,6 +470,7 @@ type InsertPublishedPodVMParams struct {
 	DenyMask              int64     `json:"deny_mask"`
 	IsRouter              bool      `json:"is_router"`
 	SegmentKey            *string   `json:"segment_key"`
+	HostOctet             *int32    `json:"host_octet"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -485,6 +487,7 @@ func (q *Queries) InsertPublishedPodVM(ctx context.Context, arg InsertPublishedP
 		arg.DenyMask,
 		arg.IsRouter,
 		arg.SegmentKey,
+		arg.HostOctet,
 		arg.SortOrder,
 	)
 	return err
@@ -715,6 +718,7 @@ SELECT
     deny_mask,
     is_router,
     segment_key,
+    host_octet,
     sort_order
 FROM published_pod_vms
 WHERE pod_id = ANY($1::UUID[])
@@ -733,6 +737,7 @@ type ListPublishedPodVMsByPodIDsRow struct {
 	DenyMask              int64     `json:"deny_mask"`
 	IsRouter              bool      `json:"is_router"`
 	SegmentKey            *string   `json:"segment_key"`
+	HostOctet             *int32    `json:"host_octet"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -757,6 +762,7 @@ func (q *Queries) ListPublishedPodVMsByPodIDs(ctx context.Context, podIds []uuid
 			&i.DenyMask,
 			&i.IsRouter,
 			&i.SegmentKey,
+			&i.HostOctet,
 			&i.SortOrder,
 		); err != nil {
 			return nil, err
@@ -1116,7 +1122,8 @@ SET
     deny_mask = $9,
     is_router = $10,
     segment_key = $11,
-    sort_order = $12
+    host_octet = $12,
+    sort_order = $13
 WHERE id = $1
   AND pod_id = $2
 `
@@ -1133,6 +1140,7 @@ type UpdatePublishedPodVMParams struct {
 	DenyMask              int64     `json:"deny_mask"`
 	IsRouter              bool      `json:"is_router"`
 	SegmentKey            *string   `json:"segment_key"`
+	HostOctet             *int32    `json:"host_octet"`
 	SortOrder             int32     `json:"sort_order"`
 }
 
@@ -1149,6 +1157,7 @@ func (q *Queries) UpdatePublishedPodVM(ctx context.Context, arg UpdatePublishedP
 		arg.DenyMask,
 		arg.IsRouter,
 		arg.SegmentKey,
+		arg.HostOctet,
 		arg.SortOrder,
 	)
 	return err

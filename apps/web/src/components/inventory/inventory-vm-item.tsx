@@ -1,10 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  CpuIcon,
-  HardDriveIcon,
-  RamMemoryIcon,
-} from "@hugeicons/core-free-icons"
+import { CpuIcon, HardDriveIcon, RamMemoryIcon } from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -14,7 +10,10 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { Separator } from "@workspace/ui/components/separator"
+import { Fragment } from "react"
 import type { ReactNode } from "react"
+import type { PodNetworkSegmentKind } from "@/features/pods/utils/pod-networking"
+import { podNetworkSegments } from "@/features/pods/utils/pod-networking"
 import { VmIcon } from "@/components/status/vm-icon"
 
 function formatVmRowMemoryMb(mb: number): string {
@@ -23,6 +22,11 @@ function formatVmRowMemoryMb(mb: number): string {
 
 function formatVmRowDiskGb(gb: number): string {
   return `${gb.toFixed(1)} GB`
+}
+
+export type InventoryVmItemAddress = {
+  label: PodNetworkSegmentKind
+  address: string
 }
 
 export type InventoryVmItemProps = {
@@ -34,6 +38,7 @@ export type InventoryVmItemProps = {
   cpuCount?: number
   memoryMb?: number
   diskGb?: number
+  addresses?: Array<InventoryVmItemAddress>
   openInNewTab?: boolean
   trailingContent?: ReactNode
 }
@@ -42,10 +47,12 @@ function VmResourceDescription({
   cpuCount,
   memoryMb,
   diskGb,
+  addresses,
 }: {
   cpuCount?: number
   memoryMb?: number
   diskGb?: number
+  addresses?: Array<InventoryVmItemAddress>
 }) {
   return (
     <>
@@ -63,6 +70,19 @@ function VmResourceDescription({
         <HugeiconsIcon icon={HardDriveIcon} className="size-3.5" />
         {diskGb != null ? formatVmRowDiskGb(diskGb) : "—"}
       </div>
+      {addresses?.map((entry) => (
+        <Fragment key={`${entry.label}-${entry.address}`}>
+          <Separator orientation="vertical" className="mx-1" />
+          <div className="flex items-center gap-1">
+            <HugeiconsIcon
+              icon={podNetworkSegments[entry.label].icon}
+              className="size-3.5"
+            />
+            <span>{entry.label}</span>
+            <span>{entry.address}</span>
+          </div>
+        </Fragment>
+      ))}
     </>
   )
 }
@@ -76,6 +96,7 @@ export function InventoryVmItem({
   cpuCount,
   memoryMb,
   diskGb,
+  addresses,
   openInNewTab = false,
   trailingContent,
 }: InventoryVmItemProps) {
@@ -98,11 +119,12 @@ export function InventoryVmItem({
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{name}</ItemTitle>
-          <ItemDescription className="flex items-center gap-2">
+          <ItemDescription className="flex flex-wrap items-center gap-2">
             <VmResourceDescription
               cpuCount={cpuCount}
               memoryMb={memoryMb}
               diskGb={diskGb}
+              addresses={addresses}
             />
           </ItemDescription>
         </ItemContent>

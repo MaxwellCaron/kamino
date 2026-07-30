@@ -49,6 +49,9 @@ allowing existing clones to function. Publishing uses the source pod folder
 and virtual machine defaults you configured, and can optionally update the
 virtual machines of existing clones when that option is selected.
 
+On the **VMs** stage, you may optionally record a **Host octet** (2–254) for
+each non-router workload VM. Set these to the values you defined when assigning static IPs.
+
 ### Manage published pods and clones
 
 Open [Published Pods](/pods/published) to see every published pod with

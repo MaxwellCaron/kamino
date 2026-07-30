@@ -312,6 +312,137 @@ func TestNewPublishedPodTemplateIDs(t *testing.T) {
 	})
 }
 
+func int32Ptr(v int32) *int32 {
+	return &v
+}
+
+func TestPublishedPodHostOctets(t *testing.T) {
+	lan := "lan"
+	dmz := "dmz"
+
+	tests := []struct {
+		name    string
+		vms     []normalizedPublishPodVM
+		wantErr bool
+	}{
+		{
+			name: "nil allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan},
+			},
+		},
+		{
+			name: "boundary 2 allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(2)},
+			},
+		},
+		{
+			name: "boundary 254 allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(254)},
+			},
+		},
+		{
+			name: "value 1 rejected",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(1)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "value 255 rejected",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(255)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "router rejected",
+			vms: []normalizedPublishPodVM{
+				{IsRouter: true, HostOctet: int32Ptr(50)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate within one segment rejected",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(50)},
+				{SegmentKey: &lan, HostOctet: int32Ptr(50)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "same value across LAN and DMZ allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(50)},
+				{SegmentKey: &dmz, HostOctet: int32Ptr(50)},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reqErr := validatePublishedPodHostOctets(tt.vms)
+			if tt.wantErr && reqErr == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && reqErr != nil {
+				t.Fatalf("unexpected error: %v", reqErr.UserMessage)
+			}
+			if reqErr != nil && reqErr.Status != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want %d", reqErr.Status, http.StatusUnprocessableEntity)
+			}
+		})
+	}
+}
+
+func TestPreservePublishedPodTemplateRefs(t *testing.T) {
+	sourceID := uuid.New()
+	existingID := uuid.New()
+	lan := "lan"
+
+	existingVMs := []database.ListPublishedPodVMsByPodIDsRow{
+		{
+			ID:                    existingID,
+			SourceInventoryItemID: sourceID,
+			Name:                  "web-1",
+			CpuCount:              2,
+			MemoryMb:              2048,
+			DiskGb:                20,
+		},
+	}
+	requestVMs := []normalizedPublishPodVM{
+		{
+			RequestInventoryItemID: sourceID,
+			Name:                   "web-1",
+			AllowMask:              1,
+			DenyMask:               2,
+			IsRouter:               false,
+			SegmentKey:             &lan,
+			HostOctet:              int32Ptr(50),
+		},
+	}
+
+	preserved, reqErr := preservePublishedPodTemplateRefs(requestVMs, existingVMs)
+	if reqErr != nil {
+		t.Fatalf("unexpected error: %v", reqErr.UserMessage)
+	}
+	if len(preserved) != 1 {
+		t.Fatalf("len = %d, want 1", len(preserved))
+	}
+	got := preserved[0]
+	if got.IsRouter != false {
+		t.Errorf("IsRouter = %v, want false", got.IsRouter)
+	}
+	if got.SegmentKey == nil || *got.SegmentKey != lan {
+		t.Errorf("SegmentKey = %v, want %q", got.SegmentKey, lan)
+	}
+	if got.HostOctet == nil || *got.HostOctet != 50 {
+		t.Errorf("HostOctet = %v, want 50", got.HostOctet)
+	}
+}
+
 func TestMarkSelectedUpdateVM(t *testing.T) {
 	id1 := uuid.New()
 	id2 := uuid.New()

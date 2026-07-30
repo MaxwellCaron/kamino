@@ -396,6 +396,7 @@ func (h *PodsHandler) recordReclonedPodVMs(
 			ClonedPodID:      cloneID,
 			PublishedPodVmID: result.published.ID,
 			InventoryItemID:  result.clone.InventoryItemID,
+			HostOctet:        result.published.HostOctet,
 			SortOrder:        result.published.SortOrder,
 		}); err != nil {
 			return &requestError{
