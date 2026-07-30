@@ -71,12 +71,14 @@ export function RenameDialog(props: RenameDialogProps) {
   const createFolder = useCreateFolder()
   const renameFolder = useRenameFolder()
   const renameVm = useRenameVM()
-  const currentName = props.mode === "create-folder" ? "" : props.currentName
+  const mode = props.mode
+  const currentName = mode === "create-folder" ? "" : props.currentName
   const currentDescription =
-    props.mode === "rename-folder" ? (props.currentDescription ?? "") : ""
+    mode === "rename-folder" ? (props.currentDescription ?? "") : ""
+  const currentVmid = mode === "rename-item" ? props.currentVmid : undefined
 
   const ui = useMemo(() => {
-    switch (props.mode) {
+    switch (mode) {
       case "create-folder":
         return {
           title: "New Folder",
@@ -89,7 +91,7 @@ export function RenameDialog(props: RenameDialogProps) {
       case "rename-folder":
         return {
           title: "Edit Folder",
-          description: `Update the name and description for folder "${props.currentName}".`,
+          description: `Update the name and description for folder "${currentName}".`,
           submitLabel: "Save Folder",
           placeholder: "Folder",
           icon: PencilEdit01Icon,
@@ -99,8 +101,8 @@ export function RenameDialog(props: RenameDialogProps) {
         return {
           title: "Rename",
           description: `Enter a new name for ${formatVmReference(
-            props.currentVmid,
-            props.currentName
+            currentVmid,
+            currentName
           )}.`,
           submitLabel: "Rename",
           placeholder: "Name",
@@ -108,7 +110,7 @@ export function RenameDialog(props: RenameDialogProps) {
           schema: vmNameSchema,
         }
     }
-  }, [props])
+  }, [currentName, currentVmid, mode])
 
   const form = useForm({
     defaultValues: { name: currentName, description: currentDescription },

@@ -63,15 +63,15 @@ export function DashboardCurrentClonedPodCard({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
-        {error ? (
-          <Empty className="min-h-52 border border-dashed">
-            <EmptyHeader>
-              <EmptyTitle>Could not load clone status</EmptyTitle>
-              <EmptyDescription>{error.message}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : entry ? (
-          <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait">
+          {error ? (
+            <Empty key="error" className="min-h-52 border border-dashed">
+              <EmptyHeader>
+                <EmptyTitle>Could not load clone status</EmptyTitle>
+                <EmptyDescription>{error.message}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : entry ? (
             <m.div
               key={entry.pod.slug}
               className="flex w-full flex-1 items-center"
@@ -134,23 +134,23 @@ export function DashboardCurrentClonedPodCard({
                 </Item>
               </m.div>
             </m.div>
-          </AnimatePresence>
-        ) : (
-          <Empty className="min-h-52 border border-dashed">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <HugeiconsIcon
-                  icon={CopyIcon}
-                  className="text-muted-foreground"
-                />
-              </EmptyMedia>
-              <EmptyTitle>No cloned pods</EmptyTitle>
-              <EmptyDescription>
-                Clone a pod from the catalog to track it here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
+          ) : (
+            <Empty key="empty" className="min-h-52 border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <HugeiconsIcon
+                    icon={CopyIcon}
+                    className="text-muted-foreground"
+                  />
+                </EmptyMedia>
+                <EmptyTitle>No cloned pods</EmptyTitle>
+                <EmptyDescription>
+                  Clone a pod from the catalog to track it here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </AnimatePresence>
       </CardContent>
     </Card>
   )

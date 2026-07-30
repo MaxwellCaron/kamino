@@ -75,7 +75,7 @@ const routerProfileIcons: Record<
   "lan-dmz-router-v1": RouterIcon,
 }
 
-export function formatNetworkOptionLabel(option: PodRouterCloneNetworkOption) {
+function formatNetworkOptionLabel(option: PodRouterCloneNetworkOption) {
   return `${option.network_number} · ${option.vnets.join(" + ")}`
 }
 
@@ -119,7 +119,7 @@ function validateDestinationFolder(value: string | null | undefined) {
   return value ? undefined : "Destination folder is required"
 }
 
-export function validateNetworkNumber(value: string) {
+function validateNetworkNumber(value: string) {
   const trimmed = value.trim()
   if (!trimmed) {
     return "Inner VLAN tag is required"

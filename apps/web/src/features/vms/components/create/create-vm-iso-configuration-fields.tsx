@@ -73,28 +73,33 @@ export const IsoConfigurationFields = withCreateVmForm({
     const { bridgeOptions, vnetOptions, networkOptions } =
       buildVmHardwareNetworkOptions(networks ?? {})
     const scopedNetwork = networks?.scoped_network
+    const scopedNetworkBridge = scopedNetwork?.bridge
+    const scopedNetworkVlanTag = scopedNetwork?.vlan_tag
 
     useEffect(() => {
-      if (!scopedNetwork) {
+      if (
+        scopedNetworkBridge === undefined ||
+        scopedNetworkVlanTag === undefined
+      ) {
         return
       }
       const current = form.getFieldValue("networks")
       const needsSync = current.some(
         (network) =>
-          network.bridge !== scopedNetwork.bridge ||
-          network.vlan_tag !== scopedNetwork.vlan_tag
+          network.bridge !== scopedNetworkBridge ||
+          network.vlan_tag !== scopedNetworkVlanTag
       )
       if (needsSync) {
         form.setFieldValue(
           "networks",
           current.map((network) => ({
             ...network,
-            bridge: scopedNetwork.bridge,
-            vlan_tag: scopedNetwork.vlan_tag,
+            bridge: scopedNetworkBridge,
+            vlan_tag: scopedNetworkVlanTag,
           }))
         )
       }
-    }, [scopedNetwork?.bridge, scopedNetwork?.vlan_tag, form])
+    }, [form, scopedNetworkBridge, scopedNetworkVlanTag])
 
     return (
       <div className="flex flex-col gap-6">

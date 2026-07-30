@@ -33,25 +33,13 @@ const liveReporters = new Map<
   (update: MutationItemUpdate) => void
 >()
 
-function dismissWhenComplete(
-  toastId: string | number,
-  nextStates: Record<string, ItemState>
-) {
-  if (Object.values(nextStates).every((state) => state === "done")) {
-    setTimeout(() => {
-      toast.dismiss(toastId)
-    }, 3000)
-  }
-}
-
 function applyItemUpdate(
   prev: {
     itemStates: Record<string, ItemState>
     itemErrors: Record<string, string>
     itemDescriptions: Record<string, string>
   },
-  update: MutationItemUpdate,
-  toastId: string | number
+  update: MutationItemUpdate
 ) {
   if (update.status === "progress") {
     return {
@@ -69,8 +57,11 @@ function applyItemUpdate(
   const nextErrors = { ...prev.itemErrors }
   if (update.status === "error") nextErrors[update.id] = update.error
   else delete nextErrors[update.id]
-  dismissWhenComplete(toastId, nextStates)
-  return { itemStates: nextStates, itemErrors: nextErrors, itemDescriptions: prev.itemDescriptions }
+  return {
+    itemStates: nextStates,
+    itemErrors: nextErrors,
+    itemDescriptions: prev.itemDescriptions,
+  }
 }
 
 export function MutationProgressToast({
@@ -100,8 +91,23 @@ export function MutationProgressToast({
     itemDescriptions: {},
   }))
   const { itemStates, itemErrors, itemDescriptions } = toastState
+  const allItemsComplete =
+    Object.keys(itemStates).length > 0 &&
+    Object.values(itemStates).every((state) => state === "done")
   const initialItemsRef = useRef([...progressItems, ...items])
   const runMutationRef = useRef(runMutation)
+
+  useEffect(() => {
+    if (!allItemsComplete) return
+
+    const timeoutId = setTimeout(() => {
+      toast.dismiss(toastId)
+    }, 3000)
+
+    return () => {
+      clearTimeout(timeoutId)
+    }
+  }, [allItemsComplete, toastId])
 
   useEffect(() => {
     runMutationRef.current = runMutation
@@ -109,7 +115,7 @@ export function MutationProgressToast({
 
   useEffect(() => {
     liveReporters.set(toastId, (update) => {
-      setToastState((prev) => applyItemUpdate(prev, update, toastId))
+      setToastState((prev) => applyItemUpdate(prev, update))
     })
 
     return () => {
@@ -143,7 +149,6 @@ export function MutationProgressToast({
           for (const { id } of failed) nextStates[id] = "error"
           for (const id of succeeded) delete nextErrors[id]
           for (const { id, error } of failed) nextErrors[id] = error
-          dismissWhenComplete(toastId, nextStates)
           return {
             itemStates: nextStates,
             itemErrors: nextErrors,
@@ -194,7 +199,6 @@ export function MutationProgressToast({
           ...prev.itemStates,
           [item.id]: "done",
         }
-        dismissWhenComplete(toastId, next)
         const nextErrors = { ...prev.itemErrors }
         delete nextErrors[item.id]
         return {
