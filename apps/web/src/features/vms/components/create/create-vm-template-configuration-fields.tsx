@@ -17,6 +17,12 @@ import {
   ComboboxList,
 } from "@workspace/ui/components/combobox"
 import {
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import {
   CloneFullCloneField,
   CloneNameField,
   CloneNodeField,
@@ -30,6 +36,7 @@ import { formatFieldError } from "./create-vm-step-utils"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { VMIDField } from "@/components/vms/vmid-field"
+import { VmIcon } from "@/components/status/vm-icon"
 
 export const TemplateConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -80,7 +87,15 @@ export const TemplateConfigurationFields = withCreateVmForm({
                       <ComboboxList>
                         {(template: VmTemplateOption) => (
                           <ComboboxItem key={template.id} value={template}>
-                            {template.label}
+                            <ItemMedia variant="icon">
+                              <VmIcon isTemplate status={undefined} />
+                            </ItemMedia>
+                            <ItemContent>
+                              <ItemTitle>{template.name}</ItemTitle>
+                              <ItemDescription>
+                                {template.node}/{template.vmid}
+                              </ItemDescription>
+                            </ItemContent>
                           </ComboboxItem>
                         )}
                       </ComboboxList>

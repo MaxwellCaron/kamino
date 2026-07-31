@@ -26,6 +26,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import {
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Copy02Icon } from "@hugeicons/core-free-icons"
 import { CreatePodTemplateCard } from "./create-pod-template-card"
@@ -38,6 +44,7 @@ import type {
   PodNetworkProfile,
   PodTemplateOption,
 } from "@/features/pods/api/create-pod-api"
+import { VmIcon } from "@/components/status/vm-icon"
 
 type CreatePodVirtualMachinesSectionProps = {
   form: CreatePodFormApi
@@ -137,7 +144,15 @@ export function CreatePodVirtualMachinesSection({
                     <ComboboxList>
                       {(template) => (
                         <ComboboxItem key={template.id} value={template}>
-                          {template.name}
+                          <ItemMedia variant="icon">
+                            <VmIcon isTemplate status={undefined} />
+                          </ItemMedia>
+                          <ItemContent>
+                            <ItemTitle>{template.name}</ItemTitle>
+                            <ItemDescription>
+                              {template.node}/{template.vmid}
+                            </ItemDescription>
+                          </ItemContent>
                         </ComboboxItem>
                       )}
                     </ComboboxList>
