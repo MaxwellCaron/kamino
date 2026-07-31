@@ -167,7 +167,6 @@ export function RenameDialog(props: RenameDialogProps) {
       open={props.open}
       onOpenChange={props.onOpenChange}
       onClosed={() => form.reset()}
-      initialFocus={currentName ? true : false}
       icon={Icon}
       title={ui.title}
       description={ui.description}
