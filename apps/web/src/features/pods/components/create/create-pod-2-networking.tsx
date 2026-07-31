@@ -198,6 +198,7 @@ export function CreatePodNetworkingSection({
                                 height={mode.diagram.light.height}
                                 layout="constrained"
                                 alt=""
+                                loading="eager"
                                 className="h-auto w-full dark:hidden"
                               />
                               <Image
@@ -206,6 +207,7 @@ export function CreatePodNetworkingSection({
                                 height={mode.diagram.dark.height}
                                 layout="constrained"
                                 alt=""
+                                loading="eager"
                                 className="hidden h-auto w-full dark:block"
                               />
                             </div>
