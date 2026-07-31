@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -469,4 +472,159 @@ func TestMarkSelectedUpdateVM(t *testing.T) {
 			t.Error("expected false")
 		}
 	})
+}
+
+func TestDeletePublishedPodMetadataOrdersCatalogBeforeSourceFolder(t *testing.T) {
+	var events []string
+
+	err := deletePublishedPodMetadata(
+		context.Background(),
+		func(ctx context.Context) (int64, error) {
+			events = append(events, "catalog")
+			return 1, nil
+		},
+		func(ctx context.Context) error {
+			events = append(events, "source_folder")
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 2 || events[0] != "catalog" || events[1] != "source_folder" {
+		t.Fatalf("events = %v, want [catalog source_folder]", events)
+	}
+}
+
+func TestDeletePublishedPodMetadataZeroRowsIsNotFound(t *testing.T) {
+	var sourceFolderCalled bool
+
+	err := deletePublishedPodMetadata(
+		context.Background(),
+		func(ctx context.Context) (int64, error) { return 0, nil },
+		func(ctx context.Context) error {
+			sourceFolderCalled = true
+			return nil
+		},
+	)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("err = %v, want pgx.ErrNoRows", err)
+	}
+	if sourceFolderCalled {
+		t.Fatal("expected source folder delete to be skipped when the catalog row is already gone")
+	}
+}
+
+func TestDeletePublishedPodMetadataCatalogFailureSkipsSourceFolder(t *testing.T) {
+	var sourceFolderCalled bool
+
+	err := deletePublishedPodMetadata(
+		context.Background(),
+		func(ctx context.Context) (int64, error) { return 0, errors.New("db unavailable") },
+		func(ctx context.Context) error {
+			sourceFolderCalled = true
+			return nil
+		},
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if sourceFolderCalled {
+		t.Fatal("expected source folder delete to be skipped after catalog delete failure")
+	}
+}
+
+func TestPublishedPodDeleteResourceFailurePreventsCatalogAndFolderCallbacks(t *testing.T) {
+	var catalogCalled, sourceFolderCalled, poolsCalled atomic.Bool
+
+	plan := inventory.FolderDeletionPlan{
+		ProxmoxVMs:   []inventory.FolderDeletionVM{{Node: "pve1", VMID: 100, GuestType: "qemu"}},
+		ProxmoxPools: []string{"Pods/Lab"},
+	}
+
+	var metadataErr error
+	cbs := folderResourceDeletionCallbacks{
+		deleteVM: func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+			return errors.New("proxmox unreachable")
+		},
+		deletePools: func(ctx context.Context, poolIDs []string) error {
+			poolsCalled.Store(true)
+			return nil
+		},
+		deleteMetadata: func(ctx context.Context) error {
+			err := deletePublishedPodMetadata(
+				ctx,
+				func(ctx context.Context) (int64, error) {
+					catalogCalled.Store(true)
+					return 1, nil
+				},
+				func(ctx context.Context) error {
+					sourceFolderCalled.Store(true)
+					return nil
+				},
+			)
+			metadataErr = err
+			return err
+		},
+	}
+
+	if err := runFolderResourceDeletion(context.Background(), plan, 4, cbs); err == nil {
+		t.Fatal("expected resource deletion error")
+	}
+	if poolsCalled.Load() {
+		t.Fatal("expected pool deletion to be skipped after VM failure")
+	}
+	if catalogCalled.Load() || sourceFolderCalled.Load() {
+		t.Fatal("expected catalog and source folder deletes to be skipped after resource failure")
+	}
+	if metadataErr != nil {
+		t.Fatalf("metadataErr = %v, want nil (metadata callback never ran)", metadataErr)
+	}
+}
+
+func TestPublishedPodDeleteSuccessOrdersResourceCleanupBeforeMetadataDeletes(t *testing.T) {
+	var events []string
+
+	plan := inventory.FolderDeletionPlan{
+		ProxmoxVMs:   []inventory.FolderDeletionVM{{Node: "pve1", VMID: 100, GuestType: "qemu"}},
+		ProxmoxPools: []string{"Pods/Lab/a0-Virtual-Machines", "Pods/Lab"},
+	}
+
+	cbs := folderResourceDeletionCallbacks{
+		deleteVM: func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+			events = append(events, "vm")
+			return nil
+		},
+		deletePools: func(ctx context.Context, poolIDs []string) error {
+			events = append(events, "pools")
+			return nil
+		},
+		deleteMetadata: func(ctx context.Context) error {
+			return deletePublishedPodMetadata(
+				ctx,
+				func(ctx context.Context) (int64, error) {
+					events = append(events, "catalog")
+					return 1, nil
+				},
+				func(ctx context.Context) error {
+					events = append(events, "source_folder")
+					return nil
+				},
+			)
+		},
+	}
+
+	if err := runFolderResourceDeletion(context.Background(), plan, 4, cbs); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{"vm", "pools", "catalog", "source_folder"}
+	if len(events) != len(want) {
+		t.Fatalf("events = %v, want %v", events, want)
+	}
+	for i := range want {
+		if events[i] != want[i] {
+			t.Fatalf("events = %v, want %v", events, want)
+		}
+	}
 }

@@ -58,7 +58,7 @@ func (s *InventoryImporter) SyncVM(
 	return row.InventoryItemID, nil
 }
 
-// Run performs a full sync of pools (as folders) and VMs from Proxmox.
+// Run imports Proxmox pools as folders (adopting existing structure/comments), then imports VMs into them.
 func (s *InventoryImporter) Run(ctx context.Context) error {
 	log.Println("Starting Proxmox inventory sync")
 
@@ -80,17 +80,9 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 		return fmt.Errorf("ensuring root folder: %w", err)
 	}
 
-	// Sync pools as child folders under root
-	poolFolders := make(map[string]uuid.UUID, len(pools))
-	for _, pool := range pools {
-		folderID, err := ensureFolderPath(ctx, q, rootID, decodePoolPath(pool.PoolID))
-		if err != nil {
-			return fmt.Errorf("ensuring folder for pool %q: %w", pool.PoolID, err)
-		}
-		if err := applyImportedPoolDescription(ctx, q, pool.PoolID, pool.Comment, folderID); err != nil {
-			return fmt.Errorf("importing pool %q comment: %w", pool.PoolID, err)
-		}
-		poolFolders[pool.PoolID] = folderID
+	poolFolders, err := adoptProxmoxPools(ctx, q, rootID, pools)
+	if err != nil {
+		return fmt.Errorf("adopting proxmox pools: %w", err)
 	}
 
 	// Sync VMs
@@ -104,8 +96,8 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 
 		parentID := rootID
 		if vm.Pool != "" {
-			if id, ok := poolFolders[vm.Pool]; ok {
-				parentID = id
+			if folderID, ok := poolFolders[vm.Pool]; ok {
+				parentID = folderID
 			}
 		}
 
@@ -124,6 +116,84 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 
 	log.Printf("Proxmox sync complete: %d pools, %d/%d VMs", len(pools), syncedCount, len(vms))
 	return nil
+}
+
+// adoptProxmoxPools ensures a matching folder exists for every live Proxmox pool, importing its comment as the description.
+func adoptProxmoxPools(ctx context.Context, q *database.Queries, rootID uuid.UUID, pools []Pool) (map[string]uuid.UUID, error) {
+	poolFolders := make(map[string]uuid.UUID, len(pools))
+	for _, pool := range pools {
+		folderID, err := ensureFolderPath(ctx, q, rootID, decodePoolPath(pool.PoolID))
+		if err != nil {
+			return nil, fmt.Errorf("ensuring folder for pool %q: %w", pool.PoolID, err)
+		}
+		if err := applyImportedPoolDescription(ctx, q, pool.PoolID, pool.Comment, folderID); err != nil {
+			return nil, fmt.Errorf("importing pool %q comment: %w", pool.PoolID, err)
+		}
+		poolFolders[pool.PoolID] = folderID
+	}
+	return poolFolders, nil
+}
+
+func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {
+	currentID := rootID
+	for _, segment := range path {
+		if segment == "" {
+			continue
+		}
+
+		nextID, err := ensureChildFolder(ctx, q, currentID, segment)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		currentID = nextID
+	}
+
+	return currentID, nil
+}
+
+func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.UUID, name string) (uuid.UUID, error) {
+	id, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, err
+	}
+	return q.CreateChildFolder(ctx, database.CreateChildFolderParams{
+		ParentID: &parentID,
+		Name:     name,
+	})
+}
+
+const maxImportedPoolCommentLength = 256
+
+func normalizeImportedPoolDescription(comment string) *string {
+	value := strings.TrimSpace(comment)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func applyImportedPoolDescription(ctx context.Context, q *database.Queries, poolID, comment string, folderID uuid.UUID) error {
+	description := normalizeImportedPoolDescription(comment)
+	if description != nil && len(*description) > maxImportedPoolCommentLength {
+		log.Printf(
+			"Warning: skipping pool %q comment import (%d characters exceeds %d limit)",
+			poolID,
+			len(*description),
+			maxImportedPoolCommentLength,
+		)
+		return nil
+	}
+
+	return q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+		Description: description,
+		ID:          folderID,
+	})
 }
 
 func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, error) {
@@ -149,23 +219,6 @@ func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, erro
 	}
 
 	return id, nil
-}
-
-func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.UUID, name string) (uuid.UUID, error) {
-	id, err := q.GetChildFolderByName(ctx, database.GetChildFolderByNameParams{
-		ParentID: &parentID,
-		Name:     name,
-	})
-	if err == nil {
-		return id, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, err
-	}
-	return q.CreateChildFolder(ctx, database.CreateChildFolderParams{
-		ParentID: &parentID,
-		Name:     name,
-	})
 }
 
 func (s *InventoryImporter) syncVMConfigSummaryInTx(
@@ -358,63 +411,8 @@ func (s *InventoryImporter) waitForVMConfigSummary(
 	}
 }
 
-func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {
-	currentID := rootID
-	if len(path) == 0 {
-		return currentID, nil
-	}
-
-	for _, segment := range path {
-		if segment == "" {
-			continue
-		}
-
-		nextID, err := ensureChildFolder(ctx, q, currentID, segment)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		currentID = nextID
-	}
-
-	return currentID, nil
-}
-
 func decodePoolPath(poolID string) []string {
 	return strings.Split(poolID, "/")
-}
-
-const maxImportedPoolCommentLength = 256
-
-func normalizeImportedPoolDescription(comment string) *string {
-	value := strings.TrimSpace(comment)
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func applyImportedPoolDescription(
-	ctx context.Context,
-	q *database.Queries,
-	poolID string,
-	comment string,
-	folderID uuid.UUID,
-) error {
-	description := normalizeImportedPoolDescription(comment)
-	if description != nil && len(*description) > maxImportedPoolCommentLength {
-		log.Printf(
-			"Warning: skipping pool %q comment import (%d characters exceeds %d limit)",
-			poolID,
-			len(*description),
-			maxImportedPoolCommentLength,
-		)
-		return nil
-	}
-
-	return q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
-		Description: description,
-		ID:          folderID,
-	})
 }
 
 func applyImportedVMNotes(

@@ -1,18 +1,24 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// inventoryFolderDeletionConcurrencyLimit bounds concurrent guest deletions for generic folder delete.
+const inventoryFolderDeletionConcurrencyLimit = 8
 
 type createFolderRequest struct {
 	ParentID uuid.UUID `json:"parent_id" binding:"required"`
@@ -53,6 +59,7 @@ func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	h.reflectNewFolderToProxmox(id)
 
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
@@ -62,6 +69,35 @@ func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 		Metadata:         map[string]any{"name": req.Name},
 	})
 	c.JSON(http.StatusCreated, gin.H{"id": id})
+}
+
+// reflectNewFolderToProxmox creates the folder's Proxmox pool in the background, best-effort.
+func (h *InventoryHandler) reflectNewFolderToProxmox(folderID uuid.UUID) {
+	if h.PX == nil {
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		poolID, comment, err := h.Service.DesiredPoolForFolder(ctx, folderID)
+		if err != nil {
+			log.Printf("inventory folder create: failed to resolve desired pool: %v", err)
+			return
+		}
+		if poolID == "" {
+			return
+		}
+
+		desiredComment := ""
+		if comment != nil {
+			desiredComment = *comment
+		}
+		if err := h.PX.CreatePoolWithComment(ctx, poolID, desiredComment); err != nil {
+			log.Printf("inventory folder create: failed to create proxmox pool %q: %v", poolID, err)
+		}
+	}()
 }
 
 type updateFolderDetailsRequest struct {
@@ -213,34 +249,41 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 		return
 	}
 
-	if h.PX == nil && len(plan.ProxmoxVMs) > 0 {
+	if h.PX == nil && (len(plan.ProxmoxVMs) > 0 || len(plan.ProxmoxPools) > 0) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "proxmox client unavailable"})
 		return
 	}
 
-	for _, vm := range plan.ProxmoxVMs {
-		if err := h.PX.DeleteVMStopped(c.Request.Context(), proxmox.GuestType(vm.GuestType), vm.Node, int(vm.VMID)); err != nil {
-			logRequestError(c, fmt.Sprintf("delete inventory folder proxmox vmid=%d node=%s", vm.VMID, vm.Node), err)
+	var metadataErr error
+	cbs := proxmoxFolderResourceDeletionCallbacks(h.PX, func(ctx context.Context) error {
+		metadataErr = h.Service.DeleteFolder(ctx, id)
+		return metadataErr
+	})
+	baseDeleteVM := cbs.deleteVM
+	cbs.deleteVM = func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+		if err := baseDeleteVM(ctx, vm); err != nil {
 			kind := "VM"
 			if vm.IsTemplate {
 				kind = "template"
 			}
-
-			c.JSON(http.StatusBadGateway, gin.H{
-				"error": fmt.Sprintf("failed to delete %s %q (%d)", kind, vm.Name, vm.VMID),
-			})
-			return
+			return fmt.Errorf("failed to delete %s %q (%d): %w", kind, vm.Name, vm.VMID, err)
 		}
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		h.Audit.RecordSuccess(ctx, audit.EventParams{
 			ActorPrincipalID: &principalID,
 			ActionKind:       "vm.delete",
 			TargetKind:       "vm",
 			InventoryItemID:  &vm.InventoryItemID,
 		})
+		return nil
 	}
 
-	if err := h.Service.DeleteFolder(c.Request.Context(), id); err != nil {
-		writeInventoryError(c, err)
+	if err := runFolderResourceDeletion(c.Request.Context(), plan, inventoryFolderDeletionConcurrencyLimit, cbs); err != nil {
+		if metadataErr != nil {
+			writeInventoryError(c, metadataErr)
+			return
+		}
+		logRequestError(c, fmt.Sprintf("delete inventory folder id=%s", id), err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -3,6 +3,7 @@ package proxmox
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
@@ -33,8 +34,8 @@ type SyncChange struct {
 	Name       string            `json:"name"`
 	IsTemplate bool              `json:"is_template"`
 	GuestType  string            `json:"guest_type"`
+	Actionable bool              `json:"actionable"`
 	Fields     []SyncFieldChange `json:"fields,omitempty"`
-	Removable  bool              `json:"removable,omitempty"`
 	Blockers   []string          `json:"blockers,omitempty"`
 
 	// Internal fields — not serialised. Used by ApplySync.
@@ -64,7 +65,7 @@ type dbVMRecord struct {
 // computeSyncDiff builds the diff from pre-fetched slices.
 //
 // blockersFn(inventoryItemID) returns human-readable blocker strings; it is
-// called only for potential removes. Returning (nil, nil) means removable.
+// called only for potential removes. Returning (nil, nil) means actionable.
 // This is a standalone function so unit tests can exercise it without a real
 // Proxmox API or database connection.
 func computeSyncDiff(
@@ -124,6 +125,7 @@ func computeSyncDiff(
 				Name:       vm.Name,
 				IsTemplate: vm.IsTemplate(),
 				GuestType:  vm.Type,
+				Actionable: true,
 				Pool:       vm.Pool,
 			})
 		}
@@ -145,7 +147,7 @@ func computeSyncDiff(
 				Name:       rec.name,
 				IsTemplate: rec.isTemplate,
 				GuestType:  rec.guestType,
-				Removable:  len(blockers) == 0,
+				Actionable: len(blockers) == 0,
 				Blockers:   blockers,
 				ItemID:     rec.itemID,
 				ParentID:   rec.parentID,
@@ -186,6 +188,7 @@ func computeSyncDiff(
 				Name:       vm.Name,
 				IsTemplate: vm.IsTemplate(),
 				GuestType:  vm.Type,
+				Actionable: true,
 				Fields:     fields,
 				ItemID:     rec.itemID,
 				ParentID:   rec.parentID,
@@ -196,8 +199,14 @@ func computeSyncDiff(
 	return diff, nil
 }
 
-// Plan fetches live Proxmox and DB state, then computes the drift diff.
-// It performs no writes.
+// sortSyncChanges orders a diff bucket deterministically by its stable "node/vmid" ID.
+func sortSyncChanges(changes []SyncChange) {
+	sort.SliceStable(changes, func(i, j int) bool {
+		return changes[i].ID < changes[j].ID
+	})
+}
+
+// Plan fetches live Proxmox and DB state, then computes the drift diff. It performs no writes.
 func (s *InventoryImporter) Plan(ctx context.Context) (SyncDiff, error) {
 	vms, err := s.client.GetVMs(ctx)
 	if err != nil {
@@ -225,17 +234,22 @@ func (s *InventoryImporter) Plan(ctx context.Context) (SyncDiff, error) {
 		return SyncDiff{}, err
 	}
 
-	// Ensure arrays are never null in JSON output.
-	if diff.Adds == nil {
-		diff.Adds = []SyncChange{}
-	}
-	if diff.Removes == nil {
-		diff.Removes = []SyncChange{}
-	}
-	if diff.Updates == nil {
-		diff.Updates = []SyncChange{}
-	}
+	sortSyncChanges(diff.Adds)
+	sortSyncChanges(diff.Removes)
+	sortSyncChanges(diff.Updates)
+
+	diff.Adds = nonNilSyncChanges(diff.Adds)
+	diff.Removes = nonNilSyncChanges(diff.Removes)
+	diff.Updates = nonNilSyncChanges(diff.Updates)
 	return diff, nil
+}
+
+// nonNilSyncChanges ensures a diff bucket serializes as `[]`, not `null`, when empty.
+func nonNilSyncChanges(changes []SyncChange) []SyncChange {
+	if changes == nil {
+		return []SyncChange{}
+	}
+	return changes
 }
 
 func syncVMKey(node string, vmid int) string {

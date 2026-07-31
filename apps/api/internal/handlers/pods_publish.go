@@ -270,8 +270,8 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 	defer tx.Rollback(ctx)
 
 	q := database.New(tx)
-	cloneCount, err := q.GetPublishedPodCloneCountForDelete(ctx, podID)
-	if status, message, decided := publishedPodDeleteDecision(cloneCount, err); decided {
+	pod, err := q.GetPublishedPodForDelete(ctx, podID)
+	if status, message, decided := publishedPodDeleteDecision(pod.CloneCount, err); decided {
 		if status == http.StatusNotFound {
 			c.JSON(status, gin.H{"error": message})
 			return
@@ -281,22 +281,53 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 			return
 		}
 	} else if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "load published pod clone count", err)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "load published pod for delete", err)
 		return
 	}
 
-	deleted, err := q.DeletePublishedPod(ctx, podID)
+	// Holding the row's FOR UPDATE lock across Proxmox cleanup blocks a concurrent clone insert's FK check.
+	plan, err := h.Service.BuildPublishedPodFolderDeletionPlan(ctx, tx, pod.SourceFolderID, pod.ID)
 	if err != nil {
-		if publishedPodDeleteHasCloneConflict(err) {
-			log.Printf("delete published pod invariant drift for %s: %v", podID, err)
-			writeConflict(c, publishedPodDeleteBlockedMessage)
-			return
-		}
-		writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "delete published pod", err)
+		writeInventoryError(c, err)
 		return
 	}
-	if deleted == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
+
+	if h.PX == nil && (len(plan.ProxmoxVMs) > 0 || len(plan.ProxmoxPools) > 0) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "proxmox client unavailable"})
+		return
+	}
+
+	var metadataErr error
+	cbs := folderResourceDeletionCallbacks{
+		deleteVM:    proxmoxFolderResourceDeleteVM(h.PX),
+		deletePools: h.PX.DeletePools,
+		deleteMetadata: func(ctx context.Context) error {
+			err := deletePublishedPodMetadata(
+				ctx,
+				func(ctx context.Context) (int64, error) { return q.DeletePublishedPod(ctx, pod.ID) },
+				func(ctx context.Context) error { return q.DeleteInventoryItem(ctx, pod.SourceFolderID) },
+			)
+			metadataErr = err
+			return err
+		},
+	}
+
+	if err := runFolderResourceDeletion(ctx, plan, h.vmOperationConcurrencyLimit(), cbs); err != nil {
+		if metadataErr != nil {
+			if errors.Is(metadataErr, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
+				return
+			}
+			if publishedPodDeleteHasCloneConflict(metadataErr) {
+				log.Printf("delete published pod invariant drift for %s: %v", podID, metadataErr)
+				writeConflict(c, publishedPodDeleteBlockedMessage)
+				return
+			}
+			writeLoggedError(c, http.StatusInternalServerError, "failed to delete published pod", "delete published pod metadata", metadataErr)
+			return
+		}
+		logRequestError(c, "delete published pod resources", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -310,13 +341,35 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 		return
 	}
 
+	h.Service.NotifyInventoryTreeChanged(ctx)
+
 	h.Audit.RecordSuccess(ctx, audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "pod.publish.delete",
 		TargetKind:       "pod",
 		PodID:            &podID,
+		Metadata: map[string]any{
+			"vm_count":   len(plan.ProxmoxVMs),
+			"pool_count": len(plan.ProxmoxPools),
+		},
 	})
 	c.Status(http.StatusNoContent)
+}
+
+// deletePublishedPodMetadata deletes the catalog row before the source folder, since the folder RESTRICTs while it's referenced.
+func deletePublishedPodMetadata(
+	ctx context.Context,
+	deletePublishedPod func(ctx context.Context) (int64, error),
+	deleteSourceFolder func(ctx context.Context) error,
+) error {
+	deleted, err := deletePublishedPod(ctx)
+	if err != nil {
+		return err
+	}
+	if deleted == 0 {
+		return pgx.ErrNoRows
+	}
+	return deleteSourceFolder(ctx)
 }
 
 const publishedPodDeleteBlockedMessage = "delete all cloned pods before deleting this published pod"

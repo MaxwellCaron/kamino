@@ -85,6 +85,7 @@ func TestComputeSyncDiff(t *testing.T) {
 					ID: "pve1/100", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 100, Name: "new-vm",
 					IsTemplate: false, GuestType: "qemu", Pool: "students",
+					Actionable: true,
 				}},
 			},
 		},
@@ -114,13 +115,13 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve1/200", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 200, Name: "other",
-					GuestType: "qemu",
+					GuestType: "qemu", Actionable: true,
 				}},
 				Removes: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeRemove,
 					Node: "pve1", VMID: 100, Name: "gone-vm",
-					GuestType: "qemu",
-					Removable: true, ItemID: itemID, ParentID: &parentID,
+					GuestType:  "qemu",
+					Actionable: true, ItemID: itemID, ParentID: &parentID,
 				}},
 			},
 		},
@@ -138,13 +139,13 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve1/200", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 200, Name: "other",
-					GuestType: "qemu",
+					GuestType: "qemu", Actionable: true,
 				}},
 				Removes: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeRemove,
 					Node: "pve1", VMID: 100, Name: "blocked-vm",
-					GuestType: "qemu",
-					Removable: false, Blockers: []string{"has active clone"},
+					GuestType:  "qemu",
+					Actionable: false, Blockers: []string{"has active clone"},
 					ItemID: itemID, ParentID: &parentID,
 				}},
 			},
@@ -172,7 +173,7 @@ func TestComputeSyncDiff(t *testing.T) {
 				Updates: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeUpdate,
 					Node: "pve1", VMID: 100, Name: "renamed",
-					GuestType: "qemu",
+					GuestType: "qemu", Actionable: true,
 					Fields: []SyncFieldChange{{
 						Field: "name", From: "old-name", To: "renamed",
 					}},
@@ -192,7 +193,7 @@ func TestComputeSyncDiff(t *testing.T) {
 				Updates: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeUpdate,
 					Node: "pve1", VMID: 100, Name: "tpl-vm", IsTemplate: true,
-					GuestType: "qemu",
+					GuestType: "qemu", Actionable: true,
 					Fields: []SyncFieldChange{{
 						Field: "template", From: "false", To: "true",
 					}},
@@ -223,7 +224,7 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve1/616", Kind: SyncChangeAdd,
 					Node: "pve1", VMID: 616, Name: "CT 616",
-					GuestType: "lxc",
+					GuestType: "lxc", Actionable: true,
 				}},
 			},
 		},
@@ -239,7 +240,7 @@ func TestComputeSyncDiff(t *testing.T) {
 				Updates: []SyncChange{{
 					ID: "pve1/616", Kind: SyncChangeUpdate,
 					Node: "pve1", VMID: 616, Name: "renamed-ct",
-					GuestType: "lxc",
+					GuestType: "lxc", Actionable: true,
 					Fields: []SyncFieldChange{{
 						Field: "name", From: "old-ct-name", To: "renamed-ct",
 					}},
@@ -259,13 +260,13 @@ func TestComputeSyncDiff(t *testing.T) {
 				Adds: []SyncChange{{
 					ID: "pve2/100", Kind: SyncChangeAdd,
 					Node: nodePve2, VMID: 100, Name: "moved",
-					GuestType: "qemu",
+					GuestType: "qemu", Actionable: true,
 				}},
 				Removes: []SyncChange{{
 					ID: "pve1/100", Kind: SyncChangeRemove,
 					Node: nodePve1, VMID: 100, Name: "moved",
-					GuestType: "qemu",
-					Removable: true, ItemID: itemID, ParentID: &parentID,
+					GuestType:  "qemu",
+					Actionable: true, ItemID: itemID, ParentID: &parentID,
 				}},
 			},
 		},
@@ -392,7 +393,7 @@ func assertSyncChangesEqual(t *testing.T, label string, want, got []SyncChange) 
 		w, g := want[i], got[i]
 		if w.ID != g.ID || w.Kind != g.Kind || w.Node != g.Node || w.VMID != g.VMID ||
 			w.Name != g.Name || w.IsTemplate != g.IsTemplate || w.GuestType != g.GuestType || w.Pool != g.Pool ||
-			w.Removable != g.Removable || w.ItemID != g.ItemID {
+			w.Actionable != g.Actionable || w.ItemID != g.ItemID {
 			t.Errorf("%s[%d]: change mismatch\ngot:  %+v\nwant: %+v", label, i, g, w)
 		}
 		if len(w.Blockers) != len(g.Blockers) {
@@ -418,5 +419,29 @@ func assertSyncChangesEqual(t *testing.T, label string, want, got []SyncChange) 
 		} else if w.ParentID != nil && *w.ParentID != *g.ParentID {
 			t.Errorf("%s[%d].ParentID = %s, want %s", label, i, *g.ParentID, *w.ParentID)
 		}
+	}
+}
+
+func TestSortSyncChangesOrdersByIDLexically(t *testing.T) {
+	changes := []SyncChange{
+		{ID: "pve1/200"},
+		{ID: "pve1/100"},
+	}
+
+	sortSyncChanges(changes)
+
+	if changes[0].ID != "pve1/100" || changes[1].ID != "pve1/200" {
+		t.Fatalf("expected lexical order pve1/100, pve1/200, got %v, %v", changes[0].ID, changes[1].ID)
+	}
+}
+
+func TestNonNilSyncChangesKeepsJSONArraysNonNull(t *testing.T) {
+	if got := nonNilSyncChanges(nil); got == nil || len(got) != 0 {
+		t.Fatalf("nonNilSyncChanges(nil) = %v, want non-nil empty slice", got)
+	}
+
+	existing := []SyncChange{{ID: "pve1/100"}}
+	if got := nonNilSyncChanges(existing); len(got) != 1 {
+		t.Fatalf("nonNilSyncChanges(existing) = %v, want the same slice", got)
 	}
 }

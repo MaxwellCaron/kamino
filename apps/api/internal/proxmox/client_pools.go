@@ -62,6 +62,48 @@ func (c *Client) DeletePool(ctx context.Context, poolID string) error {
 	return c.delete(ctx, poolEndpoint(poolID), &resp)
 }
 
+// DeletePools deletes the supplied, already-ordered pool IDs, stopping at the first failure; missing targets are skipped.
+func (c *Client) DeletePools(ctx context.Context, poolIDs []string) error {
+	if len(poolIDs) == 0 {
+		return nil
+	}
+
+	current, err := c.GetPools(ctx)
+	if err != nil {
+		return fmt.Errorf("listing pools: %w", err)
+	}
+
+	existing := make(map[string]struct{}, len(current))
+	for _, pool := range current {
+		existing[pool.PoolID] = struct{}{}
+	}
+
+	for _, poolID := range poolIDs {
+		if _, ok := existing[poolID]; !ok {
+			continue
+		}
+		if err := c.DeletePool(ctx, poolID); err != nil {
+			return fmt.Errorf("deleting pool %q: %w", poolID, err)
+		}
+	}
+
+	return nil
+}
+
+// CreatePoolWithComment ensures every ancestor pool exists parent-first, then sets the comment on the leaf.
+func (c *Client) CreatePoolWithComment(ctx context.Context, poolID string, comment string) error {
+	if err := c.EnsurePool(ctx, poolID, nil); err != nil {
+		return fmt.Errorf("ensuring pool: %w", err)
+	}
+	if comment == "" {
+		return nil
+	}
+	if err := c.UpdatePoolComment(ctx, poolID, &comment); err != nil {
+		return fmt.Errorf("setting pool comment: %w", err)
+	}
+	return nil
+}
+
 // AddVMToPool adds a VM to a resource pool.
 func (c *Client) AddVMToPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]

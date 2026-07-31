@@ -8,9 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
 )
+
+// emptyFolderPlan is the buildFolderPlan stub for tests with no extra synced guests/pools.
+func emptyFolderPlan(context.Context, uuid.UUID) (inventory.FolderDeletionPlan, error) {
+	return inventory.FolderDeletionPlan{}, nil
+}
 
 func TestRunFailedPodProvisionCleanupWaitsBeforeDelete(t *testing.T) {
 	folderID := uuid.New()
@@ -64,6 +70,7 @@ func TestRunFailedPodProvisionCleanupWaitsBeforeDelete(t *testing.T) {
 			mu.Unlock()
 			return nil
 		},
+		buildFolderPlan: emptyFolderPlan,
 	}
 
 	done := make(chan error, 1)
@@ -233,6 +240,7 @@ func TestRunFailedPodProvisionCleanupEmptyMapDeletesFolder(t *testing.T) {
 			folderDeleted.Store(true)
 			return nil
 		},
+		buildFolderPlan: emptyFolderPlan,
 	}
 
 	if err := runFailedPodProvisionCleanup(context.Background(), folderID, nil, 2, cbs); err != nil {
@@ -240,6 +248,122 @@ func TestRunFailedPodProvisionCleanupEmptyMapDeletesFolder(t *testing.T) {
 	}
 	if !folderDeleted.Load() {
 		t.Fatal("expected folder deletion for empty created map")
+	}
+}
+
+func TestRunFailedPodProvisionCleanupFolderPlanCatchesSyncedGuestsAndPools(t *testing.T) {
+	folderID := uuid.New()
+
+	var (
+		mu             sync.Mutex
+		deletedVMIDs   []int32
+		deletedPoolIDs []string
+		folderDeleted  atomic.Bool
+	)
+
+	syncedVM := inventory.FolderDeletionVM{Node: "node-a", VMID: 500, GuestType: "lxc", Name: "synced-ct"}
+	cbs := failedPodProvisionCleanupCallbacks{
+		buildFolderPlan: func(ctx context.Context, id uuid.UUID) (inventory.FolderDeletionPlan, error) {
+			if id != folderID {
+				t.Fatalf("buildFolderPlan folderID = %s, want %s", id, folderID)
+			}
+			return inventory.FolderDeletionPlan{
+				ProxmoxVMs:   []inventory.FolderDeletionVM{syncedVM},
+				ProxmoxPools: []string{"Pods/Lab/a0-Virtual-Machines", "Pods/Lab"},
+			}, nil
+		},
+		deleteFolderResourceVM: func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+			mu.Lock()
+			deletedVMIDs = append(deletedVMIDs, vm.VMID)
+			mu.Unlock()
+			return nil
+		},
+		deletePools: func(ctx context.Context, poolIDs []string) error {
+			mu.Lock()
+			deletedPoolIDs = append(deletedPoolIDs, poolIDs...)
+			mu.Unlock()
+			return nil
+		},
+		deleteFolder: func(ctx context.Context, id uuid.UUID) error {
+			folderDeleted.Store(true)
+			return nil
+		},
+	}
+
+	if err := runFailedPodProvisionCleanup(context.Background(), folderID, nil, 2, cbs); err != nil {
+		t.Fatalf("cleanup error = %v", err)
+	}
+
+	if len(deletedVMIDs) != 1 || deletedVMIDs[0] != syncedVM.VMID {
+		t.Fatalf("deletedVMIDs = %v, want [%d]", deletedVMIDs, syncedVM.VMID)
+	}
+	if len(deletedPoolIDs) != 2 {
+		t.Fatalf("deletedPoolIDs = %v, want 2 pools", deletedPoolIDs)
+	}
+	if !folderDeleted.Load() {
+		t.Fatal("expected folder metadata deletion after resource cleanup")
+	}
+}
+
+func TestRunFailedPodProvisionCleanupFolderPlanResourceFailureSkipsFolderDelete(t *testing.T) {
+	folderID := uuid.New()
+	var folderDeleted atomic.Bool
+
+	cbs := failedPodProvisionCleanupCallbacks{
+		buildFolderPlan: func(ctx context.Context, id uuid.UUID) (inventory.FolderDeletionPlan, error) {
+			return inventory.FolderDeletionPlan{
+				ProxmoxVMs: []inventory.FolderDeletionVM{{Node: "node-a", VMID: 500, GuestType: "qemu"}},
+			}, nil
+		},
+		deleteFolderResourceVM: func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+			return errors.New("proxmox unavailable")
+		},
+		deleteFolder: func(ctx context.Context, id uuid.UUID) error {
+			folderDeleted.Store(true)
+			return nil
+		},
+	}
+
+	if err := runFailedPodProvisionCleanup(context.Background(), folderID, nil, 2, cbs); err == nil {
+		t.Fatal("expected cleanup error")
+	}
+	if folderDeleted.Load() {
+		t.Fatal("expected folder metadata deletion to be skipped after resource failure")
+	}
+}
+
+func TestRunFailedPodProvisionCleanupBuildFolderPlanErrorSkipsFolderDelete(t *testing.T) {
+	folderID := uuid.New()
+	var folderDeleted atomic.Bool
+
+	cbs := failedPodProvisionCleanupCallbacks{
+		buildFolderPlan: func(ctx context.Context, id uuid.UUID) (inventory.FolderDeletionPlan, error) {
+			return inventory.FolderDeletionPlan{}, errors.New("db unavailable")
+		},
+		deleteFolder: func(ctx context.Context, id uuid.UUID) error {
+			folderDeleted.Store(true)
+			return nil
+		},
+	}
+
+	if err := runFailedPodProvisionCleanup(context.Background(), folderID, nil, 2, cbs); err == nil {
+		t.Fatal("expected cleanup error")
+	}
+	if folderDeleted.Load() {
+		t.Fatal("expected folder metadata deletion to be skipped when the plan cannot be built")
+	}
+}
+
+func TestRunFailedPodProvisionCleanupNoFolderSkipsFolderPlanPhase(t *testing.T) {
+	cbs := failedPodProvisionCleanupCallbacks{
+		buildFolderPlan: func(ctx context.Context, id uuid.UUID) (inventory.FolderDeletionPlan, error) {
+			t.Fatal("buildFolderPlan should not be called when folderID is uuid.Nil")
+			return inventory.FolderDeletionPlan{}, nil
+		},
+	}
+
+	if err := runFailedPodProvisionCleanup(context.Background(), uuid.Nil, nil, 2, cbs); err != nil {
+		t.Fatalf("cleanup error = %v", err)
 	}
 }
 

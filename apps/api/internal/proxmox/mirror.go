@@ -90,55 +90,17 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("loading inventory tree: %w", err)
 	}
 
-	rootID, itemsByID, childrenByParent := buildInventoryIndex(rows)
-	if rootID == nil {
+	state, err := buildDesiredPoolState(rows)
+	if err != nil {
+		return fmt.Errorf("resolving managed root folder: %w", err)
+	}
+	if state.rootID == nil {
 		return nil
 	}
 
-	desiredPools := make(map[string]*string)
-	desiredVMPools := make(map[vmKey]string)
-	desiredVMNotes := make(map[vmKey]string)
-
-	var walk func(uuid.UUID, []string)
-	walk = func(id uuid.UUID, path []string) {
-		row := itemsByID[id]
-		nextPath := path
-
-		if id != *rootID && row.Kind == database.InventoryItemKindFolder {
-			nextPath = appendPath(path, row.Name)
-			poolID := EncodePoolPath(nextPath)
-			desiredPools[poolID] = row.Description
-		}
-
-		for _, childID := range childrenByParent[id] {
-			child := itemsByID[childID]
-			if child.Kind == database.InventoryItemKindFolder {
-				walk(childID, nextPath)
-				continue
-			}
-
-			if child.Node == nil || child.Vmid == nil {
-				continue
-			}
-
-			gt := GuestQEMU
-			if child.GuestType != nil {
-				gt = GuestType(*child.GuestType)
-			}
-			key := vmKey{Node: *child.Node, VMID: int(*child.Vmid), GuestType: gt}
-			desiredPool := ""
-			if len(nextPath) > 0 {
-				desiredPool = EncodePoolPath(nextPath)
-			}
-
-			desiredVMPools[key] = desiredPool
-			if child.Notes != nil {
-				desiredVMNotes[key] = *child.Notes
-			}
-		}
-	}
-
-	walk(*rootID, nil)
+	desiredPools := state.poolComment
+	desiredVMPools := state.vmPools
+	desiredVMNotes := state.vmNotes
 
 	currentPoolsByID := make(map[string]Pool, len(currentPools))
 	for _, pool := range currentPools {
@@ -193,13 +155,6 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	}
 	membershipErr := poolGroup.Wait()
 
-	finalVMCounts := finalPoolVMCounts(currentVMPools, effectiveDesiredVMPools)
-	for _, poolID := range stalePoolIDs(currentPools, desiredPoolIDs(desiredPools), finalVMCounts) {
-		if err := m.client.DeletePool(ctx, poolID); err != nil {
-			log.Printf("proxmox mirror: failed to delete stale pool %q: %v", poolID, err)
-		}
-	}
-
 	notesGroup, notesCtx := errgroup.WithContext(ctx)
 	notesGroup.SetLimit(8)
 	for key, desiredNotes := range desiredVMNotes {
@@ -220,6 +175,7 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	return errors.Join(append(poolErrs, membershipErr, notesErr)...)
 }
 
+// reconcilePoolDefinitions creates a Proxmox pool for any database folder that lacks one; it never updates or deletes an existing pool.
 func (m *InventoryMirror) reconcilePoolDefinitions(
 	ctx context.Context,
 	currentPoolsByID map[string]Pool,
@@ -230,17 +186,7 @@ func (m *InventoryMirror) reconcilePoolDefinitions(
 
 	for _, poolID := range sortedPoolIDsByDepth(desiredPoolIDs(desiredPools), false) {
 		desiredComment := desiredPoolComment(desiredPools[poolID])
-		if existing, exists := currentPoolsByID[poolID]; exists {
-			if existing.Comment != desiredComment {
-				comment := desiredComment
-				var commentPtr *string
-				if desiredComment != "" {
-					commentPtr = &comment
-				}
-				if err := m.client.UpdatePoolComment(ctx, poolID, commentPtr); err != nil {
-					errs = append(errs, fmt.Errorf("updating pool %q comment: %w", poolID, err))
-				}
-			}
+		if _, exists := currentPoolsByID[poolID]; exists {
 			continue
 		}
 
@@ -309,6 +255,107 @@ func buildInventoryIndex(rows []database.GetAllInventoryItemsRow) (*uuid.UUID, m
 	return FindManagedRootFolderID(rows), itemsByID, childrenByParent
 }
 
+// desiredPoolState is the single database-authoritative view of pool definitions and VM placement.
+type desiredPoolState struct {
+	rootID *uuid.UUID
+	// poolFolderID maps a desired pool ID to the inventory folder that owns it.
+	poolFolderID map[string]uuid.UUID
+	// poolComment maps a desired pool ID to its database folder description.
+	poolComment map[string]*string
+	// vmPools maps a VM to its desired pool ID ("" means the managed root).
+	vmPools map[vmKey]string
+	// vmNotes maps a VM to its desired Proxmox notes.
+	vmNotes map[vmKey]string
+}
+
+// ErrAmbiguousManagedRoot is returned when multiple parentless folders exist and none is the canonical root.
+var ErrAmbiguousManagedRoot = errors.New("cannot resolve the managed root folder unambiguously")
+
+func buildDesiredPoolState(rows []database.GetAllInventoryItemsRow) (desiredPoolState, error) {
+	rootID, itemsByID, childrenByParent := buildInventoryIndex(rows)
+
+	state := desiredPoolState{
+		rootID:       rootID,
+		poolFolderID: make(map[string]uuid.UUID),
+		poolComment:  make(map[string]*string),
+		vmPools:      make(map[vmKey]string),
+		vmNotes:      make(map[vmKey]string),
+	}
+	if rootID == nil {
+		if countRootFolders(rows) > 1 {
+			return state, ErrAmbiguousManagedRoot
+		}
+		return state, nil
+	}
+
+	var walk func(uuid.UUID, []string)
+	walk = func(id uuid.UUID, path []string) {
+		row := itemsByID[id]
+		nextPath := path
+
+		if id != *rootID && row.Kind == database.InventoryItemKindFolder {
+			nextPath = appendPath(path, row.Name)
+			poolID := EncodePoolPath(nextPath)
+			state.poolFolderID[poolID] = id
+			state.poolComment[poolID] = row.Description
+		}
+
+		for _, childID := range childrenByParent[id] {
+			child := itemsByID[childID]
+			if child.Kind == database.InventoryItemKindFolder {
+				walk(childID, nextPath)
+				continue
+			}
+
+			if child.Node == nil || child.Vmid == nil {
+				continue
+			}
+
+			gt := GuestQEMU
+			if child.GuestType != nil {
+				gt = GuestType(*child.GuestType)
+			}
+			key := vmKey{Node: *child.Node, VMID: int(*child.Vmid), GuestType: gt}
+			desiredPool := ""
+			if len(nextPath) > 0 {
+				desiredPool = EncodePoolPath(nextPath)
+			}
+
+			state.vmPools[key] = desiredPool
+			if child.Notes != nil {
+				state.vmNotes[key] = *child.Notes
+			}
+		}
+	}
+
+	walk(*rootID, nil)
+	return state, nil
+}
+
+// DesiredPoolForFolder returns the desired Proxmox pool ID and comment for a single inventory folder.
+func DesiredPoolForFolder(rows []database.GetAllInventoryItemsRow, folderID uuid.UUID) (poolID string, comment *string, err error) {
+	state, err := buildDesiredPoolState(rows)
+	if err != nil {
+		return "", nil, err
+	}
+	for pid, fid := range state.poolFolderID {
+		if fid == folderID {
+			return pid, state.poolComment[pid], nil
+		}
+	}
+	return "", nil, nil
+}
+
+func countRootFolders(rows []database.GetAllInventoryItemsRow) int {
+	count := 0
+	for _, row := range rows {
+		if row.ParentID == nil && row.Kind == database.InventoryItemKindFolder {
+			count++
+		}
+	}
+	return count
+}
+
 func desiredPoolComment(description *string) string {
 	if description == nil {
 		return ""
@@ -365,50 +412,4 @@ func poolDepth(poolID string) int {
 		return 0
 	}
 	return strings.Count(poolID, "/")
-}
-
-func finalPoolVMCounts(currentVMPools map[vmKey]string, desiredVMPools map[vmKey]string) map[string]int {
-	counts := make(map[string]int, len(currentVMPools))
-	for key, pool := range currentVMPools {
-		if desired, ok := desiredVMPools[key]; ok {
-			pool = desired
-		}
-		if pool != "" {
-			counts[pool]++
-		}
-	}
-	return counts
-}
-
-func stalePoolIDs(currentPools []Pool, desired map[string]struct{}, finalVMCounts map[string]int) []string {
-	currentIDs := make([]string, 0, len(currentPools))
-	for _, pool := range currentPools {
-		currentIDs = append(currentIDs, pool.PoolID)
-	}
-	sortPoolIDsByDepth(currentIDs, true)
-
-	kept := make(map[string]bool, len(currentIDs))
-	hasKeptDescendant := func(poolID string) bool {
-		prefix := poolID + "/"
-		for id, keep := range kept {
-			if keep && strings.HasPrefix(id, prefix) {
-				return true
-			}
-		}
-		return false
-	}
-
-	stale := make([]string, 0)
-	for _, poolID := range currentIDs {
-		if _, ok := desired[poolID]; ok {
-			kept[poolID] = true
-			continue
-		}
-		if finalVMCounts[poolID] > 0 || hasKeptDescendant(poolID) {
-			kept[poolID] = true
-			continue
-		}
-		stale = append(stale, poolID)
-	}
-	return stale
 }

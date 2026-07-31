@@ -292,7 +292,7 @@ On startup the API performs these steps in order:
 
 1. Connect to Postgres and initialize the query layer.
 2. Connect to Proxmox and verify API access.
-3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`.
+3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`. This import adopts every live Proxmox resource pool as a matching inventory folder (creating nested folders as needed and importing the pool's comment as the folder description), then imports VMs and containers into the folder for their live pool. Pool structure and comments always flow Proxmox → database on import; Kamino never deletes a pool just because it has no matching folder yet.
 4. Run principal sync for the configured provider (`active_directory` or `proxmox`), unless `PRINCIPAL_INITIAL_SYNC_ENABLED` is `false`. Proxmox mode authenticates users through Proxmox `/access/ticket`, then issues Kamino JWT/session cookies. Kamino never stores user Proxmox tickets or passwords and continues using the configured Proxmox API token for inventory and VM operations.
 5. Start event notifiers (inventory, VM status, requests).
 6. Reconcile Proxmox mirror state against the database. This step is not controlled by `PROXMOX_INITIAL_SYNC_ENABLED`.
@@ -304,9 +304,9 @@ On startup the API performs these steps in order:
 
 When `PRINCIPAL_PROVIDER=active_directory`, both startup and manual (`POST /api/v1/principals/sync`) sync search only the two configured OU subtrees: every user under `LDAP_USER_OU` and every group under `LDAP_GROUP_OU`. Kamino principals returned by a provider outside those subtrees are treated as stale: a successful sync deletes their principal rows and memberships. Verify `LDAP_USER_OU` and `LDAP_GROUP_OU` point at the intended subtrees before enabling or rolling out AD sync in production; principals previously imported from outside those OUs are removed on the next successful sync.
 
-### Mirror reconcile and managed pool deletion
+### Mirror reconcile and pool structure
 
-During step 6, Kamino compares its database state with Proxmox. Pools that Kamino previously managed but are no longer present in the database may be deleted from Proxmox during reconcile. This is expected behavior when inventory items are removed from Kamino. Review Proxmox mirror logs before running destructive sync operations in production.
+During step 6, Kamino compares its database state with Proxmox. The only pool write the reconcile performs is creating a Proxmox pool for a database folder that doesn't have one yet (e.g. a newly created pod folder) — it never updates an existing pool's comment and never deletes a pool. Pool structure and comments are kept in sync in the other direction, by the startup/manual VM-and-pool import (step 3) adopting whatever currently exists in Proxmox. The only path that removes a Proxmox pool is explicitly deleting the pod/folder that owns it in Kamino, which deletes that specific pool as part of the same request.
 
 ### Pod router prerequisites
 

@@ -144,19 +144,8 @@ func (h *PodsHandler) DeletePublishedPodClone(c *gin.Context) {
 	}
 	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
 
-	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod virtual machines", "list cloned pod VMs for manager delete", err)
-		return
-	}
-
-	if err := h.deleteClonedPodProxmoxVMs(c.Request.Context(), rows); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to delete cloned pod virtual machine", "manager delete cloned pod VM", err)
-		return
-	}
-
-	if err := h.Service.DeleteFolder(c.Request.Context(), clone.FolderID); err != nil {
-		writeInventoryError(c, err)
+	if reqErr := h.deleteClonedPodFolderResources(c.Request.Context(), clone); reqErr != nil {
+		writeRequestError(c, reqErr)
 		return
 	}
 
@@ -312,28 +301,44 @@ func (h *PodsHandler) deletePublishedPodCloneForManager(
 	q *database.Queries,
 	clone database.ClonedPods,
 ) *requestError {
-	rows, err := q.ListClonedPodVMs(ctx, clone.ID)
+	return h.deleteClonedPodFolderResources(ctx, clone)
+}
+
+// deleteClonedPodFolderResources runs the shared Proxmox-then-metadata deletion sequence for a clone folder.
+func (h *PodsHandler) deleteClonedPodFolderResources(
+	ctx context.Context,
+	clone database.ClonedPods,
+) *requestError {
+	plan, err := h.Service.BuildFolderDeletionPlan(ctx, clone.FolderID)
 	if err != nil {
+		return inventoryRequestError(err)
+	}
+
+	if h.PX == nil && (len(plan.ProxmoxVMs) > 0 || len(plan.ProxmoxPools) > 0) {
 		return &requestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to load cloned pod virtual machines",
-			Operation:   "list cloned pod VMs for manager delete",
-			Err:         err,
+			Status:      http.StatusServiceUnavailable,
+			UserMessage: "proxmox client unavailable",
 		}
 	}
 
-	if err := h.deleteClonedPodProxmoxVMs(ctx, rows); err != nil {
+	var metadataErr error
+	cbs := proxmoxFolderResourceDeletionCallbacks(h.PX, func(ctx context.Context) error {
+		metadataErr = h.Service.DeleteFolder(ctx, clone.FolderID)
+		return metadataErr
+	})
+
+	if err := runFolderResourceDeletion(ctx, plan, h.vmOperationConcurrencyLimit(), cbs); err != nil {
+		if metadataErr != nil {
+			return inventoryRequestError(metadataErr)
+		}
 		return &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to delete cloned pod virtual machine",
-			Operation:   "manager delete cloned pod VM",
+			Operation:   "delete cloned pod folder resources",
 			Err:         err,
 		}
 	}
 
-	if err := h.Service.DeleteFolder(ctx, clone.FolderID); err != nil {
-		return inventoryRequestError(err)
-	}
 	return nil
 }
 

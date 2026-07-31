@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"errors"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -74,6 +78,7 @@ func (h *InventoryHandler) MoveItem(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	h.reflectMovedItemsToProxmox([]uuid.UUID{req.ItemID})
 
 	moveTargetKind := "vm"
 	if item.Kind == database.InventoryItemKindFolder {
@@ -149,6 +154,7 @@ func (h *InventoryHandler) MoveItems(c *gin.Context) {
 		writeInventoryError(c, err)
 		return
 	}
+	h.reflectMovedItemsToProxmox(req.ItemIDs)
 
 	for _, itemID := range req.ItemIDs {
 		movedItem := itemMap[itemID]
@@ -165,4 +171,32 @@ func (h *InventoryHandler) MoveItems(c *gin.Context) {
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// reflectMovedItemsToProxmox pushes each moved VM's new Proxmox pool membership in the background, best-effort.
+func (h *InventoryHandler) reflectMovedItemsToProxmox(itemIDs []uuid.UUID) {
+	if h.PX == nil {
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		placements, err := h.Service.DesiredVMPoolPlacements(ctx, itemIDs)
+		if err != nil {
+			log.Printf("inventory move: failed to resolve desired pool placement: %v", err)
+			return
+		}
+
+		results := runBoundedActions(ctx, inventoryFolderDeletionConcurrencyLimit, placements, func(ctx context.Context, _ int, p proxmox.VMPoolPlacement) error {
+			return h.PX.SyncVMPoolMembership(ctx, p.Node, p.VMID, p.DesiredPool, nil)
+		})
+		for i, result := range results {
+			if result.Err != nil {
+				p := placements[i]
+				log.Printf("inventory move: failed to move VM %d on %s to pool %q: %v", p.VMID, p.Node, p.DesiredPool, result.Err)
+			}
+		}
+	}()
 }

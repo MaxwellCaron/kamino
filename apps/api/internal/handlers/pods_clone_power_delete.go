@@ -130,19 +130,8 @@ func (h *PodsHandler) DeleteClonedPod(c *gin.Context) {
 	}
 	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, c.Request.Context())
 
-	rows, err := q.ListClonedPodVMs(c.Request.Context(), cloneID)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load cloned pod virtual machines", "list cloned pod VMs for delete", err)
-		return
-	}
-
-	if err := h.deleteClonedPodProxmoxVMs(c.Request.Context(), rows); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to delete cloned pod virtual machine", "delete cloned pod VM", err)
-		return
-	}
-
-	if err := h.Service.DeleteFolder(c.Request.Context(), clone.FolderID); err != nil {
-		writeInventoryError(c, err)
+	if reqErr := h.deleteClonedPodFolderResources(c.Request.Context(), clone); reqErr != nil {
+		writeRequestError(c, reqErr)
 		return
 	}
 
