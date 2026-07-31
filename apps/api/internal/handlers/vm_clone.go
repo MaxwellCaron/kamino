@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -95,6 +96,22 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 			return
 		}
 		if scoped {
+			switch err := validatePersonalPodTemplateSource(
+				c.Request.Context(), h.Service, h.PersonalPodTemplatesFolderItemID, source.ItemID,
+			); {
+			case errors.Is(err, errPersonalPodTemplatesFolderUnavailable):
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "personal pod templates are not configured"})
+				return
+			case errors.Is(err, errPersonalPodTemplateSourceOutOfScope):
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"error": "templates cloned into a personal pod must come from the configured templates folder",
+				})
+				return
+			case err != nil:
+				writeLoggedError(c, http.StatusInternalServerError, "failed to validate personal pod template source", "validate personal pod template source", err)
+				return
+			}
+
 			sourceHardware, err := h.PX.GetVMHardwareConfig(c.Request.Context(), source.Node, source.VMID)
 			if err != nil {
 				writeLoggedError(c, http.StatusBadGateway, "failed to load source virtual machine hardware", "load vm clone source hardware config", err)

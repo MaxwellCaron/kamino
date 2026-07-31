@@ -22,7 +22,20 @@ const (
 
 // DesiredPoolForFolder returns the desired Proxmox pool ID and comment for a single inventory folder.
 func (s *Service) DesiredPoolForFolder(ctx context.Context, folderID uuid.UUID) (string, *string, error) {
-	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
+	q := database.New(s.db)
+
+	item, err := q.GetInventoryItemByID(ctx, folderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil, ErrInventoryFolderNotFound
+	}
+	if err != nil {
+		return "", nil, err
+	}
+	if item.Kind != database.InventoryItemKindFolder {
+		return "", nil, ErrInventoryItemNotFolder
+	}
+
+	rows, err := q.GetAllInventoryItems(ctx)
 	if err != nil {
 		return "", nil, err
 	}

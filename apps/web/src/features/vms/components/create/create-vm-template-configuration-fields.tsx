@@ -64,7 +64,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
                       ) ?? null
                     }
                     onValueChange={(template: VmTemplateOption | null) =>
-                      field.handleChange(template?.name ?? "")
+                      field.handleChange(template?.id ?? "")
                     }
                     autoHighlight
                   >

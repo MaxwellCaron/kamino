@@ -71,6 +71,58 @@ func (h *InventoryHandler) CreateFolder(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
+// EnsureFolderProxmoxPool creates this one folder's Proxmox pool now, synchronously; it never touches any other folder.
+// POST /api/v1/inventory/folders/:id/ensure-proxmox-pool
+func (h *InventoryHandler) EnsureFolderProxmoxPool(c *gin.Context) {
+	principalID, ok := currentPrincipalID(c)
+	if !ok {
+		writeUnauthorized(c)
+		return
+	}
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
+		return
+	}
+	if h.PX == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "proxmox client unavailable"})
+		return
+	}
+
+	folderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeInvalidRequest(c, "invalid id")
+		return
+	}
+
+	ctx := c.Request.Context()
+	poolID, comment, err := h.Service.DesiredPoolForFolder(ctx, folderID)
+	if err != nil {
+		writeInventoryError(c, err)
+		return
+	}
+	if poolID == "" {
+		c.JSON(http.StatusOK, gin.H{"pool_id": "", "ok": true})
+		return
+	}
+
+	desiredComment := ""
+	if comment != nil {
+		desiredComment = *comment
+	}
+	if err := h.PX.CreatePoolWithComment(ctx, poolID, desiredComment); err != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to create proxmox pool", "ensure folder proxmox pool", err)
+		return
+	}
+
+	h.Audit.RecordSuccess(ctx, audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "folder.ensure_proxmox_pool",
+		TargetKind:       "folder",
+		InventoryItemID:  &folderID,
+		Metadata:         map[string]any{"pool_id": poolID},
+	})
+	c.JSON(http.StatusOK, gin.H{"pool_id": poolID, "ok": true})
+}
+
 // reflectNewFolderToProxmox creates the folder's Proxmox pool in the background, best-effort.
 func (h *InventoryHandler) reflectNewFolderToProxmox(folderID uuid.UUID) {
 	if h.PX == nil {

@@ -68,6 +68,7 @@ type Config struct {
 	// --- Personal pods (optional; defaults to the pod router template) ---
 	PersonalPodsEnabled                 bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
 	PersonalPodRouterTemplateItemID     string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
+	PersonalPodTemplatesFolderItemID    string `envconfig:"PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID"`
 	PersonalPodVNet                     string `envconfig:"PERSONAL_POD_VNET" default:"personal"`
 	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"1"`
 	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"94"`
@@ -133,4 +134,13 @@ func resolvePersonalPodRouterTemplateItemID(enabled bool, value string, podRoute
 	}
 
 	return templateItemID, nil
+}
+
+// resolvePersonalPodTemplatesFolderItemID inherits templatesFolderItemID when value is blank.
+func resolvePersonalPodTemplatesFolderItemID(value string, templatesFolderItemID uuid.UUID) (uuid.UUID, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return templatesFolderItemID, nil
+	}
+	return uuid.Parse(trimmed)
 }

@@ -69,6 +69,7 @@ func RegisterRoutes(
 	protected.POST("/inventory/folders", inventory.CreateFolder)
 	protected.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
 	protected.PUT("/inventory/folders/:id/vm-limit", inventory.UpdateFolderVMLimit)
+	protected.POST("/inventory/folders/:id/ensure-proxmox-pool", inventory.EnsureFolderProxmoxPool)
 	protected.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
 
 	// VM endpoints

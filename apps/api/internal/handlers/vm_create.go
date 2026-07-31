@@ -46,14 +46,15 @@ type vmCreateAuthz interface {
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX              vmCreateProxmox
-	DB              *pgxpool.Pool
-	Importer        *proxmox.InventoryImporter
-	Service         *inventory.Service
-	Authz           vmCreateAuthz
-	Audit           *audit.Service
-	Allocator       *vmidalloc.Allocator
-	PersonalPodVNet string
+	PX                               vmCreateProxmox
+	DB                               *pgxpool.Pool
+	Importer                         *proxmox.InventoryImporter
+	Service                          *inventory.Service
+	Authz                            vmCreateAuthz
+	Audit                            *audit.Service
+	Allocator                        *vmidalloc.Allocator
+	PersonalPodVNet                  string
+	PersonalPodTemplatesFolderItemID uuid.UUID
 }
 
 // GetNodes returns all cluster nodes.
@@ -89,12 +90,13 @@ func scopedNetworkResponseFromScope(scope VMNetworkScope) *scopedNetworkResponse
 }
 
 type createOptionsResponse struct {
-	Nodes         []proxmox.Node          `json:"nodes"`
-	DiskStorages  []proxmox.Storage       `json:"disk_storages"`
-	ISOStorages   []proxmox.Storage       `json:"iso_storages"`
-	Bridges       []proxmox.NetworkBridge `json:"bridges"`
-	VNets         []proxmox.VNet          `json:"vnets"`
-	ScopedNetwork *scopedNetworkResponse  `json:"scoped_network,omitempty"`
+	Nodes                        []proxmox.Node          `json:"nodes"`
+	DiskStorages                 []proxmox.Storage       `json:"disk_storages"`
+	ISOStorages                  []proxmox.Storage       `json:"iso_storages"`
+	Bridges                      []proxmox.NetworkBridge `json:"bridges"`
+	VNets                        []proxmox.VNet          `json:"vnets"`
+	ScopedNetwork                *scopedNetworkResponse  `json:"scoped_network,omitempty"`
+	PersonalPodTemplatesFolderID *uuid.UUID              `json:"personal_pod_templates_folder_id,omitempty"`
 }
 
 func filterVNetsByName(vnets []proxmox.VNet, scopedVNetName string) []proxmox.VNet {
@@ -178,7 +180,10 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
-	var scopedNetwork *scopedNetworkResponse
+	var (
+		scopedNetwork                *scopedNetworkResponse
+		personalPodTemplatesFolderID *uuid.UUID
+	)
 	if scopeItemID != uuid.Nil {
 		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 		if err != nil {
@@ -200,16 +205,28 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 				bridges = []proxmox.NetworkBridge{}
 				vnets = filterVNetsByName(vnets, scope.VNet)
 				scopedNetwork = scopedNetworkResponseFromScope(scope)
+
+				folderID, found, err := resolveConfiguredFolderID(
+					c.Request.Context(), h.Service, h.PersonalPodTemplatesFolderItemID, templatesFolderName,
+				)
+				if err != nil {
+					writeLoggedError(c, http.StatusInternalServerError, "failed to load VM creation options", "resolve personal pod templates folder", err)
+					return
+				}
+				if found {
+					personalPodTemplatesFolderID = &folderID
+				}
 			}
 		}
 	}
 
 	c.JSON(http.StatusOK, createOptionsResponse{
-		Nodes:         nodes,
-		DiskStorages:  diskStorages,
-		ISOStorages:   isoStorages,
-		Bridges:       bridges,
-		VNets:         vnets,
-		ScopedNetwork: scopedNetwork,
+		Nodes:                        nodes,
+		DiskStorages:                 diskStorages,
+		ISOStorages:                  isoStorages,
+		Bridges:                      bridges,
+		VNets:                        vnets,
+		ScopedNetwork:                scopedNetwork,
+		PersonalPodTemplatesFolderID: personalPodTemplatesFolderID,
 	})
 }

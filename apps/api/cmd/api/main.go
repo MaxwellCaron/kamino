@@ -172,29 +172,42 @@ func main() {
 	)
 	vmActionClaims := vmactions.NewClaims(server.DBPool)
 	podCloneClaims := vmactions.NewPodCloneClaims(server.DBPool)
+	templatesFolderItemID, err := parseOptionalUUID(server.Config.TemplatesFolderItemID)
+	if err != nil {
+		log.Fatalf("Invalid TEMPLATES_FOLDER_ITEM_ID: %v", err)
+	}
+	personalPodTemplatesFolderItemID, err := resolvePersonalPodTemplatesFolderItemID(
+		server.Config.PersonalPodTemplatesFolderItemID,
+		templatesFolderItemID,
+	)
+	if err != nil {
+		log.Fatalf("Invalid PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID: %v", err)
+	}
 	vmHandler := &handlers.VMHandler{
-		PX:              server.ProxmoxClient,
-		DB:              server.DBPool,
-		Importer:        server.ProxmoxImport,
-		Service:         inventoryService,
-		Notifier:        vmStatusNotifier,
-		Authz:           authzService,
-		Actions:         vmActionExecutor,
-		Claims:          vmActionClaims,
-		Audit:           auditService,
-		PersonalPodVNet: routerCloneConfig.PersonalVNet,
+		PX:                               server.ProxmoxClient,
+		DB:                               server.DBPool,
+		Importer:                         server.ProxmoxImport,
+		Service:                          inventoryService,
+		Notifier:                         vmStatusNotifier,
+		Authz:                            authzService,
+		Actions:                          vmActionExecutor,
+		Claims:                           vmActionClaims,
+		Audit:                            auditService,
+		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
+		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
 	vmHandler.Allocator = vmidAllocator
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:              server.ProxmoxClient,
-		DB:              server.DBPool,
-		Importer:        server.ProxmoxImport,
-		Service:         inventoryService,
-		Authz:           authzService,
-		Audit:           auditService,
-		Allocator:       vmidAllocator,
-		PersonalPodVNet: routerCloneConfig.PersonalVNet,
+		PX:                               server.ProxmoxClient,
+		DB:                               server.DBPool,
+		Importer:                         server.ProxmoxImport,
+		Service:                          inventoryService,
+		Authz:                            authzService,
+		Audit:                            auditService,
+		Allocator:                        vmidAllocator,
+		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
+		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {
@@ -207,10 +220,6 @@ func main() {
 	)
 	if err != nil {
 		log.Fatalf("Invalid personal pod configuration: %v", err)
-	}
-	templatesFolderItemID, err := parseOptionalUUID(server.Config.TemplatesFolderItemID)
-	if err != nil {
-		log.Fatalf("Invalid TEMPLATES_FOLDER_ITEM_ID: %v", err)
 	}
 	podsFolderItemID, err := parseOptionalUUID(server.Config.PodsFolderItemID)
 	if err != nil {

@@ -157,6 +157,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_USER_OU` | when AD | — | Full DN of the OU subtree searched for users during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_GROUP_OU` | when AD | — | Full DN of the OU subtree searched for groups during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
+| `TEMPLATES_FOLDER_ITEM_ID` | no | root-level `Templates` folder | Inventory folder ID pinning the Templates library used for pod creation and, unless overridden, personal-pod Create VM |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
 | `POD_LAN_VNET` | no | `pod` | Exact, pre-created, VLAN-aware Proxmox VNet ID shared by every published/development pod LAN. The allocated network number becomes the inner (access) VLAN tag on every LAN NIC attached to it |
 | `POD_DMZ_VNET` | no | `dmz` | Exact, pre-created, VLAN-aware Proxmox VNet ID shared by every LAN+DMZ profile pod's DMZ segment. Must differ from `POD_LAN_VNET` |
@@ -174,6 +175,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-lan-dmz-network-config.yaml` | Shared three-NIC network-config snippet filename |
 | `PERSONAL_PODS_ENABLED` | no | `false` | Enables personal pod status, requests, and provisioning; when enabled, a standard or personal router template must be configured |
 | `PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID` | no | `POD_ROUTER_TEMPLATE_ITEM_ID` | Optional router template override for personal pods |
+| `PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID` | no | `TEMPLATES_FOLDER_ITEM_ID` | Optional Create VM template library override for personal pods; when both are unset, falls back to the root-level `Templates` folder |
 | `PERSONAL_POD_VNET` | no | `personal` | Exact, pre-created, VLAN-aware Proxmox VNet ID shared by every personal pod's internal NICs. Must differ from `POD_LAN_VNET` and `POD_DMZ_VNET` |
 | `PERSONAL_POD_NETWORK_MIN` | no | `1` | First personal pod network number (also the inner VLAN tag) |
 | `PERSONAL_POD_NETWORK_MAX` | no | `94` | Last personal pod network number (also the inner VLAN tag) |

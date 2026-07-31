@@ -194,30 +194,37 @@ export type VmTemplateOption = {
   vmid: number
 }
 
+// templatesFolderId: undefined = unrestricted, a UUID = that folder's direct children only, null = no options.
 export function getVmTemplateOptions(
-  tree: Array<ApiTreeNode> | undefined
+  tree: Array<ApiTreeNode> | undefined,
+  templatesFolderId?: string | null
 ): Array<VmTemplateOption> {
   if (!tree) return []
+  if (templatesFolderId === null) return []
 
   const templates: Array<VmTemplateOption> = []
 
-  function walk(nodes: Array<ApiTreeNode>) {
+  function walk(nodes: Array<ApiTreeNode>, parentId: string | undefined) {
     for (const entry of nodes) {
       if (entry.kind === "vm" && entry.vm?.is_template) {
-        templates.push({
-          id: entry.id,
-          label: `${entry.name} (${entry.vm.node}/${entry.vm.vmid})`,
-          name: entry.name,
-          node: entry.vm.node,
-          vmid: entry.vm.vmid,
-        })
+        const inScope =
+          templatesFolderId === undefined || parentId === templatesFolderId
+        if (inScope) {
+          templates.push({
+            id: entry.id,
+            label: `${entry.name} (${entry.vm.node}/${entry.vm.vmid})`,
+            name: entry.name,
+            node: entry.vm.node,
+            vmid: entry.vm.vmid,
+          })
+        }
       }
 
-      if (entry.children?.length) walk(entry.children)
+      if (entry.children?.length) walk(entry.children, entry.id)
     }
   }
 
-  walk(tree)
+  walk(tree, undefined)
 
   return templates.sort((left, right) => left.label.localeCompare(right.label))
 }
@@ -227,9 +234,7 @@ export function getSelectedTemplate(
   templateId: string | null | undefined
 ) {
   if (!templateId) return undefined
-  return templateOptions.find(
-    (template) => template.id === templateId || template.name === templateId
-  )
+  return templateOptions.find((template) => template.id === templateId)
 }
 
 export function parseNumberInput(value: string, fallback: number) {

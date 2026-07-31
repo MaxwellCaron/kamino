@@ -26,30 +26,24 @@ const (
 var errConfiguredPodsFolderMissing = errors.New("configured PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
 var errConfiguredPersonalPodsFolderMissing = errors.New("configured PERSONAL_PODS_FOLDER_ITEM_ID does not resolve to an existing folder")
 
-// resolveTemplatesFolderID prefers the configured TEMPLATES_FOLDER_ITEM_ID and
-// falls back to matching the "Templates" folder by name under the root.
-func (h *PodsHandler) resolveTemplatesFolderID(ctx context.Context) (uuid.UUID, bool, error) {
-	return h.resolveConfiguredFolderID(ctx, h.TemplatesFolderItemID, templatesFolderName)
+// configuredFolderReader is the narrow inventory read seam shared by every configured-ID folder resolver.
+type configuredFolderReader interface {
+	FindFolderPath(ctx context.Context, path []string) (uuid.UUID, bool, error)
+	GetInventoryItemByID(ctx context.Context, id uuid.UUID) (database.GetInventoryItemByIDRow, error)
 }
 
-func (h *PodsHandler) resolvePodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
-	return h.resolveConfiguredFolderID(ctx, h.PodsFolderItemID, podsFolderName)
-}
-
-func (h *PodsHandler) resolvePersonalPodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
-	return h.resolveConfiguredFolderID(ctx, h.PersonalPodsFolderItemID, personalPodsFolderName)
-}
-
-func (h *PodsHandler) resolveConfiguredFolderID(
+// resolveConfiguredFolderID prefers configuredID and falls back to matching fallbackName by name under the root.
+func resolveConfiguredFolderID(
 	ctx context.Context,
+	service configuredFolderReader,
 	configuredID uuid.UUID,
 	fallbackName string,
 ) (uuid.UUID, bool, error) {
 	if configuredID == uuid.Nil {
-		return h.Service.FindFolderPath(ctx, []string{fallbackName})
+		return service.FindFolderPath(ctx, []string{fallbackName})
 	}
 
-	item, err := h.Service.GetInventoryItemByID(ctx, configuredID)
+	item, err := service.GetInventoryItemByID(ctx, configuredID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, false, nil
 	}
@@ -60,6 +54,19 @@ func (h *PodsHandler) resolveConfiguredFolderID(
 		return uuid.Nil, false, nil
 	}
 	return item.ID, true, nil
+}
+
+// resolveTemplatesFolderID prefers the configured TEMPLATES_FOLDER_ITEM_ID, falling back to "Templates" by name.
+func (h *PodsHandler) resolveTemplatesFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return resolveConfiguredFolderID(ctx, h.Service, h.TemplatesFolderItemID, templatesFolderName)
+}
+
+func (h *PodsHandler) resolvePodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return resolveConfiguredFolderID(ctx, h.Service, h.PodsFolderItemID, podsFolderName)
+}
+
+func (h *PodsHandler) resolvePersonalPodsFolderID(ctx context.Context) (uuid.UUID, bool, error) {
+	return resolveConfiguredFolderID(ctx, h.Service, h.PersonalPodsFolderItemID, personalPodsFolderName)
 }
 
 // ensurePodsFolderID is used by pod creation, which must end up with a

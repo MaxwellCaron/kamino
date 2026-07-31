@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useSelector } from "@tanstack/react-store"
@@ -101,17 +101,16 @@ export function CreateVmDialog({
         parsed.template_id ?? ""
       )
 
+      if (parsed.method === "template" && !selectedTemplate) {
+        toast.error("Select a template before cloning.")
+        return
+      }
+
       onOpenChange(false)
 
       const promise =
         parsed.method === "template"
-          ? (() => {
-              if (!selectedTemplate) {
-                throw new Error("Select a template before cloning.")
-              }
-
-              return mutation.mutateAsync(parsed)
-            })()
+          ? mutation.mutateAsync(parsed)
           : parsed.method === "iso"
             ? mutation.mutateAsync(parsed)
             : Promise.reject(
@@ -131,6 +130,10 @@ export function CreateVmDialog({
     form.store,
     (state) => state.values.target_folder_id
   )
+  const selectedTemplateId = useSelector(
+    form.store,
+    (state) => state.values.template_id
+  )
 
   function resetDialog() {
     form.reset()
@@ -146,7 +149,6 @@ export function CreateVmDialog({
     enabled: open,
   })
   const inventoryTree = inventoryTreeData ?? []
-  const templateOptions = getVmTemplateOptions(inventoryTree)
   const folderOptions = getInventoryFolderOptions(
     inventoryTree,
     InventoryPermissionKeys.createVm
@@ -156,6 +158,13 @@ export function CreateVmDialog({
     error: createOptionsError,
     isLoading: isCreateOptionsLoading,
   } = useQuery(createVmOptionsQueryOptions(selectedTargetFolderId, open))
+  const templatesFolderScope = createOptions?.scoped_network
+    ? (createOptions.personal_pod_templates_folder_id ?? null)
+    : undefined
+  const templateOptions = getVmTemplateOptions(
+    inventoryTree,
+    templatesFolderScope
+  )
   const { data: isos } = useQuery({
     ...createVmIsosQueryOptions(selectedIsoStorage),
     enabled: open && !!selectedIsoStorage,
@@ -224,6 +233,12 @@ export function CreateVmDialog({
       )
     }
   }, [folderOptions, form, initialFolderId, open])
+
+  useEffect(() => {
+    if (isLoadingInitialOptions || !selectedTemplateId) return
+    if (getSelectedTemplate(templateOptions, selectedTemplateId)) return
+    form.setFieldValue("template_id", "")
+  }, [form, isLoadingInitialOptions, selectedTemplateId, templateOptions])
 
   function handleCreate() {
     if (method === "upload") {

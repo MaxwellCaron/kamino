@@ -35,6 +35,30 @@ func TestResolvePersonalPodRouterTemplateItemID(t *testing.T) {
 	}
 }
 
+func TestResolvePersonalPodTemplatesFolderItemID(t *testing.T) {
+	generalID := uuid.New()
+	overrideID := uuid.New()
+
+	got, err := resolvePersonalPodTemplatesFolderItemID("", generalID)
+	if err != nil || got != generalID {
+		t.Fatalf("blank override resolved to %s with error %v, want %s", got, err, generalID)
+	}
+
+	got, err = resolvePersonalPodTemplatesFolderItemID(overrideID.String(), generalID)
+	if err != nil || got != overrideID {
+		t.Fatalf("explicit override resolved to %s with error %v, want %s", got, err, overrideID)
+	}
+
+	if _, err := resolvePersonalPodTemplatesFolderItemID("invalid", generalID); err == nil {
+		t.Fatal("invalid explicit override should return an error")
+	}
+
+	got, err = resolvePersonalPodTemplatesFolderItemID("", uuid.Nil)
+	if err != nil || got != uuid.Nil {
+		t.Fatalf("both blank resolved to %s with error %v, want uuid.Nil", got, err)
+	}
+}
+
 func baseTestConfig() Config {
 	return Config{
 		PodLANVNet:                          "pod",

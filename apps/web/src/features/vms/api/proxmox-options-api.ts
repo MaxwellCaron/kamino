@@ -52,6 +52,7 @@ export function createVmOptionsQueryOptions(
       bridges: Array<ApiNetworkBridge>
       vnets: Array<ApiVNet>
       scoped_network?: ApiScopedNetwork
+      personal_pod_templates_folder_id?: string
     }> => {
       const params = new URLSearchParams({ scope_item_id: scopeItemId })
       return apiJson<{
@@ -61,6 +62,7 @@ export function createVmOptionsQueryOptions(
         bridges: Array<ApiNetworkBridge>
         vnets: Array<ApiVNet>
         scoped_network?: ApiScopedNetwork
+        personal_pod_templates_folder_id?: string
       }>(
         `/api/v1/proxmox/create/options?${params.toString()}`,
         "fetch create options",
