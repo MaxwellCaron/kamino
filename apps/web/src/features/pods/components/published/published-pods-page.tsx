@@ -108,9 +108,9 @@ export function PublishedPodsPage() {
 
   const deleteConfirm: ConfirmConfig | null = pendingDeletePod
     ? {
-        title: "Delete Catalog Entry?",
-        description: `This deletes "${pendingDeletePod.title}" from the published catalog database only. The Pod Folder, Pod Template Folder, and Proxmox VMs are not deleted.`,
-        actionLabel: "Delete",
+        title: "Delete Published Pod?",
+        description: `This permanently deletes "${pendingDeletePod.title}", its source Pod Folder, the nested Virtual Machines and Templates folders, and every source VM and template in Proxmox. All cloned pods must be deleted first.`,
+        actionLabel: "Delete Pod",
         icon: Delete01Icon,
         variant: "destructive",
         onConfirm: () => {

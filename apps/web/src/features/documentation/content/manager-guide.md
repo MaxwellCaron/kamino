@@ -68,8 +68,9 @@ From each pod row you can:
   across every clone of that pod when at least one clone exists.
 - **Listed** / **Unlisted** — change catalog visibility without deleting
   the pod.
-- **Delete Pod** — remove the catalog entry only; it does not delete the
-  pod folder or its virtual machines.
+- **Delete Pod** — permanently remove the catalog entry, source Pod Folder,
+  nested Virtual Machines and Templates folders, and their source VMs and
+  templates from Proxmox. You must delete every cloned pod first.
 
 Expand a row to inspect individual clones. The table shows each clone's
 owner, creation time, status, network, virtual machine count, and task
