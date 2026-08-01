@@ -44,7 +44,7 @@ type VmHardwareDialogFormProps = {
 }
 
 // Seeds exactly from current hardware; replacing an existing NIC's bridge/tag here would erase a manager override.
-export function vmHardwareFormValuesFromHardware(
+function vmHardwareFormValuesFromHardware(
   hardware: ApiVmHardwareConfig
 ): VmHardwareFormValues {
   return {

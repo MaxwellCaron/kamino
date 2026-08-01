@@ -10,20 +10,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 )
 
-func testPodRouterCloneCatalog(t *testing.T) *podnetwork.Catalog {
-	t.Helper()
-
-	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
-		LANVNet:   "pod",
-		DMZVNet:   "dmz",
-		WANIPBase: "172.16.",
-	})
-	if err != nil {
-		t.Fatalf("NewCatalog() error = %v", err)
-	}
-	return catalog
-}
-
 func newRouterCloneOptionsHandler(t *testing.T, vnets []map[string]any) *PodsHandler {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +23,7 @@ func newRouterCloneOptionsHandler(t *testing.T, vnets []map[string]any) *PodsHan
 
 	return &PodsHandler{
 		PX:             proxmox.NewHTTPTestClient(server),
-		NetworkCatalog: testPodRouterCloneCatalog(t),
+		NetworkCatalog: testNetworkCatalog(t),
 		RouterCloneConfig: PodRouterCloneConfig{
 			LANVNet: "pod",
 			DMZVNet: "dmz",
@@ -212,7 +198,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 }
 
 func TestParsePodRouterCloneRequest(t *testing.T) {
-	catalog := testPodRouterCloneCatalog(t)
+	catalog := testNetworkCatalog(t)
 
 	t.Run("unknown profile", func(t *testing.T) {
 		_, _, _, _, reqErr := parsePodRouterCloneRequest(catalog, podRouterCloneRequest{
@@ -328,7 +314,7 @@ func TestBuildRouterCloudInitConfigForProfileRouterClone(t *testing.T) {
 }
 
 func TestPodRouterCloneResponseVNets(t *testing.T) {
-	catalog := testPodRouterCloneCatalog(t)
+	catalog := testNetworkCatalog(t)
 
 	lanVNets, err := catalog.RequiredVNets(podnetwork.ProfileLANRouterV1)
 	if err != nil {

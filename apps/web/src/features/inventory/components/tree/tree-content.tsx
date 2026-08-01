@@ -41,7 +41,11 @@ export function InventoryTreeContent({
     scrollToItemHandlerRef,
   } = useInventoryTreeContext()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const rowVmCacheRef = useRef(new Map<string, InventoryTreeRowVm>())
+  const rowVmCacheRef = useRef<Map<string, InventoryTreeRowVm> | null>(null)
+  if (rowVmCacheRef.current === null) {
+    rowVmCacheRef.current = new Map()
+  }
+  const rowVmCache = rowVmCacheRef.current
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
 
@@ -173,7 +177,7 @@ export function InventoryTreeContent({
           const id = item.getId()
           const data = item.getItemData()
           const canPower = canPowerByFolderId.get(id) ?? false
-          const vm = upsertRowVm(rowVmCacheRef.current, {
+          const vm = upsertRowVm(rowVmCache, {
             id,
             name: item.getItemName(),
             kind: data.kind,
