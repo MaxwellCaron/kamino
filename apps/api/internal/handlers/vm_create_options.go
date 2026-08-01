@@ -178,20 +178,18 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 			return
 		}
 		if !isManager {
-			scope, scoped, err := personalPodNetworkScope(
-				c.Request.Context(),
-				h.DB,
-				h.PersonalPodVNet,
-				scopeItemID,
+			// Managers/administrators keep the unrestricted response below for a deliberate after-the-fact override.
+			scope, scoped, err := resolveVMNetworkScope(
+				c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, scopeItemID,
 			)
 			if err != nil {
-				writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm bridge options network scope", err)
+				writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm bridge options network scope", err)
 				return
 			}
 			if scoped {
 				c.JSON(http.StatusOK, gin.H{
 					"bridges":        []proxmox.NetworkBridge{},
-					"vnets":          filterVNetsByName(vnets, scope.VNet),
+					"vnets":          filterVNetsByNames(vnets, scope.AllowedVNets),
 					"scoped_network": scopedNetworkResponseFromScope(scope),
 				})
 				return

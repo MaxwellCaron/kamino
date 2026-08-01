@@ -140,6 +140,50 @@ func (ns NullInventoryRequestPowerAction) Value() (driver.Value, error) {
 	return string(ns.InventoryRequestPowerAction), nil
 }
 
+type PodNetworkAllocationKind string
+
+const (
+	PodNetworkAllocationKindPublishedClone PodNetworkAllocationKind = "published_clone"
+	PodNetworkAllocationKindDevPod         PodNetworkAllocationKind = "dev_pod"
+	PodNetworkAllocationKindPersonalPod    PodNetworkAllocationKind = "personal_pod"
+	PodNetworkAllocationKindManualRouter   PodNetworkAllocationKind = "manual_router"
+)
+
+func (e *PodNetworkAllocationKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PodNetworkAllocationKind(s)
+	case string:
+		*e = PodNetworkAllocationKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PodNetworkAllocationKind: %T", src)
+	}
+	return nil
+}
+
+type NullPodNetworkAllocationKind struct {
+	PodNetworkAllocationKind PodNetworkAllocationKind `json:"pod_network_allocation_kind"`
+	Valid                    bool                     `json:"valid"` // Valid is true if PodNetworkAllocationKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPodNetworkAllocationKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.PodNetworkAllocationKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PodNetworkAllocationKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPodNetworkAllocationKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PodNetworkAllocationKind), nil
+}
+
 type PrincipalProviderType string
 
 const (

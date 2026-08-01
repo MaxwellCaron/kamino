@@ -55,6 +55,47 @@ func (q *Queries) GetPodDevNetworkAllocation(ctx context.Context, folderID uuid.
 	return i, err
 }
 
+const getPodNetworkScopeForInventoryItem = `-- name: GetPodNetworkScopeForInventoryItem :one
+WITH RECURSIVE ancestors AS (
+    SELECT inventory_items.id, inventory_items.parent_id, 0 AS depth
+    FROM inventory_items
+    WHERE inventory_items.id = $1
+    UNION ALL
+    SELECT ii.id, ii.parent_id, a.depth + 1
+    FROM inventory_items ii
+    JOIN ancestors a ON ii.id = a.parent_id
+)
+SELECT
+    pna.kind,
+    pna.folder_id,
+    pna.network_number,
+    pna.network_profile_key
+FROM pod_network_allocations pna
+JOIN ancestors a ON pna.folder_id = a.id
+WHERE pna.kind IN ('personal_pod', 'dev_pod', 'published_clone')
+ORDER BY a.depth ASC
+LIMIT 1
+`
+
+type GetPodNetworkScopeForInventoryItemRow struct {
+	Kind              PodNetworkAllocationKind `json:"kind"`
+	FolderID          uuid.UUID                `json:"folder_id"`
+	NetworkNumber     int32                    `json:"network_number"`
+	NetworkProfileKey *string                  `json:"network_profile_key"`
+}
+
+func (q *Queries) GetPodNetworkScopeForInventoryItem(ctx context.Context, inventoryItemID uuid.UUID) (GetPodNetworkScopeForInventoryItemRow, error) {
+	row := q.db.QueryRow(ctx, getPodNetworkScopeForInventoryItem, inventoryItemID)
+	var i GetPodNetworkScopeForInventoryItemRow
+	err := row.Scan(
+		&i.Kind,
+		&i.FolderID,
+		&i.NetworkNumber,
+		&i.NetworkProfileKey,
+	)
+	return i, err
+}
+
 const insertPodDevNetworkAllocation = `-- name: InsertPodDevNetworkAllocation :one
 WITH candidate AS (
     SELECT n::INTEGER AS network_number

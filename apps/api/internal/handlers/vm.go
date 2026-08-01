@@ -8,13 +8,13 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func parseIntParam(c *gin.Context, name string) (int, error) {
@@ -60,7 +60,6 @@ type vmAuthz interface {
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
 	PX                               vmProxmox
-	DB                               *pgxpool.Pool
 	Importer                         *proxmox.InventoryImporter
 	Service                          *inventory.Service
 	Notifier                         *vmstatus.Notifier
@@ -71,6 +70,8 @@ type VMHandler struct {
 	Allocator                        *vmidalloc.Allocator
 	PersonalPodVNet                  string
 	PersonalPodTemplatesFolderItemID uuid.UUID
+	NetworkScopeReader               podNetworkScopeReader
+	NetworkCatalog                   *podnetwork.Catalog
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a

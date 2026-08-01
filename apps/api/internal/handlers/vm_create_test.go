@@ -2,14 +2,18 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -39,6 +43,9 @@ type fakeVMCreateProxmox struct {
 
 	getCreateStorages func(ctx context.Context, node string) ([]proxmox.Storage, []proxmox.Storage, error)
 	getCreateNetworks func(ctx context.Context, node string) ([]proxmox.NetworkBridge, []proxmox.VNet, error)
+	createVM          func(ctx context.Context, node string, params map[string]string) error
+	getBridgesFn      func(ctx context.Context, node string) ([]proxmox.NetworkBridge, error)
+	getVNetsFn        func(ctx context.Context) ([]proxmox.VNet, error)
 }
 
 func (f *fakeVMCreateProxmox) GetNodes(_ context.Context) ([]proxmox.Node, error) {
@@ -92,20 +99,29 @@ func (f *fakeVMCreateProxmox) IsVMIDAvailable(_ context.Context, _ int) (bool, e
 	panic("fakeVMCreateProxmox: IsVMIDAvailable not configured for this test")
 }
 
-func (f *fakeVMCreateProxmox) GetBridges(_ context.Context, _ string) ([]proxmox.NetworkBridge, error) {
-	panic("fakeVMCreateProxmox: GetBridges not configured for this test")
+func (f *fakeVMCreateProxmox) GetBridges(ctx context.Context, node string) ([]proxmox.NetworkBridge, error) {
+	if f.getBridgesFn == nil {
+		panic("fakeVMCreateProxmox: GetBridges not configured for this test")
+	}
+	return f.getBridgesFn(ctx, node)
 }
 
-func (f *fakeVMCreateProxmox) GetVNets(_ context.Context) ([]proxmox.VNet, error) {
-	panic("fakeVMCreateProxmox: GetVNets not configured for this test")
+func (f *fakeVMCreateProxmox) GetVNets(ctx context.Context) ([]proxmox.VNet, error) {
+	if f.getVNetsFn == nil {
+		panic("fakeVMCreateProxmox: GetVNets not configured for this test")
+	}
+	return f.getVNetsFn(ctx)
 }
 
 func (f *fakeVMCreateProxmox) GetOptimalNode(_ context.Context) (proxmox.Node, error) {
 	panic("fakeVMCreateProxmox: GetOptimalNode not configured for this test")
 }
 
-func (f *fakeVMCreateProxmox) CreateVM(_ context.Context, _ string, _ map[string]string) error {
-	panic("fakeVMCreateProxmox: CreateVM not configured for this test")
+func (f *fakeVMCreateProxmox) CreateVM(ctx context.Context, node string, params map[string]string) error {
+	if f.createVM == nil {
+		panic("fakeVMCreateProxmox: CreateVM not configured for this test")
+	}
+	return f.createVM(ctx, node, params)
 }
 
 func (f *fakeVMCreateProxmox) SyncVMPoolMembership(_ context.Context, _ string, _ int, _ string, _ []string) error {
@@ -243,6 +259,276 @@ func TestVMCreateCreateVM_InvalidTargetFolderID(t *testing.T) {
 
 	assertStatus(t, w, http.StatusBadRequest)
 	assertBodyContains(t, w, "invalid target_folder_id")
+}
+
+func TestBuildCreateNetworkParams_NormalizedTamperedTagNeverReachesProxmox(t *testing.T) {
+	t.Parallel()
+
+	scope := VMNetworkScope{
+		VNet:         "pod",
+		AllowedVNets: []string{"pod", "dmz"},
+		VLANTag:      199,
+	}
+
+	// The client claims a bridge/tag pair that does not belong to it.
+	tampered := []networkInterface{
+		{Bridge: "dmz", Model: "virtio", VLANTag: 4000, Firewall: true},
+	}
+	for i, iface := range tampered {
+		bridge, vlanTag, ok := normalizeScopedCreationNetwork(scope, iface.Bridge)
+		if !ok {
+			t.Fatalf("normalizeScopedCreationNetwork() ok = false, want true for allowed bridge %q", iface.Bridge)
+		}
+		tampered[i].Bridge = bridge
+		tampered[i].VLANTag = vlanTag
+	}
+
+	params := buildCreateNetworkParams(tampered)
+	got, ok := params["net0"]
+	if !ok {
+		t.Fatal("net0 missing from Proxmox create params")
+	}
+	if strings.Contains(got, "tag=4000") {
+		t.Fatalf("net0 = %q, tampered client tag 4000 leaked into Proxmox params", got)
+	}
+	if !strings.Contains(got, "tag=199") {
+		t.Fatalf("net0 = %q, want allocation tag 199", got)
+	}
+	if !strings.Contains(got, "bridge=dmz") {
+		t.Fatalf("net0 = %q, want allowed dmz bridge preserved", got)
+	}
+}
+
+func TestVMCreateCreateVM_ScopedRejectsDisallowedBridgeBeforeAnyProxmoxCall(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	targetFolderID := uuid.New()
+	authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: false}}
+	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
+		Kind:          database.PodNetworkAllocationKindPersonalPod,
+		FolderID:      targetFolderID,
+		NetworkNumber: 42,
+	}}
+	proxmoxCalled := false
+	px := &fakeVMCreateProxmox{createVM: func(context.Context, string, map[string]string) error {
+		proxmoxCalled = true
+		return nil
+	}}
+	h := &VMCreateHandler{
+		Authz:              authz,
+		PX:                 px,
+		NetworkScopeReader: reader,
+		NetworkCatalog:     testNetworkCatalog(t),
+		PersonalPodVNet:    "personal",
+	}
+
+	r := newVMTestEngine(http.MethodPost, "/vms", principalID, h.CreateVM)
+	body := `{"target_folder_id":"` + targetFolderID.String() + `","name":"test-vm","networks":[{"bridge":"vmbr0","model":"virtio","vlan_tag":4000}]}`
+	w := doJSONRequest(r, http.MethodPost, "/vms", body)
+
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+	assertBodyContains(t, w, "not permitted inside this pod")
+	if proxmoxCalled {
+		t.Fatal("Proxmox CreateVM was called for a disallowed bridge under an active pod scope")
+	}
+}
+
+func TestVMCreateCreateVM_ScopedRejectsZeroNetworkInterfaces(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	targetFolderID := uuid.New()
+	authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: false}}
+	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
+		Kind:          database.PodNetworkAllocationKindPersonalPod,
+		FolderID:      targetFolderID,
+		NetworkNumber: 42,
+	}}
+	proxmoxCalled := false
+	px := &fakeVMCreateProxmox{createVM: func(context.Context, string, map[string]string) error {
+		proxmoxCalled = true
+		return nil
+	}}
+	h := &VMCreateHandler{
+		Authz:              authz,
+		PX:                 px,
+		NetworkScopeReader: reader,
+		NetworkCatalog:     testNetworkCatalog(t),
+		PersonalPodVNet:    "personal",
+	}
+
+	r := newVMTestEngine(http.MethodPost, "/vms", principalID, h.CreateVM)
+	body := `{"target_folder_id":"` + targetFolderID.String() + `","name":"test-vm"}`
+	w := doJSONRequest(r, http.MethodPost, "/vms", body)
+
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+	assertBodyContains(t, w, "at least one network interface")
+	if proxmoxCalled {
+		t.Fatal("Proxmox CreateVM was called for a scoped folder with zero network interfaces")
+	}
+}
+
+func TestVMCreateCreateVM_ScopedAppliesToManagersToo(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	targetFolderID := uuid.New()
+	// Unlike the later hardware-edit override path, creation-time scope rejects even a manager's unrelated bridge.
+	authz := &fakeVMCreateAuthz{fakeVMAuthz: fakeVMAuthz{isManager: true}}
+	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
+		Kind:          database.PodNetworkAllocationKindPersonalPod,
+		FolderID:      targetFolderID,
+		NetworkNumber: 42,
+	}}
+	proxmoxCalled := false
+	px := &fakeVMCreateProxmox{createVM: func(context.Context, string, map[string]string) error {
+		proxmoxCalled = true
+		return nil
+	}}
+	h := &VMCreateHandler{
+		Authz:              authz,
+		PX:                 px,
+		NetworkScopeReader: reader,
+		NetworkCatalog:     testNetworkCatalog(t),
+		PersonalPodVNet:    "personal",
+	}
+
+	r := newVMTestEngine(http.MethodPost, "/vms", principalID, h.CreateVM)
+	body := `{"target_folder_id":"` + targetFolderID.String() + `","name":"test-vm","networks":[{"bridge":"vmbr0","model":"virtio","vlan_tag":4000}]}`
+	w := doJSONRequest(r, http.MethodPost, "/vms", body)
+
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+	if proxmoxCalled {
+		t.Fatal("Proxmox CreateVM was called for a manager's disallowed bridge under an active pod scope")
+	}
+}
+
+func TestVMCreateGetBridges_NonManagerScopedForAllPodKinds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		row  database.GetPodNetworkScopeForInventoryItemRow
+	}{
+		{
+			name: "personal pod",
+			row: database.GetPodNetworkScopeForInventoryItemRow{
+				Kind:          database.PodNetworkAllocationKindPersonalPod,
+				FolderID:      uuid.New(),
+				NetworkNumber: 42,
+			},
+		},
+		{
+			name: "development pod",
+			row: database.GetPodNetworkScopeForInventoryItemRow{
+				Kind:              database.PodNetworkAllocationKindDevPod,
+				FolderID:          uuid.New(),
+				NetworkNumber:     17,
+				NetworkProfileKey: strPtr(podnetwork.ProfileLANRouterV1),
+			},
+		},
+		{
+			name: "published clone pod",
+			row: database.GetPodNetworkScopeForInventoryItemRow{
+				Kind:              database.PodNetworkAllocationKindPublishedClone,
+				FolderID:          uuid.New(),
+				NetworkNumber:     5,
+				NetworkProfileKey: strPtr(podnetwork.ProfileLANRouterV1),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			principalID := uuid.New()
+			scopeItemID := uuid.New()
+			authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: false}}
+			reader := &fakePodNetworkScopeReader{row: tc.row}
+			px := &fakeVMCreateProxmox{}
+			px.getBridgesFn = func(context.Context, string) ([]proxmox.NetworkBridge, error) {
+				return []proxmox.NetworkBridge{{Iface: "vmbr0"}}, nil
+			}
+			px.getVNetsFn = func(context.Context) ([]proxmox.VNet, error) {
+				return []proxmox.VNet{{VNet: "unrelated"}, {VNet: "pod"}, {VNet: "dmz"}}, nil
+			}
+			h := &VMCreateHandler{
+				Authz:              authz,
+				PX:                 px,
+				NetworkScopeReader: reader,
+				NetworkCatalog:     testNetworkCatalog(t),
+				PersonalPodVNet:    "personal",
+			}
+
+			r := newVMTestEngine(http.MethodGet, "/proxmox/nodes/:node/bridges", principalID, h.GetBridges)
+			w := doJSONRequest(r, http.MethodGet, "/proxmox/nodes/pve1/bridges?scope_item_id="+scopeItemID.String(), "")
+
+			assertStatus(t, w, http.StatusOK)
+
+			var response struct {
+				Bridges       []proxmox.NetworkBridge `json:"bridges"`
+				VNets         []proxmox.VNet          `json:"vnets"`
+				ScopedNetwork *scopedNetworkResponse  `json:"scoped_network"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if len(response.Bridges) != 0 {
+				t.Fatalf("bridges = %#v, want no raw bridge choices for a scoped pod", response.Bridges)
+			}
+			if response.ScopedNetwork == nil {
+				t.Fatal("scoped_network missing")
+			}
+			for _, vnet := range response.VNets {
+				if vnet.VNet == "unrelated" {
+					t.Fatalf("vnets unexpectedly include an unrelated VNet: %#v", response.VNets)
+				}
+			}
+		})
+	}
+}
+
+func TestVMCreateGetBridges_ManagerUnrestricted(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	scopeItemID := uuid.New()
+	authz := &fakeVMCreateAuthz{fakeVMAuthz: fakeVMAuthz{isManager: true}}
+	// No NetworkScopeReader/NetworkCatalog configured: a manager must never reach the scope resolver here.
+	px := &fakeVMCreateProxmox{}
+	px.getBridgesFn = func(context.Context, string) ([]proxmox.NetworkBridge, error) {
+		return []proxmox.NetworkBridge{{Iface: "vmbr0"}}, nil
+	}
+	px.getVNetsFn = func(context.Context) ([]proxmox.VNet, error) {
+		return []proxmox.VNet{{VNet: "unrelated"}, {VNet: "pod"}}, nil
+	}
+	h := &VMCreateHandler{
+		Authz:           authz,
+		PX:              px,
+		PersonalPodVNet: "personal",
+	}
+
+	r := newVMTestEngine(http.MethodGet, "/proxmox/nodes/:node/bridges", principalID, h.GetBridges)
+	w := doJSONRequest(r, http.MethodGet, "/proxmox/nodes/pve1/bridges?scope_item_id="+scopeItemID.String(), "")
+
+	assertStatus(t, w, http.StatusOK)
+
+	var response struct {
+		Bridges       []proxmox.NetworkBridge `json:"bridges"`
+		VNets         []proxmox.VNet          `json:"vnets"`
+		ScopedNetwork *scopedNetworkResponse  `json:"scoped_network"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Bridges) != 1 || len(response.VNets) != 2 {
+		t.Fatalf("response = %#v, want the unrestricted bridge/vnet list for a manager", response)
+	}
+	if response.ScopedNetwork != nil {
+		t.Fatalf("scoped_network = %#v, want nil for a manager", response.ScopedNetwork)
+	}
 }
 
 func TestVMCreateGetCreateOptions_HappyPathUsesFirstNodeAndCallsGetNodesOnce(t *testing.T) {
@@ -403,4 +689,119 @@ func TestVMCreateGetCreateOptions_NetworkErrorReturnsStableMessage(t *testing.T)
 
 	assertStatus(t, w, http.StatusBadGateway)
 	assertBodyContains(t, w, "failed to fetch networks")
+}
+
+func TestVMCreateGetCreateOptions_DevPodLANAndDMZScope(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	scopeItemID := uuid.New()
+	authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: false}}
+	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
+		Kind:              database.PodNetworkAllocationKindDevPod,
+		FolderID:          uuid.New(),
+		NetworkNumber:     199,
+		NetworkProfileKey: strPtr(podnetwork.ProfileLANDMZRouterV1),
+	}}
+	px := &fakeVMCreateProxmox{
+		nodes: []proxmox.Node{{Node: "pve1"}},
+		getCreateStorages: func(_ context.Context, _ string) ([]proxmox.Storage, []proxmox.Storage, error) {
+			return []proxmox.Storage{}, []proxmox.Storage{}, nil
+		},
+		getCreateNetworks: func(_ context.Context, _ string) ([]proxmox.NetworkBridge, []proxmox.VNet, error) {
+			return []proxmox.NetworkBridge{{Iface: "vmbr0"}},
+				[]proxmox.VNet{{VNet: "unrelated"}, {VNet: "pod"}, {VNet: "dmz"}}, nil
+		},
+	}
+	h := &VMCreateHandler{
+		Authz:              authz,
+		PX:                 px,
+		NetworkScopeReader: reader,
+		NetworkCatalog:     testNetworkCatalog(t),
+		PersonalPodVNet:    "personal",
+	}
+
+	r := newVMTestEngine(http.MethodGet, "/proxmox/create/options", principalID, h.GetCreateOptions)
+	w := doJSONRequest(r, http.MethodGet, "/proxmox/create/options?scope_item_id="+scopeItemID.String(), "")
+
+	assertStatus(t, w, http.StatusOK)
+
+	var response createOptionsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.ScopedNetwork == nil {
+		t.Fatal("scoped_network missing")
+	}
+	if response.ScopedNetwork.VLANTag != 199 {
+		t.Fatalf("vlan_tag = %d, want 199", response.ScopedNetwork.VLANTag)
+	}
+	if response.ScopedNetwork.Bridge != "pod" {
+		t.Fatalf("bridge = %q, want pod (LAN default)", response.ScopedNetwork.Bridge)
+	}
+	if len(response.ScopedNetwork.AllowedBridges) != 2 {
+		t.Fatalf("allowed_bridges = %#v, want 2 entries", response.ScopedNetwork.AllowedBridges)
+	}
+	if len(response.Bridges) != 0 {
+		t.Fatalf("bridges = %#v, want no raw bridge choices for a scoped pod", response.Bridges)
+	}
+	if len(response.VNets) != 2 {
+		t.Fatalf("vnets = %#v, want only pod and dmz", response.VNets)
+	}
+	for _, vnet := range response.VNets {
+		if vnet.VNet == "unrelated" {
+			t.Fatalf("vnets unexpectedly include an unrelated VNet: %#v", response.VNets)
+		}
+	}
+	if response.PersonalPodTemplatesRestricted {
+		t.Fatal("personal_pod_templates_restricted = true, want false for a non-personal pod")
+	}
+}
+
+func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	scopeItemID := uuid.New()
+	authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: true}}
+	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
+		Kind:          database.PodNetworkAllocationKindPersonalPod,
+		FolderID:      uuid.New(),
+		NetworkNumber: 7,
+	}}
+	px := &fakeVMCreateProxmox{
+		nodes: []proxmox.Node{{Node: "pve1"}},
+		getCreateStorages: func(_ context.Context, _ string) ([]proxmox.Storage, []proxmox.Storage, error) {
+			return []proxmox.Storage{}, []proxmox.Storage{}, nil
+		},
+		getCreateNetworks: func(_ context.Context, _ string) ([]proxmox.NetworkBridge, []proxmox.VNet, error) {
+			return []proxmox.NetworkBridge{{Iface: "vmbr0"}}, []proxmox.VNet{{VNet: "personal"}}, nil
+		},
+	}
+	h := &VMCreateHandler{
+		Authz:              authz,
+		PX:                 px,
+		NetworkScopeReader: reader,
+		NetworkCatalog:     testNetworkCatalog(t),
+		PersonalPodVNet:    "personal",
+	}
+
+	r := newVMTestEngine(http.MethodGet, "/proxmox/create/options", principalID, h.GetCreateOptions)
+	w := doJSONRequest(r, http.MethodGet, "/proxmox/create/options?scope_item_id="+scopeItemID.String(), "")
+
+	assertStatus(t, w, http.StatusOK)
+
+	var response createOptionsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.ScopedNetwork == nil || response.ScopedNetwork.VLANTag != 7 || response.ScopedNetwork.Bridge != "personal" {
+		t.Fatalf("scoped_network = %#v, want manager to receive the same enforced network as a non-manager", response.ScopedNetwork)
+	}
+	if response.PersonalPodTemplatesRestricted {
+		t.Fatal("personal_pod_templates_restricted = true, want false for a manager")
+	}
+	if response.PersonalPodTemplatesFolderID != nil {
+		t.Fatal("personal_pod_templates_folder_id set, want nil for a manager (unrestricted template list)")
+	}
 }

@@ -49,6 +49,27 @@ FROM pod_network_allocations
 WHERE folder_id = $1
   AND kind = 'dev_pod';
 
+-- name: GetPodNetworkScopeForInventoryItem :one
+WITH RECURSIVE ancestors AS (
+    SELECT inventory_items.id, inventory_items.parent_id, 0 AS depth
+    FROM inventory_items
+    WHERE inventory_items.id = sqlc.arg(inventory_item_id)
+    UNION ALL
+    SELECT ii.id, ii.parent_id, a.depth + 1
+    FROM inventory_items ii
+    JOIN ancestors a ON ii.id = a.parent_id
+)
+SELECT
+    pna.kind,
+    pna.folder_id,
+    pna.network_number,
+    pna.network_profile_key
+FROM pod_network_allocations pna
+JOIN ancestors a ON pna.folder_id = a.id
+WHERE pna.kind IN ('personal_pod', 'dev_pod', 'published_clone')
+ORDER BY a.depth ASC
+LIMIT 1;
+
 -- name: DeletePodDevVMNetworkAssignments :exec
 DELETE FROM pod_dev_vm_network_assignments
 WHERE pod_folder_id = $1;

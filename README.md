@@ -276,6 +276,19 @@ DMZ workloads must use static `10.0.50.<host>/24` addresses with gateway
 `10.0.50.1`; each host is reachable at `172.16.<N>.<host>`. Kamino validates
 segment assignment and Proxmox NIC attachment, not guest OS addressing.
 
+Generic ISO-created and template-cloned workload VMs placed inside a
+personal, development, or published-clone pod folder always inherit that
+pod's allocation tag; the server derives the tag and allowed bridges from
+the destination folder and ignores any VLAN tag the client submits. LAN+DMZ
+pods let ISO creation choose only the pod's LAN or DMZ VNet, and the tag
+stays locked either way. This creation default applies to every caller,
+including managers and administrators — there is no override at creation
+time. Only a manager or administrator may change an existing VM's tag
+afterward, through the hardware editor. An ordinary hardware save from
+anyone else preserves each existing NIC's current server-side tag exactly,
+including a prior manager-set override or untagged value, and assigns the
+pod's allocation tag only to a newly added NIC.
+
 ## Security notes
 
 - Keep real credentials only in untracked `.env*` files (`.env`, `.env.docker`). Never commit them.

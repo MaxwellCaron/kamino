@@ -40,6 +40,29 @@ type createVMRequest struct {
 	Networks       []networkInterface `json:"networks"`
 }
 
+// buildCreateNetworkParams assumes callers already normalized interfaces under any applicable network scope.
+func buildCreateNetworkParams(networks []networkInterface) map[string]string {
+	params := make(map[string]string, len(networks))
+	for i, iface := range networks {
+		model := iface.Model
+		if model == "" {
+			model = "virtio"
+		}
+		netStr := model
+		if iface.Bridge != "" {
+			netStr += ",bridge=" + iface.Bridge
+		}
+		if iface.Firewall {
+			netStr += ",firewall=1"
+		}
+		if iface.VLANTag > 0 {
+			netStr += fmt.Sprintf(",tag=%d", iface.VLANTag)
+		}
+		params[fmt.Sprintf("net%d", i)] = netStr
+	}
+	return params
+}
+
 func normalizeMachineType(machine string) string {
 	switch strings.TrimSpace(machine) {
 	case "", "i440fx":
@@ -78,31 +101,31 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		return
 	}
 
-	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
+	// The destination folder, never the client, decides the initial VLAN tag and allowed bridges for every caller.
+	scope, scoped, err := resolveVMNetworkScope(
+		c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, targetFolderID,
+	)
 	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create management permission", err)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm create network scope", err)
 		return
 	}
-	if !isManager {
-		scope, scoped, err := personalPodNetworkScope(
-			c.Request.Context(),
-			h.DB,
-			h.PersonalPodVNet,
-			targetFolderID,
-		)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm create network scope", err)
+	if scoped {
+		if len(req.Networks) == 0 {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error": "virtual machines in this pod must have at least one network interface",
+			})
 			return
 		}
-		if scoped {
-			for _, network := range req.Networks {
-				if personalPodNetworkMismatch(scope, network.Bridge, network.VLANTag) {
-					c.JSON(http.StatusUnprocessableEntity, gin.H{
-						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s (VLAN %d)", scope.VNet, scope.VLANTag),
-					})
-					return
-				}
+		for i, network := range req.Networks {
+			bridge, vlanTag, ok := normalizeScopedCreationNetwork(scope, network.Bridge)
+			if !ok {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"error": fmt.Sprintf("network %d bridge %q is not permitted inside this pod", i, strings.TrimSpace(network.Bridge)),
+				})
+				return
 			}
+			req.Networks[i].Bridge = bridge
+			req.Networks[i].VLANTag = vlanTag
 		}
 	}
 
@@ -162,23 +185,9 @@ func (h *VMCreateHandler) CreateVM(c *gin.Context) {
 		}
 	}
 
-	// Networks
-	for i, iface := range req.Networks {
-		model := iface.Model
-		if model == "" {
-			model = "virtio"
-		}
-		netStr := model
-		if iface.Bridge != "" {
-			netStr += ",bridge=" + iface.Bridge
-		}
-		if iface.Firewall {
-			netStr += ",firewall=1"
-		}
-		if iface.VLANTag > 0 {
-			netStr += fmt.Sprintf(",tag=%d", iface.VLANTag)
-		}
-		params[fmt.Sprintf("net%d", i)] = netStr
+	// A scoped folder's client-supplied bridge/tag never reaches this point; req.Networks was already normalized above.
+	for key, value := range buildCreateNetworkParams(req.Networks) {
+		params[key] = value
 	}
 
 	targetNode := req.Node

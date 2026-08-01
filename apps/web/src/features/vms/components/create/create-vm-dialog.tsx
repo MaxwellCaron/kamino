@@ -302,7 +302,7 @@ export function CreateVmDialog({
     error: createOptionsError,
     isLoading: isCreateOptionsLoading,
   } = useQuery(createVmOptionsQueryOptions(selectedTargetFolderId, open))
-  const templatesFolderScope = createOptions?.scoped_network
+  const templatesFolderScope = createOptions?.personal_pod_templates_restricted
     ? (createOptions.personal_pod_templates_folder_id ?? null)
     : undefined
   const templateOptions = getVmTemplateOptions(

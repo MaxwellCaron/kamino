@@ -148,67 +148,86 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		return
 	}
 
-	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
+	// Resolve scope before the action claim so an unscoped/manager caller short-circuits the extra Proxmox read below.
+	scope, scoped, err := resolveVMNetworkScope(
+		c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, itemID,
+	)
 	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm hardware management permission", err)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm hardware network scope", err)
 		return
 	}
-	if !isManager {
-		scope, scoped, err := personalPodNetworkScope(
-			c.Request.Context(),
-			h.DB,
-			h.PersonalPodVNet,
-			itemID,
-		)
+	nonManagerScoped := false
+	if scoped {
+		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
 		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm hardware network scope", err)
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm hardware management permission", err)
 			return
 		}
-		if scoped {
-			for _, network := range req.Networks {
-				if personalPodNetworkMismatch(scope, network.Bridge, network.VLANTag) {
-					c.JSON(http.StatusUnprocessableEntity, gin.H{
-						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s (VLAN %d)", scope.VNet, scope.VLANTag),
-					})
-					return
-				}
-			}
-		}
-	}
-
-	config := proxmox.VMHardwareConfig{
-		OSType:   strings.TrimSpace(req.OSType),
-		BIOS:     strings.TrimSpace(req.BIOS),
-		Machine:  strings.TrimSpace(req.Machine),
-		SCSI:     strings.TrimSpace(req.SCSI),
-		Sockets:  req.Sockets,
-		Cores:    req.Cores,
-		CPUType:  strings.TrimSpace(req.CPUType),
-		Memory:   req.Memory,
-		Balloon:  req.Balloon,
-		Storage:  strings.TrimSpace(req.Storage),
-		DiskSize: req.DiskSize,
-		Networks: make([]proxmox.VMHardwareNetwork, 0, len(req.Networks)),
-	}
-
-	for _, network := range req.Networks {
-		var vlanTag *int
-		if network.VLANTag > 0 {
-			value := network.VLANTag
-			vlanTag = &value
-		}
-
-		config.Networks = append(config.Networks, proxmox.VMHardwareNetwork{
-			Device:     strings.TrimSpace(network.Device),
-			Bridge:     strings.TrimSpace(network.Bridge),
-			Model:      strings.TrimSpace(network.Model),
-			VLANTag:    vlanTag,
-			Firewall:   network.Firewall,
-			MACAddress: strings.TrimSpace(network.MACAddress),
-		})
+		nonManagerScoped = !isManager
 	}
 
 	h.runClaimedVMAction(c, target.ItemID, "update_hardware", principalID, func() bool {
+		config := proxmox.VMHardwareConfig{
+			OSType:   strings.TrimSpace(req.OSType),
+			BIOS:     strings.TrimSpace(req.BIOS),
+			Machine:  strings.TrimSpace(req.Machine),
+			SCSI:     strings.TrimSpace(req.SCSI),
+			Sockets:  req.Sockets,
+			Cores:    req.Cores,
+			CPUType:  strings.TrimSpace(req.CPUType),
+			Memory:   req.Memory,
+			Balloon:  req.Balloon,
+			Storage:  strings.TrimSpace(req.Storage),
+			DiskSize: req.DiskSize,
+			Networks: make([]proxmox.VMHardwareNetwork, 0, len(req.Networks)),
+		}
+
+		// Read current tags here, after the action claim, so no concurrent hardware action can change one in between.
+		var currentByDevice map[string]proxmox.VMHardwareNetwork
+		if nonManagerScoped {
+			currentHardware, err := h.PX.GetVMHardwareConfig(c.Request.Context(), target.Node, target.VMID)
+			if err != nil {
+				writeLoggedError(c, http.StatusBadGateway, "failed to load current VM hardware", "load vm hardware for network scope normalization", err)
+				return false
+			}
+			currentByDevice = vmHardwareNetworksByDevice(currentHardware.Networks)
+		}
+
+		for _, network := range req.Networks {
+			if !nonManagerScoped {
+				var vlanTag *int
+				if network.VLANTag > 0 {
+					value := network.VLANTag
+					vlanTag = &value
+				}
+				config.Networks = append(config.Networks, proxmox.VMHardwareNetwork{
+					Device:     strings.TrimSpace(network.Device),
+					Bridge:     strings.TrimSpace(network.Bridge),
+					Model:      strings.TrimSpace(network.Model),
+					VLANTag:    vlanTag,
+					Firewall:   network.Firewall,
+					MACAddress: strings.TrimSpace(network.MACAddress),
+				})
+				continue
+			}
+
+			bridge, vlanTag, ok := normalizeScopedHardwareEditNetwork(scope, currentByDevice, network)
+			if !ok {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"error": fmt.Sprintf("network bridge %q is not permitted inside this pod", strings.TrimSpace(network.Bridge)),
+				})
+				return false
+			}
+			config.Networks = append(config.Networks, proxmox.VMHardwareNetwork{
+				Device:     strings.TrimSpace(network.Device),
+				Bridge:     bridge,
+				Model:      strings.TrimSpace(network.Model),
+				VLANTag:    vlanTag,
+				Firewall:   network.Firewall,
+				MACAddress: strings.TrimSpace(network.MACAddress),
+			})
+		}
+
 		if err := h.PX.UpdateVMHardware(c.Request.Context(), target.Node, target.VMID, config); err != nil {
 			writeLoggedError(c, http.StatusUnprocessableEntity, err.Error(), "update vm hardware", err)
 			return false
@@ -236,6 +255,48 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 		return true
 	})
+}
+
+// vmHardwareNetworksByDevice indexes current Proxmox hardware networks by device name.
+func vmHardwareNetworksByDevice(networks []proxmox.VMHardwareNetwork) map[string]proxmox.VMHardwareNetwork {
+	byDevice := make(map[string]proxmox.VMHardwareNetwork, len(networks))
+	for _, network := range networks {
+		byDevice[network.Device] = network
+	}
+	return byDevice
+}
+
+// normalizeScopedHardwareEditNetwork preserves an existing device's current tag unconditionally; a new device gets scope.VLANTag.
+func normalizeScopedHardwareEditNetwork(
+	scope VMNetworkScope,
+	current map[string]proxmox.VMHardwareNetwork,
+	requested updateVMHardwareNetworkRequest,
+) (bridge string, vlanTag *int, ok bool) {
+	device := strings.TrimSpace(requested.Device)
+	requestedBridge := strings.TrimSpace(requested.Bridge)
+
+	if existing, isExisting := current[device]; device != "" && isExisting {
+		switch {
+		case requestedBridge == "" || requestedBridge == strings.TrimSpace(existing.Bridge):
+			bridge = existing.Bridge
+		case isAllowedScopeBridge(scope, requestedBridge):
+			bridge = requestedBridge
+		default:
+			return "", nil, false
+		}
+		return bridge, existing.VLANTag, true
+	}
+
+	tag := scope.VLANTag
+	switch {
+	case requestedBridge == "":
+		bridge = scope.VNet
+	case isAllowedScopeBridge(scope, requestedBridge):
+		bridge = requestedBridge
+	default:
+		return "", nil, false
+	}
+	return bridge, &tag, true
 }
 
 func validateVMHardwareRequest(req updateVMHardwareRequest) error {

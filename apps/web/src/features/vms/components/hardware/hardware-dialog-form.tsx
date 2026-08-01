@@ -43,9 +43,9 @@ type VmHardwareDialogFormProps = {
   scopedNetwork?: ApiScopedNetwork
 }
 
-function toFormValues(
-  hardware: ApiVmHardwareConfig,
-  scopedNetwork?: ApiScopedNetwork
+// Seeds exactly from current hardware; replacing an existing NIC's bridge/tag here would erase a manager override.
+export function vmHardwareFormValuesFromHardware(
+  hardware: ApiVmHardwareConfig
 ): VmHardwareFormValues {
   return {
     ostype: hardware.ostype,
@@ -62,9 +62,9 @@ function toFormValues(
     networks: hardware.networks.map((network) => ({
       device: network.device,
       mac_address: network.mac_address,
-      bridge: scopedNetwork ? scopedNetwork.bridge : network.bridge,
+      bridge: network.bridge,
       model: network.model,
-      vlan_tag: scopedNetwork ? scopedNetwork.vlan_tag : network.vlan_tag,
+      vlan_tag: network.vlan_tag,
       firewall: network.firewall,
     })),
   }
@@ -86,7 +86,7 @@ export function VmHardwareDialogForm({
   const minimumDiskSize = hardware.disk_size
 
   const form = useForm({
-    defaultValues: toFormValues(hardware, scopedNetwork),
+    defaultValues: vmHardwareFormValuesFromHardware(hardware),
     onSubmit: ({ value }) => {
       const parsed = vmHardwareFormSchema.parse(value)
       if (parsed.disk_size < minimumDiskSize) {

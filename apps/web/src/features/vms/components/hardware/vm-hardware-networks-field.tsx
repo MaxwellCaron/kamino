@@ -27,6 +27,7 @@ import { parseOptionalNumberInput } from "@/features/vms/components/create/creat
 import { nicModels } from "@/features/vms/components/hardware/hardware-options"
 import { VmHardwareNetworkCard } from "@/features/vms/components/hardware/hardware-sections"
 import { VmHardwareNetworkBridgeCombobox } from "@/features/vms/components/hardware/vm-hardware-network-bridge-combobox"
+import { isScopedNetworkBridgeLocked } from "@/features/vms/utils/vm-network-scope"
 
 type NetworkInterfaceValue = {
   id?: string
@@ -84,6 +85,9 @@ export function VmHardwareNetworksField({
           firewall: true,
         },
 }: VmHardwareNetworksFieldProps) {
+  const bridgeLocked = scopedNetwork
+    ? isScopedNetworkBridgeLocked(scopedNetwork)
+    : false
   return (
     <form.Field name="networks" mode="array">
       {(networksField: {
@@ -132,26 +136,21 @@ export function VmHardwareNetworksField({
                         data-invalid={
                           field.state.meta.errors.length > 0 || undefined
                         }
+                        data-disabled={bridgeLocked || undefined}
                       >
                         <FieldLabel>Bridge / VNet</FieldLabel>
                         <VmHardwareNetworkBridgeCombobox
                           bridgeOptions={bridgeOptions}
                           vnetOptions={vnetOptions}
                           networkOptions={networkOptions}
-                          value={
-                            scopedNetwork
-                              ? scopedNetwork.bridge
-                              : field.state.value
-                          }
+                          value={field.state.value}
                           invalid={field.state.meta.errors.length > 0}
-                          disabled={Boolean(scopedNetwork)}
+                          disabled={bridgeLocked}
                           onBlur={field.handleBlur}
                           onValueChange={field.handleChange}
                         />
                         {scopedNetwork ? (
-                          <FieldDescription>
-                            Assigned by personal pod.
-                          </FieldDescription>
+                          <FieldDescription>Managed by pod.</FieldDescription>
                         ) : null}
                         <FieldError>
                           {formatFieldError(field.state.meta.errors[0])}
@@ -212,6 +211,7 @@ export function VmHardwareNetworksField({
                       data-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
+                      data-disabled={Boolean(scopedNetwork) || undefined}
                     >
                       <FieldLabel htmlFor={`${fieldIdPrefix}-vlan-${index}`}>
                         VLAN Tag
@@ -220,11 +220,7 @@ export function VmHardwareNetworksField({
                         id={`${fieldIdPrefix}-vlan-${index}`}
                         type="number"
                         placeholder="Optional"
-                        value={
-                          scopedNetwork
-                            ? scopedNetwork.vlan_tag
-                            : (field.state.value ?? "")
-                        }
+                        value={field.state.value ?? ""}
                         disabled={Boolean(scopedNetwork)}
                         onBlur={field.handleBlur}
                         onChange={(event) =>
@@ -237,9 +233,7 @@ export function VmHardwareNetworksField({
                         }
                       />
                       {scopedNetwork ? (
-                        <FieldDescription>
-                          Assigned by personal pod.
-                        </FieldDescription>
+                        <FieldDescription>Managed by pod.</FieldDescription>
                       ) : null}
                       <FieldError>
                         {formatFieldError(field.state.meta.errors[0])}

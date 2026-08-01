@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
@@ -185,7 +186,6 @@ func main() {
 	}
 	vmHandler := &handlers.VMHandler{
 		PX:                               server.ProxmoxClient,
-		DB:                               server.DBPool,
 		Importer:                         server.ProxmoxImport,
 		Service:                          inventoryService,
 		Notifier:                         vmStatusNotifier,
@@ -195,12 +195,13 @@ func main() {
 		Audit:                            auditService,
 		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
 		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
+		NetworkScopeReader:               database.New(server.DBPool),
+		NetworkCatalog:                   networkCatalog,
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
 	vmHandler.Allocator = vmidAllocator
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:                               server.ProxmoxClient,
-		DB:                               server.DBPool,
 		Importer:                         server.ProxmoxImport,
 		Service:                          inventoryService,
 		Authz:                            authzService,
@@ -208,6 +209,8 @@ func main() {
 		Allocator:                        vmidAllocator,
 		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
 		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
+		NetworkScopeReader:               database.New(server.DBPool),
+		NetworkCatalog:                   networkCatalog,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {

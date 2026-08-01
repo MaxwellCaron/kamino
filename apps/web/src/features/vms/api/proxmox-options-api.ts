@@ -9,6 +9,7 @@ import { apiJson } from "@/features/shared/api/api-json"
 
 export type ApiScopedNetwork = {
   bridge: string
+  allowed_bridges: Array<string>
   vlan_tag: number
 }
 
@@ -53,6 +54,7 @@ export function createVmOptionsQueryOptions(
       vnets: Array<ApiVNet>
       scoped_network?: ApiScopedNetwork
       personal_pod_templates_folder_id?: string
+      personal_pod_templates_restricted: boolean
     }> => {
       const params = new URLSearchParams({ scope_item_id: scopeItemId })
       return apiJson<{
@@ -63,6 +65,7 @@ export function createVmOptionsQueryOptions(
         vnets: Array<ApiVNet>
         scoped_network?: ApiScopedNetwork
         personal_pod_templates_folder_id?: string
+        personal_pod_templates_restricted: boolean
       }>(
         `/api/v1/proxmox/create/options?${params.toString()}`,
         "fetch create options",

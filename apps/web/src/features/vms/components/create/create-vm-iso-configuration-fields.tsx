@@ -32,6 +32,7 @@ import { formatFieldError } from "./create-vm-step-utils"
 import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import type { NetworkData } from "./create-vm-step-utils"
 import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
+import { applyScopedNetworkToInterfaces } from "@/features/vms/utils/vm-network-scope"
 import { VMIDField } from "@/components/vms/vmid-field"
 import {
   biosTypes,
@@ -73,33 +74,20 @@ export const IsoConfigurationFields = withCreateVmForm({
     const { bridgeOptions, vnetOptions, networkOptions } =
       buildVmHardwareNetworkOptions(networks ?? {})
     const scopedNetwork = networks?.scoped_network
-    const scopedNetworkBridge = scopedNetwork?.bridge
-    const scopedNetworkVlanTag = scopedNetwork?.vlan_tag
 
     useEffect(() => {
-      if (
-        scopedNetworkBridge === undefined ||
-        scopedNetworkVlanTag === undefined
-      ) {
-        return
-      }
+      if (!scopedNetwork) return
       const current = form.getFieldValue("networks")
-      const needsSync = current.some(
-        (network) =>
-          network.bridge !== scopedNetworkBridge ||
-          network.vlan_tag !== scopedNetworkVlanTag
+      const next = applyScopedNetworkToInterfaces(scopedNetwork, current)
+      const needsSync = next.some(
+        (network, index) =>
+          network.bridge !== current[index]?.bridge ||
+          network.vlan_tag !== current[index]?.vlan_tag
       )
       if (needsSync) {
-        form.setFieldValue(
-          "networks",
-          current.map((network) => ({
-            ...network,
-            bridge: scopedNetworkBridge,
-            vlan_tag: scopedNetworkVlanTag,
-          }))
-        )
+        form.setFieldValue("networks", next)
       }
-    }, [form, scopedNetworkBridge, scopedNetworkVlanTag])
+    }, [form, scopedNetwork])
 
     return (
       <div className="flex flex-col gap-6">
