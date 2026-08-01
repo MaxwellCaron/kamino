@@ -19,6 +19,35 @@ import (
 	"github.com/google/uuid"
 )
 
+type fakePodNetworkScopeReader struct {
+	row database.GetPodNetworkScopeForInventoryItemRow
+}
+
+func (f *fakePodNetworkScopeReader) GetPodNetworkScopeForInventoryItem(
+	context.Context,
+	uuid.UUID,
+) (database.GetPodNetworkScopeForInventoryItemRow, error) {
+	return f.row, nil
+}
+
+func strPtr(value string) *string {
+	return &value
+}
+
+func testNetworkCatalog(t *testing.T) *podnetwork.Catalog {
+	t.Helper()
+
+	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
+		LANVNet:   "pod",
+		DMZVNet:   "dmz",
+		WANIPBase: "172.16.",
+	})
+	if err != nil {
+		t.Fatalf("NewCatalog() error = %v", err)
+	}
+	return catalog
+}
+
 type fakeVMCreateAuthz struct {
 	fakeVMAuthz
 	hasAny         bool
