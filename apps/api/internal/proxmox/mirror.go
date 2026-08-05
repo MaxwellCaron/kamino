@@ -134,20 +134,12 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	for key, desiredPool := range effectiveDesiredVMPools {
 		poolGroup.Go(func() error {
 			currentPool, exists := currentVMPools[key]
-			if !exists || currentPool == desiredPool {
+			if !exists || !shouldAssignUnpooledVM(currentPool, desiredPool) {
 				return nil
 			}
 
-			if currentPool != "" {
-				if err := m.client.RemoveVMFromPool(poolCtx, currentPool, key.VMID); err != nil {
-					return fmt.Errorf("removing VM %d on %s from pool %q: %w", key.VMID, key.Node, currentPool, err)
-				}
-			}
-
-			if desiredPool != "" {
-				if err := m.client.AddVMToPool(poolCtx, desiredPool, key.VMID); err != nil {
-					return fmt.Errorf("adding VM %d on %s to pool %q: %w", key.VMID, key.Node, desiredPool, err)
-				}
+			if err := m.client.AddVMToPool(poolCtx, desiredPool, key.VMID); err != nil {
+				return fmt.Errorf("adding VM %d on %s to pool %q: %w", key.VMID, key.Node, desiredPool, err)
 			}
 
 			return nil
@@ -173,6 +165,11 @@ func (m *InventoryMirror) Reconcile(ctx context.Context) error {
 	notesErr := notesGroup.Wait()
 
 	return errors.Join(append(poolErrs, membershipErr, notesErr)...)
+}
+
+// Background reconciliation never changes existing pool membership.
+func shouldAssignUnpooledVM(currentPool, desiredPool string) bool {
+	return currentPool == "" && desiredPool != ""
 }
 
 // reconcilePoolDefinitions creates a Proxmox pool for any database folder that lacks one; it never updates or deletes an existing pool.

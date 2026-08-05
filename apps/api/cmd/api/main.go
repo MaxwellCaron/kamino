@@ -75,7 +75,7 @@ func main() {
 	}
 	defer server.DBPool.Close()
 
-	runInitialSyncs(
+	proxmoxSyncSucceeded := runInitialSyncs(
 		context.Background(),
 		&config,
 		server.ProxmoxImport.Run,
@@ -89,11 +89,16 @@ func main() {
 	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient)
 	go vmStatusNotifier.Start(context.Background())
 
-	proxmoxMirror := proxmox.NewInventoryMirror(server.DBPool, server.ProxmoxClient)
+	var proxmoxMirror *proxmox.InventoryMirror
+	if proxmoxSyncSucceeded {
+		proxmoxMirror = proxmox.NewInventoryMirror(server.DBPool, server.ProxmoxClient)
+	}
 	if proxmoxMirror != nil {
 		if err := proxmoxMirror.Reconcile(context.Background()); err != nil {
 			log.Printf("Initial Proxmox mirror reconcile failed: %v", err)
 		}
+	} else {
+		log.Printf("Skipping Proxmox mirror reconciliation because initial Proxmox sync did not complete successfully")
 	}
 
 	adminGroup, err := resolveBootstrapAdminGroup(context.Background(), server.Config, server.ADClient)

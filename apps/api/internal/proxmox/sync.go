@@ -87,6 +87,7 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 
 	// Sync VMs
 	syncedCount := 0
+	var syncErrs []error
 	for _, vm := range vms {
 		if vm.Type != "qemu" && vm.Type != "lxc" {
 			continue
@@ -94,28 +95,49 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 
 		gt := GuestTypeFromVMType(vm.Type)
 
-		parentID := rootID
-		if vm.Pool != "" {
-			if folderID, ok := poolFolders[vm.Pool]; ok {
-				parentID = folderID
-			}
+		parentID, err := importedVMParent(rootID, poolFolders, vm)
+		if err != nil {
+			log.Printf("Warning: %v", err)
+			syncErrs = append(syncErrs, err)
+			continue
 		}
 
 		summary, err := s.ensureVMConfigSummary(ctx, gt, vm.Node, vm.VMID)
 		if err != nil {
-			log.Printf("Warning: failed to load config summary for VM %d on node %s: %v", vm.VMID, vm.Node, err)
+			err = fmt.Errorf("loading config summary for VM %d on node %s: %w", vm.VMID, vm.Node, err)
+			log.Printf("Warning: %v", err)
+			syncErrs = append(syncErrs, err)
 			continue
 		}
 
 		if err := s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, gt, summary); err != nil {
 			log.Printf("Warning: failed to sync VM %d on node %s: %v", vm.VMID, vm.Node, err)
+			syncErrs = append(syncErrs, err)
 			continue
 		}
 		syncedCount++
 	}
 
 	log.Printf("Proxmox sync complete: %d pools, %d/%d VMs", len(pools), syncedCount, len(vms))
-	return nil
+	return errors.Join(syncErrs...)
+}
+
+func importedVMParent(rootID uuid.UUID, poolFolders map[string]uuid.UUID, vm VM) (uuid.UUID, error) {
+	if vm.Pool == "" {
+		return rootID, nil
+	}
+
+	folderID, ok := poolFolders[vm.Pool]
+	if !ok {
+		return uuid.Nil, fmt.Errorf(
+			"VM %d on node %s references pool %q missing from the Proxmox pool snapshot",
+			vm.VMID,
+			vm.Node,
+			vm.Pool,
+		)
+	}
+
+	return folderID, nil
 }
 
 // adoptProxmoxPools ensures a matching folder exists for every live Proxmox pool, importing its comment as the description.

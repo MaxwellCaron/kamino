@@ -2,9 +2,13 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
+
+const poolMembershipRestoreTimeout = 15 * time.Second
 
 func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) error {
 	if poolID == "" {
@@ -95,7 +99,20 @@ func (c *Client) SyncVMPoolMembership(
 	}
 
 	if err := c.AddVMToPool(ctx, desiredPool, vmid); err != nil {
-		return fmt.Errorf("adding VM %d to pool %q: %w", vmid, desiredPool, err)
+		addErr := fmt.Errorf("adding VM %d to pool %q: %w", vmid, desiredPool, err)
+		if currentPool == "" {
+			return addErr
+		}
+
+		restoreCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), poolMembershipRestoreTimeout)
+		defer cancel()
+		if restoreErr := c.AddVMToPool(restoreCtx, currentPool, vmid); restoreErr != nil {
+			return errors.Join(
+				addErr,
+				fmt.Errorf("restoring VM %d to original pool %q: %w", vmid, currentPool, restoreErr),
+			)
+		}
+		return fmt.Errorf("%w (restored original pool %q)", addErr, currentPool)
 	}
 
 	return nil
