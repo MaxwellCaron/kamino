@@ -7,7 +7,7 @@ import (
 
 const RootFolderName = "Proxmox"
 
-const RootFolderDescription = "Imported Proxmox inventory. Folders mirror Proxmox pools; moving or editing folders updates the mirrored pool state."
+const RootFolderDescription = "Imported Proxmox inventory. Folders represent Proxmox resource pools."
 
 const proxmoxRootFolderName = RootFolderName
 

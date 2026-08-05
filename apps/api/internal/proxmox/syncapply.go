@@ -119,25 +119,12 @@ func (s *InventoryImporter) applyAdd(
 		return result
 	}
 
-	parentID := rootID
-	if change.Pool != "" {
-		rows, err := q.GetAllInventoryItems(ctx)
-		if err != nil {
-			result.Status = "error"
-			result.Error = fmt.Sprintf("loading inventory tree: %v", err)
-			log.Printf("proxmox sync add %s: %v", change.ID, err)
-			return result
-		}
-		state, err := buildDesiredPoolState(rows)
-		if err != nil {
-			result.Status = "error"
-			result.Error = fmt.Sprintf("resolving managed root folder: %v", err)
-			log.Printf("proxmox sync add %s: %v", change.ID, err)
-			return result
-		}
-		if folderID, ok := state.poolFolderID[change.Pool]; ok {
-			parentID = folderID
-		}
+	parentID, err := ensureImportedPoolParent(ctx, q, rootID, change.Pool)
+	if err != nil {
+		result.Status = "error"
+		result.Error = fmt.Sprintf("syncing pool folder: %v", err)
+		log.Printf("proxmox sync add %s: %v", change.ID, err)
+		return result
 	}
 
 	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
@@ -158,19 +145,17 @@ func (s *InventoryImporter) applyUpdate(
 ) SyncApplyResult {
 	result := SyncApplyResult{ID: change.ID, Kind: string(SyncChangeUpdate)}
 
-	// Resolve the parent: use the DB parent so we don't move the VM.
-	parentID := uuid.Nil
-	if change.ParentID != nil {
-		parentID = *change.ParentID
-	} else {
-		// Fallback: ensure root folder as parent.
-		rootID, err := ensureRootFolder(ctx, q)
-		if err != nil {
-			result.Status = "error"
-			result.Error = fmt.Sprintf("resolving parent folder: %v", err)
-			return result
-		}
-		parentID = rootID
+	rootID, err := ensureRootFolder(ctx, q)
+	if err != nil {
+		result.Status = "error"
+		result.Error = fmt.Sprintf("resolving root folder: %v", err)
+		return result
+	}
+	parentID, err := ensureImportedPoolParent(ctx, q, rootID, change.Pool)
+	if err != nil {
+		result.Status = "error"
+		result.Error = fmt.Sprintf("syncing pool folder: %v", err)
+		return result
 	}
 
 	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
@@ -182,6 +167,13 @@ func (s *InventoryImporter) applyUpdate(
 
 	result.Status = "success"
 	return result
+}
+
+func ensureImportedPoolParent(ctx context.Context, q *database.Queries, rootID uuid.UUID, poolID string) (uuid.UUID, error) {
+	if poolID == "" {
+		return rootID, nil
+	}
+	return ensureFolderPath(ctx, q, rootID, decodePoolPath(poolID))
 }
 
 func (s *InventoryImporter) applyRemove(

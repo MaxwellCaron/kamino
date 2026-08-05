@@ -14,7 +14,6 @@ import (
 type ProxmoxSyncHandler struct {
 	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service
-	Mirror   *proxmox.InventoryMirror
 	Authz    *authorization.Service
 	Audit    *audit.Service
 }
@@ -51,9 +50,7 @@ type syncApplyResponse struct {
 	Skipped int                       `json:"skipped"`
 }
 
-// Apply re-derives the live diff, applies the selected changes, notifies the
-// inventory tree, and schedules a mirror reconcile.
-// POST /api/v1/admin/proxmox/sync/apply
+// Apply imports selected live Proxmox changes into Kamino.
 func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return
@@ -79,7 +76,6 @@ func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
 	}
 
 	h.Service.NotifyInventoryTreeChanged(ctx)
-	h.Mirror.ScheduleReconcile()
 
 	resp := syncApplyResponse{Results: results}
 	for _, r := range results {

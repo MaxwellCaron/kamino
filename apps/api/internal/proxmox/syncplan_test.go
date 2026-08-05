@@ -32,6 +32,8 @@ func TestSyncVMKeyRoundTrip(t *testing.T) {
 func TestComputeSyncDiff(t *testing.T) {
 	itemID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	parentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	rootID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	poolFolderID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
 
 	nodePve1 := "pve1"
 	nodePve2 := "pve2"
@@ -198,6 +200,40 @@ func TestComputeSyncDiff(t *testing.T) {
 						Field: "template", From: "false", To: "true",
 					}},
 					ItemID: itemID, ParentID: &parentID,
+				}},
+			},
+		},
+		{
+			name: "update pool placement change",
+			vms: []VM{{
+				Node: "pve1", VMID: 100, Name: "pooled-vm", Type: "qemu", Pool: "live-pool",
+			}},
+			dbRows: []database.GetAllInventoryItemsRow{
+				{
+					ID: rootID, Kind: database.InventoryItemKindFolder, Name: RootFolderName,
+				},
+				{
+					ID: poolFolderID, ParentID: &rootID,
+					Kind: database.InventoryItemKindFolder, Name: "old-pool",
+				},
+				{
+					ID: itemID, ParentID: &poolFolderID,
+					Kind: database.InventoryItemKindVm, Name: "pooled-vm",
+					Node: new("pve1"), Vmid: new(int32(100)),
+					GuestType: new("qemu"), IsTemplate: new(false),
+				},
+			},
+			blockersFn: noopBlockers,
+			want: SyncDiff{
+				ProxmoxVMCount: 1,
+				Updates: []SyncChange{{
+					ID: "pve1/100", Kind: SyncChangeUpdate,
+					Node: "pve1", VMID: 100, Name: "pooled-vm",
+					GuestType: "qemu", Actionable: true,
+					Fields: []SyncFieldChange{{
+						Field: "pool", From: "old-pool", To: "live-pool",
+					}},
+					ItemID: itemID, ParentID: &poolFolderID, Pool: "live-pool",
 				}},
 			},
 		},

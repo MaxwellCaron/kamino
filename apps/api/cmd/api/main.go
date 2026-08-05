@@ -12,7 +12,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/MaxwellCaron/kamino/internal/routes"
@@ -75,7 +74,7 @@ func main() {
 	}
 	defer server.DBPool.Close()
 
-	proxmoxSyncSucceeded := runInitialSyncs(
+	runInitialSyncs(
 		context.Background(),
 		&config,
 		server.ProxmoxImport.Run,
@@ -88,18 +87,6 @@ func main() {
 	go requestsNotifier.Start(context.Background())
 	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient)
 	go vmStatusNotifier.Start(context.Background())
-
-	var proxmoxMirror *proxmox.InventoryMirror
-	if proxmoxSyncSucceeded {
-		proxmoxMirror = proxmox.NewInventoryMirror(server.DBPool, server.ProxmoxClient)
-	}
-	if proxmoxMirror != nil {
-		if err := proxmoxMirror.Reconcile(context.Background()); err != nil {
-			log.Printf("Initial Proxmox mirror reconcile failed: %v", err)
-		}
-	} else {
-		log.Printf("Skipping Proxmox mirror reconciliation because initial Proxmox sync did not complete successfully")
-	}
 
 	adminGroup, err := resolveBootstrapAdminGroup(context.Background(), server.Config, server.ADClient)
 	if err != nil {
@@ -273,7 +260,6 @@ func main() {
 	proxmoxSyncHandler := &handlers.ProxmoxSyncHandler{
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
-		Mirror:   proxmoxMirror,
 		Authz:    authzService,
 		Audit:    auditService,
 	}

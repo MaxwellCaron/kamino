@@ -195,21 +195,13 @@ func TestRunInitialSyncs(t *testing.T) {
 				PrincipalInitialSyncEnabled: tt.principalEnabled,
 			}
 
-			proxmoxSyncSucceeded := runInitialSyncs(context.Background(), &cfg, proxmoxSync, principalSync)
+			runInitialSyncs(context.Background(), &cfg, proxmoxSync, principalSync)
 
 			if proxmoxCalls != tt.wantProxmoxCalls {
 				t.Fatalf("proxmox calls = %d, want %d", proxmoxCalls, tt.wantProxmoxCalls)
 			}
 			if principalCalls != tt.wantPrincipalCalls {
 				t.Fatalf("principal calls = %d, want %d", principalCalls, tt.wantPrincipalCalls)
-			}
-			wantProxmoxSyncSucceeded := tt.proxmoxEnabled && tt.proxmoxErr == nil
-			if proxmoxSyncSucceeded != wantProxmoxSyncSucceeded {
-				t.Fatalf(
-					"proxmox sync succeeded = %t, want %t",
-					proxmoxSyncSucceeded,
-					wantProxmoxSyncSucceeded,
-				)
 			}
 		})
 	}

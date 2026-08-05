@@ -20,7 +20,7 @@ const (
 
 // SyncFieldChange describes a single field that differs between Proxmox and the DB.
 type SyncFieldChange struct {
-	Field string `json:"field"` // "name" | "template"
+	Field string `json:"field"` // "name" | "template" | "pool"
 	From  string `json:"from"`
 	To    string `json:"to"`
 }
@@ -60,6 +60,7 @@ type dbVMRecord struct {
 	name       string
 	isTemplate bool
 	guestType  string
+	pool       string
 }
 
 // computeSyncDiff builds the diff from pre-fetched slices.
@@ -73,6 +74,15 @@ func computeSyncDiff(
 	dbRows []database.GetAllInventoryItemsRow,
 	blockersFn func(id uuid.UUID) ([]string, error),
 ) (SyncDiff, error) {
+	state, err := buildDesiredPoolState(dbRows)
+	if err != nil {
+		return SyncDiff{}, fmt.Errorf("resolving inventory pool placement: %w", err)
+	}
+	dbPools := make(map[string]string, len(state.vmPools))
+	for key, pool := range state.vmPools {
+		dbPools[syncVMKey(key.Node, key.VMID)] = pool
+	}
+
 	// Index Proxmox VMs by "node/vmid".
 	proxmoxByKey := make(map[string]VM, len(vms))
 	for _, vm := range vms {
@@ -98,6 +108,7 @@ func computeSyncDiff(
 			name:       row.Name,
 			isTemplate: isTemplate,
 			guestType:  guestType,
+			pool:       dbPools[key],
 		}
 	}
 
@@ -179,6 +190,13 @@ func computeSyncDiff(
 				To:    to,
 			})
 		}
+		if vm.Pool != rec.pool {
+			fields = append(fields, SyncFieldChange{
+				Field: "pool",
+				From:  rec.pool,
+				To:    vm.Pool,
+			})
+		}
 		if len(fields) > 0 {
 			diff.Updates = append(diff.Updates, SyncChange{
 				ID:         key,
@@ -192,6 +210,7 @@ func computeSyncDiff(
 				Fields:     fields,
 				ItemID:     rec.itemID,
 				ParentID:   rec.parentID,
+				Pool:       vm.Pool,
 			})
 		}
 	}
