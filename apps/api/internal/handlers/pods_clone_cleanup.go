@@ -21,6 +21,7 @@ type failedPodProvisionCleanupCallbacks struct {
 
 	// Folder-plan phase catches synced guests/pools not in the created map.
 	buildFolderPlan        func(ctx context.Context, folderID uuid.UUID) (inventory.FolderDeletionPlan, error)
+	prepareFolderPlan      func(ctx context.Context, plan inventory.FolderDeletionPlan, concurrency int) (inventory.FolderDeletionPlan, error)
 	deleteFolderResourceVM func(ctx context.Context, vm inventory.FolderDeletionVM) error
 	deletePools            func(ctx context.Context, poolIDs []string) error
 
@@ -100,6 +101,7 @@ func runFailedPodProvisionCleanup(
 	}
 
 	resourceErr := runFolderResourceDeletion(ctx, plan, concurrency, folderResourceDeletionCallbacks{
+		preparePlan: cbs.prepareFolderPlan,
 		deleteVM:    cbs.deleteFolderResourceVM,
 		deletePools: cbs.deletePools,
 		deleteMetadata: func(ctx context.Context) error {
@@ -125,6 +127,7 @@ func (h *PodsHandler) cleanupFailedPodProvision(folderID uuid.UUID, created map[
 	}
 	if folderID != uuid.Nil {
 		cbs.buildFolderPlan = h.Service.BuildFolderDeletionPlan
+		cbs.prepareFolderPlan = proxmoxFolderDeletionPlanPreparer(h.PX, h.Service)
 		cbs.deleteFolderResourceVM = proxmoxFolderResourceDeleteVM(h.PX)
 		cbs.deletePools = h.PX.DeletePools
 	}

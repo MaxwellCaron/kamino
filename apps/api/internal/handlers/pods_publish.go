@@ -299,6 +299,7 @@ func (h *PodsHandler) DeletePublished(c *gin.Context) {
 
 	var metadataErr error
 	cbs := folderResourceDeletionCallbacks{
+		preparePlan: proxmoxFolderDeletionPlanPreparer(h.PX, h.Service),
 		deleteVM:    proxmoxFolderResourceDeleteVM(h.PX),
 		deletePools: h.PX.DeletePools,
 		deleteMetadata: func(ctx context.Context) error {

@@ -18,6 +18,7 @@ type FolderDeletionVM struct {
 	Node            string
 	VMID            int32
 	GuestType       string
+	UpstreamUUID    uuid.UUID
 	Name            string
 	IsTemplate      bool
 }
@@ -25,6 +26,7 @@ type FolderDeletionVM struct {
 type FolderDeletionPlan struct {
 	ProxmoxVMs   []FolderDeletionVM
 	ProxmoxPools []string
+	RootPoolID   string
 }
 
 type deletionBlocker struct {
@@ -97,7 +99,7 @@ func buildFolderDeletionPlan(
 		return FolderDeletionPlan{}, err
 	}
 
-	plan := FolderDeletionPlan{}
+	plan := FolderDeletionPlan{RootPoolID: proxmox.EncodePoolPath(basePath)}
 
 	var walk func(uuid.UUID, []string)
 	walk = func(itemID uuid.UUID, path []string) {
@@ -192,7 +194,11 @@ func (s *Service) BuildFolderDeletionPlan(ctx context.Context, id uuid.UUID) (Fo
 		return FolderDeletionPlan{}, err
 	}
 
-	return buildFolderDeletionPlan(rows, toDeletionBlockers(blockerRows), id)
+	plan, err := buildFolderDeletionPlan(rows, toDeletionBlockers(blockerRows), id)
+	if err != nil {
+		return FolderDeletionPlan{}, err
+	}
+	return hydrateFolderDeletionVMIdentities(ctx, q, plan)
 }
 
 // BuildPublishedPodFolderDeletionPlan is BuildFolderDeletionPlan excluding podID's own blockers, read through the caller's tx.
@@ -217,7 +223,26 @@ func (s *Service) BuildPublishedPodFolderDeletionPlan(
 		return FolderDeletionPlan{}, err
 	}
 
-	return buildFolderDeletionPlan(rows, toDeletionBlockersExceptPublishedPod(blockerRows), folderID)
+	plan, err := buildFolderDeletionPlan(rows, toDeletionBlockersExceptPublishedPod(blockerRows), folderID)
+	if err != nil {
+		return FolderDeletionPlan{}, err
+	}
+	return hydrateFolderDeletionVMIdentities(ctx, q, plan)
+}
+
+func hydrateFolderDeletionVMIdentities(
+	ctx context.Context,
+	q *database.Queries,
+	plan FolderDeletionPlan,
+) (FolderDeletionPlan, error) {
+	for i := range plan.ProxmoxVMs {
+		row, err := q.GetProxmoxVMByInventoryItemID(ctx, plan.ProxmoxVMs[i].InventoryItemID)
+		if err != nil {
+			return FolderDeletionPlan{}, fmt.Errorf("loading VM identity for %s: %w", plan.ProxmoxVMs[i].InventoryItemID, err)
+		}
+		plan.ProxmoxVMs[i].UpstreamUUID = row.UpstreamUuid
+	}
+	return plan, nil
 }
 
 func (s *Service) EnsureInventorySubtreeDeletable(ctx context.Context, id uuid.UUID) error {

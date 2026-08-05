@@ -307,7 +307,7 @@ func (h *InventoryHandler) DeleteFolder(c *gin.Context) {
 	}
 
 	var metadataErr error
-	cbs := proxmoxFolderResourceDeletionCallbacks(h.PX, func(ctx context.Context) error {
+	cbs := proxmoxFolderResourceDeletionCallbacks(h.PX, h.Service, func(ctx context.Context) error {
 		metadataErr = h.Service.DeleteFolder(ctx, id)
 		return metadataErr
 	})

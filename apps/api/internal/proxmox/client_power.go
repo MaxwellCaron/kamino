@@ -3,7 +3,19 @@ package proxmox
 import (
 	"context"
 	"fmt"
+	"strings"
 )
+
+// IsMissingVMError reports whether Proxmox says a guest is already absent.
+func IsMissingVMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "not found") ||
+		strings.Contains(message, "no such vm")
+}
 
 func (c *Client) startPowerTask(
 	ctx context.Context,
@@ -83,19 +95,31 @@ func (c *Client) DeleteVM(ctx context.Context, gt GuestType, node string, vmid i
 	path := guestPath(gt, node, vmid, "")
 	var resp apiResponse[string]
 	if err := c.delete(ctx, path, &resp); err != nil {
+		if IsMissingVMError(err) {
+			return nil
+		}
 		return fmt.Errorf("deleting VM: %w", err)
 	}
-	return c.waitForTask(ctx, node, resp.Data)
+	if err := c.waitForTask(ctx, node, resp.Data); err != nil && !IsMissingVMError(err) {
+		return err
+	}
+	return nil
 }
 
 // DeleteVMStopped checks if a guest is running, stops it if so, and then deletes it.
 func (c *Client) DeleteVMStopped(ctx context.Context, gt GuestType, node string, vmid int) error {
 	status, err := c.GetVMRuntimeStatus(ctx, gt, node, vmid)
 	if err != nil {
+		if IsMissingVMError(err) {
+			return nil
+		}
 		return err
 	}
 	if status == "running" {
 		if err := c.StopVM(ctx, gt, node, vmid); err != nil {
+			if IsMissingVMError(err) {
+				return nil
+			}
 			return err
 		}
 	}

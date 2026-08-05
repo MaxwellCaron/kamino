@@ -308,6 +308,25 @@ func TestWaitForVMConfigUnlocked(t *testing.T) {
 }
 
 func TestDeleteVMStopped(t *testing.T) {
+	t.Run("missing VM", func(t *testing.T) {
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			if r.Method != http.MethodGet || r.URL.Path != "/api2/json/nodes/node1/qemu/101/status/current" {
+				t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
+			}
+			http.Error(w, "VM 101 does not exist", http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		if err := NewHTTPTestClient(server).DeleteVMStopped(context.Background(), GuestQEMU, "node1", 101); err != nil {
+			t.Fatalf("DeleteVMStopped() error = %v", err)
+		}
+		if requests != 1 {
+			t.Fatalf("requests = %d, want 1", requests)
+		}
+	})
+
 	t.Run("stopped VM", func(t *testing.T) {
 		var (
 			stopCalled   bool

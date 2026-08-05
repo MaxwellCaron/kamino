@@ -175,13 +175,7 @@ func (h *PodsHandler) deleteClonedPodProxmoxVM(ctx context.Context, node string,
 }
 
 func isMissingProxmoxVMError(err error) bool {
-	if err == nil {
-		return false
-	}
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "does not exist") ||
-		strings.Contains(message, "not found") ||
-		strings.Contains(message, "no such vm")
+	return proxmox.IsMissingVMError(err)
 }
 
 func (h *PodsHandler) visibleCatalogPodBySlug(

@@ -206,13 +206,30 @@ func verifyVMRecordIdentity(
 		}
 	}
 
+	return verifiedVMTargetFromRecord(record), nil
+}
+
+func verifyVMRecordIdentityForAction(
+	ctx context.Context,
+	px vmProxmox,
+	record authorization.VMRecord,
+	allowMissingUpstream bool,
+) (verifiedVMTarget, *requestError) {
+	target, reqErr := verifyVMRecordIdentity(ctx, px, record)
+	if allowMissingUpstream && reqErr != nil && isMissingProxmoxVMError(reqErr.Err) {
+		return verifiedVMTargetFromRecord(record), nil
+	}
+	return target, reqErr
+}
+
+func verifiedVMTargetFromRecord(record authorization.VMRecord) verifiedVMTarget {
 	return verifiedVMTarget{
 		ItemID:       record.InventoryItemID,
 		Node:         record.Node,
 		VMID:         int(record.Vmid),
 		UpstreamUUID: record.UpstreamUUID,
 		GuestType:    proxmox.GuestType(record.GuestType),
-	}, nil
+	}
 }
 
 // requireVerifiedVMItemPermission keeps sensitive VM actions bound to the

@@ -322,7 +322,7 @@ func (h *PodsHandler) deleteClonedPodFolderResources(
 	}
 
 	var metadataErr error
-	cbs := proxmoxFolderResourceDeletionCallbacks(h.PX, func(ctx context.Context) error {
+	cbs := proxmoxFolderResourceDeletionCallbacks(h.PX, h.Service, func(ctx context.Context) error {
 		metadataErr = h.Service.DeleteFolder(ctx, clone.FolderID)
 		return metadataErr
 	})

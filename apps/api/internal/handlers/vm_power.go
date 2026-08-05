@@ -44,6 +44,7 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 		itemIDs,
 		authorization.PowerVM,
 		true,
+		false,
 	)
 
 	ctx := c.Request.Context()
@@ -137,6 +138,7 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		principalID,
 		itemIDs,
 		authorization.DeleteVM,
+		true,
 		true,
 	)
 

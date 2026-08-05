@@ -66,6 +66,7 @@ func (h *VMHandler) collectVerifiedVMTargets(
 	itemIDs []uuid.UUID,
 	required authorization.Mask,
 	lock bool,
+	allowMissingUpstream bool,
 ) ([]verifiedVMTarget, bulkVMActionResponse) {
 	response := bulkVMActionResponse{
 		Succeeded: make([]string, 0, len(itemIDs)),
@@ -126,7 +127,12 @@ func (h *VMHandler) collectVerifiedVMTargets(
 	for _, pendingTarget := range pending {
 		pendingTarget := pendingTarget
 		group.Go(func() error {
-			target, reqErr := verifyVMRecordIdentity(groupCtx, h.PX, pendingTarget.record)
+			target, reqErr := verifyVMRecordIdentityForAction(
+				groupCtx,
+				h.PX,
+				pendingTarget.record,
+				allowMissingUpstream,
+			)
 			if reqErr != nil {
 				verifyErrors[pendingTarget.index] = reqErr
 				return nil

@@ -351,6 +351,7 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 		itemIDs,
 		authorization.TemplateVM,
 		true,
+		false,
 	)
 
 	ctx := c.Request.Context()

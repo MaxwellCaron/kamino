@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -10,6 +12,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+func TestVerifyVMRecordIdentityForDeleteAllowsMissingUpstream(t *testing.T) {
+	itemID := uuid.New()
+	upstreamUUID := uuid.New()
+	record := authorization.VMRecord{
+		InventoryItemID: itemID,
+		Node:            "node-a",
+		Vmid:            101,
+		GuestType:       "qemu",
+		UpstreamUUID:    upstreamUUID,
+	}
+	px := &fakeVMProxmox{identityErr: fmt.Errorf("404 Not Found")}
+
+	target, reqErr := verifyVMRecordIdentityForAction(context.Background(), px, record, true)
+	if reqErr != nil {
+		t.Fatalf("verifyVMRecordIdentityForAction returned error: %v", reqErr)
+	}
+	if target.ItemID != itemID || target.Node != "node-a" || target.VMID != 101 || target.UpstreamUUID != upstreamUUID {
+		t.Fatalf("target = %+v, want database-backed target", target)
+	}
+}
 
 func TestVMDeleteVM_PermissionDenied(t *testing.T) {
 	principalID := uuid.New()
