@@ -32,7 +32,7 @@ type podCloneTarget struct {
 	LANVNet                  string
 	DMZVNet                  string
 	WANBridge                string
-	WANIPBase                string
+	WANSubnet                string
 	CloudInitStorage         string
 	CloudInitUserFilePattern string
 	CloudInitNetworkFile     string
@@ -48,7 +48,7 @@ func (t podCloneTarget) Network() podnetwork.Target {
 		LANVNet:   t.LANVNet,
 		DMZVNet:   t.DMZVNet,
 		WANBridge: t.WANBridge,
-		WANIPBase: t.WANIPBase,
+		WANSubnet: t.WANSubnet,
 	}
 }
 
@@ -59,7 +59,7 @@ func podCloneTargetFromRow(row database.PodCloneTargets) podCloneTarget {
 		LANVNet:                  row.LanVnet,
 		DMZVNet:                  row.DmzVnet,
 		WANBridge:                row.WanBridge,
-		WANIPBase:                row.WanIpBase,
+		WANSubnet:                row.WanSubnet,
 		CloudInitStorage:         row.CloudInitStorage,
 		CloudInitUserFilePattern: row.CloudInitUserFilePattern,
 		CloudInitNetworkFile:     row.CloudInitNetworkFile,
@@ -75,7 +75,7 @@ type podCloneTargetResponse struct {
 	LANVNet                  string `json:"lan_vnet"`
 	DMZVNet                  string `json:"dmz_vnet"`
 	WANBridge                string `json:"wan_bridge"`
-	WANIPBase                string `json:"wan_ip_base"`
+	WANSubnet                string `json:"wan_subnet"`
 	CloudInitStorage         string `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
@@ -91,7 +91,7 @@ func toPodCloneTargetResponse(target podCloneTarget) podCloneTargetResponse {
 		LANVNet:                  target.LANVNet,
 		DMZVNet:                  target.DMZVNet,
 		WANBridge:                target.WANBridge,
-		WANIPBase:                target.WANIPBase,
+		WANSubnet:                target.WANSubnet,
 		CloudInitStorage:         target.CloudInitStorage,
 		CloudInitUserFilePattern: target.CloudInitUserFilePattern,
 		CloudInitNetworkFile:     target.CloudInitNetworkFile,
@@ -107,7 +107,7 @@ type podCloneTargetRequest struct {
 	LANVNet                  string `json:"lan_vnet"`
 	DMZVNet                  string `json:"dmz_vnet"`
 	WANBridge                string `json:"wan_bridge"`
-	WANIPBase                string `json:"wan_ip_base"`
+	WANSubnet                string `json:"wan_subnet"`
 	CloudInitStorage         string `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
@@ -188,7 +188,7 @@ func (h *PodsHandler) podCloneTargetsByKey(ctx context.Context) (map[string]podC
 	return byKey, nil
 }
 
-// The WAN IP base is descriptive only; the addresses come from the snippets.
+// The WAN subnet is descriptive only; the addresses come from the snippets.
 func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) (podCloneTarget, *requestError) {
 	invalid := func(message string) *requestError {
 		return &requestError{Status: http.StatusUnprocessableEntity, UserMessage: message}
@@ -227,17 +227,11 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 		return podCloneTarget{}, invalid("cloud-init storage is required")
 	}
 
-	wanIPBase, err := routerconfig.NormalizeDottedPrefix(req.WANIPBase)
+	wanSubnet, err := routerconfig.ParseIPv4Subnet16(req.WANSubnet)
 	if err != nil {
-		return podCloneTarget{}, invalid("WAN IP base " + err.Error())
+		return podCloneTarget{}, invalid("WAN subnet " + err.Error())
 	}
-	if wanIPBase == "" {
-		return podCloneTarget{}, invalid("WAN IP base is required")
-	}
-	if strings.Count(wanIPBase, ".") != 2 {
-		return podCloneTarget{}, invalid("WAN IP base must be the first two octets, for example 172.16.")
-	}
-	target.WANIPBase = wanIPBase
+	target.WANSubnet = wanSubnet.String()
 
 	patterns := []struct {
 		label string
@@ -329,7 +323,7 @@ func (h *PodsHandler) CreatePodCloneTarget(c *gin.Context) {
 		LanVnet:                  target.LANVNet,
 		DmzVnet:                  target.DMZVNet,
 		WanBridge:                target.WANBridge,
-		WanIpBase:                target.WANIPBase,
+		WanSubnet:                target.WANSubnet,
 		CloudInitStorage:         target.CloudInitStorage,
 		CloudInitUserFilePattern: target.CloudInitUserFilePattern,
 		CloudInitNetworkFile:     target.CloudInitNetworkFile,
@@ -393,7 +387,7 @@ func (h *PodsHandler) UpdatePodCloneTarget(c *gin.Context) {
 		LanVnet:                  target.LANVNet,
 		DmzVnet:                  target.DMZVNet,
 		WanBridge:                target.WANBridge,
-		WanIpBase:                target.WANIPBase,
+		WanSubnet:                target.WANSubnet,
 		CloudInitStorage:         target.CloudInitStorage,
 		CloudInitUserFilePattern: target.CloudInitUserFilePattern,
 		CloudInitNetworkFile:     target.CloudInitNetworkFile,

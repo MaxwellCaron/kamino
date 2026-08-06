@@ -77,7 +77,7 @@ SELECT
     pct.lan_vnet,
     pct.dmz_vnet,
     pct.wan_bridge,
-    pct.wan_ip_base
+    pct.wan_subnet
 FROM pod_network_allocations pna
 JOIN ancestors a ON pna.folder_id = a.id
 LEFT JOIN pod_clone_targets pct ON pct.key = pna.clone_target_key
@@ -95,7 +95,7 @@ type GetPodNetworkScopeForInventoryItemRow struct {
 	LanVnet           *string                  `json:"lan_vnet"`
 	DmzVnet           *string                  `json:"dmz_vnet"`
 	WanBridge         *string                  `json:"wan_bridge"`
-	WanIpBase         *string                  `json:"wan_ip_base"`
+	WanSubnet         *string                  `json:"wan_subnet"`
 }
 
 func (q *Queries) GetPodNetworkScopeForInventoryItem(ctx context.Context, inventoryItemID uuid.UUID) (GetPodNetworkScopeForInventoryItemRow, error) {
@@ -110,7 +110,7 @@ func (q *Queries) GetPodNetworkScopeForInventoryItem(ctx context.Context, invent
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
-		&i.WanIpBase,
+		&i.WanSubnet,
 	)
 	return i, err
 }

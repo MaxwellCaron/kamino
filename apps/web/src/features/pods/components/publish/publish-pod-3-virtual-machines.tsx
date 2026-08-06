@@ -730,7 +730,7 @@ export function PublishPodVirtualMachinesStep({
                                     {target.label}
                                   </span>
                                   <span className="text-xs text-muted-foreground">
-                                    {`${target.lan_vnet} · ${target.wan_bridge} · ${target.wan_ip_base}x.0/24`}
+                                    {`${target.lan_vnet} · ${target.wan_bridge} · ${target.wan_subnet}`}
                                   </span>
                                 </span>
                               </ComboboxItem>

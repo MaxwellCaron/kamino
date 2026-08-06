@@ -3,7 +3,6 @@ package podnetwork
 import (
 	"fmt"
 	"net/netip"
-	"strings"
 )
 
 const (
@@ -51,35 +50,13 @@ type Profile struct {
 	PrefixNAT         *PrefixNAT
 }
 
-// Target is one clone domain: shared VNets plus the WAN uplink and /24 base.
+// Target is one clone domain: shared VNets plus the WAN uplink and /16 subnet.
 type Target struct {
 	Key       string
 	LANVNet   string
 	DMZVNet   string
 	WANBridge string
-	WANIPBase string
-}
-
-func (t Target) Validate() error {
-	if strings.TrimSpace(t.Key) == "" {
-		return fmt.Errorf("clone target key is required")
-	}
-	if err := validateSharedVNetID(t.LANVNet); err != nil {
-		return fmt.Errorf("LAN VNet: %w", err)
-	}
-	if err := validateSharedVNetID(t.DMZVNet); err != nil {
-		return fmt.Errorf("DMZ VNet: %w", err)
-	}
-	if t.LANVNet == t.DMZVNet {
-		return fmt.Errorf("LAN and DMZ VNet IDs must be distinct")
-	}
-	if strings.TrimSpace(t.WANBridge) == "" {
-		return fmt.Errorf("WAN bridge is required")
-	}
-	if strings.TrimSpace(t.WANIPBase) == "" {
-		return fmt.Errorf("WAN IP base is required")
-	}
-	return nil
+	WANSubnet string
 }
 
 // WorkloadAttachment is the resolved Proxmox attachment for a workload NIC.

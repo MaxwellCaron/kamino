@@ -452,7 +452,7 @@ CREATE TABLE pod_clone_targets (
     lan_vnet                     TEXT NOT NULL,
     dmz_vnet                     TEXT NOT NULL,
     wan_bridge                   TEXT NOT NULL,
-    wan_ip_base                  TEXT NOT NULL,
+    wan_subnet                   TEXT NOT NULL,
     cloud_init_storage           TEXT NOT NULL,
     cloud_init_user_file_pattern TEXT NOT NULL,
     cloud_init_network_file      TEXT NOT NULL,
@@ -473,8 +473,8 @@ CREATE TABLE pod_clone_targets (
         CHECK (lan_vnet <> dmz_vnet),
     CONSTRAINT pod_clone_targets_wan_bridge_not_empty
         CHECK (length(trim(wan_bridge)) > 0),
-    CONSTRAINT pod_clone_targets_wan_ip_base_format
-        CHECK (wan_ip_base ~ '^([0-9]{1,3}\.){2}$'),
+    CONSTRAINT pod_clone_targets_wan_subnet_format
+        CHECK (wan_subnet ~ '^([0-9]{1,3}\.){2}0\.0/16$'),
     CONSTRAINT pod_clone_targets_cloud_init_storage_not_empty
         CHECK (length(trim(cloud_init_storage)) > 0),
     CONSTRAINT pod_clone_targets_user_pattern_placeholder

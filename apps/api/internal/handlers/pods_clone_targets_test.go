@@ -9,7 +9,7 @@ func validPodCloneTargetRequest() podCloneTargetRequest {
 		LANVNet:                  "pod2",
 		DMZVNet:                  "dmz2",
 		WANBridge:                "vmbr9",
-		WANIPBase:                "172.30",
+		WANSubnet:                "172.30.0.0/16",
 		CloudInitStorage:         "local",
 		CloudInitUserFilePattern: "lab2-router-{network}-user-data.yaml",
 		CloudInitNetworkFile:     "lab2-router-network-config.yaml",
@@ -24,9 +24,8 @@ func TestNormalizePodCloneTargetRequest(t *testing.T) {
 		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
 	}
 
-	// A bare "172.30" normalizes to the trailing-dot form.
-	if target.WANIPBase != "172.30." {
-		t.Fatalf("WANIPBase = %q, want %q", target.WANIPBase, "172.30.")
+	if target.WANSubnet != "172.30.0.0/16" {
+		t.Fatalf("WANSubnet = %q, want %q", target.WANSubnet, "172.30.0.0/16")
 	}
 	if target.Network().WANBridge != "vmbr9" || target.Network().LANVNet != "pod2" {
 		t.Fatalf("Network() = %#v", target.Network())
@@ -44,7 +43,9 @@ func TestNormalizePodCloneTargetRequestRejectsInvalidInput(t *testing.T) {
 		{"identical vnets", func(r *podCloneTargetRequest) { r.DMZVNet = r.LANVNet }, true},
 		{"short vnet", func(r *podCloneTargetRequest) { r.LANVNet = "p" }, true},
 		{"missing wan bridge", func(r *podCloneTargetRequest) { r.WANBridge = " " }, true},
-		{"wan base with three octets", func(r *podCloneTargetRequest) { r.WANIPBase = "172.30.5" }, true},
+		{"wan subnet not /16", func(r *podCloneTargetRequest) { r.WANSubnet = "172.30.0.0/24" }, true},
+		{"wan subnet host address", func(r *podCloneTargetRequest) { r.WANSubnet = "172.30.5.0/16" }, true},
+		{"wan subnet not cidr", func(r *podCloneTargetRequest) { r.WANSubnet = "172.30." }, true},
 		{"user pattern without placeholder", func(r *podCloneTargetRequest) {
 			r.CloudInitUserFilePattern = "lab2-router-user-data.yaml"
 		}, true},

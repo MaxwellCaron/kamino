@@ -82,7 +82,7 @@ export function getCloneTargetColumns({
       cell: ({ row }) => <span className="mx-3">{row.original.wan_bridge}</span>,
     },
     {
-      accessorKey: "wan_ip_base",
+      accessorKey: "wan_subnet",
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -91,7 +91,7 @@ export function getCloneTargetColumns({
         />
       ),
       cell: ({ row }) => (
-        <span className="mx-3 tabular-nums">{row.original.wan_ip_base}x.0/24</span>
+        <span className="mx-3 tabular-nums">{row.original.wan_subnet}</span>
       ),
     },
     {

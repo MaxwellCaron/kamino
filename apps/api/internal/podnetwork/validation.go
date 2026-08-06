@@ -2,21 +2,8 @@ package podnetwork
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
-
-var vnetIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
-
-func validateSharedVNetID(id string) error {
-	if len(id) < 2 || len(id) > 8 {
-		return fmt.Errorf("VNet ID %q must be 2-8 characters", id)
-	}
-	if !vnetIDPattern.MatchString(id) {
-		return fmt.Errorf("VNet ID %q must start with a letter and contain only letters and numbers", id)
-	}
-	return nil
-}
 
 func validateProfile(profile Profile) error {
 	if strings.TrimSpace(profile.Key) == "" {

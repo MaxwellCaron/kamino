@@ -73,7 +73,7 @@ SELECT
     pct.lan_vnet,
     pct.dmz_vnet,
     pct.wan_bridge,
-    pct.wan_ip_base
+    pct.wan_subnet
 FROM pod_network_allocations pna
 JOIN ancestors a ON pna.folder_id = a.id
 LEFT JOIN pod_clone_targets pct ON pct.key = pna.clone_target_key

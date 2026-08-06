@@ -242,13 +242,19 @@ func seedDefaultPodCloneTarget(
 		)
 	}
 
+	// POD_ROUTER_WAN_IP_BASE is the legacy dotted prefix ("172.16."); targets store a /16.
+	wanSubnet, err := routerconfig.ParseIPv4Subnet16(strings.TrimSuffix(config.WANIPBase, ".") + ".0.0/16")
+	if err != nil {
+		return fmt.Errorf("cannot derive a /16 WAN subnet from POD_ROUTER_WAN_IP_BASE %q: %w", config.WANIPBase, err)
+	}
+
 	if err := q.InsertDefaultPodCloneTarget(ctx, database.InsertDefaultPodCloneTargetParams{
 		Key:                      defaultPodCloneTargetKey,
 		Label:                    "Default",
 		LanVnet:                  config.LANVNet,
 		DmzVnet:                  config.DMZVNet,
 		WanBridge:                strings.TrimSpace(config.WANBridge),
-		WanIpBase:                config.WANIPBase,
+		WanSubnet:                wanSubnet.String(),
 		CloudInitStorage:         config.CloudInitStorage,
 		CloudInitUserFilePattern: config.CloudInitUserFilePattern,
 		CloudInitNetworkFile:     config.CloudInitNetworkFile,
@@ -259,8 +265,8 @@ func seedDefaultPodCloneTarget(
 	}
 
 	log.Printf(
-		"Seeded default pod clone target %q from environment: lan_vnet=%q dmz_vnet=%q wan_bridge=%q wan_ip_base=%q",
-		defaultPodCloneTargetKey, config.LANVNet, config.DMZVNet, config.WANBridge, config.WANIPBase,
+		"Seeded default pod clone target %q from environment: lan_vnet=%q dmz_vnet=%q wan_bridge=%q wan_subnet=%q",
+		defaultPodCloneTargetKey, config.LANVNet, config.DMZVNet, config.WANBridge, wanSubnet,
 	)
 	return nil
 }

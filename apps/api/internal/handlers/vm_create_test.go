@@ -35,7 +35,7 @@ func (f *fakePodNetworkScopeReader) GetPodNetworkScopeForInventoryItem(
 		row.LanVnet = &target.LANVNet
 		row.DmzVnet = &target.DMZVNet
 		row.WanBridge = &target.WANBridge
-		row.WanIpBase = &target.WANIPBase
+		row.WanSubnet = &target.WANSubnet
 	}
 	return row, nil
 }
@@ -61,7 +61,7 @@ func testCloneTarget() podCloneTarget {
 		LANVNet:                  "pod",
 		DMZVNet:                  "dmz",
 		WANBridge:                "vmbr0",
-		WANIPBase:                "172.16.",
+		WANSubnet:                "172.16.0.0/16",
 		CloudInitStorage:         "local",
 		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
 		CloudInitNetworkFile:     "kamino-router-network-config.yaml",

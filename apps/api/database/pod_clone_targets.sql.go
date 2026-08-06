@@ -47,7 +47,7 @@ INSERT INTO pod_clone_targets (
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -62,7 +62,7 @@ RETURNING
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -79,7 +79,7 @@ type CreatePodCloneTargetParams struct {
 	LanVnet                  string `json:"lan_vnet"`
 	DmzVnet                  string `json:"dmz_vnet"`
 	WanBridge                string `json:"wan_bridge"`
-	WanIpBase                string `json:"wan_ip_base"`
+	WanSubnet                string `json:"wan_subnet"`
 	CloudInitStorage         string `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
@@ -94,7 +94,7 @@ func (q *Queries) CreatePodCloneTarget(ctx context.Context, arg CreatePodCloneTa
 		arg.LanVnet,
 		arg.DmzVnet,
 		arg.WanBridge,
-		arg.WanIpBase,
+		arg.WanSubnet,
 		arg.CloudInitStorage,
 		arg.CloudInitUserFilePattern,
 		arg.CloudInitNetworkFile,
@@ -108,7 +108,7 @@ func (q *Queries) CreatePodCloneTarget(ctx context.Context, arg CreatePodCloneTa
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
-		&i.WanIpBase,
+		&i.WanSubnet,
 		&i.CloudInitStorage,
 		&i.CloudInitUserFilePattern,
 		&i.CloudInitNetworkFile,
@@ -142,7 +142,7 @@ SELECT
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -164,7 +164,7 @@ func (q *Queries) GetDefaultPodCloneTarget(ctx context.Context) (PodCloneTargets
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
-		&i.WanIpBase,
+		&i.WanSubnet,
 		&i.CloudInitStorage,
 		&i.CloudInitUserFilePattern,
 		&i.CloudInitNetworkFile,
@@ -184,7 +184,7 @@ SELECT
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -206,7 +206,7 @@ func (q *Queries) GetPodCloneTarget(ctx context.Context, key string) (PodCloneTa
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
-		&i.WanIpBase,
+		&i.WanSubnet,
 		&i.CloudInitStorage,
 		&i.CloudInitUserFilePattern,
 		&i.CloudInitNetworkFile,
@@ -226,7 +226,7 @@ INSERT INTO pod_clone_targets (
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -256,7 +256,7 @@ type InsertDefaultPodCloneTargetParams struct {
 	LanVnet                  string `json:"lan_vnet"`
 	DmzVnet                  string `json:"dmz_vnet"`
 	WanBridge                string `json:"wan_bridge"`
-	WanIpBase                string `json:"wan_ip_base"`
+	WanSubnet                string `json:"wan_subnet"`
 	CloudInitStorage         string `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
@@ -271,7 +271,7 @@ func (q *Queries) InsertDefaultPodCloneTarget(ctx context.Context, arg InsertDef
 		arg.LanVnet,
 		arg.DmzVnet,
 		arg.WanBridge,
-		arg.WanIpBase,
+		arg.WanSubnet,
 		arg.CloudInitStorage,
 		arg.CloudInitUserFilePattern,
 		arg.CloudInitNetworkFile,
@@ -288,7 +288,7 @@ SELECT
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -316,7 +316,7 @@ func (q *Queries) ListPodCloneTargets(ctx context.Context) ([]PodCloneTargets, e
 			&i.LanVnet,
 			&i.DmzVnet,
 			&i.WanBridge,
-			&i.WanIpBase,
+			&i.WanSubnet,
 			&i.CloudInitStorage,
 			&i.CloudInitUserFilePattern,
 			&i.CloudInitNetworkFile,
@@ -342,7 +342,7 @@ UPDATE pod_clone_targets
        lan_vnet                     = $2,
        dmz_vnet                     = $3,
        wan_bridge                   = $4,
-       wan_ip_base                  = $5,
+       wan_subnet                   = $5,
        cloud_init_storage           = $6,
        cloud_init_user_file_pattern = $7,
        cloud_init_network_file      = $8,
@@ -355,7 +355,7 @@ RETURNING
     lan_vnet,
     dmz_vnet,
     wan_bridge,
-    wan_ip_base,
+    wan_subnet,
     cloud_init_storage,
     cloud_init_user_file_pattern,
     cloud_init_network_file,
@@ -371,7 +371,7 @@ type UpdatePodCloneTargetParams struct {
 	LanVnet                  string `json:"lan_vnet"`
 	DmzVnet                  string `json:"dmz_vnet"`
 	WanBridge                string `json:"wan_bridge"`
-	WanIpBase                string `json:"wan_ip_base"`
+	WanSubnet                string `json:"wan_subnet"`
 	CloudInitStorage         string `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
@@ -386,7 +386,7 @@ func (q *Queries) UpdatePodCloneTarget(ctx context.Context, arg UpdatePodCloneTa
 		arg.LanVnet,
 		arg.DmzVnet,
 		arg.WanBridge,
-		arg.WanIpBase,
+		arg.WanSubnet,
 		arg.CloudInitStorage,
 		arg.CloudInitUserFilePattern,
 		arg.CloudInitNetworkFile,
@@ -401,7 +401,7 @@ func (q *Queries) UpdatePodCloneTarget(ctx context.Context, arg UpdatePodCloneTa
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
-		&i.WanIpBase,
+		&i.WanSubnet,
 		&i.CloudInitStorage,
 		&i.CloudInitUserFilePattern,
 		&i.CloudInitNetworkFile,

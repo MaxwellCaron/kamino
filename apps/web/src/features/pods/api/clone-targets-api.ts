@@ -6,7 +6,7 @@ export type PodCloneTarget = {
   lan_vnet: string
   dmz_vnet: string
   wan_bridge: string
-  wan_ip_base: string
+  wan_subnet: string
   cloud_init_storage: string
   cloud_init_user_file_pattern: string
   cloud_init_network_file: string

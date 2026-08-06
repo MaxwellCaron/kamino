@@ -74,7 +74,7 @@ func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryIte
 		allocation.LanVnet == nil ||
 		allocation.DmzVnet == nil ||
 		allocation.WanBridge == nil ||
-		allocation.WanIpBase == nil {
+		allocation.WanSubnet == nil {
 		return podnetwork.Target{}, fmt.Errorf(
 			"pod network allocation for folder %s is missing its clone target", allocation.FolderID,
 		)
@@ -84,7 +84,7 @@ func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryIte
 		LANVNet:   *allocation.LanVnet,
 		DMZVNet:   *allocation.DmzVnet,
 		WANBridge: *allocation.WanBridge,
-		WANIPBase: *allocation.WanIpBase,
+		WANSubnet: *allocation.WanSubnet,
 	}, nil
 }
 

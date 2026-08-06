@@ -525,7 +525,7 @@ type PodCloneTargets struct {
 	LanVnet                  string             `json:"lan_vnet"`
 	DmzVnet                  string             `json:"dmz_vnet"`
 	WanBridge                string             `json:"wan_bridge"`
-	WanIpBase                string             `json:"wan_ip_base"`
+	WanSubnet                string             `json:"wan_subnet"`
 	CloudInitStorage         string             `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string             `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string             `json:"cloud_init_network_file"`

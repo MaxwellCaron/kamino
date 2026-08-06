@@ -8,6 +8,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/google/uuid"
 )
 
@@ -50,7 +51,7 @@ func (h *PodsHandler) buildPodNetworkMetadata(
 		return clonedPodNetworkResponse{}, err
 	}
 
-	wanBase, err := normalizeWANIPBase(target.WANIPBase)
+	wanSubnet, err := routerconfig.PodWANSubnet(target.WANSubnet, networkNumber)
 	if err != nil {
 		return clonedPodNetworkResponse{}, err
 	}
@@ -63,8 +64,8 @@ func (h *PodsHandler) buildPodNetworkMetadata(
 	response := clonedPodNetworkResponse{
 		Number:          networkNumber,
 		VNet:            target.LANVNet,
-		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
-		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
+		ExternalSubnet:  wanSubnet.String(),
+		ExternalGateway: wanSubnet.Addr().Next().String(),
 		ProfileKey:      profileKey,
 		CloneTargetKey:  target.Key,
 		CloneTargetName: target.Label,
@@ -115,17 +116,6 @@ func (h *PodsHandler) buildPodNetworkMetadata(
 	}
 
 	return response, nil
-}
-
-func normalizeWANIPBase(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("WAN IP base is required")
-	}
-	if !strings.HasSuffix(trimmed, ".") {
-		trimmed += "."
-	}
-	return trimmed, nil
 }
 
 func (h *PodsHandler) ensureSharedVNetsValid(ctx context.Context, required []string) *requestError {

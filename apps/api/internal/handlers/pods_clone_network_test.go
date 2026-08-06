@@ -119,7 +119,7 @@ func TestBuildPodNetworkMetadata(t *testing.T) {
 		{"development", testCloneTarget(), database.ClonedPods{NetworkNumber: 199, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod", 199, "172.16.199.0/24", "172.16.199.1"},
 		{
 			"secondary clone target",
-			podCloneTarget{Key: "lab2", LANVNet: "pod2", DMZVNet: "dmz2", WANBridge: "vmbr1", WANIPBase: "172.30."},
+			podCloneTarget{Key: "lab2", LANVNet: "pod2", DMZVNet: "dmz2", WANBridge: "vmbr1", WANSubnet: "172.30.0.0/16"},
 			database.ClonedPods{NetworkNumber: 24, NetworkProfileKey: podnetwork.ProfileLANRouterV1},
 			"pod2", 24, "172.30.24.0/24", "172.30.24.1",
 		},
@@ -683,7 +683,7 @@ func TestConfigureProfileNetworkAttachmentsUsesCloneTargetWANBridge(t *testing.T
 		LANVNet:   "pod2",
 		DMZVNet:   "dmz2",
 		WANBridge: "vmbr9",
-		WANIPBase: "172.30.",
+		WANSubnet: "172.30.0.0/16",
 	}
 
 	reqErr := handler.configureProfileNetworkAttachments(

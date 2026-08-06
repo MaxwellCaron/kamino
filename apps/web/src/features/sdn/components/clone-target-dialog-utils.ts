@@ -7,7 +7,7 @@ export type CloneTargetFormValues = {
   lanVNet: string
   dmzVNet: string
   wanBridge: string
-  wanIPBase: string
+  wanSubnet: string
   cloudInitStorage: string
   cloudInitUserFilePattern: string
   cloudInitNetworkFile: string
@@ -46,23 +46,27 @@ export const cloneTargetBridgeSchema = z
   .trim()
   .min(1, "WAN bridge is required")
 
-// The base is the first two octets; the network number becomes the third.
-export const cloneTargetWANIPBaseSchema = z
+// A /16, so each pod's network number can fill the third octet.
+export const cloneTargetWANSubnetSchema = z
   .string()
   .trim()
-  .min(1, "WAN IP base is required")
-  .regex(
-    /^\d{1,3}\.\d{1,3}\.?$/,
-    "Enter the first two octets, for example 172.16."
-  )
+  .min(1, "WAN subnet is required")
+  .regex(/^\d{1,3}\.\d{1,3}\.0\.0\/16$/, "Must be a /16 subnet, for example 172.16.0.0/16")
   .refine(
     (value) =>
       value
-        .replace(/\.$/, "")
+        .split("/")[0]
         .split(".")
         .every((octet) => Number.parseInt(octet, 10) <= 255),
     { message: "Each octet must be 255 or lower" }
   )
+
+// Renders the /24 a pod with the given network number would receive.
+export function formatPodWANSubnet(wanSubnet: string, networkNumber: number | "x") {
+  const octets = wanSubnet.split("/")[0]?.split(".") ?? []
+  if (octets.length !== 4) return wanSubnet
+  return `${octets[0]}.${octets[1]}.${networkNumber}.0/24`
+}
 
 export const cloneTargetStorageSchema = z
   .string()
@@ -100,7 +104,7 @@ export function getDefaultCloneTargetFormValues(
     lanVNet: target?.lan_vnet ?? "",
     dmzVNet: target?.dmz_vnet ?? "",
     wanBridge: target?.wan_bridge ?? "",
-    wanIPBase: target?.wan_ip_base ?? "",
+    wanSubnet: target?.wan_subnet ?? "",
     cloudInitStorage: target?.cloud_init_storage ?? "local",
     cloudInitUserFilePattern:
       target?.cloud_init_user_file_pattern ??
@@ -122,7 +126,7 @@ export function buildCloneTargetPayload(values: CloneTargetFormValues) {
     lan_vnet: values.lanVNet.trim(),
     dmz_vnet: values.dmzVNet.trim(),
     wan_bridge: values.wanBridge.trim(),
-    wan_ip_base: values.wanIPBase.trim(),
+    wan_subnet: values.wanSubnet.trim(),
     cloud_init_storage: values.cloudInitStorage.trim(),
     cloud_init_user_file_pattern: values.cloudInitUserFilePattern.trim(),
     cloud_init_network_file: values.cloudInitNetworkFile.trim(),

@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -14,6 +14,14 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@workspace/ui/components/combobox"
 import type { ComponentType } from "react"
 import type { z } from "zod"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
@@ -23,7 +31,10 @@ import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { formatFieldError, isTouchedInvalid } from "@/components/forms/form-errors"
+import {
+  formatFieldError,
+  isTouchedInvalid,
+} from "@/components/forms/form-errors"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   createPodCloneTarget,
@@ -39,9 +50,16 @@ import {
   cloneTargetStorageSchema,
   cloneTargetUserPatternSchema,
   cloneTargetVNetSchema,
-  cloneTargetWANIPBaseSchema,
+  cloneTargetWANSubnetSchema,
+  formatPodWANSubnet,
   getDefaultCloneTargetFormValues,
 } from "@/features/sdn/components/clone-target-dialog-utils"
+import {
+  bridgesQueryOptions,
+  nodesQueryOptions,
+  storagesQueryOptions,
+} from "@/features/vms/api/proxmox-options-api"
+import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 
 type AppFieldComponent = ComponentType<any>
 
@@ -96,13 +114,92 @@ function CloneTargetTextField({
                 aria-invalid={isInvalid}
               />
             </FieldContent>
-            {isInvalid ? (
+            {isInvalid && (
               <FieldError>
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
-            ) : description ? (
-              <FieldDescription>{description}</FieldDescription>
-            ) : null}
+            )}
+            {description && <FieldDescription>{description}</FieldDescription>}
+          </Field>
+        )
+      }}
+    </FieldComponent>
+  )
+}
+
+// Suggestions come from Proxmox, but any value is accepted: a bridge or storage
+// may exist only on a node this list did not come from.
+function CloneTargetComboboxField({
+  FieldComponent,
+  name,
+  label,
+  description,
+  placeholder,
+  schema,
+  suggestions,
+  emptyMessage,
+}: {
+  FieldComponent: AppFieldComponent
+  name: keyof CloneTargetFormValues
+  label: string
+  description?: string
+  placeholder?: string
+  schema: z.ZodType<string>
+  suggestions: Array<string>
+  emptyMessage: string
+}) {
+  return (
+    <FieldComponent
+      name={name}
+      validators={{
+        onBlur: ({ value }: { value: string }) =>
+          getFirstIssueMessage(schema.safeParse(value)),
+        onSubmit: ({ value }: { value: string }) =>
+          getFirstIssueMessage(schema.safeParse(value)),
+      }}
+    >
+      {(field: any) => {
+        const isInvalid = isTouchedInvalid(field.state.meta)
+        const selected = suggestions.includes(field.state.value)
+          ? field.state.value
+          : null
+
+        return (
+          <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={name}>{label}</FieldLabel>
+            <FieldContent>
+              <Combobox
+                items={suggestions}
+                itemToStringValue={(item) => item}
+                value={selected}
+                onValueChange={(item) => field.handleChange(item ?? "")}
+                onInputValueChange={(value) => field.handleChange(value)}
+                autoHighlight
+              >
+                <ComboboxInput
+                  id={name}
+                  placeholder={placeholder}
+                  onBlur={field.handleBlur}
+                  aria-invalid={isInvalid}
+                />
+                <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
+                <ComboboxContent>
+                  <ComboboxList>
+                    {(item: string) => (
+                      <ComboboxItem key={item} value={item}>
+                        {item}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+            </FieldContent>
+            {isInvalid && (
+              <FieldError>
+                {formatFieldError(field.state.meta.errors[0])}
+              </FieldError>
+            )}
+            {description && <FieldDescription>{description}</FieldDescription>}
           </Field>
         )
       }}
@@ -152,6 +249,27 @@ function CloneTargetForm({
   const isEdit = !!target
   const queryClient = useQueryClient()
 
+  const { data: vnets } = useQuery(vnetsQueryOptions)
+  const { data: nodes } = useQuery(nodesQueryOptions)
+  const primaryNode = nodes?.at(0)?.node ?? ""
+  const { data: bridgeData } = useQuery(bridgesQueryOptions(primaryNode))
+  const { data: storages } = useQuery(storagesQueryOptions(primaryNode))
+
+  const vnetNames = (vnets ?? []).map((vnet) => vnet.vnet).toSorted()
+  // Proxmox materializes each VNet as a bridge, so either is valid for the uplink.
+  const bridgeNames = [
+    ...new Set([
+      ...(bridgeData?.bridges ?? []).map((bridge) => bridge.iface),
+      ...vnetNames,
+    ]),
+  ].toSorted()
+
+  // Only snippet-capable storages can hold the router's cloud-init files.
+  const storageNames = (storages ?? [])
+    .filter((storage) => storage.content.includes("snippets"))
+    .map((storage) => storage.storage)
+    .toSorted()
+
   const mutation = useMutation({
     mutationFn: async (values: CloneTargetFormValues) => {
       const payload = buildCloneTargetPayload(values)
@@ -192,21 +310,22 @@ function CloneTargetForm({
         <FieldGroup>
           <CloneTargetTextField
             FieldComponent={form.Field}
+            name="label"
+            label="Label"
+            description="Display name shown when publishing a pod. Safe to rename at any time."
+            placeholder="Lab 2"
+            schema={cloneTargetLabelSchema}
+            maxLength={48}
+          />
+          <CloneTargetTextField
+            FieldComponent={form.Field}
             name="key"
             label="Key"
-            description="Stable identifier stored on published pods. Cannot be changed later."
+            description="Permanent identifier that published pods and clones are stored against. Cannot be changed after creation."
             placeholder="lab2"
             schema={cloneTargetKeySchema}
             disabled={isEdit}
             maxLength={32}
-          />
-          <CloneTargetTextField
-            FieldComponent={form.Field}
-            name="label"
-            label="Label"
-            placeholder="Lab 2"
-            schema={cloneTargetLabelSchema}
-            maxLength={48}
           />
 
           <FieldSeparator />
@@ -218,38 +337,46 @@ function CloneTargetForm({
               router&apos;s uplink is moved onto the WAN bridge.
             </FieldDescription>
             <FieldGroup>
-              <CloneTargetTextField
+              <CloneTargetComboboxField
                 FieldComponent={form.Field}
                 name="lanVNet"
                 label="LAN VNet"
                 placeholder="pod"
                 schema={cloneTargetVNetSchema}
-                maxLength={8}
+                suggestions={vnetNames}
+                emptyMessage="No matching VNets. You can still type a name."
               />
-              <CloneTargetTextField
+              <CloneTargetComboboxField
                 FieldComponent={form.Field}
                 name="dmzVNet"
                 label="DMZ VNet"
                 placeholder="dmz"
                 schema={cloneTargetVNetSchema}
-                maxLength={8}
+                suggestions={vnetNames}
+                emptyMessage="No matching VNets. You can still type a name."
               />
-              <CloneTargetTextField
+              <CloneTargetComboboxField
                 FieldComponent={form.Field}
                 name="wanBridge"
                 label="WAN bridge"
-                description="Proxmox bridge the cloned router's net0 is attached to."
+                description="Bridge or VNet the cloned router's net0 is attached to."
                 placeholder="vmbr0"
                 schema={cloneTargetBridgeSchema}
+                suggestions={bridgeNames}
+                emptyMessage="No matching bridges or VNets. You can still type a name."
               />
-              <CloneTargetTextField
-                FieldComponent={form.Field}
-                name="wanIPBase"
-                label="WAN IP base"
-                description="First two octets. Displayed as the pod's external subnet; the addresses themselves come from the cloud-init snippets below."
-                placeholder="172.16."
-                schema={cloneTargetWANIPBaseSchema}
-              />
+              <form.Subscribe>
+                {(state) => (
+                  <CloneTargetTextField
+                    FieldComponent={form.Field}
+                    name="wanSubnet"
+                    label="WAN subnet"
+                    description={`Each pod gets a /24 from this /16, using its network number as the third octet (${formatPodWANSubnet(state.values.wanSubnet || "172.16.0.0/16", "x")}).`}
+                    placeholder="172.16.0.0/16"
+                    schema={cloneTargetWANSubnetSchema}
+                  />
+                )}
+              </form.Subscribe>
             </FieldGroup>
           </FieldSet>
 
@@ -262,12 +389,14 @@ function CloneTargetForm({
               user-data file per network number.
             </FieldDescription>
             <FieldGroup>
-              <CloneTargetTextField
+              <CloneTargetComboboxField
                 FieldComponent={form.Field}
                 name="cloudInitStorage"
                 label="Storage"
                 placeholder="local"
                 schema={cloneTargetStorageSchema}
+                suggestions={storageNames}
+                emptyMessage="No snippet-capable storages found. You can still type a name."
               />
               <CloneTargetTextField
                 FieldComponent={form.Field}

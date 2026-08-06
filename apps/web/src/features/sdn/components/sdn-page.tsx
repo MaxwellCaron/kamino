@@ -225,6 +225,10 @@ export function SdnPage() {
       <PreloadOverlay active={isLoading} label="Loading VNets" />
       {!isLoading && (
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+        <CloneTargetsCard
+          canAdminister={canAdminister}
+          setConfirm={setConfirm}
+        />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -323,10 +327,6 @@ export function SdnPage() {
           </CardContent>
         </Card>
 
-        <CloneTargetsCard
-          canAdminister={canAdminister}
-          setConfirm={setConfirm}
-        />
         </div>
       )}
 
