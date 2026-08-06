@@ -10,6 +10,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -30,6 +31,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -67,6 +69,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -87,6 +90,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -129,8 +133,9 @@ INSERT INTO published_pods (
     status,
     source_folder_id,
     publisher_principal_id,
-    network_profile_key
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    network_profile_key,
+    clone_target_key
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING
     id,
     title,
@@ -141,6 +146,7 @@ RETURNING
     source_folder_id,
     publisher_principal_id,
     network_profile_key,
+    clone_target_key,
     clone_count,
     created_at,
     updated_at;
@@ -152,7 +158,8 @@ SET title = $2,
     description = $4,
     image_url = $5,
     status = $6,
-    source_folder_id = $7
+    source_folder_id = $7,
+    clone_target_key = $8
 WHERE id = $1
 RETURNING
     id,
@@ -164,6 +171,7 @@ RETURNING
     source_folder_id,
     publisher_principal_id,
     network_profile_key,
+    clone_target_key,
     clone_count,
     created_at,
     updated_at;

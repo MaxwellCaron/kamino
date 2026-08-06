@@ -31,6 +31,11 @@ func (h *PodsHandler) hydratePublishedPodClones(
 		return nil, err
 	}
 
+	targetsByKey, reqErr := h.podCloneTargetsByKey(ctx)
+	if reqErr != nil {
+		return nil, reqErr
+	}
+
 	response := make([]publishedPodCloneResponse, 0, len(summaries))
 	for _, s := range summaries {
 		progress := 0.0
@@ -38,7 +43,11 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
 		}
 
-		network, err := h.buildPodNetworkMetadata(s.NetworkProfileKey, s.NetworkNumber)
+		target, ok := targetsByKey[s.CloneTargetKey]
+		if !ok {
+			return nil, fmt.Errorf("clone %s references unknown clone target %q", s.ID, s.CloneTargetKey)
+		}
+		network, err := h.buildPodNetworkMetadata(target, s.NetworkProfileKey, s.NetworkNumber)
 		if err != nil {
 			return nil, fmt.Errorf("clone %s network metadata: %w", s.ID, err)
 		}
@@ -161,6 +170,7 @@ func (h *PodsHandler) hydratePublishedPods(
 			Tasks:           taskResponses,
 			SourceFolder:    base.SourceFolderID,
 			NetworkProfile:  base.NetworkProfileKey,
+			CloneTargetKey:  base.CloneTargetKey,
 			VirtualMachines: nonNilVMs(vmsByPod[base.ID]),
 		})
 	}

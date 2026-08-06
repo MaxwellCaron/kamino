@@ -286,6 +286,7 @@ export function PublishPodEditor({
             ([] satisfies Array<PublishPodFolder>)
           }
           podFoldersError={publishOptionsError}
+          cloneTargets={publishOptions?.clone_targets ?? []}
           submitLabel={submitLabel}
           onSubmitConfirm={submitForm}
         />

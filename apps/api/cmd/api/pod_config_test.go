@@ -291,20 +291,18 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 	}
 }
 
-func TestBuildPodNetworkCatalogFromRouterConfig(t *testing.T) {
-	routerConfig, err := buildPodRouterCloneConfig(func() *Config {
-		cfg := baseTestConfig()
-		return &cfg
-	}())
+func TestBuildPodRouterCloneConfigCarriesCloneTargetSeedFields(t *testing.T) {
+	cfg := baseTestConfig()
+	cfg.PodRouterWANBridge = "vmbr7"
+	routerConfig, err := buildPodRouterCloneConfig(&cfg)
 	if err != nil {
 		t.Fatalf("buildPodRouterCloneConfig() error = %v", err)
 	}
 
-	catalog, err := buildPodNetworkCatalog(routerConfig)
-	if err != nil {
-		t.Fatalf("buildPodNetworkCatalog() error = %v", err)
+	if routerConfig.WANBridge != "vmbr7" {
+		t.Fatalf("WANBridge = %q, want %q", routerConfig.WANBridge, "vmbr7")
 	}
-	if catalog == nil {
-		t.Fatal("buildPodNetworkCatalog() returned a nil catalog")
+	if routerConfig.LANVNet == "" || routerConfig.DMZVNet == "" || routerConfig.WANIPBase == "" {
+		t.Fatalf("clone target seed fields incomplete: %#v", routerConfig)
 	}
 }

@@ -140,8 +140,18 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	var devNetworkNumber int32
+	// Pods are developed on the default target; publishing binds its own.
+	var devCloneTarget podCloneTarget
 	if automatedNetworking {
 		progress.set(createProgressStepNetwork, "Reserving a dev network.")
+		var reqErr *requestError
+		devCloneTarget, reqErr = h.defaultPodCloneTarget(c.Request.Context())
+		if reqErr != nil {
+			progress.fail(reqErr.UserMessage)
+			writeRequestError(c, reqErr)
+			return
+		}
+
 		var allocation database.InsertPodDevNetworkAllocationRow
 		err := podnetworks.WithPodNetworkAllocation(c.Request.Context(), h.DB, func(ctx context.Context, tx pgx.Tx) error {
 			var err error
@@ -152,6 +162,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 					MinNetworkNumber:  h.RouterCloneConfig.DevNetworkMin,
 					MaxNetworkNumber:  h.RouterCloneConfig.DevNetworkMax,
 					NetworkProfileKey: &profileKey,
+					CloneTargetKey:    &devCloneTarget.Key,
 				},
 			)
 			return err
@@ -169,7 +180,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 
 		devNetworkNumber = allocation.NetworkNumber
 		progress.set(createProgressStepNetwork, fmt.Sprintf("Checking dev VNets for profile %s.", profileKey))
-		if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), profileKey); reqErr != nil {
+		if reqErr := h.ensureProfileVNetsExist(c.Request.Context(), devCloneTarget, profileKey); reqErr != nil {
 			progress.fail(reqErr.UserMessage)
 			writeRequestError(c, reqErr)
 			return
@@ -248,6 +259,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			progress.set(createProgressStepConfiguring, "Configuring dev network attachments.")
 			if reqErr := h.configureProfileNetworkAttachments(
 				c.Request.Context(),
+				devCloneTarget,
 				profileKey,
 				devNetworkNumber,
 				createdTargets,
@@ -270,7 +282,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				return
 			}
 
-			cloudInitConfig, err := buildRouterCloudInitConfigForProfile(devNetworkNumber, profileKey, h.RouterCloneConfig)
+			cloudInitConfig, err := buildRouterCloudInitConfigForProfile(devNetworkNumber, profileKey, devCloneTarget)
 			if err != nil {
 				progress.fail("failed to build router cloud-init configuration")
 				writeLoggedError(c, http.StatusInternalServerError, "failed to build router cloud-init configuration", "build cloned router cloud-init configuration", err)

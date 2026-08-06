@@ -25,6 +25,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -39,6 +40,7 @@ SELECT
     cp.folder_id,
     cp.network_number,
     cp.network_profile_key,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -98,6 +100,7 @@ SELECT
     cp.folder_id,
     cp.network_number,
     cp.network_profile_key,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -125,6 +128,7 @@ GROUP BY
     p.description,
     cp.folder_id,
     cp.network_number,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at
 ORDER BY cp.created_at DESC;
@@ -137,6 +141,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -151,6 +156,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -180,6 +186,7 @@ SELECT
     cp.folder_id,
     cp.network_number,
     cp.network_profile_key,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -206,12 +213,14 @@ allocation AS (
         network_number,
         kind,
         network_profile_key,
+        clone_target_key,
         folder_id
     )
     SELECT
         candidate.network_number,
         'published_clone',
         sqlc.arg(network_profile_key),
+        sqlc.arg(clone_target_key),
         sqlc.arg(folder_id)
     FROM candidate
     RETURNING id, network_number
@@ -223,7 +232,8 @@ inserted AS (
         user_principal_id,
         folder_id,
         network_number,
-        network_profile_key
+        network_profile_key,
+        clone_target_key
     )
     SELECT
         sqlc.arg(id),
@@ -231,7 +241,8 @@ inserted AS (
         sqlc.arg(user_principal_id),
         sqlc.arg(folder_id),
         allocation.network_number,
-        sqlc.arg(network_profile_key)
+        sqlc.arg(network_profile_key),
+        sqlc.arg(clone_target_key)
     FROM allocation
     RETURNING
         id,
@@ -240,6 +251,7 @@ inserted AS (
         folder_id,
         network_number,
         network_profile_key,
+        clone_target_key,
         created_at,
         updated_at
 ),
@@ -256,6 +268,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM inserted;

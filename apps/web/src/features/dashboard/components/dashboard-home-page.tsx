@@ -146,6 +146,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         status: "listed" as const,
         audience: [],
         source_folder: "",
+        clone_target_key: "",
         virtual_machines: [],
       },
     }))

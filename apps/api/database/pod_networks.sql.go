@@ -27,6 +27,7 @@ SELECT
     folder_id AS pod_folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM pod_network_allocations
@@ -38,6 +39,7 @@ type GetPodDevNetworkAllocationRow struct {
 	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey *string            `json:"network_profile_key"`
+	CloneTargetKey    *string            `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
@@ -49,6 +51,7 @@ func (q *Queries) GetPodDevNetworkAllocation(ctx context.Context, folderID uuid.
 		&i.PodFolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -69,9 +72,15 @@ SELECT
     pna.kind,
     pna.folder_id,
     pna.network_number,
-    pna.network_profile_key
+    pna.network_profile_key,
+    pna.clone_target_key,
+    pct.lan_vnet,
+    pct.dmz_vnet,
+    pct.wan_bridge,
+    pct.wan_ip_base
 FROM pod_network_allocations pna
 JOIN ancestors a ON pna.folder_id = a.id
+LEFT JOIN pod_clone_targets pct ON pct.key = pna.clone_target_key
 WHERE pna.kind IN ('personal_pod', 'dev_pod', 'published_clone')
 ORDER BY a.depth ASC
 LIMIT 1
@@ -82,6 +91,11 @@ type GetPodNetworkScopeForInventoryItemRow struct {
 	FolderID          uuid.UUID                `json:"folder_id"`
 	NetworkNumber     int32                    `json:"network_number"`
 	NetworkProfileKey *string                  `json:"network_profile_key"`
+	CloneTargetKey    *string                  `json:"clone_target_key"`
+	LanVnet           *string                  `json:"lan_vnet"`
+	DmzVnet           *string                  `json:"dmz_vnet"`
+	WanBridge         *string                  `json:"wan_bridge"`
+	WanIpBase         *string                  `json:"wan_ip_base"`
 }
 
 func (q *Queries) GetPodNetworkScopeForInventoryItem(ctx context.Context, inventoryItemID uuid.UUID) (GetPodNetworkScopeForInventoryItemRow, error) {
@@ -92,6 +106,11 @@ func (q *Queries) GetPodNetworkScopeForInventoryItem(ctx context.Context, invent
 		&i.FolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
+		&i.LanVnet,
+		&i.DmzVnet,
+		&i.WanBridge,
+		&i.WanIpBase,
 	)
 	return i, err
 }
@@ -113,18 +132,21 @@ allocation AS (
         network_number,
         kind,
         network_profile_key,
+        clone_target_key,
         folder_id
     )
     SELECT
         candidate.network_number,
         'dev_pod',
         $3,
-        $4
+        $4,
+        $5
     FROM candidate
     RETURNING
         folder_id,
         network_number,
         network_profile_key,
+        clone_target_key,
         created_at,
         updated_at
 )
@@ -132,6 +154,7 @@ SELECT
     folder_id AS pod_folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM allocation
@@ -141,6 +164,7 @@ type InsertPodDevNetworkAllocationParams struct {
 	MinNetworkNumber  int32     `json:"min_network_number"`
 	MaxNetworkNumber  int32     `json:"max_network_number"`
 	NetworkProfileKey *string   `json:"network_profile_key"`
+	CloneTargetKey    *string   `json:"clone_target_key"`
 	PodFolderID       uuid.UUID `json:"pod_folder_id"`
 }
 
@@ -148,6 +172,7 @@ type InsertPodDevNetworkAllocationRow struct {
 	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey *string            `json:"network_profile_key"`
+	CloneTargetKey    *string            `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
@@ -157,6 +182,7 @@ func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertP
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
 		arg.NetworkProfileKey,
+		arg.CloneTargetKey,
 		arg.PodFolderID,
 	)
 	var i InsertPodDevNetworkAllocationRow
@@ -164,6 +190,7 @@ func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertP
 		&i.PodFolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

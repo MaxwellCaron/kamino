@@ -27,7 +27,17 @@ func (f *fakePodNetworkScopeReader) GetPodNetworkScopeForInventoryItem(
 	context.Context,
 	uuid.UUID,
 ) (database.GetPodNetworkScopeForInventoryItemRow, error) {
-	return f.row, nil
+	row := f.row
+	// Non-personal allocations always have a target; fill unless a test set one.
+	if row.Kind != database.PodNetworkAllocationKindPersonalPod && row.CloneTargetKey == nil {
+		target := testCloneTarget()
+		row.CloneTargetKey = &target.Key
+		row.LanVnet = &target.LANVNet
+		row.DmzVnet = &target.DMZVNet
+		row.WanBridge = &target.WANBridge
+		row.WanIpBase = &target.WANIPBase
+	}
+	return row, nil
 }
 
 func strPtr(value string) *string {
@@ -37,15 +47,28 @@ func strPtr(value string) *string {
 func testNetworkCatalog(t *testing.T) *podnetwork.Catalog {
 	t.Helper()
 
-	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
-		LANVNet:   "pod",
-		DMZVNet:   "dmz",
-		WANIPBase: "172.16.",
-	})
+	catalog, err := podnetwork.NewCatalog()
 	if err != nil {
 		t.Fatalf("NewCatalog() error = %v", err)
 	}
 	return catalog
+}
+
+func testCloneTarget() podCloneTarget {
+	return podCloneTarget{
+		Key:                      "default",
+		Label:                    "Default",
+		LANVNet:                  "pod",
+		DMZVNet:                  "dmz",
+		WANBridge:                "vmbr0",
+		WANIPBase:                "172.16.",
+		CloudInitStorage:         "local",
+		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
+		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
+		LANDMZUserFilePattern:    "kamino-router-lan-dmz-{network}-user-data.yaml",
+		LANDMZNetworkFile:        "kamino-router-lan-dmz-network-config.yaml",
+		IsDefault:                true,
+	}
 }
 
 type fakeVMCreateAuthz struct {

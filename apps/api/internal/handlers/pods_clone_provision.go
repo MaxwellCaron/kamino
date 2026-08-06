@@ -123,12 +123,17 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
-	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey)
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, pod.CloneTargetKey)
 	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
 
-	if reqErr := h.ensureProfileVNetsExist(ctx, pod.NetworkProfileKey); reqErr != nil {
+	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey, cloneTarget.Key)
+	if reqErr != nil {
+		return database.ClonedPods{}, reqErr
+	}
+
+	if reqErr := h.ensureProfileVNetsExist(ctx, cloneTarget, pod.NetworkProfileKey); reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
 
@@ -174,10 +179,14 @@ func (h *PodsHandler) reclonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey); reqErr != nil {
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}
-	if _, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, h.RouterCloneConfig); err != nil {
+	if reqErr := h.ensureProfileVNetsExist(ctx, cloneTarget, clone.NetworkProfileKey); reqErr != nil {
+		return database.ClonedPods{}, reqErr
+	}
+	if _, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, cloneTarget); err != nil {
 		return database.ClonedPods{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to build router cloud-init configuration",

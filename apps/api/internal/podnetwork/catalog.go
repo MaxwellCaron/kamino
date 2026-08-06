@@ -40,12 +40,12 @@ func (c *Catalog) PublicProfiles() []PublicProfile {
 	return result
 }
 
-func (c *Catalog) VNetName(kind string) (string, error) {
+func (c *Catalog) VNetName(target Target, kind string) (string, error) {
 	switch kind {
 	case VNetKindPrimary:
-		return c.config.LANVNet, nil
+		return target.LANVNet, nil
 	case VNetKindDMZ:
-		return c.config.DMZVNet, nil
+		return target.DMZVNet, nil
 	default:
 		return "", fmt.Errorf("unknown VNet kind %q", kind)
 	}
@@ -58,7 +58,7 @@ func (c *Catalog) InnerVLANTag(networkNumber int32) (int, error) {
 	return int(networkNumber), nil
 }
 
-func (c *Catalog) RequiredVNets(profileKey string) ([]string, error) {
+func (c *Catalog) RequiredVNets(target Target, profileKey string) ([]string, error) {
 	profile, err := c.Profile(profileKey)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (c *Catalog) RequiredVNets(profileKey string) ([]string, error) {
 	seen := make(map[string]struct{}, len(profile.RequiredVNets))
 	names := make([]string, 0, len(profile.RequiredVNets))
 	for _, kind := range profile.RequiredVNets {
-		name, err := c.VNetName(kind)
+		name, err := c.VNetName(target, kind)
 		if err != nil {
 			return nil, err
 		}
@@ -81,6 +81,7 @@ func (c *Catalog) RequiredVNets(profileKey string) ([]string, error) {
 }
 
 func (c *Catalog) ResolveWorkloadAttachment(
+	target Target,
 	profileKey string,
 	networkNumber int32,
 	segmentKey string,
@@ -98,7 +99,7 @@ func (c *Catalog) ResolveWorkloadAttachment(
 		return WorkloadAttachment{}, fmt.Errorf("segment %q is not workload-assignable", segmentKey)
 	}
 
-	vnetName, err := c.VNetName(segment.VNetKind)
+	vnetName, err := c.VNetName(target, segment.VNetKind)
 	if err != nil {
 		return WorkloadAttachment{}, err
 	}
@@ -116,16 +117,16 @@ func (c *Catalog) ResolveWorkloadAttachment(
 }
 
 func (c *Catalog) ResolveRouterAttachments(
+	target Target,
 	profileKey string,
 	networkNumber int32,
-	wanBridge string,
 ) ([]RouterAttachment, error) {
 	profile, err := c.Profile(profileKey)
 	if err != nil {
 		return nil, err
 	}
 
-	wanBridge = strings.TrimSpace(wanBridge)
+	wanBridge := strings.TrimSpace(target.WANBridge)
 	if wanBridge == "" {
 		return nil, fmt.Errorf("WAN bridge is required")
 	}
@@ -133,19 +134,19 @@ func (c *Catalog) ResolveRouterAttachments(
 	attachments := make([]RouterAttachment, 0, len(profile.RouterInterfaces))
 	for _, iface := range profile.RouterInterfaces {
 		attachment := RouterAttachment{
-			Device:     iface.Device,
-			KeepUplink: iface.KeepUplink,
+			Device: iface.Device,
+			Uplink: iface.Uplink,
 		}
 
 		switch {
-		case iface.KeepUplink:
+		case iface.Uplink:
 			attachment.Bridge = wanBridge
 		default:
 			segment, ok := findSegment(profile, iface.SegmentKey)
 			if !ok {
 				return nil, fmt.Errorf("router interface %s references unknown segment %q", iface.Device, iface.SegmentKey)
 			}
-			vnetName, err := c.VNetName(segment.VNetKind)
+			vnetName, err := c.VNetName(target, segment.VNetKind)
 			if err != nil {
 				return nil, err
 			}

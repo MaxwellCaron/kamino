@@ -15,8 +15,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (h *PodsHandler) clonedPodNetworkMetadata(clone database.ClonedPods) (clonedPodNetworkResponse, error) {
-	return h.buildPodNetworkMetadata(clone.NetworkProfileKey, clone.NetworkNumber)
+func (h *PodsHandler) clonedPodNetworkMetadata(
+	ctx context.Context,
+	clone database.ClonedPods,
+) (clonedPodNetworkResponse, error) {
+	target, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
+		return clonedPodNetworkResponse{}, reqErr
+	}
+	return h.buildPodNetworkMetadata(target, clone.NetworkProfileKey, clone.NetworkNumber)
 }
 
 func (h *PodsHandler) waitForPodVMTargetsVisible(
@@ -214,13 +221,18 @@ func (h *PodsHandler) configureClonedPodNetwork(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey); reqErr != nil {
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
+		return reqErr
+	}
+	if reqErr := h.ensureProfileVNetsExist(ctx, cloneTarget, clone.NetworkProfileKey); reqErr != nil {
 		return reqErr
 	}
 
 	segmentByTarget := segmentAssignmentsFromPublishedCloneResults(results)
 	return h.configureProfileNetworkAttachments(
 		ctx,
+		cloneTarget,
 		clone.NetworkProfileKey,
 		clone.NetworkNumber,
 		podNetworkTargetsFromCloneResults(results),
@@ -352,7 +364,12 @@ func (h *PodsHandler) configureClonedRouter(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	cloudInitConfig, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, h.RouterCloneConfig)
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
+		return reqErr
+	}
+
+	cloudInitConfig, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, cloneTarget)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusInternalServerError,

@@ -1,15 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
-	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/routerconfig"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Config holds all application configuration
@@ -17,6 +19,8 @@ import (
 var sharedVNetIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
 
 const proxmoxVNetIDMaxLength = 8
+
+const defaultPodCloneTargetKey = "default"
 
 func validateSharedVNetID(envVar, id string) error {
 	if id == "" {
@@ -181,6 +185,7 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 		DevNetworkMin:                    config.PodDevNetworkMin,
 		DevNetworkMax:                    config.PodDevNetworkMax,
 		RouterWaitTimeout:                waitTimeout,
+		WANBridge:                        strings.TrimSpace(config.PodRouterWANBridge),
 		WANIPBase:                        wanIPBase,
 		InternalSubnet:                   internalSubnet,
 		CloudInitStorage:                 cloudInitStorage,
@@ -216,10 +221,46 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	return routerConfig, nil
 }
 
-func buildPodNetworkCatalog(config handlers.PodRouterCloneConfig) (*podnetwork.Catalog, error) {
-	return podnetwork.NewCatalog(podnetwork.Config{
-		LANVNet:   config.LANVNet,
-		DMZVNet:   config.DMZVNet,
-		WANIPBase: config.WANIPBase,
-	})
+func seedDefaultPodCloneTarget(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	config handlers.PodRouterCloneConfig,
+) error {
+	q := database.New(pool)
+	count, err := q.CountPodCloneTargets(ctx)
+	if err != nil {
+		return fmt.Errorf("count pod clone targets: %w", err)
+	}
+	if count > 0 {
+		return nil
+	}
+
+	if strings.TrimSpace(config.WANBridge) == "" {
+		return fmt.Errorf(
+			"POD_ROUTER_WAN_BRIDGE must be set to seed the default pod clone target; " +
+				"use the WAN bridge your pod router template's net0 is attached to",
+		)
+	}
+
+	if err := q.InsertDefaultPodCloneTarget(ctx, database.InsertDefaultPodCloneTargetParams{
+		Key:                      defaultPodCloneTargetKey,
+		Label:                    "Default",
+		LanVnet:                  config.LANVNet,
+		DmzVnet:                  config.DMZVNet,
+		WanBridge:                strings.TrimSpace(config.WANBridge),
+		WanIpBase:                config.WANIPBase,
+		CloudInitStorage:         config.CloudInitStorage,
+		CloudInitUserFilePattern: config.CloudInitUserFilePattern,
+		CloudInitNetworkFile:     config.CloudInitNetworkFile,
+		LanDmzUserFilePattern:    config.LANDMZCloudInitUserFilePattern,
+		LanDmzNetworkFile:        config.LANDMZCloudInitNetworkFile,
+	}); err != nil {
+		return fmt.Errorf("seed default pod clone target: %w", err)
+	}
+
+	log.Printf(
+		"Seeded default pod clone target %q from environment: lan_vnet=%q dmz_vnet=%q wan_bridge=%q wan_ip_base=%q",
+		defaultPodCloneTargetKey, config.LANVNet, config.DMZVNet, config.WANBridge, config.WANIPBase,
+	)
+	return nil
 }

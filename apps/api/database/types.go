@@ -481,6 +481,7 @@ type ClonedPods struct {
 	FolderID          uuid.UUID          `json:"folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey string             `json:"network_profile_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
@@ -518,6 +519,23 @@ type PodCloneClaims struct {
 	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
 }
 
+type PodCloneTargets struct {
+	Key                      string             `json:"key"`
+	Label                    string             `json:"label"`
+	LanVnet                  string             `json:"lan_vnet"`
+	DmzVnet                  string             `json:"dmz_vnet"`
+	WanBridge                string             `json:"wan_bridge"`
+	WanIpBase                string             `json:"wan_ip_base"`
+	CloudInitStorage         string             `json:"cloud_init_storage"`
+	CloudInitUserFilePattern string             `json:"cloud_init_user_file_pattern"`
+	CloudInitNetworkFile     string             `json:"cloud_init_network_file"`
+	LanDmzUserFilePattern    string             `json:"lan_dmz_user_file_pattern"`
+	LanDmzNetworkFile        string             `json:"lan_dmz_network_file"`
+	IsDefault                bool               `json:"is_default"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PodDevVmNetworkAssignments struct {
 	InventoryItemID uuid.UUID          `json:"inventory_item_id"`
 	PodFolderID     uuid.UUID          `json:"pod_folder_id"`
@@ -537,6 +555,7 @@ type PublishedPods struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`

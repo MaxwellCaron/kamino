@@ -34,6 +34,7 @@ import {
   sdnZonesQueryOptions,
   vnetsQueryOptions,
 } from "@/features/sdn/api/sdn-api"
+import { CloneTargetsCard } from "@/features/sdn/components/clone-targets-card"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { PreloadOverlay } from "@/components/loading-overlay"
@@ -321,6 +322,11 @@ export function SdnPage() {
             />
           </CardContent>
         </Card>
+
+        <CloneTargetsCard
+          canAdminister={canAdminister}
+          setConfirm={setConfirm}
+        />
         </div>
       )}
 

@@ -15,7 +15,7 @@ func buildLANRouterV1Profile() Profile {
 		RequiredVNets:     []string{VNetKindPrimary},
 		DefaultSegmentKey: SegmentLAN,
 		RouterInterfaces: []Interface{
-			{Device: "net0", KeepUplink: true},
+			{Device: "net0", Uplink: true},
 			{Device: "net1", SegmentKey: SegmentLAN},
 		},
 		Segments: []Segment{
@@ -45,7 +45,7 @@ func buildLANDMZRouterV1Profile() Profile {
 		RequiredVNets:     []string{VNetKindPrimary, VNetKindDMZ},
 		DefaultSegmentKey: SegmentLAN,
 		RouterInterfaces: []Interface{
-			{Device: "net0", KeepUplink: true},
+			{Device: "net0", Uplink: true},
 			{Device: "net1", SegmentKey: SegmentLAN},
 			{Device: "net2", SegmentKey: SegmentDMZ},
 		},

@@ -115,7 +115,7 @@ func (h *PodsHandler) hydrateClonedPod(
 	}
 	owner := cloneOwnerFromPrincipal(principals[0])
 
-	network, err := h.clonedPodNetworkMetadata(clone)
+	network, err := h.clonedPodNetworkMetadata(ctx, clone)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}

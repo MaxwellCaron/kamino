@@ -9,6 +9,7 @@ import type { PublishPodStep } from "./publish-pod-steps"
 import type { PublishPodFormApi } from "./publish-pod-form"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 
 type PublishPodFormViewProps = {
   step: PublishPodStep
@@ -21,6 +22,7 @@ type PublishPodFormViewProps = {
   publishedPodId?: string
   podFolders: Array<PublishPodFolder>
   podFoldersError: Error | null
+  cloneTargets: Array<PodCloneTarget>
   submitLabel?: string
   onSubmitConfirm: () => Promise<boolean>
 }
@@ -36,6 +38,7 @@ export function PublishPodFormView({
   publishedPodId,
   podFolders,
   podFoldersError,
+  cloneTargets,
   submitLabel,
   onSubmitConfirm,
 }: PublishPodFormViewProps) {
@@ -81,6 +84,7 @@ export function PublishPodFormView({
             submissionAttempts={submissionAttempts}
             podFolders={podFolders}
             podFoldersError={podFoldersError}
+            cloneTargets={cloneTargets}
           />
         </StepperContent>
 

@@ -444,6 +444,54 @@ CREATE INDEX ix_inventory_requests_inventory_item_id
     ON inventory_requests (inventory_item_id);
 
 -- ----------------------------------------------------------------------------
+-- Pod clone targets
+-- ----------------------------------------------------------------------------
+CREATE TABLE pod_clone_targets (
+    key                          TEXT PRIMARY KEY,
+    label                        TEXT NOT NULL,
+    lan_vnet                     TEXT NOT NULL,
+    dmz_vnet                     TEXT NOT NULL,
+    wan_bridge                   TEXT NOT NULL,
+    wan_ip_base                  TEXT NOT NULL,
+    cloud_init_storage           TEXT NOT NULL,
+    cloud_init_user_file_pattern TEXT NOT NULL,
+    cloud_init_network_file      TEXT NOT NULL,
+    lan_dmz_user_file_pattern    TEXT NOT NULL,
+    lan_dmz_network_file         TEXT NOT NULL,
+    is_default                   BOOLEAN NOT NULL DEFAULT false,
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pod_clone_targets_key_format
+        CHECK (key ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND length(key) <= 32),
+    CONSTRAINT pod_clone_targets_label_valid
+        CHECK (length(trim(label)) > 0 AND length(label) <= 48),
+    CONSTRAINT pod_clone_targets_lan_vnet_format
+        CHECK (lan_vnet ~ '^[A-Za-z][A-Za-z0-9]*$' AND length(lan_vnet) BETWEEN 2 AND 8),
+    CONSTRAINT pod_clone_targets_dmz_vnet_format
+        CHECK (dmz_vnet ~ '^[A-Za-z][A-Za-z0-9]*$' AND length(dmz_vnet) BETWEEN 2 AND 8),
+    CONSTRAINT pod_clone_targets_vnets_distinct
+        CHECK (lan_vnet <> dmz_vnet),
+    CONSTRAINT pod_clone_targets_wan_bridge_not_empty
+        CHECK (length(trim(wan_bridge)) > 0),
+    CONSTRAINT pod_clone_targets_wan_ip_base_format
+        CHECK (wan_ip_base ~ '^([0-9]{1,3}\.){2}$'),
+    CONSTRAINT pod_clone_targets_cloud_init_storage_not_empty
+        CHECK (length(trim(cloud_init_storage)) > 0),
+    CONSTRAINT pod_clone_targets_user_pattern_placeholder
+        CHECK (cloud_init_user_file_pattern LIKE '%{network}%'),
+    CONSTRAINT pod_clone_targets_lan_dmz_pattern_placeholder
+        CHECK (lan_dmz_user_file_pattern LIKE '%{network}%'),
+    CONSTRAINT pod_clone_targets_network_file_static
+        CHECK (cloud_init_network_file NOT LIKE '%{network}%'),
+    CONSTRAINT pod_clone_targets_lan_dmz_network_file_static
+        CHECK (lan_dmz_network_file NOT LIKE '%{network}%')
+);
+
+CREATE UNIQUE INDEX ux_pod_clone_targets_default
+    ON pod_clone_targets (is_default)
+    WHERE is_default;
+
+-- ----------------------------------------------------------------------------
 -- Published pod catalog
 -- ----------------------------------------------------------------------------
 CREATE TABLE published_pods (
@@ -456,6 +504,8 @@ CREATE TABLE published_pods (
     source_folder_id        UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
     publisher_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
     network_profile_key     TEXT NOT NULL,
+    clone_target_key        TEXT NOT NULL
+                            REFERENCES pod_clone_targets(key) ON UPDATE CASCADE ON DELETE RESTRICT,
     clone_count             INTEGER NOT NULL DEFAULT 0,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -605,6 +655,8 @@ CREATE TABLE cloned_pods (
     folder_id           UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     network_number      INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
     network_profile_key TEXT NOT NULL,
+    clone_target_key    TEXT NOT NULL
+                        REFERENCES pod_clone_targets(key) ON UPDATE CASCADE ON DELETE RESTRICT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (pod_id, user_principal_id),
@@ -653,15 +705,21 @@ CREATE TABLE pod_network_allocations (
     network_number        INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
     kind                  pod_network_allocation_kind NOT NULL,
     network_profile_key   TEXT NULL,
+    clone_target_key      TEXT NULL
+                          REFERENCES pod_clone_targets(key) ON UPDATE CASCADE ON DELETE RESTRICT,
     folder_id             UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     inventory_item_id     UUID NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     cloned_pod_id         UUID NULL UNIQUE REFERENCES cloned_pods(id) ON DELETE CASCADE,
     personal_pod_id       UUID NULL UNIQUE REFERENCES personal_pods(id) ON DELETE CASCADE,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- The number is the inner VLAN tag, so it stays unique across targets.
     UNIQUE (network_number),
     CONSTRAINT pod_network_allocations_profile_key_not_empty
-        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0)
+        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0),
+    -- Personal pods are configured from env, not from a clone target.
+    CONSTRAINT pod_network_allocations_clone_target_scope
+        CHECK ((kind = 'personal_pod') = (clone_target_key IS NULL))
 );
 
 CREATE UNIQUE INDEX ux_pod_network_allocations_dev_pod_folder
@@ -798,6 +856,11 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_requests_set_updated_at
 BEFORE UPDATE ON requests
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_pod_clone_targets_set_updated_at
+BEFORE UPDATE ON pod_clone_targets
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

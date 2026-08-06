@@ -69,6 +69,25 @@ func personalPodVNetScope(personalVNet string, networkNumber int32) VMNetworkSco
 	}
 }
 
+func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryItemRow) (podnetwork.Target, error) {
+	if allocation.CloneTargetKey == nil ||
+		allocation.LanVnet == nil ||
+		allocation.DmzVnet == nil ||
+		allocation.WanBridge == nil ||
+		allocation.WanIpBase == nil {
+		return podnetwork.Target{}, fmt.Errorf(
+			"pod network allocation for folder %s is missing its clone target", allocation.FolderID,
+		)
+	}
+	return podnetwork.Target{
+		Key:       *allocation.CloneTargetKey,
+		LANVNet:   *allocation.LanVnet,
+		DMZVNet:   *allocation.DmzVnet,
+		WANBridge: *allocation.WanBridge,
+		WANIPBase: *allocation.WanIpBase,
+	}, nil
+}
+
 // resolveVMNetworkScope derives scope from the nearest pod allocation ancestor of itemID; the client never supplies it.
 func resolveVMNetworkScope(
 	ctx context.Context,
@@ -97,6 +116,12 @@ func resolveVMNetworkScope(
 		}
 		profileKey := strings.TrimSpace(*allocation.NetworkProfileKey)
 
+		// VNets come from the pod's target, so added VMs land on the same bridges.
+		cloneTarget, err := allocationCloneTarget(allocation)
+		if err != nil {
+			return VMNetworkScope{}, false, err
+		}
+
 		profile, err := catalog.Profile(profileKey)
 		if err != nil {
 			return VMNetworkScope{}, false, fmt.Errorf("resolve pod network profile: %w", err)
@@ -106,7 +131,7 @@ func resolveVMNetworkScope(
 		if err != nil {
 			return VMNetworkScope{}, false, fmt.Errorf("resolve pod default workload segment: %w", err)
 		}
-		defaultAttachment, err := catalog.ResolveWorkloadAttachment(profileKey, allocation.NetworkNumber, defaultSegmentKey)
+		defaultAttachment, err := catalog.ResolveWorkloadAttachment(cloneTarget, profileKey, allocation.NetworkNumber, defaultSegmentKey)
 		if err != nil {
 			return VMNetworkScope{}, false, fmt.Errorf("resolve pod default workload attachment: %w", err)
 		}
@@ -122,7 +147,7 @@ func resolveVMNetworkScope(
 			if !segment.WorkloadAssignable {
 				continue
 			}
-			vnetName, err := catalog.VNetName(segment.VNetKind)
+			vnetName, err := catalog.VNetName(cloneTarget, segment.VNetKind)
 			if err != nil {
 				return VMNetworkScope{}, false, fmt.Errorf("resolve pod workload vnet: %w", err)
 			}

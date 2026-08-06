@@ -21,6 +21,7 @@ type normalizedPublishPodRequest struct {
 	Status                database.PublishedPodStatus
 	SourceFolderID        uuid.UUID
 	NetworkProfileKey     string
+	CloneTargetKey        string
 	CreatorIDs            []uuid.UUID
 	AudienceIDs           []uuid.UUID
 	VirtualMachines       []normalizedPublishPodVM
@@ -147,6 +148,12 @@ func (h *PodsHandler) normalizePublishPodRequest(
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}
+
+	// The publisher picks the clone domain; unset keeps the default target.
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, req.CloneTargetKey)
+	if reqErr != nil {
+		return normalizedPublishPodRequest{}, reqErr
+	}
 	vms, reqErr = applyPublishNetworkAssignments(vms, vmAssignments)
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
@@ -163,6 +170,7 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		Status:                status,
 		SourceFolderID:        podFolderID,
 		NetworkProfileKey:     networkProfileKey,
+		CloneTargetKey:        cloneTarget.Key,
 		CreatorIDs:            creatorIDs,
 		AudienceIDs:           audienceIDs,
 		VirtualMachines:       vms,

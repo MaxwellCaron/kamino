@@ -5,6 +5,7 @@ import type {
   PublishedPodVirtualMachine,
 } from "@/features/pods/types/pod-types"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
@@ -18,6 +19,7 @@ export type PublishPodFolder = {
 
 export type PublishPodOptions = {
   source_folders: Array<PublishPodFolder>
+  clone_targets: Array<PodCloneTarget>
 }
 
 export type PublishPodProgress = {
@@ -262,5 +264,6 @@ export function toPublishPodFormValues(
       })),
     })),
     source_folder: pod.source_folder,
+    clone_target_key: pod.clone_target_key,
   }
 }

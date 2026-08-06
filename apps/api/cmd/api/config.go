@@ -57,6 +57,7 @@ type Config struct {
 	PodDevNetworkMin                    int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
 	PodDevNetworkMax                    int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"199"`
 	PodRouterWait                       string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
+	PodRouterWANBridge                  string `envconfig:"POD_ROUTER_WAN_BRIDGE"`
 	PodRouterWANIPBase                  string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
 	PodRouterInternalSubnet             string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"192.168.1.0/24"`
 	PodRouterCloudInitStorage           string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`

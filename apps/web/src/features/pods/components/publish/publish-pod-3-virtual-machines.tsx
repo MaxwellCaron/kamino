@@ -72,6 +72,7 @@ import type {
   PublishPodFormValues,
 } from "./publish-pod-form"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import type {
   DraftPrincipal,
   PermissionState,
@@ -99,6 +100,7 @@ type PublishPodVirtualMachinesStepProps = {
   submissionAttempts: number
   podFolders: Array<PublishPodFolder>
   podFoldersError: Error | null
+  cloneTargets: Array<PodCloneTarget>
 }
 
 function createEditingVmPrincipal(
@@ -464,6 +466,7 @@ export function PublishPodVirtualMachinesStep({
   submissionAttempts,
   podFolders,
   podFoldersError,
+  cloneTargets,
 }: PublishPodVirtualMachinesStepProps) {
   const [initialPodFolder] = React.useState(() =>
     form.getFieldValue("source_folder")
@@ -677,6 +680,64 @@ export function PublishPodVirtualMachinesStep({
                           </Empty>
                         )}
                       </div>
+                    </FieldContent>
+                  </Field>
+                )
+              }}
+            </form.Field>
+
+            <form.Field name="clone_target_key">
+              {(field) => {
+                const defaultTarget =
+                  cloneTargets.find((target) => target.is_default) ?? null
+                const selectedTarget =
+                  cloneTargets.find(
+                    (target) => target.key === field.state.value
+                  ) ?? defaultTarget
+
+                return (
+                  <Field>
+                    <FieldLabel>Clone Target</FieldLabel>
+                    <FieldDescription>
+                      Subnet and bridge that clones of this pod are placed on.
+                      Users never choose this.
+                    </FieldDescription>
+                    <FieldContent>
+                      <Combobox
+                        items={cloneTargets}
+                        itemToStringLabel={(target) => target.label}
+                        itemToStringValue={(target) => target.label}
+                        value={selectedTarget}
+                        onValueChange={(target) =>
+                          field.handleChange(target?.key ?? "")
+                        }
+                        autoHighlight
+                      >
+                        <ComboboxInput
+                          name={field.name}
+                          placeholder="Select Clone Target"
+                          onBlur={field.handleBlur}
+                        />
+                        <ComboboxContent>
+                          <ComboboxEmpty>
+                            No Clone Targets found.
+                          </ComboboxEmpty>
+                          <ComboboxList>
+                            {(target) => (
+                              <ComboboxItem key={target.key} value={target}>
+                                <span className="flex min-w-0 flex-col">
+                                  <span className="truncate">
+                                    {target.label}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {`${target.lan_vnet} · ${target.wan_bridge} · ${target.wan_ip_base}x.0/24`}
+                                  </span>
+                                </span>
+                              </ComboboxItem>
+                            )}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
                     </FieldContent>
                   </Field>
                 )

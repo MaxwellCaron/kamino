@@ -33,6 +33,7 @@ type PodRouterCloneConfig struct {
 	DevNetworkMin                    int32
 	DevNetworkMax                    int32
 	RouterWaitTimeout                time.Duration
+	WANBridge                        string
 	WANIPBase                        string
 	InternalSubnet                   netip.Prefix
 	CloudInitStorage                 string
@@ -137,6 +138,7 @@ type publishedPodResponse struct {
 	Tasks           []publishedPodTaskResponse      `json:"tasks"`
 	SourceFolder    uuid.UUID                       `json:"source_folder"`
 	NetworkProfile  string                          `json:"network_profile_key"`
+	CloneTargetKey  string                          `json:"clone_target_key"`
 	VirtualMachines []publishedPodVMResponse        `json:"virtual_machines"`
 }
 
@@ -161,6 +163,9 @@ type clonedPodNetworkResponse struct {
 	InternalSubnet  string                      `json:"internal_subnet"`
 	InternalGateway string                      `json:"internal_gateway"`
 	ProfileKey      string                      `json:"profile_key,omitempty"`
+	CloneTargetKey  string                      `json:"clone_target_key,omitempty"`
+	CloneTargetName string                      `json:"clone_target_name,omitempty"`
+	WANBridge       string                      `json:"wan_bridge,omitempty"`
 	DMZVNet         string                      `json:"dmz_vnet,omitempty"`
 	DMZSubnet       string                      `json:"dmz_subnet,omitempty"`
 	DMZGateway      string                      `json:"dmz_gateway,omitempty"`
@@ -205,6 +210,7 @@ type publishedPodBase struct {
 	Status            database.PublishedPodStatus
 	SourceFolderID    uuid.UUID
 	NetworkProfileKey string
+	CloneTargetKey    string
 	CloneCount        int32
 	CreatedAt         *time.Time
 }
