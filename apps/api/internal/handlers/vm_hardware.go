@@ -150,7 +150,7 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 
 	// Resolve scope before the action claim so an unscoped/manager caller short-circuits the extra Proxmox read below.
 	scope, scoped, err := resolveVMNetworkScope(
-		c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, itemID,
+		c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, itemID,
 	)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm hardware network scope", err)

@@ -507,6 +507,7 @@ type PersonalPods struct {
 	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
 	FolderID        uuid.UUID          `json:"folder_id"`
 	NetworkNumber   int32              `json:"network_number"`
+	CloneTargetKey  string             `json:"clone_target_key"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
@@ -531,6 +532,7 @@ type PodCloneTargets struct {
 	NetworkMax        int32              `json:"network_max"`
 	CloudInitStorage  string             `json:"cloud_init_storage"`
 	IsDefault         bool               `json:"is_default"`
+	IsPersonal        bool               `json:"is_personal"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }

@@ -13,9 +13,9 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
-	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -38,14 +38,6 @@ type personalPodStatusResponse struct {
 
 type personalPodCreateResponse struct {
 	FolderID uuid.UUID `json:"folder_id"`
-}
-
-func (h *PodsHandler) personalPodVNetName(networkNumber int32) string {
-	return h.RouterCloneConfig.PersonalVNet
-}
-
-func (h *PodsHandler) personalPodNetworkScope(networkNumber int32) VMNetworkScope {
-	return personalPodVNetScope(h.RouterCloneConfig.PersonalVNet, networkNumber)
 }
 
 func personalPodFolderDescription(vnetName string) string {
@@ -99,21 +91,11 @@ func personalPodFolderName(username string) string {
 	return name
 }
 
-func (h *PodsHandler) personalPodNetworkMetadata(networkNumber int32) (clonedPodNetworkResponse, error) {
-	wanBase, err := routerconfig.NormalizeDottedPrefix(h.RouterCloneConfig.PersonalWANIPBase)
-	if err != nil {
-		return clonedPodNetworkResponse{}, fmt.Errorf("invalid WAN IP base %q: %w", h.RouterCloneConfig.PersonalWANIPBase, err)
-	}
-
-	return clonedPodNetworkResponse{
-		Number:          networkNumber,
-		VNet:            h.personalPodVNetName(networkNumber),
-		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
-		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
-		InternalSubnet:  h.RouterCloneConfig.InternalSubnet.String(),
-		InternalGateway: h.RouterCloneConfig.InternalSubnet.Addr().Next().String(),
-		LANVLANTag:      int(networkNumber),
-	}, nil
+func (h *PodsHandler) personalPodNetworkMetadata(
+	target podCloneTarget,
+	networkNumber int32,
+) (clonedPodNetworkResponse, error) {
+	return h.buildPodNetworkMetadata(target, podnetwork.ProfileLANRouterV1, networkNumber)
 }
 
 func (h *PodsHandler) provisionPersonalPod(
@@ -125,6 +107,11 @@ func (h *PodsHandler) provisionPersonalPod(
 			Status:      http.StatusConflict,
 			UserMessage: "personal pods are not configured",
 		}
+	}
+
+	personalTarget, reqErr := h.personalPodCloneTarget(ctx)
+	if reqErr != nil {
+		return database.PersonalPods{}, reqErr
 	}
 
 	q := database.New(h.DB)
@@ -235,8 +222,9 @@ func (h *PodsHandler) provisionPersonalPod(
 				ID:               uuid.New(),
 				UserPrincipalID:  userPrincipalID,
 				FolderID:         folderID,
-				MinNetworkNumber: h.RouterCloneConfig.PersonalNetworkMin,
-				MaxNetworkNumber: h.RouterCloneConfig.PersonalNetworkMax,
+				CloneTargetKey:   personalTarget.Key,
+				MinNetworkNumber: personalTarget.NetworkMin,
+				MaxNetworkNumber: personalTarget.NetworkMax,
 			})
 			return err
 		})
@@ -248,6 +236,7 @@ func (h *PodsHandler) provisionPersonalPod(
 			UserPrincipalID: row.UserPrincipalID,
 			FolderID:        row.FolderID,
 			NetworkNumber:   row.NetworkNumber,
+			CloneTargetKey:  row.CloneTargetKey,
 			CreatedAt:       row.CreatedAt,
 			UpdatedAt:       row.UpdatedAt,
 		}, nil
@@ -277,11 +266,12 @@ func (h *PodsHandler) provisionPersonalPod(
 		UserPrincipalID: personalPodRow.UserPrincipalID,
 		FolderID:        personalPodRow.FolderID,
 		NetworkNumber:   personalPodRow.NetworkNumber,
+		CloneTargetKey:  personalPodRow.CloneTargetKey,
 		CreatedAt:       personalPodRow.CreatedAt,
 		UpdatedAt:       personalPodRow.UpdatedAt,
 	}
 
-	vnetName := h.personalPodVNetName(personalPod.NetworkNumber)
+	vnetName := personalTarget.LANVNet
 	if err := h.Service.SetFolderDescription(
 		ctx,
 		folderID,
@@ -391,20 +381,24 @@ func (h *PodsHandler) provisionPersonalPod(
 		h.cleanupFailedPodProvision(folderID, created)
 		return database.PersonalPods{}, reqErr
 	}
-	if reqErr := h.configurePersonalPodNetworkAttachments(
+	if reqErr := h.configureProfileNetworkAttachments(
 		ctx,
-		h.RouterCloneConfig.PersonalWANBridge,
-		h.personalPodNetworkScope(personalPod.NetworkNumber),
+		personalTarget,
+		podnetwork.ProfileLANRouterV1,
+		personalPod.NetworkNumber,
 		targets,
+		map[string]string{},
 	); reqErr != nil {
 		recordFailure(reqErr)
 		h.cleanupFailedPodProvision(folderID, created)
 		return database.PersonalPods{}, reqErr
 	}
 
-	personalCloneConfig := h.RouterCloneConfig
-	personalCloneConfig.CloudInitUserFilePattern = h.RouterCloneConfig.PersonalCloudInitUserFilePattern
-	cloudInitConfig, err := buildClonedRouterCloudInitConfig(personalPod.NetworkNumber, personalCloneConfig)
+	cloudInitConfig, err := buildRouterCloudInitConfigForProfile(
+		personalPod.NetworkNumber,
+		podnetwork.ProfileLANRouterV1,
+		personalTarget,
+	)
 	if err != nil {
 		reqErr := &requestError{
 			Status:      http.StatusInternalServerError,
@@ -450,7 +444,12 @@ func (h *PodsHandler) GetPersonalPod(c *gin.Context) {
 	var personalPod *personalPodSummaryResponse
 	switch {
 	case err == nil:
-		network, networkErr := h.personalPodNetworkMetadata(row.NetworkNumber)
+		target, reqErr := h.resolvePodCloneTarget(c.Request.Context(), row.CloneTargetKey)
+		if reqErr != nil {
+			writeRequestError(c, reqErr)
+			return
+		}
+		network, networkErr := h.personalPodNetworkMetadata(target, row.NetworkNumber)
 		if networkErr != nil {
 			writeLoggedError(c, http.StatusInternalServerError, "failed to load personal pod", "build personal pod network metadata", networkErr)
 			return

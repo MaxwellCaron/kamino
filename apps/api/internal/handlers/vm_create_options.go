@@ -180,7 +180,7 @@ func (h *VMCreateHandler) GetBridges(c *gin.Context) {
 		if !isManager {
 			// Managers/administrators keep the unrestricted response below for a deliberate after-the-fact override.
 			scope, scoped, err := resolveVMNetworkScope(
-				c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, scopeItemID,
+				c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, scopeItemID,
 			)
 			if err != nil {
 				writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm bridge options network scope", err)

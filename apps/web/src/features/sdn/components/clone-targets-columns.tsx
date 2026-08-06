@@ -43,6 +43,9 @@ export function getCloneTargetColumns({
           {row.original.is_default ? (
             <Badge variant="secondary">Default</Badge>
           ) : null}
+          {row.original.is_personal ? (
+            <Badge variant="secondary">Personal</Badge>
+          ) : null}
         </div>
       ),
     },
@@ -157,7 +160,7 @@ export function getCloneTargetColumns({
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
-                disabled={target.is_default}
+                disabled={target.is_default || target.is_personal}
                 onClick={() => onDeleteClick(target)}
               >
                 <HugeiconsIcon icon={Delete01Icon} />

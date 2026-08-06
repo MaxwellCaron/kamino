@@ -60,18 +60,8 @@ type podNetworkScopeReader interface {
 
 var _ podNetworkScopeReader = (*database.Queries)(nil)
 
-func personalPodVNetScope(personalVNet string, networkNumber int32) VMNetworkScope {
-	return VMNetworkScope{
-		Kind:         database.PodNetworkAllocationKindPersonalPod,
-		VNet:         personalVNet,
-		AllowedVNets: []string{personalVNet},
-		VLANTag:      int(networkNumber),
-	}
-}
-
 func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryItemRow) (podnetwork.Target, error) {
-	if allocation.CloneTargetKey == nil ||
-		allocation.LanVnet == nil ||
+	if allocation.LanVnet == nil ||
 		allocation.DmzVnet == nil ||
 		allocation.WanBridge == nil ||
 		allocation.WanSubnet == nil {
@@ -80,7 +70,7 @@ func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryIte
 		)
 	}
 	return podnetwork.Target{
-		Key:       *allocation.CloneTargetKey,
+		Key:       allocation.CloneTargetKey,
 		LANVNet:   *allocation.LanVnet,
 		DMZVNet:   *allocation.DmzVnet,
 		WANBridge: *allocation.WanBridge,
@@ -93,7 +83,6 @@ func resolveVMNetworkScope(
 	ctx context.Context,
 	reader podNetworkScopeReader,
 	catalog *podnetwork.Catalog,
-	personalVNet string,
 	itemID uuid.UUID,
 ) (scope VMNetworkScope, scoped bool, err error) {
 	allocation, err := reader.GetPodNetworkScopeForInventoryItem(ctx, itemID)
@@ -105,10 +94,9 @@ func resolveVMNetworkScope(
 	}
 
 	switch allocation.Kind {
-	case database.PodNetworkAllocationKindPersonalPod:
-		return personalPodVNetScope(personalVNet, allocation.NetworkNumber), true, nil
-
-	case database.PodNetworkAllocationKindDevPod, database.PodNetworkAllocationKindPublishedClone:
+	case database.PodNetworkAllocationKindPersonalPod,
+		database.PodNetworkAllocationKindDevPod,
+		database.PodNetworkAllocationKindPublishedClone:
 		if allocation.NetworkProfileKey == nil || strings.TrimSpace(*allocation.NetworkProfileKey) == "" {
 			return VMNetworkScope{}, false, fmt.Errorf(
 				"pod network allocation for folder %s is missing a network profile", allocation.FolderID,

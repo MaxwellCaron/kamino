@@ -38,6 +38,7 @@ type podCloneTarget struct {
 	NetworkMax        int32
 	CloudInitStorage  string
 	IsDefault         bool
+	IsPersonal        bool
 }
 
 // Network is the subset the profile catalog resolves attachments against.
@@ -129,6 +130,7 @@ type podCloneTargetResponse struct {
 	LANDMZUserFilePattern    string `json:"lan_dmz_user_file_pattern,omitempty"`
 	LANDMZNetworkFile        string `json:"lan_dmz_network_file,omitempty"`
 	IsDefault                bool   `json:"is_default"`
+	IsPersonal               bool   `json:"is_personal"`
 }
 
 func toPodCloneTargetResponse(target podCloneTarget) podCloneTargetResponse {
@@ -146,6 +148,7 @@ func toPodCloneTargetResponse(target podCloneTarget) podCloneTargetResponse {
 		CloudInitUserFilePattern: target.CloudInitUserFilePattern(),
 		CloudInitNetworkFile:     target.CloudInitNetworkFile(),
 		IsDefault:                target.IsDefault,
+		IsPersonal:               target.IsPersonal,
 	}
 }
 
@@ -199,6 +202,25 @@ func (h *PodsHandler) defaultPodCloneTarget(ctx context.Context) (podCloneTarget
 			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to load pod clone target",
 			Operation:   "load default pod clone target",
+			Err:         err,
+		}
+	}
+	return podCloneTargetFromRow(row), nil
+}
+
+func (h *PodsHandler) personalPodCloneTarget(ctx context.Context) (podCloneTarget, *requestError) {
+	row, err := database.New(h.DB).GetPersonalPodCloneTarget(ctx)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return podCloneTarget{}, &requestError{
+			Status:      http.StatusServiceUnavailable,
+			UserMessage: "no personal pod clone target is configured",
+		}
+	}
+	if err != nil {
+		return podCloneTarget{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to load personal pod clone target",
+			Operation:   "load personal pod clone target",
 			Err:         err,
 		}
 	}
@@ -468,10 +490,12 @@ func (h *PodsHandler) DeletePodCloneTarget(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to check pod clone target usage", "count pod clone target references", err)
 		return
 	}
-	if total := references.PublishedPodCount + references.ClonedPodCount + references.AllocationCount; total > 0 {
+	if total := references.PublishedPodCount + references.ClonedPodCount +
+		references.AllocationCount + references.PersonalPodCount; total > 0 {
 		writeConflict(c, fmt.Sprintf(
-			"pod clone target %q is still used by %d published pod(s), %d clone(s), and %d network allocation(s)",
-			key, references.PublishedPodCount, references.ClonedPodCount, references.AllocationCount,
+			"pod clone target %q is still used by %d published pod(s), %d clone(s), %d personal pod(s), and %d network allocation(s)",
+			key, references.PublishedPodCount, references.ClonedPodCount,
+			references.PersonalPodCount, references.AllocationCount,
 		))
 		return
 	}

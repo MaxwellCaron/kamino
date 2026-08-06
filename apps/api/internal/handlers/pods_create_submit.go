@@ -162,7 +162,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 					MinNetworkNumber:  devCloneTarget.NetworkMin,
 					MaxNetworkNumber:  devCloneTarget.NetworkMax,
 					NetworkProfileKey: &profileKey,
-					CloneTargetKey:    &devCloneTarget.Key,
+					CloneTargetKey:    devCloneTarget.Key,
 				},
 			)
 			return err

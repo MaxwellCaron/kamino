@@ -392,7 +392,6 @@ func TestUpdateHardware_NonManagerScopedPreservesCurrentTagsAndScopesNewNIC(t *t
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB()),
 	}
 
@@ -485,7 +484,6 @@ func TestUpdateHardware_NonManagerScopedRejectsDisallowedBridgeChange(t *testing
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB()),
 	}
 
@@ -542,7 +540,6 @@ func TestUpdateHardware_ManagerOverridePassesThroughUnrestricted(t *testing.T) {
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB()),
 	}
 

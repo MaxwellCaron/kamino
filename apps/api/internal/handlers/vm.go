@@ -68,7 +68,6 @@ type VMHandler struct {
 	Claims                           *vmactions.Claims
 	Audit                            *audit.Service
 	Allocator                        *vmidalloc.Allocator
-	PersonalPodVNet                  string
 	PersonalPodTemplatesFolderItemID uuid.UUID
 	NetworkScopeReader               podNetworkScopeReader
 	NetworkCatalog                   *podnetwork.Catalog

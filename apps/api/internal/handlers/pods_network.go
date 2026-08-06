@@ -119,7 +119,7 @@ func (h *PodsHandler) buildPodNetworkMetadata(
 }
 
 func (h *PodsHandler) ensureSharedVNetsValid(ctx context.Context, required []string) *requestError {
-	return h.ensureVNetsValid(ctx, required, []string{h.RouterCloneConfig.PersonalVNet})
+	return h.ensureVNetsValid(ctx, required, nil)
 }
 
 func (h *PodsHandler) ensureVNetsValid(ctx context.Context, required []string, alsoCheck []string) *requestError {
@@ -236,11 +236,7 @@ func (h *PodsHandler) ensureProfileVNetsExist(
 	}
 
 	// Both VNets are checked even when the profile needs one: a colliding pair breaks every profile.
-	return h.ensureVNetsValid(ctx, required, []string{
-		target.LANVNet,
-		target.DMZVNet,
-		h.RouterCloneConfig.PersonalVNet,
-	})
+	return h.ensureVNetsValid(ctx, required, []string{target.LANVNet, target.DMZVNet})
 }
 
 func (h *PodsHandler) ensureCloneTargetVNetsValid(ctx context.Context, target podCloneTarget) *requestError {
@@ -249,7 +245,8 @@ func (h *PodsHandler) ensureCloneTargetVNetsValid(ctx context.Context, target po
 		return reqErr
 	}
 
-	alsoCheck := []string{h.RouterCloneConfig.PersonalVNet}
+	// Every other target, so a collision surfaces before the target is saved.
+	alsoCheck := make([]string, 0, len(others)*2)
 	for _, other := range others {
 		if other.Key == target.Key {
 			continue

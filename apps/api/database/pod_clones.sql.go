@@ -250,7 +250,7 @@ type InsertClonedPodParams struct {
 	MinNetworkNumber  int32     `json:"min_network_number"`
 	MaxNetworkNumber  int32     `json:"max_network_number"`
 	NetworkProfileKey *string   `json:"network_profile_key"`
-	CloneTargetKey    *string   `json:"clone_target_key"`
+	CloneTargetKey    string    `json:"clone_target_key"`
 	FolderID          uuid.UUID `json:"folder_id"`
 	ID                uuid.UUID `json:"id"`
 	PodID             uuid.UUID `json:"pod_id"`

@@ -4,6 +4,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    clone_target_key,
     created_at,
     updated_at
 FROM personal_pods
@@ -25,11 +26,15 @@ allocation AS (
     INSERT INTO pod_network_allocations (
         network_number,
         kind,
+        network_profile_key,
+        clone_target_key,
         folder_id
     )
     SELECT
         candidate.network_number,
         'personal_pod',
+        'lan-router-v1',
+        sqlc.arg(clone_target_key),
         sqlc.arg(folder_id)
     FROM candidate
     RETURNING id, network_number
@@ -39,19 +44,22 @@ inserted AS (
         id,
         user_principal_id,
         folder_id,
-        network_number
+        network_number,
+        clone_target_key
     )
     SELECT
         sqlc.arg(id),
         sqlc.arg(user_principal_id),
         sqlc.arg(folder_id),
-        allocation.network_number
+        allocation.network_number,
+        sqlc.arg(clone_target_key)
     FROM allocation
     RETURNING
         id,
         user_principal_id,
         folder_id,
         network_number,
+        clone_target_key,
         created_at,
         updated_at
 ),
@@ -66,6 +74,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    clone_target_key,
     created_at,
     updated_at
 FROM inserted;

@@ -39,7 +39,7 @@ type GetPodDevNetworkAllocationRow struct {
 	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey *string            `json:"network_profile_key"`
-	CloneTargetKey    *string            `json:"clone_target_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
@@ -91,7 +91,7 @@ type GetPodNetworkScopeForInventoryItemRow struct {
 	FolderID          uuid.UUID                `json:"folder_id"`
 	NetworkNumber     int32                    `json:"network_number"`
 	NetworkProfileKey *string                  `json:"network_profile_key"`
-	CloneTargetKey    *string                  `json:"clone_target_key"`
+	CloneTargetKey    string                   `json:"clone_target_key"`
 	LanVnet           *string                  `json:"lan_vnet"`
 	DmzVnet           *string                  `json:"dmz_vnet"`
 	WanBridge         *string                  `json:"wan_bridge"`
@@ -164,7 +164,7 @@ type InsertPodDevNetworkAllocationParams struct {
 	MinNetworkNumber  int32     `json:"min_network_number"`
 	MaxNetworkNumber  int32     `json:"max_network_number"`
 	NetworkProfileKey *string   `json:"network_profile_key"`
-	CloneTargetKey    *string   `json:"clone_target_key"`
+	CloneTargetKey    string    `json:"clone_target_key"`
 	PodFolderID       uuid.UUID `json:"pod_folder_id"`
 }
 
@@ -172,7 +172,7 @@ type InsertPodDevNetworkAllocationRow struct {
 	PodFolderID       uuid.UUID          `json:"pod_folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey *string            `json:"network_profile_key"`
-	CloneTargetKey    *string            `json:"clone_target_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }

@@ -124,7 +124,7 @@ func main() {
 		protectedACLPrincipalIDs = []uuid.UUID{protectedACLPrincipalID}
 	}
 
-	if err := seedDefaultPodCloneTarget(context.Background(), server.DBPool, routerCloneConfig); err != nil {
+	if err := seedPodCloneTargets(context.Background(), server.DBPool, routerCloneConfig); err != nil {
 		log.Fatalf("Pod clone target bootstrap failed: %v", err)
 	}
 
@@ -190,7 +190,6 @@ func main() {
 		Actions:                          vmActionExecutor,
 		Claims:                           vmActionClaims,
 		Audit:                            auditService,
-		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
 		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
 		NetworkScopeReader:               database.New(server.DBPool),
 		NetworkCatalog:                   networkCatalog,
@@ -204,7 +203,6 @@ func main() {
 		Authz:                            authzService,
 		Audit:                            auditService,
 		Allocator:                        vmidAllocator,
-		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
 		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
 		NetworkScopeReader:               database.New(server.DBPool),
 		NetworkCatalog:                   networkCatalog,

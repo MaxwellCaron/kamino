@@ -292,7 +292,7 @@ func (h *PodsHandler) createClonedPodRecord(
 			UserPrincipalID:   principalID,
 			FolderID:          folderID,
 			NetworkProfileKey: &networkProfileKey,
-			CloneTargetKey:    &cloneTarget.Key,
+			CloneTargetKey:    cloneTarget.Key,
 			MinNetworkNumber:  cloneTarget.NetworkMin,
 			MaxNetworkNumber:  cloneTarget.NetworkMax,
 		})

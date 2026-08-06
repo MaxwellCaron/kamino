@@ -79,7 +79,7 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		sourceNetworks []proxmox.VMHardwareNetwork
 	)
 	scope, scoped, err := resolveVMNetworkScope(
-		c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, targetFolderID,
+		c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, targetFolderID,
 	)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm clone network scope", err)

@@ -23,6 +23,10 @@ const proxmoxVNetIDMaxLength = 8
 
 const defaultPodCloneTargetKey = "default"
 
+// Derives kamino-personal-router-* snippet names, matching the legacy
+// PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN default.
+const personalPodCloneTargetKey = "personal"
+
 func validateSharedVNetID(envVar, id string) error {
 	if id == "" {
 		return fmt.Errorf("%s must not be empty", envVar)
@@ -210,12 +214,23 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	return routerConfig, nil
 }
 
-func seedDefaultPodCloneTarget(
+func seedPodCloneTargets(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	config handlers.PodRouterCloneConfig,
 ) error {
 	q := database.New(pool)
+	if err := seedDefaultPodCloneTarget(ctx, q, config); err != nil {
+		return err
+	}
+	return seedPersonalPodCloneTarget(ctx, q, config)
+}
+
+func seedDefaultPodCloneTarget(
+	ctx context.Context,
+	q *database.Queries,
+	config handlers.PodRouterCloneConfig,
+) error {
 	count, err := q.CountPodCloneTargets(ctx)
 	if err != nil {
 		return fmt.Errorf("count pod clone targets: %w", err)
@@ -261,5 +276,43 @@ func seedDefaultPodCloneTarget(
 		"Seeded default pod clone target %q from environment: lan_vnet=%q dmz_vnet=%q wan_bridge=%q wan_subnet=%q networks=%d-%d",
 		defaultPodCloneTargetKey, config.LANVNet, config.DMZVNet, config.WANBridge, wanSubnet, networkMin, networkMax,
 	)
+	return nil
+}
+
+// Seeded separately from the default so an existing deployment picks it up. The
+// query is a no-op once any target is marked personal.
+func seedPersonalPodCloneTarget(
+	ctx context.Context,
+	q *database.Queries,
+	config handlers.PodRouterCloneConfig,
+) error {
+	bridge := strings.TrimSpace(config.PersonalWANBridge)
+	if bridge == "" {
+		bridge = strings.TrimSpace(config.WANBridge)
+	}
+	if config.PersonalVNet == "" || bridge == "" {
+		log.Printf(
+			"Skipping personal pod clone target seed: set PERSONAL_POD_VNET and PERSONAL_POD_WAN_BRIDGE to enable personal pods",
+		)
+		return nil
+	}
+
+	wanSubnet, err := routerconfig.ParseIPv4Subnet16(strings.TrimSuffix(config.PersonalWANIPBase, ".") + ".0.0/16")
+	if err != nil {
+		return fmt.Errorf("cannot derive a /16 from PERSONAL_POD_WAN_IP_BASE %q: %w", config.PersonalWANIPBase, err)
+	}
+
+	if err := q.InsertPersonalPodCloneTarget(ctx, database.InsertPersonalPodCloneTargetParams{
+		Key:              personalPodCloneTargetKey,
+		Label:            "Personal",
+		LanVnet:          config.PersonalVNet,
+		WanBridge:        bridge,
+		WanSubnet:        wanSubnet.String(),
+		NetworkMin:       config.PersonalNetworkMin,
+		NetworkMax:       config.PersonalNetworkMax,
+		CloudInitStorage: config.CloudInitStorage,
+	}); err != nil {
+		return fmt.Errorf("seed personal pod clone target: %w", err)
+	}
 	return nil
 }

@@ -458,6 +458,7 @@ CREATE TABLE pod_clone_targets (
     network_max                  INTEGER NOT NULL CHECK (network_max BETWEEN 1 AND 254),
     cloud_init_storage           TEXT NOT NULL,
     is_default                   BOOLEAN NOT NULL DEFAULT false,
+    is_personal                  BOOLEAN NOT NULL DEFAULT false,
     created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pod_clone_targets_key_format
@@ -487,6 +488,11 @@ CREATE TABLE pod_clone_targets (
 CREATE UNIQUE INDEX ux_pod_clone_targets_default
     ON pod_clone_targets (is_default)
     WHERE is_default;
+
+-- Personal pods all land on one designated target.
+CREATE UNIQUE INDEX ux_pod_clone_targets_personal
+    ON pod_clone_targets (is_personal)
+    WHERE is_personal;
 
 -- ----------------------------------------------------------------------------
 -- Published pod catalog
@@ -691,6 +697,8 @@ CREATE TABLE personal_pods (
     user_principal_id  UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
     folder_id          UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     network_number     INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
+    clone_target_key   TEXT NOT NULL
+                       REFERENCES pod_clone_targets(key) ON UPDATE CASCADE ON DELETE RESTRICT,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_principal_id),
@@ -702,7 +710,7 @@ CREATE TABLE pod_network_allocations (
     network_number        INTEGER NOT NULL CHECK (network_number BETWEEN 1 AND 254),
     kind                  pod_network_allocation_kind NOT NULL,
     network_profile_key   TEXT NULL,
-    clone_target_key      TEXT NULL
+    clone_target_key      TEXT NOT NULL
                           REFERENCES pod_clone_targets(key) ON UPDATE CASCADE ON DELETE RESTRICT,
     folder_id             UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     inventory_item_id     UUID NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
@@ -713,10 +721,7 @@ CREATE TABLE pod_network_allocations (
     -- The number is the inner VLAN tag, so it stays unique across targets.
     UNIQUE (network_number),
     CONSTRAINT pod_network_allocations_profile_key_not_empty
-        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0),
-    -- Personal pods are configured from env, not from a clone target.
-    CONSTRAINT pod_network_allocations_clone_target_scope
-        CHECK ((kind = 'personal_pod') = (clone_target_key IS NULL))
+        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0)
 );
 
 CREATE UNIQUE INDEX ux_pod_network_allocations_dev_pod_folder
