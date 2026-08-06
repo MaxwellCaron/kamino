@@ -56,18 +56,14 @@ func testNetworkCatalog(t *testing.T) *podnetwork.Catalog {
 
 func testCloneTarget() podCloneTarget {
 	return podCloneTarget{
-		Key:                      "default",
-		Label:                    "Default",
-		LANVNet:                  "pod",
-		DMZVNet:                  "dmz",
-		WANBridge:                "vmbr0",
-		WANSubnet:                "172.16.0.0/16",
-		CloudInitStorage:         "local",
-		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
-		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
-		LANDMZUserFilePattern:    "kamino-router-lan-dmz-{network}-user-data.yaml",
-		LANDMZNetworkFile:        "kamino-router-lan-dmz-network-config.yaml",
-		IsDefault:                true,
+		Key:              "default",
+		Label:            "Default",
+		LANVNet:          "pod",
+		DMZVNet:          "dmz",
+		WANBridge:        "vmbr0",
+		WANSubnet:        "172.16.0.0/16",
+		CloudInitStorage: "local",
+		IsDefault:        true,
 	}
 }
 

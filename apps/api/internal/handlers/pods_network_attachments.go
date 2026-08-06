@@ -278,11 +278,11 @@ func buildRouterCloudInitConfigForProfile(
 	var userPattern, networkFile string
 	switch profileKey {
 	case podnetwork.ProfileLANDMZRouterV1:
-		userPattern = target.LANDMZUserFilePattern
-		networkFile = strings.TrimSpace(target.LANDMZNetworkFile)
+		userPattern = target.LANDMZUserFilePattern()
+		networkFile = target.LANDMZNetworkFile()
 	case podnetwork.ProfileLANRouterV1:
-		userPattern = target.CloudInitUserFilePattern
-		networkFile = strings.TrimSpace(target.CloudInitNetworkFile)
+		userPattern = target.CloudInitUserFilePattern()
+		networkFile = target.CloudInitNetworkFile()
 	default:
 		return nil, fmt.Errorf("unsupported network profile %q", profileKey)
 	}

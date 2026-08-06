@@ -520,20 +520,19 @@ type PodCloneClaims struct {
 }
 
 type PodCloneTargets struct {
-	Key                      string             `json:"key"`
-	Label                    string             `json:"label"`
-	LanVnet                  string             `json:"lan_vnet"`
-	DmzVnet                  string             `json:"dmz_vnet"`
-	WanBridge                string             `json:"wan_bridge"`
-	WanSubnet                string             `json:"wan_subnet"`
-	CloudInitStorage         string             `json:"cloud_init_storage"`
-	CloudInitUserFilePattern string             `json:"cloud_init_user_file_pattern"`
-	CloudInitNetworkFile     string             `json:"cloud_init_network_file"`
-	LanDmzUserFilePattern    string             `json:"lan_dmz_user_file_pattern"`
-	LanDmzNetworkFile        string             `json:"lan_dmz_network_file"`
-	IsDefault                bool               `json:"is_default"`
-	CreatedAt                pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+	Key               string             `json:"key"`
+	Label             string             `json:"label"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	LanVnet           string             `json:"lan_vnet"`
+	DmzVnet           *string            `json:"dmz_vnet"`
+	WanBridge         string             `json:"wan_bridge"`
+	WanSubnet         string             `json:"wan_subnet"`
+	NetworkMin        int32              `json:"network_min"`
+	NetworkMax        int32              `json:"network_max"`
+	CloudInitStorage  string             `json:"cloud_init_storage"`
+	IsDefault         bool               `json:"is_default"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PodDevVmNetworkAssignments struct {

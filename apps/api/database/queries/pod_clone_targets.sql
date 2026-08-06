@@ -2,15 +2,14 @@
 SELECT
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
@@ -21,15 +20,14 @@ ORDER BY is_default DESC, lower(label) ASC, key ASC;
 SELECT
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
@@ -40,15 +38,14 @@ WHERE key = $1;
 SELECT
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
@@ -62,29 +59,27 @@ SELECT count(*) FROM pod_clone_targets;
 INSERT INTO pod_clone_targets (
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default
 )
 SELECT
     sqlc.arg(key),
     sqlc.arg(label),
+    sqlc.arg(network_profile_key),
     sqlc.arg(lan_vnet),
     sqlc.arg(dmz_vnet),
     sqlc.arg(wan_bridge),
     sqlc.arg(wan_subnet),
+    sqlc.arg(network_min),
+    sqlc.arg(network_max),
     sqlc.arg(cloud_init_storage),
-    sqlc.arg(cloud_init_user_file_pattern),
-    sqlc.arg(cloud_init_network_file),
-    sqlc.arg(lan_dmz_user_file_pattern),
-    sqlc.arg(lan_dmz_network_file),
     true
 WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets);
 
@@ -92,30 +87,28 @@ WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets);
 INSERT INTO pod_clone_targets (
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
-    cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file
+    network_min,
+    network_max,
+    cloud_init_storage
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
 RETURNING
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at;
@@ -123,28 +116,26 @@ RETURNING
 -- name: UpdatePodCloneTarget :one
 UPDATE pod_clone_targets
    SET label                        = sqlc.arg(label),
+       network_profile_key          = sqlc.arg(network_profile_key),
        lan_vnet                     = sqlc.arg(lan_vnet),
        dmz_vnet                     = sqlc.arg(dmz_vnet),
        wan_bridge                   = sqlc.arg(wan_bridge),
        wan_subnet                   = sqlc.arg(wan_subnet),
-       cloud_init_storage           = sqlc.arg(cloud_init_storage),
-       cloud_init_user_file_pattern = sqlc.arg(cloud_init_user_file_pattern),
-       cloud_init_network_file      = sqlc.arg(cloud_init_network_file),
-       lan_dmz_user_file_pattern    = sqlc.arg(lan_dmz_user_file_pattern),
-       lan_dmz_network_file         = sqlc.arg(lan_dmz_network_file)
+       network_min                  = sqlc.arg(network_min),
+       network_max                  = sqlc.arg(network_max),
+       cloud_init_storage           = sqlc.arg(cloud_init_storage)
  WHERE key = sqlc.arg(key)
 RETURNING
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at;

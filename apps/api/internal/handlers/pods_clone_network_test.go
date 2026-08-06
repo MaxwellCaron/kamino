@@ -199,7 +199,6 @@ func TestBuildClonedRouterCloudInitConfigRejectsInvalidPatterns(t *testing.T) {
 	_, err := buildClonedRouterCloudInitConfig(24, PodRouterCloneConfig{
 		CloudInitStorage:         "local",
 		CloudInitUserFilePattern: "kamino-router-user-data.yaml",
-		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
 	})
 	if err == nil {
 		t.Fatalf("expected invalid user-data pattern error")

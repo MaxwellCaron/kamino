@@ -66,7 +66,23 @@ export function getCloneTargetColumns({
       ),
       cell: ({ row }) => (
         <span className="mx-3">
-          {row.original.lan_vnet} / {row.original.dmz_vnet}
+          {row.original.lan_vnet}
+          {row.original.dmz_vnet ? ` / ${row.original.dmz_vnet}` : ""}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "network_min",
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          icon={Tag02Icon}
+          title="Networks"
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="mx-3 tabular-nums">
+          {row.original.network_min}–{row.original.network_max}
         </span>
       ),
     },

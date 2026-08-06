@@ -10,6 +10,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -33,10 +34,6 @@ func validateSharedVNetID(envVar, id string) error {
 		return fmt.Errorf("%s must start with a letter and contain only letters and numbers", envVar)
 	}
 	return nil
-}
-
-func rangesOverlap(leftMin, leftMax, rightMin, rightMax int32) bool {
-	return leftMin <= rightMax && rightMin <= leftMax
 }
 
 func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, error) {
@@ -79,14 +76,6 @@ func buildPodRouterCloneConfig(config *Config) (handlers.PodRouterCloneConfig, e
 	}
 	if config.PodDevNetworkMin > config.PodDevNetworkMax {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_DEV_NETWORK_MIN must be less than or equal to POD_DEV_NETWORK_MAX")
-	}
-	if rangesOverlap(
-		config.PodCloneNetworkMin,
-		config.PodCloneNetworkMax,
-		config.PodDevNetworkMin,
-		config.PodDevNetworkMax,
-	) {
-		return handlers.PodRouterCloneConfig{}, fmt.Errorf("POD_CLONE_NETWORK_MIN..POD_CLONE_NETWORK_MAX must not overlap POD_DEV_NETWORK_MIN..POD_DEV_NETWORK_MAX")
 	}
 	if config.PersonalPodNetworkMin < 1 {
 		return handlers.PodRouterCloneConfig{}, fmt.Errorf("PERSONAL_POD_NETWORK_MIN must be at least 1")
@@ -248,25 +237,29 @@ func seedDefaultPodCloneTarget(
 		return fmt.Errorf("cannot derive a /16 WAN subnet from POD_ROUTER_WAN_IP_BASE %q: %w", config.WANIPBase, err)
 	}
 
+	// The env configures both VNets, so the seeded target supports both profiles.
+	// Its range is the union of the clone and dev bands, which now share it.
+	networkMin := min(config.NetworkMin, config.DevNetworkMin)
+	networkMax := max(config.NetworkMax, config.DevNetworkMax)
+
 	if err := q.InsertDefaultPodCloneTarget(ctx, database.InsertDefaultPodCloneTargetParams{
-		Key:                      defaultPodCloneTargetKey,
-		Label:                    "Default",
-		LanVnet:                  config.LANVNet,
-		DmzVnet:                  config.DMZVNet,
-		WanBridge:                strings.TrimSpace(config.WANBridge),
-		WanSubnet:                wanSubnet.String(),
-		CloudInitStorage:         config.CloudInitStorage,
-		CloudInitUserFilePattern: config.CloudInitUserFilePattern,
-		CloudInitNetworkFile:     config.CloudInitNetworkFile,
-		LanDmzUserFilePattern:    config.LANDMZCloudInitUserFilePattern,
-		LanDmzNetworkFile:        config.LANDMZCloudInitNetworkFile,
+		Key:               defaultPodCloneTargetKey,
+		Label:             "Default",
+		NetworkProfileKey: podnetwork.ProfileLANDMZRouterV1,
+		LanVnet:           config.LANVNet,
+		DmzVnet:           &config.DMZVNet,
+		WanBridge:         strings.TrimSpace(config.WANBridge),
+		WanSubnet:         wanSubnet.String(),
+		NetworkMin:        networkMin,
+		NetworkMax:        networkMax,
+		CloudInitStorage:  config.CloudInitStorage,
 	}); err != nil {
 		return fmt.Errorf("seed default pod clone target: %w", err)
 	}
 
 	log.Printf(
-		"Seeded default pod clone target %q from environment: lan_vnet=%q dmz_vnet=%q wan_bridge=%q wan_subnet=%q",
-		defaultPodCloneTargetKey, config.LANVNet, config.DMZVNet, config.WANBridge, wanSubnet,
+		"Seeded default pod clone target %q from environment: lan_vnet=%q dmz_vnet=%q wan_bridge=%q wan_subnet=%q networks=%d-%d",
+		defaultPodCloneTargetKey, config.LANVNet, config.DMZVNet, config.WANBridge, wanSubnet, networkMin, networkMax,
 	)
 	return nil
 }

@@ -44,76 +44,71 @@ const createPodCloneTarget = `-- name: CreatePodCloneTarget :one
 INSERT INTO pod_clone_targets (
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
-    cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file
+    network_min,
+    network_max,
+    cloud_init_storage
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
 RETURNING
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
 `
 
 type CreatePodCloneTargetParams struct {
-	Key                      string `json:"key"`
-	Label                    string `json:"label"`
-	LanVnet                  string `json:"lan_vnet"`
-	DmzVnet                  string `json:"dmz_vnet"`
-	WanBridge                string `json:"wan_bridge"`
-	WanSubnet                string `json:"wan_subnet"`
-	CloudInitStorage         string `json:"cloud_init_storage"`
-	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
-	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
-	LanDmzUserFilePattern    string `json:"lan_dmz_user_file_pattern"`
-	LanDmzNetworkFile        string `json:"lan_dmz_network_file"`
+	Key               string  `json:"key"`
+	Label             string  `json:"label"`
+	NetworkProfileKey string  `json:"network_profile_key"`
+	LanVnet           string  `json:"lan_vnet"`
+	DmzVnet           *string `json:"dmz_vnet"`
+	WanBridge         string  `json:"wan_bridge"`
+	WanSubnet         string  `json:"wan_subnet"`
+	NetworkMin        int32   `json:"network_min"`
+	NetworkMax        int32   `json:"network_max"`
+	CloudInitStorage  string  `json:"cloud_init_storage"`
 }
 
 func (q *Queries) CreatePodCloneTarget(ctx context.Context, arg CreatePodCloneTargetParams) (PodCloneTargets, error) {
 	row := q.db.QueryRow(ctx, createPodCloneTarget,
 		arg.Key,
 		arg.Label,
+		arg.NetworkProfileKey,
 		arg.LanVnet,
 		arg.DmzVnet,
 		arg.WanBridge,
 		arg.WanSubnet,
+		arg.NetworkMin,
+		arg.NetworkMax,
 		arg.CloudInitStorage,
-		arg.CloudInitUserFilePattern,
-		arg.CloudInitNetworkFile,
-		arg.LanDmzUserFilePattern,
-		arg.LanDmzNetworkFile,
 	)
 	var i PodCloneTargets
 	err := row.Scan(
 		&i.Key,
 		&i.Label,
+		&i.NetworkProfileKey,
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
 		&i.WanSubnet,
+		&i.NetworkMin,
+		&i.NetworkMax,
 		&i.CloudInitStorage,
-		&i.CloudInitUserFilePattern,
-		&i.CloudInitNetworkFile,
-		&i.LanDmzUserFilePattern,
-		&i.LanDmzNetworkFile,
 		&i.IsDefault,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -139,15 +134,14 @@ const getDefaultPodCloneTarget = `-- name: GetDefaultPodCloneTarget :one
 SELECT
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
@@ -161,15 +155,14 @@ func (q *Queries) GetDefaultPodCloneTarget(ctx context.Context) (PodCloneTargets
 	err := row.Scan(
 		&i.Key,
 		&i.Label,
+		&i.NetworkProfileKey,
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
 		&i.WanSubnet,
+		&i.NetworkMin,
+		&i.NetworkMax,
 		&i.CloudInitStorage,
-		&i.CloudInitUserFilePattern,
-		&i.CloudInitNetworkFile,
-		&i.LanDmzUserFilePattern,
-		&i.LanDmzNetworkFile,
 		&i.IsDefault,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -181,15 +174,14 @@ const getPodCloneTarget = `-- name: GetPodCloneTarget :one
 SELECT
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
@@ -203,15 +195,14 @@ func (q *Queries) GetPodCloneTarget(ctx context.Context, key string) (PodCloneTa
 	err := row.Scan(
 		&i.Key,
 		&i.Label,
+		&i.NetworkProfileKey,
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
 		&i.WanSubnet,
+		&i.NetworkMin,
+		&i.NetworkMax,
 		&i.CloudInitStorage,
-		&i.CloudInitUserFilePattern,
-		&i.CloudInitNetworkFile,
-		&i.LanDmzUserFilePattern,
-		&i.LanDmzNetworkFile,
 		&i.IsDefault,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -223,15 +214,14 @@ const insertDefaultPodCloneTarget = `-- name: InsertDefaultPodCloneTarget :exec
 INSERT INTO pod_clone_targets (
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default
 )
 SELECT
@@ -245,38 +235,35 @@ SELECT
     $8,
     $9,
     $10,
-    $11,
     true
 WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets)
 `
 
 type InsertDefaultPodCloneTargetParams struct {
-	Key                      string `json:"key"`
-	Label                    string `json:"label"`
-	LanVnet                  string `json:"lan_vnet"`
-	DmzVnet                  string `json:"dmz_vnet"`
-	WanBridge                string `json:"wan_bridge"`
-	WanSubnet                string `json:"wan_subnet"`
-	CloudInitStorage         string `json:"cloud_init_storage"`
-	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
-	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
-	LanDmzUserFilePattern    string `json:"lan_dmz_user_file_pattern"`
-	LanDmzNetworkFile        string `json:"lan_dmz_network_file"`
+	Key               string  `json:"key"`
+	Label             string  `json:"label"`
+	NetworkProfileKey string  `json:"network_profile_key"`
+	LanVnet           string  `json:"lan_vnet"`
+	DmzVnet           *string `json:"dmz_vnet"`
+	WanBridge         string  `json:"wan_bridge"`
+	WanSubnet         string  `json:"wan_subnet"`
+	NetworkMin        int32   `json:"network_min"`
+	NetworkMax        int32   `json:"network_max"`
+	CloudInitStorage  string  `json:"cloud_init_storage"`
 }
 
 func (q *Queries) InsertDefaultPodCloneTarget(ctx context.Context, arg InsertDefaultPodCloneTargetParams) error {
 	_, err := q.db.Exec(ctx, insertDefaultPodCloneTarget,
 		arg.Key,
 		arg.Label,
+		arg.NetworkProfileKey,
 		arg.LanVnet,
 		arg.DmzVnet,
 		arg.WanBridge,
 		arg.WanSubnet,
+		arg.NetworkMin,
+		arg.NetworkMax,
 		arg.CloudInitStorage,
-		arg.CloudInitUserFilePattern,
-		arg.CloudInitNetworkFile,
-		arg.LanDmzUserFilePattern,
-		arg.LanDmzNetworkFile,
 	)
 	return err
 }
@@ -285,15 +272,14 @@ const listPodCloneTargets = `-- name: ListPodCloneTargets :many
 SELECT
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
@@ -313,15 +299,14 @@ func (q *Queries) ListPodCloneTargets(ctx context.Context) ([]PodCloneTargets, e
 		if err := rows.Scan(
 			&i.Key,
 			&i.Label,
+			&i.NetworkProfileKey,
 			&i.LanVnet,
 			&i.DmzVnet,
 			&i.WanBridge,
 			&i.WanSubnet,
+			&i.NetworkMin,
+			&i.NetworkMax,
 			&i.CloudInitStorage,
-			&i.CloudInitUserFilePattern,
-			&i.CloudInitNetworkFile,
-			&i.LanDmzUserFilePattern,
-			&i.LanDmzNetworkFile,
 			&i.IsDefault,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -339,74 +324,69 @@ func (q *Queries) ListPodCloneTargets(ctx context.Context) ([]PodCloneTargets, e
 const updatePodCloneTarget = `-- name: UpdatePodCloneTarget :one
 UPDATE pod_clone_targets
    SET label                        = $1,
-       lan_vnet                     = $2,
-       dmz_vnet                     = $3,
-       wan_bridge                   = $4,
-       wan_subnet                   = $5,
-       cloud_init_storage           = $6,
-       cloud_init_user_file_pattern = $7,
-       cloud_init_network_file      = $8,
-       lan_dmz_user_file_pattern    = $9,
-       lan_dmz_network_file         = $10
- WHERE key = $11
+       network_profile_key          = $2,
+       lan_vnet                     = $3,
+       dmz_vnet                     = $4,
+       wan_bridge                   = $5,
+       wan_subnet                   = $6,
+       network_min                  = $7,
+       network_max                  = $8,
+       cloud_init_storage           = $9
+ WHERE key = $10
 RETURNING
     key,
     label,
+    network_profile_key,
     lan_vnet,
     dmz_vnet,
     wan_bridge,
     wan_subnet,
+    network_min,
+    network_max,
     cloud_init_storage,
-    cloud_init_user_file_pattern,
-    cloud_init_network_file,
-    lan_dmz_user_file_pattern,
-    lan_dmz_network_file,
     is_default,
     created_at,
     updated_at
 `
 
 type UpdatePodCloneTargetParams struct {
-	Label                    string `json:"label"`
-	LanVnet                  string `json:"lan_vnet"`
-	DmzVnet                  string `json:"dmz_vnet"`
-	WanBridge                string `json:"wan_bridge"`
-	WanSubnet                string `json:"wan_subnet"`
-	CloudInitStorage         string `json:"cloud_init_storage"`
-	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
-	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
-	LanDmzUserFilePattern    string `json:"lan_dmz_user_file_pattern"`
-	LanDmzNetworkFile        string `json:"lan_dmz_network_file"`
-	Key                      string `json:"key"`
+	Label             string  `json:"label"`
+	NetworkProfileKey string  `json:"network_profile_key"`
+	LanVnet           string  `json:"lan_vnet"`
+	DmzVnet           *string `json:"dmz_vnet"`
+	WanBridge         string  `json:"wan_bridge"`
+	WanSubnet         string  `json:"wan_subnet"`
+	NetworkMin        int32   `json:"network_min"`
+	NetworkMax        int32   `json:"network_max"`
+	CloudInitStorage  string  `json:"cloud_init_storage"`
+	Key               string  `json:"key"`
 }
 
 func (q *Queries) UpdatePodCloneTarget(ctx context.Context, arg UpdatePodCloneTargetParams) (PodCloneTargets, error) {
 	row := q.db.QueryRow(ctx, updatePodCloneTarget,
 		arg.Label,
+		arg.NetworkProfileKey,
 		arg.LanVnet,
 		arg.DmzVnet,
 		arg.WanBridge,
 		arg.WanSubnet,
+		arg.NetworkMin,
+		arg.NetworkMax,
 		arg.CloudInitStorage,
-		arg.CloudInitUserFilePattern,
-		arg.CloudInitNetworkFile,
-		arg.LanDmzUserFilePattern,
-		arg.LanDmzNetworkFile,
 		arg.Key,
 	)
 	var i PodCloneTargets
 	err := row.Scan(
 		&i.Key,
 		&i.Label,
+		&i.NetworkProfileKey,
 		&i.LanVnet,
 		&i.DmzVnet,
 		&i.WanBridge,
 		&i.WanSubnet,
+		&i.NetworkMin,
+		&i.NetworkMax,
 		&i.CloudInitStorage,
-		&i.CloudInitUserFilePattern,
-		&i.CloudInitNetworkFile,
-		&i.LanDmzUserFilePattern,
-		&i.LanDmzNetworkFile,
 		&i.IsDefault,
 		&i.CreatedAt,
 		&i.UpdatedAt,

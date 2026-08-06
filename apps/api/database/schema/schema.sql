@@ -449,15 +449,14 @@ CREATE INDEX ix_inventory_requests_inventory_item_id
 CREATE TABLE pod_clone_targets (
     key                          TEXT PRIMARY KEY,
     label                        TEXT NOT NULL,
+    network_profile_key          TEXT NOT NULL,
     lan_vnet                     TEXT NOT NULL,
-    dmz_vnet                     TEXT NOT NULL,
+    dmz_vnet                     TEXT NULL,
     wan_bridge                   TEXT NOT NULL,
     wan_subnet                   TEXT NOT NULL,
+    network_min                  INTEGER NOT NULL CHECK (network_min BETWEEN 1 AND 254),
+    network_max                  INTEGER NOT NULL CHECK (network_max BETWEEN 1 AND 254),
     cloud_init_storage           TEXT NOT NULL,
-    cloud_init_user_file_pattern TEXT NOT NULL,
-    cloud_init_network_file      TEXT NOT NULL,
-    lan_dmz_user_file_pattern    TEXT NOT NULL,
-    lan_dmz_network_file         TEXT NOT NULL,
     is_default                   BOOLEAN NOT NULL DEFAULT false,
     created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -468,23 +467,21 @@ CREATE TABLE pod_clone_targets (
     CONSTRAINT pod_clone_targets_lan_vnet_format
         CHECK (lan_vnet ~ '^[A-Za-z][A-Za-z0-9]*$' AND length(lan_vnet) BETWEEN 2 AND 8),
     CONSTRAINT pod_clone_targets_dmz_vnet_format
-        CHECK (dmz_vnet ~ '^[A-Za-z][A-Za-z0-9]*$' AND length(dmz_vnet) BETWEEN 2 AND 8),
+        CHECK (dmz_vnet IS NULL OR (dmz_vnet ~ '^[A-Za-z][A-Za-z0-9]*$' AND length(dmz_vnet) BETWEEN 2 AND 8)),
     CONSTRAINT pod_clone_targets_vnets_distinct
-        CHECK (lan_vnet <> dmz_vnet),
+        CHECK (dmz_vnet IS NULL OR lan_vnet <> dmz_vnet),
+    CONSTRAINT pod_clone_targets_network_range
+        CHECK (network_min <= network_max),
+    CONSTRAINT pod_clone_targets_profile_key_valid
+        CHECK (network_profile_key IN ('lan-router-v1', 'lan-dmz-router-v1')),
+    CONSTRAINT pod_clone_targets_dmz_matches_profile
+        CHECK ((network_profile_key = 'lan-dmz-router-v1') = (dmz_vnet IS NOT NULL)),
     CONSTRAINT pod_clone_targets_wan_bridge_not_empty
         CHECK (length(trim(wan_bridge)) > 0),
     CONSTRAINT pod_clone_targets_wan_subnet_format
         CHECK (wan_subnet ~ '^([0-9]{1,3}\.){2}0\.0/16$'),
     CONSTRAINT pod_clone_targets_cloud_init_storage_not_empty
-        CHECK (length(trim(cloud_init_storage)) > 0),
-    CONSTRAINT pod_clone_targets_user_pattern_placeholder
-        CHECK (cloud_init_user_file_pattern LIKE '%{network}%'),
-    CONSTRAINT pod_clone_targets_lan_dmz_pattern_placeholder
-        CHECK (lan_dmz_user_file_pattern LIKE '%{network}%'),
-    CONSTRAINT pod_clone_targets_network_file_static
-        CHECK (cloud_init_network_file NOT LIKE '%{network}%'),
-    CONSTRAINT pod_clone_targets_lan_dmz_network_file_static
-        CHECK (lan_dmz_network_file NOT LIKE '%{network}%')
+        CHECK (length(trim(cloud_init_storage)) > 0)
 );
 
 CREATE UNIQUE INDEX ux_pod_clone_targets_default

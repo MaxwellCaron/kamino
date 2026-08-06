@@ -27,18 +27,17 @@ var podCloneTargetKeyPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // podCloneTarget is one resolved clone domain, with its cloud-init snippets.
 type podCloneTarget struct {
-	Key                      string
-	Label                    string
-	LANVNet                  string
-	DMZVNet                  string
-	WANBridge                string
-	WANSubnet                string
-	CloudInitStorage         string
-	CloudInitUserFilePattern string
-	CloudInitNetworkFile     string
-	LANDMZUserFilePattern    string
-	LANDMZNetworkFile        string
-	IsDefault                bool
+	Key               string
+	Label             string
+	NetworkProfileKey string
+	LANVNet           string
+	DMZVNet           string
+	WANBridge         string
+	WANSubnet         string
+	NetworkMin        int32
+	NetworkMax        int32
+	CloudInitStorage  string
+	IsDefault         bool
 }
 
 // Network is the subset the profile catalog resolves attachments against.
@@ -54,33 +53,81 @@ func (t podCloneTarget) Network() podnetwork.Target {
 
 func podCloneTargetFromRow(row database.PodCloneTargets) podCloneTarget {
 	return podCloneTarget{
-		Key:                      row.Key,
-		Label:                    row.Label,
-		LANVNet:                  row.LanVnet,
-		DMZVNet:                  row.DmzVnet,
-		WANBridge:                row.WanBridge,
-		WANSubnet:                row.WanSubnet,
-		CloudInitStorage:         row.CloudInitStorage,
-		CloudInitUserFilePattern: row.CloudInitUserFilePattern,
-		CloudInitNetworkFile:     row.CloudInitNetworkFile,
-		LANDMZUserFilePattern:    row.LanDmzUserFilePattern,
-		LANDMZNetworkFile:        row.LanDmzNetworkFile,
-		IsDefault:                row.IsDefault,
+		Key:               row.Key,
+		Label:             row.Label,
+		NetworkProfileKey: row.NetworkProfileKey,
+		LANVNet:           row.LanVnet,
+		DMZVNet:           derefString(row.DmzVnet),
+		WANBridge:         row.WanBridge,
+		WANSubnet:         row.WanSubnet,
+		NetworkMin:        row.NetworkMin,
+		NetworkMax:        row.NetworkMax,
+		CloudInitStorage:  row.CloudInitStorage,
+		IsDefault:         row.IsDefault,
 	}
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+// nilIfEmpty maps a LAN-only target's absent DMZ columns back to NULL.
+func nilIfEmpty(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+// Snippet filenames are derived from the immutable key, so targets can never
+// collide on the storage and operators never name them by hand.
+func (t podCloneTarget) snippetPrefix() string {
+	return "kamino-" + t.Key + "-router"
+}
+
+func (t podCloneTarget) CloudInitUserFilePattern() string {
+	return t.snippetPrefix() + "-{network}-user-data.yaml"
+}
+
+func (t podCloneTarget) CloudInitNetworkFile() string {
+	return t.snippetPrefix() + "-network-config.yaml"
+}
+
+func (t podCloneTarget) LANDMZUserFilePattern() string {
+	return t.snippetPrefix() + "-lan-dmz-{network}-user-data.yaml"
+}
+
+func (t podCloneTarget) LANDMZNetworkFile() string {
+	return t.snippetPrefix() + "-lan-dmz-network-config.yaml"
+}
+
+// SupportsProfile reports whether a pod using profileKey can clone onto this
+// target. A LAN + DMZ target has both VNets, so it also serves LAN-only pods.
+func (t podCloneTarget) SupportsProfile(profileKey string) bool {
+	if t.NetworkProfileKey == podnetwork.ProfileLANDMZRouterV1 {
+		return true
+	}
+	return profileKey == podnetwork.ProfileLANRouterV1
 }
 
 type podCloneTargetResponse struct {
 	Key                      string `json:"key"`
 	Label                    string `json:"label"`
+	NetworkProfileKey        string `json:"network_profile_key"`
 	LANVNet                  string `json:"lan_vnet"`
 	DMZVNet                  string `json:"dmz_vnet"`
 	WANBridge                string `json:"wan_bridge"`
 	WANSubnet                string `json:"wan_subnet"`
+	NetworkMin               int32  `json:"network_min"`
+	NetworkMax               int32  `json:"network_max"`
 	CloudInitStorage         string `json:"cloud_init_storage"`
 	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
 	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
-	LANDMZUserFilePattern    string `json:"lan_dmz_user_file_pattern"`
-	LANDMZNetworkFile        string `json:"lan_dmz_network_file"`
+	LANDMZUserFilePattern    string `json:"lan_dmz_user_file_pattern,omitempty"`
+	LANDMZNetworkFile        string `json:"lan_dmz_network_file,omitempty"`
 	IsDefault                bool   `json:"is_default"`
 }
 
@@ -88,31 +135,31 @@ func toPodCloneTargetResponse(target podCloneTarget) podCloneTargetResponse {
 	return podCloneTargetResponse{
 		Key:                      target.Key,
 		Label:                    target.Label,
+		NetworkProfileKey:        target.NetworkProfileKey,
 		LANVNet:                  target.LANVNet,
 		DMZVNet:                  target.DMZVNet,
 		WANBridge:                target.WANBridge,
 		WANSubnet:                target.WANSubnet,
+		NetworkMin:               target.NetworkMin,
+		NetworkMax:               target.NetworkMax,
 		CloudInitStorage:         target.CloudInitStorage,
-		CloudInitUserFilePattern: target.CloudInitUserFilePattern,
-		CloudInitNetworkFile:     target.CloudInitNetworkFile,
-		LANDMZUserFilePattern:    target.LANDMZUserFilePattern,
-		LANDMZNetworkFile:        target.LANDMZNetworkFile,
+		CloudInitUserFilePattern: target.CloudInitUserFilePattern(),
+		CloudInitNetworkFile:     target.CloudInitNetworkFile(),
 		IsDefault:                target.IsDefault,
 	}
 }
 
 type podCloneTargetRequest struct {
-	Key                      string `json:"key"`
-	Label                    string `json:"label"`
-	LANVNet                  string `json:"lan_vnet"`
-	DMZVNet                  string `json:"dmz_vnet"`
-	WANBridge                string `json:"wan_bridge"`
-	WANSubnet                string `json:"wan_subnet"`
-	CloudInitStorage         string `json:"cloud_init_storage"`
-	CloudInitUserFilePattern string `json:"cloud_init_user_file_pattern"`
-	CloudInitNetworkFile     string `json:"cloud_init_network_file"`
-	LANDMZUserFilePattern    string `json:"lan_dmz_user_file_pattern"`
-	LANDMZNetworkFile        string `json:"lan_dmz_network_file"`
+	Key               string `json:"key"`
+	Label             string `json:"label"`
+	NetworkProfileKey string `json:"network_profile_key"`
+	LANVNet           string `json:"lan_vnet"`
+	DMZVNet           string `json:"dmz_vnet"`
+	WANBridge         string `json:"wan_bridge"`
+	WANSubnet         string `json:"wan_subnet"`
+	NetworkMin        int32  `json:"network_min"`
+	NetworkMax        int32  `json:"network_max"`
+	CloudInitStorage  string `json:"cloud_init_storage"`
 }
 
 func (h *PodsHandler) resolvePodCloneTarget(ctx context.Context, key string) (podCloneTarget, *requestError) {
@@ -195,12 +242,15 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 	}
 
 	target := podCloneTarget{
-		Key:              strings.TrimSpace(req.Key),
-		Label:            strings.TrimSpace(req.Label),
-		LANVNet:          strings.TrimSpace(req.LANVNet),
-		DMZVNet:          strings.TrimSpace(req.DMZVNet),
-		WANBridge:        strings.TrimSpace(req.WANBridge),
-		CloudInitStorage: routerconfig.NormalizeCloudInitStorage(req.CloudInitStorage),
+		Key:               strings.TrimSpace(req.Key),
+		Label:             strings.TrimSpace(req.Label),
+		NetworkProfileKey: strings.TrimSpace(req.NetworkProfileKey),
+		LANVNet:           strings.TrimSpace(req.LANVNet),
+		DMZVNet:           strings.TrimSpace(req.DMZVNet),
+		WANBridge:         strings.TrimSpace(req.WANBridge),
+		NetworkMin:        req.NetworkMin,
+		NetworkMax:        req.NetworkMax,
+		CloudInitStorage:  routerconfig.NormalizeCloudInitStorage(req.CloudInitStorage),
 	}
 
 	if requireKey {
@@ -211,14 +261,13 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 	if target.Label == "" || len(target.Label) > 48 {
 		return podCloneTarget{}, invalid("label must be between 1 and 48 characters")
 	}
+	switch target.NetworkProfileKey {
+	case podnetwork.ProfileLANRouterV1, podnetwork.ProfileLANDMZRouterV1:
+	default:
+		return podCloneTarget{}, invalid("network profile must be lan-router-v1 or lan-dmz-router-v1")
+	}
 	if err := validateVNetID(target.LANVNet); err != nil {
 		return podCloneTarget{}, invalid("LAN VNet: " + err.Error())
-	}
-	if err := validateVNetID(target.DMZVNet); err != nil {
-		return podCloneTarget{}, invalid("DMZ VNet: " + err.Error())
-	}
-	if target.LANVNet == target.DMZVNet {
-		return podCloneTarget{}, invalid("LAN and DMZ VNets must be distinct")
 	}
 	if target.WANBridge == "" {
 		return podCloneTarget{}, invalid("WAN bridge is required")
@@ -226,44 +275,31 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 	if target.CloudInitStorage == "" {
 		return podCloneTarget{}, invalid("cloud-init storage is required")
 	}
+	if target.NetworkMin < 1 || target.NetworkMin > 254 ||
+		target.NetworkMax < 1 || target.NetworkMax > 254 {
+		return podCloneTarget{}, invalid("network numbers must be between 1 and 254")
+	}
+	if target.NetworkMin > target.NetworkMax {
+		return podCloneTarget{}, invalid("network minimum must not exceed the maximum")
+	}
+
+	wantsDMZ := target.NetworkProfileKey == podnetwork.ProfileLANDMZRouterV1
+	if wantsDMZ {
+		if err := validateVNetID(target.DMZVNet); err != nil {
+			return podCloneTarget{}, invalid("DMZ VNet: " + err.Error())
+		}
+		if target.LANVNet == target.DMZVNet {
+			return podCloneTarget{}, invalid("LAN and DMZ VNets must be distinct")
+		}
+	} else if target.DMZVNet != "" {
+		return podCloneTarget{}, invalid("a LAN Router target must not set a DMZ VNet")
+	}
 
 	wanSubnet, err := routerconfig.ParseIPv4Subnet16(req.WANSubnet)
 	if err != nil {
 		return podCloneTarget{}, invalid("WAN subnet " + err.Error())
 	}
 	target.WANSubnet = wanSubnet.String()
-
-	patterns := []struct {
-		label string
-		value string
-		dest  *string
-	}{
-		{"LAN router cloud-init user-data pattern", req.CloudInitUserFilePattern, &target.CloudInitUserFilePattern},
-		{"LAN + DMZ router cloud-init user-data pattern", req.LANDMZUserFilePattern, &target.LANDMZUserFilePattern},
-	}
-	for _, pattern := range patterns {
-		normalized, err := routerconfig.NormalizeCloudInitFilePattern(pattern.label, pattern.value)
-		if err != nil {
-			return podCloneTarget{}, invalid(err.Error())
-		}
-		*pattern.dest = normalized
-	}
-
-	files := []struct {
-		label string
-		value string
-		dest  *string
-	}{
-		{"LAN router cloud-init network-config file", req.CloudInitNetworkFile, &target.CloudInitNetworkFile},
-		{"LAN + DMZ router cloud-init network-config file", req.LANDMZNetworkFile, &target.LANDMZNetworkFile},
-	}
-	for _, file := range files {
-		normalized, err := routerconfig.NormalizeCloudInitFileName(file.label, file.value)
-		if err != nil {
-			return podCloneTarget{}, invalid(err.Error())
-		}
-		*file.dest = normalized
-	}
 
 	return target, nil
 }
@@ -318,17 +354,16 @@ func (h *PodsHandler) CreatePodCloneTarget(c *gin.Context) {
 	}
 
 	row, err := database.New(h.DB).CreatePodCloneTarget(c.Request.Context(), database.CreatePodCloneTargetParams{
-		Key:                      target.Key,
-		Label:                    target.Label,
-		LanVnet:                  target.LANVNet,
-		DmzVnet:                  target.DMZVNet,
-		WanBridge:                target.WANBridge,
-		WanSubnet:                target.WANSubnet,
-		CloudInitStorage:         target.CloudInitStorage,
-		CloudInitUserFilePattern: target.CloudInitUserFilePattern,
-		CloudInitNetworkFile:     target.CloudInitNetworkFile,
-		LanDmzUserFilePattern:    target.LANDMZUserFilePattern,
-		LanDmzNetworkFile:        target.LANDMZNetworkFile,
+		Key:               target.Key,
+		Label:             target.Label,
+		NetworkProfileKey: target.NetworkProfileKey,
+		LanVnet:           target.LANVNet,
+		DmzVnet:           nilIfEmpty(target.DMZVNet),
+		WanBridge:         target.WANBridge,
+		WanSubnet:         target.WANSubnet,
+		NetworkMin:        target.NetworkMin,
+		NetworkMax:        target.NetworkMax,
+		CloudInitStorage:  target.CloudInitStorage,
 	})
 	if isUniqueViolation(err) {
 		writeConflict(c, fmt.Sprintf("pod clone target %q already exists", target.Key))
@@ -382,17 +417,16 @@ func (h *PodsHandler) UpdatePodCloneTarget(c *gin.Context) {
 	}
 
 	row, err := database.New(h.DB).UpdatePodCloneTarget(c.Request.Context(), database.UpdatePodCloneTargetParams{
-		Key:                      key,
-		Label:                    target.Label,
-		LanVnet:                  target.LANVNet,
-		DmzVnet:                  target.DMZVNet,
-		WanBridge:                target.WANBridge,
-		WanSubnet:                target.WANSubnet,
-		CloudInitStorage:         target.CloudInitStorage,
-		CloudInitUserFilePattern: target.CloudInitUserFilePattern,
-		CloudInitNetworkFile:     target.CloudInitNetworkFile,
-		LanDmzUserFilePattern:    target.LANDMZUserFilePattern,
-		LanDmzNetworkFile:        target.LANDMZNetworkFile,
+		Key:               key,
+		Label:             target.Label,
+		NetworkProfileKey: target.NetworkProfileKey,
+		LanVnet:           target.LANVNet,
+		DmzVnet:           nilIfEmpty(target.DMZVNet),
+		WanBridge:         target.WANBridge,
+		WanSubnet:         target.WANSubnet,
+		NetworkMin:        target.NetworkMin,
+		NetworkMax:        target.NetworkMax,
+		CloudInitStorage:  target.CloudInitStorage,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "pod clone target not found"})

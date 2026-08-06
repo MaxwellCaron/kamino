@@ -12,8 +12,14 @@ import {
   FieldLegend,
   FieldSeparator,
   FieldSet,
+  FieldTitle,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import { Textarea } from "@workspace/ui/components/textarea"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@workspace/ui/components/radio-group"
 import {
   Combobox,
   ComboboxContent,
@@ -42,17 +48,19 @@ import {
   updatePodCloneTarget,
 } from "@/features/pods/api/clone-targets-api"
 import {
+  CLONE_TARGET_PROFILES,
   buildCloneTargetPayload,
+  buildSnippetCommand,
   cloneTargetBridgeSchema,
   cloneTargetKeySchema,
   cloneTargetLabelSchema,
-  cloneTargetNetworkFileSchema,
+  cloneTargetNetworkNumberSchema,
   cloneTargetStorageSchema,
-  cloneTargetUserPatternSchema,
   cloneTargetVNetSchema,
   cloneTargetWANSubnetSchema,
   formatPodWANSubnet,
   getDefaultCloneTargetFormValues,
+  profileHasDMZ,
 } from "@/features/sdn/components/clone-target-dialog-utils"
 import {
   bridgesQueryOptions,
@@ -207,6 +215,76 @@ function CloneTargetComboboxField({
   )
 }
 
+function CloneTargetProfileField({
+  FieldComponent,
+}: {
+  FieldComponent: AppFieldComponent
+}) {
+  return (
+    <FieldComponent name="networkProfileKey">
+      {(field: any) => (
+        <Field>
+          <FieldLabel>Network profile</FieldLabel>
+          <FieldDescription>
+            A LAN + DMZ target carries a DMZ VNet and can host pods of either
+            profile. A LAN Router target hosts LAN-only pods.
+          </FieldDescription>
+          <RadioGroup
+            value={field.state.value}
+            onValueChange={(value) => field.handleChange(String(value))}
+            className="gap-2"
+          >
+            {CLONE_TARGET_PROFILES.map((profile) => (
+              <FieldLabel
+                key={profile.key}
+                htmlFor={`clone-target-profile-${profile.key}`}
+              >
+                <Field orientation="horizontal">
+                  <RadioGroupItem
+                    id={`clone-target-profile-${profile.key}`}
+                    value={profile.key}
+                  />
+                  <FieldContent>
+                    <FieldTitle className="text-sm leading-snug">
+                      {profile.label}
+                    </FieldTitle>
+                  </FieldContent>
+                </Field>
+              </FieldLabel>
+            ))}
+          </RadioGroup>
+        </Field>
+      )}
+    </FieldComponent>
+  )
+}
+
+function CloneTargetSnippetCommand({
+  values,
+}: {
+  values: CloneTargetFormValues
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor="clone-target-snippet-command">
+        Snippet generator command
+      </FieldLabel>
+      <FieldDescription>
+        Run this on the Proxmox host to create the cloud-init files this target
+        expects.
+      </FieldDescription>
+      <Textarea
+        id="clone-target-snippet-command"
+        readOnly
+        rows={profileHasDMZ(values.networkProfileKey) ? 9 : 7}
+        value={buildSnippetCommand(values)}
+        className="font-mono text-xs"
+        onFocus={(event) => event.currentTarget.select()}
+      />
+    </Field>
+  )
+}
+
 export function CloneTargetDialog({
   target,
   open,
@@ -307,128 +385,127 @@ function CloneTargetForm({
       }}
     >
       <AppDialogScrollBody>
-        <FieldGroup>
-          <CloneTargetTextField
-            FieldComponent={form.Field}
-            name="label"
-            label="Label"
-            description="Display name shown when publishing a pod. Safe to rename at any time."
-            placeholder="Lab 2"
-            schema={cloneTargetLabelSchema}
-            maxLength={48}
-          />
-          <CloneTargetTextField
-            FieldComponent={form.Field}
-            name="key"
-            label="Key"
-            description="Permanent identifier that published pods and clones are stored against. Cannot be changed after creation."
-            placeholder="lab2"
-            schema={cloneTargetKeySchema}
-            disabled={isEdit}
-            maxLength={32}
-          />
+        <form.Subscribe>
+          {(state) => {
+            const hasDMZ = profileHasDMZ(state.values.networkProfileKey)
 
-          <FieldSeparator />
+            return (
+              <FieldGroup>
+                <CloneTargetTextField
+                  FieldComponent={form.Field}
+                  name="label"
+                  label="Label"
+                  description="Display name shown when publishing a pod. Safe to rename at any time."
+                  placeholder="Lab 2"
+                  schema={cloneTargetLabelSchema}
+                  maxLength={48}
+                />
+                <CloneTargetTextField
+                  FieldComponent={form.Field}
+                  name="key"
+                  label="Key"
+                  description="Permanent identifier that published pods and clones are stored against. Cannot be changed after creation."
+                  placeholder="lab2"
+                  schema={cloneTargetKeySchema}
+                  disabled={isEdit}
+                  maxLength={32}
+                />
 
-          <FieldSet>
-            <FieldLegend>Networks</FieldLegend>
-            <FieldDescription>
-              Pod segments attach to these VLAN-aware VNets, and the cloned
-              router&apos;s uplink is moved onto the WAN bridge.
-            </FieldDescription>
-            <FieldGroup>
-              <CloneTargetComboboxField
-                FieldComponent={form.Field}
-                name="lanVNet"
-                label="LAN VNet"
-                placeholder="pod"
-                schema={cloneTargetVNetSchema}
-                suggestions={vnetNames}
-                emptyMessage="No matching VNets. You can still type a name."
-              />
-              <CloneTargetComboboxField
-                FieldComponent={form.Field}
-                name="dmzVNet"
-                label="DMZ VNet"
-                placeholder="dmz"
-                schema={cloneTargetVNetSchema}
-                suggestions={vnetNames}
-                emptyMessage="No matching VNets. You can still type a name."
-              />
-              <CloneTargetComboboxField
-                FieldComponent={form.Field}
-                name="wanBridge"
-                label="WAN bridge"
-                description="Bridge or VNet the cloned router's net0 is attached to."
-                placeholder="vmbr0"
-                schema={cloneTargetBridgeSchema}
-                suggestions={bridgeNames}
-                emptyMessage="No matching bridges or VNets. You can still type a name."
-              />
-              <form.Subscribe>
-                {(state) => (
-                  <CloneTargetTextField
-                    FieldComponent={form.Field}
-                    name="wanSubnet"
-                    label="WAN subnet"
-                    description={`Each pod gets a /24 from this /16, using its network number as the third octet (${formatPodWANSubnet(state.values.wanSubnet || "172.16.0.0/16", "x")}).`}
-                    placeholder="172.16.0.0/16"
-                    schema={cloneTargetWANSubnetSchema}
-                  />
-                )}
-              </form.Subscribe>
-            </FieldGroup>
-          </FieldSet>
+                <FieldSeparator />
 
-          <FieldSeparator />
+                <CloneTargetProfileField FieldComponent={form.Field} />
 
-          <FieldSet>
-            <FieldLegend>Router cloud-init</FieldLegend>
-            <FieldDescription>
-              Snippet files that must already exist on this storage, one
-              user-data file per network number.
-            </FieldDescription>
-            <FieldGroup>
-              <CloneTargetComboboxField
-                FieldComponent={form.Field}
-                name="cloudInitStorage"
-                label="Storage"
-                placeholder="local"
-                schema={cloneTargetStorageSchema}
-                suggestions={storageNames}
-                emptyMessage="No snippet-capable storages found. You can still type a name."
-              />
-              <CloneTargetTextField
-                FieldComponent={form.Field}
-                name="cloudInitUserFilePattern"
-                label="LAN user-data pattern"
-                placeholder="kamino-router-{network}-user-data.yaml"
-                schema={cloneTargetUserPatternSchema}
-              />
-              <CloneTargetTextField
-                FieldComponent={form.Field}
-                name="cloudInitNetworkFile"
-                label="LAN network-config file"
-                placeholder="kamino-router-network-config.yaml"
-                schema={cloneTargetNetworkFileSchema}
-              />
-              <CloneTargetTextField
-                FieldComponent={form.Field}
-                name="lanDmzUserFilePattern"
-                label="LAN + DMZ user-data pattern"
-                placeholder="kamino-router-lan-dmz-{network}-user-data.yaml"
-                schema={cloneTargetUserPatternSchema}
-              />
-              <CloneTargetTextField
-                FieldComponent={form.Field}
-                name="lanDmzNetworkFile"
-                label="LAN + DMZ network-config file"
-                placeholder="kamino-router-lan-dmz-network-config.yaml"
-                schema={cloneTargetNetworkFileSchema}
-              />
-            </FieldGroup>
-          </FieldSet>
-        </FieldGroup>
+                <FieldSeparator />
+
+                <FieldSet>
+                  <FieldLegend>Networks</FieldLegend>
+                  <FieldDescription>
+                    Pod segments attach to these VLAN-aware VNets, and the
+                    cloned router&apos;s uplink is moved onto the WAN bridge.
+                  </FieldDescription>
+                  <FieldGroup>
+                    <CloneTargetComboboxField
+                      FieldComponent={form.Field}
+                      name="lanVNet"
+                      label="LAN VNet"
+                      placeholder="pod"
+                      schema={cloneTargetVNetSchema}
+                      suggestions={vnetNames}
+                      emptyMessage="No matching VNets. You can still type a name."
+                    />
+                    {hasDMZ ? (
+                      <CloneTargetComboboxField
+                        FieldComponent={form.Field}
+                        name="dmzVNet"
+                        label="DMZ VNet"
+                        placeholder="dmz"
+                        schema={cloneTargetVNetSchema}
+                        suggestions={vnetNames}
+                        emptyMessage="No matching VNets. You can still type a name."
+                      />
+                    ) : null}
+                    <CloneTargetComboboxField
+                      FieldComponent={form.Field}
+                      name="wanBridge"
+                      label="WAN bridge"
+                      description="Bridge or VNet the cloned router's net0 is attached to."
+                      placeholder="vmbr0"
+                      schema={cloneTargetBridgeSchema}
+                      suggestions={bridgeNames}
+                      emptyMessage="No matching bridges or VNets. You can still type a name."
+                    />
+                    <CloneTargetTextField
+                      FieldComponent={form.Field}
+                      name="networkMin"
+                      label="First network number"
+                      description="Lowest inner VLAN tag this target allocates to pods."
+                      placeholder="1"
+                      schema={cloneTargetNetworkNumberSchema}
+                    />
+                    <CloneTargetTextField
+                      FieldComponent={form.Field}
+                      name="networkMax"
+                      label="Last network number"
+                      description="Highest inner VLAN tag this target allocates to pods."
+                      placeholder="254"
+                      schema={cloneTargetNetworkNumberSchema}
+                    />
+                    <CloneTargetTextField
+                      FieldComponent={form.Field}
+                      name="wanSubnet"
+                      label="WAN subnet"
+                      description={`Each pod gets a /24 from this /16, using its network number as the third octet (${formatPodWANSubnet(state.values.wanSubnet || "172.16.0.0/16", "x")}).`}
+                      placeholder="172.16.0.0/16"
+                      schema={cloneTargetWANSubnetSchema}
+                    />
+                  </FieldGroup>
+                </FieldSet>
+
+                <FieldSeparator />
+
+                <FieldSet>
+                  <FieldLegend>Router cloud-init</FieldLegend>
+                  <FieldDescription>
+                    Snippet files that must already exist on this storage, one
+                    user-data file per network number.
+                  </FieldDescription>
+                  <FieldGroup>
+                    <CloneTargetComboboxField
+                      FieldComponent={form.Field}
+                      name="cloudInitStorage"
+                      label="Storage"
+                      placeholder="local"
+                      schema={cloneTargetStorageSchema}
+                      suggestions={storageNames}
+                      emptyMessage="No snippet-capable storages found. You can still type a name."
+                    />
+                    <CloneTargetSnippetCommand values={state.values} />
+                  </FieldGroup>
+                </FieldSet>
+              </FieldGroup>
+            )
+          }}
+        </form.Subscribe>
       </AppDialogScrollBody>
 
       <DialogFooter>

@@ -1,18 +1,28 @@
 import { z } from "zod"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 
+export const CLONE_TARGET_PROFILES = [
+  { key: "lan-router-v1", label: "LAN Router", hasDMZ: false },
+  { key: "lan-dmz-router-v1", label: "LAN + DMZ Router", hasDMZ: true },
+] as const
+
+export type CloneTargetProfileKey = (typeof CLONE_TARGET_PROFILES)[number]["key"]
+
+export function profileHasDMZ(profileKey: string) {
+  return profileKey === "lan-dmz-router-v1"
+}
+
 export type CloneTargetFormValues = {
   key: string
   label: string
+  networkProfileKey: string
   lanVNet: string
   dmzVNet: string
   wanBridge: string
   wanSubnet: string
+  networkMin: string
+  networkMax: string
   cloudInitStorage: string
-  cloudInitUserFilePattern: string
-  cloudInitNetworkFile: string
-  lanDmzUserFilePattern: string
-  lanDmzNetworkFile: string
 }
 
 export const cloneTargetKeySchema = z
@@ -73,49 +83,20 @@ export const cloneTargetStorageSchema = z
   .trim()
   .min(1, "Cloud-init storage is required")
 
-const snippetFilenameSchema = z
-  .string()
-  .trim()
-  .min(1, "Filename is required")
-  .refine((value) => !/[/\\]/.test(value), {
-    message: "Must not contain path separators",
-  })
-  .refine((value) => !value.includes(".."), { message: "Must not contain '..'" })
-  .refine((value) => !/\s/.test(value), {
-    message: "Must not contain whitespace",
-  })
-
-export const cloneTargetUserPatternSchema = snippetFilenameSchema.refine(
-  (value) => (value.match(/\{network\}/g) ?? []).length === 1,
-  { message: "Must contain {network} exactly once" }
-)
-
-export const cloneTargetNetworkFileSchema = snippetFilenameSchema.refine(
-  (value) => !value.includes("{network}"),
-  { message: "Must not contain {network}" }
-)
-
 export function getDefaultCloneTargetFormValues(
   target?: PodCloneTarget
 ): CloneTargetFormValues {
   return {
     key: target?.key ?? "",
     label: target?.label ?? "",
+    networkProfileKey: target?.network_profile_key ?? "lan-router-v1",
     lanVNet: target?.lan_vnet ?? "",
     dmzVNet: target?.dmz_vnet ?? "",
     wanBridge: target?.wan_bridge ?? "",
     wanSubnet: target?.wan_subnet ?? "",
+    networkMin: String(target?.network_min ?? 1),
+    networkMax: String(target?.network_max ?? 254),
     cloudInitStorage: target?.cloud_init_storage ?? "local",
-    cloudInitUserFilePattern:
-      target?.cloud_init_user_file_pattern ??
-      "kamino-router-{network}-user-data.yaml",
-    cloudInitNetworkFile:
-      target?.cloud_init_network_file ?? "kamino-router-network-config.yaml",
-    lanDmzUserFilePattern:
-      target?.lan_dmz_user_file_pattern ??
-      "kamino-router-lan-dmz-{network}-user-data.yaml",
-    lanDmzNetworkFile:
-      target?.lan_dmz_network_file ?? "kamino-router-lan-dmz-network-config.yaml",
   }
 }
 
@@ -123,14 +104,59 @@ export function buildCloneTargetPayload(values: CloneTargetFormValues) {
   return {
     key: values.key.trim(),
     label: values.label.trim(),
+    network_profile_key: values.networkProfileKey,
     lan_vnet: values.lanVNet.trim(),
-    dmz_vnet: values.dmzVNet.trim(),
+    dmz_vnet: profileHasDMZ(values.networkProfileKey) ? values.dmzVNet.trim() : "",
     wan_bridge: values.wanBridge.trim(),
     wan_subnet: values.wanSubnet.trim(),
+    network_min: Number(values.networkMin),
+    network_max: Number(values.networkMax),
     cloud_init_storage: values.cloudInitStorage.trim(),
-    cloud_init_user_file_pattern: values.cloudInitUserFilePattern.trim(),
-    cloud_init_network_file: values.cloudInitNetworkFile.trim(),
-    lan_dmz_user_file_pattern: values.lanDmzUserFilePattern.trim(),
-    lan_dmz_network_file: values.lanDmzNetworkFile.trim(),
   }
+}
+
+export function snippetPrefix(key: string) {
+  return `kamino-${key}-router`
+}
+
+export function snippetFileNames(key: string) {
+  const prefix = snippetPrefix(key)
+  return {
+    lanUserPattern: `${prefix}-{network}-user-data.yaml`,
+    lanNetworkFile: `${prefix}-network-config.yaml`,
+    lanDmzUserPattern: `${prefix}-lan-dmz-{network}-user-data.yaml`,
+    lanDmzNetworkFile: `${prefix}-lan-dmz-network-config.yaml`,
+  }
+}
+
+export const cloneTargetNetworkNumberSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/, "Must be a whole number")
+  .refine((value) => Number(value) >= 1 && Number(value) <= 254, {
+    message: "Must be between 1 and 254",
+  })
+
+// The kamino-snippets.sh invocation that creates this target's cloud-init files.
+// A LAN + DMZ target needs both snippet families, which the script calls "all".
+export function buildSnippetCommand(values: CloneTargetFormValues) {
+  const hasDMZ = profileHasDMZ(values.networkProfileKey)
+  const names = snippetFileNames(values.key)
+  const assignments = [
+    `NETWORK_PROFILE="${hasDMZ ? "all" : "lan-router-v1"}"`,
+    `NETWORK_MIN=${values.networkMin}`,
+    `NETWORK_MAX=${values.networkMax}`,
+    `WAN_SUBNET="${values.wanSubnet}"`,
+    `LAN_ROUTER_USER_FILE_PATTERN="${names.lanUserPattern}"`,
+    `LAN_ROUTER_NETWORK_CONFIG_FILE="${names.lanNetworkFile}"`,
+  ]
+
+  if (hasDMZ) {
+    assignments.push(
+      `LAN_DMZ_ROUTER_USER_FILE_PATTERN="${names.lanDmzUserPattern}"`,
+      `LAN_DMZ_ROUTER_NETWORK_CONFIG_FILE="${names.lanDmzNetworkFile}"`
+    )
+  }
+
+  return `${assignments.map((line) => `${line} \\`).join("\n")}\n./kamino-snippets.sh`
 }

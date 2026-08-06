@@ -159,8 +159,8 @@ func (h *PodsHandler) Create(c *gin.Context) {
 				ctx,
 				database.InsertPodDevNetworkAllocationParams{
 					PodFolderID:       podFolderID,
-					MinNetworkNumber:  h.RouterCloneConfig.DevNetworkMin,
-					MaxNetworkNumber:  h.RouterCloneConfig.DevNetworkMax,
+					MinNetworkNumber:  devCloneTarget.NetworkMin,
+					MaxNetworkNumber:  devCloneTarget.NetworkMax,
 					NetworkProfileKey: &profileKey,
 					CloneTargetKey:    &devCloneTarget.Key,
 				},

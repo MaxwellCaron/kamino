@@ -128,7 +128,17 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey, cloneTarget.Key)
+	if !cloneTarget.SupportsProfile(pod.NetworkProfileKey) {
+		return database.ClonedPods{}, &requestError{
+			Status: http.StatusUnprocessableEntity,
+			UserMessage: fmt.Sprintf(
+				"clone target %s does not support the %s network profile",
+				cloneTarget.Label, pod.NetworkProfileKey,
+			),
+		}
+	}
+
+	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey, cloneTarget)
 	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}

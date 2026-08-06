@@ -206,14 +206,14 @@ func TestBuildPodRouterCloneConfig(t *testing.T) {
 			}(),
 		},
 		{
-			name: "clone and dev ranges must not overlap",
+			// Clone and dev pods now share one per-target range, so overlap is fine.
+			name: "clone and dev ranges may overlap",
 			config: func() Config {
 				cfg := baseTestConfig()
 				cfg.PodDevNetworkMin = 100
 				cfg.PodDevNetworkMax = 200
 				return cfg
 			}(),
-			wantErr: "must not overlap",
 		},
 		{
 			name: "personal range may overlap clone/dev ranges: bases no longer exist",

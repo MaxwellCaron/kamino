@@ -282,33 +282,27 @@ func TestParsePodRouterCloneRequest(t *testing.T) {
 }
 
 func TestBuildRouterCloudInitConfigForProfileRouterClone(t *testing.T) {
-	lanConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANRouterV1, podCloneTarget{
-		CloudInitStorage:         "local",
-		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
-		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
-	})
+	target := podCloneTarget{Key: "lab2", CloudInitStorage: "local"}
+
+	lanConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANRouterV1, target)
 	if err != nil {
 		t.Fatalf("buildRouterCloudInitConfigForProfile(LAN) error = %v", err)
 	}
-	if lanConfig.UserFile != "kamino-router-24-user-data.yaml" {
+	if lanConfig.UserFile != "kamino-lab2-router-24-user-data.yaml" {
 		t.Fatalf("LAN user file = %q", lanConfig.UserFile)
 	}
-	if lanConfig.NetworkFile != "kamino-router-network-config.yaml" {
+	if lanConfig.NetworkFile != "kamino-lab2-router-network-config.yaml" {
 		t.Fatalf("LAN network file = %q", lanConfig.NetworkFile)
 	}
 
-	dmzConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANDMZRouterV1, podCloneTarget{
-		CloudInitStorage:      "local",
-		LANDMZUserFilePattern: "kamino-router-dmz-{network}-user-data.yaml",
-		LANDMZNetworkFile:     "kamino-router-dmz-network-config.yaml",
-	})
+	dmzConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANDMZRouterV1, target)
 	if err != nil {
 		t.Fatalf("buildRouterCloudInitConfigForProfile(LAN+DMZ) error = %v", err)
 	}
-	if dmzConfig.UserFile != "kamino-router-dmz-24-user-data.yaml" {
+	if dmzConfig.UserFile != "kamino-lab2-router-lan-dmz-24-user-data.yaml" {
 		t.Fatalf("LAN + DMZ user file = %q", dmzConfig.UserFile)
 	}
-	if dmzConfig.NetworkFile != "kamino-router-dmz-network-config.yaml" {
+	if dmzConfig.NetworkFile != "kamino-lab2-router-lan-dmz-network-config.yaml" {
 		t.Fatalf("LAN + DMZ network file = %q", dmzConfig.NetworkFile)
 	}
 }

@@ -4,17 +4,16 @@ import "testing"
 
 func validPodCloneTargetRequest() podCloneTargetRequest {
 	return podCloneTargetRequest{
-		Key:                      "lab2",
-		Label:                    "Lab 2",
-		LANVNet:                  "pod2",
-		DMZVNet:                  "dmz2",
-		WANBridge:                "vmbr9",
-		WANSubnet:                "172.30.0.0/16",
-		CloudInitStorage:         "local",
-		CloudInitUserFilePattern: "lab2-router-{network}-user-data.yaml",
-		CloudInitNetworkFile:     "lab2-router-network-config.yaml",
-		LANDMZUserFilePattern:    "lab2-router-dmz-{network}-user-data.yaml",
-		LANDMZNetworkFile:        "lab2-router-dmz-network-config.yaml",
+		Key:               "lab2",
+		Label:             "Lab 2",
+		NetworkProfileKey: "lan-dmz-router-v1",
+		LANVNet:           "pod2",
+		DMZVNet:           "dmz2",
+		WANBridge:         "vmbr9",
+		WANSubnet:         "172.30.0.0/16",
+		NetworkMin:        10,
+		NetworkMax:        60,
+		CloudInitStorage:  "local",
 	}
 }
 
@@ -26,6 +25,18 @@ func TestNormalizePodCloneTargetRequest(t *testing.T) {
 
 	if target.WANSubnet != "172.30.0.0/16" {
 		t.Fatalf("WANSubnet = %q, want %q", target.WANSubnet, "172.30.0.0/16")
+	}
+	if got := target.CloudInitUserFilePattern(); got != "kamino-lab2-router-{network}-user-data.yaml" {
+		t.Fatalf("LAN user-data pattern = %q", got)
+	}
+	if got := target.CloudInitNetworkFile(); got != "kamino-lab2-router-network-config.yaml" {
+		t.Fatalf("LAN network-config file = %q", got)
+	}
+	if got := target.LANDMZUserFilePattern(); got != "kamino-lab2-router-lan-dmz-{network}-user-data.yaml" {
+		t.Fatalf("LAN + DMZ user-data pattern = %q", got)
+	}
+	if got := target.LANDMZNetworkFile(); got != "kamino-lab2-router-lan-dmz-network-config.yaml" {
+		t.Fatalf("LAN + DMZ network-config file = %q", got)
 	}
 	if target.Network().WANBridge != "vmbr9" || target.Network().LANVNet != "pod2" {
 		t.Fatalf("Network() = %#v", target.Network())
@@ -46,14 +57,12 @@ func TestNormalizePodCloneTargetRequestRejectsInvalidInput(t *testing.T) {
 		{"wan subnet not /16", func(r *podCloneTargetRequest) { r.WANSubnet = "172.30.0.0/24" }, true},
 		{"wan subnet host address", func(r *podCloneTargetRequest) { r.WANSubnet = "172.30.5.0/16" }, true},
 		{"wan subnet not cidr", func(r *podCloneTargetRequest) { r.WANSubnet = "172.30." }, true},
-		{"user pattern without placeholder", func(r *podCloneTargetRequest) {
-			r.CloudInitUserFilePattern = "lab2-router-user-data.yaml"
-		}, true},
-		{"network file with placeholder", func(r *podCloneTargetRequest) {
-			r.CloudInitNetworkFile = "lab2-router-{network}-network-config.yaml"
-		}, true},
-		{"snippet path traversal", func(r *podCloneTargetRequest) {
-			r.LANDMZNetworkFile = "../lab2-network-config.yaml"
+		{"unknown profile", func(r *podCloneTargetRequest) { r.NetworkProfileKey = "nope" }, true},
+		{"network min below range", func(r *podCloneTargetRequest) { r.NetworkMin = 0 }, true},
+		{"network max above range", func(r *podCloneTargetRequest) { r.NetworkMax = 255 }, true},
+		{"inverted range", func(r *podCloneTargetRequest) { r.NetworkMin = 90; r.NetworkMax = 10 }, true},
+		{"LAN-only target with a DMZ VNet", func(r *podCloneTargetRequest) {
+			r.NetworkProfileKey = "lan-router-v1"
 		}, true},
 	}
 
