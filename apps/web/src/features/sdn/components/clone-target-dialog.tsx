@@ -370,10 +370,13 @@ function CloneTargetForm({
   ].toSorted()
 
   // Only snippet-capable storages can hold the router's cloud-init files.
-  const storageNames = (storages ?? [])
-    .filter((storage) => storage.content.includes("snippets"))
-    .map((storage) => storage.storage)
-    .toSorted()
+  const storageNames: Array<string> = []
+  for (const storage of storages ?? []) {
+    if (storage.content.includes("snippets")) {
+      storageNames.push(storage.storage)
+    }
+  }
+  storageNames.sort()
 
   const mutation = useMutation({
     mutationFn: async (values: CloneTargetFormValues) => {
