@@ -60,13 +60,22 @@ type podNetworkScopeReader interface {
 
 var _ podNetworkScopeReader = (*database.Queries)(nil)
 
-func personalPodVNetScope(personalVNet string, networkNumber int32) VMNetworkScope {
-	return VMNetworkScope{
-		Kind:         database.PodNetworkAllocationKindPersonalPod,
-		VNet:         personalVNet,
-		AllowedVNets: []string{personalVNet},
-		VLANTag:      int(networkNumber),
+func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryItemRow) (podnetwork.Target, error) {
+	if allocation.LanVnet == nil ||
+		allocation.DmzVnet == nil ||
+		allocation.WanBridge == nil ||
+		allocation.WanSubnet == nil {
+		return podnetwork.Target{}, fmt.Errorf(
+			"pod network allocation for folder %s is missing its clone target", allocation.FolderID,
+		)
 	}
+	return podnetwork.Target{
+		Key:       allocation.CloneTargetKey,
+		LANVNet:   *allocation.LanVnet,
+		DMZVNet:   *allocation.DmzVnet,
+		WANBridge: *allocation.WanBridge,
+		WANSubnet: *allocation.WanSubnet,
+	}, nil
 }
 
 // resolveVMNetworkScope derives scope from the nearest pod allocation ancestor of itemID; the client never supplies it.
@@ -74,7 +83,6 @@ func resolveVMNetworkScope(
 	ctx context.Context,
 	reader podNetworkScopeReader,
 	catalog *podnetwork.Catalog,
-	personalVNet string,
 	itemID uuid.UUID,
 ) (scope VMNetworkScope, scoped bool, err error) {
 	allocation, err := reader.GetPodNetworkScopeForInventoryItem(ctx, itemID)
@@ -86,16 +94,21 @@ func resolveVMNetworkScope(
 	}
 
 	switch allocation.Kind {
-	case database.PodNetworkAllocationKindPersonalPod:
-		return personalPodVNetScope(personalVNet, allocation.NetworkNumber), true, nil
-
-	case database.PodNetworkAllocationKindDevPod, database.PodNetworkAllocationKindPublishedClone:
+	case database.PodNetworkAllocationKindPersonalPod,
+		database.PodNetworkAllocationKindDevPod,
+		database.PodNetworkAllocationKindPublishedClone:
 		if allocation.NetworkProfileKey == nil || strings.TrimSpace(*allocation.NetworkProfileKey) == "" {
 			return VMNetworkScope{}, false, fmt.Errorf(
 				"pod network allocation for folder %s is missing a network profile", allocation.FolderID,
 			)
 		}
 		profileKey := strings.TrimSpace(*allocation.NetworkProfileKey)
+
+		// VNets come from the pod's target, so added VMs land on the same bridges.
+		cloneTarget, err := allocationCloneTarget(allocation)
+		if err != nil {
+			return VMNetworkScope{}, false, err
+		}
 
 		profile, err := catalog.Profile(profileKey)
 		if err != nil {
@@ -106,7 +119,7 @@ func resolveVMNetworkScope(
 		if err != nil {
 			return VMNetworkScope{}, false, fmt.Errorf("resolve pod default workload segment: %w", err)
 		}
-		defaultAttachment, err := catalog.ResolveWorkloadAttachment(profileKey, allocation.NetworkNumber, defaultSegmentKey)
+		defaultAttachment, err := catalog.ResolveWorkloadAttachment(cloneTarget, profileKey, allocation.NetworkNumber, defaultSegmentKey)
 		if err != nil {
 			return VMNetworkScope{}, false, fmt.Errorf("resolve pod default workload attachment: %w", err)
 		}
@@ -122,7 +135,7 @@ func resolveVMNetworkScope(
 			if !segment.WorkloadAssignable {
 				continue
 			}
-			vnetName, err := catalog.VNetName(segment.VNetKind)
+			vnetName, err := catalog.VNetName(cloneTarget, segment.VNetKind)
 			if err != nil {
 				return VMNetworkScope{}, false, fmt.Errorf("resolve pod workload vnet: %w", err)
 			}

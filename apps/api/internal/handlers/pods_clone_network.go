@@ -15,8 +15,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (h *PodsHandler) clonedPodNetworkMetadata(clone database.ClonedPods) (clonedPodNetworkResponse, error) {
-	return h.buildPodNetworkMetadata(clone.NetworkProfileKey, clone.NetworkNumber)
+func (h *PodsHandler) clonedPodNetworkMetadata(
+	ctx context.Context,
+	clone database.ClonedPods,
+) (clonedPodNetworkResponse, error) {
+	target, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
+		return clonedPodNetworkResponse{}, reqErr
+	}
+	return h.buildPodNetworkMetadata(target, clone.NetworkProfileKey, clone.NetworkNumber)
 }
 
 func (h *PodsHandler) waitForPodVMTargetsVisible(
@@ -119,108 +126,23 @@ func (h *PodsHandler) waitForClonedVMsReady(
 	return h.waitForPodVMTargetsReady(ctx, podNetworkTargetsFromCloneResults(results))
 }
 
-func (h *PodsHandler) configurePersonalPodNetworkAttachments(
-	ctx context.Context,
-	wanBridge string,
-	scope VMNetworkScope,
-	targets []podNetworkVMTarget,
-) *requestError {
-	router, reqErr := findPodNetworkRouterTarget(targets)
-	if reqErr != nil {
-		return reqErr
-	}
-
-	if reqErr := h.ensureSharedVNetsValid(ctx, []string{scope.VNet}); reqErr != nil {
-		return reqErr
-	}
-
-	if reqErr := h.removeRouterNetworkDeviceIfPresent(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); reqErr != nil {
-		return reqErr
-	}
-
-	// net0 is the personal router's WAN uplink; it never carries an inner
-	// VLAN tag.
-	if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net0", proxmox.NetworkAttachment{
-		Bridge:   wanBridge,
-		Firewall: true,
-	}); err != nil {
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to configure personal router WAN network",
-			Operation:   "set personal router net0 bridge",
-			Err:         err,
-		}
-	}
-	if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net0", wanBridge, nil); reqErr != nil {
-		return reqErr
-	}
-
-	vlanTag := scope.VLANTag
-	if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net1", proxmox.NetworkAttachment{
-		Bridge:   scope.VNet,
-		VLANTag:  &vlanTag,
-		Firewall: true,
-	}); err != nil {
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to configure cloned router network",
-			Operation:   "set cloned router VNet bridge",
-			Err:         err,
-		}
-	}
-	if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net1", scope.VNet, &vlanTag); reqErr != nil {
-		return reqErr
-	}
-
-	group, gctx := errgroup.WithContext(ctx)
-	group.SetLimit(h.vmOperationConcurrencyLimit())
-	for _, target := range targets {
-		if target.router {
-			continue
-		}
-		target := target
-		group.Go(func() error {
-			if err := h.PX.SetVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, "net0", proxmox.NetworkAttachment{
-				Bridge:   scope.VNet,
-				VLANTag:  &vlanTag,
-				Firewall: true,
-			}); err != nil {
-				return err
-			}
-			if reqErr := h.verifyVMNetworkAttachment(gctx, target.clone.TargetNode, target.clone.VMID, "net0", scope.VNet, &vlanTag); reqErr != nil {
-				return reqErr
-			}
-			return nil
-		})
-	}
-
-	if err := group.Wait(); err != nil {
-		if reqErr, ok := err.(*requestError); ok {
-			return reqErr
-		}
-		return &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to configure cloned pod networks",
-			Operation:   "set cloned pod VNet bridges",
-			Err:         err,
-		}
-	}
-
-	return nil
-}
-
 func (h *PodsHandler) configureClonedPodNetwork(
 	ctx context.Context,
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	if reqErr := h.ensureProfileVNetsExist(ctx, clone.NetworkProfileKey); reqErr != nil {
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
+		return reqErr
+	}
+	if reqErr := h.ensureProfileVNetsExist(ctx, cloneTarget, clone.NetworkProfileKey); reqErr != nil {
 		return reqErr
 	}
 
 	segmentByTarget := segmentAssignmentsFromPublishedCloneResults(results)
 	return h.configureProfileNetworkAttachments(
 		ctx,
+		cloneTarget,
 		clone.NetworkProfileKey,
 		clone.NetworkNumber,
 		podNetworkTargetsFromCloneResults(results),
@@ -352,7 +274,12 @@ func (h *PodsHandler) configureClonedRouter(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *requestError {
-	cloudInitConfig, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, h.RouterCloneConfig)
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, clone.CloneTargetKey)
+	if reqErr != nil {
+		return reqErr
+	}
+
+	cloudInitConfig, err := buildRouterCloudInitConfigForProfile(clone.NetworkNumber, clone.NetworkProfileKey, cloneTarget)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusInternalServerError,

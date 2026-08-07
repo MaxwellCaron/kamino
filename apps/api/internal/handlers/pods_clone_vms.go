@@ -281,6 +281,7 @@ func (h *PodsHandler) createClonedPodRecord(
 	podID uuid.UUID,
 	folderID uuid.UUID,
 	networkProfileKey string,
+	cloneTarget podCloneTarget,
 ) (database.ClonedPods, *requestError) {
 	var cloneRow database.InsertClonedPodRow
 	err := podnetworks.WithPodNetworkAllocation(ctx, h.DB, func(ctx context.Context, tx pgx.Tx) error {
@@ -291,8 +292,9 @@ func (h *PodsHandler) createClonedPodRecord(
 			UserPrincipalID:   principalID,
 			FolderID:          folderID,
 			NetworkProfileKey: &networkProfileKey,
-			MinNetworkNumber:  h.RouterCloneConfig.NetworkMin,
-			MaxNetworkNumber:  h.RouterCloneConfig.NetworkMax,
+			CloneTargetKey:    cloneTarget.Key,
+			MinNetworkNumber:  cloneTarget.NetworkMin,
+			MaxNetworkNumber:  cloneTarget.NetworkMax,
 		})
 		return err
 	})
@@ -317,6 +319,7 @@ func (h *PodsHandler) createClonedPodRecord(
 		FolderID:          cloneRow.FolderID,
 		NetworkNumber:     cloneRow.NetworkNumber,
 		NetworkProfileKey: cloneRow.NetworkProfileKey,
+		CloneTargetKey:    cloneRow.CloneTargetKey,
 		CreatedAt:         cloneRow.CreatedAt,
 		UpdatedAt:         cloneRow.UpdatedAt,
 	}, nil

@@ -3,7 +3,6 @@ package podnetwork
 import (
 	"fmt"
 	"net/netip"
-	"strings"
 )
 
 const (
@@ -31,7 +30,7 @@ type Segment struct {
 type Interface struct {
 	Device     string
 	SegmentKey string
-	KeepUplink bool
+	Uplink     bool
 }
 
 // PrefixNAT identifies the segment mapped host-for-host to the pod WAN /24.
@@ -51,11 +50,13 @@ type Profile struct {
 	PrefixNAT         *PrefixNAT
 }
 
-// Config supplies the exact shared VNet IDs used by every managed pod
-type Config struct {
+// Target is one clone domain: shared VNets plus the WAN uplink and /16 subnet.
+type Target struct {
+	Key       string
 	LANVNet   string
 	DMZVNet   string
-	WANIPBase string
+	WANBridge string
+	WANSubnet string
 }
 
 // WorkloadAttachment is the resolved Proxmox attachment for a workload NIC.
@@ -68,11 +69,11 @@ type WorkloadAttachment struct {
 
 // RouterAttachment is the resolved Proxmox attachment for a router NIC.
 type RouterAttachment struct {
-	Device     string
-	Bridge     string
-	VNetName   string
-	VMVLANTag  *int
-	KeepUplink bool
+	Device    string
+	Bridge    string
+	VNetName  string
+	VMVLANTag *int
+	Uplink    bool
 }
 
 // PublicProfile is returned by create options for the frontend.
@@ -90,41 +91,20 @@ type PublicSegment struct {
 	Label string `json:"label"`
 }
 
-// Catalog holds validated profile definitions.
+// Catalog holds validated profile definitions; VNets come from the passed Target.
 type Catalog struct {
-	config   Config
 	profiles map[string]Profile
 }
 
-func NewCatalog(config Config) (*Catalog, error) {
-	config.LANVNet = strings.TrimSpace(config.LANVNet)
-	config.DMZVNet = strings.TrimSpace(config.DMZVNet)
-	config.WANIPBase = strings.TrimSpace(config.WANIPBase)
-
-	if err := validateSharedVNetID(config.LANVNet); err != nil {
-		return nil, fmt.Errorf("LAN VNet: %w", err)
-	}
-	if err := validateSharedVNetID(config.DMZVNet); err != nil {
-		return nil, fmt.Errorf("DMZ VNet: %w", err)
-	}
-	if config.LANVNet == config.DMZVNet {
-		return nil, fmt.Errorf("LAN and DMZ VNet IDs must be distinct")
-	}
-	if config.WANIPBase == "" {
-		return nil, fmt.Errorf("WAN IP base is required")
-	}
-
+func NewCatalog() (*Catalog, error) {
 	profiles := []Profile{
 		buildLANRouterV1Profile(),
 		buildLANDMZRouterV1Profile(),
 	}
 
-	catalog := &Catalog{
-		config:   config,
-		profiles: make(map[string]Profile, len(profiles)),
-	}
+	catalog := &Catalog{profiles: make(map[string]Profile, len(profiles))}
 	for _, profile := range profiles {
-		if err := validateProfile(profile, config); err != nil {
+		if err := validateProfile(profile); err != nil {
 			return nil, fmt.Errorf("profile %s: %w", profile.Key, err)
 		}
 		catalog.profiles[profile.Key] = profile

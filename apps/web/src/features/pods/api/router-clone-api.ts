@@ -1,16 +1,19 @@
 import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { apiJson } from "@/features/shared/api/api-json"
 
 export type PodRouterCloneNetworkOption = {
   network_number: number
   network_profile_key: PodNetworkProfile["key"]
+  clone_target_key: string
   vnets: Array<string>
 }
 
 export type PodRouterCloneOptions = {
   router_template_configured: boolean
   network_profiles: Array<PodNetworkProfile>
+  clone_targets: Array<PodCloneTarget>
   network_options: Array<PodRouterCloneNetworkOption>
 }
 
@@ -21,6 +24,7 @@ export type PodRouterCloneResult = {
   target_folder_id: string
   network_number: number
   network_profile_key: PodNetworkProfile["key"]
+  clone_target_key: string
   vnets: Array<string>
 }
 
@@ -28,6 +32,7 @@ export type CloneRouterParams = {
   target_folder_id: string
   network_number: number
   network_profile_key: PodNetworkProfile["key"]
+  clone_target_key: string
   vmid: number
 }
 

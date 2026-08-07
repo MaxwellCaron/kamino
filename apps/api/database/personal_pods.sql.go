@@ -18,6 +18,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    clone_target_key,
     created_at,
     updated_at
 FROM personal_pods
@@ -32,6 +33,7 @@ func (q *Queries) GetPersonalPodByUser(ctx context.Context, userPrincipalID uuid
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -89,12 +91,16 @@ allocation AS (
     INSERT INTO pod_network_allocations (
         network_number,
         kind,
+        network_profile_key,
+        clone_target_key,
         folder_id
     )
     SELECT
         candidate.network_number,
         'personal_pod',
-        $3
+        'lan-router-v1',
+        $3,
+        $4
     FROM candidate
     RETURNING id, network_number
 ),
@@ -103,19 +109,22 @@ inserted AS (
         id,
         user_principal_id,
         folder_id,
-        network_number
+        network_number,
+        clone_target_key
     )
     SELECT
-        $4,
         $5,
-        $3,
-        allocation.network_number
+        $6,
+        $4,
+        allocation.network_number,
+        $3
     FROM allocation
     RETURNING
         id,
         user_principal_id,
         folder_id,
         network_number,
+        clone_target_key,
         created_at,
         updated_at
 ),
@@ -130,6 +139,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    clone_target_key,
     created_at,
     updated_at
 FROM inserted
@@ -138,6 +148,7 @@ FROM inserted
 type InsertPersonalPodParams struct {
 	MinNetworkNumber int32     `json:"min_network_number"`
 	MaxNetworkNumber int32     `json:"max_network_number"`
+	CloneTargetKey   string    `json:"clone_target_key"`
 	FolderID         uuid.UUID `json:"folder_id"`
 	ID               uuid.UUID `json:"id"`
 	UserPrincipalID  uuid.UUID `json:"user_principal_id"`
@@ -148,6 +159,7 @@ type InsertPersonalPodRow struct {
 	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
 	FolderID        uuid.UUID          `json:"folder_id"`
 	NetworkNumber   int32              `json:"network_number"`
+	CloneTargetKey  string             `json:"clone_target_key"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
@@ -156,6 +168,7 @@ func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodPa
 	row := q.db.QueryRow(ctx, insertPersonalPod,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
+		arg.CloneTargetKey,
 		arg.FolderID,
 		arg.ID,
 		arg.UserPrincipalID,
@@ -166,6 +179,7 @@ func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodPa
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 	"github.com/google/uuid"
 )
 
@@ -36,7 +37,11 @@ type podNetworkSegmentResponse struct {
 	VLANTag int    `json:"vlan_tag"`
 }
 
-func (h *PodsHandler) buildPodNetworkMetadata(profileKey string, networkNumber int32) (clonedPodNetworkResponse, error) {
+func (h *PodsHandler) buildPodNetworkMetadata(
+	target podCloneTarget,
+	profileKey string,
+	networkNumber int32,
+) (clonedPodNetworkResponse, error) {
 	if h.NetworkCatalog == nil {
 		return clonedPodNetworkResponse{}, fmt.Errorf("network catalog is not configured")
 	}
@@ -46,7 +51,7 @@ func (h *PodsHandler) buildPodNetworkMetadata(profileKey string, networkNumber i
 		return clonedPodNetworkResponse{}, err
 	}
 
-	wanBase, err := normalizeWANIPBase(h.RouterCloneConfig.WANIPBase)
+	wanSubnet, err := routerconfig.PodWANSubnet(target.WANSubnet, networkNumber)
 	if err != nil {
 		return clonedPodNetworkResponse{}, err
 	}
@@ -58,14 +63,17 @@ func (h *PodsHandler) buildPodNetworkMetadata(profileKey string, networkNumber i
 
 	response := clonedPodNetworkResponse{
 		Number:          networkNumber,
-		VNet:            h.RouterCloneConfig.LANVNet,
-		ExternalSubnet:  fmt.Sprintf("%s%d.0/24", wanBase, networkNumber),
-		ExternalGateway: fmt.Sprintf("%s%d.1", wanBase, networkNumber),
+		VNet:            target.LANVNet,
+		ExternalSubnet:  wanSubnet.String(),
+		ExternalGateway: wanSubnet.Addr().Next().String(),
 		ProfileKey:      profileKey,
+		CloneTargetKey:  target.Key,
+		CloneTargetName: target.Label,
+		WANBridge:       target.WANBridge,
 	}
 
 	for _, segment := range profile.Segments {
-		vnetName, err := h.NetworkCatalog.VNetName(segment.VNetKind)
+		vnetName, err := h.NetworkCatalog.VNetName(target.Network(), segment.VNetKind)
 		if err != nil {
 			return clonedPodNetworkResponse{}, err
 		}
@@ -110,38 +118,11 @@ func (h *PodsHandler) buildPodNetworkMetadata(profileKey string, networkNumber i
 	return response, nil
 }
 
-func normalizeWANIPBase(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("WAN IP base is required")
-	}
-	if !strings.HasSuffix(trimmed, ".") {
-		trimmed += "."
-	}
-	return trimmed, nil
-}
-
-func (h *PodsHandler) sharedVNetIDs() []string {
-	seen := make(map[string]struct{}, 3)
-	ids := make([]string, 0, 3)
-	add := func(id string) {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			return
-		}
-		if _, ok := seen[id]; ok {
-			return
-		}
-		seen[id] = struct{}{}
-		ids = append(ids, id)
-	}
-	add(h.RouterCloneConfig.LANVNet)
-	add(h.RouterCloneConfig.DMZVNet)
-	add(h.RouterCloneConfig.PersonalVNet)
-	return ids
-}
-
 func (h *PodsHandler) ensureSharedVNetsValid(ctx context.Context, required []string) *requestError {
+	return h.ensureVNetsValid(ctx, required, nil)
+}
+
+func (h *PodsHandler) ensureVNetsValid(ctx context.Context, required []string, alsoCheck []string) *requestError {
 	vnets, err := h.PX.GetVNets(ctx)
 	if err != nil {
 		return &requestError{
@@ -162,12 +143,14 @@ func (h *PodsHandler) ensureSharedVNetsValid(ctx context.Context, required []str
 		requiredSet[name] = struct{}{}
 	}
 
-	names := make(map[string]struct{}, len(required)+3)
+	names := make(map[string]struct{}, len(required)+len(alsoCheck))
 	for _, name := range required {
 		names[strings.TrimSpace(name)] = struct{}{}
 	}
-	for _, name := range h.sharedVNetIDs() {
-		names[name] = struct{}{}
+	for _, name := range alsoCheck {
+		if name = strings.TrimSpace(name); name != "" {
+			names[name] = struct{}{}
+		}
 	}
 
 	resolved := make(map[string]proxmox.VNet, len(names))
@@ -232,7 +215,11 @@ func (h *PodsHandler) ensureSharedVNetsValid(ctx context.Context, required []str
 	return nil
 }
 
-func (h *PodsHandler) ensureProfileVNetsExist(ctx context.Context, profileKey string) *requestError {
+func (h *PodsHandler) ensureProfileVNetsExist(
+	ctx context.Context,
+	target podCloneTarget,
+	profileKey string,
+) *requestError {
 	if h.NetworkCatalog == nil {
 		return &requestError{
 			Status:      http.StatusInternalServerError,
@@ -240,7 +227,7 @@ func (h *PodsHandler) ensureProfileVNetsExist(ctx context.Context, profileKey st
 		}
 	}
 
-	required, err := h.NetworkCatalog.RequiredVNets(profileKey)
+	required, err := h.NetworkCatalog.RequiredVNets(target.Network(), profileKey)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusUnprocessableEntity,
@@ -248,5 +235,24 @@ func (h *PodsHandler) ensureProfileVNetsExist(ctx context.Context, profileKey st
 		}
 	}
 
-	return h.ensureSharedVNetsValid(ctx, required)
+	// Both VNets are checked even when the profile needs one: a colliding pair breaks every profile.
+	return h.ensureVNetsValid(ctx, required, []string{target.LANVNet, target.DMZVNet})
+}
+
+func (h *PodsHandler) ensureCloneTargetVNetsValid(ctx context.Context, target podCloneTarget) *requestError {
+	others, reqErr := h.listPodCloneTargets(ctx)
+	if reqErr != nil {
+		return reqErr
+	}
+
+	// Every other target, so a collision surfaces before the target is saved.
+	alsoCheck := make([]string, 0, len(others)*2)
+	for _, other := range others {
+		if other.Key == target.Key {
+			continue
+		}
+		alsoCheck = append(alsoCheck, other.LANVNet, other.DMZVNet)
+	}
+
+	return h.ensureVNetsValid(ctx, []string{target.LANVNet, target.DMZVNet}, alsoCheck)
 }

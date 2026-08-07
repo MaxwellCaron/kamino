@@ -53,7 +53,6 @@ type VMCreateHandler struct {
 	Authz                            vmCreateAuthz
 	Audit                            *audit.Service
 	Allocator                        *vmidalloc.Allocator
-	PersonalPodVNet                  string
 	PersonalPodTemplatesFolderItemID uuid.UUID
 	NetworkScopeReader               podNetworkScopeReader
 	NetworkCatalog                   *podnetwork.Catalog
@@ -205,7 +204,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	if scopeItemID != uuid.Nil {
 		// Network scope applies to every caller; only the personal-template restriction below is non-manager only.
 		scope, scoped, err := resolveVMNetworkScope(
-			c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, h.PersonalPodVNet, scopeItemID,
+			c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, scopeItemID,
 		)
 		if err != nil {
 			writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm create options network scope", err)

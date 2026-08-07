@@ -22,8 +22,17 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import type { PodRouterCloneNetworkOption } from "@/features/pods/api/router-clone-api"
 import type { RouterCloneFormValues } from "./manual-router-clone-dialog"
 import type { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
@@ -81,12 +90,16 @@ function formatNetworkOptionLabel(option: PodRouterCloneNetworkOption) {
 
 function getNetworkNumberOptions(
   networkOptions: Array<PodRouterCloneNetworkOption> | undefined,
-  profileKey: PodNetworkProfile["key"]
+  profileKey: PodNetworkProfile["key"],
+  cloneTargetKey: string
 ): Array<NetworkNumberOption> {
   const options: Array<NetworkNumberOption> = []
 
   for (const option of networkOptions ?? []) {
-    if (option.network_profile_key !== profileKey) {
+    if (
+      option.network_profile_key !== profileKey ||
+      option.clone_target_key !== cloneTargetKey
+    ) {
       continue
     }
 
@@ -219,21 +232,74 @@ function RouterCloneProfileField({
   )
 }
 
+function RouterCloneTargetField({
+  form,
+  cloneTargets,
+  defaultCloneTargetKey,
+}: {
+  form: RouterCloneFormLike
+  cloneTargets: Array<PodCloneTarget>
+  defaultCloneTargetKey: string
+}) {
+  return (
+    <form.Field name="clone_target_key">
+      {(field: NetworkNumberFieldApi) => (
+        <Field>
+          <FieldLabel htmlFor="router-clone-target">Clone Target</FieldLabel>
+          <Select
+            value={field.state.value || defaultCloneTargetKey}
+            onValueChange={(value) => field.handleChange(String(value))}
+          >
+            <SelectTrigger id="router-clone-target">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {cloneTargets.map((target) => (
+                  <SelectItem key={target.key} value={target.key}>
+                    {target.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <FieldDescription>
+            Subnet and bridge the router is placed on.
+          </FieldDescription>
+        </Field>
+      )}
+    </form.Field>
+  )
+}
+
 function RouterCloneNetworkNumberField({
   form,
   networkOptions,
+  defaultCloneTargetKey,
 }: {
   form: RouterCloneFormLike
   networkOptions: Array<PodRouterCloneNetworkOption> | undefined
+  defaultCloneTargetKey: string
 }) {
   return (
     <form.Subscribe
-      selector={(state: { values: RouterCloneFormValues }) =>
-        state.values.network_profile_key
-      }
+      selector={(state: { values: RouterCloneFormValues }) => ({
+        profileKey: state.values.network_profile_key,
+        cloneTargetKey: state.values.clone_target_key,
+      })}
     >
-      {(profileKey: RouterCloneFormValues["network_profile_key"]) => {
-        const numberOptions = getNetworkNumberOptions(networkOptions, profileKey)
+      {({
+        profileKey,
+        cloneTargetKey,
+      }: {
+        profileKey: RouterCloneFormValues["network_profile_key"]
+        cloneTargetKey: string
+      }) => {
+        const numberOptions = getNetworkNumberOptions(
+          networkOptions,
+          profileKey,
+          cloneTargetKey || defaultCloneTargetKey
+        )
 
         return (
           <form.Field
@@ -364,6 +430,7 @@ export function ManualRouterCloneFormFields({
   networkProfiles,
   networkOptions,
   folderOptions,
+  cloneTargets,
 }: {
   form: RouterCloneFormLike
   routerTemplateConfigured: boolean
@@ -371,7 +438,12 @@ export function ManualRouterCloneFormFields({
   networkProfiles: Array<PodNetworkProfile>
   networkOptions: Array<PodRouterCloneNetworkOption> | undefined
   folderOptions: ReturnType<typeof getInventoryFolderOptions>
+  cloneTargets: Array<PodCloneTarget>
 }) {
+  const defaultCloneTarget =
+    cloneTargets.find((target) => target.is_default) ?? cloneTargets.at(0)
+  const defaultCloneTargetKey = defaultCloneTarget?.key ?? ""
+
   return (
     <>
       <RouterCloneUnavailableState
@@ -385,9 +457,15 @@ export function ManualRouterCloneFormFields({
             form={form}
             networkProfiles={networkProfiles}
           />
+          <RouterCloneTargetField
+            form={form}
+            cloneTargets={cloneTargets}
+            defaultCloneTargetKey={defaultCloneTargetKey}
+          />
           <RouterCloneNetworkNumberField
             form={form}
             networkOptions={networkOptions}
+            defaultCloneTargetKey={defaultCloneTargetKey}
           />
           <VMIDField
             FieldComponent={form.Field}

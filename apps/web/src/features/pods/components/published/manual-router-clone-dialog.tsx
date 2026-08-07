@@ -30,6 +30,7 @@ export type RouterCloneFormValues = {
   target_folder_id: string | null
   network_number: string
   network_profile_key: PodNetworkProfile["key"]
+  clone_target_key: string
   vmid: number
 }
 
@@ -55,6 +56,8 @@ const routerCloneFormSchema = z.object({
       "Pod VNet number must be between 1 and 254"
     ),
   network_profile_key: z.enum(["lan-router-v1", "lan-dmz-router-v1"]),
+  // Empty means the default clone target; the server resolves it.
+  clone_target_key: z.string().trim(),
   vmid: optionalVmidSchema,
 })
 
@@ -110,6 +113,7 @@ export function ManualRouterCloneDialog({
       target_folder_id: null as string | null,
       network_number: "",
       network_profile_key: "lan-router-v1" as PodNetworkProfile["key"],
+      clone_target_key: "",
       vmid: 0,
     },
     onSubmit: ({ value }) => {
@@ -128,6 +132,7 @@ export function ManualRouterCloneDialog({
             target_folder_id: parsed.target_folder_id,
             network_number: parsed.network_number,
             network_profile_key: parsed.network_profile_key,
+            clone_target_key: parsed.clone_target_key,
             vmid: parsed.vmid,
           })
           seedInventoryItemCache(queryClient, result.item_id, result.item)
@@ -145,6 +150,7 @@ export function ManualRouterCloneDialog({
   const routerTemplateConfigured =
     routerOptions?.router_template_configured ?? false
   const networkProfiles = routerOptions?.network_profiles ?? []
+  const cloneTargets = routerOptions?.clone_targets ?? []
   const hasDestinationFolders = folderOptions.length > 0
   const submitUnavailable =
     !routerTemplateConfigured || !hasDestinationFolders || isLoadingOptions
@@ -188,6 +194,7 @@ export function ManualRouterCloneDialog({
                 networkProfiles={networkProfiles}
                 networkOptions={routerOptions?.network_options}
                 folderOptions={folderOptions}
+                cloneTargets={cloneTargets}
               />
             </AppDialogScrollBody>
 

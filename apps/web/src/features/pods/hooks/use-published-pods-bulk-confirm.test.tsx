@@ -50,6 +50,7 @@ const pod = {
   status: "listed" as const,
   audience: [],
   source_folder: "folder-1",
+  clone_target_key: "default",
   virtual_machines: [],
 }
 

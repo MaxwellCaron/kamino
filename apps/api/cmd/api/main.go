@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/MaxwellCaron/kamino/internal/routes"
@@ -50,7 +51,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid pod router clone configuration: %v", err)
 	}
-	networkCatalog, err := buildPodNetworkCatalog(routerCloneConfig)
+	networkCatalog, err := podnetwork.NewCatalog()
 	if err != nil {
 		log.Fatalf("Invalid pod network catalog: %v", err)
 	}
@@ -123,6 +124,10 @@ func main() {
 		protectedACLPrincipalIDs = []uuid.UUID{protectedACLPrincipalID}
 	}
 
+	if err := seedPodCloneTargets(context.Background(), server.DBPool, routerCloneConfig); err != nil {
+		log.Fatalf("Pod clone target bootstrap failed: %v", err)
+	}
+
 	authzService := authorization.NewService(server.DBPool, protectedACLPrincipalIDs)
 	if err := authzService.BootstrapRootAccess(
 		context.Background(),
@@ -185,7 +190,6 @@ func main() {
 		Actions:                          vmActionExecutor,
 		Claims:                           vmActionClaims,
 		Audit:                            auditService,
-		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
 		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
 		NetworkScopeReader:               database.New(server.DBPool),
 		NetworkCatalog:                   networkCatalog,
@@ -199,7 +203,6 @@ func main() {
 		Authz:                            authzService,
 		Audit:                            auditService,
 		Allocator:                        vmidAllocator,
-		PersonalPodVNet:                  routerCloneConfig.PersonalVNet,
 		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
 		NetworkScopeReader:               database.New(server.DBPool),
 		NetworkCatalog:                   networkCatalog,

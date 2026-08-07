@@ -82,36 +82,6 @@ func (h *PodsHandler) verifyVMNetworkAttachment(
 	}
 }
 
-func (h *PodsHandler) routerWANBridge(ctx context.Context, node string, vmid int) (string, *requestError) {
-	config, err := h.PX.GetVMHardwareConfig(ctx, node, vmid)
-	if err != nil {
-		return "", &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to load router network configuration",
-			Operation:   "load router WAN bridge",
-			Err:         err,
-		}
-	}
-
-	for _, network := range config.Networks {
-		if network.Device == "net0" {
-			bridge := strings.TrimSpace(network.Bridge)
-			if bridge == "" {
-				return "", &requestError{
-					Status:      http.StatusUnprocessableEntity,
-					UserMessage: "router template net0 is missing a WAN bridge",
-				}
-			}
-			return bridge, nil
-		}
-	}
-
-	return "", &requestError{
-		Status:      http.StatusUnprocessableEntity,
-		UserMessage: "router template is missing net0",
-	}
-}
-
 func (h *PodsHandler) routerHasManagedNIC(ctx context.Context, node string, vmid int, device string) (bool, *requestError) {
 	config, err := h.PX.GetVMHardwareConfig(ctx, node, vmid)
 	if err != nil {
@@ -152,6 +122,7 @@ func (h *PodsHandler) removeRouterNetworkDeviceIfPresent(ctx context.Context, no
 
 func (h *PodsHandler) configureProfileNetworkAttachments(
 	ctx context.Context,
+	cloneTarget podCloneTarget,
 	profileKey string,
 	networkNumber int32,
 	targets []podNetworkVMTarget,
@@ -165,11 +136,6 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 	}
 
 	router, reqErr := findPodNetworkRouterTargetByFlag(targets)
-	if reqErr != nil {
-		return reqErr
-	}
-
-	wanBridge, reqErr := h.routerWANBridge(ctx, router.clone.TargetNode, router.clone.VMID)
 	if reqErr != nil {
 		return reqErr
 	}
@@ -192,7 +158,7 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		}
 	}
 
-	routerAttachments, err := h.NetworkCatalog.ResolveRouterAttachments(profileKey, networkNumber, wanBridge)
+	routerAttachments, err := h.NetworkCatalog.ResolveRouterAttachments(cloneTarget.Network(), profileKey, networkNumber)
 	if err != nil {
 		return &requestError{
 			Status:      http.StatusUnprocessableEntity,
@@ -200,10 +166,8 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		}
 	}
 
+	// The uplink is set from the target, not inherited from the router template.
 	for _, attachment := range routerAttachments {
-		if attachment.KeepUplink {
-			continue
-		}
 		bridge := attachment.Bridge
 		if err := h.PX.SetVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, attachment.Device, proxmox.NetworkAttachment{
 			Bridge:   bridge,
@@ -220,9 +184,6 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, attachment.Device, bridge, attachment.VMVLANTag); reqErr != nil {
 			return reqErr
 		}
-	}
-	if reqErr := h.verifyVMNetworkAttachment(ctx, router.clone.TargetNode, router.clone.VMID, "net0", wanBridge, nil); reqErr != nil {
-		return reqErr
 	}
 
 	group, gctx := errgroup.WithContext(ctx)
@@ -243,7 +204,7 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 			}
 		}
 
-		attachment, err := h.NetworkCatalog.ResolveWorkloadAttachment(profileKey, networkNumber, segmentKey)
+		attachment, err := h.NetworkCatalog.ResolveWorkloadAttachment(cloneTarget.Network(), profileKey, networkNumber, segmentKey)
 		if err != nil {
 			return &requestError{
 				Status:      http.StatusUnprocessableEntity,
@@ -307,32 +268,38 @@ func findPodNetworkRouterTargetByFlag(targets []podNetworkVMTarget) (*podNetwork
 func buildRouterCloudInitConfigForProfile(
 	networkNumber int32,
 	profileKey string,
-	config PodRouterCloneConfig,
+	target podCloneTarget,
 ) (*clonedRouterCloudInitConfig, error) {
+	storage := strings.TrimSpace(target.CloudInitStorage)
+	if storage == "" {
+		return nil, fmt.Errorf("router cloud-init storage is required")
+	}
+
+	var userPattern, networkFile string
 	switch profileKey {
 	case podnetwork.ProfileLANDMZRouterV1:
-		storage := strings.TrimSpace(config.CloudInitStorage)
-		if storage == "" {
-			return nil, fmt.Errorf("router cloud-init storage is required")
-		}
-		userFile, err := formatClonedRouterCloudInitFile(config.LANDMZCloudInitUserFilePattern, networkNumber)
-		if err != nil {
-			return nil, fmt.Errorf("build DMZ/LAN router cloud-init user-data filename: %w", err)
-		}
-		networkFile := strings.TrimSpace(config.LANDMZCloudInitNetworkFile)
-		if err := validateStaticCloudInitNetworkFile(networkFile); err != nil {
-			return nil, err
-		}
-		return &clonedRouterCloudInitConfig{
-			Storage:     storage,
-			UserFile:    userFile,
-			NetworkFile: networkFile,
-		}, nil
+		userPattern = target.LANDMZUserFilePattern()
+		networkFile = target.LANDMZNetworkFile()
 	case podnetwork.ProfileLANRouterV1:
-		return buildClonedRouterCloudInitConfig(networkNumber, config)
+		userPattern = target.CloudInitUserFilePattern()
+		networkFile = target.CloudInitNetworkFile()
 	default:
 		return nil, fmt.Errorf("unsupported network profile %q", profileKey)
 	}
+
+	userFile, err := formatClonedRouterCloudInitFile(userPattern, networkNumber)
+	if err != nil {
+		return nil, fmt.Errorf("build router cloud-init user-data filename: %w", err)
+	}
+	if err := validateStaticCloudInitNetworkFile(networkFile); err != nil {
+		return nil, err
+	}
+
+	return &clonedRouterCloudInitConfig{
+		Storage:     storage,
+		UserFile:    userFile,
+		NetworkFile: networkFile,
+	}, nil
 }
 
 func validateStaticCloudInitNetworkFile(filename string) error {

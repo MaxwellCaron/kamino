@@ -77,6 +77,7 @@ func listPublishedRowsToBase(rows []database.ListPublishedPodsRow) []publishedPo
 			Status:            row.Status,
 			SourceFolderID:    row.SourceFolderID,
 			NetworkProfileKey: row.NetworkProfileKey,
+			CloneTargetKey:    row.CloneTargetKey,
 			CloneCount:        row.CloneCount,
 			CreatedAt:         optionalTime(row.CreatedAt),
 		})
@@ -96,6 +97,7 @@ func visiblePublishedRowsToBase(rows []database.ListVisiblePublishedPodsForPrinc
 			Status:            row.Status,
 			SourceFolderID:    row.SourceFolderID,
 			NetworkProfileKey: row.NetworkProfileKey,
+			CloneTargetKey:    row.CloneTargetKey,
 			CloneCount:        row.CloneCount,
 			CreatedAt:         optionalTime(row.CreatedAt),
 		})
@@ -113,6 +115,7 @@ func publishedRowToBase(row database.GetPublishedPodByIDRow) publishedPodBase {
 		Status:            row.Status,
 		SourceFolderID:    row.SourceFolderID,
 		NetworkProfileKey: row.NetworkProfileKey,
+		CloneTargetKey:    row.CloneTargetKey,
 		CloneCount:        row.CloneCount,
 		CreatedAt:         optionalTime(row.CreatedAt),
 	}
@@ -128,6 +131,7 @@ func visiblePublishedSlugRowToBase(row database.GetVisiblePublishedPodBySlugRow)
 		Status:            row.Status,
 		SourceFolderID:    row.SourceFolderID,
 		NetworkProfileKey: row.NetworkProfileKey,
+		CloneTargetKey:    row.CloneTargetKey,
 		CloneCount:        row.CloneCount,
 		CreatedAt:         optionalTime(row.CreatedAt),
 	}

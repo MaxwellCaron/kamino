@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"net/netip"
 	"strings"
 	"testing"
 
@@ -102,55 +101,30 @@ func TestPersonalPodFolderDescriptionWithTag(t *testing.T) {
 	}
 }
 
-func TestPersonalPodVNetName(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNet: "personal",
-		},
-	}
-	if got := handler.personalPodVNetName(1); got != "personal" {
-		t.Fatalf("personalPodVNetName(1) = %q, want %q", got, "personal")
-	}
-	if got := handler.personalPodVNetName(94); got != "personal" {
-		t.Fatalf("personalPodVNetName(94) = %q, want %q", got, "personal")
-	}
-}
-
-func TestPersonalPodNetworkScope(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNet: "personal",
-		},
-	}
-	scope := handler.personalPodNetworkScope(24)
-	if scope.VNet != "personal" || scope.VLANTag != 24 {
-		t.Fatalf("personalPodNetworkScope(24) = %+v, want {personal 24}", scope)
-	}
-}
-
-func TestPersonalPodNetworkMetadata(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNet:      "personal",
-			PersonalWANIPBase: "172.25.",
-			InternalSubnet:    netip.MustParsePrefix("192.168.1.0/24"),
-		},
+func TestPersonalPodNetworkMetadataUsesCloneTarget(t *testing.T) {
+	handler := &PodsHandler{NetworkCatalog: testNetworkCatalog(t)}
+	target := podCloneTarget{
+		Key:        "personal",
+		Label:      "Personal",
+		LANVNet:    "personal",
+		WANBridge:  "personalwan",
+		WANSubnet:  "172.25.0.0/16",
+		NetworkMin: 1,
+		NetworkMax: 94,
+		IsPersonal: true,
 	}
 
-	got, err := handler.personalPodNetworkMetadata(1)
+	got, err := handler.personalPodNetworkMetadata(target, 24)
 	if err != nil {
 		t.Fatalf("personalPodNetworkMetadata() error = %v", err)
 	}
-	if got.Number != 1 || got.VNet != "personal" {
-		t.Fatalf("network metadata = %#v", got)
+	if got.VNet != "personal" || got.LANVLANTag != 24 {
+		t.Fatalf("metadata = %#v", got)
 	}
-	if got.LANVLANTag != 1 {
-		t.Fatalf("LAN VLAN tag = %d, want 1", got.LANVLANTag)
-	}
-	if got.ExternalSubnet != "172.25.1.0/24" || got.ExternalGateway != "172.25.1.1" {
+	if got.ExternalSubnet != "172.25.24.0/24" || got.ExternalGateway != "172.25.24.1" {
 		t.Fatalf("external metadata = %#v", got)
 	}
-	if got.InternalSubnet != "192.168.1.0/24" || got.InternalGateway != "192.168.1.1" {
-		t.Fatalf("internal metadata = %#v", got)
+	if got.InternalSubnet != "192.168.1.0/24" {
+		t.Fatalf("internal subnet = %q", got.InternalSubnet)
 	}
 }

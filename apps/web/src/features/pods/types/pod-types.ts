@@ -47,6 +47,7 @@ export interface PublishedPodVirtualMachine {
 
 export interface PublishedPodCatalogEntry extends Pod {
   source_folder: string
+  clone_target_key: string
   virtual_machines: Array<PublishedPodVirtualMachine>
 }
 

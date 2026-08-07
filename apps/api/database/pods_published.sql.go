@@ -22,8 +22,9 @@ INSERT INTO published_pods (
     status,
     source_folder_id,
     publisher_principal_id,
-    network_profile_key
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    network_profile_key,
+    clone_target_key
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING
     id,
     title,
@@ -34,6 +35,7 @@ RETURNING
     source_folder_id,
     publisher_principal_id,
     network_profile_key,
+    clone_target_key,
     clone_count,
     created_at,
     updated_at
@@ -49,6 +51,7 @@ type CreatePublishedPodParams struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 }
 
 func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPodParams) (PublishedPods, error) {
@@ -62,6 +65,7 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 		arg.SourceFolderID,
 		arg.PublisherPrincipalID,
 		arg.NetworkProfileKey,
+		arg.CloneTargetKey,
 	)
 	var i PublishedPods
 	err := row.Scan(
@@ -74,6 +78,7 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 		&i.SourceFolderID,
 		&i.PublisherPrincipalID,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -186,6 +191,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -206,6 +212,7 @@ type GetPublishedPodByIDRow struct {
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -225,6 +232,7 @@ func (q *Queries) GetPublishedPodByID(ctx context.Context, id uuid.UUID) (GetPub
 		&i.SourceFolderName,
 		&i.PublisherPrincipalID,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -290,6 +298,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -332,6 +341,7 @@ type GetVisiblePublishedPodBySlugRow struct {
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -351,6 +361,7 @@ func (q *Queries) GetVisiblePublishedPodBySlug(ctx context.Context, arg GetVisib
 		&i.SourceFolderName,
 		&i.PublisherPrincipalID,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -799,6 +810,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -819,6 +831,7 @@ type ListPublishedPodsRow struct {
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -844,6 +857,7 @@ func (q *Queries) ListPublishedPods(ctx context.Context) ([]ListPublishedPodsRow
 			&i.SourceFolderName,
 			&i.PublisherPrincipalID,
 			&i.NetworkProfileKey,
+			&i.CloneTargetKey,
 			&i.CloneCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -870,6 +884,7 @@ SELECT
     source_folder.name AS source_folder_name,
     pp.publisher_principal_id,
     pp.network_profile_key,
+    pp.clone_target_key,
     pp.clone_count,
     pp.created_at,
     pp.updated_at
@@ -907,6 +922,7 @@ type ListVisiblePublishedPodsForPrincipalRow struct {
 	SourceFolderName     string             `json:"source_folder_name"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -932,6 +948,7 @@ func (q *Queries) ListVisiblePublishedPodsForPrincipal(ctx context.Context, prin
 			&i.SourceFolderName,
 			&i.PublisherPrincipalID,
 			&i.NetworkProfileKey,
+			&i.CloneTargetKey,
 			&i.CloneCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -987,7 +1004,8 @@ SET title = $2,
     description = $4,
     image_url = $5,
     status = $6,
-    source_folder_id = $7
+    source_folder_id = $7,
+    clone_target_key = $8
 WHERE id = $1
 RETURNING
     id,
@@ -999,6 +1017,7 @@ RETURNING
     source_folder_id,
     publisher_principal_id,
     network_profile_key,
+    clone_target_key,
     clone_count,
     created_at,
     updated_at
@@ -1012,6 +1031,7 @@ type UpdatePublishedPodParams struct {
 	ImageUrl       string             `json:"image_url"`
 	Status         PublishedPodStatus `json:"status"`
 	SourceFolderID uuid.UUID          `json:"source_folder_id"`
+	CloneTargetKey string             `json:"clone_target_key"`
 }
 
 func (q *Queries) UpdatePublishedPod(ctx context.Context, arg UpdatePublishedPodParams) (PublishedPods, error) {
@@ -1023,6 +1043,7 @@ func (q *Queries) UpdatePublishedPod(ctx context.Context, arg UpdatePublishedPod
 		arg.ImageUrl,
 		arg.Status,
 		arg.SourceFolderID,
+		arg.CloneTargetKey,
 	)
 	var i PublishedPods
 	err := row.Scan(
@@ -1035,6 +1056,7 @@ func (q *Queries) UpdatePublishedPod(ctx context.Context, arg UpdatePublishedPod
 		&i.SourceFolderID,
 		&i.PublisherPrincipalID,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CloneCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,

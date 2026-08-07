@@ -84,6 +84,7 @@ type publishPodRequest struct {
 	Status                string                       `json:"status"`
 	Audience              []publishPodPrincipalRequest `json:"audience"`
 	SourceFolder          string                       `json:"source_folder"`
+	CloneTargetKey        string                       `json:"clone_target_key"`
 	VirtualMachines       []publishPodVMRequest        `json:"virtual_machines"`
 	UpdateVirtualMachines []string                     `json:"update_virtual_machines"`
 	Tasks                 []publishPodTaskRequest      `json:"tasks"`
@@ -127,7 +128,20 @@ func (h *PodsHandler) GetPublishOptions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"source_folders": podFolders})
+	cloneTargets, reqErr := h.listPodCloneTargets(c.Request.Context())
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+	targetResponses := make([]podCloneTargetResponse, 0, len(cloneTargets))
+	for _, cloneTarget := range cloneTargets {
+		targetResponses = append(targetResponses, toPodCloneTargetResponse(cloneTarget))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"source_folders": podFolders,
+		"clone_targets":  targetResponses,
+	})
 }
 
 func (h *PodsHandler) SavePublished(c *gin.Context) {
@@ -495,6 +509,7 @@ func (h *PodsHandler) savePublishedPod(
 			ImageUrl:       normalized.Image,
 			Status:         normalized.Status,
 			SourceFolderID: normalized.SourceFolderID,
+			CloneTargetKey: normalized.CloneTargetKey,
 		}); err != nil {
 			return publishedPodResponse{}, &requestError{
 				Status:      http.StatusInternalServerError,
@@ -514,6 +529,7 @@ func (h *PodsHandler) savePublishedPod(
 			SourceFolderID:       normalized.SourceFolderID,
 			PublisherPrincipalID: principalID,
 			NetworkProfileKey:    normalized.NetworkProfileKey,
+			CloneTargetKey:       normalized.CloneTargetKey,
 		}); err != nil {
 			return publishedPodResponse{}, &requestError{
 				Status:      http.StatusInternalServerError,

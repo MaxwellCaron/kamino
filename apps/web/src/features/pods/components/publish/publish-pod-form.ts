@@ -252,6 +252,8 @@ export const publishPodFormSchema = z
       .min(1, "Add at least one task.")
       .max(20, "You can add up to 20 tasks."),
     source_folder: z.string().trim().min(1, "Select a Pod Folder."),
+    // Empty means the default clone target; the server resolves it.
+    clone_target_key: z.string().trim(),
   })
   .superRefine((values, ctx) => {
     const seen = new Map<string, number>()
@@ -359,6 +361,7 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
       },
     ],
     source_folder: "",
+    clone_target_key: "",
   }
 }
 
@@ -383,6 +386,7 @@ export function toPodDraft(values: PublishPodFormValues): Pod {
   const {
     update_virtual_machines: _updateVirtualMachines,
     source_folder: _sourceFolder,
+    clone_target_key: _cloneTargetKey,
     virtual_machines: _virtualMachines,
     ...podDraft
   } = values

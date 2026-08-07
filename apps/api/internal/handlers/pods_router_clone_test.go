@@ -42,7 +42,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("dmz", 2000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -88,7 +88,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("pod", 1000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -116,7 +116,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("dmz", 2000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -131,7 +131,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("dmz", 2000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -146,7 +146,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("dmz", 1000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -161,7 +161,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("dmz", 2000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -178,7 +178,7 @@ func TestSuggestPodRouterCloneNetworkOptions(t *testing.T) {
 			validVNet("dmz", 2000),
 		})
 
-		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background())
+		options, err := handler.suggestPodRouterCloneNetworkOptions(context.Background(), []podCloneTarget{testCloneTarget()})
 		if err != nil {
 			t.Fatalf("suggestPodRouterCloneNetworkOptions() error = %v", err)
 		}
@@ -282,33 +282,27 @@ func TestParsePodRouterCloneRequest(t *testing.T) {
 }
 
 func TestBuildRouterCloudInitConfigForProfileRouterClone(t *testing.T) {
-	lanConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANRouterV1, PodRouterCloneConfig{
-		CloudInitStorage:         "local",
-		CloudInitUserFilePattern: "kamino-router-{network}-user-data.yaml",
-		CloudInitNetworkFile:     "kamino-router-network-config.yaml",
-	})
+	target := podCloneTarget{Key: "lab2", CloudInitStorage: "local"}
+
+	lanConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANRouterV1, target)
 	if err != nil {
 		t.Fatalf("buildRouterCloudInitConfigForProfile(LAN) error = %v", err)
 	}
-	if lanConfig.UserFile != "kamino-router-24-user-data.yaml" {
+	if lanConfig.UserFile != "kamino-lab2-router-24-user-data.yaml" {
 		t.Fatalf("LAN user file = %q", lanConfig.UserFile)
 	}
-	if lanConfig.NetworkFile != "kamino-router-network-config.yaml" {
+	if lanConfig.NetworkFile != "kamino-lab2-router-network-config.yaml" {
 		t.Fatalf("LAN network file = %q", lanConfig.NetworkFile)
 	}
 
-	dmzConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANDMZRouterV1, PodRouterCloneConfig{
-		CloudInitStorage:               "local",
-		LANDMZCloudInitUserFilePattern: "kamino-router-dmz-{network}-user-data.yaml",
-		LANDMZCloudInitNetworkFile:     "kamino-router-dmz-network-config.yaml",
-	})
+	dmzConfig, err := buildRouterCloudInitConfigForProfile(24, podnetwork.ProfileLANDMZRouterV1, target)
 	if err != nil {
 		t.Fatalf("buildRouterCloudInitConfigForProfile(LAN+DMZ) error = %v", err)
 	}
-	if dmzConfig.UserFile != "kamino-router-dmz-24-user-data.yaml" {
+	if dmzConfig.UserFile != "kamino-lab2-router-lan-dmz-24-user-data.yaml" {
 		t.Fatalf("LAN + DMZ user file = %q", dmzConfig.UserFile)
 	}
-	if dmzConfig.NetworkFile != "kamino-router-dmz-network-config.yaml" {
+	if dmzConfig.NetworkFile != "kamino-lab2-router-lan-dmz-network-config.yaml" {
 		t.Fatalf("LAN + DMZ network file = %q", dmzConfig.NetworkFile)
 	}
 }
@@ -316,7 +310,7 @@ func TestBuildRouterCloudInitConfigForProfileRouterClone(t *testing.T) {
 func TestPodRouterCloneResponseVNets(t *testing.T) {
 	catalog := testNetworkCatalog(t)
 
-	lanVNets, err := catalog.RequiredVNets(podnetwork.ProfileLANRouterV1)
+	lanVNets, err := catalog.RequiredVNets(testCloneTarget().Network(), podnetwork.ProfileLANRouterV1)
 	if err != nil {
 		t.Fatalf("RequiredVNets(LAN) error = %v", err)
 	}
@@ -324,7 +318,7 @@ func TestPodRouterCloneResponseVNets(t *testing.T) {
 		t.Fatalf("LAN VNets = %#v, want [pod]", lanVNets)
 	}
 
-	dmzVNets, err := catalog.RequiredVNets(podnetwork.ProfileLANDMZRouterV1)
+	dmzVNets, err := catalog.RequiredVNets(testCloneTarget().Network(), podnetwork.ProfileLANDMZRouterV1)
 	if err != nil {
 		t.Fatalf("RequiredVNets(LAN+DMZ) error = %v", err)
 	}

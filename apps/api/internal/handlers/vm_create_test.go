@@ -27,7 +27,20 @@ func (f *fakePodNetworkScopeReader) GetPodNetworkScopeForInventoryItem(
 	context.Context,
 	uuid.UUID,
 ) (database.GetPodNetworkScopeForInventoryItemRow, error) {
-	return f.row, nil
+	row := f.row
+	// Every allocation has a target and profile; fill unless a test set them.
+	if row.CloneTargetKey == "" {
+		target := testCloneTarget()
+		row.CloneTargetKey = target.Key
+		row.LanVnet = &target.LANVNet
+		row.DmzVnet = &target.DMZVNet
+		row.WanBridge = &target.WANBridge
+		row.WanSubnet = &target.WANSubnet
+	}
+	if row.NetworkProfileKey == nil {
+		row.NetworkProfileKey = strPtr(podnetwork.ProfileLANRouterV1)
+	}
+	return row, nil
 }
 
 func strPtr(value string) *string {
@@ -37,15 +50,41 @@ func strPtr(value string) *string {
 func testNetworkCatalog(t *testing.T) *podnetwork.Catalog {
 	t.Helper()
 
-	catalog, err := podnetwork.NewCatalog(podnetwork.Config{
-		LANVNet:   "pod",
-		DMZVNet:   "dmz",
-		WANIPBase: "172.16.",
-	})
+	catalog, err := podnetwork.NewCatalog()
 	if err != nil {
 		t.Fatalf("NewCatalog() error = %v", err)
 	}
 	return catalog
+}
+
+// personalScopeRow is a personal-pod allocation joined to the personal target.
+func personalScopeRow(networkNumber int32) database.GetPodNetworkScopeForInventoryItemRow {
+	lan, dmz := "personal", "personaldmz"
+	bridge, subnet := "personalwan", "172.25.0.0/16"
+	return database.GetPodNetworkScopeForInventoryItemRow{
+		Kind:              database.PodNetworkAllocationKindPersonalPod,
+		FolderID:          uuid.New(),
+		NetworkNumber:     networkNumber,
+		NetworkProfileKey: strPtr(podnetwork.ProfileLANRouterV1),
+		CloneTargetKey:    "personal",
+		LanVnet:           &lan,
+		DmzVnet:           &dmz,
+		WanBridge:         &bridge,
+		WanSubnet:         &subnet,
+	}
+}
+
+func testCloneTarget() podCloneTarget {
+	return podCloneTarget{
+		Key:              "default",
+		Label:            "Default",
+		LANVNet:          "pod",
+		DMZVNet:          "dmz",
+		WANBridge:        "vmbr0",
+		WANSubnet:        "172.16.0.0/16",
+		CloudInitStorage: "local",
+		IsDefault:        true,
+	}
 }
 
 type fakeVMCreateAuthz struct {
@@ -349,7 +388,6 @@ func TestVMCreateCreateVM_ScopedRejectsDisallowedBridgeBeforeAnyProxmoxCall(t *t
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := newVMTestEngine(http.MethodPost, "/vms", principalID, h.CreateVM)
@@ -384,7 +422,6 @@ func TestVMCreateCreateVM_ScopedRejectsZeroNetworkInterfaces(t *testing.T) {
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := newVMTestEngine(http.MethodPost, "/vms", principalID, h.CreateVM)
@@ -420,7 +457,6 @@ func TestVMCreateCreateVM_ScopedAppliesToManagersToo(t *testing.T) {
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := newVMTestEngine(http.MethodPost, "/vms", principalID, h.CreateVM)
@@ -488,7 +524,6 @@ func TestVMCreateGetBridges_NonManagerScopedForAllPodKinds(t *testing.T) {
 				PX:                 px,
 				NetworkScopeReader: reader,
 				NetworkCatalog:     testNetworkCatalog(t),
-				PersonalPodVNet:    "personal",
 			}
 
 			r := newVMTestEngine(http.MethodGet, "/proxmox/nodes/:node/bridges", principalID, h.GetBridges)
@@ -534,9 +569,8 @@ func TestVMCreateGetBridges_ManagerUnrestricted(t *testing.T) {
 		return []proxmox.VNet{{VNet: "unrelated"}, {VNet: "pod"}}, nil
 	}
 	h := &VMCreateHandler{
-		Authz:           authz,
-		PX:              px,
-		PersonalPodVNet: "personal",
+		Authz: authz,
+		PX:    px,
 	}
 
 	r := newVMTestEngine(http.MethodGet, "/proxmox/nodes/:node/bridges", principalID, h.GetBridges)
@@ -747,7 +781,6 @@ func TestVMCreateGetCreateOptions_DevPodLANAndDMZScope(t *testing.T) {
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := newVMTestEngine(http.MethodGet, "/proxmox/create/options", principalID, h.GetCreateOptions)
@@ -793,11 +826,7 @@ func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) 
 	principalID := uuid.New()
 	scopeItemID := uuid.New()
 	authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: true}}
-	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
-		Kind:          database.PodNetworkAllocationKindPersonalPod,
-		FolderID:      uuid.New(),
-		NetworkNumber: 7,
-	}}
+	reader := &fakePodNetworkScopeReader{row: personalScopeRow(7)}
 	px := &fakeVMCreateProxmox{
 		nodes: []proxmox.Node{{Node: "pve1"}},
 		getCreateStorages: func(_ context.Context, _ string) ([]proxmox.Storage, []proxmox.Storage, error) {
@@ -812,7 +841,6 @@ func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) 
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := newVMTestEngine(http.MethodGet, "/proxmox/create/options", principalID, h.GetCreateOptions)

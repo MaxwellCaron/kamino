@@ -198,7 +198,6 @@ func TestVMCloneCloneVM_ScopedRejectsZeroNICSourceForManagerPersonalPod(t *testi
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := mountVMItemRoute(http.MethodPost, "/inventory/items/:id/vm/clone", principalID, h.CloneVM)
@@ -246,7 +245,6 @@ func TestVMCloneCloneVM_ScopedRejectsZeroNICSourceDevPod(t *testing.T) {
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		PersonalPodVNet:    "personal",
 	}
 
 	r := mountVMItemRoute(http.MethodPost, "/inventory/items/:id/vm/clone", principalID, h.CloneVM)

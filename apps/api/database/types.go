@@ -481,6 +481,7 @@ type ClonedPods struct {
 	FolderID          uuid.UUID          `json:"folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey string             `json:"network_profile_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
@@ -506,6 +507,7 @@ type PersonalPods struct {
 	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
 	FolderID        uuid.UUID          `json:"folder_id"`
 	NetworkNumber   int32              `json:"network_number"`
+	CloneTargetKey  string             `json:"clone_target_key"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
@@ -516,6 +518,23 @@ type PodCloneClaims struct {
 	Action           string             `json:"action"`
 	ActorPrincipalID uuid.UUID          `json:"actor_principal_id"`
 	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
+}
+
+type PodCloneTargets struct {
+	Key               string             `json:"key"`
+	Label             string             `json:"label"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	LanVnet           string             `json:"lan_vnet"`
+	DmzVnet           *string            `json:"dmz_vnet"`
+	WanBridge         string             `json:"wan_bridge"`
+	WanSubnet         string             `json:"wan_subnet"`
+	NetworkMin        int32              `json:"network_min"`
+	NetworkMax        int32              `json:"network_max"`
+	CloudInitStorage  string             `json:"cloud_init_storage"`
+	IsDefault         bool               `json:"is_default"`
+	IsPersonal        bool               `json:"is_personal"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PodDevVmNetworkAssignments struct {
@@ -537,6 +556,7 @@ type PublishedPods struct {
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
 	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`

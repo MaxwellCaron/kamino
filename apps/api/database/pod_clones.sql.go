@@ -20,6 +20,7 @@ SELECT
     cp.folder_id,
     cp.network_number,
     cp.network_profile_key,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -45,6 +46,7 @@ func (q *Queries) GetAccessibleClonedPodByID(ctx context.Context, arg GetAccessi
 		&i.FolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -59,6 +61,7 @@ SELECT
     cp.folder_id,
     cp.network_number,
     cp.network_profile_key,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at
 FROM cloned_pods cp
@@ -88,6 +91,7 @@ func (q *Queries) GetAccessibleClonedPodByPodID(ctx context.Context, arg GetAcce
 		&i.FolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -102,6 +106,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -118,6 +123,7 @@ func (q *Queries) GetClonedPodByID(ctx context.Context, id uuid.UUID) (ClonedPod
 		&i.FolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -132,6 +138,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -154,6 +161,7 @@ func (q *Queries) GetClonedPodForPrincipalByPodID(ctx context.Context, arg GetCl
 		&i.FolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -177,13 +185,15 @@ allocation AS (
         network_number,
         kind,
         network_profile_key,
+        clone_target_key,
         folder_id
     )
     SELECT
         candidate.network_number,
         'published_clone',
         $3,
-        $4
+        $4,
+        $5
     FROM candidate
     RETURNING id, network_number
 ),
@@ -194,15 +204,17 @@ inserted AS (
         user_principal_id,
         folder_id,
         network_number,
-        network_profile_key
+        network_profile_key,
+        clone_target_key
     )
     SELECT
-        $5,
         $6,
         $7,
-        $4,
+        $8,
+        $5,
         allocation.network_number,
-        $3
+        $3,
+        $4
     FROM allocation
     RETURNING
         id,
@@ -211,6 +223,7 @@ inserted AS (
         folder_id,
         network_number,
         network_profile_key,
+        clone_target_key,
         created_at,
         updated_at
 ),
@@ -227,6 +240,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM inserted
@@ -236,6 +250,7 @@ type InsertClonedPodParams struct {
 	MinNetworkNumber  int32     `json:"min_network_number"`
 	MaxNetworkNumber  int32     `json:"max_network_number"`
 	NetworkProfileKey *string   `json:"network_profile_key"`
+	CloneTargetKey    string    `json:"clone_target_key"`
 	FolderID          uuid.UUID `json:"folder_id"`
 	ID                uuid.UUID `json:"id"`
 	PodID             uuid.UUID `json:"pod_id"`
@@ -249,6 +264,7 @@ type InsertClonedPodRow struct {
 	FolderID          uuid.UUID          `json:"folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey string             `json:"network_profile_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
@@ -258,6 +274,7 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
 		arg.NetworkProfileKey,
+		arg.CloneTargetKey,
 		arg.FolderID,
 		arg.ID,
 		arg.PodID,
@@ -271,6 +288,7 @@ func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams
 		&i.FolderID,
 		&i.NetworkNumber,
 		&i.NetworkProfileKey,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -418,6 +436,7 @@ SELECT
     cp.folder_id,
     cp.network_number,
     cp.network_profile_key,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
@@ -445,6 +464,7 @@ GROUP BY
     p.description,
     cp.folder_id,
     cp.network_number,
+    cp.clone_target_key,
     cp.created_at,
     cp.updated_at
 ORDER BY cp.created_at DESC
@@ -460,6 +480,7 @@ type ListClonedPodSummariesByPodIDRow struct {
 	FolderID          uuid.UUID          `json:"folder_id"`
 	NetworkNumber     int32              `json:"network_number"`
 	NetworkProfileKey string             `json:"network_profile_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	VmCount           int32              `json:"vm_count"`
@@ -486,6 +507,7 @@ func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.
 			&i.FolderID,
 			&i.NetworkNumber,
 			&i.NetworkProfileKey,
+			&i.CloneTargetKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VmCount,
@@ -510,6 +532,7 @@ SELECT
     folder_id,
     network_number,
     network_profile_key,
+    clone_target_key,
     created_at,
     updated_at
 FROM cloned_pods
@@ -533,6 +556,7 @@ func (q *Queries) ListClonedPodsByPodID(ctx context.Context, podID uuid.UUID) ([
 			&i.FolderID,
 			&i.NetworkNumber,
 			&i.NetworkProfileKey,
+			&i.CloneTargetKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
