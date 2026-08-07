@@ -62,7 +62,6 @@ var _ podNetworkScopeReader = (*database.Queries)(nil)
 
 func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryItemRow) (podnetwork.Target, error) {
 	if allocation.LanVnet == nil ||
-		allocation.DmzVnet == nil ||
 		allocation.WanBridge == nil ||
 		allocation.WanSubnet == nil {
 		return podnetwork.Target{}, fmt.Errorf(
@@ -72,7 +71,7 @@ func allocationCloneTarget(allocation database.GetPodNetworkScopeForInventoryIte
 	return podnetwork.Target{
 		Key:       allocation.CloneTargetKey,
 		LANVNet:   *allocation.LanVnet,
-		DMZVNet:   *allocation.DmzVnet,
+		DMZVNet:   derefString(allocation.DmzVnet),
 		WANBridge: *allocation.WanBridge,
 		WANSubnet: *allocation.WanSubnet,
 	}, nil

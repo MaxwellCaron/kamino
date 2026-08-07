@@ -59,7 +59,7 @@ func testNetworkCatalog(t *testing.T) *podnetwork.Catalog {
 
 // personalScopeRow is a personal-pod allocation joined to the personal target.
 func personalScopeRow(networkNumber int32) database.GetPodNetworkScopeForInventoryItemRow {
-	lan, dmz := "personal", "personaldmz"
+	lan := "personal"
 	bridge, subnet := "personalwan", "172.25.0.0/16"
 	return database.GetPodNetworkScopeForInventoryItemRow{
 		Kind:              database.PodNetworkAllocationKindPersonalPod,
@@ -68,7 +68,6 @@ func personalScopeRow(networkNumber int32) database.GetPodNetworkScopeForInvento
 		NetworkProfileKey: strPtr(podnetwork.ProfileLANRouterV1),
 		CloneTargetKey:    "personal",
 		LanVnet:           &lan,
-		DmzVnet:           &dmz,
 		WanBridge:         &bridge,
 		WanSubnet:         &subnet,
 	}
