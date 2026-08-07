@@ -15,7 +15,16 @@ import {
   FieldTitle,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { Textarea } from "@workspace/ui/components/textarea"
+import {
+  CodeBlock,
+  CodeBlockBody,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+  CodeBlockFilename,
+  CodeBlockFiles,
+  CodeBlockHeader,
+  CodeBlockItem,
+} from "@workspace/ui/components/kibo-ui/code-block"
 import {
   RadioGroup,
   RadioGroupItem,
@@ -28,6 +37,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
+import type { BundledLanguage } from "@workspace/ui/components/kibo-ui/code-block"
 import type { ComponentType } from "react"
 import type { z } from "zod"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
@@ -264,23 +274,39 @@ function CloneTargetSnippetCommand({
 }: {
   values: CloneTargetFormValues
 }) {
+  const command = buildSnippetCommand(values)
+
   return (
     <Field>
-      <FieldLabel htmlFor="clone-target-snippet-command">
-        Snippet generator command
-      </FieldLabel>
+      <FieldLabel>Snippet generator command</FieldLabel>
       <FieldDescription>
         Run this on the Proxmox host to create the cloud-init files this target
         expects.
       </FieldDescription>
-      <Textarea
-        id="clone-target-snippet-command"
-        readOnly
-        rows={profileHasDMZ(values.networkProfileKey) ? 9 : 7}
-        value={buildSnippetCommand(values)}
-        className="font-mono text-xs"
-        onFocus={(event) => event.currentTarget.select()}
-      />
+      <CodeBlock
+        data={[{ language: "bash", filename: "bash", code: command }]}
+        defaultValue="bash"
+      >
+        <CodeBlockHeader className="bg-muted">
+          <CodeBlockFiles>
+            {(item) => (
+              <CodeBlockFilename key={item.language} value={item.language}>
+                {item.filename}
+              </CodeBlockFilename>
+            )}
+          </CodeBlockFiles>
+          <CodeBlockCopyButton text={command} />
+        </CodeBlockHeader>
+        <CodeBlockBody>
+          {(item) => (
+            <CodeBlockItem key={item.language} value={item.language}>
+              <CodeBlockContent language={item.language as BundledLanguage}>
+                {item.code}
+              </CodeBlockContent>
+            </CodeBlockItem>
+          )}
+        </CodeBlockBody>
+      </CodeBlock>
     </Field>
   )
 }
