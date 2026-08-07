@@ -1,6 +1,9 @@
 package handlers
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func validPodCloneTargetRequest() podCloneTargetRequest {
 	return podCloneTargetRequest{
@@ -83,5 +86,19 @@ func TestNormalizePodCloneTargetRequestAllowsMissingKeyOnUpdate(t *testing.T) {
 	req.Key = ""
 	if _, reqErr := normalizePodCloneTargetRequest(req, false); reqErr != nil {
 		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
+	}
+}
+
+func TestEnsureVNetsValidAllowsLANOnlyTarget(t *testing.T) {
+	handler := newRouterCloneOptionsHandler(t, []map[string]any{
+		validVNet("personal", 1000),
+	})
+
+	if reqErr := handler.ensureVNetsValid(
+		context.Background(),
+		[]string{"personal", ""},
+		nil,
+	); reqErr != nil {
+		t.Fatalf("ensureVNetsValid() error = %q", reqErr.UserMessage)
 	}
 }

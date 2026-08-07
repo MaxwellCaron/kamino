@@ -138,14 +138,13 @@ func (h *PodsHandler) ensureVNetsValid(ctx context.Context, required []string, a
 		available[vnet.VNet] = vnet
 	}
 
+	names := make(map[string]struct{}, len(required)+len(alsoCheck))
 	requiredSet := make(map[string]struct{}, len(required))
 	for _, name := range required {
-		requiredSet[name] = struct{}{}
-	}
-
-	names := make(map[string]struct{}, len(required)+len(alsoCheck))
-	for _, name := range required {
-		names[strings.TrimSpace(name)] = struct{}{}
+		if name = strings.TrimSpace(name); name != "" {
+			requiredSet[name] = struct{}{}
+			names[name] = struct{}{}
+		}
 	}
 	for _, name := range alsoCheck {
 		if name = strings.TrimSpace(name); name != "" {
@@ -155,9 +154,6 @@ func (h *PodsHandler) ensureVNetsValid(ctx context.Context, required []string, a
 
 	resolved := make(map[string]proxmox.VNet, len(names))
 	for name := range names {
-		if name == "" {
-			continue
-		}
 		vnet, ok := available[name]
 		if !ok {
 			if _, isRequired := requiredSet[name]; isRequired {
