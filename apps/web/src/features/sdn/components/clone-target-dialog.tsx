@@ -65,6 +65,7 @@ import {
   cloneTargetKeySchema,
   cloneTargetLabelSchema,
   cloneTargetNetworkNumberSchema,
+  cloneTargetSnippetDirSchema,
   cloneTargetStorageSchema,
   cloneTargetVNetSchema,
   cloneTargetWANSubnetSchema,
@@ -524,6 +525,14 @@ function CloneTargetForm({
                       schema={cloneTargetStorageSchema}
                       suggestions={storageNames}
                       emptyMessage="No snippet-capable storages found. You can still type a name."
+                    />
+                    <CloneTargetTextField
+                      FieldComponent={form.Field}
+                      name="snippetDir"
+                      label="Snippet Directory"
+                      description="Where the generator writes the files on the Proxmox host. Feeds the command below only."
+                      placeholder="/mnt/pve/mufasa-proxmox/snippets"
+                      schema={cloneTargetSnippetDirSchema}
                     />
                     <CloneTargetSnippetCommand values={state.values} />
                   </FieldGroup>

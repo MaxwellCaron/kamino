@@ -6,7 +6,8 @@ export const CLONE_TARGET_PROFILES = [
   { key: "lan-dmz-router-v1", label: "LAN + DMZ Router", hasDMZ: true },
 ] as const
 
-export type CloneTargetProfileKey = (typeof CLONE_TARGET_PROFILES)[number]["key"]
+export type CloneTargetProfileKey =
+  (typeof CLONE_TARGET_PROFILES)[number]["key"]
 
 export function profileHasDMZ(profileKey: string) {
   return profileKey === "lan-dmz-router-v1"
@@ -23,6 +24,7 @@ export type CloneTargetFormValues = {
   networkMin: string
   networkMax: string
   cloudInitStorage: string
+  snippetDir: string
 }
 
 export const cloneTargetKeySchema = z
@@ -61,7 +63,10 @@ export const cloneTargetWANSubnetSchema = z
   .string()
   .trim()
   .min(1, "WAN subnet is required")
-  .regex(/^\d{1,3}\.\d{1,3}\.0\.0\/16$/, "Must be a /16 subnet, for example 172.16.0.0/16")
+  .regex(
+    /^\d{1,3}\.\d{1,3}\.0\.0\/16$/,
+    "Must be a /16 subnet, for example 172.16.0.0/16"
+  )
   .refine(
     (value) =>
       value
@@ -72,7 +77,10 @@ export const cloneTargetWANSubnetSchema = z
   )
 
 // Renders the /24 a pod with the given network number would receive.
-export function formatPodWANSubnet(wanSubnet: string, networkNumber: number | "x") {
+export function formatPodWANSubnet(
+  wanSubnet: string,
+  networkNumber: number | "x"
+) {
   const octets = wanSubnet.split("/")[0]?.split(".") ?? []
   if (octets.length !== 4) return wanSubnet
   return `${octets[0]}.${octets[1]}.${networkNumber}.0/24`
@@ -82,6 +90,14 @@ export const cloneTargetStorageSchema = z
   .string()
   .trim()
   .min(1, "Cloud-init storage is required")
+
+export const DEFAULT_SNIPPET_DIR = "/mnt/pve/mufasa-proxmox/snippets"
+
+export const cloneTargetSnippetDirSchema = z
+  .string()
+  .trim()
+  .min(1, "Snippet directory is required")
+  .regex(/^\//, "Must be an absolute path, for example /mnt/pve/.../snippets")
 
 export function getDefaultCloneTargetFormValues(
   target?: PodCloneTarget
@@ -97,6 +113,7 @@ export function getDefaultCloneTargetFormValues(
     networkMin: String(target?.network_min ?? 1),
     networkMax: String(target?.network_max ?? 254),
     cloudInitStorage: target?.cloud_init_storage ?? "local",
+    snippetDir: DEFAULT_SNIPPET_DIR,
   }
 }
 
@@ -106,7 +123,9 @@ export function buildCloneTargetPayload(values: CloneTargetFormValues) {
     label: values.label.trim(),
     network_profile_key: values.networkProfileKey,
     lan_vnet: values.lanVNet.trim(),
-    dmz_vnet: profileHasDMZ(values.networkProfileKey) ? values.dmzVNet.trim() : "",
+    dmz_vnet: profileHasDMZ(values.networkProfileKey)
+      ? values.dmzVNet.trim()
+      : "",
     wan_bridge: values.wanBridge.trim(),
     wan_subnet: values.wanSubnet.trim(),
     network_min: Number(values.networkMin),
@@ -143,6 +162,7 @@ export function buildSnippetCommand(values: CloneTargetFormValues) {
   const hasDMZ = profileHasDMZ(values.networkProfileKey)
   const names = snippetFileNames(values.key)
   const assignments = [
+    `SNIPPET_DIR="${values.snippetDir}"`,
     `NETWORK_PROFILE="${hasDMZ ? "all" : "lan-router-v1"}"`,
     `NETWORK_MIN=${values.networkMin}`,
     `NETWORK_MAX=${values.networkMax}`,
