@@ -5,7 +5,6 @@ import (
 	"errors"
 	"math"
 	"net/http"
-	"net/netip"
 	"strings"
 	"time"
 	"unicode"
@@ -26,27 +25,7 @@ import (
 )
 
 type PodRouterCloneConfig struct {
-	LANVNet                          string
-	DMZVNet                          string
-	NetworkMin                       int32
-	NetworkMax                       int32
-	DevNetworkMin                    int32
-	DevNetworkMax                    int32
-	RouterWaitTimeout                time.Duration
-	WANBridge                        string
-	WANIPBase                        string
-	InternalSubnet                   netip.Prefix
-	CloudInitStorage                 string
-	CloudInitUserFilePattern         string
-	CloudInitNetworkFile             string
-	LANDMZCloudInitUserFilePattern   string
-	LANDMZCloudInitNetworkFile       string
-	PersonalVNet                     string
-	PersonalNetworkMin               int32
-	PersonalNetworkMax               int32
-	PersonalWANBridge                string
-	PersonalWANIPBase                string
-	PersonalCloudInitUserFilePattern string
+	RouterWaitTimeout time.Duration
 }
 
 type PodsHandler struct {

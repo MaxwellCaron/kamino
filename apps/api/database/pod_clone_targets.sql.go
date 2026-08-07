@@ -9,6 +9,28 @@ import (
 	"context"
 )
 
+const clearDefaultPodCloneTarget = `-- name: ClearDefaultPodCloneTarget :exec
+UPDATE pod_clone_targets
+SET is_default = false
+WHERE is_default
+`
+
+func (q *Queries) ClearDefaultPodCloneTarget(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearDefaultPodCloneTarget)
+	return err
+}
+
+const clearPersonalPodCloneTarget = `-- name: ClearPersonalPodCloneTarget :exec
+UPDATE pod_clone_targets
+SET is_personal = false
+WHERE is_personal
+`
+
+func (q *Queries) ClearPersonalPodCloneTarget(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearPersonalPodCloneTarget)
+	return err
+}
+
 const countPodCloneTargetReferences = `-- name: CountPodCloneTargetReferences :one
 SELECT
     (SELECT count(*) FROM published_pods pp WHERE pp.clone_target_key = $1) AS published_pod_count,
@@ -36,17 +58,6 @@ func (q *Queries) CountPodCloneTargetReferences(ctx context.Context, targetKey s
 	return i, err
 }
 
-const countPodCloneTargets = `-- name: CountPodCloneTargets :one
-SELECT count(*) FROM pod_clone_targets
-`
-
-func (q *Queries) CountPodCloneTargets(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countPodCloneTargets)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createPodCloneTarget = `-- name: CreatePodCloneTarget :one
 INSERT INTO pod_clone_targets (
     key,
@@ -58,9 +69,11 @@ INSERT INTO pod_clone_targets (
     wan_subnet,
     network_min,
     network_max,
-    cloud_init_storage
+    cloud_init_storage,
+    is_default,
+    is_personal
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
 RETURNING
     key,
@@ -90,6 +103,8 @@ type CreatePodCloneTargetParams struct {
 	NetworkMin        int32   `json:"network_min"`
 	NetworkMax        int32   `json:"network_max"`
 	CloudInitStorage  string  `json:"cloud_init_storage"`
+	IsDefault         bool    `json:"is_default"`
+	IsPersonal        bool    `json:"is_personal"`
 }
 
 func (q *Queries) CreatePodCloneTarget(ctx context.Context, arg CreatePodCloneTargetParams) (PodCloneTargets, error) {
@@ -104,6 +119,8 @@ func (q *Queries) CreatePodCloneTarget(ctx context.Context, arg CreatePodCloneTa
 		arg.NetworkMin,
 		arg.NetworkMax,
 		arg.CloudInitStorage,
+		arg.IsDefault,
+		arg.IsPersonal,
 	)
 	var i PodCloneTargets
 	err := row.Scan(
@@ -129,6 +146,7 @@ const deletePodCloneTarget = `-- name: DeletePodCloneTarget :execrows
 DELETE FROM pod_clone_targets
 WHERE key = $1
   AND NOT is_default
+  AND NOT is_personal
 `
 
 func (q *Queries) DeletePodCloneTarget(ctx context.Context, key string) (int64, error) {
@@ -265,116 +283,6 @@ func (q *Queries) GetPodCloneTarget(ctx context.Context, key string) (PodCloneTa
 	return i, err
 }
 
-const insertDefaultPodCloneTarget = `-- name: InsertDefaultPodCloneTarget :exec
-INSERT INTO pod_clone_targets (
-    key,
-    label,
-    network_profile_key,
-    lan_vnet,
-    dmz_vnet,
-    wan_bridge,
-    wan_subnet,
-    network_min,
-    network_max,
-    cloud_init_storage,
-    is_default
-)
-SELECT
-    $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6,
-    $7,
-    $8,
-    $9,
-    $10,
-    true
-WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets)
-`
-
-type InsertDefaultPodCloneTargetParams struct {
-	Key               string  `json:"key"`
-	Label             string  `json:"label"`
-	NetworkProfileKey string  `json:"network_profile_key"`
-	LanVnet           string  `json:"lan_vnet"`
-	DmzVnet           *string `json:"dmz_vnet"`
-	WanBridge         string  `json:"wan_bridge"`
-	WanSubnet         string  `json:"wan_subnet"`
-	NetworkMin        int32   `json:"network_min"`
-	NetworkMax        int32   `json:"network_max"`
-	CloudInitStorage  string  `json:"cloud_init_storage"`
-}
-
-func (q *Queries) InsertDefaultPodCloneTarget(ctx context.Context, arg InsertDefaultPodCloneTargetParams) error {
-	_, err := q.db.Exec(ctx, insertDefaultPodCloneTarget,
-		arg.Key,
-		arg.Label,
-		arg.NetworkProfileKey,
-		arg.LanVnet,
-		arg.DmzVnet,
-		arg.WanBridge,
-		arg.WanSubnet,
-		arg.NetworkMin,
-		arg.NetworkMax,
-		arg.CloudInitStorage,
-	)
-	return err
-}
-
-const insertPersonalPodCloneTarget = `-- name: InsertPersonalPodCloneTarget :exec
-INSERT INTO pod_clone_targets (
-    key,
-    label,
-    network_profile_key,
-    lan_vnet,
-    wan_bridge,
-    wan_subnet,
-    network_min,
-    network_max,
-    cloud_init_storage,
-    is_personal
-)
-SELECT
-    $1,
-    $2,
-    'lan-router-v1',
-    $3,
-    $4,
-    $5,
-    $6,
-    $7,
-    $8,
-    true
-WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets WHERE is_personal)
-`
-
-type InsertPersonalPodCloneTargetParams struct {
-	Key              string `json:"key"`
-	Label            string `json:"label"`
-	LanVnet          string `json:"lan_vnet"`
-	WanBridge        string `json:"wan_bridge"`
-	WanSubnet        string `json:"wan_subnet"`
-	NetworkMin       int32  `json:"network_min"`
-	NetworkMax       int32  `json:"network_max"`
-	CloudInitStorage string `json:"cloud_init_storage"`
-}
-
-func (q *Queries) InsertPersonalPodCloneTarget(ctx context.Context, arg InsertPersonalPodCloneTargetParams) error {
-	_, err := q.db.Exec(ctx, insertPersonalPodCloneTarget,
-		arg.Key,
-		arg.Label,
-		arg.LanVnet,
-		arg.WanBridge,
-		arg.WanSubnet,
-		arg.NetworkMin,
-		arg.NetworkMax,
-		arg.CloudInitStorage,
-	)
-	return err
-}
-
 const listPodCloneTargets = `-- name: ListPodCloneTargets :many
 SELECT
     key,
@@ -430,6 +338,17 @@ func (q *Queries) ListPodCloneTargets(ctx context.Context) ([]PodCloneTargets, e
 	return items, nil
 }
 
+const lockPodCloneTargetRoles = `-- name: LockPodCloneTargetRoles :exec
+LOCK TABLE pod_clone_targets IN SHARE ROW EXCLUSIVE MODE
+`
+
+// Role changes take this lock inside a transaction so two administrators cannot
+// assign different targets to the same singleton role concurrently.
+func (q *Queries) LockPodCloneTargetRoles(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockPodCloneTargetRoles)
+	return err
+}
+
 const updatePodCloneTarget = `-- name: UpdatePodCloneTarget :one
 UPDATE pod_clone_targets
    SET label                        = $1,
@@ -440,8 +359,10 @@ UPDATE pod_clone_targets
        wan_subnet                   = $6,
        network_min                  = $7,
        network_max                  = $8,
-       cloud_init_storage           = $9
- WHERE key = $10
+       cloud_init_storage           = $9,
+       is_default                   = $10,
+       is_personal                  = $11
+ WHERE key = $12
 RETURNING
     key,
     label,
@@ -469,6 +390,8 @@ type UpdatePodCloneTargetParams struct {
 	NetworkMin        int32   `json:"network_min"`
 	NetworkMax        int32   `json:"network_max"`
 	CloudInitStorage  string  `json:"cloud_init_storage"`
+	IsDefault         bool    `json:"is_default"`
+	IsPersonal        bool    `json:"is_personal"`
 	Key               string  `json:"key"`
 }
 
@@ -483,6 +406,8 @@ func (q *Queries) UpdatePodCloneTarget(ctx context.Context, arg UpdatePodCloneTa
 		arg.NetworkMin,
 		arg.NetworkMax,
 		arg.CloudInitStorage,
+		arg.IsDefault,
+		arg.IsPersonal,
 		arg.Key,
 	)
 	var i PodCloneTargets

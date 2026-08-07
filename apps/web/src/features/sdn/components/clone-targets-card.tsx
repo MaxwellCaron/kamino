@@ -91,8 +91,8 @@ export function CloneTargetsCard({
           Pod Clone Targets
         </CardTitle>
         <CardDescription>
-          Subnets and bridges that published pods can be cloned onto. Each pod
-          is bound to one target when it is published.
+          Subnets and bridges that pods can be cloned onto. Assign targets for
+          default cloning and personal pod provisioning from the edit dialog.
         </CardDescription>
         <CardAction>
           {canAdminister ? (

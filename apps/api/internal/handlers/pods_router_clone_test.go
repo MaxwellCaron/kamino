@@ -24,10 +24,6 @@ func newRouterCloneOptionsHandler(t *testing.T, vnets []map[string]any) *PodsHan
 	return &PodsHandler{
 		PX:             proxmox.NewHTTPTestClient(server),
 		NetworkCatalog: testNetworkCatalog(t),
-		RouterCloneConfig: PodRouterCloneConfig{
-			LANVNet: "pod",
-			DMZVNet: "dmz",
-		},
 	}
 }
 

@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"testing"
+
+	"github.com/MaxwellCaron/kamino/database"
 )
 
 func validPodCloneTargetRequest() podCloneTargetRequest {
@@ -21,7 +23,10 @@ func validPodCloneTargetRequest() podCloneTargetRequest {
 }
 
 func TestNormalizePodCloneTargetRequest(t *testing.T) {
-	target, reqErr := normalizePodCloneTargetRequest(validPodCloneTargetRequest(), true)
+	req := validPodCloneTargetRequest()
+	req.IsDefault = true
+	req.IsPersonal = true
+	target, reqErr := normalizePodCloneTargetRequest(req, true)
 	if reqErr != nil {
 		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
 	}
@@ -43,6 +48,19 @@ func TestNormalizePodCloneTargetRequest(t *testing.T) {
 	}
 	if target.Network().WANBridge != "vmbr9" || target.Network().LANVNet != "pod2" {
 		t.Fatalf("Network() = %#v", target.Network())
+	}
+	if !target.IsDefault || !target.IsPersonal {
+		t.Fatalf("roles = default:%t personal:%t, want both true", target.IsDefault, target.IsPersonal)
+	}
+}
+
+func TestPodCloneTargetFromRowMapsRoles(t *testing.T) {
+	target := podCloneTargetFromRow(database.PodCloneTargets{
+		IsDefault:  true,
+		IsPersonal: true,
+	})
+	if !target.IsDefault || !target.IsPersonal {
+		t.Fatalf("roles = default:%t personal:%t, want both true", target.IsDefault, target.IsPersonal)
 	}
 }
 

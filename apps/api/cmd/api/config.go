@@ -49,33 +49,13 @@ type Config struct {
 	PersonalPodsFolderItemID string `envconfig:"PERSONAL_PODS_FOLDER_ITEM_ID"`
 	PodRouterTemplate        string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
 
-	// --- Pod clone networking (optional defaults shown) ---
-	PodLANVNet                          string `envconfig:"POD_LAN_VNET" default:"pod"`
-	PodDMZVNet                          string `envconfig:"POD_DMZ_VNET" default:"dmz"`
-	PodCloneNetworkMin                  int32  `envconfig:"POD_CLONE_NETWORK_MIN" default:"1"`
-	PodCloneNetworkMax                  int32  `envconfig:"POD_CLONE_NETWORK_MAX" default:"174"`
-	PodDevNetworkMin                    int32  `envconfig:"POD_DEV_NETWORK_MIN" default:"175"`
-	PodDevNetworkMax                    int32  `envconfig:"POD_DEV_NETWORK_MAX" default:"199"`
-	PodRouterWait                       string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
-	PodRouterWANBridge                  string `envconfig:"POD_ROUTER_WAN_BRIDGE"`
-	PodRouterWANIPBase                  string `envconfig:"POD_ROUTER_WAN_IP_BASE" default:"172.16."`
-	PodRouterInternalSubnet             string `envconfig:"POD_ROUTER_INTERNAL_SUBNET" default:"192.168.1.0/24"`
-	PodRouterCloudInitStorage           string `envconfig:"POD_ROUTER_CLOUD_INIT_STORAGE" default:"local"`
-	PodRouterCloudInitUserFilePattern   string `envconfig:"POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-{network}-user-data.yaml"`
-	PodRouterCloudInitNetworkFile       string `envconfig:"POD_ROUTER_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-network-config.yaml"`
-	PodRouterLANDMZCloudInitUserPattern string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-router-lan-dmz-{network}-user-data.yaml"`
-	PodRouterLANDMZCloudInitNetworkFile string `envconfig:"POD_ROUTER_LAN_DMZ_CLOUD_INIT_NETWORK_FILE" default:"kamino-router-lan-dmz-network-config.yaml"`
+	// --- Pod clone operations ---
+	PodRouterWait string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
 
 	// --- Personal pods (optional; defaults to the pod router template) ---
-	PersonalPodsEnabled                 bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
-	PersonalPodRouterTemplateItemID     string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
-	PersonalPodTemplatesFolderItemID    string `envconfig:"PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID"`
-	PersonalPodVNet                     string `envconfig:"PERSONAL_POD_VNET" default:"personal"`
-	PersonalPodNetworkMin               int32  `envconfig:"PERSONAL_POD_NETWORK_MIN" default:"1"`
-	PersonalPodNetworkMax               int32  `envconfig:"PERSONAL_POD_NETWORK_MAX" default:"94"`
-	PersonalPodWANBridge                string `envconfig:"PERSONAL_POD_WAN_BRIDGE"`
-	PersonalPodWANIPBase                string `envconfig:"PERSONAL_POD_WAN_IP_BASE" default:"172.25."`
-	PersonalPodCloudInitUserFilePattern string `envconfig:"PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN" default:"kamino-personal-router-{network}-user-data.yaml"`
+	PersonalPodsEnabled              bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
+	PersonalPodRouterTemplateItemID  string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
+	PersonalPodTemplatesFolderItemID string `envconfig:"PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID"`
 
 	// --- VMID allocation ranges (optional defaults shown) ---
 	PodPublishVMIDMin  int `envconfig:"POD_PUBLISH_VMID_MIN" default:"1000"`

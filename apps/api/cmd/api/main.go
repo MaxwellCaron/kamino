@@ -124,10 +124,6 @@ func main() {
 		protectedACLPrincipalIDs = []uuid.UUID{protectedACLPrincipalID}
 	}
 
-	if err := seedPodCloneTargets(context.Background(), server.DBPool, routerCloneConfig); err != nil {
-		log.Fatalf("Pod clone target bootstrap failed: %v", err)
-	}
-
 	authzService := authorization.NewService(server.DBPool, protectedACLPrincipalIDs)
 	if err := authzService.BootstrapRootAccess(
 		context.Background(),

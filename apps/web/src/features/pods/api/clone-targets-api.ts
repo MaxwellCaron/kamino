@@ -22,8 +22,6 @@ export type PodCloneTarget = {
 // Snippet filenames are derived from the key server-side and returned read-only.
 export type PodCloneTargetInput = Omit<
   PodCloneTarget,
-  | "is_default"
-  | "is_personal"
   | "cloud_init_user_file_pattern"
   | "cloud_init_network_file"
   | "lan_dmz_user_file_pattern"

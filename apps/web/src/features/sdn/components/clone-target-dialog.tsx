@@ -15,6 +15,7 @@ import {
   FieldTitle,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import { Switch } from "@workspace/ui/components/switch"
 import {
   CodeBlock,
   CodeBlockBody,
@@ -440,6 +441,64 @@ function CloneTargetForm({
                   disabled={isEdit}
                   maxLength={32}
                 />
+
+                <FieldSeparator />
+
+                <FieldSet>
+                  <FieldLegend>Assignments</FieldLegend>
+                  <FieldDescription>
+                    Assign this target to either system role. Saving an
+                    assignment moves that role from its current target.
+                  </FieldDescription>
+                  <FieldGroup className="gap-3">
+                    <form.Field name="isDefault">
+                      {(field) => (
+                        <FieldLabel
+                          htmlFor={field.name}
+                          className="cursor-pointer"
+                        >
+                          <Field orientation="horizontal">
+                            <FieldContent>
+                              <FieldTitle className="text-sm leading-snug">
+                                Default
+                              </FieldTitle>
+                            </FieldContent>
+                            <Switch
+                              id={field.name}
+                              checked={field.state.value}
+                              onCheckedChange={(checked) =>
+                                field.handleChange(checked)
+                              }
+                            />
+                          </Field>
+                        </FieldLabel>
+                      )}
+                    </form.Field>
+                    <form.Field name="isPersonal">
+                      {(field) => (
+                        <FieldLabel
+                          htmlFor={field.name}
+                          className="cursor-pointer"
+                        >
+                          <Field orientation="horizontal">
+                            <FieldContent>
+                              <FieldTitle className="text-sm leading-snug">
+                                Personal
+                              </FieldTitle>
+                            </FieldContent>
+                            <Switch
+                              id={field.name}
+                              checked={field.state.value}
+                              onCheckedChange={(checked) =>
+                                field.handleChange(checked)
+                              }
+                            />
+                          </Field>
+                        </FieldLabel>
+                      )}
+                    </form.Field>
+                  </FieldGroup>
+                </FieldSet>
 
                 <FieldSeparator />
 

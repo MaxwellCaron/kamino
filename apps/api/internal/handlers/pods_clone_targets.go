@@ -65,6 +65,7 @@ func podCloneTargetFromRow(row database.PodCloneTargets) podCloneTarget {
 		NetworkMax:        row.NetworkMax,
 		CloudInitStorage:  row.CloudInitStorage,
 		IsDefault:         row.IsDefault,
+		IsPersonal:        row.IsPersonal,
 	}
 }
 
@@ -163,6 +164,8 @@ type podCloneTargetRequest struct {
 	NetworkMin        int32  `json:"network_min"`
 	NetworkMax        int32  `json:"network_max"`
 	CloudInitStorage  string `json:"cloud_init_storage"`
+	IsDefault         bool   `json:"is_default"`
+	IsPersonal        bool   `json:"is_personal"`
 }
 
 func (h *PodsHandler) resolvePodCloneTarget(ctx context.Context, key string) (podCloneTarget, *requestError) {
@@ -273,6 +276,8 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 		NetworkMin:        req.NetworkMin,
 		NetworkMax:        req.NetworkMax,
 		CloudInitStorage:  routerconfig.NormalizeCloudInitStorage(req.CloudInitStorage),
+		IsDefault:         req.IsDefault,
+		IsPersonal:        req.IsPersonal,
 	}
 
 	if requireKey {
@@ -326,6 +331,42 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 	return target, nil
 }
 
+func (h *PodsHandler) savePodCloneTarget(
+	ctx context.Context,
+	target podCloneTarget,
+	write func(*database.Queries) (database.PodCloneTargets, error),
+) (database.PodCloneTargets, error) {
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		return database.PodCloneTargets{}, fmt.Errorf("begin clone target save: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(tx)
+	if err := q.LockPodCloneTargetRoles(ctx); err != nil {
+		return database.PodCloneTargets{}, fmt.Errorf("lock clone target roles: %w", err)
+	}
+	if target.IsDefault {
+		if err := q.ClearDefaultPodCloneTarget(ctx); err != nil {
+			return database.PodCloneTargets{}, fmt.Errorf("clear default clone target: %w", err)
+		}
+	}
+	if target.IsPersonal {
+		if err := q.ClearPersonalPodCloneTarget(ctx); err != nil {
+			return database.PodCloneTargets{}, fmt.Errorf("clear personal clone target: %w", err)
+		}
+	}
+
+	row, err := write(q)
+	if err != nil {
+		return database.PodCloneTargets{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return database.PodCloneTargets{}, fmt.Errorf("commit clone target save: %w", err)
+	}
+	return row, nil
+}
+
 func (h *PodsHandler) ListPodCloneTargets(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
@@ -375,17 +416,21 @@ func (h *PodsHandler) CreatePodCloneTarget(c *gin.Context) {
 		return
 	}
 
-	row, err := database.New(h.DB).CreatePodCloneTarget(c.Request.Context(), database.CreatePodCloneTargetParams{
-		Key:               target.Key,
-		Label:             target.Label,
-		NetworkProfileKey: target.NetworkProfileKey,
-		LanVnet:           target.LANVNet,
-		DmzVnet:           nilIfEmpty(target.DMZVNet),
-		WanBridge:         target.WANBridge,
-		WanSubnet:         target.WANSubnet,
-		NetworkMin:        target.NetworkMin,
-		NetworkMax:        target.NetworkMax,
-		CloudInitStorage:  target.CloudInitStorage,
+	row, err := h.savePodCloneTarget(c.Request.Context(), target, func(q *database.Queries) (database.PodCloneTargets, error) {
+		return q.CreatePodCloneTarget(c.Request.Context(), database.CreatePodCloneTargetParams{
+			Key:               target.Key,
+			Label:             target.Label,
+			NetworkProfileKey: target.NetworkProfileKey,
+			LanVnet:           target.LANVNet,
+			DmzVnet:           nilIfEmpty(target.DMZVNet),
+			WanBridge:         target.WANBridge,
+			WanSubnet:         target.WANSubnet,
+			NetworkMin:        target.NetworkMin,
+			NetworkMax:        target.NetworkMax,
+			CloudInitStorage:  target.CloudInitStorage,
+			IsDefault:         target.IsDefault,
+			IsPersonal:        target.IsPersonal,
+		})
 	})
 	if isUniqueViolation(err) {
 		writeConflict(c, fmt.Sprintf("pod clone target %q already exists", target.Key))
@@ -438,17 +483,21 @@ func (h *PodsHandler) UpdatePodCloneTarget(c *gin.Context) {
 		return
 	}
 
-	row, err := database.New(h.DB).UpdatePodCloneTarget(c.Request.Context(), database.UpdatePodCloneTargetParams{
-		Key:               key,
-		Label:             target.Label,
-		NetworkProfileKey: target.NetworkProfileKey,
-		LanVnet:           target.LANVNet,
-		DmzVnet:           nilIfEmpty(target.DMZVNet),
-		WanBridge:         target.WANBridge,
-		WanSubnet:         target.WANSubnet,
-		NetworkMin:        target.NetworkMin,
-		NetworkMax:        target.NetworkMax,
-		CloudInitStorage:  target.CloudInitStorage,
+	row, err := h.savePodCloneTarget(c.Request.Context(), target, func(q *database.Queries) (database.PodCloneTargets, error) {
+		return q.UpdatePodCloneTarget(c.Request.Context(), database.UpdatePodCloneTargetParams{
+			Key:               key,
+			Label:             target.Label,
+			NetworkProfileKey: target.NetworkProfileKey,
+			LanVnet:           target.LANVNet,
+			DmzVnet:           nilIfEmpty(target.DMZVNet),
+			WanBridge:         target.WANBridge,
+			WanSubnet:         target.WANSubnet,
+			NetworkMin:        target.NetworkMin,
+			NetworkMax:        target.NetworkMax,
+			CloudInitStorage:  target.CloudInitStorage,
+			IsDefault:         target.IsDefault,
+			IsPersonal:        target.IsPersonal,
+		})
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "pod clone target not found"})
@@ -506,7 +555,7 @@ func (h *PodsHandler) DeletePodCloneTarget(c *gin.Context) {
 		return
 	}
 	if deleted == 0 {
-		writeConflict(c, "pod clone target not found, or is the default target")
+		writeConflict(c, "pod clone target not found, or is assigned as the default or personal target")
 		return
 	}
 

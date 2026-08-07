@@ -378,29 +378,3 @@ func formatClonedRouterCloudInitFile(pattern string, networkNumber int32) (strin
 
 	return filename, nil
 }
-
-func buildClonedRouterCloudInitConfig(networkNumber int32, config PodRouterCloneConfig) (*clonedRouterCloudInitConfig, error) {
-	storage := strings.TrimSpace(config.CloudInitStorage)
-	if storage == "" {
-		return nil, fmt.Errorf("router cloud-init storage is required")
-	}
-
-	userFile, err := formatClonedRouterCloudInitFile(config.CloudInitUserFilePattern, networkNumber)
-	if err != nil {
-		return nil, fmt.Errorf("build router cloud-init user-data filename: %w", err)
-	}
-
-	networkFile := strings.TrimSpace(config.CloudInitNetworkFile)
-	if strings.Contains(networkFile, routerCloudInitNetworkPlaceholder) {
-		return nil, fmt.Errorf("router cloud-init network-config filename must not contain %s", routerCloudInitNetworkPlaceholder)
-	}
-	if err := routerconfig.ValidateCloudInitSnippetFilename(networkFile); err != nil {
-		return nil, fmt.Errorf("build router cloud-init network-config filename: %w", err)
-	}
-
-	return &clonedRouterCloudInitConfig{
-		Storage:     storage,
-		UserFile:    userFile,
-		NetworkFile: networkFile,
-	}, nil
-}

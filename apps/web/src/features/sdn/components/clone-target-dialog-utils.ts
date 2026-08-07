@@ -25,6 +25,8 @@ export type CloneTargetFormValues = {
   networkMax: string
   cloudInitStorage: string
   snippetDir: string
+  isDefault: boolean
+  isPersonal: boolean
 }
 
 export const cloneTargetKeySchema = z
@@ -114,6 +116,8 @@ export function getDefaultCloneTargetFormValues(
     networkMax: String(target?.network_max ?? 254),
     cloudInitStorage: target?.cloud_init_storage ?? "local",
     snippetDir: DEFAULT_SNIPPET_DIR,
+    isDefault: target?.is_default ?? false,
+    isPersonal: target?.is_personal ?? false,
   }
 }
 
@@ -131,6 +135,8 @@ export function buildCloneTargetPayload(values: CloneTargetFormValues) {
     network_min: Number(values.networkMin),
     network_max: Number(values.networkMax),
     cloud_init_storage: values.cloudInitStorage.trim(),
+    is_default: values.isDefault,
+    is_personal: values.isPersonal,
   }
 }
 

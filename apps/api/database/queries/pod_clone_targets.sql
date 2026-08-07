@@ -74,62 +74,20 @@ SELECT
 FROM pod_clone_targets
 WHERE is_personal;
 
--- name: InsertPersonalPodCloneTarget :exec
-INSERT INTO pod_clone_targets (
-    key,
-    label,
-    network_profile_key,
-    lan_vnet,
-    wan_bridge,
-    wan_subnet,
-    network_min,
-    network_max,
-    cloud_init_storage,
-    is_personal
-)
-SELECT
-    sqlc.arg(key),
-    sqlc.arg(label),
-    'lan-router-v1',
-    sqlc.arg(lan_vnet),
-    sqlc.arg(wan_bridge),
-    sqlc.arg(wan_subnet),
-    sqlc.arg(network_min),
-    sqlc.arg(network_max),
-    sqlc.arg(cloud_init_storage),
-    true
-WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets WHERE is_personal);
+-- Role changes take this lock inside a transaction so two administrators cannot
+-- assign different targets to the same singleton role concurrently.
+-- name: LockPodCloneTargetRoles :exec
+LOCK TABLE pod_clone_targets IN SHARE ROW EXCLUSIVE MODE;
 
--- name: CountPodCloneTargets :one
-SELECT count(*) FROM pod_clone_targets;
+-- name: ClearDefaultPodCloneTarget :exec
+UPDATE pod_clone_targets
+SET is_default = false
+WHERE is_default;
 
--- name: InsertDefaultPodCloneTarget :exec
-INSERT INTO pod_clone_targets (
-    key,
-    label,
-    network_profile_key,
-    lan_vnet,
-    dmz_vnet,
-    wan_bridge,
-    wan_subnet,
-    network_min,
-    network_max,
-    cloud_init_storage,
-    is_default
-)
-SELECT
-    sqlc.arg(key),
-    sqlc.arg(label),
-    sqlc.arg(network_profile_key),
-    sqlc.arg(lan_vnet),
-    sqlc.arg(dmz_vnet),
-    sqlc.arg(wan_bridge),
-    sqlc.arg(wan_subnet),
-    sqlc.arg(network_min),
-    sqlc.arg(network_max),
-    sqlc.arg(cloud_init_storage),
-    true
-WHERE NOT EXISTS (SELECT 1 FROM pod_clone_targets);
+-- name: ClearPersonalPodCloneTarget :exec
+UPDATE pod_clone_targets
+SET is_personal = false
+WHERE is_personal;
 
 -- name: CreatePodCloneTarget :one
 INSERT INTO pod_clone_targets (
@@ -142,9 +100,11 @@ INSERT INTO pod_clone_targets (
     wan_subnet,
     network_min,
     network_max,
-    cloud_init_storage
+    cloud_init_storage,
+    is_default,
+    is_personal
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
 RETURNING
     key,
@@ -172,7 +132,9 @@ UPDATE pod_clone_targets
        wan_subnet                   = sqlc.arg(wan_subnet),
        network_min                  = sqlc.arg(network_min),
        network_max                  = sqlc.arg(network_max),
-       cloud_init_storage           = sqlc.arg(cloud_init_storage)
+       cloud_init_storage           = sqlc.arg(cloud_init_storage),
+       is_default                   = sqlc.arg(is_default),
+       is_personal                  = sqlc.arg(is_personal)
  WHERE key = sqlc.arg(key)
 RETURNING
     key,
@@ -193,7 +155,8 @@ RETURNING
 -- name: DeletePodCloneTarget :execrows
 DELETE FROM pod_clone_targets
 WHERE key = $1
-  AND NOT is_default;
+  AND NOT is_default
+  AND NOT is_personal;
 
 -- name: CountPodCloneTargetReferences :one
 SELECT
