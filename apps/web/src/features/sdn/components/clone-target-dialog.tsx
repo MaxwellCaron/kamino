@@ -473,7 +473,7 @@ function CloneTargetForm({
                     <CloneTargetComboboxField
                       FieldComponent={form.Field}
                       name="wanBridge"
-                      label="WAN bridge"
+                      label="WAN Bridge"
                       description="Bridge or VNet the cloned router's net0 is attached to."
                       placeholder="vmbr0"
                       schema={cloneTargetBridgeSchema}
@@ -483,7 +483,7 @@ function CloneTargetForm({
                     <CloneTargetTextField
                       FieldComponent={form.Field}
                       name="networkMin"
-                      label="First network number"
+                      label="First Network Number"
                       description="Lowest inner VLAN tag this target allocates to pods."
                       placeholder="1"
                       schema={cloneTargetNetworkNumberSchema}
@@ -491,7 +491,7 @@ function CloneTargetForm({
                     <CloneTargetTextField
                       FieldComponent={form.Field}
                       name="networkMax"
-                      label="Last network number"
+                      label="Last Network Number"
                       description="Highest inner VLAN tag this target allocates to pods."
                       placeholder="254"
                       schema={cloneTargetNetworkNumberSchema}
@@ -499,7 +499,7 @@ function CloneTargetForm({
                     <CloneTargetTextField
                       FieldComponent={form.Field}
                       name="wanSubnet"
-                      label="WAN subnet"
+                      label="WAN Subnet"
                       description={`Each pod gets a /24 from this /16, using its network number as the third octet (${formatPodWANSubnet(state.values.wanSubnet || "172.16.0.0/16", "x")}).`}
                       placeholder="172.16.0.0/16"
                       schema={cloneTargetWANSubnetSchema}

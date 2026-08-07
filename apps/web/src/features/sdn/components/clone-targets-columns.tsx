@@ -54,9 +54,7 @@ export function getCloneTargetColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} icon={Tag02Icon} title="Key" />
       ),
-      cell: ({ row }) => (
-        <span className="mx-3 font-mono text-sm">{row.original.key}</span>
-      ),
+      cell: ({ row }) => <span className="mx-3">{row.original.key}</span>,
     },
     {
       accessorKey: "lan_vnet",
@@ -95,10 +93,12 @@ export function getCloneTargetColumns({
         <DataTableColumnHeader
           column={column}
           icon={RouterIcon}
-          title="WAN bridge"
+          title="WAN Bridge"
         />
       ),
-      cell: ({ row }) => <span className="mx-3">{row.original.wan_bridge}</span>,
+      cell: ({ row }) => (
+        <span className="mx-3">{row.original.wan_bridge}</span>
+      ),
     },
     {
       accessorKey: "wan_subnet",
@@ -106,7 +106,7 @@ export function getCloneTargetColumns({
         <DataTableColumnHeader
           column={column}
           icon={Globe02Icon}
-          title="WAN subnet"
+          title="WAN Subnet"
         />
       ),
       cell: ({ row }) => (
@@ -119,7 +119,7 @@ export function getCloneTargetColumns({
         <DataTableColumnHeader
           column={column}
           icon={CloudIcon}
-          title="Cloud-init"
+          title="Cloud-Init"
         />
       ),
       cell: ({ row }) => (

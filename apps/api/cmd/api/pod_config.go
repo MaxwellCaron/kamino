@@ -21,11 +21,11 @@ var sharedVNetIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
 
 const proxmoxVNetIDMaxLength = 8
 
-const defaultPodCloneTargetKey = "default"
-
-// Derives kamino-personal-router-* snippet names, matching the legacy
-// PERSONAL_POD_CLOUD_INIT_USER_FILE_PATTERN default.
-const personalPodCloneTargetKey = "personal"
+// Target keys drive the derived snippet filenames: kamino-{key}-router-*.
+const (
+	defaultPodCloneTargetKey  = "pod"
+	personalPodCloneTargetKey = "personal"
+)
 
 func validateSharedVNetID(envVar, id string) error {
 	if id == "" {
@@ -259,7 +259,7 @@ func seedDefaultPodCloneTarget(
 
 	if err := q.InsertDefaultPodCloneTarget(ctx, database.InsertDefaultPodCloneTargetParams{
 		Key:               defaultPodCloneTargetKey,
-		Label:             "Default",
+		Label:             "Pod",
 		NetworkProfileKey: podnetwork.ProfileLANDMZRouterV1,
 		LanVnet:           config.LANVNet,
 		DmzVnet:           &config.DMZVNet,

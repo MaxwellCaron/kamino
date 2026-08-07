@@ -1,8 +1,7 @@
 import { Suspense, lazy, useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete01Icon, RouterIcon } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
+import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -85,26 +84,15 @@ export function CloneTargetsCard({
     [canAdminister, editDialog.openWith, setConfirm, showDeleteToast]
   )
 
-  const targetCountLabel = error ? "!" : String(targets?.length ?? 0)
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <HugeiconsIcon
-            icon={RouterIcon}
-            className="size-7 text-muted-foreground"
-          />
-          <h2 className="scroll-m-20 text-2xl font-bold tracking-tight text-balance">
-            Pod Clone Targets
-          </h2>
-          <Badge variant="outline" className="tabular-nums">
-            {targetCountLabel}
-          </Badge>
+        <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
+          Pod Clone Targets
         </CardTitle>
         <CardDescription>
-          Subnets and bridges that published pods can be cloned onto. Each pod is
-          bound to one target when it is published.
+          Subnets and bridges that published pods can be cloned onto. Each pod
+          is bound to one target when it is published.
         </CardDescription>
         <CardAction>
           {canAdminister ? (
