@@ -157,12 +157,12 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `LDAP_USER_OU` | when AD | — | Full DN of the OU subtree searched for users during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_GROUP_OU` | when AD | — | Full DN of the OU subtree searched for groups during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
-| `TEMPLATES_FOLDER_ITEM_ID` | no | root-level `Templates` folder | Inventory folder ID pinning the Templates library used for pod creation and, unless overridden, personal-pod Create VM |
+| `TEMPLATES_FOLDER_ITEM_ID` | no | root-level `Templates` folder | Inventory folder ID pinning the Templates library used for pod creation; library templates are listed and cloned without source-folder ACL access |
+| `VM_TEMPLATES_FOLDER_ITEM_ID` | no | `TEMPLATES_FOLDER_ITEM_ID` | Optional template-library override for Create VM; configured library templates are available as clone sources without source-folder ACL access |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
 | `PERSONAL_PODS_ENABLED` | no | `false` | Enables personal pod status, requests, and provisioning; when enabled, a standard or personal router template must be configured |
 | `PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID` | no | `POD_ROUTER_TEMPLATE_ITEM_ID` | Optional router template override for personal pods |
-| `PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID` | no | `TEMPLATES_FOLDER_ITEM_ID` | Optional Create VM template library override for personal pods; when both are unset, falls back to the root-level `Templates` folder |
 | `POD_PUBLISH_VMID_MIN` | no | `1000` | First VMID available for publish/template-preparation clones (inclusive) |
 | `POD_PUBLISH_VMID_MAX` | no | `1999` | Last VMID available for publish/template-preparation clones (inclusive) |
 | `POD_CLONE_VMID_MIN` | no | `2000` | First VMID available for catalog clone/reclone operations (inclusive) |

@@ -207,8 +207,9 @@ var _ vmCreateProxmox = (*fakeVMCreateProxmox)(nil)
 
 func newVMCreateTestHandler(authz vmCreateAuthz, px vmCreateProxmox) *VMCreateHandler {
 	return &VMCreateHandler{
-		Authz: authz,
-		PX:    px,
+		Authz:           authz,
+		PX:              px,
+		TemplateLibrary: &fakeTemplateLibraryReader{},
 	}
 }
 
@@ -385,6 +386,7 @@ func TestVMCreateCreateVM_ScopedRejectsDisallowedBridgeBeforeAnyProxmoxCall(t *t
 	h := &VMCreateHandler{
 		Authz:              authz,
 		PX:                 px,
+		TemplateLibrary:    &fakeTemplateLibraryReader{},
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
 	}
@@ -419,6 +421,7 @@ func TestVMCreateCreateVM_ScopedRejectsZeroNetworkInterfaces(t *testing.T) {
 	h := &VMCreateHandler{
 		Authz:              authz,
 		PX:                 px,
+		TemplateLibrary:    &fakeTemplateLibraryReader{},
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
 	}
@@ -778,6 +781,7 @@ func TestVMCreateGetCreateOptions_DevPodLANAndDMZScope(t *testing.T) {
 	h := &VMCreateHandler{
 		Authz:              authz,
 		PX:                 px,
+		TemplateLibrary:    &fakeTemplateLibraryReader{},
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
 	}
@@ -814,9 +818,6 @@ func TestVMCreateGetCreateOptions_DevPodLANAndDMZScope(t *testing.T) {
 			t.Fatalf("vnets unexpectedly include an unrelated VNet: %#v", response.VNets)
 		}
 	}
-	if response.PersonalPodTemplatesRestricted {
-		t.Fatal("personal_pod_templates_restricted = true, want false for a non-personal pod")
-	}
 }
 
 func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) {
@@ -838,6 +839,7 @@ func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) 
 	h := &VMCreateHandler{
 		Authz:              authz,
 		PX:                 px,
+		TemplateLibrary:    &fakeTemplateLibraryReader{},
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
 	}
@@ -853,11 +855,5 @@ func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) 
 	}
 	if response.ScopedNetwork == nil || response.ScopedNetwork.VLANTag != 7 || response.ScopedNetwork.Bridge != "personal" {
 		t.Fatalf("scoped_network = %#v, want manager to receive the same enforced network as a non-manager", response.ScopedNetwork)
-	}
-	if response.PersonalPodTemplatesRestricted {
-		t.Fatal("personal_pod_templates_restricted = true, want false for a manager")
-	}
-	if response.PersonalPodTemplatesFolderID != nil {
-		t.Fatal("personal_pod_templates_folder_id set, want nil for a manager (unrestricted template list)")
 	}
 }

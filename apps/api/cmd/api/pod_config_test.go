@@ -36,25 +36,25 @@ func TestResolvePersonalPodRouterTemplateItemID(t *testing.T) {
 	}
 }
 
-func TestResolvePersonalPodTemplatesFolderItemID(t *testing.T) {
+func TestResolveVMTemplatesFolderItemID(t *testing.T) {
 	generalID := uuid.New()
 	overrideID := uuid.New()
 
-	got, err := resolvePersonalPodTemplatesFolderItemID("", generalID)
+	got, err := resolveVMTemplatesFolderItemID("", generalID)
 	if err != nil || got != generalID {
 		t.Fatalf("blank override resolved to %s with error %v, want %s", got, err, generalID)
 	}
 
-	got, err = resolvePersonalPodTemplatesFolderItemID(overrideID.String(), generalID)
+	got, err = resolveVMTemplatesFolderItemID(overrideID.String(), generalID)
 	if err != nil || got != overrideID {
 		t.Fatalf("explicit override resolved to %s with error %v, want %s", got, err, overrideID)
 	}
 
-	if _, err := resolvePersonalPodTemplatesFolderItemID("invalid", generalID); err == nil {
+	if _, err := resolveVMTemplatesFolderItemID("invalid", generalID); err == nil {
 		t.Fatal("invalid explicit override should return an error")
 	}
 
-	got, err = resolvePersonalPodTemplatesFolderItemID("", uuid.Nil)
+	got, err = resolveVMTemplatesFolderItemID("", uuid.Nil)
 	if err != nil || got != uuid.Nil {
 		t.Fatalf("both blank resolved to %s with error %v, want uuid.Nil", got, err)
 	}

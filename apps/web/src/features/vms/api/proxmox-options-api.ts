@@ -13,6 +13,23 @@ export type ApiScopedNetwork = {
   vlan_tag: number
 }
 
+export type ApiVMTemplateOption = {
+  id: string
+  name: string
+  node: string
+  vmid: number
+}
+
+type CreateVMOptions = {
+  nodes: Array<ApiNode>
+  disk_storages: Array<ApiStorage>
+  iso_storages: Array<ApiStorage>
+  bridges: Array<ApiNetworkBridge>
+  vnets: Array<ApiVNet>
+  scoped_network?: ApiScopedNetwork
+  templates: Array<ApiVMTemplateOption>
+}
+
 export function bridgesQueryOptions(node: string, scopeItemId?: string) {
   return {
     queryKey: ["proxmox", "bridges", node, scopeItemId ?? ""] as const,
@@ -46,27 +63,9 @@ export function createVmOptionsQueryOptions(
       signal,
     }: {
       signal: AbortSignal
-    }): Promise<{
-      nodes: Array<ApiNode>
-      disk_storages: Array<ApiStorage>
-      iso_storages: Array<ApiStorage>
-      bridges: Array<ApiNetworkBridge>
-      vnets: Array<ApiVNet>
-      scoped_network?: ApiScopedNetwork
-      personal_pod_templates_folder_id?: string
-      personal_pod_templates_restricted: boolean
-    }> => {
+    }): Promise<CreateVMOptions> => {
       const params = new URLSearchParams({ scope_item_id: scopeItemId })
-      return apiJson<{
-        nodes: Array<ApiNode>
-        disk_storages: Array<ApiStorage>
-        iso_storages: Array<ApiStorage>
-        bridges: Array<ApiNetworkBridge>
-        vnets: Array<ApiVNet>
-        scoped_network?: ApiScopedNetwork
-        personal_pod_templates_folder_id?: string
-        personal_pod_templates_restricted: boolean
-      }>(
+      return apiJson<CreateVMOptions>(
         `/api/v1/proxmox/create/options?${params.toString()}`,
         "fetch create options",
         {

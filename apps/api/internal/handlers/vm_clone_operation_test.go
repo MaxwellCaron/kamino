@@ -196,6 +196,7 @@ func TestVMCloneCloneVM_ScopedRejectsZeroNICSourceForManagerPersonalPod(t *testi
 	h := &VMHandler{
 		Authz:              authz,
 		PX:                 px,
+		TemplateLibrary:    &fakeTemplateLibraryReader{},
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
 	}
@@ -243,6 +244,7 @@ func TestVMCloneCloneVM_ScopedRejectsZeroNICSourceDevPod(t *testing.T) {
 	h := &VMHandler{
 		Authz:              authz,
 		PX:                 px,
+		TemplateLibrary:    &fakeTemplateLibraryReader{},
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
 	}

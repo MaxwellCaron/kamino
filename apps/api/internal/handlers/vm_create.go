@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -47,15 +46,16 @@ type vmCreateAuthz interface {
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX                               vmCreateProxmox
-	Importer                         *proxmox.InventoryImporter
-	Service                          *inventory.Service
-	Authz                            vmCreateAuthz
-	Audit                            *audit.Service
-	Allocator                        *vmidalloc.Allocator
-	PersonalPodTemplatesFolderItemID uuid.UUID
-	NetworkScopeReader               podNetworkScopeReader
-	NetworkCatalog                   *podnetwork.Catalog
+	PX                    vmCreateProxmox
+	Importer              *proxmox.InventoryImporter
+	Service               *inventory.Service
+	Authz                 vmCreateAuthz
+	Audit                 *audit.Service
+	Allocator             *vmidalloc.Allocator
+	TemplatesFolderItemID uuid.UUID
+	TemplateLibrary       templateLibraryReader
+	NetworkScopeReader    podNetworkScopeReader
+	NetworkCatalog        *podnetwork.Catalog
 }
 
 // GetNodes returns all cluster nodes.
@@ -94,14 +94,13 @@ func scopedNetworkResponseFromScope(scope VMNetworkScope) *scopedNetworkResponse
 }
 
 type createOptionsResponse struct {
-	Nodes                          []proxmox.Node          `json:"nodes"`
-	DiskStorages                   []proxmox.Storage       `json:"disk_storages"`
-	ISOStorages                    []proxmox.Storage       `json:"iso_storages"`
-	Bridges                        []proxmox.NetworkBridge `json:"bridges"`
-	VNets                          []proxmox.VNet          `json:"vnets"`
-	ScopedNetwork                  *scopedNetworkResponse  `json:"scoped_network,omitempty"`
-	PersonalPodTemplatesFolderID   *uuid.UUID              `json:"personal_pod_templates_folder_id,omitempty"`
-	PersonalPodTemplatesRestricted bool                    `json:"personal_pod_templates_restricted"`
+	Nodes         []proxmox.Node          `json:"nodes"`
+	DiskStorages  []proxmox.Storage       `json:"disk_storages"`
+	ISOStorages   []proxmox.Storage       `json:"iso_storages"`
+	Bridges       []proxmox.NetworkBridge `json:"bridges"`
+	VNets         []proxmox.VNet          `json:"vnets"`
+	ScopedNetwork *scopedNetworkResponse  `json:"scoped_network,omitempty"`
+	Templates     []templateLibraryOption `json:"templates"`
 }
 
 // filterVNetsByName keeps only the VNet named scopedVNetName, preserving Proxmox response order.
@@ -196,13 +195,8 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
-	var (
-		scopedNetwork                  *scopedNetworkResponse
-		personalPodTemplatesFolderID   *uuid.UUID
-		personalPodTemplatesRestricted bool
-	)
+	var scopedNetwork *scopedNetworkResponse
 	if scopeItemID != uuid.Nil {
-		// Network scope applies to every caller; only the personal-template restriction below is non-manager only.
 		scope, scoped, err := resolveVMNetworkScope(
 			c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, scopeItemID,
 		)
@@ -214,38 +208,24 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 			bridges = []proxmox.NetworkBridge{}
 			vnets = filterVNetsByNames(vnets, scope.AllowedVNets)
 			scopedNetwork = scopedNetworkResponseFromScope(scope)
-
-			if scope.Kind == database.PodNetworkAllocationKindPersonalPod {
-				isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
-				if err != nil {
-					writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create options management permission", err)
-					return
-				}
-				if !isManager {
-					personalPodTemplatesRestricted = true
-					folderID, found, err := resolveConfiguredFolderID(
-						c.Request.Context(), h.Service, h.PersonalPodTemplatesFolderItemID, templatesFolderName,
-					)
-					if err != nil {
-						writeLoggedError(c, http.StatusInternalServerError, "failed to load VM creation options", "resolve personal pod templates folder", err)
-						return
-					}
-					if found {
-						personalPodTemplatesFolderID = &folderID
-					}
-				}
-			}
 		}
 	}
 
+	templates, err := loadTemplateLibraryOptions(
+		c.Request.Context(), h.TemplateLibrary, h.TemplatesFolderItemID,
+	)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load VM creation options", "load VM template options", err)
+		return
+	}
+
 	c.JSON(http.StatusOK, createOptionsResponse{
-		Nodes:                          nodes,
-		DiskStorages:                   diskStorages,
-		ISOStorages:                    isoStorages,
-		Bridges:                        bridges,
-		VNets:                          vnets,
-		ScopedNetwork:                  scopedNetwork,
-		PersonalPodTemplatesFolderID:   personalPodTemplatesFolderID,
-		PersonalPodTemplatesRestricted: personalPodTemplatesRestricted,
+		Nodes:         nodes,
+		DiskStorages:  diskStorages,
+		ISOStorages:   isoStorages,
+		Bridges:       bridges,
+		VNets:         vnets,
+		ScopedNetwork: scopedNetwork,
+		Templates:     templates,
 	})
 }

@@ -151,7 +151,19 @@ func resolveVerifiedVMItemPermission(
 		}
 	}
 
+	return resolveVerifiedVMItem(ctx, authzService, px, itemID, lock)
+}
+
+func resolveVerifiedVMItem(
+	ctx context.Context,
+	authzService vmAuthz,
+	px vmProxmox,
+	itemID uuid.UUID,
+	lock bool,
+) (verifiedVMTarget, *requestError) {
+
 	var record authorization.VMRecord
+	var err error
 	if lock {
 		record, err = authzService.GetVMRecordForUpdate(ctx, itemID)
 	} else {

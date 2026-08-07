@@ -170,38 +170,40 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid TEMPLATES_FOLDER_ITEM_ID: %v", err)
 	}
-	personalPodTemplatesFolderItemID, err := resolvePersonalPodTemplatesFolderItemID(
-		server.Config.PersonalPodTemplatesFolderItemID,
+	vmTemplatesFolderItemID, err := resolveVMTemplatesFolderItemID(
+		server.Config.VMTemplatesFolderItemID,
 		templatesFolderItemID,
 	)
 	if err != nil {
-		log.Fatalf("Invalid PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID: %v", err)
+		log.Fatalf("Invalid VM_TEMPLATES_FOLDER_ITEM_ID: %v", err)
 	}
 	vmHandler := &handlers.VMHandler{
-		PX:                               server.ProxmoxClient,
-		Importer:                         server.ProxmoxImport,
-		Service:                          inventoryService,
-		Notifier:                         vmStatusNotifier,
-		Authz:                            authzService,
-		Actions:                          vmActionExecutor,
-		Claims:                           vmActionClaims,
-		Audit:                            auditService,
-		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
-		NetworkScopeReader:               database.New(server.DBPool),
-		NetworkCatalog:                   networkCatalog,
+		PX:                    server.ProxmoxClient,
+		Importer:              server.ProxmoxImport,
+		Service:               inventoryService,
+		Notifier:              vmStatusNotifier,
+		Authz:                 authzService,
+		Actions:               vmActionExecutor,
+		Claims:                vmActionClaims,
+		Audit:                 auditService,
+		TemplatesFolderItemID: vmTemplatesFolderItemID,
+		TemplateLibrary:       inventoryService,
+		NetworkScopeReader:    database.New(server.DBPool),
+		NetworkCatalog:        networkCatalog,
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
 	vmHandler.Allocator = vmidAllocator
 	vmCreateHandler := &handlers.VMCreateHandler{
-		PX:                               server.ProxmoxClient,
-		Importer:                         server.ProxmoxImport,
-		Service:                          inventoryService,
-		Authz:                            authzService,
-		Audit:                            auditService,
-		Allocator:                        vmidAllocator,
-		PersonalPodTemplatesFolderItemID: personalPodTemplatesFolderItemID,
-		NetworkScopeReader:               database.New(server.DBPool),
-		NetworkCatalog:                   networkCatalog,
+		PX:                    server.ProxmoxClient,
+		Importer:              server.ProxmoxImport,
+		Service:               inventoryService,
+		Authz:                 authzService,
+		Audit:                 auditService,
+		Allocator:             vmidAllocator,
+		TemplatesFolderItemID: vmTemplatesFolderItemID,
+		TemplateLibrary:       inventoryService,
+		NetworkScopeReader:    database.New(server.DBPool),
+		NetworkCatalog:        networkCatalog,
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {

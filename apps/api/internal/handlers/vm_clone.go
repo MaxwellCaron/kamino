@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/names"
@@ -29,6 +27,34 @@ type vmMutationResponse struct {
 	VMID   int           `json:"vmid"`
 	ItemID uuid.UUID     `json:"item_id"`
 	Item   InventoryItem `json:"item"`
+}
+
+func resolveVMCloneSource(
+	ctx context.Context,
+	authzService vmAuthz,
+	px vmProxmox,
+	templateLibrary configuredFolderReader,
+	configuredFolderID uuid.UUID,
+	principalID uuid.UUID,
+	itemID uuid.UUID,
+) (verifiedVMTarget, *requestError) {
+	err := validateTemplateLibrarySource(ctx, templateLibrary, configuredFolderID, itemID)
+	switch err {
+	case nil:
+		return resolveVerifiedVMItem(ctx, authzService, px, itemID, true)
+	case errTemplateLibraryUnavailable, errTemplateSourceOutOfScope:
+	default:
+		return verifiedVMTarget{}, &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to validate template source",
+			Operation:   "validate configured VM template source",
+			Err:         err,
+		}
+	}
+
+	return resolveVerifiedVMItemPermission(
+		ctx, authzService, px, principalID, itemID, authorization.CloneVM, true,
+	)
 }
 
 // CloneVM clones a VM and waits for the Proxmox task to complete.
@@ -54,8 +80,11 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 	if !ok {
 		return
 	}
-	source, ok := requireVerifiedVMItemPermission(c, h.Authz, h.PX, principalID, itemID, authorization.CloneVM, true)
-	if !ok {
+	source, reqErr := resolveVMCloneSource(
+		c.Request.Context(), h.Authz, h.PX, h.TemplateLibrary, h.TemplatesFolderItemID, principalID, itemID,
+	)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
 		return
 	}
 	if source.GuestType == proxmox.GuestLXC {
@@ -86,32 +115,6 @@ func (h *VMHandler) CloneVM(c *gin.Context) {
 		return
 	}
 	if scoped {
-		// Personal-template source restriction is a separate, non-manager-only policy from network scope.
-		if scope.Kind == database.PodNetworkAllocationKindPersonalPod {
-			isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
-			if err != nil {
-				writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm clone management permission", err)
-				return
-			}
-			if !isManager {
-				switch err := validatePersonalPodTemplateSource(
-					c.Request.Context(), h.Service, h.PersonalPodTemplatesFolderItemID, source.ItemID,
-				); {
-				case errors.Is(err, errPersonalPodTemplatesFolderUnavailable):
-					c.JSON(http.StatusServiceUnavailable, gin.H{"error": "personal pod templates are not configured"})
-					return
-				case errors.Is(err, errPersonalPodTemplateSourceOutOfScope):
-					c.JSON(http.StatusUnprocessableEntity, gin.H{
-						"error": "templates cloned into a personal pod must come from the configured templates folder",
-					})
-					return
-				case err != nil:
-					writeLoggedError(c, http.StatusInternalServerError, "failed to validate personal pod template source", "validate personal pod template source", err)
-					return
-				}
-			}
-		}
-
 		sourceHardware, err := h.PX.GetVMHardwareConfig(c.Request.Context(), source.Node, source.VMID)
 		if err != nil {
 			writeLoggedError(c, http.StatusBadGateway, "failed to load source virtual machine hardware", "load vm clone source hardware config", err)

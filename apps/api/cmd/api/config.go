@@ -45,6 +45,7 @@ type Config struct {
 
 	// --- Inventory folder item IDs (optional) ---
 	TemplatesFolderItemID    string `envconfig:"TEMPLATES_FOLDER_ITEM_ID"`
+	VMTemplatesFolderItemID  string `envconfig:"VM_TEMPLATES_FOLDER_ITEM_ID"`
 	PodsFolderItemID         string `envconfig:"PODS_FOLDER_ITEM_ID"`
 	PersonalPodsFolderItemID string `envconfig:"PERSONAL_PODS_FOLDER_ITEM_ID"`
 	PodRouterTemplate        string `envconfig:"POD_ROUTER_TEMPLATE_ITEM_ID"`
@@ -53,9 +54,8 @@ type Config struct {
 	PodRouterWait string `envconfig:"POD_ROUTER_WAIT_TIMEOUT" default:"5m"`
 
 	// --- Personal pods (optional; defaults to the pod router template) ---
-	PersonalPodsEnabled              bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
-	PersonalPodRouterTemplateItemID  string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
-	PersonalPodTemplatesFolderItemID string `envconfig:"PERSONAL_POD_TEMPLATES_FOLDER_ITEM_ID"`
+	PersonalPodsEnabled             bool   `envconfig:"PERSONAL_PODS_ENABLED" default:"false"`
+	PersonalPodRouterTemplateItemID string `envconfig:"PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID"`
 
 	// --- VMID allocation ranges (optional defaults shown) ---
 	PodPublishVMIDMin  int `envconfig:"POD_PUBLISH_VMID_MIN" default:"1000"`
@@ -117,8 +117,8 @@ func resolvePersonalPodRouterTemplateItemID(enabled bool, value string, podRoute
 	return templateItemID, nil
 }
 
-// resolvePersonalPodTemplatesFolderItemID inherits templatesFolderItemID when value is blank.
-func resolvePersonalPodTemplatesFolderItemID(value string, templatesFolderItemID uuid.UUID) (uuid.UUID, error) {
+// resolveVMTemplatesFolderItemID inherits templatesFolderItemID when value is blank.
+func resolveVMTemplatesFolderItemID(value string, templatesFolderItemID uuid.UUID) (uuid.UUID, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return templatesFolderItemID, nil

@@ -59,18 +59,19 @@ type vmAuthz interface {
 
 // VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
-	PX                               vmProxmox
-	Importer                         *proxmox.InventoryImporter
-	Service                          *inventory.Service
-	Notifier                         *vmstatus.Notifier
-	Authz                            vmAuthz
-	Actions                          *vmactions.Executor
-	Claims                           *vmactions.Claims
-	Audit                            *audit.Service
-	Allocator                        *vmidalloc.Allocator
-	PersonalPodTemplatesFolderItemID uuid.UUID
-	NetworkScopeReader               podNetworkScopeReader
-	NetworkCatalog                   *podnetwork.Catalog
+	PX                    vmProxmox
+	Importer              *proxmox.InventoryImporter
+	Service               *inventory.Service
+	Notifier              *vmstatus.Notifier
+	Authz                 vmAuthz
+	Actions               *vmactions.Executor
+	Claims                *vmactions.Claims
+	Audit                 *audit.Service
+	Allocator             *vmidalloc.Allocator
+	TemplatesFolderItemID uuid.UUID
+	TemplateLibrary       configuredFolderReader
+	NetworkScopeReader    podNetworkScopeReader
+	NetworkCatalog        *podnetwork.Catalog
 }
 
 // writeActionInProgress writes a deterministic 409 Conflict response when a

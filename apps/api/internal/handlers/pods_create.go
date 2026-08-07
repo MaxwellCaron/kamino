@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
@@ -37,21 +36,10 @@ func (h *PodsHandler) GetCreateProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, snapshot)
 }
 
-type podTemplateOption struct {
-	ID               uuid.UUID `json:"id"`
-	Name             string    `json:"name"`
-	Node             string    `json:"node"`
-	VMID             int32     `json:"vmid"`
-	CPUCount         *int32    `json:"cpu_count,omitempty"`
-	MemoryMB         *int32    `json:"memory_mb,omitempty"`
-	DiskGB           *float64  `json:"disk_gb,omitempty"`
-	IsRouterTemplate bool      `json:"is_router_template"`
-}
-
 type podCreateOptionsResponse struct {
 	RouterTemplateConfigured bool                       `json:"router_template_configured"`
 	NetworkProfiles          []podnetwork.PublicProfile `json:"network_profiles"`
-	Templates                []podTemplateOption        `json:"templates"`
+	Templates                []templateLibraryOption    `json:"templates"`
 }
 
 type podNameAvailabilityResponse struct {
@@ -119,68 +107,26 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
-	templatesFolderID, found, err := h.resolveTemplatesFolderID(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to load templates", "find pod template folder", err)
-		return
-	}
-	if !found {
-		c.JSON(http.StatusOK, podCreateOptionsResponse{
-			RouterTemplateConfigured: h.RouterTemplateItemID != uuid.Nil,
-			NetworkProfiles:          h.publicNetworkProfiles(),
-			Templates:                []podTemplateOption{},
-		})
-		return
-	}
-
-	rows, err := h.Service.GetVisibleInventoryItems(c.Request.Context(), principalID)
+	templates, err := loadTemplateLibraryOptions(
+		c.Request.Context(), h.Service, h.TemplatesFolderItemID,
+	)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load templates", "load pod template options", err)
 		return
 	}
 
-	templates := make([]podTemplateOption, 0)
-	for _, row := range rows {
-		if row.Kind != database.InventoryItemKindVm || row.IsTemplate == nil || !*row.IsTemplate {
+	visibleTemplates := templates[:0]
+	for _, template := range templates {
+		if h.RouterTemplateItemID != uuid.Nil && template.ID == h.RouterTemplateItemID {
 			continue
 		}
-		if row.ParentID == nil || *row.ParentID != templatesFolderID {
-			continue
-		}
-		if row.Node == nil || row.Vmid == nil {
-			continue
-		}
-
-		allowed, err := h.Authz.Has(c.Request.Context(), principalID, row.ID, authorization.CloneVM)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize pod template option", err)
-			return
-		}
-		if !allowed {
-			continue
-		}
-
-		isRouterTemplate := h.RouterTemplateItemID != uuid.Nil && row.ID == h.RouterTemplateItemID
-		if isRouterTemplate {
-			continue
-		}
-
-		templates = append(templates, podTemplateOption{
-			ID:               row.ID,
-			Name:             row.Name,
-			Node:             *row.Node,
-			VMID:             *row.Vmid,
-			CPUCount:         row.CpuCount,
-			MemoryMB:         row.MemoryMb,
-			DiskGB:           row.DiskGb,
-			IsRouterTemplate: isRouterTemplate,
-		})
+		visibleTemplates = append(visibleTemplates, template)
 	}
 
 	c.JSON(http.StatusOK, podCreateOptionsResponse{
 		RouterTemplateConfigured: h.RouterTemplateItemID != uuid.Nil,
 		NetworkProfiles:          h.publicNetworkProfiles(),
-		Templates:                templates,
+		Templates:                visibleTemplates,
 	})
 }
 

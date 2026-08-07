@@ -202,8 +202,9 @@ var _ vmProxmox = (*fakeVMProxmox)(nil)
 // before the handler ever touches them.
 func newVMTestHandler(authz vmAuthz, px vmProxmox) *VMHandler {
 	return &VMHandler{
-		PX:    px,
-		Authz: authz,
+		PX:              px,
+		Authz:           authz,
+		TemplateLibrary: &fakeTemplateLibraryReader{},
 	}
 }
 

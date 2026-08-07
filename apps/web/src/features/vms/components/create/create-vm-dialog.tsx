@@ -302,13 +302,7 @@ export function CreateVmDialog({
     error: createOptionsError,
     isLoading: isCreateOptionsLoading,
   } = useQuery(createVmOptionsQueryOptions(selectedTargetFolderId, open))
-  const templatesFolderScope = createOptions?.personal_pod_templates_restricted
-    ? (createOptions.personal_pod_templates_folder_id ?? null)
-    : undefined
-  const templateOptions = getVmTemplateOptions(
-    inventoryTree,
-    templatesFolderScope
-  )
+  const templateOptions = getVmTemplateOptions(createOptions?.templates)
   const { data: isos } = useQuery({
     ...createVmIsosQueryOptions(selectedIsoStorage),
     enabled: open && !!selectedIsoStorage,

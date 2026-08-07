@@ -20,6 +20,31 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 	spec podCloneSpec,
 	opts cloneVMOptions,
 ) (createPodVMResult, *requestError) {
+	if !spec.Router {
+		switch err := validateTemplateLibrarySource(
+			ctx, h.Service, h.TemplatesFolderItemID, spec.TemplateItemID,
+		); {
+		case err == nil:
+		case errors.Is(err, errTemplateLibraryUnavailable):
+			return createPodVMResult{}, &requestError{
+				Status:      http.StatusServiceUnavailable,
+				UserMessage: "pod templates are not configured",
+			}
+		case errors.Is(err, errTemplateSourceOutOfScope):
+			return createPodVMResult{}, &requestError{
+				Status:      http.StatusUnprocessableEntity,
+				UserMessage: "selected template is outside the configured template library",
+			}
+		default:
+			return createPodVMResult{}, &requestError{
+				Status:      http.StatusInternalServerError,
+				UserMessage: "failed to validate template",
+				Operation:   "validate configured pod template source",
+				Err:         err,
+			}
+		}
+	}
+
 	item, err := h.Service.GetInventoryItemByID(ctx, spec.TemplateItemID)
 	switch {
 	case err == nil:
@@ -45,7 +70,14 @@ func (h *PodsHandler) cloneTemplateIntoPod(
 		}
 	}
 
-	clone, reqErr := h.cloneVMIntoFolder(ctx, principalID, spec.TemplateItemID, placement, targetNode, spec.Name, false, opts)
+	source, reqErr := resolveVerifiedVMItem(ctx, h.Authz, h.PX, spec.TemplateItemID, true)
+	if reqErr != nil {
+		return createPodVMResult{}, reqErr
+	}
+
+	clone, reqErr := h.cloneVerifiedVMIntoFolder(
+		ctx, source, spec.TemplateItemID, placement, targetNode, spec.Name, false, opts,
+	)
 	if reqErr != nil {
 		return createPodVMResult{}, reqErr
 	}

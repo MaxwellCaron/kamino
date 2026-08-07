@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-form"
 import { z } from "zod"
 import { vmNameSchema } from "../../utils/vm-name"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiVMTemplateOption } from "@/features/vms/api/proxmox-options-api"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
 import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import { uuid } from "@/features/shared/utils/uuid"
@@ -194,39 +194,18 @@ export type VmTemplateOption = {
   vmid: number
 }
 
-// templatesFolderId: undefined = unrestricted, a UUID = that folder's direct children only, null = no options.
 export function getVmTemplateOptions(
-  tree: Array<ApiTreeNode> | undefined,
-  templatesFolderId?: string | null
+  templates: Array<ApiVMTemplateOption> | undefined
 ): Array<VmTemplateOption> {
-  if (!tree) return []
-  if (templatesFolderId === null) return []
-
-  const templates: Array<VmTemplateOption> = []
-
-  function walk(nodes: Array<ApiTreeNode>, parentId: string | undefined) {
-    for (const entry of nodes) {
-      if (entry.kind === "vm" && entry.vm?.is_template) {
-        const inScope =
-          templatesFolderId === undefined || parentId === templatesFolderId
-        if (inScope) {
-          templates.push({
-            id: entry.id,
-            label: `${entry.name} (${entry.vm.node}/${entry.vm.vmid})`,
-            name: entry.name,
-            node: entry.vm.node,
-            vmid: entry.vm.vmid,
-          })
-        }
-      }
-
-      if (entry.children?.length) walk(entry.children, entry.id)
-    }
-  }
-
-  walk(tree, undefined)
-
-  return templates.sort((left, right) => left.label.localeCompare(right.label))
+  return (templates ?? [])
+    .map((template) => ({
+      id: template.id,
+      label: `${template.name} (${template.node}/${template.vmid})`,
+      name: template.name,
+      node: template.node,
+      vmid: template.vmid,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
 }
 
 export function getSelectedTemplate(
