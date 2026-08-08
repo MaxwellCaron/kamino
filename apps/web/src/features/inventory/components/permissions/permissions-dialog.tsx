@@ -135,8 +135,8 @@ function InventoryPermissionsFormBody({
         <SearchInputGroup
           value={principalSearch}
           onValueChange={setPrincipalSearch}
-          placeholder="Search principals..."
-          aria-label="Search added principals"
+          placeholder="Search configured principals..."
+          aria-label="Search configured principals"
           resultCount={filteredPrincipalCount}
         />
         <AddPrincipalsDialog
