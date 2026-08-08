@@ -1,17 +1,21 @@
 import { useState } from "react"
-import { ArrowUpRightIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import {
+  ArrowUpRightIcon,
+  PackageIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import { cn } from "@workspace/ui/lib/utils"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { PersonalPodStatus } from "@/features/pods/api/personal-pod-api"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
@@ -29,9 +33,11 @@ const PERSONAL_POD_DESCRIPTION =
   "Provisions you a personal folder along with a pre-configured router, allowing you to easily set up and manage your own virtual machines."
 
 export function PersonalPodCard({
+  className,
   status,
   username,
 }: {
+  className?: string
   status: PersonalPodStatus
   username?: string
 }) {
@@ -164,21 +170,31 @@ export function PersonalPodCard({
 
   return (
     <>
-      <Item variant="muted">
-        <ItemMedia variant="image" className="size-15">
-          <KaminoGrainient />
-        </ItemMedia>
-        <ItemContent>
-          <ItemTitle className="line-clamp-1">
-            Personal Pod
-            {cardMeta.footerLabel && (
-              <span className="text-muted-foreground">{` - ${cardMeta.footerLabel}`}</span>
-            )}
-          </ItemTitle>
-          <ItemDescription>{cardMeta.description}</ItemDescription>
-        </ItemContent>
-        <ItemActions>{cardMeta.action}</ItemActions>
-      </Item>
+      <Card className={cn(className)}>
+        <CardHeader className="flex flex-row items-center gap-4">
+          <div className="relative size-18 shrink-0 overflow-hidden rounded-3xl">
+            <div className="absolute inset-0 opacity-75">
+              <KaminoGrainient />
+            </div>
+            <HugeiconsIcon
+              icon={PackageIcon}
+              className="absolute inset-0 m-auto size-8 text-white drop-shadow-sm"
+            />
+          </div>
+          <div className="flex flex-1 flex-col gap-1.5">
+            <CardTitle className="line-clamp-1 scroll-m-20 text-2xl font-semibold tracking-tight">
+              Personal Pod
+              {cardMeta.footerLabel && (
+                <span className="text-muted-foreground">{` - ${cardMeta.footerLabel}`}</span>
+              )}
+            </CardTitle>
+            <CardDescription>{cardMeta.description}</CardDescription>
+          </div>
+          <CardAction className="static self-center">
+            {cardMeta.action}
+          </CardAction>
+        </CardHeader>
+      </Card>
       <ConfirmDialog
         config={confirmConfig}
         onClose={() => setConfirmConfig(null)}

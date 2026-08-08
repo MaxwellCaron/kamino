@@ -30,7 +30,9 @@ import {
   catalogCloneSummariesQueryOptions,
   podQuestionActivityQueryOptions,
 } from "@/features/pods/api/clone-pod-api"
+import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
 import {
   requestDetailQueryOptions,
   requesterRequestSummariesQueryOptions,
@@ -63,6 +65,9 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const { data: providerCapabilities } = useQuery(principalProviderQueryOptions)
   const canChangeOwnPassword =
     providerCapabilities?.can_change_own_password ?? true
+  const { data: personalPodStatus, isLoading: isPersonalPodLoading } = useQuery(
+    personalPodQueryOptions
+  )
   const {
     data: pendingRequests,
     error: pendingRequestsError,
@@ -279,6 +284,13 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
                 canChangeOwnPassword ? () => setSettingsOpen(true) : undefined
               }
             />
+            {!isPersonalPodLoading && personalPodStatus?.configured ? (
+              <PersonalPodCard
+                className="xl:col-span-12"
+                status={personalPodStatus}
+                username={user.username}
+              />
+            ) : null}
             <DashboardQuestionActivityCard
               className="xl:col-span-4"
               data={questionActivityHeatmapData}
@@ -294,7 +306,6 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
               clonedPodIds={clonedPodIds}
               error={catalogError}
               pods={recentPods}
-              username={user.username}
             />
             <DashboardFavoritesCard
               className="xl:col-span-5"

@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -25,34 +24,26 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
-import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
 import { browsePodsCarouselItemClassName } from "@/features/pods/components/browse/browse-pods-skeleton"
-import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 
 export function DashboardRecentPodsCard({
   className,
   clonedPodIds,
   error,
   pods,
-  username,
 }: {
   className?: string
   clonedPodIds: Set<string>
   error: Error | null
   pods: Array<PublishedPodCatalogEntry>
-  username: string
 }) {
-  const { data: personalPodStatus, isLoading: isPersonalPodLoading } = useQuery(
-    personalPodQueryOptions
-  )
-  const showPersonalPodCard = personalPodStatus?.configured ?? false
   const showPublishedPodCards = pods.length > 0
 
   return (
     <Card className={cn(className)}>
       <CardHeader>
         <CardTitle className="scroll-m-20 text-2xl font-semibold tracking-tight">
-          Pods
+          Published Pods
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
           Newest catalog entries visible to you.
@@ -65,9 +56,6 @@ export function DashboardRecentPodsCard({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        {!isPersonalPodLoading && personalPodStatus?.configured ? (
-          <PersonalPodCard status={personalPodStatus} username={username} />
-        ) : null}
         {error ? (
           <Empty className="h-full min-h-52">
             <EmptyHeader>
@@ -89,7 +77,7 @@ export function DashboardRecentPodsCard({
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
-        ) : !showPersonalPodCard && !isPersonalPodLoading ? (
+        ) : (
           <Empty className="h-full min-h-52">
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -104,7 +92,7 @@ export function DashboardRecentPodsCard({
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   )
