@@ -7,6 +7,13 @@ export type ApiTreeNodeVM = {
   cpu_count?: number
   memory_mb?: number
   disk_gb?: number
+  addresses?: Array<ApiInventoryVmAddress>
+}
+
+export type ApiInventoryVmAddress = {
+  label: "WAN" | "DMZ" | "LAN"
+  address: string
+  device: string
 }
 
 export type ApiTreeNodePermissions = {

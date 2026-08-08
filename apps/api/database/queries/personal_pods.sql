@@ -79,6 +79,12 @@ SELECT
     updated_at
 FROM inserted;
 
+-- name: SetPersonalPodRouterInventoryItem :execrows
+UPDATE pod_network_allocations
+SET inventory_item_id = sqlc.arg(inventory_item_id)
+WHERE personal_pod_id = sqlc.arg(personal_pod_id)
+  AND kind = 'personal_pod';
+
 -- name: GetPersonalPodForInventoryItem :one
 WITH RECURSIVE ancestors AS (
     SELECT inventory_items.id, inventory_items.parent_id

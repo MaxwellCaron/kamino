@@ -100,6 +100,7 @@ export function InventoryFolderItem({
         cpuCount={node.vm?.cpu_count}
         memoryMb={node.vm?.memory_mb}
         diskGb={node.vm?.disk_gb}
+        addresses={node.vm?.addresses}
         trailingContent={
           <FolderRowActions
             itemId={node.id}

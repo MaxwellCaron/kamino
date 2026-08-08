@@ -185,3 +185,23 @@ func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodPa
 	)
 	return i, err
 }
+
+const setPersonalPodRouterInventoryItem = `-- name: SetPersonalPodRouterInventoryItem :execrows
+UPDATE pod_network_allocations
+SET inventory_item_id = $1
+WHERE personal_pod_id = $2
+  AND kind = 'personal_pod'
+`
+
+type SetPersonalPodRouterInventoryItemParams struct {
+	InventoryItemID *uuid.UUID `json:"inventory_item_id"`
+	PersonalPodID   *uuid.UUID `json:"personal_pod_id"`
+}
+
+func (q *Queries) SetPersonalPodRouterInventoryItem(ctx context.Context, arg SetPersonalPodRouterInventoryItemParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPersonalPodRouterInventoryItem, arg.InventoryItemID, arg.PersonalPodID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,11 +15,13 @@ import (
 )
 
 type InventoryHandler struct {
-	Service  *inventory.Service
-	Notifier *inventory.Notifier
-	PX       *proxmox.Client
-	Authz    *authorization.Service
-	Audit    *audit.Service
+	Service            *inventory.Service
+	Notifier           *inventory.Notifier
+	PX                 *proxmox.Client
+	Authz              *authorization.Service
+	Audit              *audit.Service
+	PodVMAddressReader podVMAddressReader
+	NetworkCatalog     *podnetwork.Catalog
 }
 
 // JSON response types
@@ -37,14 +40,15 @@ type TreeNode struct {
 }
 
 type VMDetail struct {
-	Node       string   `json:"node"`
-	VMID       int32    `json:"vmid"`
-	GuestType  string   `json:"guest_type"`
-	IsTemplate bool     `json:"is_template"`
-	Notes      *string  `json:"notes,omitempty"`
-	CPUCount   *int32   `json:"cpu_count,omitempty"`
-	MemoryMB   *int32   `json:"memory_mb,omitempty"`
-	DiskGB     *float64 `json:"disk_gb,omitempty"`
+	Node       string               `json:"node"`
+	VMID       int32                `json:"vmid"`
+	GuestType  string               `json:"guest_type"`
+	IsTemplate bool                 `json:"is_template"`
+	Notes      *string              `json:"notes,omitempty"`
+	CPUCount   *int32               `json:"cpu_count,omitempty"`
+	MemoryMB   *int32               `json:"memory_mb,omitempty"`
+	DiskGB     *float64             `json:"disk_gb,omitempty"`
+	Addresses  []InventoryVMAddress `json:"addresses,omitempty"`
 }
 
 type InventoryItem struct {
@@ -104,8 +108,19 @@ func (h *InventoryHandler) GetTree(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch inventory", "load inventory tree", err)
 		return
 	}
+	vmItemIDs := make([]uuid.UUID, 0, len(rows))
+	for _, row := range rows {
+		if row.Node != nil {
+			vmItemIDs = append(vmItemIDs, row.ID)
+		}
+	}
+	addressesByItemID, err := h.loadPodVMAddresses(c.Request.Context(), vmItemIDs)
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch inventory", "load inventory VM addresses", err)
+		return
+	}
 
-	c.JSON(http.StatusOK, buildTree(rows))
+	c.JSON(http.StatusOK, buildTree(rows, addressesByItemID))
 }
 
 // GetItem returns a single inventory item with VM details.
@@ -137,7 +152,17 @@ func (h *InventoryHandler) GetItem(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, buildInventoryItem(row))
+	item := buildInventoryItem(row)
+	addressesByItemID, err := h.loadPodVMAddresses(c.Request.Context(), []uuid.UUID{id})
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch item", "load inventory VM addresses", err)
+		return
+	}
+	if item.VM != nil {
+		item.VM.Addresses = addressesByItemID[id]
+	}
+
+	c.JSON(http.StatusOK, item)
 }
 
 // GetACL returns the direct ACL entries for an inventory item.

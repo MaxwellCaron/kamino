@@ -103,6 +103,7 @@ export function VmDashboardPage() {
             powerStatus={powerStatus}
             resources={shouldFetchResources ? resources : undefined}
             networks={overview?.networks}
+            addresses={vm.addresses}
             isNetworksLoading={isOverviewPending}
             isNetworksError={isOverviewError}
             isTemplate={isTemplate}

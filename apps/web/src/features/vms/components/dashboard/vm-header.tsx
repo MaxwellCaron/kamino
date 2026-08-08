@@ -29,6 +29,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import type {
+  ApiInventoryVmAddress,
   ApiTreeNode,
   ApiTreeNodeVM,
 } from "@/features/inventory/types/inventory-types"
@@ -110,13 +111,62 @@ function getUptimeDetail(
 
 function NetworkingStatContent({
   networks,
+  addresses,
   isLoading,
   isError,
 }: {
   networks: Array<ApiVmNetworkSummary> | undefined
+  addresses: Array<ApiInventoryVmAddress> | undefined
   isLoading: boolean
   isError: boolean
 }) {
+  const addressesByDevice = new Map<string, Array<string>>()
+  for (const address of addresses ?? []) {
+    const deviceAddresses = addressesByDevice.get(address.device) ?? []
+    deviceAddresses.push(address.address)
+    addressesByDevice.set(address.device, deviceAddresses)
+  }
+
+  const rows = networks?.length
+    ? networks.map((network, index) => {
+        const device = network.device ?? `net${index}`
+        return {
+          device,
+          value: addressesByDevice.get(device)?.join(" · ") ?? network.bridge,
+        }
+      })
+    : Array.from(addressesByDevice.entries())
+        .sort(([left], [right]) =>
+          left.localeCompare(right, undefined, { numeric: true })
+        )
+        .map(([device, deviceAddresses]) => ({
+          device,
+          value: deviceAddresses.join(" · "),
+        }))
+
+  if (rows.length > 0) {
+    return (
+      <div className="flex min-h-15 w-full flex-col justify-between">
+        {rows.map((row) => (
+          <div
+            key={row.device}
+            className="flex items-center justify-between gap-3 text-sm"
+          >
+            <span className="text-xl font-semibold tracking-tight">
+              {row.device}
+            </span>
+            <span
+              className="min-w-0 truncate text-xl font-semibold tracking-tight text-muted-foreground"
+              title={row.value}
+            >
+              {row.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-15 w-full flex-col justify-between gap-1.5">
@@ -142,23 +192,7 @@ function NetworkingStatContent({
     )
   }
 
-  return (
-    <div className="flex min-h-15 w-full flex-col justify-between">
-      {networks.map((network, index) => (
-        <div
-          key={network.device}
-          className="flex items-center justify-between gap-3 text-sm"
-        >
-          <span className="text-xl font-semibold tracking-tight">
-            {network.device ?? `net${index}`}
-          </span>
-          <span className="min-w-0 truncate text-xl font-semibold tracking-tight text-muted-foreground">
-            {network.bridge}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
+  return null
 }
 
 function buildStats(
@@ -167,6 +201,7 @@ function buildStats(
   powerStatus: string | undefined,
   resources: VmResources | undefined,
   networks: Array<ApiVmNetworkSummary> | undefined,
+  addresses: Array<ApiInventoryVmAddress> | undefined,
   isNetworksLoading: boolean,
   isNetworksError: boolean
 ): Array<Stat> {
@@ -257,6 +292,7 @@ function buildStats(
       content: (
         <NetworkingStatContent
           networks={networks}
+          addresses={addresses}
           isLoading={isNetworksLoading}
           isError={isNetworksError}
         />
@@ -272,6 +308,7 @@ export function VmHeader({
   powerStatus,
   resources,
   networks,
+  addresses,
   isNetworksLoading,
   isNetworksError,
   isTemplate,
@@ -282,6 +319,7 @@ export function VmHeader({
   powerStatus: string | undefined
   resources: VmResources | undefined
   networks: Array<ApiVmNetworkSummary> | undefined
+  addresses: Array<ApiInventoryVmAddress> | undefined
   isNetworksLoading: boolean
   isNetworksError: boolean
   isTemplate: boolean
@@ -292,6 +330,7 @@ export function VmHeader({
     powerStatus,
     resources,
     networks,
+    addresses,
     isNetworksLoading,
     isNetworksError
   )

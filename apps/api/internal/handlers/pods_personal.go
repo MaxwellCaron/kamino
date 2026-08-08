@@ -370,6 +370,24 @@ func (h *PodsHandler) provisionPersonalPod(
 		h.cleanupFailedPodProvision(folderID, created)
 		return database.PersonalPods{}, reqErr
 	}
+	linkedRows, err := q.SetPersonalPodRouterInventoryItem(ctx, database.SetPersonalPodRouterInventoryItemParams{
+		InventoryItemID: &clone.InventoryItemID,
+		PersonalPodID:   &personalPod.ID,
+	})
+	if err != nil || linkedRows != 1 {
+		if err == nil {
+			err = fmt.Errorf("linked %d personal pod network allocations", linkedRows)
+		}
+		reqErr := &requestError{
+			Status:      http.StatusInternalServerError,
+			UserMessage: "failed to save personal pod router metadata",
+			Operation:   "link personal pod router inventory item",
+			Err:         err,
+		}
+		recordFailure(reqErr)
+		h.cleanupFailedPodProvision(folderID, created)
+		return database.PersonalPods{}, reqErr
+	}
 
 	targets := []podNetworkVMTarget{{
 		name:   "router",

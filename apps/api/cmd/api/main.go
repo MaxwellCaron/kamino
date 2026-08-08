@@ -144,11 +144,13 @@ func main() {
 	auditService := audit.NewService(server.DBPool)
 	go auditService.StartRetention(context.Background())
 	inventoryHandler := &handlers.InventoryHandler{
-		Service:  inventoryService,
-		Notifier: inventoryNotifier,
-		PX:       server.ProxmoxClient,
-		Authz:    authzService,
-		Audit:    auditService,
+		Service:            inventoryService,
+		Notifier:           inventoryNotifier,
+		PX:                 server.ProxmoxClient,
+		Authz:              authzService,
+		Audit:              auditService,
+		PodVMAddressReader: database.New(server.DBPool),
+		NetworkCatalog:     networkCatalog,
 	}
 	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
 	vncHandler.Authz = authzService

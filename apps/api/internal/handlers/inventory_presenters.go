@@ -12,7 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNode {
+func buildTree(
+	rows []database.GetVisibleInventoryItemsForPrincipalRow,
+	addressesByItemID map[uuid.UUID][]InventoryVMAddress,
+) []TreeNode {
 	nodes := make(map[uuid.UUID]*TreeNode, len(rows))
 	childMap := make(map[uuid.UUID][]uuid.UUID, len(rows))
 
@@ -30,6 +33,7 @@ func buildTree(rows []database.GetVisibleInventoryItemsForPrincipalRow) []TreeNo
 
 		if row.Node != nil {
 			node.VM = toVMDetail(row.Node, row.Vmid, row.GuestType, row.IsTemplate, row.Notes, row.CpuCount, row.MemoryMb, row.DiskGb)
+			node.VM.Addresses = addressesByItemID[row.ID]
 		}
 
 		nodes[row.ID] = node
