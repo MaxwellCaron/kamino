@@ -212,7 +212,11 @@ export function getPublishedPodsColumns({
       header: "Created",
       cell: ({ row }) => (
         <span className="py-1 text-sm text-muted-foreground">
-          <RelativeTimeCard date={row.original.created_at} />
+          <RelativeTimeCard
+            delay={50}
+            closeDelay={150}
+            date={row.original.created_at}
+          />
         </span>
       ),
     },

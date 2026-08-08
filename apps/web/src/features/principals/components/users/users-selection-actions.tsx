@@ -27,8 +27,14 @@ type UsersSelectionActionsProps = {
   canDisableUsers: boolean
   onAddToGroup: (ctx: BulkGroupContext) => void
   onEnableUsers: (users: Array<ApiPrincipal>) => void
-  onDisableUsers: (users: Array<ApiPrincipal>, clearSelection: () => void) => void
-  onDeleteUsers: (users: Array<ApiPrincipal>, clearSelection: () => void) => void
+  onDisableUsers: (
+    users: Array<ApiPrincipal>,
+    clearSelection: () => void
+  ) => void
+  onDeleteUsers: (
+    users: Array<ApiPrincipal>,
+    clearSelection: () => void
+  ) => void
   onConfirm: (config: ConfirmConfig) => void
 }
 
@@ -111,6 +117,7 @@ export function UsersSelectionActions({
           <HugeiconsIcon icon={Cancel01Icon} />
         </ActionBarItem>
       ) : null}
+      <ActionBarSeparator />
       <ActionBarItem
         variant="destructive"
         onSelect={(event) => event.preventDefault()}

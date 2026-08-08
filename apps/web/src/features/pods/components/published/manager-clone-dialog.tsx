@@ -23,13 +23,12 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { useQuery } from "@tanstack/react-query"
-import { ManagerClonePrincipalTable } from "./manager-clone-principal-table"
-import { managerClonePrincipalColumns } from "./manager-clone-principal-columns"
 import type { RowSelectionState } from "@tanstack/react-table"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import { AppDialog, AppDialogScrollBody } from "@/components/dialogs/app-dialog"
+import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -164,11 +163,11 @@ export function ManagerCloneDialog({
         </p>
       ) : (
         <AppDialogScrollBody className="-mx-6 -mb-8 p-0">
-          <ManagerClonePrincipalTable
-            columns={managerClonePrincipalColumns}
+          <PrincipalSelectionTable
             data={visibleOptions}
             rowSelection={rowSelection}
             onRowSelectionChange={setRowSelection}
+            selectAllLabel="Select all visible principals"
           />
         </AppDialogScrollBody>
       )}

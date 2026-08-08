@@ -2,27 +2,30 @@ import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
-import { UserGroupIcon } from "@hugeicons/core-free-icons"
+import { FilterIcon, UserGroupIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Button } from "@workspace/ui/components/button"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
-  Combobox,
-  ComboboxChip,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxValue,
-  useComboboxAnchor,
-} from "@workspace/ui/components/combobox"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import type { PrincipalSelectionItem } from "@/components/principals/principal-selection-table"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
 import {
   AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { PreloadOverlay } from "@/components/loading-overlay"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -41,10 +44,9 @@ type MembershipDialogProps = {
   principal: ApiPrincipal
 } & ({ mode: "user-groups" } | { mode: "group-members" })
 
-type MembershipOption = {
-  id: string
-  label: string
-}
+type MembershipOption = PrincipalSelectionItem
+
+type MembershipFilter = "all" | "selected" | "unselected"
 
 function uniqueIds(ids: Array<string>): Array<string> {
   return Array.from(new Set(ids))
@@ -52,11 +54,13 @@ function uniqueIds(ids: Array<string>): Array<string> {
 
 export function MembershipDialog(props: MembershipDialogProps) {
   const { open, onOpenChange, mode, principal } = props
+  const [editorVersion, setEditorVersion] = React.useState(0)
 
   return (
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
+      onClosed={() => setEditorVersion((version) => version + 1)}
       initialFocus={false}
       icon={UserGroupIcon}
       title={mode === "user-groups" ? "Groups" : "Members"}
@@ -67,6 +71,7 @@ export function MembershipDialog(props: MembershipDialogProps) {
       }
     >
       <MembershipEditor
+        key={`${mode}:${principal.id}:${editorVersion}`}
         open={open}
         mode={mode}
         principal={principal}
@@ -139,34 +144,50 @@ function MembershipEditor({
     [members, mode, userGroups]
   )
 
-  const options = React.useMemo<Array<MembershipOption>>(
-    () =>
-      (mode === "user-groups" ? allGroups : allUsers)?.map((option) => ({
-        id: option.id,
-        label: formatPrincipalReference(option),
-      })) ?? [],
-    [allGroups, allUsers, mode]
-  )
+  const options = React.useMemo<Array<MembershipOption>>(() => {
+    const type: MembershipOption["type"] =
+      mode === "user-groups" ? "group" : "user"
+
+    return (
+      (mode === "user-groups" ? allGroups : allUsers)
+        ?.map((option) => ({
+          description: option.external_id,
+          id: option.id,
+          label: formatPrincipalReference(option),
+          type,
+        }))
+        .sort((a, b) =>
+          a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+        ) ?? []
+    )
+  }, [allGroups, allUsers, mode])
+
+  if (loadError) {
+    return (
+      <InlineErrorAlert
+        error={loadError}
+        fallback="Failed to load memberships."
+      />
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="relative min-h-66">
+        <PreloadOverlay active label="Loading memberships" />
+      </div>
+    )
+  }
 
   return (
-    <div className="relative min-h-66">
-      <PreloadOverlay active={isLoading} label="Loading memberships" />
-      {loadError ? (
-        <InlineErrorAlert
-          error={loadError}
-          fallback="Failed to load memberships."
-        />
-      ) : !isLoading ? (
-        <MembershipForm
-          key={`${mode}:${principal.id}`}
-          mode={mode}
-          principal={principal}
-          serverIds={serverIds}
-          options={options}
-          onOpenChange={onOpenChange}
-        />
-      ) : null}
-    </div>
+    <MembershipForm
+      key={`${mode}:${principal.id}`}
+      mode={mode}
+      principal={principal}
+      serverIds={serverIds}
+      options={options}
+      onOpenChange={onOpenChange}
+    />
   )
 }
 
@@ -184,8 +205,10 @@ function MembershipForm({
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const anchor = useComboboxAnchor()
   const baselineIdsRef = React.useRef(serverIds)
+  const [search, setSearch] = React.useState("")
+  const [membershipFilter, setMembershipFilter] =
+    React.useState<MembershipFilter>("all")
 
   const form = useForm({
     defaultValues: {
@@ -231,6 +254,10 @@ function MembershipForm({
     form.store,
     (state) => state.values.selectedIds
   )
+  const rowSelection = React.useMemo<RowSelectionState>(
+    () => Object.fromEntries(selectedIds.map((id) => [id, true])),
+    [selectedIds]
+  )
   const hasChanges = React.useMemo(() => {
     const serverSet = new Set(baselineIdsRef.current)
     const selectedSet = new Set(selectedIds)
@@ -241,24 +268,62 @@ function MembershipForm({
     return false
   }, [selectedIds])
 
-  const optionMap = React.useMemo(() => {
-    const map = new Map<string, MembershipOption>()
-    for (const option of options) {
-      map.set(option.id, option)
-    }
-    return map
-  }, [options])
+  const visibleOptions = React.useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase()
 
-  const selectedOptions = React.useMemo(
-    () =>
-      selectedIds
-        .map((id) => optionMap.get(id))
-        .filter((option): option is MembershipOption => !!option),
-    [optionMap, selectedIds]
+    return options.filter((option) => {
+      const isSelected = !!rowSelection[option.id]
+      const membershipMatches =
+        membershipFilter === "all" ||
+        (membershipFilter === "selected" && isSelected) ||
+        (membershipFilter === "unselected" && !isSelected)
+
+      if (!membershipMatches) return false
+
+      return (
+        normalizedSearch.length === 0 ||
+        [option.label, option.description, option.type].some((value) =>
+          value.toLocaleLowerCase().includes(normalizedSearch)
+        )
+      )
+    })
+  }, [membershipFilter, options, rowSelection, search])
+
+  const handleRowSelectionChange: OnChangeFn<RowSelectionState> = (updater) => {
+    const nextSelection =
+      typeof updater === "function" ? updater(rowSelection) : updater
+    const nextSelectedIds: Array<string> = []
+    for (const [id, selected] of Object.entries(nextSelection)) {
+      if (selected) nextSelectedIds.push(id)
+    }
+    form.setFieldValue("selectedIds", nextSelectedIds)
+  }
+
+  const isGroupsMode = mode === "user-groups"
+  const itemName = isGroupsMode ? "group" : "user"
+  const itemNamePlural = isGroupsMode ? "groups" : "users"
+  const filterLabels: Record<MembershipFilter, string> = isGroupsMode
+    ? { all: "All groups", selected: "Assigned", unselected: "Unassigned" }
+    : { all: "All users", selected: "Members", unselected: "Non-members" }
+  const emptyMessage =
+    options.length === 0
+      ? `No ${itemNamePlural} are available.`
+      : `No ${itemNamePlural} match your search and filter.`
+
+  const setFilterValue = (value: string) => {
+    if (value === "all" || value === "selected" || value === "unselected") {
+      setMembershipFilter(value)
+    }
+  }
+
+  const resultLabel = React.useCallback(
+    (count: number) => `${count} ${count === 1 ? itemName : itemNamePlural}`,
+    [itemName, itemNamePlural]
   )
 
   return (
     <form
+      className="contents"
       action={() => {
         onOpenChange(false)
         showSingleMutationToast({
@@ -269,54 +334,58 @@ function MembershipForm({
         })
       }}
     >
-      <AppDialogScrollBody>
-        <form.Field name="selectedIds">
-          {(field) => (
-            <Combobox
-              multiple
-              autoHighlight
-              items={options}
-              itemToStringLabel={(option) => option.label}
-              value={selectedOptions}
-              onValueChange={(newValue) =>
-                field.handleChange(
-                  uniqueIds(newValue.map((option) => option.id))
-                )
-              }
-            >
-              <ComboboxChips ref={anchor} className="w-full p-3!">
-                <ComboboxValue>
-                  {(values) => (
-                    <React.Fragment>
-                      {(values as Array<MembershipOption>).map((option) => (
-                        <ComboboxChip key={option.id}>
-                          {option.label}
-                        </ComboboxChip>
-                      ))}
-                      <ComboboxChipsInput
-                        placeholder={
-                          mode === "user-groups"
-                            ? "Search groups..."
-                            : "Search users..."
-                        }
-                      />
-                    </React.Fragment>
-                  )}
-                </ComboboxValue>
-              </ComboboxChips>
-              <ComboboxContent anchor={anchor}>
-                <ComboboxEmpty>No items found.</ComboboxEmpty>
-                <ComboboxList>
-                  {(option) => (
-                    <ComboboxItem key={option.id} value={option}>
-                      {option.label}
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          )}
-        </form.Field>
+      <div className="flex items-center gap-2">
+        <SearchInputGroup
+          className="min-w-0 flex-1"
+          aria-label={`Search ${itemNamePlural}`}
+          placeholder={`Search ${itemNamePlural}...`}
+          value={search}
+          onValueChange={setSearch}
+          resultCount={visibleOptions.length}
+          resultLabel={resultLabel}
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                size="icon-lg"
+                variant={membershipFilter === "all" ? "secondary" : "outline"}
+                aria-label={`Filter ${itemNamePlural}: ${filterLabels[membershipFilter]}`}
+              >
+                <HugeiconsIcon icon={FilterIcon} />
+              </Button>
+            }
+          />
+          <DropdownMenuContent className="w-48" align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Membership</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={membershipFilter}
+                onValueChange={setFilterValue}
+              >
+                <DropdownMenuRadioItem value="all">
+                  {filterLabels.all}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="selected">
+                  {filterLabels.selected}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="unselected">
+                  {filterLabels.unselected}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <AppDialogScrollBody className="-mx-6 -mb-8 p-0">
+        <PrincipalSelectionTable
+          data={visibleOptions}
+          emptyMessage={emptyMessage}
+          rowSelection={rowSelection}
+          onRowSelectionChange={handleRowSelectionChange}
+          selectAllLabel={`Select all visible ${itemNamePlural}`}
+        />
       </AppDialogScrollBody>
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
@@ -325,7 +394,7 @@ function MembershipForm({
               disabled={!hasChanges}
               pending={isSubmitting}
             >
-              Save
+              Save (<span className="tabular-nums">{selectedIds.length}</span>)
             </AppDialogPrimaryButton>
           )}
         </form.Subscribe>
