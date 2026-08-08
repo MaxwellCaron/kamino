@@ -16,13 +16,19 @@ import (
 )
 
 // Sync handles syncing AD users and groups into the principals tables.
+type syncDirectoryReader interface {
+	FetchGroups(ctx context.Context) ([]Group, error)
+	FetchUsers(ctx context.Context) ([]User, error)
+}
+
 type Sync struct {
 	db     *pgxpool.Pool
-	client *Client
+	client syncDirectoryReader
 }
 
 // NewSync creates a new AD sync service.
-func NewSync(db *pgxpool.Pool, client *Client) *Sync {
+// The reader-only client boundary prevents sync from mutating AD.
+func NewSync(db *pgxpool.Pool, client syncDirectoryReader) *Sync {
 	return &Sync{db: db, client: client}
 }
 

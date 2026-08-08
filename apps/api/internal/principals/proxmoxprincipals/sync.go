@@ -17,12 +17,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Sync struct {
-	db     *pgxpool.Pool
-	client accessClient
+type syncAccessReader interface {
+	ListAccessUsers(ctx context.Context) ([]proxmox.AccessUser, error)
+	ListAccessGroups(ctx context.Context) ([]proxmox.AccessGroup, error)
 }
 
-func NewSync(db *pgxpool.Pool, client accessClient) *Sync {
+type Sync struct {
+	db     *pgxpool.Pool
+	client syncAccessReader
+}
+
+// NewSync accepts only provider read operations so sync cannot mutate Proxmox.
+func NewSync(db *pgxpool.Pool, client syncAccessReader) *Sync {
 	return &Sync{db: db, client: client}
 }
 
