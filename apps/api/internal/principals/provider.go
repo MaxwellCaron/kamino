@@ -33,8 +33,6 @@ type ProviderCapabilities struct {
 	CanRenameUsers       bool                           `json:"can_rename_users"`
 	CanSetPasswords      bool                           `json:"can_set_passwords"`
 	CanChangeOwnPassword bool                           `json:"can_change_own_password"`
-	CanEnableUsers       bool                           `json:"can_enable_users"`
-	CanDisableUsers      bool                           `json:"can_disable_users"`
 	CanCreateGroups      bool                           `json:"can_create_groups"`
 	CanManageMemberships bool                           `json:"can_manage_memberships"`
 }

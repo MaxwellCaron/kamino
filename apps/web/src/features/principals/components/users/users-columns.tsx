@@ -32,8 +32,6 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 type UserColumnsOptions = {
   canManage: boolean
   canManageMemberships: boolean
-  canEnableUsers: boolean
-  canDisableUsers: boolean
   onEditClick: (user: ApiPrincipal) => void
   onEditGroups: (user: ApiPrincipal) => void
   onEnableClick: (user: ApiPrincipal) => void
@@ -44,8 +42,6 @@ type UserColumnsOptions = {
 export function getUserColumns({
   canManage,
   canManageMemberships,
-  canEnableUsers,
-  canDisableUsers,
   onEditClick,
   onEditGroups,
   onEnableClick,
@@ -205,7 +201,7 @@ export function getUserColumns({
                   Groups
                 </DropdownMenuItem>
               ) : null}
-              {canEnableUsers && user.status === false ? (
+              {user.status === false ? (
                 <DropdownMenuItem onClick={() => onEnableClick(user)}>
                   <HugeiconsIcon
                     icon={Tick01Icon}
@@ -214,7 +210,7 @@ export function getUserColumns({
                   Enable
                 </DropdownMenuItem>
               ) : null}
-              {canDisableUsers && user.status !== false ? (
+              {user.status !== false ? (
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => onDisableClick(user)}

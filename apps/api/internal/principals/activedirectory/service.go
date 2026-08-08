@@ -33,8 +33,6 @@ func (s *Service) Capabilities() principals.ProviderCapabilities {
 		CanRenameUsers:       true,
 		CanSetPasswords:      true,
 		CanChangeOwnPassword: true,
-		CanEnableUsers:       true,
-		CanDisableUsers:      true,
 		CanCreateGroups:      true,
 		CanManageMemberships: true,
 	}

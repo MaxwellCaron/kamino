@@ -23,8 +23,6 @@ type BulkGroupContext = {
 type UsersSelectionActionsProps = {
   clearSelection: () => void
   selectedRows: Array<ApiPrincipal>
-  canEnableUsers: boolean
-  canDisableUsers: boolean
   onAddToGroup: (ctx: BulkGroupContext) => void
   onEnableUsers: (users: Array<ApiPrincipal>) => void
   onDisableUsers: (
@@ -41,8 +39,6 @@ type UsersSelectionActionsProps = {
 export function UsersSelectionActions({
   clearSelection,
   selectedRows,
-  canEnableUsers,
-  canDisableUsers,
   onAddToGroup,
   onEnableUsers,
   onDisableUsers,
@@ -84,39 +80,35 @@ export function UsersSelectionActions({
         <HugeiconsIcon icon={UserMinusIcon} />
       </ActionBarItem>
       <ActionBarSeparator />
-      {canEnableUsers ? (
-        <ActionBarItem
-          onSelect={(event) => event.preventDefault()}
-          onClick={() => onEnableUsers(selectedRows)}
-          aria-label="Enable selected users"
-          tooltip="Enable users"
-          variant="default"
-        >
-          <HugeiconsIcon icon={Tick01Icon} />
-        </ActionBarItem>
-      ) : null}
-      {canDisableUsers ? (
-        <ActionBarItem
-          variant="destructive"
-          onSelect={(event) => event.preventDefault()}
-          aria-label="Disable selected users"
-          tooltip="Disable users"
-          onClick={() =>
-            onConfirm({
-              title: isSingle ? "Disable User" : "Disable Users",
-              icon: Cancel01Icon,
-              description: isSingle
-                ? `Disable ${formatPrincipalReference(selectedRows[0])}? Active sessions will be revoked.`
-                : `Disable ${selectedRows.length} users? Active sessions will be revoked.`,
-              actionLabel: "Disable",
-              variant: "destructive",
-              onConfirm: () => onDisableUsers(selectedRows, clearSelection),
-            })
-          }
-        >
-          <HugeiconsIcon icon={Cancel01Icon} />
-        </ActionBarItem>
-      ) : null}
+      <ActionBarItem
+        onSelect={(event) => event.preventDefault()}
+        onClick={() => onEnableUsers(selectedRows)}
+        aria-label="Enable selected users"
+        tooltip="Enable users"
+        variant="default"
+      >
+        <HugeiconsIcon icon={Tick01Icon} />
+      </ActionBarItem>
+      <ActionBarItem
+        variant="destructive"
+        onSelect={(event) => event.preventDefault()}
+        aria-label="Disable selected users"
+        tooltip="Disable users"
+        onClick={() =>
+          onConfirm({
+            title: isSingle ? "Disable User" : "Disable Users",
+            icon: Cancel01Icon,
+            description: isSingle
+              ? `Disable ${formatPrincipalReference(selectedRows[0])}? Active sessions will be revoked.`
+              : `Disable ${selectedRows.length} users? Active sessions will be revoked.`,
+            actionLabel: "Disable",
+            variant: "destructive",
+            onConfirm: () => onDisableUsers(selectedRows, clearSelection),
+          })
+        }
+      >
+        <HugeiconsIcon icon={Cancel01Icon} />
+      </ActionBarItem>
       <ActionBarSeparator />
       <ActionBarItem
         variant="destructive"

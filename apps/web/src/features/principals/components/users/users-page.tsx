@@ -108,8 +108,6 @@ export function UsersPage() {
         canManage: canAdminister,
         canManageMemberships:
           providerCapabilities?.can_manage_memberships ?? true,
-        canEnableUsers: providerCapabilities?.can_enable_users ?? false,
-        canDisableUsers: providerCapabilities?.can_disable_users ?? false,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onEnableClick: (targetUser: ApiPrincipal) =>
@@ -143,8 +141,6 @@ export function UsersPage() {
     [
       canAdminister,
       providerCapabilities?.can_manage_memberships,
-      providerCapabilities?.can_enable_users,
-      providerCapabilities?.can_disable_users,
       editDialog.openWith,
       membershipDialog.openWith,
       showDeleteToast,
@@ -232,12 +228,6 @@ export function UsersPage() {
                         <UsersSelectionActions
                           clearSelection={clearSelection}
                           selectedRows={selectedRows}
-                          canEnableUsers={
-                            providerCapabilities?.can_enable_users ?? false
-                          }
-                          canDisableUsers={
-                            providerCapabilities?.can_disable_users ?? false
-                          }
                           onAddToGroup={bulkGroupDialog.openWith}
                           onEnableUsers={(usr) =>
                             showEnabledToast(usr, "enable")

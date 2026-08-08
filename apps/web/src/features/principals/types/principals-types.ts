@@ -44,8 +44,6 @@ export type ApiPrincipalProviderCapabilities = {
   can_rename_users: boolean
   can_set_passwords: boolean
   can_change_own_password: boolean
-  can_enable_users: boolean
-  can_disable_users: boolean
   can_create_groups: boolean
   can_manage_memberships: boolean
 }
