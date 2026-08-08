@@ -3,7 +3,6 @@ import { ArrowUpRightIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
   Item,
@@ -26,6 +25,9 @@ import {
 import { requesterRequestSummariesQueryOptions } from "@/features/requests/api/requests-api"
 import { KaminoGrainient } from "@/components/grainient-background"
 
+const PERSONAL_POD_DESCRIPTION =
+  "Provisions you a personal folder along with a pre-configured router, allowing you to easily set up and manage your own virtual machines."
+
 export function PersonalPodCard({
   status,
   username,
@@ -47,17 +49,14 @@ export function PersonalPodCard({
 
   const cardMeta = existingPersonalPod
     ? {
-        description:
-          "Open your personal pod folder and continue where you left off.",
+        description: PERSONAL_POD_DESCRIPTION,
         footerLabel:
           existingPersonalPod.network.lan_vlan_tag == null
             ? existingPersonalPod.network.vnet
-            : `${existingPersonalPod.network.vnet} · VLAN ${existingPersonalPod.network.lan_vlan_tag}`,
+            : `VLAN ${existingPersonalPod.network.lan_vlan_tag}`,
         action: (
           <Button
             type="button"
-            size="sm"
-            variant="secondary"
             onClick={() =>
               router.navigate({
                 to: "/inventory/items/$itemId",
@@ -72,28 +71,24 @@ export function PersonalPodCard({
       }
     : isPending
       ? {
-          description: "Your personal pod request is pending approval.",
-          footerLabel: "Request submitted",
+          description: PERSONAL_POD_DESCRIPTION,
           action: (
-            <Button size="sm" disabled>
-              Open
+            <Button disabled>
+              Requested
               <HugeiconsIcon icon={ArrowUpRightIcon} data-icon="inline-end" />
             </Button>
           ),
         }
       : canCreate
         ? {
-            description:
-              "Provision a personal folder with a router and a reserved network.",
+            description: PERSONAL_POD_DESCRIPTION,
             action: (
               <Button
                 type="button"
-                size="sm"
                 onClick={() =>
                   setConfirmConfig({
                     title: "Create Personal Pod",
-                    description:
-                      "Provision a personal folder with a router and a reserved network.",
+                    description: PERSONAL_POD_DESCRIPTION,
                     actionLabel: "Create",
                     onConfirm: () => {
                       showSingleMutationToast({
@@ -128,17 +123,14 @@ export function PersonalPodCard({
             ),
           }
         : {
-            description:
-              "Request a personal folder with a router and a reserved network.",
+            description: PERSONAL_POD_DESCRIPTION,
             action: (
               <Button
                 type="button"
-                size="sm"
                 onClick={() =>
                   setConfirmConfig({
                     title: "Request Personal Pod",
-                    description:
-                      "Submit a request for a personal folder with a router and a reserved network.",
+                    description: "Submit a request for a personal folder.",
                     actionLabel: "Request",
                     onConfirm: () => {
                       showSingleMutationToast({
@@ -177,11 +169,13 @@ export function PersonalPodCard({
           <KaminoGrainient />
         </ItemMedia>
         <ItemContent>
-          <ItemTitle>Personal Pod</ItemTitle>
+          <ItemTitle className="line-clamp-1">
+            Personal Pod
+            {cardMeta.footerLabel && (
+              <span className="text-muted-foreground">{` - ${cardMeta.footerLabel}`}</span>
+            )}
+          </ItemTitle>
           <ItemDescription>{cardMeta.description}</ItemDescription>
-          {cardMeta.footerLabel && (
-            <Badge variant="outline">{cardMeta.footerLabel}</Badge>
-          )}
         </ItemContent>
         <ItemActions>{cardMeta.action}</ItemActions>
       </Item>
