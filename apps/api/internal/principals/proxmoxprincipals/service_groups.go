@@ -116,25 +116,8 @@ func (s *Service) updateUserGroups(
 		return nil, principals.ErrUnsupportedPrincipal
 	}
 
-	currentMembers, err := q.GetGroupMembers(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	currentMemberSet := make(map[uuid.UUID]struct{}, len(currentMembers))
-	for _, member := range currentMembers {
-		currentMemberSet[member.ID] = struct{}{}
-	}
-
 	failed := make(map[uuid.UUID]error)
 	for _, memberID := range dedupeUUIDs(memberIDs) {
-		_, isMember := currentMemberSet[memberID]
-		if add && isMember {
-			continue
-		}
-		if !add && !isMember {
-			continue
-		}
-
 		member, err := q.GetPrincipalByID(ctx, memberID)
 		if err != nil {
 			failed[memberID] = err
@@ -145,22 +128,20 @@ func (s *Service) updateUserGroups(
 			continue
 		}
 
-		accessUser, err := s.lookupAccessUser(ctx, member.ExternalID)
-		if err != nil {
-			failed[memberID] = err
-			continue
-		}
-
-		groups := proxmox.ParseAccessGroups(accessUser.Groups)
 		if add {
-			if !containsString(groups, group.ExternalID) {
-				groups = append(groups, group.ExternalID)
-			}
+			err = s.client.AddAccessUserGroups(ctx, member.ExternalID, []string{group.ExternalID})
 		} else {
-			groups = removeString(groups, group.ExternalID)
+			var accessUser proxmox.AccessUser
+			accessUser, err = s.lookupAccessUser(ctx, member.ExternalID)
+			if err == nil {
+				groups := proxmox.ParseAccessGroups(accessUser.Groups)
+				remainingGroups := removeString(groups, group.ExternalID)
+				if len(remainingGroups) != len(groups) {
+					err = s.client.SetAccessUserGroups(ctx, member.ExternalID, remainingGroups)
+				}
+			}
 		}
-
-		if err := s.client.UpdateAccessUser(ctx, member.ExternalID, "", nil, groups); err != nil {
+		if err != nil {
 			failed[memberID] = err
 			continue
 		}
@@ -172,7 +153,6 @@ func (s *Service) updateUserGroups(
 			}); err != nil {
 				return failed, fmt.Errorf("persist added group membership: %w", err)
 			}
-			currentMemberSet[memberID] = struct{}{}
 			continue
 		}
 
@@ -182,19 +162,9 @@ func (s *Service) updateUserGroups(
 		}); err != nil {
 			return failed, fmt.Errorf("persist removed group membership: %w", err)
 		}
-		delete(currentMemberSet, memberID)
 	}
 
 	return failed, nil
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func removeString(values []string, target string) []string {
@@ -225,6 +195,62 @@ func (s *Service) RemoveGroupMembers(
 
 func (s *Service) GetUserGroups(ctx context.Context, userID uuid.UUID) ([]database.GetUserGroupsRow, error) {
 	return database.New(s.db).GetUserGroups(ctx, userID)
+}
+
+func (s *Service) SetUserGroups(
+	ctx context.Context,
+	userID uuid.UUID,
+	groupIDs []uuid.UUID,
+) error {
+	q := database.New(s.db)
+	user, err := q.GetPrincipalByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if user.PrincipalType != database.PrincipalTypeUser {
+		return principals.ErrUnsupportedPrincipal
+	}
+	providerID, err := s.getProviderID(ctx)
+	if err != nil {
+		return err
+	}
+	if user.ProviderID != providerID {
+		return principals.ErrUnsupportedPrincipal
+	}
+
+	dedupedGroupIDs := dedupeUUIDs(groupIDs)
+	externalGroupIDs := make([]string, 0, len(dedupedGroupIDs))
+	for _, groupID := range dedupedGroupIDs {
+		group, err := q.GetPrincipalByID(ctx, groupID)
+		if err != nil {
+			return err
+		}
+		if group.PrincipalType != database.PrincipalTypeGroup || group.ProviderID != user.ProviderID {
+			return principals.ErrUnsupportedPrincipal
+		}
+		externalGroupIDs = append(externalGroupIDs, group.ExternalID)
+	}
+
+	if err := s.client.SetAccessUserGroups(ctx, user.ExternalID, externalGroupIDs); err != nil {
+		return fmt.Errorf("replace Proxmox user groups: %w", err)
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := principals.ReplaceStoredUserGroups(
+		ctx,
+		database.New(tx),
+		userID,
+		dedupedGroupIDs,
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (s *Service) TriggerSync(ctx context.Context) error {

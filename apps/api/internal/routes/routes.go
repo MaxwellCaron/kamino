@@ -195,6 +195,7 @@ func RegisterRoutes(
 		protected.POST("/principals/users/:id/enable", principals.EnableUser)
 		protected.POST("/principals/users/:id/disable", principals.DisableUser)
 		protected.GET("/principals/users/:id/groups", principals.GetUserGroups)
+		protected.PUT("/principals/users/:id/groups", principals.SetUserGroups)
 
 		protected.GET("/principals/groups", principals.ListGroups)
 		protected.POST("/principals/groups", principals.CreateGroup)

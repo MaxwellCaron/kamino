@@ -59,6 +59,7 @@ type Provider interface {
 	RemoveGroupMembers(ctx context.Context, groupID uuid.UUID, memberIDs []uuid.UUID) (map[uuid.UUID]error, error)
 
 	GetUserGroups(ctx context.Context, userID uuid.UUID) ([]database.GetUserGroupsRow, error)
+	SetUserGroups(ctx context.Context, userID uuid.UUID, groupIDs []uuid.UUID) error
 
 	TriggerSync(ctx context.Context) error
 }

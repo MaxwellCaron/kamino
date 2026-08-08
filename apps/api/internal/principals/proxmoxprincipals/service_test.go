@@ -3,6 +3,7 @@ package proxmoxprincipals
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,10 +17,6 @@ type fakeAccessClient struct {
 	groups []proxmox.AccessGroup
 
 	createUserCalls []string
-	updateUserCalls []struct {
-		userid string
-		groups []string
-	}
 }
 
 func (f *fakeAccessClient) AuthenticateTicket(
@@ -59,17 +56,11 @@ func (f *fakeAccessClient) UpdateAccessUser(
 	ctx context.Context,
 	userid, comment string,
 	enabled *bool,
-	groups []string,
 ) error {
 	_ = ctx
 	_ = comment
-	f.updateUserCalls = append(f.updateUserCalls, struct {
-		userid string
-		groups []string
-	}{userid: userid, groups: append([]string(nil), groups...)})
 	for index, user := range f.users {
 		if user.UserID == userid {
-			f.users[index].Groups = strings.Join(groups, ",")
 			if enabled != nil {
 				if *enabled {
 					f.users[index].Enable = 1
@@ -77,6 +68,43 @@ func (f *fakeAccessClient) UpdateAccessUser(
 					f.users[index].Enable = 0
 				}
 			}
+			return nil
+		}
+	}
+	return principals.ErrPrincipalNotFound
+}
+
+func (f *fakeAccessClient) AddAccessUserGroups(
+	ctx context.Context,
+	userid string,
+	groups []string,
+) error {
+	_ = ctx
+	for index, user := range f.users {
+		if user.UserID != userid {
+			continue
+		}
+		current := proxmox.ParseAccessGroups(user.Groups)
+		for _, group := range groups {
+			if !slices.Contains(current, group) {
+				current = append(current, group)
+			}
+		}
+		f.users[index].Groups = strings.Join(current, ",")
+		return nil
+	}
+	return principals.ErrPrincipalNotFound
+}
+
+func (f *fakeAccessClient) SetAccessUserGroups(
+	ctx context.Context,
+	userid string,
+	groups []string,
+) error {
+	_ = ctx
+	for index, user := range f.users {
+		if user.UserID == userid {
+			f.users[index].Groups = strings.Join(groups, ",")
 			return nil
 		}
 	}
@@ -96,7 +124,7 @@ func TestEnableDisableUserUpdatesProvider(t *testing.T) {
 	}
 
 	enabled := true
-	if err := client.UpdateAccessUser(context.Background(), "alice@ad", "", &enabled, nil); err != nil {
+	if err := client.UpdateAccessUser(context.Background(), "alice@ad", "", &enabled); err != nil {
 		t.Fatalf("UpdateAccessUser(enable) error = %v", err)
 	}
 	if client.users[0].Enable != 1 {
@@ -104,7 +132,7 @@ func TestEnableDisableUserUpdatesProvider(t *testing.T) {
 	}
 
 	disabled := false
-	if err := client.UpdateAccessUser(context.Background(), "alice@ad", "", &disabled, nil); err != nil {
+	if err := client.UpdateAccessUser(context.Background(), "alice@ad", "", &disabled); err != nil {
 		t.Fatalf("UpdateAccessUser(disable) error = %v", err)
 	}
 	if client.users[0].Enable != 0 {

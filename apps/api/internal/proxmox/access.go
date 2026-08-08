@@ -166,7 +166,7 @@ func (c *Client) AuthenticateTicket(
 // ListAccessUsers returns all Proxmox access users.
 func (c *Client) ListAccessUsers(ctx context.Context) ([]AccessUser, error) {
 	var resp apiResponse[[]AccessUser]
-	if err := c.get(ctx, "/api2/json/access/users", &resp); err != nil {
+	if err := c.get(ctx, "/api2/json/access/users?full=1", &resp); err != nil {
 		return nil, fmt.Errorf("list access users: %w", err)
 	}
 	return resp.Data, nil
@@ -205,7 +205,6 @@ func (c *Client) UpdateAccessUser(
 	ctx context.Context,
 	userid, comment string,
 	enabled *bool,
-	groups []string,
 ) error {
 	form := map[string]string{}
 	if comment != "" {
@@ -218,10 +217,29 @@ func (c *Client) UpdateAccessUser(
 			form["enable"] = "0"
 		}
 	}
-	if groups != nil {
-		form["groups"] = strings.Join(groups, ",")
-	}
+	return c.put(ctx, accessUserPath(userid), form, nil)
+}
 
+// AddAccessUserGroups adds groups without replacing existing memberships.
+func (c *Client) AddAccessUserGroups(ctx context.Context, userid string, groups []string) error {
+	return c.updateAccessUserGroups(ctx, userid, groups, true)
+}
+
+// SetAccessUserGroups replaces the user's complete group membership list.
+func (c *Client) SetAccessUserGroups(ctx context.Context, userid string, groups []string) error {
+	return c.updateAccessUserGroups(ctx, userid, groups, false)
+}
+
+func (c *Client) updateAccessUserGroups(
+	ctx context.Context,
+	userid string,
+	groups []string,
+	appendGroups bool,
+) error {
+	form := map[string]string{"groups": strings.Join(groups, ",")}
+	if appendGroups {
+		form["append"] = "1"
+	}
 	return c.put(ctx, accessUserPath(userid), form, nil)
 }
 

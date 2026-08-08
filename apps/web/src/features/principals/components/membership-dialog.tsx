@@ -34,6 +34,7 @@ import {
   groupMembersQueryOptions,
   groupsQueryOptions,
   removeGroupMember,
+  setUserGroups,
   userGroupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
@@ -215,33 +216,28 @@ function MembershipForm({
       selectedIds: serverIds,
     },
     onSubmit: async ({ value }) => {
-      const serverSet = new Set(baselineIdsRef.current)
-      const selectedSet = new Set(value.selectedIds)
+      try {
+        if (mode === "user-groups") {
+          await setUserGroups(principal.id, uniqueIds(value.selectedIds))
+        } else {
+          const serverSet = new Set(baselineIdsRef.current)
+          const selectedSet = new Set(value.selectedIds)
+          const toAdd = value.selectedIds.filter((id) => !serverSet.has(id))
+          const toRemove = baselineIdsRef.current.filter(
+            (id) => !selectedSet.has(id)
+          )
 
-      const toAdd = value.selectedIds.filter((id) => !serverSet.has(id))
-      const toRemove = baselineIdsRef.current.filter(
-        (id) => !selectedSet.has(id)
-      )
+          if (toAdd.length > 0) {
+            await addGroupMember(principal.id, toAdd)
+          }
 
-      if (mode === "user-groups") {
-        await Promise.all([
-          ...toAdd.map((groupID) => addGroupMember(groupID, [principal.id])),
-          ...toRemove.map((groupID) =>
-            removeGroupMember(groupID, [principal.id])
-          ),
-        ])
-      } else {
-        if (toAdd.length > 0) {
-          await addGroupMember(principal.id, toAdd)
+          if (toRemove.length > 0) {
+            await removeGroupMember(principal.id, toRemove)
+          }
         }
-
-        if (toRemove.length > 0) {
-          await removeGroupMember(principal.id, toRemove)
-        }
+      } finally {
+        await queryClient.invalidateQueries({ queryKey: ["principals"] })
       }
-
-      await queryClient.invalidateQueries({ queryKey: ["principals"] })
-      onOpenChange(false)
     },
   })
 

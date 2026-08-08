@@ -229,6 +229,21 @@ export function userGroupsQueryOptions(userId: string) {
   }
 }
 
+export async function setUserGroups(
+  userId: string,
+  groupIds: Array<string>
+): Promise<void> {
+  await apiVoid(
+    `/api/v1/principals/users/${userId}/groups`,
+    "set user groups",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_ids: groupIds }),
+    }
+  )
+}
+
 export async function triggerPrincipalSync(): Promise<void> {
   await apiVoid("/api/v1/principals/sync", "Sync", { method: "POST" })
 }

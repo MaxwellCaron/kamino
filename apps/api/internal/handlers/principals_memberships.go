@@ -173,6 +173,56 @@ func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, groups)
 }
 
+type setUserGroupsRequest struct {
+	GroupIDs []uuid.UUID `json:"group_ids" binding:"required"`
+}
+
+// SetUserGroups replaces a user's complete managed group membership list.
+// PUT /api/v1/principals/users/:id/groups
+func (h *PrincipalsHandler) SetUserGroups(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
+		return
+	}
+	principalID, _ := currentPrincipalID(c)
+
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeInvalidRequest(c, "invalid user id")
+		return
+	}
+
+	var req setUserGroupsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeInvalidRequest(c, "invalid request body")
+		return
+	}
+
+	if err := h.Provider.SetUserGroups(c.Request.Context(), userID, req.GroupIDs); err != nil {
+		h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.user.groups.set",
+			TargetKind:       "principal",
+			Metadata: map[string]any{
+				"principal_id": userID.String(),
+				"group_ids":    req.GroupIDs,
+			},
+		}, err.Error())
+		writeLoggedError(c, http.StatusBadGateway, "failed to set user groups", "set user groups", err)
+		return
+	}
+
+	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
+		ActorPrincipalID: &principalID,
+		ActionKind:       "principal.user.groups.set",
+		TargetKind:       "principal",
+		Metadata: map[string]any{
+			"principal_id": userID.String(),
+			"group_ids":    req.GroupIDs,
+		},
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // ---------- Sync ----------
 
 // TriggerSync manually triggers a full sync.

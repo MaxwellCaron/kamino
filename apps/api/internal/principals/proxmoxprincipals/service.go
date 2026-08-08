@@ -20,7 +20,9 @@ type accessClient interface {
 	ListAccessUsers(ctx context.Context) ([]proxmox.AccessUser, error)
 	ListAccessGroups(ctx context.Context) ([]proxmox.AccessGroup, error)
 	CreateAccessUser(ctx context.Context, userid, comment string, enabled bool) error
-	UpdateAccessUser(ctx context.Context, userid, comment string, enabled *bool, groups []string) error
+	UpdateAccessUser(ctx context.Context, userid, comment string, enabled *bool) error
+	AddAccessUserGroups(ctx context.Context, userid string, groups []string) error
+	SetAccessUserGroups(ctx context.Context, userid string, groups []string) error
 	DeleteAccessUser(ctx context.Context, userid string) error
 	CreateAccessGroup(ctx context.Context, groupid, comment string) error
 	UpdateAccessGroup(ctx context.Context, groupid, comment string) error
@@ -191,7 +193,7 @@ func (s *Service) UpdateUser(
 		return principals.ErrUnsupportedPrincipal
 	}
 
-	if err := s.client.UpdateAccessUser(ctx, p.ExternalID, description, nil, nil); err != nil {
+	if err := s.client.UpdateAccessUser(ctx, p.ExternalID, description, nil); err != nil {
 		return err
 	}
 
@@ -253,7 +255,7 @@ func (s *Service) setUserEnabled(ctx context.Context, id uuid.UUID, enabled bool
 		return principals.ErrUnsupportedPrincipal
 	}
 
-	if err := s.client.UpdateAccessUser(ctx, p.ExternalID, "", &enabled, nil); err != nil {
+	if err := s.client.UpdateAccessUser(ctx, p.ExternalID, "", &enabled); err != nil {
 		return err
 	}
 	return nil

@@ -96,6 +96,9 @@ func TestListAccessUsersAndGroupsDecodeEnvelope(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api2/json/access/users":
+			if got := r.URL.Query().Get("full"); got != "1" {
+				t.Fatalf("full query value = %q, want 1", got)
+			}
 			writeAPIResponse(t, w, http.StatusOK, []map[string]any{
 				{
 					"userid":    "alice@ad",
@@ -173,12 +176,16 @@ func TestParseAccessUsers(t *testing.T) {
 }
 
 func TestUpdateAccessUserUsesEscapedPath(t *testing.T) {
-	var path string
+	var (
+		path string
+		form url.Values
+	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 		if err := r.ParseForm(); err != nil {
 			t.Fatalf("parse form: %v", err)
 		}
+		form = r.PostForm
 		writeAPIResponse(t, w, http.StatusOK, nil)
 	}))
 	defer server.Close()
@@ -190,11 +197,67 @@ func TestUpdateAccessUserUsesEscapedPath(t *testing.T) {
 		"alice@ad",
 		"updated",
 		&enabled,
-		[]string{"admins"},
 	); err != nil {
 		t.Fatalf("UpdateAccessUser() error = %v", err)
 	}
 	if !strings.Contains(path, "alice@ad") {
 		t.Fatalf("path = %q, want userid in path", path)
+	}
+	if form.Has("groups") || form.Has("append") {
+		t.Fatalf("ordinary user update unexpectedly changed groups: %v", form)
+	}
+}
+
+func TestAddAccessUserGroupsUsesAppendSemantics(t *testing.T) {
+	var form url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		form = r.PostForm
+		writeAPIResponse(t, w, http.StatusOK, nil)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	if err := client.AddAccessUserGroups(
+		context.Background(),
+		"alice@ad",
+		[]string{"admins", "operators"},
+	); err != nil {
+		t.Fatalf("AddAccessUserGroups() error = %v", err)
+	}
+	if got := form.Get("groups"); got != "admins,operators" {
+		t.Fatalf("groups form value = %q, want admins,operators", got)
+	}
+	if got := form.Get("append"); got != "1" {
+		t.Fatalf("append form value = %q, want 1", got)
+	}
+}
+
+func TestSetAccessUserGroupsUsesReplacementSemantics(t *testing.T) {
+	var form url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		form = r.PostForm
+		writeAPIResponse(t, w, http.StatusOK, nil)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	if err := client.SetAccessUserGroups(
+		context.Background(),
+		"alice@ad",
+		[]string{"operators"},
+	); err != nil {
+		t.Fatalf("SetAccessUserGroups() error = %v", err)
+	}
+	if got := form.Get("groups"); got != "operators" {
+		t.Fatalf("groups form value = %q, want operators", got)
+	}
+	if form.Has("append") {
+		t.Fatalf("append form value = %q, want omitted", form.Get("append"))
 	}
 }

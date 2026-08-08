@@ -78,10 +78,10 @@ func (c *Client) AddGroupMember(ctx context.Context, groupDN, memberDN string) e
 	}
 	defer conn.Close()
 
-	modReq := ldap.NewModifyRequest(groupDN, nil)
-	modReq.Add("member", []string{memberDN})
-
-	if err := conn.Modify(modReq); err != nil {
+	if err := conn.Modify(newAddGroupMemberRequest(groupDN, memberDN)); err != nil {
+		if isGroupMembershipNoopError(err, true) {
+			return nil
+		}
 		return fmt.Errorf("ldap add group member: %w", err)
 	}
 	return nil
@@ -95,13 +95,32 @@ func (c *Client) RemoveGroupMember(ctx context.Context, groupDN, memberDN string
 	}
 	defer conn.Close()
 
-	modReq := ldap.NewModifyRequest(groupDN, nil)
-	modReq.Delete("member", []string{memberDN})
-
-	if err := conn.Modify(modReq); err != nil {
+	if err := conn.Modify(newRemoveGroupMemberRequest(groupDN, memberDN)); err != nil {
+		if isGroupMembershipNoopError(err, false) {
+			return nil
+		}
 		return fmt.Errorf("ldap remove group member: %w", err)
 	}
 	return nil
+}
+
+func newAddGroupMemberRequest(groupDN, memberDN string) *ldap.ModifyRequest {
+	request := ldap.NewModifyRequest(groupDN, nil)
+	request.Add("member", []string{memberDN})
+	return request
+}
+
+func newRemoveGroupMemberRequest(groupDN, memberDN string) *ldap.ModifyRequest {
+	request := ldap.NewModifyRequest(groupDN, nil)
+	request.Delete("member", []string{memberDN})
+	return request
+}
+
+func isGroupMembershipNoopError(err error, add bool) bool {
+	if add {
+		return ldap.IsErrorWithCode(err, ldap.LDAPResultAttributeOrValueExists)
+	}
+	return ldap.IsErrorWithCode(err, ldap.LDAPResultNoSuchAttribute)
 }
 
 // domainFromBaseDN extracts a DNS domain name from the base DN.
