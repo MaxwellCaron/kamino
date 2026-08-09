@@ -1,14 +1,6 @@
 import { Router02Icon, RouterIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@workspace/ui/components/combobox"
-import {
   Field,
   FieldContent,
   FieldDescription,
@@ -18,6 +10,7 @@ import {
   FieldSet,
   FieldTitle,
 } from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 import {
   RadioGroup,
   RadioGroupItem,
@@ -33,7 +26,6 @@ import {
 import type { IconSvgElement } from "@hugeicons/react"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
-import type { PodRouterCloneNetworkOption } from "@/features/pods/api/router-clone-api"
 import type { RouterCloneFormValues } from "./manual-router-clone-dialog"
 import type { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
@@ -41,7 +33,6 @@ import { VMIDField } from "@/components/vms/vmid-field"
 
 type RouterCloneFormLike = {
   Field: any
-  Subscribe: any
 }
 
 type ProfileKeyFieldApi = {
@@ -71,61 +62,12 @@ type DestinationFolderFieldApi = {
   handleBlur: () => void
 }
 
-type NetworkNumberOption = {
-  value: string
-  label: string
-}
-
 const routerProfileIcons: Record<
   RouterCloneFormValues["network_profile_key"],
   IconSvgElement
 > = {
   "lan-router-v1": Router02Icon,
   "lan-dmz-router-v1": RouterIcon,
-}
-
-function formatNetworkOptionLabel(option: PodRouterCloneNetworkOption) {
-  return `${option.network_number} · ${option.vnets.join(" + ")}`
-}
-
-function getNetworkNumberOptions(
-  networkOptions: Array<PodRouterCloneNetworkOption> | undefined,
-  profileKey: PodNetworkProfile["key"],
-  cloneTargetKey: string
-): Array<NetworkNumberOption> {
-  const options: Array<NetworkNumberOption> = []
-
-  for (const option of networkOptions ?? []) {
-    if (
-      option.network_profile_key !== profileKey ||
-      option.clone_target_key !== cloneTargetKey
-    ) {
-      continue
-    }
-
-    options.push({
-      value: String(option.network_number),
-      label: formatNetworkOptionLabel(option),
-    })
-  }
-
-  return options
-}
-
-function findNetworkNumberOption(
-  options: Array<NetworkNumberOption>,
-  value: string
-) {
-  return options.find((option) => option.value === value)
-}
-
-function resolveNetworkNumberInput(
-  value: string,
-  options: Array<NetworkNumberOption>
-) {
-  const trimmed = value.trim()
-  const matchedOption = options.find((option) => option.label === trimmed)
-  return matchedOption?.value ?? trimmed
 }
 
 function validateDestinationFolder(value: string | null | undefined) {
@@ -141,8 +83,8 @@ function validateNetworkNumber(value: string) {
     return "Inner VLAN tag must be a whole number"
   }
   const parsed = Number.parseInt(trimmed, 10)
-  if (parsed < 1 || parsed > 254) {
-    return "Inner VLAN tag must be between 1 and 254"
+  if (parsed < 1 || parsed > 255) {
+    return "Inner VLAN tag must be between 1 and 255"
   }
   return undefined
 }
@@ -241,12 +183,18 @@ function RouterCloneTargetField({
   cloneTargets: Array<PodCloneTarget>
   defaultCloneTargetKey: string
 }) {
+  const cloneTargetItems = cloneTargets.map((target) => ({
+    label: target.label,
+    value: target.key,
+  }))
+
   return (
     <form.Field name="clone_target_key">
       {(field: NetworkNumberFieldApi) => (
         <Field>
           <FieldLabel htmlFor="router-clone-target">Clone Target</FieldLabel>
           <Select
+            items={cloneTargetItems}
             value={field.state.value || defaultCloneTargetKey}
             onValueChange={(value) => field.handleChange(String(value))}
           >
@@ -255,8 +203,8 @@ function RouterCloneTargetField({
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {cloneTargets.map((target) => (
-                  <SelectItem key={target.key} value={target.key}>
+                {cloneTargetItems.map((target) => (
+                  <SelectItem key={target.value} value={target.value}>
                     {target.label}
                   </SelectItem>
                 ))}
@@ -272,112 +220,42 @@ function RouterCloneTargetField({
   )
 }
 
-function RouterCloneNetworkNumberField({
-  form,
-  networkOptions,
-  defaultCloneTargetKey,
-}: {
-  form: RouterCloneFormLike
-  networkOptions: Array<PodRouterCloneNetworkOption> | undefined
-  defaultCloneTargetKey: string
-}) {
+function RouterCloneNetworkNumberField({ form }: { form: RouterCloneFormLike }) {
   return (
-    <form.Subscribe
-      selector={(state: { values: RouterCloneFormValues }) => ({
-        profileKey: state.values.network_profile_key,
-        cloneTargetKey: state.values.clone_target_key,
-      })}
-    >
-      {({
-        profileKey,
-        cloneTargetKey,
-      }: {
-        profileKey: RouterCloneFormValues["network_profile_key"]
-        cloneTargetKey: string
-      }) => {
-        const numberOptions = getNetworkNumberOptions(
-          networkOptions,
-          profileKey,
-          cloneTargetKey || defaultCloneTargetKey
-        )
-
-        return (
-          <form.Field
-            name="network_number"
-            validators={{
-              onBlur: ({ value }: { value: string }) =>
-                validateNetworkNumber(value),
-              onSubmit: ({ value }: { value: string }) =>
-                validateNetworkNumber(value),
-            }}
-          >
-            {(field: NetworkNumberFieldApi) => {
-              const selectedNumberOption = findNetworkNumberOption(
-                numberOptions,
-                field.state.value.trim()
-              )
-
-              return (
-                <Field
-                  data-invalid={
-                    field.state.meta.errors.length > 0 || undefined
-                  }
-                >
-                  <FieldLabel htmlFor="router-network-number">
-                    Inner VLAN tag
-                  </FieldLabel>
-                  <Combobox
-                    items={numberOptions}
-                    itemToStringValue={(option) => option.label}
-                    isItemEqualToValue={(left, right) =>
-                      left.value === right.value
-                    }
-                    value={selectedNumberOption ?? null}
-                    onValueChange={(option) => {
-                      field.handleChange(option?.value ?? "")
-                    }}
-                    onInputValueChange={(value) => {
-                      field.handleChange(
-                        resolveNetworkNumberInput(value, numberOptions)
-                      )
-                    }}
-                    autoHighlight
-                  >
-                    <ComboboxInput
-                      id="router-network-number"
-                      inputMode="numeric"
-                      placeholder="Select or enter a tag"
-                      onBlur={field.handleBlur}
-                      aria-invalid={
-                        field.state.meta.errors.length > 0 || undefined
-                      }
-                    />
-                    <ComboboxEmpty>
-                      No matching shared VNets are validated yet. You can
-                      still enter a tag (1–254) to join an existing pod.
-                    </ComboboxEmpty>
-                    <ComboboxContent>
-                      <ComboboxList>
-                        {(option) => (
-                          <ComboboxItem key={option.value} value={option}>
-                            {option.label}
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                  <FieldDescription>
-                    Every VM in the router&apos;s pod shares this tag on the
-                    shared VNet. Choose an existing tag to join that pod.
-                  </FieldDescription>
-                  <FieldError>{field.state.meta.errors[0]}</FieldError>
-                </Field>
-              )
-            }}
-          </form.Field>
-        )
+    <form.Field
+      name="network_number"
+      validators={{
+        onBlur: ({ value }: { value: string }) =>
+          validateNetworkNumber(value),
+        onSubmit: ({ value }: { value: string }) =>
+          validateNetworkNumber(value),
       }}
-    </form.Subscribe>
+    >
+      {(field: NetworkNumberFieldApi) => (
+        <Field
+          data-invalid={field.state.meta.errors.length > 0 || undefined}
+        >
+          <FieldLabel htmlFor="router-network-number">
+            Inner VLAN tag
+          </FieldLabel>
+          <Input
+            id="router-network-number"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={255}
+            step={1}
+            required
+            placeholder="1–255"
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+            aria-invalid={field.state.meta.errors.length > 0 || undefined}
+          />
+          <FieldError>{field.state.meta.errors[0]}</FieldError>
+        </Field>
+      )}
+    </form.Field>
   )
 }
 
@@ -428,7 +306,6 @@ export function ManualRouterCloneFormFields({
   routerTemplateConfigured,
   hasDestinationFolders,
   networkProfiles,
-  networkOptions,
   folderOptions,
   cloneTargets,
 }: {
@@ -436,7 +313,6 @@ export function ManualRouterCloneFormFields({
   routerTemplateConfigured: boolean
   hasDestinationFolders: boolean
   networkProfiles: Array<PodNetworkProfile>
-  networkOptions: Array<PodRouterCloneNetworkOption> | undefined
   folderOptions: ReturnType<typeof getInventoryFolderOptions>
   cloneTargets: Array<PodCloneTarget>
 }) {
@@ -462,11 +338,7 @@ export function ManualRouterCloneFormFields({
             cloneTargets={cloneTargets}
             defaultCloneTargetKey={defaultCloneTargetKey}
           />
-          <RouterCloneNetworkNumberField
-            form={form}
-            networkOptions={networkOptions}
-            defaultCloneTargetKey={defaultCloneTargetKey}
-          />
+          <RouterCloneNetworkNumberField form={form} />
           <VMIDField
             FieldComponent={form.Field}
             fieldName="vmid"

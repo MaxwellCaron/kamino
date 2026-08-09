@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,18 +20,10 @@ type podRouterCloneRequest struct {
 	VMID              int    `json:"vmid"`
 }
 
-type podRouterCloneNetworkOption struct {
-	NetworkNumber     int32    `json:"network_number"`
-	NetworkProfileKey string   `json:"network_profile_key"`
-	CloneTargetKey    string   `json:"clone_target_key"`
-	VNets             []string `json:"vnets"`
-}
-
 type podRouterCloneOptionsResponse struct {
-	RouterTemplateConfigured bool                          `json:"router_template_configured"`
-	NetworkProfiles          []podnetwork.PublicProfile    `json:"network_profiles"`
-	CloneTargets             []podCloneTargetResponse      `json:"clone_targets"`
-	NetworkOptions           []podRouterCloneNetworkOption `json:"network_options"`
+	RouterTemplateConfigured bool                       `json:"router_template_configured"`
+	NetworkProfiles          []podnetwork.PublicProfile `json:"network_profiles"`
+	CloneTargets             []podCloneTargetResponse   `json:"clone_targets"`
 }
 
 type podRouterCloneResponse struct {
@@ -44,37 +35,6 @@ type podRouterCloneResponse struct {
 	NetworkProfileKey string        `json:"network_profile_key"`
 	CloneTargetKey    string        `json:"clone_target_key"`
 	VNets             []string      `json:"vnets"`
-}
-
-func (h *PodsHandler) suggestPodRouterCloneNetworkOptions(
-	ctx context.Context,
-	cloneTargets []podCloneTarget,
-) ([]podRouterCloneNetworkOption, error) {
-	catalog := h.NetworkCatalog
-	options := make([]podRouterCloneNetworkOption, 0)
-	for _, cloneTarget := range cloneTargets {
-		for _, profile := range catalog.PublicProfiles() {
-			requiredVNets, err := catalog.RequiredVNets(cloneTarget.Network(), profile.Key)
-			if err != nil {
-				return nil, err
-			}
-
-			if reqErr := h.ensureProfileVNetsExist(ctx, cloneTarget, profile.Key); reqErr != nil {
-				continue
-			}
-
-			for networkNumber := int32(1); networkNumber <= 254; networkNumber++ {
-				options = append(options, podRouterCloneNetworkOption{
-					NetworkNumber:     networkNumber,
-					NetworkProfileKey: profile.Key,
-					CloneTargetKey:    cloneTarget.Key,
-					VNets:             requiredVNets,
-				})
-			}
-		}
-	}
-
-	return options, nil
 }
 
 func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
@@ -93,7 +53,6 @@ func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 			RouterTemplateConfigured: false,
 			NetworkProfiles:          profiles,
 			CloneTargets:             []podCloneTargetResponse{},
-			NetworkOptions:           []podRouterCloneNetworkOption{},
 		})
 		return
 	}
@@ -109,12 +68,6 @@ func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 		return
 	}
 
-	options, err := h.suggestPodRouterCloneNetworkOptions(c.Request.Context(), cloneTargets)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to build pod router clone options", "build pod router clone network options", err)
-		return
-	}
-
 	targetResponses := make([]podCloneTargetResponse, 0, len(cloneTargets))
 	for _, cloneTarget := range cloneTargets {
 		targetResponses = append(targetResponses, toPodCloneTargetResponse(cloneTarget))
@@ -124,7 +77,6 @@ func (h *PodsHandler) GetRouterCloneOptions(c *gin.Context) {
 		RouterTemplateConfigured: true,
 		NetworkProfiles:          profiles,
 		CloneTargets:             targetResponses,
-		NetworkOptions:           options,
 	})
 }
 
@@ -140,10 +92,10 @@ func parsePodRouterCloneRequest(
 		}
 	}
 
-	if req.NetworkNumber < 1 || req.NetworkNumber > 254 {
+	if req.NetworkNumber < 1 || req.NetworkNumber > 255 {
 		return uuid.Nil, 0, "", 0, &requestError{
 			Status:      http.StatusUnprocessableEntity,
-			UserMessage: "network number must be between 1 and 254",
+			UserMessage: "inner VLAN tag must be between 1 and 255",
 		}
 	}
 

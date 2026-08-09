@@ -52,8 +52,8 @@ func (c *Catalog) VNetName(target Target, kind string) (string, error) {
 }
 
 func (c *Catalog) InnerVLANTag(networkNumber int32) (int, error) {
-	if networkNumber < 1 || networkNumber > 254 {
-		return 0, fmt.Errorf("network number %d is out of range", networkNumber)
+	if networkNumber < 1 || networkNumber > 255 {
+		return 0, fmt.Errorf("inner VLAN tag %d is out of range", networkNumber)
 	}
 	return int(networkNumber), nil
 }

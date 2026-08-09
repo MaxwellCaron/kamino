@@ -2,10 +2,31 @@ package handlers
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 )
+
+func newCloneTargetVNetHandler(t *testing.T, vnets []map[string]any) *PodsHandler {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api2/json/cluster/sdn/vnets" {
+			writeProxmoxAPIResponse(t, w, http.StatusOK, vnets)
+			return
+		}
+		t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+	}))
+	t.Cleanup(server.Close)
+
+	return &PodsHandler{PX: proxmox.NewHTTPTestClient(server)}
+}
+
+func testVNet(id string, tag int) map[string]any {
+	return map[string]any{"vnet": id, "vlanaware": 1, "isolate-ports": 0, "tag": tag}
+}
 
 func validPodCloneTargetRequest() podCloneTargetRequest {
 	return podCloneTargetRequest{
@@ -108,8 +129,8 @@ func TestNormalizePodCloneTargetRequestAllowsMissingKeyOnUpdate(t *testing.T) {
 }
 
 func TestEnsureVNetsValidAllowsLANOnlyTarget(t *testing.T) {
-	handler := newRouterCloneOptionsHandler(t, []map[string]any{
-		validVNet("personal", 1000),
+	handler := newCloneTargetVNetHandler(t, []map[string]any{
+		testVNet("personal", 1000),
 	})
 
 	if reqErr := handler.ensureVNetsValid(

@@ -45,15 +45,15 @@ const routerCloneFormSchema = z.object({
   network_number: z
     .string()
     .trim()
-    .min(1, "Pod VNet number is required")
+    .min(1, "Inner VLAN tag is required")
     .refine(
       (value) => /^\d+$/.test(value),
-      "Pod VNet number must be a whole number"
+      "Inner VLAN tag must be a whole number"
     )
     .transform((value) => Number.parseInt(value, 10))
     .refine(
-      (value) => value >= 1 && value <= 254,
-      "Pod VNet number must be between 1 and 254"
+      (value) => value >= 1 && value <= 255,
+      "Inner VLAN tag must be between 1 and 255"
     ),
   network_profile_key: z.enum(["lan-router-v1", "lan-dmz-router-v1"]),
   // Empty means the default clone target; the server resolves it.
@@ -192,7 +192,6 @@ export function ManualRouterCloneDialog({
                 routerTemplateConfigured={routerTemplateConfigured}
                 hasDestinationFolders={hasDestinationFolders}
                 networkProfiles={networkProfiles}
-                networkOptions={routerOptions?.network_options}
                 folderOptions={folderOptions}
                 cloneTargets={cloneTargets}
               />
