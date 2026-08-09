@@ -120,43 +120,35 @@ function NetworkingStatContent({
   isLoading: boolean
   isError: boolean
 }) {
-  const addressesByDevice = new Map<string, Array<string>>()
-  for (const address of addresses ?? []) {
-    const deviceAddresses = addressesByDevice.get(address.device) ?? []
-    deviceAddresses.push(address.address)
-    addressesByDevice.set(address.device, deviceAddresses)
-  }
-
-  const rows = networks?.length
-    ? networks.map((network, index) => {
-        const device = network.device ?? `net${index}`
-        return {
-          device,
-          value: addressesByDevice.get(device)?.join(" · ") ?? network.bridge,
-        }
-      })
-    : Array.from(addressesByDevice.entries())
-        .sort(([left], [right]) =>
-          left.localeCompare(right, undefined, { numeric: true })
-        )
-        .map(([device, deviceAddresses]) => ({
-          device,
-          value: deviceAddresses.join(" · "),
-        }))
+  const addressedDevices = new Set(
+    (addresses ?? []).map((address) => address.device)
+  )
+  const rows = [
+    ...(addresses ?? []).map((address) => ({
+      label: address.label,
+      value: address.address,
+    })),
+    ...(networks ?? []).flatMap((network, index) => {
+      const device = network.device ?? `net${index}`
+      return addressedDevices.has(device)
+        ? []
+        : [{ label: device, value: network.bridge }]
+    }),
+  ]
 
   if (rows.length > 0) {
     return (
       <div className="flex min-h-15 w-full flex-col justify-between">
         {rows.map((row) => (
           <div
-            key={row.device}
-            className="flex items-center justify-between gap-3 text-sm"
+            key={`${row.label}-${row.value}`}
+            className="flex items-start justify-between gap-3 text-sm"
           >
-            <span className="text-xl font-semibold tracking-tight">
-              {row.device}
+            <span className="shrink-0 text-xl font-semibold tracking-tight">
+              {row.label}
             </span>
             <span
-              className="min-w-0 truncate text-xl font-semibold tracking-tight text-muted-foreground"
+              className="min-w-0 text-right text-xl font-semibold tracking-tight whitespace-nowrap text-muted-foreground tabular-nums"
               title={row.value}
             >
               {row.value}
