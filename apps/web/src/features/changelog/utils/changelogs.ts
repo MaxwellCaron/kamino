@@ -10,6 +10,69 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
+    date: "Aug 9, 2026",
+    highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Replaced per-pod generated Proxmox VNets with a shared, VLAN-aware networking model: pods are now isolated by an inner VLAN tag applied to each NIC instead of a dedicated VNet per pod.",
+          "Added a Pod Clone Target system in Admin → SDN for configuring WAN subnets and CIDR ranges, router cloud-init snippet keys and storage, network allocation ranges, and default and personal role assignments for published, development, and personal pods, replacing per-network environment variables.",
+          "Added a command generator and snippet storage directory field to the clone target dialog that outputs the exact command to create the required router cloud-init snippets.",
+          "Moved clone target selection to pod creation so managers choose network allocation up front.",
+          "Enforced the pod's allocated VLAN tag on every VM NIC created inside a pod folder; only managers and admins can retag a NIC afterward, from the hardware editor.",
+          "Added an optional fourth network octet that pod creators can assign so cloned VMs display a fixed host address to users.",
+          "Added descriptions to personal pods.",
+          "Added configured IP addresses to folder and VM dashboard pages for pods published with a static host address.",
+          "Restricted VM and pod template selection to a configured template library folder, with separate overrides for personal pods and Create VM.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Redesigned the SDN page with dedicated VNets and clone targets cards.",
+          "Converted principal selection comboboxes to searchable tables across the membership, manager clone, and bulk group dialogs.",
+          "Split personal pods out of the published pods page into their own dashboard card with refreshed visuals.",
+          "Standardized template selection dropdowns in the create-pod and create-VM forms.",
+          "Combined multiple VM dashboard API requests into a single overview request.",
+          "Split cloned pod status into a badge and hover card.",
+          "Made Proxmox the source of truth for resource pool structure and comments on import; mirror reconcile now only creates missing pools instead of deleting them.",
+          "Improved the safety of resource pool and folder subtree deletions with additional authorization checks.",
+          "Clarified principal search placeholders and the add-principal control in the permissions dialog.",
+          "Clarified pod deletion messaging to reflect that deleting a published pod removes its source folder, VMs, and templates from Proxmox.",
+          "Stopped VNC sessions from re-fetching VM resources while a console is open, and made the console focus on click.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed personal pod cloning erroring when no DMZ VNet was configured for the personal clone target.",
+          "Fixed clone target validation incorrectly failing when a DMZ VNet name was blank.",
+          "Fixed the manager clone router dialog to use the new inner VLAN tagging system.",
+          "Fixed NIC labels on the VM dashboard header showing swapped LAN, WAN, and DMZ names for pod-configured VMs.",
+          "Fixed enable and disable account actions being unavailable depending on principal provider.",
+          "Fixed group membership updates overwriting a user's existing Proxmox groups instead of adding to them.",
+          "Fixed provider sync being able to write changes back to Proxmox or Active Directory instead of only reading.",
+          "Fixed vnet combobox search in the VM hardware menu.",
+          "Fixed the app sidebar icon rail not scrolling.",
+          "Fixed user dashboard stat cards not filling their container height.",
+          "Fixed pod networking diagrams not loading until scrolled into view.",
+          "Fixed the rename dialog not focusing its input on open.",
+        ],
+      },
+      {
+        tag: "Removed",
+        tone: "rose",
+        items: [
+          "Removed the per-network environment variable configuration for pod clone networking in favor of database-managed clone targets.",
+        ],
+      },
+    ],
+  },
+  {
     date: "Jul 20, 2026",
     highlight: true,
     groups: [
