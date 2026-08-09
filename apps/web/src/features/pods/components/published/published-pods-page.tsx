@@ -17,6 +17,7 @@ import { showSingleMutationToast } from "@/components/feedback/mutation-progress
 import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-published-pods-manager-clones"
 import { usePublishedPodsPageMutations } from "@/features/pods/hooks/use-published-pods-page-mutations"
 import { usePublishedPodsBulkConfirm } from "@/features/pods/hooks/use-published-pods-bulk-confirm"
+import { podCloneTargetsQueryOptions } from "@/features/pods/api/clone-targets-api"
 import { publishedPodsQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 function computePublishedPodsStats(
@@ -47,6 +48,7 @@ export function PublishedPodsPage() {
     error: podsError,
     isLoading: isPodsLoading,
   } = useQuery(publishedPodsQueryOptions)
+  const { data: cloneTargetsData } = useQuery(podCloneTargetsQueryOptions)
   const pods = podsData ?? []
   const [pendingDeletePod, setPendingDeletePod] =
     useState<PublishedPodCatalogEntry | null>(null)
@@ -74,10 +76,18 @@ export function PublishedPodsPage() {
     () => computePublishedPodsStats(podsData ?? []),
     [podsData]
   )
+  const cloneTargetLabels = useMemo(
+    () =>
+      new Map(
+        (cloneTargetsData ?? []).map((target) => [target.key, target.label])
+      ),
+    [cloneTargetsData]
+  )
 
   const columns = useMemo(
     () =>
       getPublishedPodsColumns({
+        cloneTargetLabels,
         onDelete: setPendingDeletePod,
         onEdit: (pod) => {
           navigate({
@@ -99,6 +109,7 @@ export function PublishedPodsPage() {
       }),
     [
       navigate,
+      cloneTargetLabels,
       statusMutation,
       showStatusToast,
       deleteCloneMutation.isPending,

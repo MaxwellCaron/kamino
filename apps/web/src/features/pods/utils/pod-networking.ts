@@ -5,7 +5,31 @@ import {
 } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodNetwork } from "@/features/pods/types/pod-types"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { getPodNetworkingModeLabel } from "@/features/pods/components/create/create-pod-form"
+
+export function podCloneTargetSupportsProfile(
+  target: PodCloneTarget,
+  profileKey: string
+) {
+  return (
+    target.network_profile_key === "lan-dmz-router-v1" ||
+    profileKey === "lan-router-v1"
+  )
+}
+
+export function getPreferredPodCloneTarget(
+  targets: Array<PodCloneTarget>,
+  profileKey: string
+): PodCloneTarget | null {
+  const compatibleTargets = targets.filter((target) =>
+    podCloneTargetSupportsProfile(target, profileKey)
+  )
+  const defaultTarget = compatibleTargets.find((target) => target.is_default)
+
+  if (defaultTarget) return defaultTarget
+  return compatibleTargets.length > 0 ? compatibleTargets[0] : null
+}
 
 export function getPublishNetworkProfileLabel(networkProfileKey: string) {
   if (

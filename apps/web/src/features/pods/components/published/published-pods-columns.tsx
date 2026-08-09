@@ -43,6 +43,7 @@ import {
 } from "@/features/pods/utils/pod-clone-actions"
 
 type PublishedPodColumnsOptions = {
+  cloneTargetLabels: ReadonlyMap<string, string>
   onDelete: (pod: PublishedPodCatalogEntry) => void
   onEdit: (pod: PublishedPodCatalogEntry) => void
   onStatusChange: (pod: PublishedPodCatalogEntry, status: PodStatus) => void
@@ -57,6 +58,7 @@ type PublishedPodColumnsOptions = {
 }
 
 export function getPublishedPodsColumns({
+  cloneTargetLabels,
   onDelete,
   onEdit,
   onStatusChange,
@@ -194,6 +196,29 @@ export function getPublishedPodsColumns({
               {(pod.tasks ?? []).length} Task
               {(pod.tasks ?? []).length === 1 ? "" : "s"}
             </span>
+          </div>
+        )
+      },
+    },
+    {
+      id: "clone_target",
+      accessorFn: (pod) =>
+        [cloneTargetLabels.get(pod.clone_target_key), pod.clone_target_key]
+          .filter(Boolean)
+          .join(" "),
+      header: "Clone target",
+      cell: ({ row }) => {
+        const targetKey = row.original.clone_target_key
+        const targetLabel = cloneTargetLabels.get(targetKey)
+
+        return (
+          <div className="flex min-w-32 flex-col gap-1 py-1 text-sm">
+            <span className="font-medium">{targetLabel ?? targetKey}</span>
+            {targetLabel && targetLabel !== targetKey ? (
+              <span className="text-xs text-muted-foreground">
+                {targetKey}
+              </span>
+            ) : null}
           </div>
         )
       },

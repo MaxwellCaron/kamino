@@ -27,6 +27,7 @@ import {
   getReviewVms,
 } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { FolderIcon } from "@/components/status/folder-icon"
 import { VmIcon } from "@/components/status/vm-icon"
 
@@ -35,6 +36,7 @@ const treePreviewRowClass =
 
 type CreatePodReviewSectionProps = {
   form: CreatePodFormApi
+  cloneTargets: Array<PodCloneTarget>
 }
 
 type ReviewTreePreviewProps = {
@@ -80,11 +82,21 @@ function ReviewTreePreview({ podName, vms }: ReviewTreePreviewProps) {
   )
 }
 
-export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
+export function CreatePodReviewSection({
+  form,
+  cloneTargets,
+}: CreatePodReviewSectionProps) {
   return (
     <form.Subscribe selector={(state) => state.values}>
       {(values) => {
         const vms = getReviewVms(values)
+        const cloneTarget = cloneTargets.find(
+          (target) => target.key === values.cloneTargetKey
+        )
+        const networkingDescription =
+          values.networkingMode === "none"
+            ? getPodNetworkingModeLabel(values.networkingMode)
+            : `${getPodNetworkingModeLabel(values.networkingMode)} · ${cloneTarget?.label ?? "No target selected"}`
 
         return (
           <div className="grid gap-4 md:grid-cols-2">
@@ -116,9 +128,7 @@ export function CreatePodReviewSection({ form }: CreatePodReviewSectionProps) {
                 </ItemMedia>
                 <ItemContent>
                   <ItemTitle>Networking</ItemTitle>
-                  <ItemDescription>
-                    {getPodNetworkingModeLabel(values.networkingMode)}
-                  </ItemDescription>
+                  <ItemDescription>{networkingDescription}</ItemDescription>
                 </ItemContent>
               </Item>
               <Item

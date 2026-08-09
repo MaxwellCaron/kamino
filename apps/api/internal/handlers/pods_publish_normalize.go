@@ -59,6 +59,13 @@ type normalizedPublishPodQuestion struct {
 	Hint          *string
 }
 
+func resolvePublishCloneTargetKey(requestedKey, sourceKey string) string {
+	if key := strings.TrimSpace(requestedKey); key != "" {
+		return key
+	}
+	return sourceKey
+}
+
 func (h *PodsHandler) normalizePublishPodRequest(
 	ctx context.Context,
 	principalID uuid.UUID,
@@ -149,8 +156,10 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		return normalizedPublishPodRequest{}, reqErr
 	}
 
-	// The publisher picks the clone domain; unset keeps the default target.
-	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, req.CloneTargetKey)
+	// A first publish inherits the development pod's target unless the publisher
+	// explicitly selects another target. Later edits send their stored target.
+	cloneTargetKey := resolvePublishCloneTargetKey(req.CloneTargetKey, podFolder.CloneTargetKey)
+	cloneTarget, reqErr := h.resolvePodCloneTarget(ctx, cloneTargetKey)
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}

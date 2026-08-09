@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
@@ -25,6 +25,10 @@ import {
 } from "@/features/inventory/api/inventory-api"
 import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
+import {
+  getPreferredPodCloneTarget,
+  podCloneTargetSupportsProfile,
+} from "@/features/pods/utils/pod-networking"
 
 export type RouterCloneFormValues = {
   target_folder_id: string | null
@@ -56,8 +60,7 @@ const routerCloneFormSchema = z.object({
       "Inner VLAN tag must be between 1 and 255"
     ),
   network_profile_key: z.enum(["lan-router-v1", "lan-dmz-router-v1"]),
-  // Empty means the default clone target; the server resolves it.
-  clone_target_key: z.string().trim(),
+  clone_target_key: z.string().trim().min(1, "Clone target is required"),
   vmid: optionalVmidSchema,
 })
 
@@ -150,10 +153,34 @@ export function ManualRouterCloneDialog({
   const routerTemplateConfigured =
     routerOptions?.router_template_configured ?? false
   const networkProfiles = routerOptions?.network_profiles ?? []
-  const cloneTargets = routerOptions?.clone_targets ?? []
+  const cloneTargets = useMemo(
+    () => routerOptions?.clone_targets ?? [],
+    [routerOptions?.clone_targets]
+  )
+  useEffect(() => {
+    if (!open || cloneTargets.length === 0) return
+
+    const profileKey = form.getFieldValue("network_profile_key")
+    const currentTargetKey = form.getFieldValue("clone_target_key")
+    const currentTarget = cloneTargets.find(
+      (target) => target.key === currentTargetKey
+    )
+    if (
+      currentTarget &&
+      podCloneTargetSupportsProfile(currentTarget, profileKey)
+    ) {
+      return
+    }
+
+    const preferredTarget = getPreferredPodCloneTarget(cloneTargets, profileKey)
+    form.setFieldValue("clone_target_key", preferredTarget?.key ?? "")
+  }, [cloneTargets, form, open])
   const hasDestinationFolders = folderOptions.length > 0
   const submitUnavailable =
-    !routerTemplateConfigured || !hasDestinationFolders || isLoadingOptions
+    !routerTemplateConfigured ||
+    !hasDestinationFolders ||
+    cloneTargets.length === 0 ||
+    isLoadingOptions
 
   function resetDialog() {
     form.reset()

@@ -27,6 +27,7 @@ import {
   createPodProgressQueryOptions,
 } from "@/features/pods/api/create-pod-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { getPreferredPodCloneTarget } from "@/features/pods/utils/pod-networking"
 
 type CreatePodFormState = "form" | "creating" | "success" | "error"
 
@@ -158,8 +159,24 @@ export function CreatePodPage() {
     createOptions?.router_template_configured ?? true
 
   React.useEffect(() => {
-    if (createOptions && !createOptions.router_template_configured) {
+    if (!createOptions) return
+
+    if (!createOptions.router_template_configured) {
       form.setFieldValue("networkingMode", "none")
+      form.setFieldValue("cloneTargetKey", "")
+      return
+    }
+
+    const networkingMode = form.getFieldValue("networkingMode")
+    if (
+      isPodNetworkingWithRouter(networkingMode) &&
+      !form.getFieldValue("cloneTargetKey")
+    ) {
+      const preferredTarget = getPreferredPodCloneTarget(
+        createOptions.clone_targets,
+        networkingMode
+      )
+      form.setFieldValue("cloneTargetKey", preferredTarget?.key ?? "")
     }
   }, [createOptions, form])
   const latestSubmittedValues = submittedValuesRef.current
@@ -270,6 +287,7 @@ export function CreatePodPage() {
                 form={form}
                 submissionAttempts={state.submissionAttempts}
                 networkProfiles={createOptions?.network_profiles ?? []}
+                cloneTargets={createOptions?.clone_targets ?? []}
                 routerTemplateConfigured={routerTemplateConfigured}
               />
             </CreatePodFormSection>
@@ -284,7 +302,10 @@ export function CreatePodPage() {
             </CreatePodFormSection>
 
             <CreatePodFormSection number={4} title="Review" isLast>
-              <CreatePodReviewSection form={form} />
+              <CreatePodReviewSection
+                form={form}
+                cloneTargets={createOptions?.clone_targets ?? []}
+              />
             </CreatePodFormSection>
 
             <div className="w-full pt-6">

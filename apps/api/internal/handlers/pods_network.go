@@ -19,9 +19,10 @@ type podDevVMNetworkAssignment struct {
 }
 
 type podNetworkTopology struct {
-	ProfileKey    string
-	NetworkNumber int32
-	Assignments   []podDevVMNetworkAssignment
+	ProfileKey     string
+	CloneTargetKey string
+	NetworkNumber  int32
+	Assignments    []podDevVMNetworkAssignment
 }
 
 type prefixNATResponse struct {

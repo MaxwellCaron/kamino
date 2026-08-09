@@ -59,6 +59,30 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	var devCloneTarget podCloneTarget
+	if automatedNetworking {
+		var reqErr *requestError
+		devCloneTarget, reqErr = h.resolvePodCloneTarget(c.Request.Context(), req.CloneTargetKey)
+		if reqErr != nil {
+			progress.fail(reqErr.UserMessage)
+			writeRequestError(c, reqErr)
+			return
+		}
+		if !devCloneTarget.SupportsProfile(profileKey) {
+			message := fmt.Sprintf(
+				"clone target %s does not support the %s network profile",
+				devCloneTarget.Label,
+				profileKey,
+			)
+			progress.fail(message)
+			writeRequestError(c, &requestError{
+				Status:      http.StatusUnprocessableEntity,
+				UserMessage: message,
+			})
+			return
+		}
+	}
+
 	segmentByTarget := segmentAssignmentsFromSpecs(specs)
 	if automatedNetworking {
 		if err := h.NetworkCatalog.ValidateAssignments(profileKey, 1, segmentByTarget); err != nil {
@@ -140,18 +164,8 @@ func (h *PodsHandler) Create(c *gin.Context) {
 	}
 
 	var devNetworkNumber int32
-	// Pods are developed on the default target; publishing binds its own.
-	var devCloneTarget podCloneTarget
 	if automatedNetworking {
 		progress.set(createProgressStepNetwork, "Reserving a dev network.")
-		var reqErr *requestError
-		devCloneTarget, reqErr = h.defaultPodCloneTarget(c.Request.Context())
-		if reqErr != nil {
-			progress.fail(reqErr.UserMessage)
-			writeRequestError(c, reqErr)
-			return
-		}
-
 		var allocation database.InsertPodDevNetworkAllocationRow
 		err := podnetworks.WithPodNetworkAllocation(c.Request.Context(), h.DB, func(ctx context.Context, tx pgx.Tx) error {
 			var err error
@@ -300,12 +314,16 @@ func (h *PodsHandler) Create(c *gin.Context) {
 
 	provisioned = true
 	progress.succeed("Pod created successfully.")
+	metadata := map[string]any{"name": req.Name}
+	if automatedNetworking {
+		metadata["clone_target_key"] = devCloneTarget.Key
+	}
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "pod.create",
 		TargetKind:       "folder",
 		InventoryItemID:  &podFolderID,
-		Metadata:         map[string]any{"name": req.Name},
+		Metadata:         metadata,
 	})
 	c.JSON(http.StatusOK, createPodResponse{
 		OK:       true,

@@ -220,16 +220,18 @@ func (h *PodsHandler) loadPublishFolderNetworkMetadata(
 			}
 		}
 		result[row.ID] = publishFolderNetworkMetadata{
-			ProfileKey:  topology.ProfileKey,
-			Assignments: assignments,
+			ProfileKey:     topology.ProfileKey,
+			CloneTargetKey: topology.CloneTargetKey,
+			Assignments:    assignments,
 		}
 	}
 	return result
 }
 
 type publishFolderNetworkMetadata struct {
-	ProfileKey  string
-	Assignments map[uuid.UUID]publishNetworkAssignment
+	ProfileKey     string
+	CloneTargetKey string
+	Assignments    map[uuid.UUID]publishNetworkAssignment
 }
 
 func buildPublishPodFolderOptions(
@@ -266,6 +268,7 @@ func buildPublishPodFolderOptions(
 			Name:              row.Name,
 			Path:              inventoryPath(row.ID, rowsByID),
 			NetworkProfileKey: metadata.ProfileKey,
+			CloneTargetKey:    metadata.CloneTargetKey,
 		}
 	}
 

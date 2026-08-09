@@ -39,6 +39,7 @@ func (h *PodsHandler) GetCreateProgress(c *gin.Context) {
 type podCreateOptionsResponse struct {
 	RouterTemplateConfigured bool                       `json:"router_template_configured"`
 	NetworkProfiles          []podnetwork.PublicProfile `json:"network_profiles"`
+	CloneTargets             []podCloneTargetResponse   `json:"clone_targets"`
 	Templates                []templateLibraryOption    `json:"templates"`
 }
 
@@ -62,6 +63,7 @@ type createPodTemplateRequest struct {
 type createPodRequest struct {
 	Name              string                     `json:"name" binding:"required"`
 	NetworkProfileKey string                     `json:"network_profile_key"`
+	CloneTargetKey    string                     `json:"clone_target_key"`
 	Templates         []createPodTemplateRequest `json:"templates"`
 }
 
@@ -123,9 +125,20 @@ func (h *PodsHandler) GetCreateOptions(c *gin.Context) {
 		visibleTemplates = append(visibleTemplates, template)
 	}
 
+	cloneTargets, reqErr := h.listPodCloneTargets(c.Request.Context())
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+	targetResponses := make([]podCloneTargetResponse, 0, len(cloneTargets))
+	for _, target := range cloneTargets {
+		targetResponses = append(targetResponses, toPodCloneTargetResponse(target))
+	}
+
 	c.JSON(http.StatusOK, podCreateOptionsResponse{
 		RouterTemplateConfigured: h.RouterTemplateItemID != uuid.Nil,
 		NetworkProfiles:          h.publicNetworkProfiles(),
+		CloneTargets:             targetResponses,
 		Templates:                visibleTemplates,
 	})
 }

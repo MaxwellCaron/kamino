@@ -12,7 +12,7 @@ export const steps = [
   {
     value: "virtual-machines",
     title: "VMs",
-    fields: ["source_folder", "virtual_machines"] as const,
+    fields: ["source_folder", "virtual_machines", "clone_target_key"] as const,
   },
   {
     value: "tasks",

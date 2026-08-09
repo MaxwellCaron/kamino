@@ -88,6 +88,11 @@ Kamino. The page lists each VNet with edit and delete actions.
 
 Deleting a VNet applies SDN immediately as part of the removal workflow.
 
+Pod clone targets bind pod networking to specific VNets. Once a target is in
+use, its network identity settings cannot be edited. To place future clones on
+different VNets, create a new clone target and assign it while editing the
+published pod; existing development pods and clones are not moved.
+
 ## Proxmox sync
 
 Open [Proxmox Sync](/admin/proxmox-sync) to import out-of-band Proxmox

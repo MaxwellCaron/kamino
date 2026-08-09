@@ -33,6 +33,7 @@ type publishPodFolderOption struct {
 	Name              string               `json:"name"`
 	Path              string               `json:"path"`
 	NetworkProfileKey string               `json:"network_profile_key"`
+	CloneTargetKey    string               `json:"clone_target_key"`
 	VirtualMachines   []publishPodVMOption `json:"virtual_machines"`
 }
 

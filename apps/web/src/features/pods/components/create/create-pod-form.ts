@@ -92,9 +92,21 @@ const createPodFormSchema = z
   .object({
     name: podNameSchema,
     networkingMode: z.enum(["none", "lan-router-v1", "lan-dmz-router-v1"]),
+    cloneTargetKey: z.string().trim(),
     templates: z.array(createPodTemplateSchema),
   })
   .superRefine((values, ctx) => {
+    if (
+      isPodNetworkingWithRouter(values.networkingMode) &&
+      !values.cloneTargetKey
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["cloneTargetKey"],
+        message: "Select a pod network target.",
+      })
+    }
+
     if (values.networkingMode !== "lan-dmz-router-v1") return
 
     values.templates.forEach((template, templateIndex) => {
@@ -211,6 +223,7 @@ function createDefaultCreatePodValues(): CreatePodFormValues {
   return {
     name: "new-pod",
     networkingMode: "lan-router-v1",
+    cloneTargetKey: "",
     templates: [],
   }
 }

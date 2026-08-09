@@ -19,8 +19,9 @@ Open [Create Pod](/pods/create) to start a new pod. The flow has four
 stages:
 
 1. **Personalize** — title, description, image, and creators.
-2. **Networking** — choose a network profile and optional router template.
-   When no router template is configured, networking is limited to none.
+2. **Networking** — choose a network profile and the target VNets used while
+   developing the pod. The administrative default is preselected. When no
+   router template is configured, networking is limited to none.
 3. **Virtual Machines** — pick the template virtual machines the pod should
    include.
 4. **Review** — confirm before creating.
@@ -51,6 +52,9 @@ virtual machines of existing clones when that option is selected.
 
 On the **VMs** stage, you may optionally record a **Host octet** (2–254) for
 each non-router workload VM. Set these to the values you defined when assigning static IPs.
+The clone target initially matches the selected development pod. Changing it
+later affects future clones only; the development pod and existing clones stay
+on their current targets.
 
 ### Manage published pods and clones
 

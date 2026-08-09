@@ -61,9 +61,10 @@ func (h *PodsHandler) loadDevNetworkTopology(ctx context.Context, podFolderID uu
 	}
 
 	topology := &podNetworkTopology{
-		ProfileKey:    profileKey,
-		NetworkNumber: allocation.NetworkNumber,
-		Assignments:   make([]podDevVMNetworkAssignment, 0, len(assignments)),
+		ProfileKey:     profileKey,
+		CloneTargetKey: allocation.CloneTargetKey,
+		NetworkNumber:  allocation.NetworkNumber,
+		Assignments:    make([]podDevVMNetworkAssignment, 0, len(assignments)),
 	}
 	for _, row := range assignments {
 		topology.Assignments = append(topology.Assignments, podDevVMNetworkAssignment{

@@ -250,6 +250,27 @@ func TestInvalidPublishPod(t *testing.T) {
 	}
 }
 
+func TestResolvePublishCloneTargetKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		source    string
+		want      string
+	}{
+		{name: "inherits source target", source: "development", want: "development"},
+		{name: "inherits source target for blank request", requested: "  ", source: "development", want: "development"},
+		{name: "keeps explicit published target", requested: " future ", source: "development", want: "future"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolvePublishCloneTargetKey(tt.requested, tt.source); got != tt.want {
+				t.Fatalf("resolvePublishCloneTargetKey() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPublishedPodTemplateIDs(t *testing.T) {
 	id1 := uuid.New()
 	id2 := uuid.New()

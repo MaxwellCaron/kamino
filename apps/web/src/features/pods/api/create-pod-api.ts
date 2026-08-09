@@ -1,4 +1,5 @@
 import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import type {
   CreatePodFormValues,
   PodNetworkingMode,
@@ -34,6 +35,7 @@ export type PodNetworkProfile = {
 export type CreatePodOptions = {
   router_template_configured: boolean
   network_profiles: Array<PodNetworkProfile>
+  clone_targets: Array<PodCloneTarget>
   templates: Array<PodTemplateOption>
 }
 
@@ -88,7 +90,10 @@ export function buildCreatePodRequestBody(values: CreatePodFormValues) {
   return {
     name: values.name,
     ...(usesManagedNetworking
-      ? { network_profile_key: values.networkingMode }
+      ? {
+          network_profile_key: values.networkingMode,
+          clone_target_key: values.cloneTargetKey,
+        }
       : {}),
     templates: values.templates.map((template) => ({
       template_item_id: template.templateItemId,

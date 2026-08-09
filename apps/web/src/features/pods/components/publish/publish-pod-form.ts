@@ -252,8 +252,7 @@ export const publishPodFormSchema = z
       .min(1, "Add at least one task.")
       .max(20, "You can add up to 20 tasks."),
     source_folder: z.string().trim().min(1, "Select a Pod Folder."),
-    // Empty means the default clone target; the server resolves it.
-    clone_target_key: z.string().trim(),
+    clone_target_key: z.string().trim().min(1, "Select a clone target."),
   })
   .superRefine((values, ctx) => {
     const seen = new Map<string, number>()

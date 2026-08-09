@@ -69,6 +69,20 @@ func podCloneTargetFromRow(row database.PodCloneTargets) podCloneTarget {
 	}
 }
 
+func podCloneTargetIdentityChanged(current, next podCloneTarget) bool {
+	return current.NetworkProfileKey != next.NetworkProfileKey ||
+		current.LANVNet != next.LANVNet ||
+		current.DMZVNet != next.DMZVNet ||
+		current.WANBridge != next.WANBridge ||
+		current.WANSubnet != next.WANSubnet ||
+		current.CloudInitStorage != next.CloudInitStorage
+}
+
+func podCloneTargetReferenceCount(references database.CountPodCloneTargetReferencesRow) int64 {
+	return references.PublishedPodCount + references.ClonedPodCount +
+		references.AllocationCount + references.PersonalPodCount
+}
+
 func derefString(value *string) string {
 	if value == nil {
 		return ""
@@ -478,6 +492,27 @@ func (h *PodsHandler) UpdatePodCloneTarget(c *gin.Context) {
 		return
 	}
 	target.Key = key
+	q := database.New(h.DB)
+	currentRow, err := q.GetPodCloneTarget(c.Request.Context(), key)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "pod clone target not found"})
+		return
+	}
+	if err != nil {
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load pod clone target", "load pod clone target for update", err)
+		return
+	}
+	if podCloneTargetIdentityChanged(podCloneTargetFromRow(currentRow), target) {
+		references, err := q.CountPodCloneTargetReferences(c.Request.Context(), key)
+		if err != nil {
+			writeLoggedError(c, http.StatusInternalServerError, "failed to check pod clone target usage", "count pod clone target references for update", err)
+			return
+		}
+		if podCloneTargetReferenceCount(references) > 0 {
+			writeConflict(c, "network settings cannot be changed while this clone target is in use; create a new target and assign it to the published pod instead")
+			return
+		}
+	}
 	if reqErr := h.ensureCloneTargetVNetsValid(c.Request.Context(), target); reqErr != nil {
 		writeRequestError(c, reqErr)
 		return

@@ -15,15 +15,25 @@ import {
 } from "@workspace/ui/components/radio-group"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Router02Icon, RouterIcon } from "@hugeicons/core-free-icons"
-import { getPodDefaultVmSegmentKey } from "./create-pod-form"
+import {
+  getPodDefaultVmSegmentKey,
+  isPodNetworkingWithRouter,
+} from "./create-pod-form"
 import type { CreatePodFormApi, PodNetworkingMode } from "./create-pod-form"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import type { IconSvgElement } from "@hugeicons/react"
+import {
+  getPreferredPodCloneTarget,
+  podCloneTargetSupportsProfile,
+} from "@/features/pods/utils/pod-networking"
+import { PodCloneTargetCombobox } from "@/features/pods/components/pod-clone-target-combobox"
 
 type CreatePodNetworkingSectionProps = {
   form: CreatePodFormApi
   submissionAttempts: number
   networkProfiles: Array<PodNetworkProfile>
+  cloneTargets: Array<PodCloneTarget>
   routerTemplateConfigured?: boolean
 }
 
@@ -70,6 +80,7 @@ export function CreatePodNetworkingSection({
   form,
   submissionAttempts,
   networkProfiles,
+  cloneTargets,
   routerTemplateConfigured = true,
 }: CreatePodNetworkingSectionProps) {
   return (
@@ -88,6 +99,19 @@ export function CreatePodNetworkingSection({
 
             const setNetworkingMode = (nextMode: PodNetworkingMode) => {
               field.handleChange(nextMode)
+
+              const currentTarget = cloneTargets.find(
+                (target) => target.key === form.getFieldValue("cloneTargetKey")
+              )
+              const nextTarget =
+                nextMode !== "none" &&
+                currentTarget &&
+                podCloneTargetSupportsProfile(currentTarget, nextMode)
+                  ? currentTarget
+                  : nextMode === "none"
+                    ? null
+                    : getPreferredPodCloneTarget(cloneTargets, nextMode)
+              form.setFieldValue("cloneTargetKey", nextTarget?.key ?? "")
 
               if (nextMode === "lan-dmz-router-v1") {
                 const defaultSegmentKey = getPodDefaultVmSegmentKey(
@@ -224,6 +248,53 @@ export function CreatePodNetworkingSection({
             )
           }}
         </form.Field>
+
+        <form.Subscribe selector={(state) => state.values.networkingMode}>
+          {(networkingMode) => {
+            if (!isPodNetworkingWithRouter(networkingMode)) return null
+
+            const compatibleTargets = cloneTargets.filter((target) =>
+              podCloneTargetSupportsProfile(target, networkingMode)
+            )
+
+            return (
+              <form.Field name="cloneTargetKey">
+                {(field) => {
+                  const showValidation =
+                    field.state.meta.isTouched || submissionAttempts > 0
+                  const isInvalid = showValidation && !field.state.meta.isValid
+                  return (
+                    <Field data-invalid={isInvalid || undefined}>
+                      <FieldLabel htmlFor="create-pod-network-target">
+                        Pod Network Target
+                      </FieldLabel>
+                      <FieldDescription>
+                        Places this development pod on these VNets. Publishing
+                        starts with the same target.
+                      </FieldDescription>
+                      <FieldContent>
+                        <PodCloneTargetCombobox
+                          id="create-pod-network-target"
+                          name={field.name}
+                          targets={compatibleTargets}
+                          value={field.state.value}
+                          onValueChange={field.handleChange}
+                          onBlur={field.handleBlur}
+                          invalid={isInvalid}
+                          placeholder="Select pod network target"
+                          emptyMessage="No compatible pod network targets found."
+                        />
+                        <FieldError
+                          errors={showValidation ? field.state.meta.errors : []}
+                        />
+                      </FieldContent>
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            )
+          }}
+        </form.Subscribe>
       </FieldGroup>
     </FieldSet>
   )

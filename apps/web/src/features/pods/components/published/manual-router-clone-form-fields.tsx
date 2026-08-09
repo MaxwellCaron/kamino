@@ -15,14 +15,6 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
@@ -30,9 +22,17 @@ import type { RouterCloneFormValues } from "./manual-router-clone-dialog"
 import type { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
 import { VMIDField } from "@/components/vms/vmid-field"
+import { PodCloneTargetCombobox } from "@/features/pods/components/pod-clone-target-combobox"
+import {
+  getPreferredPodCloneTarget,
+  podCloneTargetSupportsProfile,
+} from "@/features/pods/utils/pod-networking"
 
 type RouterCloneFormLike = {
   Field: any
+  Subscribe: any
+  getFieldValue: any
+  setFieldValue: any
 }
 
 type ProfileKeyFieldApi = {
@@ -45,6 +45,15 @@ type ProfileKeyFieldApi = {
 }
 
 type NetworkNumberFieldApi = {
+  state: {
+    value: string
+    meta: { errors: Array<string | undefined> }
+  }
+  handleChange: (value: string) => void
+  handleBlur: () => void
+}
+
+type CloneTargetFieldApi = {
   state: {
     value: string
     meta: { errors: Array<string | undefined> }
@@ -92,9 +101,11 @@ function validateNetworkNumber(value: string) {
 function RouterCloneUnavailableState({
   routerTemplateConfigured,
   hasDestinationFolders,
+  hasCloneTargets,
 }: {
   routerTemplateConfigured: boolean
   hasDestinationFolders: boolean
+  hasCloneTargets: boolean
 }) {
   return (
     <>
@@ -109,15 +120,23 @@ function RouterCloneUnavailableState({
           No destination folders are available.
         </p>
       ) : null}
+
+      {!hasCloneTargets ? (
+        <p className="text-sm text-muted-foreground">
+          No clone targets are configured.
+        </p>
+      ) : null}
     </>
   )
 }
 
 function RouterCloneProfileField({
   form,
+  cloneTargets,
   networkProfiles,
 }: {
   form: RouterCloneFormLike
+  cloneTargets: Array<PodCloneTarget>
   networkProfiles: Array<PodNetworkProfile>
 }) {
   return (
@@ -128,11 +147,24 @@ function RouterCloneProfileField({
           <RadioGroup
             className="grid w-full grid-cols-1 gap-3"
             value={field.state.value}
-            onValueChange={(value) =>
-              field.handleChange(
+            onValueChange={(value) => {
+              const profileKey =
                 value as RouterCloneFormValues["network_profile_key"]
+              field.handleChange(profileKey)
+
+              const currentTargetKey = String(
+                form.getFieldValue("clone_target_key")
               )
-            }
+              const currentTarget = cloneTargets.find(
+                (target) => target.key === currentTargetKey
+              )
+              const nextTarget =
+                currentTarget &&
+                podCloneTargetSupportsProfile(currentTarget, profileKey)
+                  ? currentTarget
+                  : getPreferredPodCloneTarget(cloneTargets, profileKey)
+              form.setFieldValue("clone_target_key", nextTarget?.key ?? "")
+            }}
           >
             {networkProfiles.map((profile) => (
               <FieldLabel
@@ -140,10 +172,7 @@ function RouterCloneProfileField({
                 htmlFor={`router-profile-${profile.key}`}
                 className="cursor-pointer"
               >
-                <Field
-                  orientation="vertical"
-                  className="h-full min-h-0 gap-3"
-                >
+                <Field orientation="vertical" className="h-full min-h-0 gap-3">
                   <div className="flex w-full items-start justify-between gap-3">
                     <HugeiconsIcon
                       icon={routerProfileIcons[profile.key]}
@@ -177,64 +206,70 @@ function RouterCloneProfileField({
 function RouterCloneTargetField({
   form,
   cloneTargets,
-  defaultCloneTargetKey,
+  networkProfileKey,
 }: {
   form: RouterCloneFormLike
   cloneTargets: Array<PodCloneTarget>
-  defaultCloneTargetKey: string
+  networkProfileKey: RouterCloneFormValues["network_profile_key"]
 }) {
-  const cloneTargetItems = cloneTargets.map((target) => ({
-    label: target.label,
-    value: target.key,
-  }))
+  const compatibleTargets = cloneTargets.filter((target) =>
+    podCloneTargetSupportsProfile(target, networkProfileKey)
+  )
 
   return (
-    <form.Field name="clone_target_key">
-      {(field: NetworkNumberFieldApi) => (
-        <Field>
-          <FieldLabel htmlFor="router-clone-target">Clone Target</FieldLabel>
-          <Select
-            items={cloneTargetItems}
-            value={field.state.value || defaultCloneTargetKey}
-            onValueChange={(value) => field.handleChange(String(value))}
-          >
-            <SelectTrigger id="router-clone-target">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {cloneTargetItems.map((target) => (
-                  <SelectItem key={target.value} value={target.value}>
-                    {target.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <FieldDescription>
-            Subnet and bridge the router is placed on.
-          </FieldDescription>
-        </Field>
-      )}
+    <form.Field
+      name="clone_target_key"
+      validators={{
+        onBlur: ({ value }: { value: string }) =>
+          value.trim() ? undefined : "Clone target is required",
+        onSubmit: ({ value }: { value: string }) =>
+          value.trim() ? undefined : "Clone target is required",
+      }}
+    >
+      {(field: CloneTargetFieldApi) => {
+        const isInvalid = field.state.meta.errors.length > 0
+
+        return (
+          <Field data-invalid={isInvalid || undefined}>
+            <FieldLabel htmlFor="router-clone-target">Clone target</FieldLabel>
+            <FieldDescription>
+              Subnet and bridge the router is placed on.
+            </FieldDescription>
+            <FieldContent>
+              <PodCloneTargetCombobox
+                id="router-clone-target"
+                name="clone_target_key"
+                targets={compatibleTargets}
+                value={field.state.value}
+                onValueChange={field.handleChange}
+                onBlur={field.handleBlur}
+                invalid={isInvalid}
+              />
+              <FieldError>{field.state.meta.errors[0]}</FieldError>
+            </FieldContent>
+          </Field>
+        )
+      }}
     </form.Field>
   )
 }
 
-function RouterCloneNetworkNumberField({ form }: { form: RouterCloneFormLike }) {
+function RouterCloneNetworkNumberField({
+  form,
+}: {
+  form: RouterCloneFormLike
+}) {
   return (
     <form.Field
       name="network_number"
       validators={{
-        onBlur: ({ value }: { value: string }) =>
-          validateNetworkNumber(value),
+        onBlur: ({ value }: { value: string }) => validateNetworkNumber(value),
         onSubmit: ({ value }: { value: string }) =>
           validateNetworkNumber(value),
       }}
     >
       {(field: NetworkNumberFieldApi) => (
-        <Field
-          data-invalid={field.state.meta.errors.length > 0 || undefined}
-        >
+        <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
           <FieldLabel htmlFor="router-network-number">
             Inner VLAN tag
           </FieldLabel>
@@ -279,9 +314,7 @@ function RouterCloneDestinationFolderField({
       }}
     >
       {(field: DestinationFolderFieldApi) => (
-        <Field
-          data-invalid={field.state.meta.errors.length > 0 || undefined}
-        >
+        <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
           <FieldLabel>Destination Folder</FieldLabel>
           <InventoryFolderCombobox
             folderOptions={folderOptions}
@@ -316,28 +349,36 @@ export function ManualRouterCloneFormFields({
   folderOptions: ReturnType<typeof getInventoryFolderOptions>
   cloneTargets: Array<PodCloneTarget>
 }) {
-  const defaultCloneTarget =
-    cloneTargets.find((target) => target.is_default) ?? cloneTargets.at(0)
-  const defaultCloneTargetKey = defaultCloneTarget?.key ?? ""
-
   return (
     <>
       <RouterCloneUnavailableState
         routerTemplateConfigured={routerTemplateConfigured}
         hasDestinationFolders={hasDestinationFolders}
+        hasCloneTargets={cloneTargets.length > 0}
       />
 
       <FieldSet>
         <FieldGroup>
           <RouterCloneProfileField
             form={form}
+            cloneTargets={cloneTargets}
             networkProfiles={networkProfiles}
           />
-          <RouterCloneTargetField
-            form={form}
-            cloneTargets={cloneTargets}
-            defaultCloneTargetKey={defaultCloneTargetKey}
-          />
+          <form.Subscribe
+            selector={(state: { values: RouterCloneFormValues }) =>
+              state.values.network_profile_key
+            }
+          >
+            {(
+              networkProfileKey: RouterCloneFormValues["network_profile_key"]
+            ) => (
+              <RouterCloneTargetField
+                form={form}
+                cloneTargets={cloneTargets}
+                networkProfileKey={networkProfileKey}
+              />
+            )}
+          </form.Subscribe>
           <RouterCloneNetworkNumberField form={form} />
           <VMIDField
             FieldComponent={form.Field}

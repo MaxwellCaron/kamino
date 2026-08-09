@@ -27,7 +27,7 @@ export function PublishedPodsCatalogCard({
       <CardHeader>
         <CardTitle>Pod Catalog</CardTitle>
         <CardDescription>
-          All published pods. Search by title, creator, or slug.
+          All published pods. Search by title, creator, clone target, or slug.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">

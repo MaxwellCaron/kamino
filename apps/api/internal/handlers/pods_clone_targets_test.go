@@ -85,6 +85,55 @@ func TestPodCloneTargetFromRowMapsRoles(t *testing.T) {
 	}
 }
 
+func TestPodCloneTargetSupportsProfile(t *testing.T) {
+	lan := podCloneTarget{NetworkProfileKey: "lan-router-v1"}
+	lanDMZ := podCloneTarget{NetworkProfileKey: "lan-dmz-router-v1"}
+
+	if !lan.SupportsProfile("lan-router-v1") {
+		t.Fatal("LAN target should support the LAN profile")
+	}
+	if lan.SupportsProfile("lan-dmz-router-v1") {
+		t.Fatal("LAN target should not support the LAN + DMZ profile")
+	}
+	if !lanDMZ.SupportsProfile("lan-router-v1") || !lanDMZ.SupportsProfile("lan-dmz-router-v1") {
+		t.Fatal("LAN + DMZ target should support both profiles")
+	}
+}
+
+func TestPodCloneTargetIdentityChanged(t *testing.T) {
+	current, reqErr := normalizePodCloneTargetRequest(validPodCloneTargetRequest(), true)
+	if reqErr != nil {
+		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
+	}
+
+	mutableUpdate := current
+	mutableUpdate.Label = "Renamed"
+	mutableUpdate.NetworkMin = 20
+	mutableUpdate.NetworkMax = 70
+	mutableUpdate.IsDefault = true
+	if podCloneTargetIdentityChanged(current, mutableUpdate) {
+		t.Fatal("label, range, and role changes should not change network identity")
+	}
+
+	identityUpdate := current
+	identityUpdate.LANVNet = "pod3"
+	if !podCloneTargetIdentityChanged(current, identityUpdate) {
+		t.Fatal("VNet change should change network identity")
+	}
+}
+
+func TestPodCloneTargetReferenceCount(t *testing.T) {
+	references := database.CountPodCloneTargetReferencesRow{
+		PublishedPodCount: 1,
+		ClonedPodCount:    2,
+		AllocationCount:   3,
+		PersonalPodCount:  4,
+	}
+	if got := podCloneTargetReferenceCount(references); got != 10 {
+		t.Fatalf("podCloneTargetReferenceCount() = %d, want 10", got)
+	}
+}
+
 func TestNormalizePodCloneTargetRequestRejectsInvalidInput(t *testing.T) {
 	tests := []struct {
 		name    string

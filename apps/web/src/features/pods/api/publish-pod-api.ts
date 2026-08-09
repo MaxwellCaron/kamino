@@ -14,6 +14,7 @@ export type PublishPodFolder = {
   name: string
   path: string
   network_profile_key: string
+  clone_target_key: string
   virtual_machines: Array<PublishedPodVirtualMachine>
 }
 

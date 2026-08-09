@@ -208,11 +208,18 @@ ranges must be pairwise non-overlapping and within the Proxmox VMID bounds
   overlap with existing machines.
 
 Each clone target defines its own inclusive network-number range in the admin
-dashboard. Development pods use the target marked **Default**, while personal
-pods use the target marked **Personal**. Published pods retain the target chosen
-when they are published. Every active network number remains globally unique
-across published, development, and personal allocations (enforced by the
-database), even when configured target ranges overlap.
+dashboard. Managers choose a compatible target when creating a development pod;
+the target marked **Default** is preselected. Personal pods use the target marked
+**Personal**. A newly published pod inherits its development target unless the
+manager selects another one, and later target changes apply only to future
+clones. Every active network number remains globally unique across published,
+development, and personal allocations (enforced by the database), even when
+configured target ranges overlap.
+
+Network identity settings on a clone target cannot be changed while the target
+is referenced. Create a new target and assign it to the published pod to move
+future clones to different VNets; development pods and existing clones remain on
+their original targets.
 
 Development and published pod routers clone directly from
 `POD_ROUTER_TEMPLATE_ITEM_ID`; publishing snapshots only non-router VMs.
