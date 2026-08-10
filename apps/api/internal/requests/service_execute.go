@@ -25,7 +25,8 @@ func (s *Service) executeApprovedRequest(
 		if s.personalPods == nil || !s.personalPods.PersonalPodsEnabled() {
 			return ErrRequestServiceUnavailable
 		}
-		return s.personalPods.ProvisionPersonalPod(ctx, requestRow.RequesterPrincipalID)
+		_, err := s.personalPods.ProvisionPersonalPod(ctx, requestRow.RequesterPrincipalID)
+		return err
 	}
 	if requestRow.InventoryItemID == nil {
 		return ErrRequestMissingPayload

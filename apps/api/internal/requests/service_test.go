@@ -7,9 +7,38 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 )
+
+type fakePersonalPodProvisioner struct {
+	enabled        bool
+	folderID       uuid.UUID
+	err            error
+	provisionCalls int
+}
+
+func (f *fakePersonalPodProvisioner) PersonalPodsEnabled() bool {
+	return f.enabled
+}
+
+func (f *fakePersonalPodProvisioner) ProvisionPersonalPod(context.Context, uuid.UUID) (uuid.UUID, error) {
+	f.provisionCalls++
+	return f.folderID, f.err
+}
+
+// executableService satisfies executeApprovedRequest's non-nil px/inventory/authz/actions guard.
+func executableService(personalPods PersonalPodProvisioner) *Service {
+	return &Service{
+		px:           &proxmox.Client{},
+		inventory:    &inventory.Service{},
+		authz:        &authorization.Service{},
+		actions:      &vmactions.Executor{},
+		personalPods: personalPods,
+	}
+}
 
 type fakeVMActionClaimer struct {
 	claimErr error
@@ -271,5 +300,51 @@ func TestCanReviewRequestKind(t *testing.T) {
 				t.Fatalf("canReviewRequestKind() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestExecuteApprovedRequest_PersonalPodDisabledIsServiceUnavailable(t *testing.T) {
+	provisioner := &fakePersonalPodProvisioner{enabled: false}
+	svc := executableService(provisioner)
+
+	err := svc.executeApprovedRequest(context.Background(), database.GetRequestForExecutionRow{
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: uuid.New(),
+	})
+	if !errors.Is(err, ErrRequestServiceUnavailable) {
+		t.Fatalf("err = %v, want ErrRequestServiceUnavailable", err)
+	}
+	if provisioner.provisionCalls != 0 {
+		t.Fatalf("provision calls = %d, want 0 when the feature is disabled", provisioner.provisionCalls)
+	}
+}
+
+func TestExecuteApprovedRequest_PersonalPodProvisionsExactlyOnce(t *testing.T) {
+	provisioner := &fakePersonalPodProvisioner{enabled: true, folderID: uuid.New()}
+	svc := executableService(provisioner)
+	requesterID := uuid.New()
+
+	if err := svc.executeApprovedRequest(context.Background(), database.GetRequestForExecutionRow{
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: requesterID,
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if provisioner.provisionCalls != 1 {
+		t.Fatalf("provision calls = %d, want 1", provisioner.provisionCalls)
+	}
+}
+
+func TestExecuteApprovedRequest_PersonalPodProvisionErrorDiscardsFolderID(t *testing.T) {
+	provisionErr := errors.New("provisioning failed")
+	provisioner := &fakePersonalPodProvisioner{enabled: true, folderID: uuid.New(), err: provisionErr}
+	svc := executableService(provisioner)
+
+	err := svc.executeApprovedRequest(context.Background(), database.GetRequestForExecutionRow{
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: uuid.New(),
+	})
+	if !errors.Is(err, provisionErr) {
+		t.Fatalf("err = %v, want %v", err, provisionErr)
 	}
 }

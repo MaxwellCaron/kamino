@@ -61,7 +61,7 @@ type vmActionClaimer interface {
 
 type PersonalPodProvisioner interface {
 	PersonalPodsEnabled() bool
-	ProvisionPersonalPod(ctx context.Context, userPrincipalID uuid.UUID) error
+	ProvisionPersonalPod(ctx context.Context, userPrincipalID uuid.UUID) (uuid.UUID, error)
 }
 
 type Service struct {

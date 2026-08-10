@@ -14,6 +14,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/personalpods"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
@@ -37,7 +38,7 @@ type PodsHandler struct {
 	Notifier                        *vmstatus.Notifier
 	Actions                         *vmactions.Executor
 	RouterTemplateItemID            uuid.UUID
-	PersonalPodsFeatureEnabled      bool
+	PersonalPods                    *personalpods.Service
 	PersonalPodRouterTemplateItemID uuid.UUID
 	RouterCloneConfig               PodRouterCloneConfig
 	NetworkCatalog                  *podnetwork.Catalog

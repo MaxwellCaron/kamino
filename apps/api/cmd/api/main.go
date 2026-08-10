@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
+	"github.com/MaxwellCaron/kamino/internal/personalpods"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
@@ -236,7 +237,6 @@ func main() {
 		Notifier:                        vmStatusNotifier,
 		Actions:                         vmActionExecutor,
 		RouterTemplateItemID:            routerTemplateItemID,
-		PersonalPodsFeatureEnabled:      server.Config.PersonalPodsEnabled,
 		PersonalPodRouterTemplateItemID: personalPodRouterTemplateItemID,
 		RouterCloneConfig:               routerCloneConfig,
 		NetworkCatalog:                  networkCatalog,
@@ -252,6 +252,14 @@ func main() {
 		PodCloneClaims:                  podCloneClaims,
 		VMActionClaims:                  vmActionClaims,
 	}
+	personalPodRuntime := handlers.NewPersonalPodRuntime(podsHandler)
+	podsHandler.PersonalPods = personalpods.NewService(
+		server.Config.PersonalPodsEnabled,
+		server.DBPool,
+		inventoryService,
+		auditService,
+		personalPodRuntime,
+	)
 	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {
 		log.Printf("Purpose folder description sync failed: %v", err)
 	}
@@ -279,7 +287,7 @@ func main() {
 		vmActionExecutor,
 		requestsNotifier,
 		auditService,
-		podsHandler,
+		podsHandler.PersonalPods,
 		vmActionClaims,
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
