@@ -8,7 +8,9 @@ export function ProgressPills({ progress }: { progress: number }) {
             key={i}
             className={
               "h-7 w-full rounded-sm " +
-              (incomplete ? "bg-foreground/15" : "bg-primary")
+              (incomplete
+                ? "bg-foreground/10 dark:bg-foreground/5"
+                : "bg-primary")
             }
           />
         )
