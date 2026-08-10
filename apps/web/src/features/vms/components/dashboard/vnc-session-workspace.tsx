@@ -16,7 +16,7 @@ import type {
 } from "@/features/inventory/types/inventory-types"
 import type { VncConnectionStatus } from "@/features/vms/components/dashboard/vnc-console"
 import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useInventoryTreeContext } from "@/features/inventory/components/tree/inventory-tree-context"
+import { useInventoryTreeDataContext } from "@/features/inventory/components/tree/inventory-tree-context"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
@@ -118,7 +118,7 @@ export function VncSessionWorkspace() {
     getStatus,
     isLoading: isTreeLoading,
     error: treeError,
-  } = useInventoryTreeContext()
+  } = useInventoryTreeDataContext()
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
 
   const treeNode = itemId ? getItemData(itemId) : undefined

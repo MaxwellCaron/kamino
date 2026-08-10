@@ -10,7 +10,11 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { Tree, TreeDragLine } from "@workspace/ui/components/reui/tree"
 import { TREE_INDENT } from "../../utils/constants"
 import { hasNodeActions } from "../../utils/inventory-capabilities"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeNavigationContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import { InventoryTreeRow } from "./inventory-tree-row"
 import {
   INVENTORY_TREE_ROW_GAP,
@@ -33,13 +37,10 @@ export function InventoryTreeContent({
   getStatus: (itemId: string) => string | undefined
   tree: TreeInstance<ApiTreeNode>
 }) {
-  const {
-    canPowerByFolderId,
-    favoriteIds,
-    toggleFavorite,
-    handlePrimaryAction,
-    scrollToItemHandlerRef,
-  } = useInventoryTreeContext()
+  const { canPowerByFolderId } = useInventoryTreeDataContext()
+  const { favoriteIds, toggleFavorite, scrollToItemHandlerRef } =
+    useInventoryTreeViewContext()
+  const { handlePrimaryAction } = useInventoryTreeNavigationContext()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const rowVmCacheRef = useRef<Map<string, InventoryTreeRowVm> | null>(null)
   if (rowVmCacheRef.current === null) {

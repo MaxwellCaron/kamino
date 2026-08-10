@@ -1,19 +1,20 @@
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
 import { InventoryTreeLoadingSkeleton } from "./inventory-tree-loading-skeleton"
 import { InventoryTreeContent } from "./tree-content"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 export function InventoryTreeBody() {
   const {
-    tree,
     getStatus,
     isLoading,
     error,
     isEmpty,
-    isSearchActive,
-    searchResultCount,
-  } = useInventoryTreeContext()
+  } = useInventoryTreeDataContext()
+  const { tree, isSearchActive, searchResultCount } = useInventoryTreeViewContext()
 
   if (error) {
     return (

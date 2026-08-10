@@ -48,7 +48,7 @@ vi.mock("@tanstack/react-router", () => ({
 }))
 
 vi.mock("@/features/inventory/components/tree/inventory-tree-context", () => ({
-  useInventoryTreeContext: () => ({
+  useInventoryTreeDataContext: () => ({
     getItemData: mockGetItemData,
     getStatus: mockGetStatus,
     isLoading: mockTreeLoading.current,

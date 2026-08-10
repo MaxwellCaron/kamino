@@ -8,20 +8,22 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { Separator } from "@workspace/ui/components/separator"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import { InventoryFavoritesSection } from "./favorites-section"
 import { SearchInputGroup } from "@/components/forms/search-input-group"
 
 export function InventoryTreeHeader() {
+  const { error, isLoading } = useInventoryTreeDataContext()
   const {
     expandAll,
     collapseAll,
-    error,
-    isLoading,
     searchQuery,
     searchResultCount,
     setSearchQuery,
-  } = useInventoryTreeContext()
+  } = useInventoryTreeViewContext()
 
   return (
     <div>

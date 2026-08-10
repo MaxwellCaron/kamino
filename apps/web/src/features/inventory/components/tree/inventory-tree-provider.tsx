@@ -17,9 +17,12 @@ import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tre
 import { VIRTUAL_ROOT } from "../../utils/constants"
 import { buildFolderCanPowerMap } from "../../utils/inventory-power-actions"
 import { filterInventoryTreeByName } from "../../utils/inventory-tree"
-import { InventoryTreeContext } from "./inventory-tree-context"
+import {
+  InventoryTreeDataContext,
+  InventoryTreeNavigationContext,
+  InventoryTreeViewContext,
+} from "./inventory-tree-context"
 import type { ReactNode } from "react"
-import type { InventoryTreeContextValue } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { formatToastError } from "@/features/shared/utils/format"
@@ -171,12 +174,14 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [runMove, sourceItems]
   )
 
+  const navigateRef = useRef(navigate)
+
   const handlePrimaryAction = useCallback(
     (itemId: string) => {
       treeNavigationItemIdRef.current = itemId
-      navigate({ to: "/inventory/items/$itemId", params: { itemId } })
+      navigateRef.current({ to: "/inventory/items/$itemId", params: { itemId } })
     },
-    [navigate]
+    []
   )
 
   const { tree, expandAll, collapseAll, revealItem, scrollToItemHandlerRef } =
@@ -196,18 +201,29 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       setSelectedItemIds,
     })
 
+  const isSearchActiveRef = useRef(isSearchActive)
+  const displayItemsRef = useRef(displayItems)
+  const revealItemRef = useRef(revealItem)
+
+  useLayoutEffect(() => {
+    navigateRef.current = navigate
+    isSearchActiveRef.current = isSearchActive
+    displayItemsRef.current = displayItems
+    revealItemRef.current = revealItem
+  })
+
   const revealAndNavigateToItem = useCallback(
     (itemId: string) => {
-      if (isSearchActive && !displayItems.has(itemId)) {
+      if (isSearchActiveRef.current && !displayItemsRef.current.has(itemId)) {
         pendingRevealItemIdRef.current = itemId
         setSearchQuery("")
         return
       }
 
-      void revealItem(itemId)
+      void revealItemRef.current(itemId)
       handlePrimaryAction(itemId)
     },
-    [displayItems, handlePrimaryAction, isSearchActive, revealItem]
+    [handlePrimaryAction, setSearchQuery]
   )
 
   const treeHasActiveItem =
@@ -252,32 +268,76 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   }, [handlePrimaryAction, isSearchActive, revealItem, searchQuery])
 
   const searchResultCount = !isLoading && !error ? filterResult.matchCount : 0
+  const queryError = error ?? null
 
-  const value: InventoryTreeContextValue = {
-    tree,
-    expandAll,
-    collapseAll,
-    canPowerByFolderId,
-    getStatus,
-    isLoading,
-    error: error,
-    isEmpty: !isLoading && apiTree.length === 0,
-    searchQuery,
-    setSearchQuery,
-    isSearchActive,
-    searchResultCount,
-    favoriteIds,
-    toggleFavorite,
-    getItemData,
-    handlePrimaryAction,
-    revealAndNavigateToItem,
-    selectedItemIds,
-    replaceSelection: setSelectedItemIds,
-    clearSelection,
-    scrollToItemHandlerRef,
-  }
+  const dataValue = useMemo(
+    () => ({
+      canPowerByFolderId,
+      getStatus,
+      isLoading,
+      error: queryError,
+      isEmpty: !isLoading && apiTree.length === 0,
+      getItemData,
+    }),
+    [
+      apiTree.length,
+      canPowerByFolderId,
+      getItemData,
+      getStatus,
+      isLoading,
+      queryError,
+    ]
+  )
 
-  return <InventoryTreeContext value={value}>{children}</InventoryTreeContext>
+  const viewValue = useMemo(
+    () => ({
+      tree,
+      expandAll,
+      collapseAll,
+      searchQuery,
+      setSearchQuery,
+      isSearchActive,
+      searchResultCount,
+      favoriteIds,
+      toggleFavorite,
+      selectedItemIds,
+      replaceSelection: setSelectedItemIds,
+      clearSelection,
+      scrollToItemHandlerRef,
+    }),
+    [
+      clearSelection,
+      collapseAll,
+      expandAll,
+      favoriteIds,
+      isSearchActive,
+      scrollToItemHandlerRef,
+      searchQuery,
+      searchResultCount,
+      selectedItemIds,
+      setSelectedItemIds,
+      toggleFavorite,
+      tree,
+    ]
+  )
+
+  const navigationValue = useMemo(
+    () => ({
+      handlePrimaryAction,
+      revealAndNavigateToItem,
+    }),
+    [handlePrimaryAction, revealAndNavigateToItem]
+  )
+
+  return (
+    <InventoryTreeDataContext value={dataValue}>
+      <InventoryTreeViewContext value={viewValue}>
+        <InventoryTreeNavigationContext value={navigationValue}>
+          {children}
+        </InventoryTreeNavigationContext>
+      </InventoryTreeViewContext>
+    </InventoryTreeDataContext>
+  )
 }
 
 interface FlatTree {

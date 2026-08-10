@@ -12,7 +12,11 @@ import {
   buildSiteCommands,
 } from "./site-command-index"
 import { SiteCommandMenu } from "./site-command-menu"
-import { commandMatchesQuery } from "./site-command-search"
+import {
+  buildCommandSearchIndex,
+  filterIndexedCommands,
+  tokenizeCommandQuery,
+} from "./site-command-search"
 import type { BuildSiteCommandsActions } from "./site-command-index"
 import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
@@ -20,7 +24,7 @@ import {
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useOptionalInventoryTreeContext } from "@/features/inventory/components/tree/inventory-tree-context"
+import { useOptionalInventoryTreeNavigationContext } from "@/features/inventory/components/tree/inventory-tree-context"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -42,7 +46,7 @@ export function SiteCommandDialog({
   const navigate = useNavigate()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const inventoryTreeContext = useOptionalInventoryTreeContext()
+  const inventoryTreeNavigation = useOptionalInventoryTreeNavigationContext()
   const { setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -132,8 +136,8 @@ export function SiteCommandDialog({
         navigate({ to, hash })
       },
       navigateToInventoryItem: (itemId: string) => {
-        if (inventoryTreeContext) {
-          inventoryTreeContext.revealAndNavigateToItem(itemId)
+        if (inventoryTreeNavigation) {
+          inventoryTreeNavigation.revealAndNavigateToItem(itemId)
           return
         }
         navigate({
@@ -154,7 +158,7 @@ export function SiteCommandDialog({
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
       setTheme,
     }),
-    [close, inventoryTreeContext, logoutMutation, navigate, setTheme]
+    [close, inventoryTreeNavigation, logoutMutation, navigate, setTheme]
   )
 
   const baseCommands = useMemo(() => {
@@ -199,14 +203,30 @@ export function SiteCommandDialog({
     )
   }, [canAdminister, canManage, commandActions, searchQuery])
 
+  const commandSearchIndex = useMemo(
+    () => buildCommandSearchIndex(baseCommands),
+    [baseCommands]
+  )
+
+  const commandQueryTokens = useMemo(
+    () => tokenizeCommandQuery(searchQuery.trim()),
+    [searchQuery]
+  )
+
   const filteredCommands = useMemo(() => {
     const query = searchQuery.trim()
     const filteredBase = query
-      ? baseCommands.filter((command) => commandMatchesQuery(command, query))
+      ? filterIndexedCommands(commandSearchIndex, commandQueryTokens)
       : baseCommands
 
     return query ? [...filteredBase, ...docsCommands] : filteredBase
-  }, [baseCommands, docsCommands, searchQuery])
+  }, [
+    baseCommands,
+    commandQueryTokens,
+    commandSearchIndex,
+    docsCommands,
+    searchQuery,
+  ])
 
   const isIndexing =
     isSessionLoading ||

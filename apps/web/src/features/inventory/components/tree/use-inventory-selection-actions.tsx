@@ -6,7 +6,10 @@ import {
 } from "../../utils/inventory-power-actions"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
 import { useInventoryDialogs } from "../inventory-dialogs-context"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import {
   collectDescendantIds,
   getVmSelectionLabel,
@@ -28,13 +31,9 @@ import {
 } from "@/features/vms/hooks/use-vm-actions"
 
 export function useInventorySelectionActions() {
-  const {
-    clearSelection,
-    getItemData,
-    getStatus,
-    replaceSelection,
-    selectedItemIds,
-  } = useInventoryTreeContext()
+  const { getItemData, getStatus } = useInventoryTreeDataContext()
+  const { clearSelection, replaceSelection, selectedItemIds } =
+    useInventoryTreeViewContext()
   const { openConfirm } = useInventoryDialogs()
   const queryClient = useQueryClient()
   const deleteVm = useDeleteVM()
