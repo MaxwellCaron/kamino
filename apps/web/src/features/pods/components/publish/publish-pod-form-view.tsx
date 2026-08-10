@@ -45,7 +45,7 @@ export function PublishPodFormView({
   return (
     <form
       noValidate
-      className="@container/main relative flex flex-1 flex-col"
+      className="@container/main relative flex flex-1 flex-col pb-28"
       action={() => {
         void onSubmitConfirm()
       }}
