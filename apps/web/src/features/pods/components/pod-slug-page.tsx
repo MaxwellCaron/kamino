@@ -46,7 +46,7 @@ export function PodSlugPage() {
   return (
     <div className="relative flex h-full flex-1 flex-col">
       <PreloadOverlay active={isPreloading} label="Loading pod" />
-      {pod && (
+      {!isPreloading && pod && (
         <PodPage pod={pod} clonedPod={clonedPod} username={user.username} />
       )}
     </div>
