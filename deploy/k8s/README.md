@@ -89,8 +89,12 @@ kubectl -n kamino create secret generic kamino-secrets \
 `deploy/k8s/kamino-secrets.env` is ignored by Git. Keep it local to the
 installation and do not force-add it.
 
-Production authentication requires the LDAP settings. If `LDAP_URL` is not
-configured, the API does not install authentication middleware.
+Authentication is always configured for the API; `PRINCIPAL_PROVIDER` selects
+how. `PRINCIPAL_PROVIDER=active_directory` requires the LDAP settings below.
+`PRINCIPAL_PROVIDER=proxmox` authenticates through the configured Proxmox
+provider and must not be combined with LDAP settings. Omitting required
+settings for the selected provider is a startup configuration error, not an
+unauthenticated operating mode.
 
 The Gateway references the certificate through Istio SDS (`credentialName`),
 which requires the Secret to live in the same namespace as the ingress
@@ -181,19 +185,20 @@ psql "$DEV_DATABASE_URL" -v ON_ERROR_STOP=1 \
 
 ### 5. Create development cluster secrets
 
-> **Isolation warning**: The development API performs the same startup
-> reconciliation as production, including Proxmox mirror reconciliation that is
-> not disabled by `PROXMOX_INITIAL_SYNC_ENABLED`. Development **must** use:
+> **Isolation warning**: `PROXMOX_INITIAL_SYNC_ENABLED=false` disables only the
+> startup Proxmox importer. It does not disable authenticated API operations,
+> status reads, or later operator-triggered actions against the configured
+> Proxmox cluster — the development API can still mutate whatever Proxmox
+> cluster it points at. Development **must** use:
 >
 > - A **separate Postgres database** with the schema initialized independently.
-> - A **non-production Proxmox cluster or scope** and a dedicated token — simply
->   disabling `PROXMOX_INITIAL_SYNC_ENABLED` does not prevent mirror
->   reconciliation side effects.
+> - A **non-production Proxmox cluster or scope** and a dedicated token,
+>   regardless of the `PROXMOX_INITIAL_SYNC_ENABLED` setting.
 > - A **distinct `JWT_SECRET`** so development sessions cannot be replayed
 >   against production.
-> - **Test AD OUs and service credentials** when LDAP is enabled. When `LDAP_URL`
->   is omitted the API installs no authentication middleware, so an
->   unauthenticated development deployment must not be publicly reachable.
+> - Test identities and credentials for the configured `PRINCIPAL_PROVIDER` —
+>   test AD OUs and service credentials for `active_directory`, or a dedicated
+>   Proxmox realm/token for `proxmox`.
 
 ```bash
 kubectl create namespace kamino-dev \
