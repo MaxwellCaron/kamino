@@ -82,8 +82,7 @@ export function DashboardCurrentClonedPodCard({
             >
               <m.div variants={animateTableRow} className="w-full">
                 <Item
-                  variant="muted"
-                  className="items-center"
+                  className="items-center shadow ring-1 ring-foreground/5"
                   render={
                     <Link
                       to="/pods/$podSlug"
