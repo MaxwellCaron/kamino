@@ -18,6 +18,8 @@ let refreshPromise: Promise<AuthSession> | null = null
 let bootstrapPromise: Promise<AuthSession> | null = null
 let refreshTimer: number | null = null
 let authFailure: AuthenticationError | null = null
+let authGeneration = 0
+let logoutPromise: Promise<void> | null = null
 
 export class AuthenticationError extends Error {}
 
@@ -76,6 +78,7 @@ function applyAuthSession(session: AuthSession): AuthSession {
 }
 
 function resetAuthState() {
+  authGeneration += 1
   currentSession = null
   bootstrapPromise = null
   clearRefreshTimer()
@@ -244,12 +247,27 @@ export async function login(params: {
 }
 
 export async function logout(): Promise<void> {
-  await fetch(apiUrl("/api/v1/auth/logout"), {
-    method: "POST",
-    credentials: "include" as const,
-    headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
-  })
+  if (logoutPromise) return logoutPromise
+
+  const inFlightRefresh = refreshPromise
   clearAuthState()
+
+  const pendingLogout = (async () => {
+    await inFlightRefresh?.catch(() => undefined)
+    await fetch(apiUrl("/api/v1/auth/logout"), {
+      method: "POST",
+      credentials: "include" as const,
+      headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+    })
+  })()
+  logoutPromise = pendingLogout
+
+  try {
+    await pendingLogout
+  } finally {
+    clearAuthState()
+    if (logoutPromise === pendingLogout) logoutPromise = null
+  }
 }
 
 export async function changeOwnPassword(params: {
@@ -268,10 +286,14 @@ export async function changeOwnPassword(params: {
 }
 
 export async function refreshAuth(): Promise<AuthSession> {
+  if (logoutPromise) {
+    throw new AuthenticationError("logout in progress")
+  }
   if (refreshPromise) {
     return refreshPromise
   }
 
+  const generation = authGeneration
   refreshPromise = (async () => {
     const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
       method: "POST",
@@ -286,7 +308,11 @@ export async function refreshAuth(): Promise<AuthSession> {
       throw new Error("refresh failed")
     }
 
-    return applyAuthSession(await res.json())
+    const session = (await res.json()) as AuthSession
+    if (generation === authGeneration) {
+      applyAuthSession(session)
+    }
+    return session
   })()
 
   try {
