@@ -2,46 +2,17 @@
 
 import { cva } from "class-variance-authority"
 import * as React from "react"
-import { cn } from "@workspace/ui/lib/utils"
+import {
+  formatRelativeTime,
+  getRelativeTimeUpdateDelay,
+} from "@workspace/ui/components/relative-time-schedule"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
+import { cn } from "@workspace/ui/lib/utils"
 import type { VariantProps } from "class-variance-authority"
-
-function pluralize(n: number, word: string) {
-  return `${n} ${word}${n === 1 ? "" : "s"}`
-}
-
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const isInFuture = diff < 0
-  const absDiff = Math.abs(diff)
-
-  const seconds = Math.floor(absDiff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (seconds < 5) return "just now"
-
-  if (isInFuture) {
-    if (seconds < 60) return `in ${pluralize(seconds, "second")}`
-    if (minutes < 60) return `in ${pluralize(minutes, "minute")}`
-    if (hours < 24) return `in ${pluralize(hours, "hour")}`
-    if (days < 7) return `in ${pluralize(days, "day")}`
-    return date.toLocaleDateString()
-  }
-
-  if (seconds < 60) return `${pluralize(seconds, "second")} ago`
-  if (minutes < 60)
-    return `${pluralize(minutes, "minute")} ${pluralize(seconds % 60, "second")} ago`
-  if (hours < 24) return `${pluralize(hours, "hour")} ago`
-  if (days < 7) return `${pluralize(days, "day")} ago`
-  return date.toLocaleDateString()
-}
 
 interface TimezoneCardProps extends React.ComponentProps<"div"> {
   date: Date
@@ -151,7 +122,6 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
     side,
     alignOffset,
     sideOffset,
-    updateInterval = 1000,
     render,
     children,
     display = "absolute",
@@ -169,18 +139,43 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
     []
   )
 
-  const [formattedTime, setFormattedTime] = React.useState<string>(() =>
-    formatRelativeTime(date)
+  const absoluteFormatter = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [locale]
+  )
+
+  const [formattedTime, setFormattedTime] = React.useState(() =>
+    display === "relative" ? formatRelativeTime(date) : ""
   )
 
   React.useEffect(() => {
-    setFormattedTime(formatRelativeTime(date))
-    const timer = setInterval(() => {
-      setFormattedTime(formatRelativeTime(date))
-    }, updateInterval)
+    if (display !== "relative") return
 
-    return () => clearInterval(timer)
-  }, [date, updateInterval])
+    let timeoutId = 0
+
+    const schedule = () => {
+      setFormattedTime(formatRelativeTime(date))
+      const updateDelay = getRelativeTimeUpdateDelay(date)
+      if (updateDelay === null) return
+      timeoutId = window.setTimeout(schedule, updateDelay)
+    }
+
+    schedule()
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [date, display])
+
+  const hoverRelativeTime =
+    display === "relative" ? formattedTime : formatRelativeTime(date)
 
   return (
     <HoverCard
@@ -199,13 +194,7 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
           <time dateTime={date.toISOString()} suppressHydrationWarning>
             {display === "relative"
               ? formattedTime
-              : new Intl.DateTimeFormat(locale, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(date)}
+              : absoluteFormatter.format(date)}
           </time>
         )}
       </HoverCardTrigger>
@@ -220,7 +209,7 @@ function RelativeTimeCard(props: RelativeTimeCardProps) {
           dateTime={date.toISOString()}
           className="text-sm text-muted-foreground"
         >
-          {formattedTime}
+          {hoverRelativeTime}
         </time>
         <div role="list" className="flex flex-col gap-1">
           {timezones.map((timezone) => (

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react"
 import { Mesh, Program, Renderer, Triangle } from "ogl"
+import { shouldAnimateGrainient } from "@workspace/ui/components/grainient-animation"
 
 interface GrainientProps {
   timeSpeed?: number
@@ -128,6 +129,11 @@ void main(){
 }
 `
 
+function subscribeToDocumentVisibility(onChange: () => void) {
+  document.addEventListener("visibilitychange", onChange)
+  return () => document.removeEventListener("visibilitychange", onChange)
+}
+
 const Grainient: React.FC<GrainientProps> = ({
   timeSpeed = 0.25,
   colorBalance = 0.0,
@@ -206,6 +212,12 @@ const Grainient: React.FC<GrainientProps> = ({
     })
 
     const mesh = new Mesh(gl, { geometry, program })
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
+
+    const renderFrame = (t: number, t0: number) => {
+      ;(program.uniforms.iTime as { value: number }).value = (t - t0) * 0.001
+      renderer.render({ scene: mesh })
+    }
 
     const setSize = () => {
       const rect = container.getBoundingClientRect()
@@ -224,16 +236,90 @@ const Grainient: React.FC<GrainientProps> = ({
     setSize()
 
     let raf = 0
-    const t0 = performance.now()
+    let t0 = performance.now()
+    let animate = shouldAnimateGrainient(
+      motionQuery.matches,
+      timeSpeed,
+      grainAnimated,
+      grainAmount
+    )
+
+    const stopLoop = () => {
+      if (!raf) return
+      cancelAnimationFrame(raf)
+      raf = 0
+    }
+
     const loop = (t: number) => {
-      ;(program.uniforms.iTime as { value: number }).value = (t - t0) * 0.001
-      renderer.render({ scene: mesh })
+      renderFrame(t, t0)
+      if (document.visibilityState === "visible") {
+        raf = requestAnimationFrame(loop)
+      } else {
+        raf = 0
+      }
+    }
+
+    const startLoop = () => {
+      stopLoop()
+      t0 = performance.now()
       raf = requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(loop)
+
+    const syncAnimation = () => {
+      const nextAnimate = shouldAnimateGrainient(
+        motionQuery.matches,
+        timeSpeed,
+        grainAnimated,
+        grainAmount
+      )
+
+      if (nextAnimate) {
+        animate = true
+        if (document.visibilityState === "visible") {
+          startLoop()
+        }
+        return
+      }
+
+      if (animate) {
+        stopLoop()
+        renderFrame(performance.now(), t0)
+      }
+      animate = false
+    }
+
+    const onVisibilityChange = () => {
+      if (!animate) return
+      if (document.visibilityState === "visible") {
+        startLoop()
+      } else {
+        stopLoop()
+      }
+    }
+
+    const onMotionChange = () => {
+      syncAnimation()
+    }
+
+    if (animate) {
+      if (document.visibilityState === "visible") {
+        startLoop()
+      } else {
+        renderFrame(performance.now(), t0)
+      }
+    } else {
+      renderFrame(performance.now(), t0)
+    }
+
+    const unsubscribeVisibility = subscribeToDocumentVisibility(
+      onVisibilityChange
+    )
+    motionQuery.addEventListener("change", onMotionChange)
 
     return () => {
-      cancelAnimationFrame(raf)
+      stopLoop()
+      unsubscribeVisibility()
+      motionQuery.removeEventListener("change", onMotionChange)
       ro.disconnect()
       try {
         container.removeChild(canvas)
