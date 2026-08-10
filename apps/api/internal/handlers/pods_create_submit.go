@@ -130,6 +130,16 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		devBatch.Release()
 	}()
 
+	if err := h.Service.ReplaceInventoryACL(c.Request.Context(), podFolderID, []inventory.ACLEntryInput{{
+		PrincipalID: principalID,
+		Effect:      database.InventoryAceEffectAllow,
+		Permissions: int64(authorization.FullAccessMask),
+	}}); err != nil {
+		progress.fail("failed to apply Pod creator permissions")
+		writeLoggedError(c, http.StatusInternalServerError, "failed to apply Pod creator permissions", "replace source Pod folder ACL", err)
+		return
+	}
+
 	if !requireInventoryPermission(c, h.Authz, principalID, podFolderID, authorization.CreateFolder) {
 		progress.fail("forbidden")
 		return
