@@ -16,19 +16,25 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { ItemGroup } from "@workspace/ui/components/item"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
 import { animateContainer, animateTableRow } from "@/components/animate"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 export function DashboardFavoritesCard({
   className,
   favorites,
+  isTreeLoading = false,
+  treeError,
   vmStatuses,
 }: {
   className?: string
   favorites: Array<ApiTreeNode>
+  isTreeLoading?: boolean
+  treeError?: unknown
   vmStatuses?: Record<number, string>
 }) {
   const { toggleFavorite } = useInventoryFavorites()
@@ -45,7 +51,18 @@ export function DashboardFavoritesCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="h-full">
-        {visibleFavorites.length > 0 ? (
+        {treeError ? (
+          <InlineErrorAlert
+            error={treeError}
+            fallback="Failed to load favorites."
+          />
+        ) : isTreeLoading ? (
+          <div aria-busy="true" aria-label="Loading favorites" className="space-y-3">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={index} className="h-12 w-full rounded-md" />
+            ))}
+          </div>
+        ) : visibleFavorites.length > 0 ? (
           <m.div initial="hidden" animate="show" variants={animateContainer}>
             <ItemGroup>
               {visibleFavorites.map((favorite) => {

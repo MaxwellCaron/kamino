@@ -19,11 +19,13 @@ import {
   sharedStorageHistoryKey,
 } from "../utils/admin-dashboard"
 import { UsageAreaChart } from "./usage-charts"
+import { AdminClusterCardSkeleton } from "./admin-cluster-card-skeleton"
 import { AdminNodeTable } from "./admin-node-table"
 import { AdminSharedStorageTable } from "./admin-shared-storage-table"
 import type { DashboardStorageSummary } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 function normalizeTimeframe(value: string): UsageHistoryTimeframe {
   switch (value) {
@@ -43,10 +45,19 @@ function normalizeTimeframe(value: string): UsageHistoryTimeframe {
 export function AdminClusterCard({
   nodes,
   storageSummary,
+  nodesError,
+  storageError,
+  isNodesLoading,
+  isStorageLoading,
 }: {
   nodes: Array<ApiNode>
   storageSummary: DashboardStorageSummary
+  nodesError?: unknown
+  storageError?: unknown
+  isNodesLoading?: boolean
+  isStorageLoading?: boolean
 }) {
+  const clusterLoadError = nodesError ?? storageError
   const [timeframe, setTimeframe] = useState<UsageHistoryTimeframe>("hour")
   const {
     data: historyData,
@@ -90,6 +101,31 @@ export function AdminClusterCard({
     }
     return "History unavailable."
   }, [historyError])
+
+  if (isNodesLoading || isStorageLoading) {
+    return <AdminClusterCardSkeleton />
+  }
+
+  if (clusterLoadError) {
+    return (
+      <Card className="xl:col-span-12">
+        <CardHeader>
+          <CardTitle>
+            <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
+              Cluster
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InlineErrorAlert
+            error={clusterLoadError}
+            fallback="Failed to load cluster capacity."
+            title="Cluster unavailable"
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="pb-0.5 xl:col-span-12">

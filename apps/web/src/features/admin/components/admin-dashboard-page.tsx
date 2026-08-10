@@ -21,6 +21,7 @@ import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-card
 import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import { PreloadOverlay } from "@/components/loading-overlay"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
@@ -67,21 +68,31 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     error: groupsError,
     isLoading: isGroupsLoading,
   } = useQuery(groupsQueryOptions)
-  const { data: inventoryTree, isLoading: isInventoryLoading } = useQuery(
-    inventoryTreeQueryOptions
-  )
+  const {
+    data: inventoryTree,
+    error: inventoryError,
+    isLoading: isInventoryLoading,
+  } = useQuery(inventoryTreeQueryOptions)
   const {
     data: pendingRequestsData,
     error: pendingRequestsError,
     isLoading: isPendingRequestsLoading,
   } = useQuery(requestSummariesQueryOptions("pending"))
-  const { data: pendingRequestsTotal, isLoading: isPendingRequestsTotalLoading } =
-    useQuery(requestSummaryCountQueryOptions("pending"))
+  const {
+    data: pendingRequestsTotal,
+    error: pendingRequestsTotalError,
+    isLoading: isPendingRequestsTotalLoading,
+  } = useQuery(requestSummaryCountQueryOptions("pending"))
   const {
     data: completedRequestsTotal,
+    error: completedRequestsTotalError,
     isLoading: isCompletedRequestsTotalLoading,
   } = useQuery(requestSummaryCountQueryOptions("completed"))
-  const { data: nodesData } = useQuery(nodesQueryOptions)
+  const {
+    data: nodesData,
+    error: nodesError,
+    isLoading: isNodesLoading,
+  } = useQuery(nodesQueryOptions)
   const {
     data: requestDetail,
     error: requestDetailError,
@@ -133,19 +144,30 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   })
 
   const pendingRequests = useMemo(
-    () => getRecentRequests(pendingRequestsData ?? []),
-    [pendingRequestsData]
+    () =>
+      pendingRequestsError || !pendingRequestsData
+        ? []
+        : getRecentRequests(pendingRequestsData),
+    [pendingRequestsData, pendingRequestsError]
   )
 
-  const recentUsers = useMemo(() => getRecentPrincipals(users ?? []), [users])
+  const recentUsers = useMemo(
+    () => (usersError || !users ? [] : getRecentPrincipals(users)),
+    [users, usersError]
+  )
 
   const recentGroups = useMemo(
-    () => getRecentPrincipals(groups ?? []),
-    [groups]
+    () => (groupsError || !groups ? [] : getRecentPrincipals(groups)),
+    [groups, groupsError]
   )
 
   const adminStats = useMemo<AdminStats | null>(() => {
     if (
+      usersError ||
+      groupsError ||
+      inventoryError ||
+      pendingRequestsTotalError ||
+      completedRequestsTotalError ||
       !users ||
       !groups ||
       !inventoryTree ||
@@ -169,14 +191,33 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     inventoryTree,
     pendingRequestsTotal,
     completedRequestsTotal,
+    usersError,
+    groupsError,
+    inventoryError,
+    pendingRequestsTotalError,
+    completedRequestsTotalError,
   ])
 
   const storageSummary = useMemo(() => {
+    if (nodesError || !nodesData) {
+      return null
+    }
     return buildStorageSummary(
-      nodesData ?? [],
+      nodesData,
       storageQueries.map((query) => query.data)
     )
-  }, [nodesData, storageQueries])
+  }, [nodesData, nodesError, storageQueries])
+
+  const storageError = useMemo(
+    () => storageQueries.find((query) => query.error)?.error,
+    [storageQueries]
+  )
+  const isStorageLoading =
+    isNodesLoading ||
+    (nodesData !== undefined &&
+      nodesData.length > 0 &&
+      storageQueries.some((query) => query.isLoading))
+
   const handleRequestDetailOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setSelectedRequestId(null)
@@ -220,7 +261,11 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   }, [denyMutation, selectedRequestId])
 
   const nodes = nodesData ?? []
-  const isDashboardLoading =
+  const primaryStatsError =
+    inventoryError ??
+    pendingRequestsTotalError ??
+    completedRequestsTotalError
+  const isMainDashboardLoading =
     isUsersLoading ||
     isGroupsLoading ||
     isInventoryLoading ||
@@ -231,12 +276,20 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
       <PreloadOverlay
-        active={isDashboardLoading}
+        active={isMainDashboardLoading}
         label="Loading admin dashboard"
       />
-      {!isDashboardLoading && (
-        <>
-          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
+      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
+        {primaryStatsError ? (
+          <div className="xl:col-span-12">
+            <InlineErrorAlert
+              error={primaryStatsError}
+              fallback="Failed to load admin dashboard statistics."
+              title="Statistics unavailable"
+            />
+          </div>
+        ) : null}
+
         <div className="xl:col-span-12">
           <AdminDashboardHeader stats={adminStats} />
         </div>
@@ -252,7 +305,22 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           <AdminDashboardActionButtons />
         </div>
 
-        <AdminClusterCard nodes={nodes} storageSummary={storageSummary} />
+        <AdminClusterCard
+          isNodesLoading={isNodesLoading}
+          isStorageLoading={isStorageLoading}
+          nodes={nodes}
+          nodesError={nodesError}
+          storageError={storageError}
+          storageSummary={
+            storageSummary ?? {
+              localByNode: new Map(),
+              shared: [],
+              localTotal: { total: 0, used: 0 },
+              sharedTotal: { total: 0, used: 0 },
+              clusterTotal: { total: 0, used: 0 },
+            }
+          }
+        />
 
         <AdminDashboardPrincipalsCards
           groupColumns={groupColumns}
@@ -281,8 +349,6 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
           />
         )}
       </Suspense>
-        </>
-      )}
     </div>
   )
 }

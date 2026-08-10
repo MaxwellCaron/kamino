@@ -21,6 +21,7 @@ import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { PreloadOverlay } from "@/components/loading-overlay"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { principalProviderQueryOptions } from "@/features/principals/api/principals-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
@@ -39,6 +40,7 @@ import {
   requesterRequestSummaryCountQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
+import { useScrollRestoreOnReady } from "@/features/dashboard/hooks/use-scroll-restore-on-ready"
 
 const ChangePasswordDialog = lazy(() =>
   import("./change-password-dialog").then((module) => ({
@@ -59,37 +61,51 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     null
   )
 
-  const { data: tree, isLoading: isTreeLoading } = useQuery(
-    inventoryTreeQueryOptions
-  )
-  const { data: providerCapabilities } = useQuery(principalProviderQueryOptions)
-  const canChangeOwnPassword =
-    providerCapabilities?.can_change_own_password ?? true
+  const {
+    data: tree,
+    error: treeError,
+    isPending: isTreePending,
+    isLoading: isTreeLoading,
+  } = useQuery(inventoryTreeQueryOptions)
+  const {
+    data: providerCapabilities,
+    error: providerError,
+    isLoading: isProviderLoading,
+  } = useQuery(principalProviderQueryOptions)
+  const canChangeOwnPassword = isProviderLoading
+    ? false
+    : providerError
+      ? false
+      : (providerCapabilities?.can_change_own_password ?? false)
   const { data: personalPodStatus, isLoading: isPersonalPodLoading } = useQuery(
     personalPodQueryOptions
   )
   const {
     data: pendingRequests,
     error: pendingRequestsError,
+    isPending: isPendingRequestsPending,
     isLoading: isPendingRequestsLoading,
   } = useQuery(requesterRequestSummariesQueryOptions("pending"))
-  const { data: pendingRequestsTotal } = useQuery(
-    requesterRequestSummaryCountQueryOptions("pending")
-  )
+  const {
+    data: pendingRequestsTotal,
+    error: pendingRequestsTotalError,
+    isLoading: isPendingRequestsTotalLoading,
+  } = useQuery(requesterRequestSummaryCountQueryOptions("pending"))
   const {
     data: historyRequests,
     error: historyRequestsError,
+    isPending: isHistoryRequestsPending,
     isLoading: isHistoryRequestsLoading,
   } = useQuery(requesterRequestSummariesQueryOptions("history"))
   const {
     data: catalog,
     error: catalogError,
-    isLoading: isCatalogLoading,
+    isPending: isCatalogPending,
   } = useQuery(podCatalogQueryOptions)
   const {
     data: questionActivity,
     error: questionActivityError,
-    isLoading: isQuestionActivityLoading,
+    isPending: isQuestionActivityPending,
   } = useQuery(podQuestionActivityQueryOptions())
   const {
     data: requestDetail,
@@ -100,12 +116,17 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     enabled: !!selectedRequestId,
   })
   const { favoriteIds } = useInventoryFavorites()
-  const { data: vmStatuses, isLoading: isVmStatusLoading } =
-    useQuery(vmStatusQueryOptions)
+  const {
+    data: vmStatuses,
+    error: vmStatusError,
+    isPending: isVmStatusPending,
+    isLoading: isVmStatusLoading,
+  } = useQuery(vmStatusQueryOptions)
   const visiblePods = useMemo(() => catalog ?? [], [catalog])
   const {
     data: cloneSummaries,
     error: cloneSummariesError,
+    isPending: isCloneSummariesPending,
     isLoading: isCloneSummariesLoading,
   } = useQuery(catalogCloneSummariesQueryOptions())
 
@@ -174,53 +195,77 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   }, [cloneSummaries, cloneSummariesError, isCloneSummariesLoading])
 
   const clonedPodIds = useMemo(
-    () => new Set(cloneSummaries?.map((item) => item.summary.pod_id) ?? []),
+    () =>
+      cloneSummaries
+        ? new Set(cloneSummaries.map((item) => item.summary.pod_id))
+        : new Set<string>(),
     [cloneSummaries]
   )
 
   const inventoryStats = useMemo(
-    () => countAccessibleInventory(tree ?? []),
+    () => (tree ? countAccessibleInventory(tree) : null),
     [tree]
   )
 
   const inventoryItemsById = useMemo(
-    () => indexInventoryTree(tree ?? []),
+    () => (tree ? indexInventoryTree(tree) : null),
     [tree]
   )
 
-  const runningVms = useMemo(
-    () => countRunningVms(inventoryItemsById, vmStatuses),
-    [inventoryItemsById, vmStatuses]
-  )
+  const runningVms = useMemo(() => {
+    if (!inventoryItemsById || !vmStatuses) {
+      return null
+    }
+    return countRunningVms(inventoryItemsById, vmStatuses)
+  }, [inventoryItemsById, vmStatuses])
 
-  const favorites = useMemo(
-    () =>
-      Array.from(favoriteIds)
-        .map((itemId) => inventoryItemsById.get(itemId))
-        .filter((item): item is NonNullable<typeof item> => !!item),
-    [favoriteIds, inventoryItemsById]
-  )
+  const favorites = useMemo(() => {
+    if (!inventoryItemsById) {
+      return []
+    }
+    return Array.from(favoriteIds)
+      .map((itemId) => inventoryItemsById.get(itemId))
+      .filter((item): item is NonNullable<typeof item> => !!item)
+  }, [favoriteIds, inventoryItemsById])
 
-  const requests = useMemo(
-    () =>
-      [...(pendingRequests ?? []), ...(historyRequests ?? [])].sort(
-        (left, right) => getRequestSortTime(right) - getRequestSortTime(left)
-      ),
-    [historyRequests, pendingRequests]
-  )
+  const requests = useMemo(() => {
+    if (pendingRequestsError || historyRequestsError) {
+      return []
+    }
+    if (!pendingRequests && isPendingRequestsLoading) {
+      return []
+    }
+    if (!historyRequests && isHistoryRequestsLoading) {
+      return []
+    }
+    return [...(pendingRequests ?? []), ...(historyRequests ?? [])].sort(
+      (left, right) => getRequestSortTime(right) - getRequestSortTime(left)
+    )
+  }, [
+    historyRequests,
+    historyRequestsError,
+    isHistoryRequestsLoading,
+    isPendingRequestsLoading,
+    pendingRequests,
+    pendingRequestsError,
+  ])
 
-  const recentPods = useMemo(
-    () =>
-      visiblePods
-        .slice()
-        .sort(
-          (left, right) => toTime(right.created_at) - toTime(left.created_at)
-        ),
-    [visiblePods]
-  )
+  const recentPods = useMemo(() => {
+    if (catalogError || catalog === undefined) {
+      return []
+    }
+    return visiblePods
+      .slice()
+      .sort(
+        (left, right) => toTime(right.created_at) - toTime(left.created_at)
+      )
+  }, [catalog, catalogError, visiblePods])
   const questionActivityHeatmapData = useMemo(
-    () => buildQuestionActivityHeatmapData(questionActivity ?? []),
-    [questionActivity]
+    () =>
+      questionActivityError || questionActivity === undefined
+        ? []
+        : buildQuestionActivityHeatmapData(questionActivity),
+    [questionActivity, questionActivityError]
   )
 
   const activityColumns = useMemo(
@@ -235,36 +280,52 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   const activityError = pendingRequestsError ?? historyRequestsError
   const questionActivityLoadError =
     questionActivityError instanceof Error ? questionActivityError : null
+  const primaryStatsError =
+    treeError ?? vmStatusError ?? pendingRequestsTotalError ?? providerError
 
-  const activityLoading = isPendingRequestsLoading || isHistoryRequestsLoading
   const isDashboardLoading =
-    isTreeLoading ||
-    activityLoading ||
-    isCatalogLoading ||
-    isQuestionActivityLoading ||
-    cloneStatus.isLoading ||
-    isVmStatusLoading
+    isTreePending ||
+    isVmStatusPending ||
+    isPendingRequestsPending ||
+    isHistoryRequestsPending ||
+    isCatalogPending ||
+    isQuestionActivityPending ||
+    isCloneSummariesPending
+
+  useScrollRestoreOnReady(!isDashboardLoading)
 
   const stats = [
     {
       icon: ComputerIcon,
       label: "Virtual Machines",
-      value: String(inventoryStats.vms),
+      value: formatDashboardStat(isTreeLoading, treeError, inventoryStats?.vms),
     },
     {
       icon: PlayIcon,
       label: "Running VMs",
-      value: String(runningVms),
+      value: formatDashboardStat(
+        isTreeLoading || isVmStatusLoading,
+        treeError ?? vmStatusError,
+        runningVms
+      ),
     },
     {
       icon: CopyIcon,
       label: "Cloned Pods",
-      value: String(cloneStatus.entries.length),
+      value: formatDashboardStat(
+        cloneStatus.isLoading,
+        cloneSummariesError,
+        cloneStatus.entries.length
+      ),
     },
     {
       icon: Clock01Icon,
       label: "Pending Requests",
-      value: String(pendingRequestsTotal ?? 0),
+      value: formatDashboardStat(
+        isPendingRequestsTotalLoading,
+        pendingRequestsTotalError,
+        pendingRequestsTotal
+      ),
     },
   ]
   const roleLabel = getManagementRoleLabel(user.management_permissions)
@@ -272,84 +333,102 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
       <PreloadOverlay active={isDashboardLoading} label="Loading dashboard" />
-      {!isDashboardLoading && (
-        <>
-          <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
-            <DashboardStatsGrid className="xl:col-span-7" stats={stats} />
-            <DashboardProfileCard
-              className="xl:col-span-5"
-              roleLabel={roleLabel}
-              user={user}
-              onSettingsClick={
-                canChangeOwnPassword ? () => setSettingsOpen(true) : undefined
-              }
-            />
-            {!isPersonalPodLoading && personalPodStatus?.configured ? (
-              <PersonalPodCard
-                className="xl:col-span-12"
-                status={personalPodStatus}
-                username={user.username}
-              />
-            ) : null}
-            <DashboardQuestionActivityCard
-              className="xl:col-span-4"
-              data={questionActivityHeatmapData}
-              error={questionActivityLoadError}
-            />
-            <DashboardCurrentClonedPodCard
-              className="xl:col-span-8"
-              entry={cloneStatus.current}
-              error={cloneStatus.error}
-            />
-            <DashboardRecentPodsCard
-              className="xl:col-span-7"
-              clonedPodIds={clonedPodIds}
-              error={catalogError}
-              pods={recentPods}
-            />
-            <DashboardFavoritesCard
-              className="xl:col-span-5"
-              favorites={favorites}
-              vmStatuses={vmStatuses}
-            />
-
-            <DashboardActivityTableCard
-              className="xl:col-span-12"
-              columns={activityColumns}
-              data={requests}
-              error={activityError}
+      <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
+        {primaryStatsError ? (
+          <div className="xl:col-span-12">
+            <InlineErrorAlert
+              error={primaryStatsError}
+              fallback="Failed to load dashboard statistics."
+              title="Statistics unavailable"
             />
           </div>
+        ) : null}
+        <DashboardStatsGrid className="xl:col-span-7" stats={stats} />
+        <DashboardProfileCard
+          className="xl:col-span-5"
+          roleLabel={roleLabel}
+          user={user}
+          onSettingsClick={
+            canChangeOwnPassword ? () => setSettingsOpen(true) : undefined
+          }
+        />
+        {!isPersonalPodLoading && personalPodStatus?.configured ? (
+          <PersonalPodCard
+            className="xl:col-span-12"
+            status={personalPodStatus}
+            username={user.username}
+          />
+        ) : null}
+        <DashboardQuestionActivityCard
+          className="xl:col-span-4"
+          data={questionActivityHeatmapData}
+          error={questionActivityLoadError}
+        />
+        <DashboardCurrentClonedPodCard
+          className="xl:col-span-8"
+          entry={cloneStatus.current}
+          error={cloneStatus.error}
+        />
+        <DashboardRecentPodsCard
+          className="xl:col-span-7"
+          clonedPodIds={clonedPodIds}
+          error={catalogError}
+          pods={recentPods}
+        />
+        <DashboardFavoritesCard
+          className="xl:col-span-5"
+          favorites={favorites}
+          isTreeLoading={isTreeLoading}
+          treeError={treeError}
+          vmStatuses={vmStatuses}
+        />
 
-          <Suspense fallback={null}>
-            {settingsOpen && canChangeOwnPassword ? (
-              <ChangePasswordDialog
-                open={settingsOpen}
-                onOpenChange={setSettingsOpen}
-              />
-            ) : null}
-            {selectedRequestId !== null && (
-              <RequestDetailDialog
-                canReview={false}
-                error={requestDetailError}
-                isLoading={isRequestDetailLoading}
-                onApprove={() => {}}
-                onDeny={() => {}}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setSelectedRequestId(null)
-                  }
-                }}
-                open={true}
-                request={requestDetail ?? null}
-                tree={tree}
-              />
-            )}
-          </Suspense>
-        </>
-      )}
+        <DashboardActivityTableCard
+          className="xl:col-span-12"
+          columns={activityColumns}
+          data={requests}
+          error={activityError}
+        />
+      </div>
+
+      <Suspense fallback={null}>
+        {settingsOpen && canChangeOwnPassword ? (
+          <ChangePasswordDialog
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+          />
+        ) : null}
+        {selectedRequestId !== null && (
+          <RequestDetailDialog
+            canReview={false}
+            error={requestDetailError}
+            isLoading={isRequestDetailLoading}
+            onApprove={() => {}}
+            onDeny={() => {}}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedRequestId(null)
+              }
+            }}
+            open={true}
+            request={requestDetail ?? null}
+            tree={tree}
+          />
+        )}
+      </Suspense>
     </div>
   )
+}
+
+function formatDashboardStat(
+  isLoading: boolean,
+  error: unknown,
+  value: number | null | undefined
+) {
+  if (isLoading || error || value === null || value === undefined) {
+    return "—"
+  }
+  return String(value)
 }
 
 function getRequestSortTime(request: ApiRequestSummary) {
