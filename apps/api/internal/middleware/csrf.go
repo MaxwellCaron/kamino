@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RequireCSRFHeader blocks mutating requests without X-Kamino-Request; /auth routes are exempt.
+// RequireCSRFHeader blocks mutating requests without X-Kamino-Request; GET/HEAD/OPTIONS pass through.
 func RequireCSRFHeader() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		switch c.Request.Method {

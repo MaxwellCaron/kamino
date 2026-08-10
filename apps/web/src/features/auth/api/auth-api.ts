@@ -104,18 +104,21 @@ function isAuthEndpoint(input: string) {
   return input.startsWith("/api/v1/auth/")
 }
 
+const CSRF_HEADER_NAME = "X-Kamino-Request"
+const CSRF_HEADER_VALUE = "1"
+
 function mergeRequestHeaders(init?: RequestInit): HeadersInit {
-  const csrfHeader = { "X-Kamino-Request": "1" }
+  const csrfHeader = { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE }
   if (!init?.headers) {
     return csrfHeader
   }
   if (init.headers instanceof Headers) {
     const merged = new Headers(init.headers)
-    merged.set("X-Kamino-Request", "1")
+    merged.set(CSRF_HEADER_NAME, CSRF_HEADER_VALUE)
     return merged
   }
   if (Array.isArray(init.headers)) {
-    return [...init.headers, ["X-Kamino-Request", "1"]]
+    return [...init.headers, [CSRF_HEADER_NAME, CSRF_HEADER_VALUE]]
   }
   return { ...csrfHeader, ...init.headers }
 }
@@ -242,7 +245,9 @@ export async function login(params: {
 
 export async function logout(): Promise<void> {
   await fetch(apiUrl("/api/v1/auth/logout"), {
-    ...{ method: "POST", credentials: "include" as const },
+    method: "POST",
+    credentials: "include" as const,
+    headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
   })
   clearAuthState()
 }
@@ -271,6 +276,7 @@ export async function refreshAuth(): Promise<AuthSession> {
     const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
       method: "POST",
       credentials: "include",
+      headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
     })
     if (!res.ok) {
       if (res.status === 401) {

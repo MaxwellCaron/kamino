@@ -40,8 +40,8 @@ func RegisterRoutes(
 	if authHandler != nil {
 		authGroup := v1.Group("/auth")
 		authGroup.POST("/login", middleware.LoginRateLimit(10, time.Minute), authHandler.Login)
-		authGroup.POST("/refresh", authHandler.Refresh)
-		authGroup.POST("/logout", authHandler.Logout)
+		authGroup.POST("/refresh", middleware.RequireCSRFHeader(), authHandler.Refresh)
+		authGroup.POST("/logout", middleware.RequireCSRFHeader(), authHandler.Logout)
 	}
 
 	// Apply auth middleware to all remaining routes when auth is configured

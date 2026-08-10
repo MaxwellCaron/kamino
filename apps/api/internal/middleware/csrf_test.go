@@ -67,3 +67,46 @@ func TestRequireCSRFHeader_OPTIONSWithoutHeader_Allows(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 }
+
+func TestRequireCSRFHeader_OnSpecificRoute_RejectsWithoutHeaderBeforeHandler(t *testing.T) {
+	handlerReached := false
+	r := gin.New()
+	gin.SetMode(gin.TestMode)
+	r.POST("/protected-route", RequireCSRFHeader(), func(c *gin.Context) {
+		handlerReached = true
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/protected-route", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", w.Code)
+	}
+	if handlerReached {
+		t.Fatal("expected terminal handler not to be reached without the CSRF header")
+	}
+}
+
+func TestRequireCSRFHeader_OnSpecificRoute_AllowsWithHeader(t *testing.T) {
+	handlerReached := false
+	r := gin.New()
+	gin.SetMode(gin.TestMode)
+	r.POST("/protected-route", RequireCSRFHeader(), func(c *gin.Context) {
+		handlerReached = true
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/protected-route", nil)
+	req.Header.Set("X-Kamino-Request", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if !handlerReached {
+		t.Fatal("expected terminal handler to be reached with the CSRF header")
+	}
+}
