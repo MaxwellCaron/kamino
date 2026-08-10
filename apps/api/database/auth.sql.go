@@ -48,6 +48,25 @@ func (q *Queries) CreateAuthSession(ctx context.Context, arg CreateAuthSessionPa
 	return err
 }
 
+const deleteExpiredAuthSessionFamilies = `-- name: DeleteExpiredAuthSessionFamilies :execrows
+WITH expired_families AS (
+    SELECT auth_sessions.family_id
+    FROM auth_sessions
+    GROUP BY auth_sessions.family_id
+    HAVING MAX(auth_sessions.expires_at) < $1
+)
+DELETE FROM auth_sessions
+WHERE auth_sessions.family_id IN (SELECT expired_families.family_id FROM expired_families)
+`
+
+func (q *Queries) DeleteExpiredAuthSessionFamilies(ctx context.Context, expiredBefore pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredAuthSessionFamilies, expiredBefore)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAuthSessionByTokenHashForUpdate = `-- name: GetAuthSessionByTokenHashForUpdate :one
 SELECT
     id,

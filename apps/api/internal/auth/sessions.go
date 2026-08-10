@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -19,6 +20,11 @@ import (
 )
 
 var ErrInvalidSession = errors.New("invalid session")
+
+const (
+	sessionCleanupInterval    = 24 * time.Hour
+	sessionCleanupGracePeriod = 24 * time.Hour
+)
 
 // sessionStore is the seam SessionManager uses to talk to the database
 type sessionStore interface {
@@ -223,6 +229,48 @@ func (m *SessionManager) RevokePrincipalSessions(ctx context.Context, principalI
 		return fmt.Errorf("revoke auth sessions for principal: %w", err)
 	}
 	return nil
+}
+
+// DeleteExpiredSessionFamilies deletes whole families whose newest member expired before gracePeriod ago.
+func (m *SessionManager) DeleteExpiredSessionFamilies(ctx context.Context, gracePeriod time.Duration) (int64, error) {
+	expiredBefore := time.Now().UTC().Add(-gracePeriod)
+	q := database.New(m.store)
+	deleted, err := q.DeleteExpiredAuthSessionFamilies(ctx, timestamptz(expiredBefore))
+	if err != nil {
+		return 0, fmt.Errorf("delete expired auth session families: %w", err)
+	}
+	return deleted, nil
+}
+
+// StartCleanup runs the expired-session-family sweep immediately, then once per sessionCleanupInterval until ctx is canceled.
+func (m *SessionManager) StartCleanup(ctx context.Context) {
+	m.startCleanup(ctx, sessionCleanupInterval, sessionCleanupGracePeriod)
+}
+
+func (m *SessionManager) startCleanup(ctx context.Context, interval, gracePeriod time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	m.runCleanupSweep(ctx, gracePeriod)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			m.runCleanupSweep(ctx, gracePeriod)
+		}
+	}
+}
+
+func (m *SessionManager) runCleanupSweep(ctx context.Context, gracePeriod time.Duration) {
+	deleted, err := m.DeleteExpiredSessionFamilies(ctx, gracePeriod)
+	if err != nil && ctx.Err() == nil {
+		log.Printf("auth session cleanup sweep failed: %v", err)
+		return
+	}
+	if deleted > 0 {
+		log.Printf("auth session cleanup sweep deleted %d expired session(s)", deleted)
+	}
 }
 
 func generateOpaqueToken() (rawToken string, tokenHash string, err error) {

@@ -323,6 +323,7 @@ func main() {
 	}
 
 	sessionManager := auth.NewSessionManager(server.DBPool)
+	go sessionManager.StartCleanup(context.Background())
 
 	authHandler := &handlers.AuthHandler{
 		Auth:          authService,

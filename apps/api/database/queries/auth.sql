@@ -62,3 +62,13 @@ SET revoked_at = COALESCE(revoked_at, now())
 WHERE principal_id = $1
   AND revoked_at IS NULL
   AND expires_at > now();
+
+-- name: DeleteExpiredAuthSessionFamilies :execrows
+WITH expired_families AS (
+    SELECT auth_sessions.family_id
+    FROM auth_sessions
+    GROUP BY auth_sessions.family_id
+    HAVING MAX(auth_sessions.expires_at) < sqlc.arg(expired_before)
+)
+DELETE FROM auth_sessions
+WHERE auth_sessions.family_id IN (SELECT expired_families.family_id FROM expired_families);

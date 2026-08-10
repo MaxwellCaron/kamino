@@ -202,6 +202,24 @@ func (store *fakeSessionStore) execQuery(sql string, args ...any) (pgconn.Comman
 			row.revokedAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
 		}
 		return pgconn.CommandTag{}, nil
+	case strings.Contains(sql, "DELETE FROM auth_sessions"):
+		expiredBefore := args[0].(pgtype.Timestamptz)
+		familyMaxExpiresAt := make(map[uuid.UUID]time.Time)
+		for _, row := range store.byID {
+			if cur, ok := familyMaxExpiresAt[row.familyID]; !ok || row.expiresAt.Time.After(cur) {
+				familyMaxExpiresAt[row.familyID] = row.expiresAt.Time
+			}
+		}
+		var affected int64
+		for id, row := range store.byID {
+			if !familyMaxExpiresAt[row.familyID].Before(expiredBefore.Time) {
+				continue
+			}
+			delete(store.byID, id)
+			delete(store.byHash, row.tokenHash)
+			affected++
+		}
+		return pgconn.NewCommandTag("DELETE " + strconv.FormatInt(affected, 10)), nil
 	default:
 		return pgconn.CommandTag{}, errors.New("fakeSessionStore: unsupported Exec query: " + sql)
 	}
