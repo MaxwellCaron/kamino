@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 // InventoryImporter syncs Proxmox pools and VMs into the inventory database.
@@ -21,8 +22,9 @@ type InventoryImporter struct {
 }
 
 const (
-	singleVMSyncTimeout      = 15 * time.Second
-	singleVMSyncPollInterval = 1 * time.Second
+	singleVMSyncTimeout        = 15 * time.Second
+	singleVMSyncPollInterval   = 1 * time.Second
+	initialVMImportConcurrency = 4
 )
 
 func NewInventoryImporter(db *pgxpool.Pool, client *Client) *InventoryImporter {
@@ -85,34 +87,32 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 		return fmt.Errorf("adopting proxmox pools: %w", err)
 	}
 
-	// Sync VMs
-	syncedCount := 0
-	var syncErrs []error
-	for _, vm := range vms {
-		if vm.Type != "qemu" && vm.Type != "lxc" {
-			continue
-		}
-
+	// Sync VMs, bounded to a small number of concurrent imports.
+	results := runBoundedVMImports(ctx, vms, initialVMImportConcurrency, func(ctx context.Context, vm VM) error {
 		gt := GuestTypeFromVMType(vm.Type)
 
 		parentID, err := importedVMParent(rootID, poolFolders, vm)
 		if err != nil {
-			log.Printf("Warning: %v", err)
-			syncErrs = append(syncErrs, err)
-			continue
+			return err
 		}
 
 		summary, err := s.ensureVMConfigSummary(ctx, gt, vm.Node, vm.VMID)
 		if err != nil {
-			err = fmt.Errorf("loading config summary for VM %d on node %s: %w", vm.VMID, vm.Node, err)
-			log.Printf("Warning: %v", err)
-			syncErrs = append(syncErrs, err)
-			continue
+			return fmt.Errorf("loading config summary for VM %d on node %s: %w", vm.VMID, vm.Node, err)
 		}
 
-		if err := s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, gt, summary); err != nil {
-			log.Printf("Warning: failed to sync VM %d on node %s: %v", vm.VMID, vm.Node, err)
-			syncErrs = append(syncErrs, err)
+		return s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, gt, summary)
+	})
+
+	syncedCount := 0
+	var syncErrs []error
+	for _, result := range results {
+		if !result.Attempted {
+			continue
+		}
+		if result.Err != nil {
+			log.Printf("Warning: %v", result.Err)
+			syncErrs = append(syncErrs, result.Err)
 			continue
 		}
 		syncedCount++
@@ -120,6 +120,46 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 
 	log.Printf("Proxmox sync complete: %d pools, %d/%d VMs", len(pools), syncedCount, len(vms))
 	return errors.Join(syncErrs...)
+}
+
+// vmImportResult holds one VM import outcome at its original slice index.
+type vmImportResult struct {
+	Attempted bool
+	Err       error
+}
+
+// runBoundedVMImports runs syncOne for each supported VM with at most limit callbacks active concurrently.
+func runBoundedVMImports(
+	ctx context.Context,
+	vms []VM,
+	limit int,
+	syncOne func(ctx context.Context, vm VM) error,
+) []vmImportResult {
+	results := make([]vmImportResult, len(vms))
+	if len(vms) == 0 {
+		return results
+	}
+
+	group := new(errgroup.Group)
+	if limit > 0 {
+		group.SetLimit(limit)
+	}
+
+	for index, vm := range vms {
+		if vm.Type != "qemu" && vm.Type != "lxc" {
+			continue
+		}
+
+		index, vm := index, vm
+		results[index].Attempted = true
+		group.Go(func() error {
+			results[index].Err = syncOne(ctx, vm)
+			return nil
+		})
+	}
+
+	_ = group.Wait()
+	return results
 }
 
 func importedVMParent(rootID uuid.UUID, poolFolders map[string]uuid.UUID, vm VM) (uuid.UUID, error) {
@@ -401,11 +441,7 @@ func (s *InventoryImporter) ensureVMConfigSummary(
 	node string,
 	vmid int,
 ) (*VMConfigSummary, error) {
-	if _, err := s.client.EnsureVMUpstreamUUID(ctx, gt, node, vmid); err != nil {
-		return nil, err
-	}
-
-	return s.client.GetVMConfigSummary(ctx, gt, node, vmid)
+	return s.client.GetEnsuredVMConfigSummary(ctx, gt, node, vmid)
 }
 
 func (s *InventoryImporter) waitForVMConfigSummary(

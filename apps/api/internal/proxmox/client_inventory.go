@@ -170,22 +170,49 @@ func (c *Client) EnsureVMUpstreamUUID(ctx context.Context, gt GuestType, node st
 	return upstreamUUID, nil
 }
 
-// SetVMUpstreamUUID updates the Proxmox config so the VM exposes the provided
-// SMBIOS UUID.
+// GetEnsuredVMConfigSummary fetches the guest config once, repairing a missing/invalid QEMU UUID in place, with no second GET.
+func (c *Client) GetEnsuredVMConfigSummary(ctx context.Context, gt GuestType, node string, vmid int) (*VMConfigSummary, error) {
+	data, err := c.GetVMConfig(ctx, gt, node, vmid)
+	if err != nil {
+		return nil, err
+	}
+
+	if gt == GuestLXC {
+		return parseLXCConfigSummary(data, vmid)
+	}
+
+	_, err = parseVMUpstreamUUID(getStringValue(data["smbios1"]))
+	if err == nil {
+		return parseVMConfigSummary(data, vmid)
+	}
+	if !errors.Is(err, ErrVMIdentityNotConfigured) && !errors.Is(err, ErrVMIdentityInvalid) {
+		return nil, err
+	}
+
+	updatedSMBIOS := withVMUpstreamUUID(getStringValue(data["smbios1"]), uuid.New())
+	if err := c.putVMUpstreamUUID(ctx, node, vmid, updatedSMBIOS); err != nil {
+		return nil, err
+	}
+	data["smbios1"] = updatedSMBIOS
+
+	return parseVMConfigSummary(data, vmid)
+}
+
+// SetVMUpstreamUUID updates the Proxmox config so the VM exposes the provided SMBIOS UUID.
 func (c *Client) SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error {
 	data, err := c.GetVMConfig(ctx, GuestQEMU, node, vmid)
 	if err != nil {
 		return err
 	}
 
-	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
-	params := map[string]string{
-		"smbios1": withVMUpstreamUUID(getStringValue(data["smbios1"]), upstreamUUID),
-	}
+	return c.putVMUpstreamUUID(ctx, node, vmid, withVMUpstreamUUID(getStringValue(data["smbios1"]), upstreamUUID))
+}
 
-	if err := c.put(ctx, path, params, nil); err != nil {
+// putVMUpstreamUUID sends the already-computed smbios1 value; callers own fetching and merging it.
+func (c *Client) putVMUpstreamUUID(ctx context.Context, node string, vmid int, smbios1 string) error {
+	path := fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid)
+	if err := c.put(ctx, path, map[string]string{"smbios1": smbios1}, nil); err != nil {
 		return fmt.Errorf("setting VM upstream uuid: %w", err)
 	}
-
 	return nil
 }
