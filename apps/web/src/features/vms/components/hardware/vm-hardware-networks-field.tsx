@@ -28,9 +28,10 @@ import { nicModels } from "@/features/vms/components/hardware/hardware-options"
 import { VmHardwareNetworkCard } from "@/features/vms/components/hardware/hardware-sections"
 import { VmHardwareNetworkBridgeCombobox } from "@/features/vms/components/hardware/vm-hardware-network-bridge-combobox"
 import { isScopedNetworkBridgeLocked } from "@/features/vms/utils/vm-network-scope"
+import { uuid } from "@/features/shared/utils/uuid"
 
 type NetworkInterfaceValue = {
-  id?: string
+  id: string
   device?: string
   mac_address?: string
   bridge: string
@@ -52,7 +53,7 @@ type VmHardwareNetworksFieldProps = {
   fieldIdPrefix?: string
   resolveCardTitle?: (network: NetworkInterfaceValue, index: number) => string
   resolveCardDescription?: (network: NetworkInterfaceValue) => string
-  resolveCardKey?: (network: NetworkInterfaceValue, index: number) => string
+  resolveCardKey?: (network: NetworkInterfaceValue) => string
   createNetworkValue?: () => NetworkInterfaceValue
   scopedNetwork?: ApiScopedNetwork
 }
@@ -69,17 +70,19 @@ export function VmHardwareNetworksField({
     network.mac_address
       ? `MAC ${network.mac_address}`
       : "Configure connectivity for this interface.",
-  resolveCardKey = (network, index) => network.device ?? `network-${index}`,
+  resolveCardKey = (network) => network.id,
   scopedNetwork,
   createNetworkValue = () =>
     scopedNetwork
       ? {
+          id: uuid(),
           bridge: scopedNetwork.bridge,
           model: "virtio",
           vlan_tag: scopedNetwork.vlan_tag,
           firewall: true,
         }
       : {
+          id: uuid(),
           bridge: "vmbr0",
           model: "virtio",
           firewall: true,
@@ -98,7 +101,7 @@ export function VmHardwareNetworksField({
         <div className="flex flex-col gap-4">
           {networksField.state.value.map((network, index) => (
             <VmHardwareNetworkCard
-              key={resolveCardKey(network, index)}
+              key={resolveCardKey(network)}
               title={resolveCardTitle(network, index)}
               description={resolveCardDescription(network)}
               removeAction={

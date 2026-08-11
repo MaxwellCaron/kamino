@@ -1,4 +1,3 @@
-import { Image } from "@unpic/react"
 import {
   Field,
   FieldContent,
@@ -19,6 +18,7 @@ import {
   getPodDefaultVmSegmentKey,
   isPodNetworkingWithRouter,
 } from "./create-pod-form"
+import { NetworkingModeDiagram } from "./create-pod-networking-mode-diagram"
 import type { CreatePodFormApi, PodNetworkingMode } from "./create-pod-form"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
@@ -216,23 +216,11 @@ export function CreatePodNetworkingSection({
                               className="flex min-h-0 w-full flex-1 items-center justify-center"
                               aria-hidden="true"
                             >
-                              <Image
-                                src={mode.diagram.light.src}
-                                width={mode.diagram.light.width}
-                                height={mode.diagram.light.height}
-                                layout="constrained"
-                                alt=""
-                                loading="eager"
-                                className="h-auto w-full dark:hidden"
-                              />
-                              <Image
-                                src={mode.diagram.dark.src}
-                                width={mode.diagram.dark.width}
-                                height={mode.diagram.dark.height}
-                                layout="constrained"
-                                alt=""
-                                loading="eager"
-                                className="hidden h-auto w-full dark:block"
+                              <NetworkingModeDiagram
+                                light={mode.diagram.light}
+                                dark={mode.diagram.dark}
+                                alt={mode.diagram.alt}
+                                className="h-auto w-full"
                               />
                             </div>
                           ) : null}

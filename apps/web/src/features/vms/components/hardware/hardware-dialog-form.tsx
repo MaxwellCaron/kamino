@@ -6,7 +6,7 @@ import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
 import type {
   StorageOption,
-  VmHardwareFormValues,
+  VmHardwareDialogFormValues,
 } from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   AppDialogPrimaryButton,
@@ -29,6 +29,7 @@ import {
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
 import { useUpdateVMHardware } from "@/features/vms/hooks/use-vm-actions"
 import { toastUpdateHardware } from "@/features/vms/utils/vm-toasts"
+import { uuid } from "@/features/shared/utils/uuid"
 
 type VmHardwareDialogFormProps = {
   itemId: string
@@ -46,7 +47,7 @@ type VmHardwareDialogFormProps = {
 // Seeds exactly from current hardware; replacing an existing NIC's bridge/tag here would erase a manager override.
 function vmHardwareFormValuesFromHardware(
   hardware: ApiVmHardwareConfig
-): VmHardwareFormValues {
+): VmHardwareDialogFormValues {
   return {
     ostype: hardware.ostype,
     bios: hardware.bios,
@@ -60,6 +61,7 @@ function vmHardwareFormValuesFromHardware(
     storage: hardware.storage,
     disk_size: hardware.disk_size,
     networks: hardware.networks.map((network) => ({
+      id: network.device ?? uuid(),
       device: network.device,
       mac_address: network.mac_address,
       bridge: network.bridge,

@@ -346,7 +346,7 @@ export function CreatePodTemplateCard({
                                     >
                                       <Field orientation="horizontal">
                                         <FieldContent>
-                                          <FieldTitle className="text-sm">
+                                          <FieldTitle>
                                             {segment.label}
                                           </FieldTitle>
                                         </FieldContent>

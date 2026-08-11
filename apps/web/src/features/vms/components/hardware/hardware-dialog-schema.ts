@@ -29,6 +29,16 @@ export const vmHardwareFormSchema = z.object({
 
 export type VmHardwareFormValues = z.infer<typeof vmHardwareFormSchema>
 
+// UI-only row identity; vmHardwareFormSchema strips `id` before it reaches the API.
+export type VmHardwareNetworkFormValue = z.infer<
+  typeof hardwareNetworkInterfaceSchema
+> & { id: string }
+
+export type VmHardwareDialogFormValues = Omit<
+  VmHardwareFormValues,
+  "networks"
+> & { networks: Array<VmHardwareNetworkFormValue> }
+
 export type HardwareFormLike = {
   Field: any
 }

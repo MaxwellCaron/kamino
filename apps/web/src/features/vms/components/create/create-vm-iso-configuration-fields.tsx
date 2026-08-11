@@ -608,7 +608,6 @@ export const IsoConfigurationFields = withCreateVmForm({
             resolveCardDescription={() =>
               "Configure connectivity for this interface."
             }
-            resolveCardKey={(network) => network.id ?? "network"}
             createNetworkValue={() =>
               scopedNetwork
                 ? {
