@@ -30,8 +30,8 @@ import type {
 } from "@/features/pods/types/pod-types"
 import {
   createQuestionAnswerMap,
+  createQuestionSummary,
   createTaskStateMap,
-  createTaskSummary,
 } from "@/features/pods/utils/pod-runtime-state"
 
 export function PodTasks({
@@ -54,9 +54,10 @@ export function PodTasks({
   const answersByQuestionId = questionAnswers
     ? createQuestionAnswerMap(questionAnswers)
     : null
-  const taskSummary = createTaskSummary(tasks, taskStates)
+  const questionSummary = createQuestionSummary(tasks, questionAnswers)
   const isFullyComplete =
-    taskSummary.total === 0 || taskSummary.completed === taskSummary.total
+    questionSummary.total === 0 ||
+    questionSummary.answered === questionSummary.total
 
   return (
     <Card className="rounded-b-2xl! pb-0">
@@ -75,8 +76,11 @@ export function PodTasks({
           order to complete the pod.
         </CardDescription>
         <CardAction>
-          <Badge variant={isFullyComplete ? "default" : "destructive"}>
-            {taskSummary.completed} / {taskSummary.total}
+          <Badge
+            variant={isFullyComplete ? "default" : "destructive"}
+            aria-label={`${questionSummary.answered} of ${questionSummary.total} questions answered`}
+          >
+            {questionSummary.answered} / {questionSummary.total}
           </Badge>
         </CardAction>
       </CardHeader>

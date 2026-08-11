@@ -8,6 +8,43 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestNewPodQuestionSummaryResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		total    int32
+		answered int32
+		want     podQuestionSummaryResponse
+	}{
+		{
+			name:     "zero questions",
+			total:    0,
+			answered: 0,
+			want:     podQuestionSummaryResponse{Total: 0, Answered: 0, Progress: 0},
+		},
+		{
+			name:     "partial progress",
+			total:    5,
+			answered: 2,
+			want:     podQuestionSummaryResponse{Total: 5, Answered: 2, Progress: 40},
+		},
+		{
+			name:     "complete",
+			total:    5,
+			answered: 5,
+			want:     podQuestionSummaryResponse{Total: 5, Answered: 5, Progress: 100},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := newPodQuestionSummaryResponse(tt.total, tt.answered)
+			if got != tt.want {
+				t.Errorf("newPodQuestionSummaryResponse() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNonNilPrincipals(t *testing.T) {
 	t.Run("nil returns empty slice", func(t *testing.T) {
 		got := nonNilPrincipals(nil)

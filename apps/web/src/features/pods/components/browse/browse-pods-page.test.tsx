@@ -73,7 +73,7 @@ function makeSummary(
       pod_id: podId,
       cloned_at: "2026-01-01T00:00:00Z",
       status,
-      task_summary: { total: 1, completed: 1, progress: 100 },
+      question_summary: { total: 1, answered: 1, progress: 100 },
     },
     pod: {
       id: podId,

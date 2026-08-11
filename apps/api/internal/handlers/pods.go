@@ -129,10 +129,17 @@ type publishedPodCloneOwnerResponse struct {
 	Description string    `json:"description"`
 }
 
-type publishedPodCloneTaskSummaryResponse struct {
-	Total     int32   `json:"total"`
-	Completed int32   `json:"completed"`
-	Progress  float64 `json:"progress"`
+type publishedPodCloneResponse struct {
+	ID              uuid.UUID                      `json:"id"`
+	PodID           uuid.UUID                      `json:"pod_id"`
+	Owner           publishedPodCloneOwnerResponse `json:"owner"`
+	ClonedAt        time.Time                      `json:"cloned_at"`
+	UpdatedAt       time.Time                      `json:"updated_at"`
+	Status          string                         `json:"status"`
+	Network         clonedPodNetworkResponse       `json:"network"`
+	VMCount         int32                          `json:"vm_count"`
+	QuestionSummary podQuestionSummaryResponse     `json:"question_summary"`
+	PowerResult     *podPowerResultResponse        `json:"power_result,omitempty"`
 }
 
 type clonedPodNetworkResponse struct {
@@ -166,19 +173,6 @@ const (
 type podPowerResultResponse struct {
 	Action string         `json:"action"`
 	Status podPowerStatus `json:"status"`
-}
-
-type publishedPodCloneResponse struct {
-	ID          uuid.UUID                            `json:"id"`
-	PodID       uuid.UUID                            `json:"pod_id"`
-	Owner       publishedPodCloneOwnerResponse       `json:"owner"`
-	ClonedAt    time.Time                            `json:"cloned_at"`
-	UpdatedAt   time.Time                            `json:"updated_at"`
-	Status      string                               `json:"status"`
-	Network     clonedPodNetworkResponse             `json:"network"`
-	VMCount     int32                                `json:"vm_count"`
-	TaskSummary publishedPodCloneTaskSummaryResponse `json:"task_summary"`
-	PowerResult *podPowerResultResponse              `json:"power_result,omitempty"`
 }
 
 type publishedPodBase struct {

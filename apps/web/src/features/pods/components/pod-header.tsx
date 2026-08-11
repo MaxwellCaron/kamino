@@ -19,7 +19,6 @@ import {
   FormatPodCreators,
   PodCreatorIcon,
 } from "@/features/pods/components/pod-creators"
-import { createTaskSummary } from "@/features/pods/utils/pod-runtime-state"
 import { GrainientBackground } from "@/components/grainient-background"
 
 function PodHeaderMetaChip({
@@ -55,9 +54,7 @@ export function PodHeader({
   onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
-  const taskSummary = clonedPod
-    ? createTaskSummary(pod.tasks ?? [], clonedPod.task_states)
-    : null
+  const questionSummary = clonedPod?.question_summary ?? null
 
   return (
     <div className="relative overflow-hidden">
@@ -133,7 +130,7 @@ export function PodHeader({
                   label="Clones"
                 />
 
-                {taskSummary && (
+                {questionSummary && (
                   <>
                     <Separator
                       orientation="vertical"
@@ -143,7 +140,7 @@ export function PodHeader({
                       icon={
                         <CircularProgress
                           size={20}
-                          value={taskSummary.progress}
+                          value={questionSummary.progress}
                         >
                           <CircularProgressIndicator>
                             <CircularProgressTrack />
@@ -151,8 +148,8 @@ export function PodHeader({
                           </CircularProgressIndicator>
                         </CircularProgress>
                       }
-                      value={`${taskSummary.completed} / ${taskSummary.total}`}
-                      label="Tasks"
+                      value={`${questionSummary.answered} / ${questionSummary.total}`}
+                      label="Questions"
                     />
                   </>
                 )}

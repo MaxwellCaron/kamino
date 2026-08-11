@@ -301,14 +301,17 @@ SELECT DISTINCT ON (cp.pod_id)
     cp.pod_id,
     cp.user_principal_id,
     cp.created_at,
-    COUNT(DISTINCT task.id)::int AS task_total,
-    COUNT(DISTINCT state.task_id) FILTER (WHERE state.completed)::int AS task_completed
+    COUNT(DISTINCT question.id)::int AS question_total,
+    COUNT(DISTINCT answer.question_id)
+        FILTER (WHERE answer.is_correct)::int AS question_answered
 FROM cloned_pods cp
 LEFT JOIN published_pod_tasks task
   ON task.pod_id = cp.pod_id
-LEFT JOIN cloned_pod_task_states state
-  ON state.cloned_pod_id = cp.id
- AND state.task_id = task.id
+LEFT JOIN published_pod_task_questions question
+  ON question.task_id = task.id
+LEFT JOIN cloned_pod_question_answers answer
+  ON answer.cloned_pod_id = cp.id
+ AND answer.question_id = question.id
 WHERE cp.pod_id = ANY($1::UUID[])
   AND cp.user_principal_id IN (
       SELECT ep.principal_id::UUID
@@ -331,12 +334,12 @@ type ListAccessibleClonedPodSummariesByPodIDsParams struct {
 }
 
 type ListAccessibleClonedPodSummariesByPodIDsRow struct {
-	ID              uuid.UUID          `json:"id"`
-	PodID           uuid.UUID          `json:"pod_id"`
-	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	TaskTotal       int32              `json:"task_total"`
-	TaskCompleted   int32              `json:"task_completed"`
+	ID               uuid.UUID          `json:"id"`
+	PodID            uuid.UUID          `json:"pod_id"`
+	UserPrincipalID  uuid.UUID          `json:"user_principal_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	QuestionTotal    int32              `json:"question_total"`
+	QuestionAnswered int32              `json:"question_answered"`
 }
 
 func (q *Queries) ListAccessibleClonedPodSummariesByPodIDs(ctx context.Context, arg ListAccessibleClonedPodSummariesByPodIDsParams) ([]ListAccessibleClonedPodSummariesByPodIDsRow, error) {
@@ -353,8 +356,8 @@ func (q *Queries) ListAccessibleClonedPodSummariesByPodIDs(ctx context.Context, 
 			&i.PodID,
 			&i.UserPrincipalID,
 			&i.CreatedAt,
-			&i.TaskTotal,
-			&i.TaskCompleted,
+			&i.QuestionTotal,
+			&i.QuestionAnswered,
 		); err != nil {
 			return nil, err
 		}
@@ -440,8 +443,9 @@ SELECT
     cp.created_at,
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
-    COUNT(DISTINCT task.id)::int AS task_total,
-    COUNT(DISTINCT state.task_id) FILTER (WHERE state.completed)::int AS task_completed
+    COUNT(DISTINCT question.id)::int AS question_total,
+    COUNT(DISTINCT answer.question_id)
+        FILTER (WHERE answer.is_correct)::int AS question_answered
 FROM cloned_pods cp
 JOIN principals p
   ON p.id = cp.user_principal_id
@@ -449,9 +453,11 @@ LEFT JOIN cloned_pod_vms cpv
   ON cpv.cloned_pod_id = cp.id
 LEFT JOIN published_pod_tasks task
   ON task.pod_id = cp.pod_id
-LEFT JOIN cloned_pod_task_states state
-  ON state.cloned_pod_id = cp.id
- AND state.task_id = task.id
+LEFT JOIN published_pod_task_questions question
+  ON question.task_id = task.id
+LEFT JOIN cloned_pod_question_answers answer
+  ON answer.cloned_pod_id = cp.id
+ AND answer.question_id = question.id
 WHERE cp.pod_id = $1
 GROUP BY
     cp.id,
@@ -484,8 +490,8 @@ type ListClonedPodSummariesByPodIDRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	VmCount           int32              `json:"vm_count"`
-	TaskTotal         int32              `json:"task_total"`
-	TaskCompleted     int32              `json:"task_completed"`
+	QuestionTotal     int32              `json:"question_total"`
+	QuestionAnswered  int32              `json:"question_answered"`
 }
 
 func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.UUID) ([]ListClonedPodSummariesByPodIDRow, error) {
@@ -511,8 +517,8 @@ func (q *Queries) ListClonedPodSummariesByPodID(ctx context.Context, podID uuid.
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VmCount,
-			&i.TaskTotal,
-			&i.TaskCompleted,
+			&i.QuestionTotal,
+			&i.QuestionAnswered,
 		); err != nil {
 			return nil, err
 		}

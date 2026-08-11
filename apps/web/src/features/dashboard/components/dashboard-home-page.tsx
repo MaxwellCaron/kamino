@@ -156,7 +156,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           profile_key: "lan-router-v1",
         },
         vms: [],
-        task_summary: item.summary.task_summary,
+        question_summary: item.summary.question_summary,
         task_states: [],
         question_answers: [],
       },

@@ -38,11 +38,6 @@ func (h *PodsHandler) hydratePublishedPodClones(
 
 	response := make([]publishedPodCloneResponse, 0, len(summaries))
 	for _, s := range summaries {
-		progress := 0.0
-		if s.TaskTotal > 0 {
-			progress = (float64(s.TaskCompleted) / float64(s.TaskTotal)) * 100
-		}
-
 		target, ok := targetsByKey[s.CloneTargetKey]
 		if !ok {
 			return nil, fmt.Errorf("clone %s references unknown clone target %q", s.ID, s.CloneTargetKey)
@@ -66,11 +61,10 @@ func (h *PodsHandler) hydratePublishedPodClones(
 			Status:    statusByClone[s.ID],
 			Network:   network,
 			VMCount:   int32(s.VmCount),
-			TaskSummary: publishedPodCloneTaskSummaryResponse{
-				Total:     s.TaskTotal,
-				Completed: s.TaskCompleted,
-				Progress:  progress,
-			},
+			QuestionSummary: newPodQuestionSummaryResponse(
+				s.QuestionTotal,
+				s.QuestionAnswered,
+			),
 		})
 	}
 

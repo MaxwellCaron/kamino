@@ -110,15 +110,15 @@ export interface ClonedPod {
   status: ClonedPodStatus
   network: ClonedPodNetwork
   vms: Array<PodVM>
-  task_summary: ClonedPodTaskSummary
+  question_summary: ClonedPodQuestionSummary
   task_states: Array<ClonedPodTaskState>
   question_answers: Array<PodTaskQuestionAnswer>
   power_result?: PodPowerResult
 }
 
-export interface ClonedPodTaskSummary {
+export interface ClonedPodQuestionSummary {
   total: number
-  completed: number
+  answered: number
   progress: number
 }
 
@@ -172,6 +172,6 @@ export interface PublishedPodCloneSummary {
   status: ClonedPodStatus
   network: ClonedPodNetwork
   vm_count: number
-  task_summary: ClonedPodTaskSummary
+  question_summary: ClonedPodQuestionSummary
   power_result?: PodPowerResult
 }

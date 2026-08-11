@@ -164,23 +164,15 @@ func (h *PodsHandler) ListCatalogCloneSummaries(c *gin.Context) {
 
 	cloneByPodID := make(map[uuid.UUID]catalogCloneSummaryResponse, len(cloneRows))
 	for _, row := range cloneRows {
-		totalTasks := int(row.TaskTotal)
-		completedTasks := int(row.TaskCompleted)
-		progress := 0.0
-		if totalTasks > 0 {
-			progress = (float64(completedTasks) / float64(totalTasks)) * 100
-		}
-
 		cloneByPodID[row.PodID] = catalogCloneSummaryResponse{
 			ID:       row.ID,
 			PodID:    row.PodID,
 			ClonedAt: pgTime(row.CreatedAt),
 			Status:   statusByClone[row.ID],
-			TaskSummary: catalogCloneTaskSummaryResponse{
-				Total:     totalTasks,
-				Completed: completedTasks,
-				Progress:  progress,
-			},
+			QuestionSummary: newPodQuestionSummaryResponse(
+				row.QuestionTotal,
+				row.QuestionAnswered,
+			),
 		}
 	}
 

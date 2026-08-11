@@ -1,6 +1,6 @@
-import { ProgressRoot, ProgressValue } from "@workspace/ui/components/progress"
+import { ProgressRoot } from "@workspace/ui/components/progress"
 
-const PILL_COUNT = 40
+const PILL_COUNT = 45
 
 export function ProgressPills({ progress }: { progress: number }) {
   const value = Math.min(100, Math.max(0, progress))
@@ -24,7 +24,6 @@ export function ProgressPills({ progress }: { progress: number }) {
           />
         ))}
       </div>
-      <ProgressValue className="shrink-0">{() => formattedValue}</ProgressValue>
     </ProgressRoot>
   )
 }

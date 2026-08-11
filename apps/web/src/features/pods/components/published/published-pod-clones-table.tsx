@@ -289,7 +289,7 @@ export function PublishedPodClonesTable({
                     <TableHead>Status</TableHead>
                     <TableHead>Network</TableHead>
                     <TableHead>VMs</TableHead>
-                    <TableHead>Tasks</TableHead>
+                    <TableHead>Questions</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -328,12 +328,12 @@ export function PublishedPodClonesTable({
                       </TableCell>
                       <TableCell className="text-sm">
                         <span className="tabular-nums">
-                          {clone.task_summary.completed}/
-                          {clone.task_summary.total}
+                          {clone.question_summary.answered}/
+                          {clone.question_summary.total}
                         </span>
-                        {clone.task_summary.total > 0 && (
+                        {clone.question_summary.total > 0 && (
                           <span className="ml-1.5 text-muted-foreground tabular-nums">
-                            {Math.round(clone.task_summary.progress)}%
+                            {Math.round(clone.question_summary.progress)}%
                           </span>
                         )}
                       </TableCell>

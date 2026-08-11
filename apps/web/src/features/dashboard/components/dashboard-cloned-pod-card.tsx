@@ -124,9 +124,18 @@ export function DashboardCurrentClonedPodCard({
                         variant="muted"
                       />
                     </span>
-                    <div className="w-full pt-4">
+                    <div className="flex w-full flex-col gap-2 pt-4">
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground">
+                          Questions answered
+                        </span>
+                        <span className="text-muted-foreground">
+                          {entry.clonedPod.question_summary.answered} /{" "}
+                          {entry.clonedPod.question_summary.total}
+                        </span>
+                      </div>
                       <ProgressPills
-                        progress={entry.clonedPod.task_summary.progress}
+                        progress={entry.clonedPod.question_summary.progress}
                       />
                     </div>
                   </ItemContent>

@@ -147,7 +147,7 @@ type clonedPodResponse struct {
 	Status          string                            `json:"status"`
 	Network         clonedPodNetworkResponse          `json:"network"`
 	VMs             []clonedPodVMResponse             `json:"vms"`
-	TaskSummary     clonedPodTaskSummaryResponse      `json:"task_summary"`
+	QuestionSummary podQuestionSummaryResponse        `json:"question_summary"`
 	TaskStates      []clonedPodTaskStateResponse      `json:"task_states"`
 	QuestionAnswers []clonedPodQuestionAnswerResponse `json:"question_answers"`
 	PowerResult     *podPowerResultResponse           `json:"power_result,omitempty"`
@@ -172,10 +172,22 @@ type clonedPodVMInventoryResponse struct {
 	ItemID uuid.UUID `json:"itemId"`
 }
 
-type clonedPodTaskSummaryResponse struct {
-	Total     int     `json:"total"`
-	Completed int     `json:"completed"`
-	Progress  float64 `json:"progress"`
+type podQuestionSummaryResponse struct {
+	Total    int32   `json:"total"`
+	Answered int32   `json:"answered"`
+	Progress float64 `json:"progress"`
+}
+
+func newPodQuestionSummaryResponse(total, answered int32) podQuestionSummaryResponse {
+	progress := 0.0
+	if total > 0 {
+		progress = (float64(answered) / float64(total)) * 100
+	}
+	return podQuestionSummaryResponse{
+		Total:    total,
+		Answered: answered,
+		Progress: progress,
+	}
 }
 
 type clonedPodTaskStateResponse struct {
@@ -198,17 +210,11 @@ type podQuestionActivityResponse struct {
 }
 
 type catalogCloneSummaryResponse struct {
-	ID          uuid.UUID                       `json:"id"`
-	PodID       uuid.UUID                       `json:"pod_id"`
-	ClonedAt    time.Time                       `json:"cloned_at"`
-	Status      string                          `json:"status"`
-	TaskSummary catalogCloneTaskSummaryResponse `json:"task_summary"`
-}
-
-type catalogCloneTaskSummaryResponse struct {
-	Total     int     `json:"total"`
-	Completed int     `json:"completed"`
-	Progress  float64 `json:"progress"`
+	ID              uuid.UUID                  `json:"id"`
+	PodID           uuid.UUID                  `json:"pod_id"`
+	ClonedAt        time.Time                  `json:"cloned_at"`
+	Status          string                     `json:"status"`
+	QuestionSummary podQuestionSummaryResponse `json:"question_summary"`
 }
 
 type catalogClonePodResponse struct {

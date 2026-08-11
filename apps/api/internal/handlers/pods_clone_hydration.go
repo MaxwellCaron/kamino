@@ -64,11 +64,11 @@ func (h *PodsHandler) hydrateClonedPod(
 		return clonedPodResponse{}, err
 	}
 
-	taskRows, err := q.ListPublishedPodTasksByPodIDs(ctx, []uuid.UUID{clone.PodID})
+	taskStates, err := q.ListClonedPodTaskStates(ctx, clone.ID)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}
-	taskStates, err := q.ListClonedPodTaskStates(ctx, clone.ID)
+	questionSummary, err := q.GetClonedPodQuestionSummary(ctx, clone.ID)
 	if err != nil {
 		return clonedPodResponse{}, err
 	}
@@ -78,22 +78,12 @@ func (h *PodsHandler) hydrateClonedPod(
 	}
 
 	taskStateResponses := make([]clonedPodTaskStateResponse, 0, len(taskStates))
-	completedTasks := 0
 	for _, row := range taskStates {
-		if row.Completed {
-			completedTasks++
-		}
 		taskStateResponses = append(taskStateResponses, clonedPodTaskStateResponse{
 			TaskID:      row.TaskID,
 			Completed:   row.Completed,
 			CompletedAt: optionalTime(row.CompletedAt),
 		})
-	}
-
-	totalTasks := len(taskRows)
-	progress := 0.0
-	if totalTasks > 0 {
-		progress = (float64(completedTasks) / float64(totalTasks)) * 100
 	}
 
 	answerResponses := make([]clonedPodQuestionAnswerResponse, 0, len(answers))
@@ -128,11 +118,10 @@ func (h *PodsHandler) hydrateClonedPod(
 		Status:   status,
 		Network:  network,
 		VMs:      vms,
-		TaskSummary: clonedPodTaskSummaryResponse{
-			Total:     totalTasks,
-			Completed: completedTasks,
-			Progress:  progress,
-		},
+		QuestionSummary: newPodQuestionSummaryResponse(
+			questionSummary.QuestionTotal,
+			questionSummary.QuestionAnswered,
+		),
 		TaskStates:      taskStateResponses,
 		QuestionAnswers: answerResponses,
 	}, nil

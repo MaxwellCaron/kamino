@@ -70,7 +70,7 @@ function makeClone(id: string, label: string, powerStatus?: string): never {
       profile_key: "lan-router-v1",
     },
     vm_count: 1,
-    task_summary: { total: 0, completed: 0, progress: 0 },
+    question_summary: { total: 0, answered: 0, progress: 0 },
     power_result:
       powerStatus === undefined
         ? undefined

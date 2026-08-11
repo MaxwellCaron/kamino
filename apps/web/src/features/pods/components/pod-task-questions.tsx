@@ -25,8 +25,15 @@ import type {
 } from "@/features/pods/types/pod-types"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppDialogContent } from "@/components/dialogs/app-dialog"
-import { answerClonedPodQuestion } from "@/features/pods/api/clone-pod-api"
-import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
+import {
+  answerClonedPodQuestion,
+  catalogCloneSummariesQueryOptions,
+  podQuestionActivityQueryOptions,
+} from "@/features/pods/api/clone-pod-api"
+import {
+  podCatalogQueryOptions,
+  publishedPodClonesQueryOptions,
+} from "@/features/pods/api/publish-pod-api"
 
 export function PodTaskQuestions({
   questions,
@@ -103,9 +110,20 @@ function PodTaskQuestionField({
     mutationFn: answerClonedPodQuestion,
     onSuccess: async (clonedPod) => {
       onAnswered?.(clonedPod)
-      await queryClient.invalidateQueries({
-        queryKey: podCatalogQueryOptions.queryKey,
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: catalogCloneSummariesQueryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: publishedPodClonesQueryOptions(clonedPod.pod_id).queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podQuestionActivityQueryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        }),
+      ])
     },
   })
   const answerSubmitted = answer != null

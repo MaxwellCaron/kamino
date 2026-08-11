@@ -23,6 +23,21 @@ JOIN published_pod_tasks task
 WHERE state.cloned_pod_id = $1
 ORDER BY task.sort_order ASC;
 
+-- name: GetClonedPodQuestionSummary :one
+SELECT
+    COUNT(DISTINCT question.id)::int AS question_total,
+    COUNT(DISTINCT answer.question_id)
+        FILTER (WHERE answer.is_correct)::int AS question_answered
+FROM cloned_pods cp
+LEFT JOIN published_pod_tasks task
+  ON task.pod_id = cp.pod_id
+LEFT JOIN published_pod_task_questions question
+  ON question.task_id = task.id
+LEFT JOIN cloned_pod_question_answers answer
+  ON answer.cloned_pod_id = cp.id
+ AND answer.question_id = question.id
+WHERE cp.id = $1;
+
 -- name: ListClonedPodQuestionAnswers :many
 SELECT
     question_id,
