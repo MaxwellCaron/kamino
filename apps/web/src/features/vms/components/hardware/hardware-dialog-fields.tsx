@@ -29,12 +29,12 @@ export function VmHardwareOperatingSystemFields({
       <form.Field name="ostype">
         {(field: StringFieldApi) => (
           <Field>
-            <FieldLabel>OS Type</FieldLabel>
+            <FieldLabel htmlFor="hardware-os-type">OS Type</FieldLabel>
             <Select
               value={field.state.value}
               onValueChange={(value) => field.handleChange(value ?? "other")}
             >
-              <SelectTrigger>
+              <SelectTrigger id="hardware-os-type">
                 <SelectValue>
                   {getSelectOptionLabel(osTypes, field.state.value)}
                 </SelectValue>
@@ -57,14 +57,14 @@ export function VmHardwareOperatingSystemFields({
         <form.Field name="bios">
           {(field: StringFieldApi) => (
             <Field>
-              <FieldLabel>BIOS</FieldLabel>
+              <FieldLabel htmlFor="hardware-bios">BIOS</FieldLabel>
               <Select
                 value={field.state.value}
                 onValueChange={(value) =>
                   field.handleChange(value ?? "seabios")
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="hardware-bios">
                   <SelectValue>
                     {getSelectOptionLabel(biosTypes, field.state.value)}
                   </SelectValue>
@@ -86,12 +86,12 @@ export function VmHardwareOperatingSystemFields({
         <form.Field name="machine">
           {(field: StringFieldApi) => (
             <Field>
-              <FieldLabel>Machine Type</FieldLabel>
+              <FieldLabel htmlFor="hardware-machine">Machine Type</FieldLabel>
               <Select
                 value={field.state.value}
                 onValueChange={(value) => field.handleChange(value ?? "pc")}
               >
-                <SelectTrigger>
+                <SelectTrigger id="hardware-machine">
                   <SelectValue>
                     {getSelectOptionLabel(machineTypes, field.state.value)}
                   </SelectValue>
@@ -114,14 +114,14 @@ export function VmHardwareOperatingSystemFields({
       <form.Field name="scsi">
         {(field: StringFieldApi) => (
           <Field>
-            <FieldLabel>SCSI Controller</FieldLabel>
+            <FieldLabel htmlFor="hardware-scsi">SCSI Controller</FieldLabel>
             <Select
               value={field.state.value}
               onValueChange={(value) =>
                 field.handleChange(value ?? "virtio-scsi-single")
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="hardware-scsi">
                 <SelectValue>
                   {getSelectOptionLabel(scsiControllers, field.state.value)}
                 </SelectValue>

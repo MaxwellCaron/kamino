@@ -1,5 +1,4 @@
 import { Button } from "@workspace/ui/components/button"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +19,9 @@ import {
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { getPrincipalBaseName } from "@/components/principals/principal-label"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
+import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
 
 type GroupColumnsOptions = {
   canManageGroups: boolean
@@ -94,32 +95,11 @@ export function getGroupColumns({
   const managedColumns = [...columns]
 
   if (canManageGroups) {
-    managedColumns.unshift({
-      id: "select",
-      enableSorting: false,
-      meta: { className: "w-0" },
-      header: ({ table }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
-      ),
-    })
+    managedColumns.unshift(
+      createRowSelectionColumn<ApiPrincipal>((group) =>
+        getPrincipalBaseName(group)
+      )
+    )
   }
 
   managedColumns.push({

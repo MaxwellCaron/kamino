@@ -17,7 +17,9 @@ import type { IconSvgElement } from "@hugeicons/react"
 import type {
   ApiRequestScope,
   ApiRequestStatus,
+  ApiRequestSummary,
 } from "@/features/requests/types/request-types"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 const requestKindLabels: Record<string, string> = {
   "inventory.vm.power": "Power change",
@@ -72,6 +74,19 @@ export function getRequestIcon(kind: string, powerAction?: string | null) {
 
 export function formatRequestKind(kind: string) {
   return requestKindLabels[kind] ?? startCase(kind)
+}
+
+export function getRequestTargetLabel(request: ApiRequestSummary) {
+  if (request.inventory?.vmid) {
+    return formatVmReference(
+      request.inventory.vmid,
+      request.inventory.item_name
+    )
+  }
+  if (request.kind === "personal_pod.create") {
+    return "Personal pod"
+  }
+  return request.inventory?.item_name ?? "Inventory item"
 }
 
 export function formatRequestScope(scope: ApiRequestScope) {

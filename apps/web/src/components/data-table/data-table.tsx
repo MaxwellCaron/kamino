@@ -216,7 +216,7 @@ export function DataTable<TData, TValue>({
               }}
               disabled={notReady}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Rows per page">
                 <SelectValue
                   placeholder={table.getState().pagination.pageSize}
                 />

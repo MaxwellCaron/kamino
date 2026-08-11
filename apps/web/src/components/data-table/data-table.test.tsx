@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from "@testing-library/react"
 import { IdentificationIcon } from "@hugeicons/core-free-icons"
 import { DataTable } from "./data-table"
 import { DataTableColumnHeader } from "./data-table-column-header"
+import { createRowSelectionColumn } from "./data-table-row-selection-column"
 import type { ColumnDef } from "@tanstack/react-table"
 import { renderWithQueryClient } from "@/test/test-utils"
 
@@ -111,6 +112,66 @@ describe("DataTable client mode", () => {
     expect(screen.getByText("Row 3")).toBeInTheDocument()
     expect(screen.queryByText("Row 0")).not.toBeInTheDocument()
   })
+
+  it("exposes the page-size combobox with an accessible name", () => {
+    renderWithQueryClient(
+      <DataTable columns={columns} data={makeRows(1)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("combobox", { name: "Rows per page" })
+    ).toBeInTheDocument()
+  })
+})
+
+describe("DataTable row selection", () => {
+  const selectableColumns: Array<ColumnDef<Row>> = [
+    createRowSelectionColumn<Row>((row) => row.name),
+    { accessorKey: "name", header: "Name" },
+  ]
+
+  it("names the header checkbox with the page scope", () => {
+    renderWithQueryClient(
+      <DataTable columns={selectableColumns} data={makeRows(2)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select all rows on this page" })
+    ).toBeInTheDocument()
+  })
+
+  it("names every row checkbox with its own record", () => {
+    renderWithQueryClient(
+      <DataTable columns={selectableColumns} data={makeRows(2)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 0" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 1" })
+    ).toBeInTheDocument()
+  })
+
+  it("disables row checkboxes through isRowDisabled", () => {
+    const disabledColumns: Array<ColumnDef<Row>> = [
+      createRowSelectionColumn<Row>((row) => row.name, {
+        isRowDisabled: (row) => row.id === "row-0",
+      }),
+      { accessorKey: "name", header: "Name" },
+    ]
+
+    renderWithQueryClient(
+      <DataTable columns={disabledColumns} data={makeRows(2)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 0" })
+    ).toHaveAttribute("aria-disabled", "true")
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 1" })
+    ).not.toHaveAttribute("aria-disabled", "true")
+  })
 })
 
 describe("DataTable server mode", () => {
@@ -191,7 +252,7 @@ describe("DataTable server mode", () => {
       />
     )
 
-    const trigger = screen.getByRole("combobox")
+    const trigger = screen.getByRole("combobox", { name: "Rows per page" })
     trigger.focus()
     await act(() => {
       fireEvent.keyDown(trigger, { key: "ArrowDown" })

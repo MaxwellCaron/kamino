@@ -2,7 +2,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
@@ -12,12 +11,13 @@ import {
   formatRequestStatus,
   getRequestIcon,
   getRequestStatusClassName,
+  getRequestTargetLabel,
 } from "../utils/request-presenters"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ColumnDef } from "@tanstack/react-table"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
-import { formatVmReference } from "@/features/shared/utils/format"
+import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void
@@ -35,31 +35,9 @@ export function getRequestColumns({
   const allColumns: Array<ColumnDef<ApiRequestSummary>> = [
     ...(selectable
       ? [
-          {
-            id: "select",
-            meta: { className: "w-0" },
-            header: ({ table }) => (
-              <div className="pl-4">
-                <Checkbox
-                  checked={table.getIsAllPageRowsSelected()}
-                  indeterminate={table.getIsSomePageRowsSelected()}
-                  onCheckedChange={(value) =>
-                    table.toggleAllPageRowsSelected(!!value)
-                  }
-                  aria-label="Select all"
-                />
-              </div>
-            ),
-            cell: ({ row }) => (
-              <div className="pl-4">
-                <Checkbox
-                  checked={row.getIsSelected()}
-                  onCheckedChange={(value) => row.toggleSelected(!!value)}
-                  aria-label="Select row"
-                />
-              </div>
-            ),
-          } satisfies ColumnDef<ApiRequestSummary>,
+          createRowSelectionColumn<ApiRequestSummary>((request) =>
+            getRequestTargetLabel(request)
+          ),
         ]
       : []),
     {
@@ -86,14 +64,7 @@ export function getRequestColumns({
               .map((n) => n.name)
               .join(" / ")
           : null
-        const targetLabel = request.inventory?.vmid
-          ? formatVmReference(
-              request.inventory.vmid,
-              request.inventory.item_name
-            )
-          : request.kind === "personal_pod.create"
-            ? "Personal pod"
-            : (request.inventory?.item_name ?? "Inventory item")
+        const targetLabel = getRequestTargetLabel(request)
 
         return (
           <div className="flex items-center gap-3 pl-4">

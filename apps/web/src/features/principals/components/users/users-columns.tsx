@@ -1,5 +1,4 @@
 import { Button } from "@workspace/ui/components/button"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +27,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { getPrincipalBaseName } from "@/components/principals/principal-label"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
+import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
 
 type UserColumnsOptions = {
   canManage: boolean
@@ -138,32 +138,7 @@ export function getUserColumns({
   }
 
   return [
-    {
-      id: "select",
-      enableSorting: false,
-      meta: { className: "w-0" },
-      header: ({ table }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
-      ),
-    },
+    createRowSelectionColumn<ApiPrincipal>((user) => getPrincipalBaseName(user)),
     ...columns,
     {
       id: "actions",

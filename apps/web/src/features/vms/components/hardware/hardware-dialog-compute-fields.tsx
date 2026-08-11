@@ -99,14 +99,14 @@ export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {
         <form.Field name="cpu_type">
           {(field: StringFieldApi) => (
             <Field>
-              <FieldLabel>CPU Type</FieldLabel>
+              <FieldLabel htmlFor="hardware-cpu-type">CPU Type</FieldLabel>
               <Select
                 value={field.state.value}
                 onValueChange={(value) =>
                   field.handleChange(value ?? "x86-64-v2-AES")
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="hardware-cpu-type">
                   <SelectValue>
                     {getSelectOptionLabel(cpuTypes, field.state.value)}
                   </SelectValue>

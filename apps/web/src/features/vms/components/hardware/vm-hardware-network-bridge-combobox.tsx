@@ -22,6 +22,7 @@ type VmHardwareNetworkBridgeComboboxProps = {
   vnetOptions: Array<NetworkOption>
   networkOptions: Array<NetworkOption>
   value: string
+  id?: string
   invalid?: boolean
   disabled?: boolean
   onBlur: () => void
@@ -50,6 +51,7 @@ export function VmHardwareNetworkBridgeCombobox({
   vnetOptions,
   networkOptions,
   value,
+  id,
   invalid,
   disabled,
   onBlur,
@@ -68,6 +70,7 @@ export function VmHardwareNetworkBridgeCombobox({
       autoHighlight
     >
       <ComboboxInput
+        id={id}
         placeholder="Select network"
         onBlur={onBlur}
         aria-invalid={invalid || undefined}

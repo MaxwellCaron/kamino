@@ -40,9 +40,9 @@ export function VmHardwareStorageFields({
       <form.Field name="storage">
         {(field: StringFieldApi) => (
           <Field>
-            <FieldLabel>Disk</FieldLabel>
+            <FieldLabel htmlFor="hardware-storage">Disk</FieldLabel>
             <Select value={field.state.value} disabled onValueChange={() => {}}>
-              <SelectTrigger>
+              <SelectTrigger id="hardware-storage">
                 <SelectValue>{field.state.value}</SelectValue>
               </SelectTrigger>
               <SelectContent>

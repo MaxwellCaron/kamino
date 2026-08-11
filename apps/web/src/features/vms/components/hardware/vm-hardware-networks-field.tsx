@@ -141,8 +141,13 @@ export function VmHardwareNetworksField({
                         }
                         data-disabled={bridgeLocked || undefined}
                       >
-                        <FieldLabel>Bridge / VNet</FieldLabel>
+                        <FieldLabel
+                          htmlFor={`${fieldIdPrefix}-bridge-${network.id}`}
+                        >
+                          Bridge / VNet
+                        </FieldLabel>
                         <VmHardwareNetworkBridgeCombobox
+                          id={`${fieldIdPrefix}-bridge-${network.id}`}
                           bridgeOptions={bridgeOptions}
                           vnetOptions={vnetOptions}
                           networkOptions={networkOptions}
@@ -168,14 +173,20 @@ export function VmHardwareNetworksField({
                       handleChange: (value: string) => void
                     }) => (
                       <Field>
-                        <FieldLabel>Model</FieldLabel>
+                        <FieldLabel
+                          htmlFor={`${fieldIdPrefix}-model-${network.id}`}
+                        >
+                          Model
+                        </FieldLabel>
                         <Select
                           value={field.state.value}
                           onValueChange={(value) =>
                             field.handleChange(value ?? "virtio")
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            id={`${fieldIdPrefix}-model-${network.id}`}
+                          >
                             <SelectValue>
                               {getSelectOptionLabel(
                                 nicModels,
@@ -216,11 +227,13 @@ export function VmHardwareNetworksField({
                       }
                       data-disabled={Boolean(scopedNetwork) || undefined}
                     >
-                      <FieldLabel htmlFor={`${fieldIdPrefix}-vlan-${index}`}>
+                      <FieldLabel
+                        htmlFor={`${fieldIdPrefix}-vlan-${network.id}`}
+                      >
                         VLAN Tag
                       </FieldLabel>
                       <Input
-                        id={`${fieldIdPrefix}-vlan-${index}`}
+                        id={`${fieldIdPrefix}-vlan-${network.id}`}
                         type="number"
                         placeholder="Optional"
                         value={field.state.value ?? ""}
@@ -252,7 +265,7 @@ export function VmHardwareNetworksField({
                   }) => (
                     <Field orientation="horizontal">
                       <Checkbox
-                        id={`${fieldIdPrefix}-firewall-${index}`}
+                        id={`${fieldIdPrefix}-firewall-${network.id}`}
                         checked={field.state.value}
                         onCheckedChange={(checked) =>
                           field.handleChange(Boolean(checked))
@@ -260,7 +273,7 @@ export function VmHardwareNetworksField({
                       />
                       <FieldContent>
                         <FieldLabel
-                          htmlFor={`${fieldIdPrefix}-firewall-${index}`}
+                          htmlFor={`${fieldIdPrefix}-firewall-${network.id}`}
                         >
                           Firewall
                         </FieldLabel>
