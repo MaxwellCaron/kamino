@@ -343,6 +343,7 @@ export function CreatePodTemplateCard({
                                     <FieldLabel
                                       key={segment.key}
                                       htmlFor={`${segmentField.name}-${segment.key}`}
+                                      className="cursor-pointer data-[disabled=true]:cursor-not-allowed"
                                     >
                                       <Field orientation="horizontal">
                                         <FieldContent>
