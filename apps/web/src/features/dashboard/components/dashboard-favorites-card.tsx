@@ -38,7 +38,6 @@ export function DashboardFavoritesCard({
   vmStatuses?: Record<number, string>
 }) {
   const { toggleFavorite } = useInventoryFavorites()
-  const visibleFavorites = favorites.slice(0, 5)
 
   return (
     <Card className={cn(className)}>
@@ -50,22 +49,26 @@ export function DashboardFavoritesCard({
           Favorited items in the inventory tree.
         </CardDescription>
       </CardHeader>
-      <CardContent className="h-full">
+      <CardContent className="no-scrollbar min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain px-4">
         {treeError ? (
           <InlineErrorAlert
             error={treeError}
             fallback="Failed to load favorites."
           />
         ) : isTreeLoading ? (
-          <div aria-busy="true" aria-label="Loading favorites" className="space-y-3">
+          <div
+            aria-busy="true"
+            aria-label="Loading favorites"
+            className="flex flex-col gap-3"
+          >
             {Array.from({ length: 3 }, (_, index) => (
               <Skeleton key={index} className="h-12 w-full rounded-md" />
             ))}
           </div>
-        ) : visibleFavorites.length > 0 ? (
+        ) : favorites.length > 0 ? (
           <m.div initial="hidden" animate="show" variants={animateContainer}>
             <ItemGroup>
-              {visibleFavorites.map((favorite) => {
+              {favorites.map((favorite) => {
                 const vmid = favorite.vm?.vmid
                 const status =
                   vmid !== undefined ? vmStatuses?.[vmid] : undefined

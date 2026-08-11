@@ -256,9 +256,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
     }
     return visiblePods
       .slice()
-      .sort(
-        (left, right) => toTime(right.created_at) - toTime(left.created_at)
-      )
+      .sort((left, right) => toTime(right.created_at) - toTime(left.created_at))
   }, [catalog, catalogError, visiblePods])
   const questionActivityHeatmapData = useMemo(
     () =>
@@ -375,13 +373,15 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
           error={catalogError}
           pods={recentPods}
         />
-        <DashboardFavoritesCard
-          className="xl:col-span-5"
-          favorites={favorites}
-          isTreeLoading={isTreeLoading}
-          treeError={treeError}
-          vmStatuses={vmStatuses}
-        />
+        <div className="relative min-h-0 xl:col-span-5">
+          <DashboardFavoritesCard
+            className="max-h-144 min-h-0 xl:absolute xl:inset-0 xl:max-h-none"
+            favorites={favorites}
+            isTreeLoading={isTreeLoading}
+            treeError={treeError}
+            vmStatuses={vmStatuses}
+          />
+        </div>
 
         <DashboardActivityTableCard
           className="xl:col-span-12"
