@@ -10,7 +10,7 @@ export function SiteLayoutInset({
   children: ReactNode
 }) {
   return (
-    <SidebarInset>
+    <SidebarInset id="main-content" tabIndex={-1}>
       {header}
       <div
         className="relative flex min-h-svh flex-col"

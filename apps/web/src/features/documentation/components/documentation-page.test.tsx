@@ -88,4 +88,14 @@ describe("DocumentationPage", () => {
       screen.queryByRole("navigation", { name: "On this page" })
     ).not.toBeInTheDocument()
   })
+
+  it("does not render its own main landmark, leaving the shell's main as the only one", () => {
+    renderWithQueryClient(
+      <main id="main-content" tabIndex={-1}>
+        <DocumentationPage content={"# T\n\nbody"} />
+      </main>
+    )
+
+    expect(screen.getAllByRole("main")).toHaveLength(1)
+  })
 })

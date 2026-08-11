@@ -20,7 +20,7 @@ export function DocumentationPage({ content }: DocumentationPageProps) {
   }, [hash, content])
 
   return (
-    <main className="@container/main flex flex-1 flex-col">
+    <div className="@container/main flex flex-1 flex-col">
       <div className="grid w-full grid-cols-1 px-4 lg:px-6 xl:grid-cols-[1fr_min(48rem,100%)_1fr]">
         <div className="hidden xl:block" aria-hidden="true" />
         <article className="mx-auto w-full max-w-3xl py-8 md:py-12 xl:col-start-2 xl:mx-0 xl:max-w-none">
@@ -32,6 +32,6 @@ export function DocumentationPage({ content }: DocumentationPageProps) {
           </div>
         </aside>
       </div>
-    </main>
+    </div>
   )
 }

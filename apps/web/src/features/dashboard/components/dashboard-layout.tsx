@@ -4,6 +4,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
+import { SkipToContentLink } from "@/components/app-shell/skip-to-content-link"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
 import { InventorySidebarResizeHandle } from "@/features/inventory/components/tree/inventory-sidebar-resize-handle"
@@ -46,6 +47,7 @@ export function DashboardLayout() {
       <DashboardEvents />
       <InventoryDialogsProvider>
         <InventoryTreeProvider>
+          <SkipToContentLink targetId="main-content" />
           <AppSidebar user={user} variant="inset" />
           <InventorySidebarResizeHandle
             width={width}

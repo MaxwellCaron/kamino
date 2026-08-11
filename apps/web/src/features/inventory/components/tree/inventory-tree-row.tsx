@@ -107,7 +107,7 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
       data-selected={vm.isSelected || undefined}
       data-drag-target={vm.isDragTarget || undefined}
       data-search-match={vm.isSearchMatch || undefined}
-      aria-expanded={vm.isExpanded}
+      aria-expanded={vm.isFolder ? vm.isExpanded : undefined}
       style={{
         ...(libStyle ?? {}),
         paddingInlineStart: vm.level * TREE_INDENT,
