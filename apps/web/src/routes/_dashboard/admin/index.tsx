@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { preloadAdminDashboard } from "@/features/dashboard/api/dashboard-route-loaders"
 import { AdminDashboardPage } from "@/features/admin/components/admin-dashboard-page"
 import { pageTitle } from "@/features/shared/utils/page-title"
 
 export const Route = createFileRoute("/_dashboard/admin/")({
-  loader: ({ context }) => preloadAdminDashboard(context.queryClient),
   head: () => pageTitle("Admin"),
   component: AdminDashboardRoute,
 })
