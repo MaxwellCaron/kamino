@@ -22,7 +22,7 @@ import {
   InventoryTreeNavigationContext,
   InventoryTreeViewContext,
 } from "./inventory-tree-context"
-import type { ReactNode } from "react"
+import type { ReactNode, RefObject } from "react"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { formatToastError } from "@/features/shared/utils/format"
@@ -37,18 +37,11 @@ const NO_SEARCH_EXPANDED_ITEMS: Array<string> = []
 const INVENTORY_SEARCH_MIN_LENGTH = 2
 
 export function InventoryTreeProvider({ children }: { children: ReactNode }) {
-  const navigate = useNavigate()
   const activeItemId = useParams({ strict: false }).itemId
-  const [selectionState, setSelectionState] = useState<SelectionState | null>(
-    null
-  )
   const { favoriteIds, toggleFavorite: toggleSharedFavorite } =
     useInventoryFavorites()
 
   const [searchQuery, setSearchQuery] = useState("")
-  const pendingRevealItemIdRef = useRef<string | null>(null)
-  const treeNavigationItemIdRef = useRef<string | null>(null)
-  const revealedRouteItemIdRef = useRef<string | null>(null)
   const normalizedSearchQuery = searchQuery.trim()
   const isSearchActive =
     normalizedSearchQuery.length >= INVENTORY_SEARCH_MIN_LENGTH
@@ -59,7 +52,6 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     error,
   } = useQuery(inventoryTreeQueryOptions)
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
-  const moveItems = useMoveInventoryItems()
 
   const filterResult = useMemo(
     () =>
@@ -84,33 +76,8 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     parentIds: displayParentIds,
   } = displayTree
 
-  const selectedItemIds = useMemo(() => {
-    const itemIdsForActiveRoute =
-      activeItemId === undefined ? [] : [activeItemId]
-    const itemIds =
-      selectionState?.activeItemId === activeItemId
-        ? (selectionState?.itemIds ?? [])
-        : itemIdsForActiveRoute
-
-    return itemIds.filter(
-      (itemId) => itemId === activeItemId || sourceItems.has(itemId)
-    )
-  }, [activeItemId, sourceItems, selectionState])
-
-  const setSelectedItemIds = useCallback(
-    (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
-      setSelectionState({
-        activeItemId,
-        itemIds:
-          typeof updater === "function" ? updater(selectedItemIds) : updater,
-      })
-    },
-    [activeItemId, selectedItemIds]
-  )
-
-  const clearSelection = useCallback(() => {
-    setSelectedItemIds([])
-  }, [setSelectedItemIds])
+  const { clearSelection, selectedItemIds, setSelectedItemIds } =
+    useInventoryTreeSelection(activeItemId, sourceItems)
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
@@ -143,46 +110,9 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [sourceTree.items]
   )
 
-  const runMove = useCallback(
-    async (ids: Array<string>, parentId: string) => {
-      try {
-        await moveItems.mutateAsync({ itemIds: ids, parentId })
-      } catch (moveError) {
-        throw new Error(formatToastError(moveError, "Move failed"))
-      }
-    },
-    [moveItems]
-  )
-
-  const handleMove = useCallback(
-    (itemIds: Array<string>, parentId: string) => {
-      showUnitMutationToast({
-        title: "Moving inventory items",
-        units: [
-          {
-            items: itemIds.map((itemId) => ({
-              id: itemId,
-              name: sourceItems.get(itemId)?.name ?? itemId,
-              successDescription: "Moved",
-              retry: () => runMove([itemId], parentId),
-            })),
-            run: () => runMove(itemIds, parentId),
-          },
-        ],
-      })
-    },
-    [runMove, sourceItems]
-  )
-
-  const navigateRef = useRef(navigate)
-
-  const handlePrimaryAction = useCallback(
-    (itemId: string) => {
-      treeNavigationItemIdRef.current = itemId
-      navigateRef.current({ to: "/inventory/items/$itemId", params: { itemId } })
-    },
-    []
-  )
+  const handleMove = useInventoryTreeMove(sourceItems)
+  const { handlePrimaryAction, treeNavigationItemIdRef } =
+    useInventoryTreePrimaryAction()
 
   const { tree, expandAll, collapseAll, revealItem, scrollToItemHandlerRef } =
     useInventoryHeadlessTree({
@@ -201,71 +131,17 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       setSelectedItemIds,
     })
 
-  const isSearchActiveRef = useRef(isSearchActive)
-  const displayItemsRef = useRef(displayItems)
-  const revealItemRef = useRef(revealItem)
-
-  useLayoutEffect(() => {
-    navigateRef.current = navigate
-    isSearchActiveRef.current = isSearchActive
-    displayItemsRef.current = displayItems
-    revealItemRef.current = revealItem
+  const revealAndNavigateToItem = useInventoryTreeRevealNavigation({
+    activeItemId,
+    displayItems,
+    handlePrimaryAction,
+    isSearchActive,
+    revealItem,
+    searchQuery,
+    setSearchQuery,
+    sourceItems,
+    treeNavigationItemIdRef,
   })
-
-  const revealAndNavigateToItem = useCallback(
-    (itemId: string) => {
-      if (isSearchActiveRef.current && !displayItemsRef.current.has(itemId)) {
-        pendingRevealItemIdRef.current = itemId
-        setSearchQuery("")
-        return
-      }
-
-      void revealItemRef.current(itemId)
-      handlePrimaryAction(itemId)
-    },
-    [handlePrimaryAction, setSearchQuery]
-  )
-
-  const treeHasActiveItem =
-    activeItemId !== undefined && sourceItems.has(activeItemId)
-
-  useLayoutEffect(() => {
-    if (!activeItemId) {
-      revealedRouteItemIdRef.current = null
-      return
-    }
-
-    if (!treeHasActiveItem || revealedRouteItemIdRef.current === activeItemId) {
-      return
-    }
-
-    revealedRouteItemIdRef.current = activeItemId
-    const skipReveal = treeNavigationItemIdRef.current === activeItemId
-    treeNavigationItemIdRef.current = null
-
-    if (skipReveal) {
-      return
-    }
-
-    if (isSearchActive) {
-      pendingRevealItemIdRef.current = activeItemId
-      setSearchQuery("")
-      return
-    }
-
-    void revealItem(activeItemId)
-  }, [activeItemId, isSearchActive, revealItem, treeHasActiveItem])
-
-  useEffect(() => {
-    const pendingItemId = pendingRevealItemIdRef.current
-    if (!pendingItemId || isSearchActive) {
-      return
-    }
-
-    pendingRevealItemIdRef.current = null
-    void revealItem(pendingItemId)
-    handlePrimaryAction(pendingItemId)
-  }, [handlePrimaryAction, isSearchActive, revealItem, searchQuery])
 
   const searchResultCount = !isLoading && !error ? filterResult.matchCount : 0
   const queryError = error ?? null
@@ -338,6 +214,195 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       </InventoryTreeViewContext>
     </InventoryTreeDataContext>
   )
+}
+
+function useInventoryTreeSelection(
+  activeItemId: string | undefined,
+  sourceItems: Map<string, ApiTreeNode>
+) {
+  const [selectionState, setSelectionState] = useState<SelectionState | null>(
+    null
+  )
+
+  const selectedItemIds = useMemo(() => {
+    const itemIdsForActiveRoute =
+      activeItemId === undefined ? [] : [activeItemId]
+    const itemIds =
+      selectionState?.activeItemId === activeItemId
+        ? (selectionState?.itemIds ?? [])
+        : itemIdsForActiveRoute
+
+    return itemIds.filter(
+      (itemId) => itemId === activeItemId || sourceItems.has(itemId)
+    )
+  }, [activeItemId, sourceItems, selectionState])
+
+  const setSelectedItemIds = useCallback(
+    (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
+      setSelectionState({
+        activeItemId,
+        itemIds:
+          typeof updater === "function" ? updater(selectedItemIds) : updater,
+      })
+    },
+    [activeItemId, selectedItemIds]
+  )
+
+  const clearSelection = useCallback(() => {
+    setSelectedItemIds([])
+  }, [setSelectedItemIds])
+
+  return { clearSelection, selectedItemIds, setSelectedItemIds }
+}
+
+function useInventoryTreeMove(sourceItems: Map<string, ApiTreeNode>) {
+  const moveItems = useMoveInventoryItems()
+
+  const runMove = useCallback(
+    async (ids: Array<string>, parentId: string) => {
+      try {
+        await moveItems.mutateAsync({ itemIds: ids, parentId })
+      } catch (moveError) {
+        throw new Error(formatToastError(moveError, "Move failed"))
+      }
+    },
+    [moveItems]
+  )
+
+  return useCallback(
+    (itemIds: Array<string>, parentId: string) => {
+      showUnitMutationToast({
+        title: "Moving inventory items",
+        units: [
+          {
+            items: itemIds.map((itemId) => ({
+              id: itemId,
+              name: sourceItems.get(itemId)?.name ?? itemId,
+              successDescription: "Moved",
+              retry: () => runMove([itemId], parentId),
+            })),
+            run: () => runMove(itemIds, parentId),
+          },
+        ],
+      })
+    },
+    [runMove, sourceItems]
+  )
+}
+
+function useInventoryTreePrimaryAction() {
+  const navigate = useNavigate()
+  const navigateRef = useRef(navigate)
+  const treeNavigationItemIdRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    navigateRef.current = navigate
+  })
+
+  const handlePrimaryAction = useCallback((itemId: string) => {
+    treeNavigationItemIdRef.current = itemId
+    navigateRef.current({ to: "/inventory/items/$itemId", params: { itemId } })
+  }, [])
+
+  return { handlePrimaryAction, treeNavigationItemIdRef }
+}
+
+function useInventoryTreeRevealNavigation({
+  activeItemId,
+  displayItems,
+  handlePrimaryAction,
+  isSearchActive,
+  revealItem,
+  searchQuery,
+  setSearchQuery,
+  sourceItems,
+  treeNavigationItemIdRef,
+}: {
+  activeItemId: string | undefined
+  displayItems: Map<string, ApiTreeNode>
+  handlePrimaryAction: (itemId: string) => void
+  isSearchActive: boolean
+  revealItem: (itemId: string) => Promise<void>
+  searchQuery: string
+  setSearchQuery: (query: string) => void
+  sourceItems: Map<string, ApiTreeNode>
+  treeNavigationItemIdRef: RefObject<string | null>
+}) {
+  const pendingRevealItemIdRef = useRef<string | null>(null)
+  const revealedRouteItemIdRef = useRef<string | null>(null)
+  const isSearchActiveRef = useRef(isSearchActive)
+  const displayItemsRef = useRef(displayItems)
+  const revealItemRef = useRef(revealItem)
+
+  useLayoutEffect(() => {
+    isSearchActiveRef.current = isSearchActive
+    displayItemsRef.current = displayItems
+    revealItemRef.current = revealItem
+  })
+
+  const revealAndNavigateToItem = useCallback(
+    (itemId: string) => {
+      if (isSearchActiveRef.current && !displayItemsRef.current.has(itemId)) {
+        pendingRevealItemIdRef.current = itemId
+        setSearchQuery("")
+        return
+      }
+
+      void revealItemRef.current(itemId)
+      handlePrimaryAction(itemId)
+    },
+    [handlePrimaryAction, setSearchQuery]
+  )
+
+  const treeHasActiveItem =
+    activeItemId !== undefined && sourceItems.has(activeItemId)
+
+  useLayoutEffect(() => {
+    if (!activeItemId) {
+      revealedRouteItemIdRef.current = null
+      return
+    }
+
+    if (!treeHasActiveItem || revealedRouteItemIdRef.current === activeItemId) {
+      return
+    }
+
+    revealedRouteItemIdRef.current = activeItemId
+    const skipReveal = treeNavigationItemIdRef.current === activeItemId
+    treeNavigationItemIdRef.current = null
+
+    if (skipReveal) {
+      return
+    }
+
+    if (isSearchActive) {
+      pendingRevealItemIdRef.current = activeItemId
+      setSearchQuery("")
+      return
+    }
+
+    void revealItem(activeItemId)
+  }, [
+    activeItemId,
+    isSearchActive,
+    revealItem,
+    setSearchQuery,
+    treeHasActiveItem,
+    treeNavigationItemIdRef,
+  ])
+
+  useEffect(() => {
+    const pendingItemId = pendingRevealItemIdRef.current
+    if (!pendingItemId || isSearchActive) {
+      return
+    }
+
+    pendingRevealItemIdRef.current = null
+    void revealItem(pendingItemId)
+    handlePrimaryAction(pendingItemId)
+  }, [handlePrimaryAction, isSearchActive, revealItem, searchQuery])
+
+  return revealAndNavigateToItem
 }
 
 interface FlatTree {
