@@ -2,8 +2,19 @@ import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
-import { FilterIcon, UserGroupIcon } from "@hugeicons/core-free-icons"
+import {
+  Alert01Icon,
+  FilterIcon,
+  ReloadIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
@@ -51,6 +62,16 @@ type MembershipFilter = "all" | "selected" | "unselected"
 
 function uniqueIds(ids: Array<string>): Array<string> {
   return Array.from(new Set(ids))
+}
+
+function sameIds(a: Array<string>, b: Array<string>): boolean {
+  const setA = new Set(uniqueIds(a))
+  const setB = new Set(uniqueIds(b))
+  if (setA.size !== setB.size) return false
+  for (const id of setA) {
+    if (!setB.has(id)) return false
+  }
+  return true
 }
 
 export function MembershipDialog(props: MembershipDialogProps) {
@@ -241,10 +262,14 @@ function MembershipForm({
     },
   })
 
-  React.useEffect(() => {
-    baselineIdsRef.current = serverIds
+  const [, forceRerender] = React.useReducer((tick: number) => tick + 1, 0)
+  const serverChanged = !sameIds(serverIds, baselineIdsRef.current)
+
+  const handleReload = () => {
     form.reset({ selectedIds: serverIds })
-  }, [form, serverIds])
+    baselineIdsRef.current = serverIds
+    forceRerender()
+  }
 
   const selectedIds = useSelector(
     form.store,
@@ -330,6 +355,26 @@ function MembershipForm({
         })
       }}
     >
+      {serverChanged && (
+        <Alert>
+          <HugeiconsIcon icon={Alert01Icon} />
+          <AlertTitle>Memberships changed</AlertTitle>
+          <AlertDescription>
+            Memberships changed on the server while you were editing.
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleReload}
+            >
+              <HugeiconsIcon icon={ReloadIcon} />
+              Reload
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
       <div className="flex items-center gap-2">
         <SearchInputGroup
           className="min-w-0 flex-1"

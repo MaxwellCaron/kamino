@@ -6,16 +6,19 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert01Icon,
   LockPasswordIcon,
+  ReloadIcon,
   ShieldKeyIcon,
   UserSettings01Icon,
 } from "@hugeicons/core-free-icons"
 import {
   Alert,
+  AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
-import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
+import { Button } from "@workspace/ui/components/button"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -45,7 +48,7 @@ import type {
 } from "@/features/auth/utils/management-permissions"
 import { ManagementPermissionKeys } from "@/features/auth/utils/management-permissions"
 import {
-  AppDialogContent,
+  AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
@@ -156,10 +159,14 @@ function GroupPermissionsForm({
     },
   })
 
-  React.useEffect(() => {
-    baselineRoleRef.current = initialRole
+  const [, forceRerender] = React.useReducer((tick: number) => tick + 1, 0)
+  const serverChanged = initialRole !== baselineRoleRef.current
+
+  const handleReload = () => {
     form.reset({ role: initialRole })
-  }, [form, initialRole])
+    baselineRoleRef.current = initialRole
+    forceRerender()
+  }
 
   const selectedRole = useSelector(form.store, (state) => state.values.role)
   const hasChanges = selectedRole !== baselineRoleRef.current
@@ -172,6 +179,27 @@ function GroupPermissionsForm({
     >
       <AppDialogScrollBody>
         <div className="flex flex-col">
+          {serverChanged && (
+            <Alert className="mb-3">
+              <HugeiconsIcon icon={Alert01Icon} />
+              <AlertTitle>Management role changed</AlertTitle>
+              <AlertDescription>
+                The management role changed on the server while you were
+                editing.
+              </AlertDescription>
+              <AlertAction>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReload}
+                >
+                  <HugeiconsIcon icon={ReloadIcon} />
+                  Reload
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
           {immutable ? (
             <Alert className="mb-3">
               <HugeiconsIcon icon={ShieldKeyIcon} />
@@ -298,6 +326,7 @@ export function GroupPermissionsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const [editorVersion, setEditorVersion] = React.useState(0)
   const {
     data: access,
     error: accessError,
@@ -321,47 +350,47 @@ export function GroupPermissionsDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent
-        open={open}
-        icon={LockPasswordIcon}
-        title="Management Roles"
-        description={`Choose the management role for ${getGroupLabel(group)}.`}
-      >
-        <div className="relative min-h-66">
-          <PreloadOverlay
-            active={isAccessLoading}
-            label="Loading management roles"
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onClosed={() => setEditorVersion((version) => version + 1)}
+      icon={LockPasswordIcon}
+      title="Management Roles"
+      description={`Choose the management role for ${getGroupLabel(group)}.`}
+    >
+      <div className="relative min-h-66">
+        <PreloadOverlay
+          active={isAccessLoading}
+          label="Loading management roles"
+        />
+        {isAccessError ? (
+          <AppDialogScrollBody>
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <HugeiconsIcon
+                    icon={Alert01Icon}
+                    className="text-muted-foreground"
+                  />
+                </EmptyMedia>
+                <EmptyTitle>Could Not Load Roles</EmptyTitle>
+                <EmptyDescription>{accessError.message}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </AppDialogScrollBody>
+        ) : !isAccessLoading ? (
+          <GroupPermissionsForm
+            key={`${group.id}:${editorVersion}`}
+            group={group}
+            initialRole={initialRole}
+            roleDefinitions={roleDefinitions}
+            canEditBootstrapOnly={canEditBootstrapOnly}
+            immutable={immutable}
+            controlsDisabled={controlsDisabled}
+            onOpenChange={onOpenChange}
           />
-          {isAccessError ? (
-            <AppDialogScrollBody>
-              <Empty className="border border-dashed">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <HugeiconsIcon
-                      icon={Alert01Icon}
-                      className="text-muted-foreground"
-                    />
-                  </EmptyMedia>
-                  <EmptyTitle>Could Not Load Roles</EmptyTitle>
-                  <EmptyDescription>{accessError.message}</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </AppDialogScrollBody>
-          ) : !isAccessLoading ? (
-            <GroupPermissionsForm
-              key={`${group.id}:${initialRole}`}
-              group={group}
-              initialRole={initialRole}
-              roleDefinitions={roleDefinitions}
-              canEditBootstrapOnly={canEditBootstrapOnly}
-              immutable={immutable}
-              controlsDisabled={controlsDisabled}
-              onOpenChange={onOpenChange}
-            />
-          ) : null}
-        </div>
-      </AppDialogContent>
-    </Dialog>
+        ) : null}
+      </div>
+    </AppDialog>
   )
 }
