@@ -175,6 +175,44 @@ type podPowerResultResponse struct {
 	Status podPowerStatus `json:"status"`
 }
 
+type catalogPodSummaryResponse struct {
+	ID          uuid.UUID                       `json:"id"`
+	Title       string                          `json:"title"`
+	Slug        string                          `json:"slug"`
+	Description string                          `json:"description"`
+	Image       string                          `json:"image"`
+	Creators    []publishedPodPrincipalResponse `json:"creators"`
+	CreatedAt   *time.Time                      `json:"created_at"`
+	CloneCount  int32                           `json:"clone_count"`
+}
+
+type catalogPodQuestionResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Title       string    `json:"title"`
+	AnswerMask  string    `json:"answerMask"`
+	Description *string   `json:"description,omitempty"`
+	Hint        *string   `json:"hint,omitempty"`
+}
+
+type catalogPodTaskResponse struct {
+	ID        uuid.UUID                    `json:"id"`
+	Title     string                       `json:"title"`
+	Content   string                       `json:"content"`
+	Questions []catalogPodQuestionResponse `json:"questions"`
+}
+
+type catalogPodDetailResponse struct {
+	ID          uuid.UUID                       `json:"id"`
+	Title       string                          `json:"title"`
+	Slug        string                          `json:"slug"`
+	Description string                          `json:"description"`
+	Image       string                          `json:"image"`
+	Creators    []publishedPodPrincipalResponse `json:"creators"`
+	CreatedAt   *time.Time                      `json:"created_at"`
+	CloneCount  int32                           `json:"clone_count"`
+	Tasks       []catalogPodTaskResponse        `json:"tasks"`
+}
+
 type publishedPodBase struct {
 	ID                uuid.UUID
 	Title             string

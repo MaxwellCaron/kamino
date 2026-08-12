@@ -15,7 +15,19 @@ export type PodAudiencePrincipal = {
 export type PodAudience = Array<PodAudiencePrincipal>
 export type PodCreator = PodAudiencePrincipal
 
-// Cloneable catalog/template metadata.
+// Public catalog list summary. Returned by GET /pods/catalog.
+export interface PodCatalogSummary {
+  id: UUID
+  title: string
+  slug: string
+  description: string
+  image: string
+  creators: Array<PodCreator>
+  created_at: string
+  clone_count: number
+}
+
+// Public pod detail. Returned by GET /pods/catalog/:slug.
 export interface Pod {
   id: UUID
   title: string
@@ -25,9 +37,7 @@ export interface Pod {
   creators: Array<PodCreator>
   created_at: string
   clone_count: number
-  status: PodStatus
-  audience: PodAudience
-  tasks?: Array<PodTask>
+  tasks: Array<PodTask>
 }
 
 export interface PublishedPodVirtualMachine {
@@ -45,7 +55,34 @@ export interface PublishedPodVirtualMachine {
   }
 }
 
-export interface PublishedPodCatalogEntry extends Pod {
+export interface PublishedPodTaskQuestion {
+  id: UUID
+  title: string
+  answerOutline: string
+  description?: string
+  hint?: string
+}
+
+export interface PublishedPodTask {
+  id: UUID
+  title: string
+  content: string
+  questions: Array<PublishedPodTaskQuestion>
+}
+
+// Manager catalog/editing entry. Returned by /pods/published endpoints.
+export interface PublishedPodCatalogEntry {
+  id: UUID
+  title: string
+  slug: string
+  description: string
+  image: string
+  creators: Array<PodCreator>
+  created_at: string
+  clone_count: number
+  status: PodStatus
+  audience: PodAudience
+  tasks?: Array<PublishedPodTask>
   source_folder: string
   clone_target_key: string
   virtual_machines: Array<PublishedPodVirtualMachine>
@@ -138,7 +175,7 @@ export interface PodTask {
 export interface PodTaskQuestion {
   id: UUID
   title: string
-  answerOutline?: string
+  answerMask?: string
   description?: string
   hint?: string
 }

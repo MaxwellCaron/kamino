@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/principals"
@@ -32,6 +33,29 @@ func publishedQuestionFromRow(row database.ListPublishedPodQuestionsByTaskIDsRow
 		AnswerOutline: row.AnswerOutline,
 		Description:   row.Description,
 		Hint:          row.Hint,
+	}
+}
+
+// maskAnswerOutline replaces every Unicode letter or number with '*', preserving whitespace and punctuation.
+func maskAnswerOutline(outline string) string {
+	var builder strings.Builder
+	for _, r := range outline {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			builder.WriteRune('*')
+			continue
+		}
+		builder.WriteRune(r)
+	}
+	return builder.String()
+}
+
+func catalogQuestionFromRow(row database.ListPublishedPodQuestionsByTaskIDsRow) catalogPodQuestionResponse {
+	return catalogPodQuestionResponse{
+		ID:          row.ID,
+		Title:       row.Title,
+		AnswerMask:  maskAnswerOutline(row.AnswerOutline),
+		Description: row.Description,
+		Hint:        row.Hint,
 	}
 }
 

@@ -73,7 +73,7 @@ func (h *PodsHandler) ListCatalog(c *gin.Context) {
 		bases = visiblePublishedRowsToBase(rows)
 	}
 
-	pods, err := h.hydratePublishedPods(c.Request.Context(), q, bases)
+	pods, err := h.hydrateCatalogSummaries(c.Request.Context(), q, bases)
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load pod catalog details", "hydrate visible published pods", err)
 		return
@@ -136,17 +136,13 @@ func (h *PodsHandler) GetCatalogPod(c *gin.Context) {
 		return
 	}
 
-	pods, err := h.hydratePublishedPods(c.Request.Context(), q, bases)
+	pod, err := h.hydrateCatalogDetail(c.Request.Context(), q, bases[0])
 	if err != nil {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to load pod details", "hydrate visible published pod by slug", err)
 		return
 	}
-	if len(pods) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
-		return
-	}
 
-	c.JSON(http.StatusOK, pods[0])
+	c.JSON(http.StatusOK, pod)
 }
 
 func (h *PodsHandler) GetPublished(c *gin.Context) {

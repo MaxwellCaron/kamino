@@ -66,7 +66,7 @@ export function PodPage({
               />
             )}
             <PodTasks
-              tasks={pod.tasks ?? []}
+              tasks={pod.tasks}
               clonedPodId={localClonedPod?.id}
               taskStates={localClonedPod?.task_states ?? null}
               questionAnswers={localClonedPod?.question_answers ?? null}

@@ -71,6 +71,112 @@ func (h *PodsHandler) hydratePublishedPodClones(
 	return response, nil
 }
 
+func (h *PodsHandler) hydrateCatalogSummaries(
+	ctx context.Context,
+	q *database.Queries,
+	bases []publishedPodBase,
+) ([]catalogPodSummaryResponse, error) {
+	if len(bases) == 0 {
+		return []catalogPodSummaryResponse{}, nil
+	}
+
+	podIDs := make([]uuid.UUID, 0, len(bases))
+	for _, pod := range bases {
+		podIDs = append(podIDs, pod.ID)
+	}
+
+	creators, err := q.ListPublishedPodCreatorsByPodIDs(ctx, podIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	creatorsByPod := make(map[uuid.UUID][]publishedPodPrincipalResponse, len(bases))
+	for _, row := range creators {
+		creatorsByPod[row.PodID] = append(creatorsByPod[row.PodID], publishedPrincipalFromCreator(row))
+	}
+
+	response := make([]catalogPodSummaryResponse, 0, len(bases))
+	for _, base := range bases {
+		response = append(response, catalogPodSummaryResponse{
+			ID:          base.ID,
+			Title:       base.Title,
+			Slug:        base.Slug,
+			Description: base.Description,
+			Image:       base.ImageURL,
+			Creators:    nonNilPrincipals(creatorsByPod[base.ID]),
+			CreatedAt:   base.CreatedAt,
+			CloneCount:  base.CloneCount,
+		})
+	}
+
+	return response, nil
+}
+
+func (h *PodsHandler) hydrateCatalogDetail(
+	ctx context.Context,
+	q *database.Queries,
+	base publishedPodBase,
+) (catalogPodDetailResponse, error) {
+	podIDs := []uuid.UUID{base.ID}
+
+	creators, err := q.ListPublishedPodCreatorsByPodIDs(ctx, podIDs)
+	if err != nil {
+		return catalogPodDetailResponse{}, err
+	}
+	taskRows, err := q.ListPublishedPodTasksByPodIDs(ctx, podIDs)
+	if err != nil {
+		return catalogPodDetailResponse{}, err
+	}
+
+	creatorResponses := make([]publishedPodPrincipalResponse, 0, len(creators))
+	for _, row := range creators {
+		creatorResponses = append(creatorResponses, publishedPrincipalFromCreator(row))
+	}
+
+	taskIDs := make([]uuid.UUID, 0, len(taskRows))
+	tasks := make([]catalogPodTaskResponse, 0, len(taskRows))
+	for _, row := range taskRows {
+		taskIDs = append(taskIDs, row.ID)
+		tasks = append(tasks, catalogPodTaskResponse{
+			ID:        row.ID,
+			Title:     row.Title,
+			Content:   row.Content,
+			Questions: []catalogPodQuestionResponse{},
+		})
+	}
+
+	if len(taskIDs) > 0 {
+		tasksByID := make(map[uuid.UUID]*catalogPodTaskResponse, len(tasks))
+		for i := range tasks {
+			tasksByID[tasks[i].ID] = &tasks[i]
+		}
+
+		questions, err := q.ListPublishedPodQuestionsByTaskIDs(ctx, taskIDs)
+		if err != nil {
+			return catalogPodDetailResponse{}, err
+		}
+		for _, row := range questions {
+			task, ok := tasksByID[row.TaskID]
+			if !ok {
+				continue
+			}
+			task.Questions = append(task.Questions, catalogQuestionFromRow(row))
+		}
+	}
+
+	return catalogPodDetailResponse{
+		ID:          base.ID,
+		Title:       base.Title,
+		Slug:        base.Slug,
+		Description: base.Description,
+		Image:       base.ImageURL,
+		Creators:    nonNilPrincipals(creatorResponses),
+		CreatedAt:   base.CreatedAt,
+		CloneCount:  base.CloneCount,
+		Tasks:       tasks,
+	}, nil
+}
+
 func (h *PodsHandler) hydratePublishedPods(
 	ctx context.Context,
 	q *database.Queries,

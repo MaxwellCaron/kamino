@@ -22,7 +22,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { cn } from "@workspace/ui/lib/utils"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
 import { browsePodsCarouselItemClassName } from "@/features/pods/components/browse/browse-pods-skeleton"
 
@@ -35,7 +35,7 @@ export function DashboardRecentPodsCard({
   className?: string
   clonedPodIds: Set<string>
   error: Error | null
-  pods: Array<PublishedPodCatalogEntry>
+  pods: Array<PodCatalogSummary>
 }) {
   const showPublishedPodCards = pods.length > 0
 

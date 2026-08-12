@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -75,6 +77,64 @@ func TestNonNilVMs(t *testing.T) {
 			t.Errorf("len = %d, want 1", len(got))
 		}
 	})
+}
+
+func TestMaskAnswerOutline(t *testing.T) {
+	tests := []struct {
+		name    string
+		outline string
+		want    string
+	}{
+		{name: "ascii words and digits", outline: "Ubuntu 22.04", want: "****** **.**"},
+		{name: "spaces and punctuation preserved", outline: "a-b, c: d!", want: "*-*, *: *!"},
+		{name: "non-ascii letters and numbers masked", outline: "café ②", want: "**** *"},
+		{name: "empty outline returns empty mask", outline: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := maskAnswerOutline(tt.outline)
+			if got != tt.want {
+				t.Errorf("maskAnswerOutline(%q) = %q, want %q", tt.outline, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCatalogPodDetailResponseHidesAnswer(t *testing.T) {
+	secret := "Correct-Answer-42"
+	detail := catalogPodDetailResponse{
+		ID:    uuid.New(),
+		Title: "Test Pod",
+		Tasks: []catalogPodTaskResponse{
+			{
+				ID:    uuid.New(),
+				Title: "Task",
+				Questions: []catalogPodQuestionResponse{
+					catalogQuestionFromRow(database.ListPublishedPodQuestionsByTaskIDsRow{
+						ID:            uuid.New(),
+						Title:         "What is the answer?",
+						AnswerOutline: secret,
+					}),
+				},
+			},
+		},
+	}
+
+	body, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatalf("marshal detail: %v", err)
+	}
+
+	if strings.Contains(string(body), secret) {
+		t.Errorf("marshaled detail contains the stored answer: %s", body)
+	}
+	if strings.Contains(string(body), "answerOutline") {
+		t.Errorf("marshaled detail contains answerOutline key: %s", body)
+	}
+	if !strings.Contains(string(body), `"answerMask":"*******-******-**"`) {
+		t.Errorf("marshaled detail missing expected answerMask: %s", body)
+	}
 }
 
 func TestPublishedVMFromRow(t *testing.T) {

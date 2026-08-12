@@ -13,7 +13,7 @@ import {
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
 import { Link } from "@tanstack/react-router"
-import type { Pod } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 
 const podDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -24,7 +24,7 @@ const podDateFormatter = new Intl.DateTimeFormat("en-US", {
 })
 
 type BrowsePodsCardProps = {
-  pod: Pod
+  pod: PodCatalogSummary
   hasClonedInstance: boolean
 }
 

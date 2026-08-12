@@ -147,11 +147,7 @@ function PodTaskQuestionField({
           id={question.id}
           type="text"
           value={value}
-          placeholder={
-            question.answerOutline
-              ? question.answerOutline.replace(/[a-zA-Z0-9]/g, "*")
-              : "Type your answer here..."
-          }
+          placeholder={question.answerMask || "Type your answer here..."}
           disabled={controlsDisabled}
           aria-invalid={answerIsIncorrect || undefined}
           onChange={(event) =>

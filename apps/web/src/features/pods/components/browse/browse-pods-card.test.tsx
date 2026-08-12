@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { BrowsePodsCard } from "./browse-pods-card"
-import type { Pod } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
@@ -20,7 +20,7 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }))
 
-const pod: Pod = {
+const pod: PodCatalogSummary = {
   id: "pod-1",
   title: "Test Pod",
   slug: "test-pod",
@@ -29,8 +29,6 @@ const pod: Pod = {
   creators: [],
   created_at: "2026-01-01T00:00:00Z",
   clone_count: 3,
-  status: "listed",
-  audience: [],
 }
 
 describe("BrowsePodsCard", () => {

@@ -23,7 +23,10 @@ import {
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type {
+  PodCatalogSummary,
+  PublishedPodCatalogEntry,
+} from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
@@ -112,7 +115,7 @@ export type BuildSiteCommandsParams = {
   completedRequests?: Array<ApiRequestSummary>
   groups?: Array<ApiPrincipal>
   inventoryTree?: Array<ApiTreeNode>
-  podCatalog?: Array<PublishedPodCatalogEntry>
+  podCatalog?: Array<PodCatalogSummary>
   publishedPods?: Array<PublishedPodCatalogEntry>
   users?: Array<ApiPrincipal>
   vnets?: Array<ApiVNet>
@@ -544,7 +547,6 @@ function buildPodCommands({
       keywords: [
         pod.slug,
         pod.description,
-        pod.source_folder,
         ...pod.creators.map((creator) => creator.label),
       ],
       onSelect: runCommand(actions, () => actions.navigateToPod(pod.slug)),

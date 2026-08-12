@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { screen } from "@testing-library/react"
 import { BrowsePodsPage } from "./browse-pods-page"
-import type { Pod } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import type { CatalogCloneSummary } from "@/features/pods/api/clone-pod-api"
 import { renderWithQueryClient } from "@/test/test-utils"
 
@@ -29,7 +29,7 @@ vi.mock("./browse-pods-card", () => ({
     pod,
     hasClonedInstance,
   }: {
-    pod: Pod
+    pod: PodCatalogSummary
     hasClonedInstance: boolean
   }) => (
     <div
@@ -48,7 +48,7 @@ vi.mock("@/components/grainient-background", () => ({
   GrainientBackground: () => null,
 }))
 
-function makePod(id: string, title: string): Pod {
+function makePod(id: string, title: string): PodCatalogSummary {
   return {
     id,
     title,
@@ -58,8 +58,6 @@ function makePod(id: string, title: string): Pod {
     creators: [],
     created_at: "2026-01-01T00:00:00Z",
     clone_count: 1,
-    status: "listed",
-    audience: [],
   }
 }
 

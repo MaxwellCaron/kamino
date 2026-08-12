@@ -1,18 +1,18 @@
 import { PodTasks } from "../pod-tasks"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
-import type { PublishPodFormApi } from "./publish-pod-form"
+import type { PublishPodFormApi, PublishPodFormValues } from "./publish-pod-form"
 import type { PodTask } from "@/features/pods/types/pod-types"
 
 type PublishPodPreviewStepProps = {
   form: PublishPodFormApi
 }
 
-function maskTaskAnswers(tasks: Array<PodTask>): Array<PodTask> {
+function maskTaskAnswers(tasks: PublishPodFormValues["tasks"]): Array<PodTask> {
   return tasks.map((task) => ({
     ...task,
-    questions: task.questions?.map((question) => ({
+    questions: task.questions.map((question) => ({
       ...question,
-      answerOutline: question.answerOutline?.replace(/[a-zA-Z0-9]/g, "*"),
+      answerMask: question.answerOutline.replace(/[a-zA-Z0-9]/g, "*"),
     })),
   }))
 }

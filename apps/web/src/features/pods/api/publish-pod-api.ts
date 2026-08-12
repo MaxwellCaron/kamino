@@ -1,5 +1,7 @@
 import type { PublishPodFormValues } from "@/features/pods/components/publish/publish-pod-form"
 import type {
+  Pod,
+  PodCatalogSummary,
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
   PublishedPodVirtualMachine,
@@ -85,8 +87,8 @@ export const publishedPodsQueryOptions = {
 
 export const podCatalogQueryOptions = {
   queryKey: ["pods", "catalog"] as const,
-  queryFn: (): Promise<Array<PublishedPodCatalogEntry>> =>
-    apiJson<Array<PublishedPodCatalogEntry>>(
+  queryFn: (): Promise<Array<PodCatalogSummary>> =>
+    apiJson<Array<PodCatalogSummary>>(
       "/api/v1/pods/catalog",
       "fetch pod catalog"
     ),
@@ -95,11 +97,8 @@ export const podCatalogQueryOptions = {
 export function podCatalogEntryQueryOptions(podSlug?: string) {
   return {
     queryKey: ["pods", "catalog", podSlug] as const,
-    queryFn: (): Promise<PublishedPodCatalogEntry> =>
-      apiJson<PublishedPodCatalogEntry>(
-        `/api/v1/pods/catalog/${podSlug}`,
-        "fetch pod"
-      ),
+    queryFn: (): Promise<Pod> =>
+      apiJson<Pod>(`/api/v1/pods/catalog/${podSlug}`, "fetch pod"),
     enabled: !!podSlug,
     retry: shouldRetryApiQuery,
   }
@@ -256,10 +255,10 @@ export function toPublishPodFormValues(
       id: task.id,
       title: task.title,
       content: task.content,
-      questions: (task.questions ?? []).map((question) => ({
+      questions: task.questions.map((question) => ({
         id: question.id,
         title: question.title,
-        answerOutline: question.answerOutline ?? "",
+        answerOutline: question.answerOutline,
         description: question.description,
         hint: question.hint,
       })),
