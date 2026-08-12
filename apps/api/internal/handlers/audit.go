@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // allowedTableRowCounts are the row-per-page options exposed by the shared
@@ -49,19 +51,25 @@ func parseRowsParam(raw string) (int32, bool) {
 	return int32(parsed), true
 }
 
+// auditAuthz is the narrow slice of authorization.Service that AuditHandler
+// needs, so tests can fake the management-permission decision.
+type auditAuthz interface {
+	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
+}
+
 // AuditHandler serves admin audit ledger endpoints.
 type AuditHandler struct {
 	Audit *audit.Service
-	Authz *authorization.Service
+	Authz auditAuthz
 }
 
-func (h *AuditHandler) requireManager(c *gin.Context) bool {
+func (h *AuditHandler) requireAdministrator(c *gin.Context) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
 		writeUnauthorized(c)
 		return false
 	}
-	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager)
+	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator)
 }
 
 type actionEventResponse struct {
@@ -151,7 +159,7 @@ func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionE
 // List returns paginated action events.
 // GET /api/v1/admin/audit/actions
 func (h *AuditHandler) List(c *gin.Context) {
-	if !h.requireManager(c) {
+	if !h.requireAdministrator(c) {
 		return
 	}
 

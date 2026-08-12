@@ -17,7 +17,7 @@ func (h *VMCreateHandler) GetClusterUsageHistory(c *gin.Context) {
 		writeUnauthorized(c)
 		return
 	}
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
 		return
 	}
 

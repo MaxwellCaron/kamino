@@ -88,16 +88,18 @@ func testCloneTarget() podCloneTarget {
 
 type fakeVMCreateAuthz struct {
 	fakeVMAuthz
-	hasAny         bool
-	hasAnyErr      error
-	requireMgmtErr error
+	hasAny              bool
+	hasAnyErr           error
+	requireMgmtErr      error
+	requestedManagement authorization.ManagementPermission
 }
 
 func (f *fakeVMCreateAuthz) HasAny(_ context.Context, _ uuid.UUID, _ authorization.Mask) (bool, error) {
 	return f.hasAny, f.hasAnyErr
 }
 
-func (f *fakeVMCreateAuthz) RequireManagement(_ context.Context, _ uuid.UUID, _ authorization.ManagementPermission) error {
+func (f *fakeVMCreateAuthz) RequireManagement(_ context.Context, _ uuid.UUID, required authorization.ManagementPermission) error {
+	f.requestedManagement = required
 	return f.requireMgmtErr
 }
 
@@ -113,6 +115,9 @@ type fakeVMCreateProxmox struct {
 	createVM          func(ctx context.Context, node string, params map[string]string) error
 	getBridgesFn      func(ctx context.Context, node string) ([]proxmox.NetworkBridge, error)
 	getVNetsFn        func(ctx context.Context) ([]proxmox.VNet, error)
+
+	getClusterUsageHistory func(ctx context.Context, timeframe string) (proxmox.ClusterUsageHistory, error)
+	clusterUsageCalls      atomic.Int32
 }
 
 func (f *fakeVMCreateProxmox) GetNodes(_ context.Context) ([]proxmox.Node, error) {
@@ -199,8 +204,12 @@ func (f *fakeVMCreateProxmox) DeleteVM(_ context.Context, _ proxmox.GuestType, _
 	panic("fakeVMCreateProxmox: DeleteVM not configured for this test")
 }
 
-func (f *fakeVMCreateProxmox) GetClusterUsageHistory(_ context.Context, _ string) (proxmox.ClusterUsageHistory, error) {
-	panic("fakeVMCreateProxmox: GetClusterUsageHistory not configured for this test")
+func (f *fakeVMCreateProxmox) GetClusterUsageHistory(ctx context.Context, timeframe string) (proxmox.ClusterUsageHistory, error) {
+	f.clusterUsageCalls.Add(1)
+	if f.getClusterUsageHistory == nil {
+		panic("fakeVMCreateProxmox: GetClusterUsageHistory not configured for this test")
+	}
+	return f.getClusterUsageHistory(ctx, timeframe)
 }
 
 var _ vmCreateProxmox = (*fakeVMCreateProxmox)(nil)
@@ -855,5 +864,68 @@ func TestVMCreateGetCreateOptions_ManagerReceivesSameNetworkScope(t *testing.T) 
 	}
 	if response.ScopedNetwork == nil || response.ScopedNetwork.VLANTag != 7 || response.ScopedNetwork.Bridge != "personal" {
 		t.Fatalf("scoped_network = %#v, want manager to receive the same enforced network as a non-manager", response.ScopedNetwork)
+	}
+}
+
+func TestClusterUsageHistory_NoPrincipal(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeVMCreateProxmox{}
+	h := newVMCreateTestHandler(&fakeVMCreateAuthz{}, px)
+	r := newVMCreateTestEngineNoPrincipal(http.MethodGet, "/proxmox/cluster/usage-history", h.GetClusterUsageHistory)
+	w := doJSONRequest(r, http.MethodGet, "/proxmox/cluster/usage-history", "")
+
+	assertStatus(t, w, http.StatusUnauthorized)
+	if got := px.clusterUsageCalls.Load(); got != 0 {
+		t.Fatalf("Proxmox calls = %d, want 0", got)
+	}
+}
+
+func TestClusterUsageHistory_PermissionDenied(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	authz := &fakeVMCreateAuthz{requireMgmtErr: authorization.ErrForbidden}
+	px := &fakeVMCreateProxmox{}
+	h := newVMCreateTestHandler(authz, px)
+
+	r := newVMTestEngine(http.MethodGet, "/proxmox/cluster/usage-history", principalID, h.GetClusterUsageHistory)
+	w := doJSONRequest(r, http.MethodGet, "/proxmox/cluster/usage-history", "")
+
+	assertStatus(t, w, http.StatusForbidden)
+	if authz.requestedManagement != authorization.ManagementPermissionAdministrator {
+		t.Errorf("expected Administrator to be requested, got %q", authz.requestedManagement)
+	}
+	if got := px.clusterUsageCalls.Load(); got != 0 {
+		t.Fatalf("Proxmox calls = %d, want 0", got)
+	}
+}
+
+func TestClusterUsageHistory_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	principalID := uuid.New()
+	authz := &fakeVMCreateAuthz{}
+	var gotTimeframe string
+	px := &fakeVMCreateProxmox{
+		getClusterUsageHistory: func(_ context.Context, timeframe string) (proxmox.ClusterUsageHistory, error) {
+			gotTimeframe = timeframe
+			return proxmox.ClusterUsageHistory{Points: []proxmox.UsageHistoryPoint{{}}}, nil
+		},
+	}
+	h := newVMCreateTestHandler(authz, px)
+
+	r := newVMTestEngine(http.MethodGet, "/proxmox/cluster/usage-history", principalID, h.GetClusterUsageHistory)
+	w := doJSONRequest(r, http.MethodGet, "/proxmox/cluster/usage-history?timeframe=week", "")
+
+	assertStatus(t, w, http.StatusOK)
+	if authz.requestedManagement != authorization.ManagementPermissionAdministrator {
+		t.Errorf("expected Administrator to be requested, got %q", authz.requestedManagement)
+	}
+	if got := px.clusterUsageCalls.Load(); got != 1 {
+		t.Fatalf("Proxmox calls = %d, want 1", got)
+	}
+	if gotTimeframe != "week" {
+		t.Fatalf("timeframe = %q, want %q", gotTimeframe, "week")
 	}
 }
