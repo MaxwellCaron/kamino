@@ -26,25 +26,32 @@ hostname, image repositories, and the independently configured cluster secrets.
   set `PROXMOX_SPICE_PROXY_HOST` when workstations need a different
   client-reachable address (host only, no scheme or port).
 
-The API requires only normal pod egress. If the namespace later receives a
-default-deny NetworkPolicy, explicitly allow cluster DNS, PostgreSQL, Proxmox,
-and AD.
+The API ships with an ingress NetworkPolicy restricting TCP 8080 to pods
+labeled `istio: ingressgateway` in the `istio-system` namespace, so direct
+API access from other cluster pods is blocked by default. This pairs with
+`TRUSTED_PROXY_CIDRS` below: forwarded headers are only honored from the
+gateway's measured source range, and the policy stops other pods from
+reaching the API to forge them. The API requires only normal pod egress. If
+the namespace later receives a default-deny egress NetworkPolicy, explicitly
+allow cluster DNS, PostgreSQL, Proxmox, and AD.
 
 ## Production deployment
 
 ### Configure the production origin
 
-The shared manifests contain only `placeholder.invalid`. Create a local Argo
-CD Application file and replace that placeholder with this cluster's hostname:
+The shared manifests contain only `placeholder.invalid` and
+`REPLACE_WITH_ISTIO_SOURCE_CIDRS`. Create a local Argo CD Application file and
+replace both placeholders with values measured from this cluster:
 
 ```bash
 cp deploy/argocd/kamino-application.example.yaml \
   deploy/argocd/kamino-application.yaml
 
-# Edit deploy/argocd/kamino-application.yaml and replace placeholder.invalid.
+# Edit deploy/argocd/kamino-application.yaml and replace placeholder.invalid
+# and REPLACE_WITH_ISTIO_SOURCE_CIDRS.
 ```
 
-`kamino-application.yaml` is ignored by Git. It can contain a different hostname
+`kamino-application.yaml` is ignored by Git. It can contain different values
 for every installation without modifying the shared repository. Its Kustomize
 patch sets `PUBLIC_HOST`, and the production overlay propagates that single
 value to the Gateway server hosts, the VirtualService host, and the API's
@@ -52,6 +59,39 @@ HTTPS `FRONTEND_URL`.
 
 `FRONTEND_URL` must be the exact HTTPS origin because it controls CORS, secure
 authentication cookies, and VNC WebSocket origin validation.
+
+### Configure trusted proxy CIDRs
+
+The API sits behind the Istio ingress gateway, so it must be told which source
+addresses are the gateway itself — otherwise every caller's `ClientIP()`
+resolves to the gateway, collapsing the login rate limiter into one shared
+bucket and recording the gateway's address instead of the client's in session
+metadata. `TRUSTED_PROXY_CIDRS` defaults to empty (trust nothing) so a directly
+rendered overlay never trusts forwarded headers.
+
+Measure the actual gateway-to-API source range before setting it:
+
+```bash
+kubectl -n istio-system get pods -l istio=ingressgateway -o wide
+kubectl get nodes -o custom-columns=NAME:.metadata.name,POD_CIDR:.spec.podCIDR,POD_CIDRS:.spec.podCIDRs
+```
+
+Trigger one authenticated request through the public hostname and confirm the
+immediate source address in the API's request log matches the gateway's
+networking, not the external client. Replace `REPLACE_WITH_ISTIO_SOURCE_CIDRS`
+in the Argo CD Application patch with the narrowest stable CIDR (or
+comma-separated CIDRs) that contains every possible gateway-to-API source
+address. Applying an unedited example file fails API startup instead of
+silently trusting the wrong range.
+
+Hard rules:
+
+- Never use `0.0.0.0/0` or `::/0`.
+- Do not trust forwarded headers unless the ingress NetworkPolicy (below) is
+  enforced — otherwise any pod that can reach the API directly can forge its
+  address.
+- Include every legitimate ingress source range, including IPv6 when enabled.
+- Revalidate the value after any CNI, Istio gateway, or cluster-network change.
 
 ### Initialize PostgreSQL
 
@@ -168,7 +208,10 @@ cp deploy/argocd/kamino-dev-application.example.yaml \
   deploy/argocd/kamino-dev-application.yaml
 
 # Edit deploy/argocd/kamino-dev-application.yaml and replace dev.placeholder.invalid
-# with the actual development hostname.
+# with the actual development hostname, and REPLACE_WITH_ISTIO_SOURCE_CIDRS
+# with the measured gateway-to-API source CIDR(s) — see "Configure trusted
+# proxy CIDRs" above. Development networking may differ from production, so
+# remeasure rather than reusing the production value.
 ```
 
 `kamino-dev-application.yaml` is ignored by Git.

@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kamino-api-ingress
+  labels:
+    app.kubernetes.io/name: kamino-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: kamino
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kamino-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+          podSelector:
+            matchLabels:
+              istio: ingressgateway
+      ports:
+        - protocol: TCP
+          port: 8080
