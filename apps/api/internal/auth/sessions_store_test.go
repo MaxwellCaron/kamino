@@ -21,6 +21,10 @@ type fakeSessionRow struct {
 	tokenHash           string
 	familyID            uuid.UUID
 	replacedBySessionID *uuid.UUID
+	userAgent           *string
+	ipAddress           *string
+	createdAt           pgtype.Timestamptz
+	lastUsedAt          pgtype.Timestamptz
 	expiresAt           pgtype.Timestamptz
 	revokedAt           pgtype.Timestamptz
 }
@@ -30,7 +34,7 @@ type fakeSessionRow struct {
 // rows, keyed by token hash. It is modeled on
 // vmactions/claims_test.go's fakeClaimsDB: queries are matched by inspecting
 // the SQL string. BeginTx returns a *fakeSessionTx that operates on the same
-// underlying map so RotateSession/RevokeSession can be exercised end to end
+// underlying map so RefreshSession/RevokeSession can be exercised end to end
 // without a live database.
 type fakeSessionStore struct {
 	mu       sync.Mutex
@@ -62,6 +66,12 @@ func (f *fakeSessionStore) getByID(id uuid.UUID) (fakeSessionRow, bool) {
 		return fakeSessionRow{}, false
 	}
 	return *row, true
+}
+
+func (f *fakeSessionStore) rowCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.byID)
 }
 
 func (f *fakeSessionStore) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
@@ -146,11 +156,16 @@ func (store *fakeSessionStore) execQuery(sql string, args ...any) (pgconn.Comman
 
 	switch {
 	case strings.Contains(sql, "INSERT INTO auth_sessions"):
+		now := time.Now().UTC()
 		row := fakeSessionRow{
 			id:          args[0].(uuid.UUID),
 			principalID: args[1].(uuid.UUID),
 			tokenHash:   args[2].(string),
 			familyID:    args[3].(uuid.UUID),
+			userAgent:   args[4].(*string),
+			ipAddress:   args[5].(*string),
+			createdAt:   pgtype.Timestamptz{Time: now, Valid: true},
+			lastUsedAt:  pgtype.Timestamptz{Time: now, Valid: true},
 			expiresAt:   args[6].(pgtype.Timestamptz),
 		}
 		store.byHash[row.tokenHash] = &row
@@ -159,12 +174,25 @@ func (store *fakeSessionStore) execQuery(sql string, args ...any) (pgconn.Comman
 	case strings.Contains(sql, "UPDATE auth_sessions") && strings.Contains(sql, "replaced_by_session_id"):
 		id := args[0].(uuid.UUID)
 		replacedBy, _ := args[1].(*uuid.UUID)
+		userAgent, _ := args[2].(*string)
+		ipAddress, _ := args[3].(*string)
 		row, ok := store.byID[id]
 		if !ok {
 			return pgconn.CommandTag{}, pgx.ErrNoRows
 		}
 		row.revokedAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
 		row.replacedBySessionID = replacedBy
+		row.userAgent = userAgent
+		row.ipAddress = ipAddress
+		row.lastUsedAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+		return pgconn.CommandTag{}, nil
+	case strings.Contains(sql, "UPDATE auth_sessions") && strings.Contains(sql, "SET last_used_at = now()"):
+		id := args[0].(uuid.UUID)
+		row, ok := store.byID[id]
+		if !ok {
+			return pgconn.CommandTag{}, pgx.ErrNoRows
+		}
+		row.lastUsedAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
 		return pgconn.CommandTag{}, nil
 	case strings.Contains(sql, "UPDATE auth_sessions") && strings.Contains(sql, "family_id"):
 		familyID := args[0].(uuid.UUID)
@@ -204,15 +232,9 @@ func (store *fakeSessionStore) execQuery(sql string, args ...any) (pgconn.Comman
 		return pgconn.CommandTag{}, nil
 	case strings.Contains(sql, "DELETE FROM auth_sessions"):
 		expiredBefore := args[0].(pgtype.Timestamptz)
-		familyMaxExpiresAt := make(map[uuid.UUID]time.Time)
-		for _, row := range store.byID {
-			if cur, ok := familyMaxExpiresAt[row.familyID]; !ok || row.expiresAt.Time.After(cur) {
-				familyMaxExpiresAt[row.familyID] = row.expiresAt.Time
-			}
-		}
 		var affected int64
 		for id, row := range store.byID {
-			if !familyMaxExpiresAt[row.familyID].Before(expiredBefore.Time) {
+			if !row.expiresAt.Valid || !row.expiresAt.Time.Before(expiredBefore.Time) {
 				continue
 			}
 			delete(store.byID, id)
@@ -293,9 +315,10 @@ func (r fakeSessionRowResult) Scan(dest ...any) error {
 	*(dest[2].(*string)) = r.row.tokenHash
 	*(dest[3].(*uuid.UUID)) = r.row.familyID
 	*(dest[4].(**uuid.UUID)) = r.row.replacedBySessionID
-	*(dest[5].(**string)) = nil // user_agent: unused by these tests.
-	*(dest[6].(**string)) = nil // ip_address: unused by these tests.
-	// dest[7] created_at, dest[8] last_used_at: unused by RotateSession logic.
+	*(dest[5].(**string)) = r.row.userAgent
+	*(dest[6].(**string)) = r.row.ipAddress
+	*(dest[7].(*pgtype.Timestamptz)) = r.row.createdAt
+	*(dest[8].(*pgtype.Timestamptz)) = r.row.lastUsedAt
 	*(dest[9].(*pgtype.Timestamptz)) = r.row.expiresAt
 	*(dest[10].(*pgtype.Timestamptz)) = r.row.revokedAt
 	return nil

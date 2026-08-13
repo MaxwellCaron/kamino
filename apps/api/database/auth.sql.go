@@ -48,19 +48,13 @@ func (q *Queries) CreateAuthSession(ctx context.Context, arg CreateAuthSessionPa
 	return err
 }
 
-const deleteExpiredAuthSessionFamilies = `-- name: DeleteExpiredAuthSessionFamilies :execrows
-WITH expired_families AS (
-    SELECT auth_sessions.family_id
-    FROM auth_sessions
-    GROUP BY auth_sessions.family_id
-    HAVING MAX(auth_sessions.expires_at) < $1
-)
+const deleteExpiredAuthSessions = `-- name: DeleteExpiredAuthSessions :execrows
 DELETE FROM auth_sessions
-WHERE auth_sessions.family_id IN (SELECT expired_families.family_id FROM expired_families)
+WHERE auth_sessions.expires_at < $1
 `
 
-func (q *Queries) DeleteExpiredAuthSessionFamilies(ctx context.Context, expiredBefore pgtype.Timestamptz) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteExpiredAuthSessionFamilies, expiredBefore)
+func (q *Queries) DeleteExpiredAuthSessions(ctx context.Context, expiredBefore pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredAuthSessions, expiredBefore)
 	if err != nil {
 		return 0, err
 	}
@@ -174,6 +168,8 @@ UPDATE auth_sessions
 SET
     revoked_at = now(),
     replaced_by_session_id = $2,
+    user_agent = $3,
+    ip_address = $4,
     last_used_at = now()
 WHERE id = $1
 `
@@ -181,9 +177,27 @@ WHERE id = $1
 type RotateAuthSessionParams struct {
 	ID                  uuid.UUID  `json:"id"`
 	ReplacedBySessionID *uuid.UUID `json:"replaced_by_session_id"`
+	UserAgent           *string    `json:"user_agent"`
+	IpAddress           *string    `json:"ip_address"`
 }
 
 func (q *Queries) RotateAuthSession(ctx context.Context, arg RotateAuthSessionParams) error {
-	_, err := q.db.Exec(ctx, rotateAuthSession, arg.ID, arg.ReplacedBySessionID)
+	_, err := q.db.Exec(ctx, rotateAuthSession,
+		arg.ID,
+		arg.ReplacedBySessionID,
+		arg.UserAgent,
+		arg.IpAddress,
+	)
+	return err
+}
+
+const updateAuthSessionLastUsed = `-- name: UpdateAuthSessionLastUsed :exec
+UPDATE auth_sessions
+SET last_used_at = now()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateAuthSessionLastUsed(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, updateAuthSessionLastUsed, id)
 	return err
 }

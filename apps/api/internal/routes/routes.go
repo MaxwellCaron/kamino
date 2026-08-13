@@ -39,8 +39,17 @@ func RegisterRoutes(
 	// Public auth endpoints
 	if authHandler != nil {
 		authGroup := v1.Group("/auth")
-		authGroup.POST("/login", middleware.LoginRateLimit(10, time.Minute), authHandler.Login)
-		authGroup.POST("/refresh", middleware.RequireCSRFHeader(), authHandler.Refresh)
+		authGroup.POST(
+			"/login",
+			middleware.IPRateLimit(10, time.Minute, "too many login attempts, try again later"),
+			authHandler.Login,
+		)
+		authGroup.POST(
+			"/refresh",
+			middleware.RequireCSRFHeader(),
+			middleware.IPRateLimit(30, time.Minute, "too many refresh attempts, try again later"),
+			authHandler.Refresh,
+		)
 		authGroup.POST("/logout", middleware.RequireCSRFHeader(), authHandler.Logout)
 	}
 

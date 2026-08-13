@@ -4,6 +4,7 @@ import type { AuthSession } from "../types/auth-types"
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
 const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
+const REFRESH_COLLISION_RETRY_DELAY_MS = 300
 const API_BASE_URL = import.meta.env.DEV
   ? ""
   : (import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "")
@@ -283,6 +284,21 @@ export async function changeOwnPassword(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to change password: ${res.status}`)
   }
+
+  clearAuthState()
+  redirectToLogin()
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function requestRefresh() {
+  return fetch(apiUrl("/api/v1/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+    headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+  })
 }
 
 export async function refreshAuth(): Promise<AuthSession> {
@@ -295,11 +311,11 @@ export async function refreshAuth(): Promise<AuthSession> {
 
   const generation = authGeneration
   refreshPromise = (async () => {
-    const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-      headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
-    })
+    let res = await requestRefresh()
+    if (res.status === 409) {
+      await wait(REFRESH_COLLISION_RETRY_DELAY_MS)
+      res = await requestRefresh()
+    }
     if (!res.ok) {
       if (res.status === 401) {
         invalidateAuthState("refresh failed")

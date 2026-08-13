@@ -9,129 +9,140 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func TestDeleteExpiredSessionFamiliesDeletesFullyExpiredFamily(t *testing.T) {
+func TestDeleteExpiredSessionsDeletesRowPastGracePeriod(t *testing.T) {
 	store := newFakeSessionStore()
 	mgr := newTestSessionManager(store)
 
-	familyID := uuid.New()
-	oldID := uuid.New()
-	newID := uuid.New()
+	id := uuid.New()
 	store.putSession(fakeSessionRow{
-		id:          oldID,
+		id:          id,
 		principalID: uuid.New(),
-		tokenHash:   hashOpaqueToken("expired-family-old"),
-		familyID:    familyID,
-		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-72 * time.Hour), Valid: true},
-	})
-	store.putSession(fakeSessionRow{
-		id:          newID,
-		principalID: uuid.New(),
-		tokenHash:   hashOpaqueToken("expired-family-new"),
-		familyID:    familyID,
+		tokenHash:   hashOpaqueToken("expired-past-grace"),
+		familyID:    uuid.New(),
 		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-48 * time.Hour), Valid: true},
 	})
 
-	deleted, err := mgr.DeleteExpiredSessionFamilies(context.Background(), 24*time.Hour)
+	deleted, err := mgr.DeleteExpiredSessions(context.Background(), 24*time.Hour)
 	if err != nil {
-		t.Fatalf("DeleteExpiredSessionFamilies: unexpected error: %v", err)
+		t.Fatalf("DeleteExpiredSessions: unexpected error: %v", err)
 	}
-	if deleted != 2 {
-		t.Fatalf("DeleteExpiredSessionFamilies: expected 2 rows deleted, got %d", deleted)
+	if deleted != 1 {
+		t.Fatalf("DeleteExpiredSessions: expected 1 row deleted, got %d", deleted)
 	}
-	if _, ok := store.getByID(oldID); ok {
-		t.Error("DeleteExpiredSessionFamilies: expected old predecessor row to be deleted")
-	}
-	if _, ok := store.getByID(newID); ok {
-		t.Error("DeleteExpiredSessionFamilies: expected newest row to be deleted")
+	if _, ok := store.getByID(id); ok {
+		t.Error("DeleteExpiredSessions: expected row past grace period to be deleted")
 	}
 }
 
-func TestDeleteExpiredSessionFamiliesKeepsFamilyWithActiveMember(t *testing.T) {
+func TestDeleteExpiredSessionsDeletesExpiredPredecessorEvenWithActiveSuccessor(t *testing.T) {
 	store := newFakeSessionStore()
 	mgr := newTestSessionManager(store)
 
 	familyID := uuid.New()
-	oldID := uuid.New()
+	predecessorID := uuid.New()
 	activeID := uuid.New()
 	store.putSession(fakeSessionRow{
-		id:          oldID,
+		id:          predecessorID,
 		principalID: uuid.New(),
-		tokenHash:   hashOpaqueToken("kept-family-old"),
+		tokenHash:   hashOpaqueToken("predecessor-expired"),
 		familyID:    familyID,
 		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-72 * time.Hour), Valid: true},
 	})
 	store.putSession(fakeSessionRow{
 		id:          activeID,
 		principalID: uuid.New(),
-		tokenHash:   hashOpaqueToken("kept-family-active"),
+		tokenHash:   hashOpaqueToken("active-successor"),
 		familyID:    familyID,
 		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
 	})
 
-	deleted, err := mgr.DeleteExpiredSessionFamilies(context.Background(), 24*time.Hour)
+	deleted, err := mgr.DeleteExpiredSessions(context.Background(), 24*time.Hour)
 	if err != nil {
-		t.Fatalf("DeleteExpiredSessionFamilies: unexpected error: %v", err)
+		t.Fatalf("DeleteExpiredSessions: unexpected error: %v", err)
 	}
-	if deleted != 0 {
-		t.Fatalf("DeleteExpiredSessionFamilies: expected 0 rows deleted, got %d", deleted)
+	if deleted != 1 {
+		t.Fatalf("DeleteExpiredSessions: expected 1 row deleted, got %d", deleted)
 	}
-	if _, ok := store.getByID(oldID); !ok {
-		t.Error("DeleteExpiredSessionFamilies: expected old predecessor row to be kept")
+	if _, ok := store.getByID(predecessorID); ok {
+		t.Error("DeleteExpiredSessions: expected expired predecessor to be deleted even though its family has an active member")
 	}
 	if _, ok := store.getByID(activeID); !ok {
-		t.Error("DeleteExpiredSessionFamilies: expected active row to be kept")
+		t.Error("DeleteExpiredSessions: expected active successor to be kept")
 	}
 }
 
-func TestDeleteExpiredSessionFamiliesHandlesMultipleFamiliesInOneSweep(t *testing.T) {
+func TestDeleteExpiredSessionsKeepsRowsNotYetPastGracePeriod(t *testing.T) {
 	store := newFakeSessionStore()
 	mgr := newTestSessionManager(store)
 
-	expiredFamilyID := uuid.New()
+	recentlyExpiredID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          recentlyExpiredID,
+		principalID: uuid.New(),
+		tokenHash:   hashOpaqueToken("recently-expired"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-time.Hour), Valid: true},
+	})
+
+	deleted, err := mgr.DeleteExpiredSessions(context.Background(), 24*time.Hour)
+	if err != nil {
+		t.Fatalf("DeleteExpiredSessions: unexpected error: %v", err)
+	}
+	if deleted != 0 {
+		t.Fatalf("DeleteExpiredSessions: expected 0 rows deleted, got %d", deleted)
+	}
+	if _, ok := store.getByID(recentlyExpiredID); !ok {
+		t.Error("DeleteExpiredSessions: expected row within the evidence grace period to be kept")
+	}
+}
+
+func TestDeleteExpiredSessionsHandlesMultipleRowsInOneSweep(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
 	expiredID := uuid.New()
 	store.putSession(fakeSessionRow{
 		id:          expiredID,
 		principalID: uuid.New(),
 		tokenHash:   hashOpaqueToken("sweep-expired"),
-		familyID:    expiredFamilyID,
+		familyID:    uuid.New(),
 		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-48 * time.Hour), Valid: true},
 	})
 
-	activeFamilyID := uuid.New()
 	activeID := uuid.New()
 	store.putSession(fakeSessionRow{
 		id:          activeID,
 		principalID: uuid.New(),
 		tokenHash:   hashOpaqueToken("sweep-active"),
-		familyID:    activeFamilyID,
+		familyID:    uuid.New(),
 		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
 	})
 
-	deleted, err := mgr.DeleteExpiredSessionFamilies(context.Background(), 24*time.Hour)
+	deleted, err := mgr.DeleteExpiredSessions(context.Background(), 24*time.Hour)
 	if err != nil {
-		t.Fatalf("DeleteExpiredSessionFamilies: unexpected error: %v", err)
+		t.Fatalf("DeleteExpiredSessions: unexpected error: %v", err)
 	}
 	if deleted != 1 {
-		t.Fatalf("DeleteExpiredSessionFamilies: expected 1 row deleted, got %d", deleted)
+		t.Fatalf("DeleteExpiredSessions: expected 1 row deleted, got %d", deleted)
 	}
 	if _, ok := store.getByID(expiredID); ok {
-		t.Error("DeleteExpiredSessionFamilies: expected expired family's row to be deleted")
+		t.Error("DeleteExpiredSessions: expected expired row to be deleted")
 	}
 	if _, ok := store.getByID(activeID); !ok {
-		t.Error("DeleteExpiredSessionFamilies: expected active family's row to be kept")
+		t.Error("DeleteExpiredSessions: expected active row to be kept")
 	}
 }
 
-func TestDeleteExpiredSessionFamiliesZeroRowsOK(t *testing.T) {
+func TestDeleteExpiredSessionsZeroRowsOK(t *testing.T) {
 	store := newFakeSessionStore()
 	mgr := newTestSessionManager(store)
 
-	deleted, err := mgr.DeleteExpiredSessionFamilies(context.Background(), 24*time.Hour)
+	deleted, err := mgr.DeleteExpiredSessions(context.Background(), 24*time.Hour)
 	if err != nil {
-		t.Fatalf("DeleteExpiredSessionFamilies (zero rows): unexpected error: %v", err)
+		t.Fatalf("DeleteExpiredSessions (zero rows): unexpected error: %v", err)
 	}
 	if deleted != 0 {
-		t.Fatalf("DeleteExpiredSessionFamilies (zero rows): expected 0, got %d", deleted)
+		t.Fatalf("DeleteExpiredSessions (zero rows): expected 0, got %d", deleted)
 	}
 }
 
@@ -161,7 +172,7 @@ func TestStartCleanupRunsImmediatelyAndStopsOnCancel(t *testing.T) {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("startCleanup: expected immediate sweep to delete the expired family")
+			t.Fatal("startCleanup: expected immediate sweep to delete the expired row")
 		}
 		time.Sleep(time.Millisecond)
 	}

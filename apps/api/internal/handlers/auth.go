@@ -146,20 +146,25 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	newRefreshToken, session, err := h.Sessions.RotateSession(
+	newRefreshToken, session, err := h.Sessions.RefreshSession(
 		c.Request.Context(),
 		refreshToken,
 		c.GetHeader("User-Agent"),
 		c.ClientIP(),
 	)
 	if err != nil {
+		if errors.Is(err, auth.ErrRefreshCollision) {
+			c.Header("Retry-After", "1")
+			writeConflict(c, "refresh already completed; retry")
+			return
+		}
 		clearAccessCookie(c, h.CookieSecure)
 		clearRefreshCookie(c, h.CookieSecure)
 		if errors.Is(err, auth.ErrInvalidSession) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
 			return
 		}
-		writeLoggedError(c, http.StatusInternalServerError, "authentication service unavailable", "rotate auth session", err)
+		writeLoggedError(c, http.StatusInternalServerError, "authentication service unavailable", "refresh auth session", err)
 		return
 	}
 

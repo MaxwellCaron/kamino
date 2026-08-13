@@ -343,11 +343,12 @@ func main() {
 	}
 
 	principalsHandler := &handlers.PrincipalsHandler{
-		Provider: server.PrincipalProvider,
-		Authz:    authzService,
-		Audit:    auditService,
-		Sessions: sessionManager,
-		DB:       server.DBPool,
+		Provider:     server.PrincipalProvider,
+		Authz:        authzService,
+		Audit:        auditService,
+		Sessions:     sessionManager,
+		DB:           server.DBPool,
+		CookieSecure: strings.HasPrefix(server.Config.FrontendURL, "https://"),
 	}
 
 	r := gin.Default()

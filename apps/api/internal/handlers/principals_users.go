@@ -249,12 +249,35 @@ func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
 		return
 	}
 
+	if err := h.Sessions.RevokePrincipalSessions(c.Request.Context(), id); err != nil {
+		h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.user.password.set",
+			TargetKind:       "principal",
+			Metadata:         map[string]any{"principal_id": id.String()},
+		}, "session revocation failed")
+		writeLoggedError(
+			c,
+			http.StatusInternalServerError,
+			"password changed but active sessions could not be revoked",
+			"revoke sessions after set password",
+			err,
+		)
+		return
+	}
+
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,
 		ActionKind:       "principal.user.password.set",
 		TargetKind:       "principal",
 		Metadata:         map[string]any{"principal_id": id.String()},
 	})
+
+	if id == principalID {
+		clearAccessCookie(c, h.CookieSecure)
+		clearRefreshCookie(c, h.CookieSecure)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -291,6 +314,25 @@ func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
 		}
 		return
 	}
+
+	if err := h.Sessions.RevokePrincipalSessions(c.Request.Context(), principalID); err != nil {
+		h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
+			ActorPrincipalID: &principalID,
+			ActionKind:       "principal.user.password.change",
+			TargetKind:       "principal",
+		}, "session revocation failed")
+		writeLoggedError(
+			c,
+			http.StatusInternalServerError,
+			"password changed but active sessions could not be revoked",
+			"revoke sessions after change own password",
+			err,
+		)
+		return
+	}
+
+	clearAccessCookie(c, h.CookieSecure)
+	clearRefreshCookie(c, h.CookieSecure)
 
 	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
 		ActorPrincipalID: &principalID,

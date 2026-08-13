@@ -97,6 +97,62 @@ describe("auth-api direct auth mutations", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it("refreshAuth() retries once after a 409 collision and resolves with exactly two requests", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: "refresh already completed; retry" }, 409)
+    )
+    fetchMock.mockResolvedValueOnce(jsonResponse(mockSession))
+
+    const resultPromise = authApi.refreshAuth()
+    await vi.advanceTimersByTimeAsync(300)
+    const session = await resultPromise
+
+    expect(session).toEqual(mockSession)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/auth/refresh")
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/v1/auth/refresh")
+  })
+
+  it("refreshAuth() still invalidates auth state and rejects on a 401 without retrying", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "invalid refresh token" }, 401))
+
+    await expect(authApi.refreshAuth()).rejects.toThrow()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("changeOwnPassword() clears the scheduled refresh timer and navigates to login on success", async () => {
+    const originalLocation = window.location
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { ...originalLocation, assign: vi.fn(), pathname: "/dashboard", search: "", hash: "" },
+    })
+
+    try {
+      fetchMock.mockResolvedValueOnce(jsonResponse(mockSession))
+      await authApi.login({ username: "alice", password: "secret" })
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await authApi.changeOwnPassword({
+        current_password: "old",
+        new_password: "new-password",
+      })
+
+      expect(vi.getTimerCount()).toBe(0)
+      expect(window.location.assign).toHaveBeenCalledWith(
+        "/login?redirect=%2Fdashboard"
+      )
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        writable: true,
+        value: originalLocation,
+      })
+    }
+  })
 })
 
 describe("auth-api refresh/logout serialization", () => {
