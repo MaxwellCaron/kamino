@@ -66,6 +66,19 @@ func resolvePublishCloneTargetKey(requestedKey, sourceKey string) string {
 	return sourceKey
 }
 
+func validPublishedPodImageURL(value string) bool {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+
+	if strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") {
+		return parsed.Scheme == "" && parsed.Host == "" && strings.HasPrefix(parsed.Path, "/")
+	}
+
+	return strings.EqualFold(parsed.Scheme, "https") && parsed.Host != "" && parsed.User == nil
+}
+
 func (h *PodsHandler) normalizePublishPodRequest(
 	ctx context.Context,
 	principalID uuid.UUID,
@@ -96,8 +109,8 @@ func (h *PodsHandler) normalizePublishPodRequest(
 		return normalizedPublishPodRequest{}, invalidPublishPod("description must be between 1 and 128 characters")
 	}
 	image := strings.TrimSpace(req.Image)
-	if _, err := url.ParseRequestURI(image); image == "" || err != nil {
-		return normalizedPublishPodRequest{}, invalidPublishPod("image must be a valid URL")
+	if !validPublishedPodImageURL(image) {
+		return normalizedPublishPodRequest{}, invalidPublishPod("image must be an HTTPS URL or root-relative path")
 	}
 	status, err := parsePublishedPodStatus(req.Status)
 	if err != nil {

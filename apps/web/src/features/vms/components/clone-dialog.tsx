@@ -117,7 +117,6 @@ export function CloneDialog({
       open={open}
       onOpenChange={onOpenChange}
       onClosed={() => form.reset()}
-      initialFocus={false}
       icon={CopyIcon}
       title="Clone"
       description={`Clone ${formatVmReference(

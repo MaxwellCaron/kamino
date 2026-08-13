@@ -398,7 +398,7 @@ export function CreateVmDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-xl" initialFocus={false}>
+      <DialogContent className="sm:max-w-xl">
         <AppDialogHeader
           icon={ComputerIcon}
           title="Create Virtual Machine"

@@ -83,7 +83,6 @@ export function VmHardwareDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         open={open}
-        initialFocus={false}
         icon={Settings01Icon}
         title="Hardware"
         description={`Review and update the hardware profile for ${formatVmReference(

@@ -12,10 +12,15 @@ RUN bun install --frozen-lockfile
 FROM web-deps AS web-build
 COPY apps/web apps/web
 COPY packages/ui packages/ui
+COPY deploy/nginx/default.conf deploy/nginx/default.conf
 RUN bun --filter web build
+RUN bun apps/web/scripts/generate-nginx-config.mjs \
+  apps/web/dist/client/_shell.html \
+  deploy/nginx/default.conf \
+  apps/web/dist/nginx/default.conf
 
 FROM nginx:1.27-alpine AS web
-COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=web-build /repo/apps/web/dist/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=web-build /repo/apps/web/dist/client /usr/share/nginx/html
 EXPOSE 3000
 

@@ -14,7 +14,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dot-loaders/react": "^0.1.0",
     "@headless-tree/core": "^1.7.0",
     "@headless-tree/react": "^1.7.0",
     "@hugeicons/core-free-icons": "^4.2.2",

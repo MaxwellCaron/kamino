@@ -85,7 +85,6 @@ export function ChangePasswordDialog({
       onClosed={() => {
         form.reset()
       }}
-      initialFocus={false}
       icon={Settings01Icon}
       title="Settings"
       description="Change your password by confirming the current one first."

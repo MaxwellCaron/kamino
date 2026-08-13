@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { Loader } from "@dot-loaders/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -16,6 +15,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { Progress } from "@workspace/ui/components/progress"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   COMPLETE_PROGRESS_COLORS,
@@ -141,16 +141,7 @@ export function ProgressState<TStepId extends number>({
               colors.text
             )}
           >
-            <Loader
-              loader="braille"
-              renderer="svg-grid"
-              speed={0.85}
-              rendererOptions={{
-                shape: "square",
-                cellSize: 6,
-                gap: 2,
-              }}
-            />
+            <Spinner className="size-7" />
           </span>
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
@@ -213,16 +204,7 @@ export function ProgressLoadingState({
           <span
             className={cn("flex items-center", DEFAULT_PROGRESS_COLORS.text)}
           >
-            <Loader
-              loader="braille"
-              renderer="svg-grid"
-              speed={0.85}
-              rendererOptions={{
-                shape: "square",
-                cellSize: 6,
-                gap: 2,
-              }}
-            />
+            <Spinner className="size-7" />
           </span>
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>

@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, m } from "motion/react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  CancelCircleIcon,
+  CheckmarkCircle01Icon,
+  PackageIcon,
+} from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -11,8 +17,8 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
 import { ItemGroup } from "@workspace/ui/components/item"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
-import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { CloneStatusItem } from "./clone-status-item"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
@@ -202,16 +208,10 @@ export function ClonePodDialog({
                       exit={{ opacity: 0, scale: 0.8 }}
                       className={FAILED_PROGRESS_COLORS.text}
                     >
-                      <Loader
-                        loader="pulse"
-                        renderer="svg-grid"
-                        speed={0.85}
-                        rendererOptions={{
-                          shape: "square",
-                          cellSize: 6,
-                          gap: 2,
-                          inactiveOpacity: 1,
-                        }}
+                      <HugeiconsIcon
+                        icon={CancelCircleIcon}
+                        className="size-8"
+                        aria-hidden="true"
                       />
                     </m.span>
                   ) : isFinished ? (
@@ -222,16 +222,10 @@ export function ClonePodDialog({
                       exit={{ opacity: 0, scale: 0.8 }}
                       className={COMPLETE_PROGRESS_COLORS.text}
                     >
-                      <Loader
-                        loader="pulse"
-                        renderer="svg-grid"
-                        speed={0.85}
-                        rendererOptions={{
-                          shape: "square",
-                          cellSize: 6,
-                          gap: 2,
-                          inactiveOpacity: 1,
-                        }}
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle01Icon}
+                        className="size-8"
+                        aria-hidden="true"
                       />
                     </m.span>
                   ) : (
@@ -246,16 +240,7 @@ export function ClonePodDialog({
                         displayColors.text
                       )}
                     >
-                      <Loader
-                        loader="pulse"
-                        renderer="svg-grid"
-                        speed={0.85}
-                        rendererOptions={{
-                          shape: "square",
-                          cellSize: 6,
-                          gap: 2,
-                        }}
-                      />
+                      <Spinner className="size-8" />
                     </m.span>
                   )
                 ) : (
@@ -266,16 +251,10 @@ export function ClonePodDialog({
                     exit={{ opacity: 0, scale: 0.8 }}
                     className={IDLE_PROGRESS_COLORS.text}
                   >
-                    <Loader
-                      loader="pulse"
-                      renderer="svg-grid"
-                      speed={0.85}
-                      rendererOptions={{
-                        shape: "square",
-                        cellSize: 6,
-                        gap: 2,
-                        inactiveOpacity: 1,
-                      }}
+                    <HugeiconsIcon
+                      icon={PackageIcon}
+                      className="size-8"
+                      aria-hidden="true"
                     />
                   </m.span>
                 )}

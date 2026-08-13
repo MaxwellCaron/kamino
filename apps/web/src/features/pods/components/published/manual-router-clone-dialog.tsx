@@ -192,7 +192,6 @@ export function ManualRouterCloneDialog({
       open={open}
       onOpenChange={onOpenChange}
       onClosed={resetDialog}
-      initialFocus={false}
       icon={RouterIcon}
       title="Clone Router"
       description="Clone, configure, and start the pod router in a selected folder."

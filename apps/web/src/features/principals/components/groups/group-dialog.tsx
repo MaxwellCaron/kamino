@@ -154,7 +154,6 @@ export function GroupDialog({
     open,
     onOpenChange,
     onClosed: resetDialog,
-    initialFocus: false as const,
     className: nestedDialogAnimationClassName,
     icon: isEdit ? PencilEdit01Icon : Add01Icon,
     title: isEdit ? "Edit Group" : "Create Groups",

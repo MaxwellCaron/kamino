@@ -10,10 +10,10 @@ import {
   Loading03Icon,
   PackageIcon,
 } from "@hugeicons/core-free-icons"
-import { Loader } from "@dot-loaders/react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { useCutoutContentStaggerVariants } from "@workspace/ui/components/cutout-card"
+import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Item,
   ItemContent,
@@ -99,16 +99,7 @@ export function CloneStatusItem({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                <Loader
-                  loader="sand"
-                  renderer="svg-grid"
-                  speed={0.85}
-                  rendererOptions={{
-                    shape: "square",
-                    cellSize: 4,
-                    gap: 1,
-                  }}
-                />
+                <Spinner className="size-6" />
               </m.div>
             ) : (
               <m.div

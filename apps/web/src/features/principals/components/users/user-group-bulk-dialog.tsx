@@ -143,7 +143,6 @@ export function UserGroupBulkDialog({
         setRowSelection({})
         setSearch("")
       }}
-      initialFocus={false}
       icon={mode === "add" ? UserAdd01Icon : UserMinusIcon}
       title={mode === "add" ? "Add Users" : "Remove Users"}
       description={

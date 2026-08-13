@@ -32,6 +32,27 @@ const publishPodAudiencePrincipalSchema = z.object({
   description: z.string().trim(),
 })
 
+const podImageUrlSchema = z
+  .string()
+  .trim()
+  .refine(
+    (image) => {
+      if (image.startsWith("/") && !image.startsWith("//")) return true
+
+      try {
+        const url = new URL(image)
+        return (
+          url.protocol === "https:" &&
+          url.username === "" &&
+          url.password === ""
+        )
+      } catch {
+        return false
+      }
+    },
+    "Enter an HTTPS image URL or root-relative path."
+  )
+
 const publishPodVmSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1),
@@ -236,7 +257,7 @@ export const publishPodFormSchema = z
       .trim()
       .min(1, "Description is required.")
       .max(128, "Description must be at most 128 characters."),
-    image: z.string().trim().pipe(z.url("Enter a valid image URL.")),
+    image: podImageUrlSchema,
     creators: z
       .array(publishPodAudiencePrincipalSchema)
       .min(1, "Add at least one creator.")

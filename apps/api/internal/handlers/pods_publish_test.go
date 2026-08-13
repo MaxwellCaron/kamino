@@ -271,6 +271,32 @@ func TestResolvePublishCloneTargetKey(t *testing.T) {
 	}
 }
 
+func TestValidPublishedPodImageURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "HTTPS URL", value: "https://images.example.com/pod.png", want: true},
+		{name: "uppercase HTTPS URL", value: "HTTPS://images.example.com/pod.png", want: true},
+		{name: "root-relative path", value: "/assets/pods/pod.png", want: true},
+		{name: "HTTP URL", value: "http://images.example.com/pod.png", want: false},
+		{name: "script URL", value: "javascript:alert(1)", want: false},
+		{name: "protocol-relative URL", value: "//images.example.com/pod.png", want: false},
+		{name: "relative path", value: "assets/pods/pod.png", want: false},
+		{name: "URL with credentials", value: "https://user:password@images.example.com/pod.png", want: false},
+		{name: "empty value", value: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validPublishedPodImageURL(tt.value); got != tt.want {
+				t.Fatalf("validPublishedPodImageURL(%q) = %v, want %v", tt.value, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPublishedPodTemplateIDs(t *testing.T) {
 	id1 := uuid.New()
 	id2 := uuid.New()

@@ -83,7 +83,6 @@ export function MembershipDialog(props: MembershipDialogProps) {
       open={open}
       onOpenChange={onOpenChange}
       onClosed={() => setEditorVersion((version) => version + 1)}
-      initialFocus={false}
       icon={UserGroupIcon}
       title={mode === "user-groups" ? "Groups" : "Members"}
       description={

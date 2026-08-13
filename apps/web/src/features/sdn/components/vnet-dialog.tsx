@@ -184,7 +184,6 @@ export function VNetDialog({
       setMode("single")
       setSessionKey((key) => key + 1)
     },
-    initialFocus: false as const,
     icon: isEdit ? PencilEdit01Icon : Add01Icon,
     title: isEdit ? "Edit VNet" : "Create VNets",
     description: isEdit
