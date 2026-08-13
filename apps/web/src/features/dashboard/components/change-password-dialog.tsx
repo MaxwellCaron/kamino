@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
@@ -17,7 +17,10 @@ import {
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
 import { isTouchedInvalid } from "@/components/forms/form-errors"
-import { changeOwnPassword } from "@/features/auth/api/auth-api"
+import {
+  authSessionQueryOptions,
+  changeOwnPassword,
+} from "@/features/auth/api/auth-api"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const changePasswordSchema = z
@@ -40,8 +43,14 @@ export function ChangePasswordDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: changeOwnPassword,
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: authSessionQueryOptions.queryKey,
+        exact: true,
+      }),
   })
 
   const form = useForm({
