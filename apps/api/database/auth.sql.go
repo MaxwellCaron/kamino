@@ -121,6 +121,33 @@ func (q *Queries) IsAuthSessionActive(ctx context.Context, arg IsAuthSessionActi
 	return active, err
 }
 
+const isAuthSessionFamilyActiveForSession = `-- name: IsAuthSessionFamilyActiveForSession :one
+SELECT EXISTS (
+    SELECT 1
+    FROM auth_sessions AS anchor
+    JOIN auth_sessions AS active
+      ON active.family_id = anchor.family_id
+     AND active.principal_id = anchor.principal_id
+    WHERE anchor.id = $1
+      AND anchor.principal_id = $2
+      AND active.revoked_at IS NULL
+      AND active.expires_at > now()
+) AS active
+`
+
+type IsAuthSessionFamilyActiveForSessionParams struct {
+	ID          uuid.UUID `json:"id"`
+	PrincipalID uuid.UUID `json:"principal_id"`
+}
+
+// Validates that the anchor session's family still has an active member.
+func (q *Queries) IsAuthSessionFamilyActiveForSession(ctx context.Context, arg IsAuthSessionFamilyActiveForSessionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isAuthSessionFamilyActiveForSession, arg.ID, arg.PrincipalID)
+	var active bool
+	err := row.Scan(&active)
+	return active, err
+}
+
 const revokeAuthSession = `-- name: RevokeAuthSession :exec
 UPDATE auth_sessions
 SET revoked_at = COALESCE(revoked_at, now())

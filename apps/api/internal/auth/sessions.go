@@ -262,6 +262,26 @@ func (m *SessionManager) ValidateAccessSession(
 	return nil
 }
 
+// ValidateLiveSession reports whether sessionID's family still has an active member for principalID.
+func (m *SessionManager) ValidateLiveSession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	principalID uuid.UUID,
+) error {
+	q := database.New(m.store)
+	active, err := q.IsAuthSessionFamilyActiveForSession(ctx, database.IsAuthSessionFamilyActiveForSessionParams{
+		ID:          sessionID,
+		PrincipalID: principalID,
+	})
+	if err != nil {
+		return fmt.Errorf("validate live auth session: %w", err)
+	}
+	if !active {
+		return ErrInvalidSession
+	}
+	return nil
+}
+
 func (m *SessionManager) RevokePrincipalSessions(ctx context.Context, principalID uuid.UUID) error {
 	q := database.New(m.store)
 	if _, err := q.RevokeAuthSessionsForPrincipal(ctx, principalID); err != nil {

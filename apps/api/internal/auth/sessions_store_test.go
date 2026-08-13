@@ -251,6 +251,26 @@ func (store *fakeSessionStore) queryRow(sql string, args ...any) pgx.Row {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	if strings.Contains(sql, "EXISTS") && strings.Contains(sql, "auth_sessions AS anchor") {
+		anchorID := args[0].(uuid.UUID)
+		principalID := args[1].(uuid.UUID)
+		anchor, ok := store.byID[anchorID]
+		if !ok || anchor.principalID != principalID {
+			return fakeBoolRowResult{value: false}
+		}
+		now := time.Now().UTC()
+		for _, row := range store.byID {
+			if row.familyID != anchor.familyID || row.principalID != principalID || row.revokedAt.Valid {
+				continue
+			}
+			if !row.expiresAt.Valid || !now.Before(row.expiresAt.Time) {
+				continue
+			}
+			return fakeBoolRowResult{value: true}
+		}
+		return fakeBoolRowResult{value: false}
+	}
+
 	if strings.Contains(sql, "EXISTS") && strings.Contains(sql, "principal_id = $2") {
 		sessionID := args[0].(uuid.UUID)
 		principalID := args[1].(uuid.UUID)

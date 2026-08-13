@@ -47,6 +47,7 @@ func Auth(authService *auth.Service, sessionValidator accessSessionValidator) gi
 		}
 
 		c.Set("userID", userID)
+		c.Set("sessionID", sessionID)
 		c.Set("username", claims.Username)
 		if claims.ExpiresAt != nil {
 			c.Set("accessTokenExpiresAt", claims.ExpiresAt.Time.UTC())

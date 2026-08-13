@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
@@ -11,6 +12,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// liveCheckInterval is the shared SSE/VNC live-session revalidation cadence.
+const liveCheckInterval = 20 * time.Second
+
+// liveSessionValidator rechecks an already-established connection's session family.
+type liveSessionValidator interface {
+	ValidateLiveSession(ctx context.Context, sessionID, principalID uuid.UUID) error
+}
 
 type PermissionEnvelope struct {
 	AllowedMask authorization.Mask `json:"allowed_mask"`
@@ -30,6 +39,21 @@ func currentPrincipalID(c *gin.Context) (uuid.UUID, bool) {
 
 	id, ok := value.(uuid.UUID)
 	return id, ok && id != uuid.Nil
+}
+
+func currentSessionID(c *gin.Context) (uuid.UUID, bool) {
+	value, ok := c.Get("sessionID")
+	if !ok {
+		return uuid.Nil, false
+	}
+
+	id, ok := value.(uuid.UUID)
+	return id, ok && id != uuid.Nil
+}
+
+// freshAuthzContext wraps ctx in a new, empty principal-expansion cache.
+func freshAuthzContext(ctx context.Context) context.Context {
+	return authorization.WithPrincipalCache(ctx)
 }
 
 func toPermissionEnvelope(value authorization.EffectivePermissions) PermissionEnvelope {

@@ -63,6 +63,20 @@ SELECT EXISTS (
       AND expires_at > now()
 ) AS active;
 
+-- name: IsAuthSessionFamilyActiveForSession :one
+-- Validates that the anchor session's family still has an active member.
+SELECT EXISTS (
+    SELECT 1
+    FROM auth_sessions AS anchor
+    JOIN auth_sessions AS active
+      ON active.family_id = anchor.family_id
+     AND active.principal_id = anchor.principal_id
+    WHERE anchor.id = $1
+      AND anchor.principal_id = $2
+      AND active.revoked_at IS NULL
+      AND active.expires_at > now()
+) AS active;
+
 -- name: RevokeAuthSessionsForPrincipal :execrows
 UPDATE auth_sessions
 SET revoked_at = COALESCE(revoked_at, now())

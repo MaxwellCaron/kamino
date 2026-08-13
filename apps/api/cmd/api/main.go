@@ -332,6 +332,8 @@ func main() {
 
 	sessionManager := auth.NewSessionManager(server.DBPool)
 	go sessionManager.StartCleanup(context.Background())
+	eventsHandler.Sessions = sessionManager
+	vncHandler.Sessions = sessionManager
 
 	authHandler := &handlers.AuthHandler{
 		Auth:          authService,

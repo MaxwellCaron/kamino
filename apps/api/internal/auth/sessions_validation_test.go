@@ -156,5 +156,111 @@ func TestRevokePrincipalSessionsZeroRowsOK(t *testing.T) {
 	}
 }
 
+func TestValidateLiveSessionCurrentActiveRow(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	sessionID := uuid.New()
+	principalID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          sessionID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("live-current-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+
+	if err := mgr.ValidateLiveSession(context.Background(), sessionID, principalID); err != nil {
+		t.Fatalf("ValidateLiveSession (current active row): unexpected error: %v", err)
+	}
+}
+
+func TestValidateLiveSessionRevokedPredecessorWithActiveSuccessor(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	familyID := uuid.New()
+	principalID := uuid.New()
+	predecessorID := uuid.New()
+	successorID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          predecessorID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("live-predecessor-token"),
+		familyID:    familyID,
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+		revokedAt:   pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+	store.putSession(fakeSessionRow{
+		id:          successorID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("live-successor-token"),
+		familyID:    familyID,
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+
+	if err := mgr.ValidateLiveSession(context.Background(), predecessorID, principalID); err != nil {
+		t.Fatalf("ValidateLiveSession (revoked predecessor, active successor): unexpected error: %v", err)
+	}
+}
+
+func TestValidateLiveSessionFamilyWithNoActiveRow(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	familyID := uuid.New()
+	principalID := uuid.New()
+	anchorID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          anchorID,
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("live-anchor-only-token"),
+		familyID:    familyID,
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+		revokedAt:   pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+	store.putSession(fakeSessionRow{
+		id:          uuid.New(),
+		principalID: principalID,
+		tokenHash:   hashOpaqueToken("live-expired-sibling-token"),
+		familyID:    familyID,
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-time.Hour), Valid: true},
+	})
+
+	err := mgr.ValidateLiveSession(context.Background(), anchorID, principalID)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("ValidateLiveSession (no active family member): expected ErrInvalidSession, got %v", err)
+	}
+}
+
+func TestValidateLiveSessionWrongPrincipal(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	sessionID := uuid.New()
+	store.putSession(fakeSessionRow{
+		id:          sessionID,
+		principalID: uuid.New(),
+		tokenHash:   hashOpaqueToken("live-wrong-principal-token"),
+		familyID:    uuid.New(),
+		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(time.Hour), Valid: true},
+	})
+
+	err := mgr.ValidateLiveSession(context.Background(), sessionID, uuid.New())
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("ValidateLiveSession (wrong principal): expected ErrInvalidSession, got %v", err)
+	}
+}
+
+func TestValidateLiveSessionMissingAnchor(t *testing.T) {
+	store := newFakeSessionStore()
+	mgr := newTestSessionManager(store)
+
+	err := mgr.ValidateLiveSession(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("ValidateLiveSession (missing anchor): expected ErrInvalidSession, got %v", err)
+	}
+}
+
 var _ database.DBTX = (*fakeSessionTx)(nil)
 var _ database.DBTX = (*fakeSessionStore)(nil)
