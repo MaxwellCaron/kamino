@@ -55,8 +55,13 @@ export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {
                     field.handleChange(parseNumberInput(event.target.value, 1))
                   }
                   aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  aria-errormessage={
+                    field.state.meta.errors.length > 0
+                      ? "hardware-sockets-error"
+                      : undefined
+                  }
                 />
-                <FieldError>
+                <FieldError id="hardware-sockets-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>
@@ -87,8 +92,13 @@ export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {
                     field.handleChange(parseNumberInput(event.target.value, 1))
                   }
                   aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  aria-errormessage={
+                    field.state.meta.errors.length > 0
+                      ? "hardware-cores-error"
+                      : undefined
+                  }
                 />
-                <FieldError>
+                <FieldError id="hardware-cores-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>
@@ -152,8 +162,13 @@ export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {
                     field.handleChange(parseNumberInput(event.target.value, 2))
                   }
                   aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  aria-errormessage={
+                    field.state.meta.errors.length > 0
+                      ? "hardware-memory-error"
+                      : undefined
+                  }
                 />
-                <FieldError>
+                <FieldError id="hardware-memory-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>
@@ -184,8 +199,13 @@ export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {
                     field.handleChange(parseNumberInput(event.target.value, 0))
                   }
                   aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  aria-errormessage={
+                    field.state.meta.errors.length > 0
+                      ? "hardware-balloon-error"
+                      : undefined
+                  }
                 />
-                <FieldError>
+                <FieldError id="hardware-balloon-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>

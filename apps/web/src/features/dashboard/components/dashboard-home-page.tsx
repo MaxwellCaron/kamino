@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react"
+import { useState } from "react"
 import { DashboardActivityTableCard } from "./dashboard-requests-card"
 import { DashboardCurrentClonedPodCard } from "./dashboard-cloned-pod-card"
 import { DashboardFavoritesCard } from "./dashboard-favorites-card"
@@ -6,6 +6,7 @@ import { DashboardProfileCard } from "./dashboard-profile-card"
 import { DashboardQuestionActivityCard } from "./dashboard-question-activity-card"
 import { DashboardRecentPodsCard } from "./dashboard-published-pods-card"
 import { DashboardStatsGrid } from "./dashboard-stat-cards"
+import { ChangePasswordDialog } from "./change-password-dialog"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import { PreloadOverlay } from "@/components/loading-overlay"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
@@ -13,19 +14,7 @@ import { getManagementRoleLabel } from "@/features/auth/utils/management-permiss
 import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
 import { useScrollRestoreOnReady } from "@/features/dashboard/hooks/use-scroll-restore-on-ready"
 import { useDashboardHomeData } from "@/features/dashboard/hooks/use-dashboard-home-data"
-
-const ChangePasswordDialog = lazy(() =>
-  import("./change-password-dialog").then((module) => ({
-    default: module.ChangePasswordDialog,
-  }))
-)
-const RequestDetailDialog = lazy(() =>
-  import("@/features/requests/components/request-detail-dialog").then(
-    (module) => ({
-      default: module.RequestDetailDialog,
-    })
-  )
-)
+import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 
 export function DashboardHomePage({ user }: { user: AuthUser }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -107,7 +96,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
         />
       </div>
 
-      <Suspense fallback={null}>
+      <>
         {settingsOpen && dashboard.canChangeOwnPassword ? (
           <ChangePasswordDialog
             open={settingsOpen}
@@ -131,7 +120,7 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
             tree={dashboard.tree}
           />
         )}
-      </Suspense>
+      </>
     </div>
   )
 }

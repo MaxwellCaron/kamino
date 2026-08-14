@@ -66,6 +66,7 @@ function PrefixTextField({
     >
       {(field: any) => {
         const isInvalid = isTouchedInvalid(field.state.meta)
+        const errorId = `${name}-error`
 
         return (
           <Field data-invalid={isInvalid}>
@@ -78,10 +79,11 @@ function PrefixTextField({
                 onBlur={field.handleBlur}
                 placeholder={placeholder}
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? errorId : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id={errorId}>
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -114,6 +116,7 @@ function BaseTagField({
     >
       {(field: any) => {
         const isInvalid = isTouchedInvalid(field.state.meta)
+        const errorId = "base-tag-error"
 
         return (
           <Field data-invalid={isInvalid}>
@@ -128,10 +131,11 @@ function BaseTagField({
                 disabled={tagDisabled}
                 placeholder={tagRule === "required" ? "1000" : "Optional"}
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? errorId : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id={errorId}>
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -159,6 +163,7 @@ function QuantityField({
     >
       {(field: any) => {
         const isInvalid = isTouchedInvalid(field.state.meta)
+        const errorId = "vnet-quantity-error"
 
         return (
           <Field data-invalid={isInvalid}>
@@ -175,10 +180,11 @@ function QuantityField({
                 onBlur={field.handleBlur}
                 placeholder="10"
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? errorId : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id={errorId}>
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}

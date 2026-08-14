@@ -12,12 +12,12 @@ export function GeneralVmMenuItems({
   itemId,
   isFavorite,
   onToggleFavorite,
-  isLoading,
+  disabled,
 }: {
   itemId: string
   isFavorite?: boolean
   onToggleFavorite?: () => void
-  isLoading?: boolean
+  disabled?: boolean
 }) {
   const canToggleFavorite = hasFavoriteAction(onToggleFavorite)
 
@@ -31,6 +31,7 @@ export function GeneralVmMenuItems({
             params={{ itemId }}
             target="_blank"
             rel="noreferrer"
+            aria-label="Open inventory item in a new tab"
           />
         }
       >
@@ -41,7 +42,7 @@ export function GeneralVmMenuItems({
         Open
       </DropdownMenuItem>
       {canToggleFavorite && (
-        <DropdownMenuItem onClick={onToggleFavorite} disabled={isLoading}>
+        <DropdownMenuItem onClick={onToggleFavorite} disabled={disabled}>
           <HugeiconsIcon icon={StarIcon} className="text-muted-foreground" />
           {isFavorite ? "Unfavorite" : "Favorite"}
         </DropdownMenuItem>

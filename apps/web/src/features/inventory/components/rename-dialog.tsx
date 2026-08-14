@@ -195,8 +195,16 @@ export function RenameDialog(props: RenameDialogProps) {
                     }
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "inventory-name-error" : undefined
+                    }
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="inventory-name-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -226,7 +234,11 @@ export function RenameDialog(props: RenameDialogProps) {
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <AppDialogPrimaryButton pending={isSubmitting}>
+              <AppDialogPrimaryButton
+                pending={isSubmitting}
+                disabled={isSubmitting}
+                aria-busy={isSubmitting || undefined}
+              >
                 {ui.submitLabel}
               </AppDialogPrimaryButton>
             )}

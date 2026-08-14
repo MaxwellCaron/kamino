@@ -331,6 +331,7 @@ export function CreatePodTemplateCard({
                                   Network Segment
                                 </FieldLabel>
                                 <RadioGroup
+                                  aria-label="Network segment"
                                   value={segmentField.state.value ?? ""}
                                   onValueChange={(value) =>
                                     segmentField.handleChange(

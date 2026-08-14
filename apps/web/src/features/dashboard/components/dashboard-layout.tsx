@@ -12,14 +12,14 @@ import {
   INVENTORY_SIDEBAR_MIN_WIDTH,
   useInventorySidebarResize,
 } from "@/features/inventory/hooks/use-inventory-sidebar-resize"
-import { CommandManyItems } from "@/components/app-shell/site-command"
+import { SiteCommandTrigger } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { VncSessionVisibilityProvider } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { VncSessionWorkspace } from "@/features/vms/components/dashboard/vnc-session-workspace"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
 
-const commandManyItemsElement = <CommandManyItems />
+const siteCommandTrigger = <SiteCommandTrigger />
 
 export function DashboardLayout() {
   const { user } = dashboardRouteApi.useRouteContext()
@@ -58,9 +58,7 @@ export function DashboardLayout() {
             onResizeStart={onResizeStart}
             onResizeEnd={onResizeEnd}
           />
-          <SiteLayoutInset
-            header={<SiteHeader command={commandManyItemsElement} />}
-          >
+          <SiteLayoutInset header={<SiteHeader command={siteCommandTrigger} />}>
             <VncSessionVisibilityProvider>
               <Outlet />
               <VncSessionWorkspace />

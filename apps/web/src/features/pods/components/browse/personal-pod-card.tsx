@@ -170,6 +170,11 @@ export function PersonalPodCard({
 
   return (
     <>
+      {isPending ? (
+        <span className="sr-only" role="status" aria-live="polite">
+          Personal pod request pending
+        </span>
+      ) : null}
       <Card className={cn(className)}>
         <CardHeader className="flex flex-row items-center gap-4">
           <div className="relative size-18 shrink-0 overflow-hidden rounded-3xl">

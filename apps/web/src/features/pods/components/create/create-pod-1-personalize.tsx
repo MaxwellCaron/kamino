@@ -75,6 +75,9 @@ export function CreatePodPersonalizeSection({
                     )
                   }
                   aria-invalid={isInvalid || undefined}
+                  aria-errormessage={
+                    isInvalid ? "create-pod-name-error" : undefined
+                  }
                   placeholder="cis3670-01-lab"
                   autoComplete="off"
                 />
@@ -84,6 +87,7 @@ export function CreatePodPersonalizeSection({
                     : "Choose a unique name for your new pod. The name can only contain ASCII letters, digits, and -."}
                 </FieldDescription>
                 <FieldError
+                  id="create-pod-name-error"
                   errors={showValidation ? field.state.meta.errors : []}
                 />
               </Field>

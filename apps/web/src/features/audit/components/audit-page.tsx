@@ -57,6 +57,7 @@ export function AuditPage() {
               <DataTable
                 columns={columns}
                 data={data?.items ?? []}
+                emptyMessage="No results found for this audit log view."
                 features={{ loading: isLoading }}
                 error={error}
                 searchLabel="Search audit logs"

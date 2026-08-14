@@ -1,20 +1,8 @@
-import { Suspense, lazy } from "react"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestDetail } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-
-const ConfirmDialog = lazy(() =>
-  import("@/components/dialogs/confirm-dialog").then((module) => ({
-    default: module.ConfirmDialog,
-  }))
-)
-const RequestDetailDialog = lazy(() =>
-  import("@/features/requests/components/request-detail-dialog").then(
-    (module) => ({
-      default: module.RequestDetailDialog,
-    })
-  )
-)
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 
 type RequestsPageDialogsProps = {
   selectedRequestId: string | null
@@ -44,7 +32,7 @@ export function RequestsPageDialogs({
   onConfirmClose,
 }: RequestsPageDialogsProps) {
   return (
-    <Suspense fallback={null}>
+    <>
       {selectedRequestId !== null && (
         <RequestDetailDialog
           canReview={canReview}
@@ -59,6 +47,6 @@ export function RequestsPageDialogs({
         />
       )}
       {confirm && <ConfirmDialog config={confirm} onClose={onConfirmClose} />}
-    </Suspense>
+    </>
   )
 }

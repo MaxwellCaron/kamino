@@ -34,7 +34,7 @@ type PublishPodFormState = "form" | PublishPodSubmitStatus
 type PublishPodSubmitState = {
   state: PublishPodFormState
   savedPodSlug: string | null
-  errorMessage: string | null
+  error: string | null
 }
 type PublishPodSubmitOptions = {
   progressId: string
@@ -70,7 +70,7 @@ export function PublishPodEditor({
     {
       state: "form",
       savedPodSlug: null,
-      errorMessage: null,
+      error: null,
     }
   )
   const [submission, setSubmission] =
@@ -106,7 +106,7 @@ export function PublishPodEditor({
         setSubmitStatus({
           state: "error",
           savedPodSlug: null,
-          errorMessage: getErrorMessage(error),
+          error: getErrorMessage(error),
         })
         return
       }
@@ -114,7 +114,7 @@ export function PublishPodEditor({
       setSubmitStatus({
         state: pendingSubmitState,
         savedPodSlug: null,
-        errorMessage: null,
+        error: null,
       })
       void submitPromise
         .then((result) => {
@@ -122,7 +122,7 @@ export function PublishPodEditor({
             setSubmitStatus({
               state: "success",
               savedPodSlug: result.slug,
-              errorMessage: null,
+              error: null,
             })
             return
           }
@@ -136,7 +136,7 @@ export function PublishPodEditor({
           setSubmitStatus({
             state: "error",
             savedPodSlug: null,
-            errorMessage: getErrorMessage(error),
+            error: getErrorMessage(error),
           })
         })
     },
@@ -174,7 +174,7 @@ export function PublishPodEditor({
       return {
         state: "error" as const,
         savedPodSlug: null,
-        errorMessage: publishProgress.message,
+        error: publishProgress.message,
       }
     }
 
@@ -182,7 +182,7 @@ export function PublishPodEditor({
       return {
         state: "success" as const,
         savedPodSlug,
-        errorMessage: null,
+        error: null,
       }
     }
 
@@ -191,7 +191,7 @@ export function PublishPodEditor({
 
   const resolvedSubmitState = resolvedSubmitStatus.state
   const resolvedSavedPodSlug = resolvedSubmitStatus.savedPodSlug
-  const resolvedSubmitErrorMessage = resolvedSubmitStatus.errorMessage
+  const resolvedSubmitError = resolvedSubmitStatus.error
 
   const principalOptions = React.useMemo(
     () => buildPrincipalOptions(users ?? [], groups ?? []),
@@ -238,7 +238,7 @@ export function PublishPodEditor({
     setSubmitStatus({
       state: "form",
       savedPodSlug: null,
-      errorMessage: null,
+      error: null,
     })
     submitCompletedRef.current = false
   }, [])
@@ -253,7 +253,7 @@ export function PublishPodEditor({
       <div className="@container/main relative flex flex-1 flex-col">
         <PublishPodSubmitState
           state={resolvedSubmitState}
-          errorMessage={resolvedSubmitErrorMessage}
+          error={resolvedSubmitError}
           onBackToForm={handleBackToForm}
           podSlug={resolvedSavedPodSlug}
           progress={
@@ -272,24 +272,32 @@ export function PublishPodEditor({
     <div className="@container/main relative flex flex-1 flex-col">
       <PreloadOverlay active={isLoadingFormOptions} label="Loading pod" />
       {!isLoadingFormOptions && (
-        <PublishPodFormView
-          step={step}
-          onStepChange={setStep}
-          onValidateStep={handleValidateStep}
-          form={form}
-          principalOptionMap={principalOptionMap}
-          principalOptions={principalOptions}
-          submissionAttempts={submissionAttempts}
-          publishedPodId={publishedPodId}
-          podFolders={
-            publishOptions?.source_folders ??
-            ([] satisfies Array<PublishPodFolder>)
-          }
-          podFoldersError={publishOptionsError}
-          cloneTargets={publishOptions?.clone_targets ?? []}
-          submitLabel={submitLabel}
-          onSubmitConfirm={submitForm}
-        />
+        <form
+          noValidate
+          className="@container/main relative flex flex-1 flex-col pb-28"
+          action={() => {
+            void submitForm()
+          }}
+        >
+          <PublishPodFormView
+            step={step}
+            onStepChange={setStep}
+            onValidateStep={handleValidateStep}
+            form={form}
+            principalOptionMap={principalOptionMap}
+            principalOptions={principalOptions}
+            submissionAttempts={submissionAttempts}
+            publishedPodId={publishedPodId}
+            podFolders={
+              publishOptions?.source_folders ??
+              ([] satisfies Array<PublishPodFolder>)
+            }
+            podFoldersError={publishOptionsError}
+            cloneTargets={publishOptions?.clone_targets ?? []}
+            submitLabel={submitLabel}
+            onSubmitConfirm={submitForm}
+          />
+        </form>
       )}
     </div>
   )

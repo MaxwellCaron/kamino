@@ -128,7 +128,7 @@ function useCloneProcess({
     elapsedTime: formatTime(elapsedTime),
     completedTasks,
     totalTasks,
-    errorMessage:
+    error:
       progressData?.state === "error"
         ? progressData.message
         : cloneMutation.error?.message,
@@ -173,7 +173,7 @@ export function ClonePodDialog({
     elapsedTime,
     completedTasks,
     totalTasks,
-    errorMessage,
+    error,
     startCloning,
   } = useCloneProcess({ open, pod, clonedPodId, onCloned })
 
@@ -298,9 +298,9 @@ export function ClonePodDialog({
             colors={displayColors}
             elapsedTime={elapsedTime}
           />
-          {errorMessage && (
+          {error && (
             <InlineErrorAlert
-              error={errorMessage}
+              error={error}
               fallback={`${actionLabel} failed.`}
               title={`${actionLabel} failed`}
               className="bg-muted/50"

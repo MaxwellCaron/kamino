@@ -87,6 +87,7 @@ export function DashboardCurrentClonedPodCard({
                     <Link
                       to="/pods/$podSlug"
                       params={{ podSlug: entry.pod.slug }}
+                      aria-label={`Open ${entry.pod.title}`}
                     />
                   }
                 >

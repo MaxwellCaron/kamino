@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -21,6 +21,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   ManagementPermissionKeys,
@@ -34,6 +35,9 @@ import {
   triggerPrincipalSync,
 } from "@/features/principals/api/principals-api"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
+import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
+import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
+import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import { DataTable } from "@/components/data-table/data-table"
 import { PreloadOverlay } from "@/components/loading-overlay"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
@@ -43,32 +47,6 @@ import {
 } from "@/components/feedback/mutation-progress-toast"
 
 const groupsRouteApi = getRouteApi("/_dashboard/admin/principals/groups")
-const ConfirmDialog = lazy(() =>
-  import("@/components/dialogs/confirm-dialog").then((module) => ({
-    default: module.ConfirmDialog,
-  }))
-)
-const GroupDialog = lazy(() =>
-  import("@/features/principals/components/groups/group-dialog").then(
-    (module) => ({
-      default: module.GroupDialog,
-    })
-  )
-)
-const GroupPermissionsDialog = lazy(() =>
-  import("@/features/principals/components/groups/group-permissions-dialog").then(
-    (module) => ({
-      default: module.GroupPermissionsDialog,
-    })
-  )
-)
-const MembershipDialog = lazy(() =>
-  import("@/features/principals/components/membership-dialog").then(
-    (module) => ({
-      default: module.MembershipDialog,
-    })
-  )
-)
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id
@@ -289,7 +267,7 @@ export function GroupsPage() {
         </div>
       )}
 
-      <Suspense fallback={null}>
+      <>
         {canAdminister && createOpen ? (
           <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
         ) : null}
@@ -323,7 +301,7 @@ export function GroupsPage() {
         {confirm && (
           <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
         )}
-      </Suspense>
+      </>
     </div>
   )
 }

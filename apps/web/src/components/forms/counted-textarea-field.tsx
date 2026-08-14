@@ -67,6 +67,8 @@ export function CountedTextareaField({
   label,
   ...props
 }: CountedTextareaFieldShellProps) {
+  const errorId = `${props.id}-error`
+
   return (
     <Field
       data-invalid={props.isInvalid || undefined}
@@ -74,8 +76,11 @@ export function CountedTextareaField({
     >
       <FieldLabel htmlFor={props.id}>{label}</FieldLabel>
       <FieldContent>
-        <CountedTextareaInputGroup {...props} />
-        <FieldError errors={errors} />
+        <CountedTextareaInputGroup
+          {...props}
+          aria-errormessage={props.isInvalid ? errorId : undefined}
+        />
+        <FieldError id={errorId} errors={errors} />
       </FieldContent>
     </Field>
   )

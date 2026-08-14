@@ -43,68 +43,60 @@ export function PublishPodFormView({
   onSubmitConfirm,
 }: PublishPodFormViewProps) {
   return (
-    <form
-      noValidate
-      className="@container/main relative flex flex-1 flex-col pb-28"
-      action={() => {
-        void onSubmitConfirm()
+    <Stepper
+      value={step}
+      onValueChange={(value) => onStepChange(value)}
+      onValidate={(_, direction) => {
+        if (direction === "prev") return true
+        return onValidateStep(direction)
       }}
+      className="w-full flex-1"
     >
-      <Stepper
-        value={step}
-        onValueChange={(value) => onStepChange(value)}
-        onValidate={(_, direction) => {
-          if (direction === "prev") return true
-          return onValidateStep(direction)
-        }}
-        className="w-full flex-1"
-      >
-        <StepperContent value="personalize" className="w-full">
-          <PublishPodPersonalizeStep
-            form={form}
-            principalOptionMap={principalOptionMap}
-            principalOptions={principalOptions}
-            submissionAttempts={submissionAttempts}
-          />
-        </StepperContent>
-
-        <StepperContent value="access" className="w-full">
-          <PublishPodAccessStep
-            form={form}
-            principalOptionMap={principalOptionMap}
-            principalOptions={principalOptions}
-            submissionAttempts={submissionAttempts}
-          />
-        </StepperContent>
-
-        <StepperContent value="virtual-machines" className="w-full">
-          <PublishPodVirtualMachinesStep
-            form={form}
-            isEditing={!!publishedPodId}
-            submissionAttempts={submissionAttempts}
-            podFolders={podFolders}
-            podFoldersError={podFoldersError}
-            cloneTargets={cloneTargets}
-          />
-        </StepperContent>
-
-        <StepperContent value="tasks" className="w-full">
-          <PublishPodTasksStep
-            form={form}
-            submissionAttempts={submissionAttempts}
-          />
-        </StepperContent>
-
-        <StepperContent value="preview" className="w-full">
-          <PublishPodPreviewStep form={form} />
-        </StepperContent>
-
-        <PublishPodStepper
-          step={step}
-          submitLabel={submitLabel}
-          onSubmitConfirm={onSubmitConfirm}
+      <StepperContent value="personalize" className="w-full">
+        <PublishPodPersonalizeStep
+          form={form}
+          principalOptionMap={principalOptionMap}
+          principalOptions={principalOptions}
+          submissionAttempts={submissionAttempts}
         />
-      </Stepper>
-    </form>
+      </StepperContent>
+
+      <StepperContent value="access" className="w-full">
+        <PublishPodAccessStep
+          form={form}
+          principalOptionMap={principalOptionMap}
+          principalOptions={principalOptions}
+          submissionAttempts={submissionAttempts}
+        />
+      </StepperContent>
+
+      <StepperContent value="virtual-machines" className="w-full">
+        <PublishPodVirtualMachinesStep
+          form={form}
+          isEditing={!!publishedPodId}
+          submissionAttempts={submissionAttempts}
+          podFolders={podFolders}
+          podFoldersError={podFoldersError}
+          cloneTargets={cloneTargets}
+        />
+      </StepperContent>
+
+      <StepperContent value="tasks" className="w-full">
+        <PublishPodTasksStep
+          form={form}
+          submissionAttempts={submissionAttempts}
+        />
+      </StepperContent>
+
+      <StepperContent value="preview" className="w-full">
+        <PublishPodPreviewStep form={form} />
+      </StepperContent>
+
+      <PublishPodStepper
+        step={step}
+        submitLabel={submitLabel}
+        onSubmitConfirm={onSubmitConfirm}
+      />
+    </Stepper>
   )
 }

@@ -215,9 +215,7 @@ export function getPublishedPodsColumns({
           <div className="flex min-w-32 flex-col gap-1 py-1 text-sm">
             <span className="font-medium">{targetLabel ?? targetKey}</span>
             {targetLabel && targetLabel !== targetKey ? (
-              <span className="text-xs text-muted-foreground">
-                {targetKey}
-              </span>
+              <span className="text-xs text-muted-foreground">{targetKey}</span>
             ) : null}
           </div>
         )
@@ -278,6 +276,7 @@ export function getPublishedPodsColumns({
                         params={{ podSlug: pod.slug }}
                         target="_blank"
                         rel="noreferrer"
+                        aria-label="Open published pod in a new tab"
                       />
                     }
                   >
@@ -360,13 +359,15 @@ export function getPublishedPodsColumns({
                   </DropdownMenuRadioGroup>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => onDelete(pod)}
-                >
-                  <HugeiconsIcon icon={Delete01Icon} />
-                  Delete Pod
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => onDelete(pod)}
+                  >
+                    <HugeiconsIcon icon={Delete01Icon} />
+                    Delete Pod
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

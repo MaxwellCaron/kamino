@@ -4,6 +4,7 @@ import { z } from "zod"
 import { CopyIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
+  FieldError,
   FieldGroup,
   FieldSeparator,
   FieldSet,
@@ -183,6 +184,16 @@ export function CloneDialog({
                 </FieldGroup>
               </FieldSet>
             </AppDialogScrollBody>
+
+            <form.Subscribe selector={(state) => state.canSubmit}>
+              {(canSubmit) =>
+                canSubmit ? null : (
+                  <FieldError>
+                    Correct the highlighted fields before cloning.
+                  </FieldError>
+                )
+              }
+            </form.Subscribe>
 
             <DialogFooter>
               <form.Subscribe selector={(state) => state.isSubmitting}>

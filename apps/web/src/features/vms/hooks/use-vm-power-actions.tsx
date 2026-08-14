@@ -45,7 +45,7 @@ type UseVmPowerActionsOptions = {
   powerStatus?: string
   vmid?: number | null
   vmName?: string | null
-  isLoading?: boolean
+  disabled?: boolean
 }
 
 const VM_POWER_ACTION_DEFINITIONS: Array<VmPowerActionDefinition> = [
@@ -187,13 +187,13 @@ export function useVmPowerActions({
   powerStatus,
   vmid,
   vmName,
-  isLoading,
+  disabled,
 }: UseVmPowerActionsOptions) {
   const powerAction = useVmPowerAction()
   const submitPowerRequest = useSubmitInventoryPowerRequest()
   const powerMode = getInventoryPermissionMode(permissions, "powerVm")
   const isPending = powerAction.isPending || submitPowerRequest.isPending
-  const isGloballyDisabled = isLoading || isPending || powerMode === null
+  const isGloballyDisabled = disabled || isPending || powerMode === null
 
   const actions = VM_POWER_ACTION_DEFINITIONS.map((definition) => {
     const disabledReason = getVmPowerActionDisabledReason(

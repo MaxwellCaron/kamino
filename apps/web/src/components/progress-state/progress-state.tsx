@@ -132,7 +132,7 @@ export function ProgressState<TStepId extends number>({
   }, [intervalMs, onComplete, simulatedStepIndex, stepId, steps.length])
 
   return (
-    <Empty>
+    <Empty role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <span
@@ -198,7 +198,7 @@ export function ProgressLoadingState({
   }, [intervalMs, onComplete])
 
   return (
-    <Empty>
+    <Empty role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <span
@@ -297,7 +297,7 @@ export function ProgressSuccessState({
   title: string
 }) {
   return (
-    <Empty>
+    <Empty role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <HugeiconsIcon
@@ -323,7 +323,7 @@ export function ProgressErrorState({
   title: string
 }) {
   return (
-    <Empty>
+    <Empty role="alert">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <HugeiconsIcon

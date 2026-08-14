@@ -9,6 +9,7 @@ import {
   RegexIcon,
 } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
 import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiSDNZone,
@@ -481,6 +482,14 @@ function VNetDialogForm({
           />
         )}
       </AppDialogScrollBody>
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
 
       <VNetDialogFooter
         SubscribeComponent={form.Subscribe}

@@ -51,9 +51,17 @@ export function GroupDialogCreateForm({ form }: GroupDialogCreateFormProps) {
                       onBlur={field.handleBlur}
                       placeholder="Admins"
                       aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "single-name-error" : undefined
+                      }
                     />
                   </FieldContent>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="single-name-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -142,13 +150,19 @@ export function GroupDialogCreateForm({ form }: GroupDialogCreateFormProps) {
                       onBlur={field.handleBlur}
                       placeholder="team"
                       aria-invalid={isInvalid}
+                      aria-errormessage={isInvalid ? "prefix-error" : undefined}
                     />
                   </FieldContent>
                   <FieldDescription>
                     Generated group names use the prefix plus a padded number.
                     i.e. team01, team02, team03.
                   </FieldDescription>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="prefix-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -180,10 +194,16 @@ export function GroupDialogCreateForm({ form }: GroupDialogCreateFormProps) {
                         }
                         onBlur={field.handleBlur}
                         aria-invalid={isInvalid}
+                        aria-errormessage={
+                          isInvalid ? "start-error" : undefined
+                        }
                       />
                     </FieldContent>
                     {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        id="start-error"
+                        errors={field.state.meta.errors}
+                      />
                     )}
                   </Field>
                 )
@@ -215,10 +235,16 @@ export function GroupDialogCreateForm({ form }: GroupDialogCreateFormProps) {
                         }
                         onBlur={field.handleBlur}
                         aria-invalid={isInvalid}
+                        aria-errormessage={
+                          isInvalid ? "quantity-error" : undefined
+                        }
                       />
                     </FieldContent>
                     {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        id="quantity-error"
+                        errors={field.state.meta.errors}
+                      />
                     )}
                   </Field>
                 )

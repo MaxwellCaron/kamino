@@ -2,6 +2,7 @@ import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -46,12 +47,14 @@ export function getGroupColumns({
     {
       accessorKey: "name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} icon={UserGroupIcon} title="Name" />
+        <DataTableColumnHeader
+          column={column}
+          icon={UserGroupIcon}
+          title="Name"
+        />
       ),
       cell: ({ row: { original: group } }) => (
-        <p className="mx-3">
-          {group.name}
-        </p>
+        <p className="mx-3">{group.name}</p>
       ),
     },
     {
@@ -64,15 +67,17 @@ export function getGroupColumns({
         />
       ),
       cell: ({ row: { original: group } }) => (
-        <p className="mx-3 text-wrap">
-          {group.description || "—"}
-        </p>
+        <p className="mx-3 text-wrap">{group.description || "—"}</p>
       ),
     },
     {
       accessorKey: "created_at",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} icon={ClockIcon} title="Created" />
+        <DataTableColumnHeader
+          column={column}
+          icon={ClockIcon}
+          title="Created"
+        />
       ),
       cell: ({ row: { original: group } }) =>
         group.created_at ? (
@@ -122,42 +127,46 @@ export function getGroupColumns({
             }
           />
           <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              {canManageGroups && (
+                <DropdownMenuItem onClick={() => onEditClick(group)}>
+                  <HugeiconsIcon
+                    icon={PencilEdit01Icon}
+                    className="text-muted-foreground"
+                  />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canManageAccess && (
+                <DropdownMenuItem onClick={() => onEditAccess(group)}>
+                  <HugeiconsIcon
+                    icon={LockPasswordIcon}
+                    className="text-muted-foreground"
+                  />
+                  Permissions
+                </DropdownMenuItem>
+              )}
+              {canManageMemberships && (
+                <DropdownMenuItem onClick={() => onEditGroups(group)}>
+                  <HugeiconsIcon
+                    icon={UserGroupIcon}
+                    className="text-muted-foreground"
+                  />
+                  Members
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
+            {canManageGroups && <DropdownMenuSeparator />}
             {canManageGroups && (
-              <DropdownMenuItem onClick={() => onEditClick(group)}>
-                <HugeiconsIcon
-                  icon={PencilEdit01Icon}
-                  className="text-muted-foreground"
-                />
-                Edit
-              </DropdownMenuItem>
-            )}
-            {canManageAccess && (
-              <DropdownMenuItem onClick={() => onEditAccess(group)}>
-                <HugeiconsIcon
-                  icon={LockPasswordIcon}
-                  className="text-muted-foreground"
-                />
-                Permissions
-              </DropdownMenuItem>
-            )}
-            {canManageMemberships && (
-              <DropdownMenuItem onClick={() => onEditGroups(group)}>
-                <HugeiconsIcon
-                  icon={UserGroupIcon}
-                  className="text-muted-foreground"
-                />
-                Members
-              </DropdownMenuItem>
-            )}
-            {canManageGroups && canManageAccess && <DropdownMenuSeparator />}
-            {canManageGroups && (
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => onDeleteClick(group)}
-              >
-                <HugeiconsIcon icon={Delete01Icon} />
-                Delete
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onDeleteClick(group)}
+                >
+                  <HugeiconsIcon icon={Delete01Icon} />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

@@ -10,11 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from "@workspace/ui/components/dialog"
+import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Stepper,
   StepperContent,
@@ -48,7 +44,7 @@ import {
   useCreateVmForm,
 } from "@/features/vms/components/create/create-vm-form"
 import {
-  AppDialogHeader,
+  AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
@@ -185,6 +181,7 @@ function CreateVmDialogFooter({
             size="icon"
             variant="outline"
             disabled={navigationDisabled}
+            aria-label="Previous step"
           >
             <HugeiconsIcon icon={ArrowLeft01Icon} />
           </Button>
@@ -212,6 +209,7 @@ function CreateVmDialogFooter({
               size="icon"
               variant="outline"
               disabled={navigationDisabled}
+              aria-label="Next step"
             >
               <HugeiconsIcon icon={ArrowRight01Icon} />
             </Button>
@@ -398,12 +396,12 @@ export function CreateVmDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-xl">
-        <AppDialogHeader
-          icon={ComputerIcon}
-          title="Create Virtual Machine"
-          description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
-        />
+      <AppDialogContent
+        open={open}
+        icon={ComputerIcon}
+        title="Create Virtual Machine"
+        description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
+      >
         <Stepper
           value={step}
           onValueChange={(value) => setStep(value as StepValue)}
@@ -446,7 +444,7 @@ export function CreateVmDialog({
             />
           </form>
         </Stepper>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   )
 }

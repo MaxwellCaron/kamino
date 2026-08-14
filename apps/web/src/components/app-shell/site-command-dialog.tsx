@@ -3,8 +3,8 @@
 import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { toast } from "sonner"
 
-import { CommandDialog } from "@workspace/ui/components/command"
 import { useTheme } from "@workspace/ui/components/theme-provider"
 
 import {
@@ -56,7 +56,9 @@ export function SiteCommandDialog({
       queryClient.clear()
       router.navigate({ to: "/login" })
     },
+    onError: () => toast.error("Log out failed."),
   })
+  const isPending = logoutMutation.isPending
 
   const { data: sessionData, isLoading: isSessionLoading } = useQuery(
     authSessionQueryOptions
@@ -254,17 +256,14 @@ export function SiteCommandDialog({
       : "No results found."
 
   return (
-    <CommandDialog
+    <SiteCommandMenu
       open={open}
       onOpenChange={onOpenChange}
-      className="top-1/2 max-w-xl! -translate-y-1/2"
-    >
-      <SiteCommandMenu
-        commands={filteredCommands}
-        emptyMessage={emptyMessage}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-      />
-    </CommandDialog>
+      commands={filteredCommands}
+      emptyMessage={emptyMessage}
+      pending={isPending}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+    />
   )
 }

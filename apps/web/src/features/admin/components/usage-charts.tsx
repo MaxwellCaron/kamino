@@ -111,84 +111,89 @@ function UsageChartBody({
     : { top: 8, right: 6, bottom: 28, left: 6 }
 
   return (
-    <AreaChart
-      aspectRatio={aspectRatio}
-      data={chartData}
-      margin={margin}
-      status={isLoading ? "loading" : "ready"}
-    >
-      <Grid
-        fadeHorizontal={false}
-        numTicksRows={compact ? 2 : 3}
-        strokeDasharray="3,3"
-        strokeOpacity={0.5}
-      />
-      {showCapacitySeries ? (
+    <>
+      <span className="sr-only" role="status" aria-live="polite">
+        {isLoading ? `Loading ${label} chart` : `${label} chart ready`}
+      </span>
+      <AreaChart
+        aspectRatio={aspectRatio}
+        data={chartData}
+        margin={margin}
+        status={isLoading ? "loading" : "ready"}
+      >
+        <Grid
+          fadeHorizontal={false}
+          numTicksRows={compact ? 2 : 3}
+          strokeDasharray="3,3"
+          strokeOpacity={0.5}
+        />
+        {showCapacitySeries ? (
+          <Area
+            dataKey="total"
+            fadeEdges
+            fill="var(--color-primary)"
+            fillOpacity={0.08}
+            gradientToOpacity={0.01}
+            showHighlight={false}
+            stroke="var(--color-primary)"
+            strokeWidth={compact ? 1 : 1.5}
+          />
+        ) : null}
         <Area
-          dataKey="total"
+          dataKey="value"
           fadeEdges
-          fill="var(--color-primary)"
-          fillOpacity={0.08}
-          gradientToOpacity={0.01}
+          fill={color}
+          fillOpacity={0.2}
+          gradientToOpacity={0.02}
+          loading={showCapacitySeries ? false : undefined}
           showHighlight={false}
-          stroke="var(--color-primary)"
-          strokeWidth={compact ? 1 : 1.5}
+          stroke={color}
+          strokeWidth={compact ? 1.5 : 2}
         />
-      ) : null}
-      <Area
-        dataKey="value"
-        fadeEdges
-        fill={color}
-        fillOpacity={0.2}
-        gradientToOpacity={0.02}
-        loading={showCapacitySeries ? false : undefined}
-        showHighlight={false}
-        stroke={color}
-        strokeWidth={compact ? 1.5 : 2}
-      />
-      {showXAxis ? (
-        <XAxis
-          formatLabel={xAxisConfig.formatLabel}
-          numTicks={compact ? 2 : xAxisConfig.numTicks}
-          tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
-        />
-      ) : null}
-      <ChartTooltip
-        className={compact ? "-translate-y-[calc(30%+0.5rem)]" : undefined}
-        content={({ point }) => {
-          const used = Number(point.used ?? 0)
-          const total = Number(point.total ?? 0)
-          const rows = showCapacitySeries
-            ? [
-                {
-                  color: "var(--color-primary)",
-                  label: "Total",
-                  value: formatValue(total),
-                },
-                {
-                  color,
-                  label,
-                  value: `${formatPercent(percentage(used, total))} · ${formatValue(used)}`,
-                },
-              ]
-            : [
-                {
-                  color,
-                  label,
-                  value: `${formatPercent(percentage(used, total))} · ${formatValue(used)} / ${formatValue(total)}`,
-                },
-              ]
+        {showXAxis ? (
+          <XAxis
+            formatLabel={xAxisConfig.formatLabel}
+            numTicks={compact ? 2 : xAxisConfig.numTicks}
+            tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
+          />
+        ) : null}
+        <ChartTooltip
+          className={compact ? "-translate-y-[calc(30%+0.5rem)]" : undefined}
+          content={({ point }) => {
+            const used = Number(point.used ?? 0)
+            const total = Number(point.total ?? 0)
+            const rows = showCapacitySeries
+              ? [
+                  {
+                    color: "var(--color-primary)",
+                    label: "Total",
+                    value: formatValue(total),
+                  },
+                  {
+                    color,
+                    label,
+                    value: `${formatPercent(percentage(used, total))} · ${formatValue(used)}`,
+                  },
+                ]
+              : [
+                  {
+                    color,
+                    label,
+                    value: `${formatPercent(percentage(used, total))} · ${formatValue(used)} / ${formatValue(total)}`,
+                  },
+                ]
 
-          return (
-            <TooltipContent
-              rows={rows}
-              title={formatTooltipTitle(point.date)}
-            />
-          )
-        }}
-        showDatePill={false}
-      />
-    </AreaChart>
+            return (
+              <TooltipContent
+                rows={rows}
+                title={formatTooltipTitle(point.date)}
+              />
+            )
+          }}
+          showDatePill={false}
+        />
+      </AreaChart>
+    </>
   )
 }
 
@@ -262,7 +267,11 @@ export function UsageAreaChart({
             timeframe={timeframe}
           />
         ) : (
-          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-center text-sm text-muted-foreground"
+          >
             {unavailableMessage}
           </div>
         )}
@@ -337,6 +346,8 @@ export function NodeUsageAreaChart({
           />
         ) : (
           <div
+            role="status"
+            aria-live="polite"
             className="flex w-full items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/20 px-2 text-center text-xs text-muted-foreground"
             style={{ aspectRatio }}
           >

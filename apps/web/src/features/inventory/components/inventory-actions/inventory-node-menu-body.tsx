@@ -1,22 +1,26 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Delete01Icon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
+import {
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@workspace/ui/components/dropdown-menu"
 import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
 import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { findInventoryTreeNode } from "../../utils/inventory-tree"
-import {
-  
-  
-  runInventoryPowerAction
-} from "../../utils/inventory-power-actions"
+import { runInventoryPowerAction } from "../../utils/inventory-power-actions"
 import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
 import { useInventoryDialogs } from "../inventory-dialogs-context"
+import { getFolderCapabilities } from "../../utils/inventory-capabilities"
 import { FolderMenuItems } from "./folder-menu-items"
 import { FOLDER_POWER_ACTION_DEFINITIONS } from "./folder-power-action-definitions"
 import { TemplateMenuItems } from "./template-menu-items"
 import { VmMenuItems } from "./vm-menu-items"
-import type {FolderPowerTargets, InventoryPowerAction} from "../../utils/inventory-power-actions";
+import type {
+  FolderPowerTargets,
+  InventoryPowerAction,
+} from "../../utils/inventory-power-actions"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import { formatVmReference } from "@/features/shared/utils/format"
@@ -55,6 +59,12 @@ export function InventoryNodeMenuBody({
   const isFavorite = !isFolder && favoriteIds.has(itemId)
   const powerStatus =
     data.kind === "vm" && data.vm ? vmStatuses?.[data.vm.vmid] : undefined
+  const folderCapabilities = getFolderCapabilities(data.permissions)
+  const folderHasActions =
+    folderCapabilities.hasCreateActions ||
+    folderCapabilities.hasEditActions ||
+    folderCapabilities.delete.visible ||
+    (folderPower.canPower && folderPower.targets.length > 0)
 
   function handleDeleteFolder() {
     const tree =
@@ -142,7 +152,9 @@ export function InventoryNodeMenuBody({
 
   return (
     <>
-      {isFolder ? (
+      {isFolder && !folderHasActions ? (
+        <InventoryMenuEmptyState />
+      ) : isFolder ? (
         <FolderMenuItems
           permissions={data.permissions}
           power={
@@ -180,7 +192,7 @@ export function InventoryNodeMenuBody({
             })
           }
           onDelete={handleDeleteFolder}
-          isLoading={false}
+          disabled={false}
         />
       ) : isTemplate ? (
         <TemplateMenuItems
@@ -218,7 +230,7 @@ export function InventoryNodeMenuBody({
               })
             }
           }}
-          isLoading={false}
+          disabled={false}
         />
       ) : (
         <VmMenuItems
@@ -276,11 +288,19 @@ export function InventoryNodeMenuBody({
               })
             }
           }}
-          isLoading={false}
+          disabled={false}
           powerStatus={powerStatus}
           guestType={data.vm?.guest_type}
         />
       )}
     </>
+  )
+}
+
+export function InventoryMenuEmptyState() {
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+    </DropdownMenuGroup>
   )
 }

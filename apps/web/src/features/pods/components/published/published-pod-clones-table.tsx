@@ -37,6 +37,7 @@ import type { PublishedPodClonePendingAction } from "@/features/pods/types/publi
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { LazyContentFallback } from "@/components/loading-overlay"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
@@ -267,7 +268,9 @@ export function PublishedPodClonesTable({
 
   return (
     <div>
-      {isLoading ? null : (
+      {isLoading ? (
+        <LazyContentFallback label="Loading clones" className="min-h-40" />
+      ) : (
         <m.div
           initial={{ opacity: 0, transform: "translateY(-4px)" }}
           animate={{ opacity: 1, transform: "translateY(0px)" }}

@@ -1,11 +1,5 @@
 import { Badge } from "@workspace/ui/components/badge"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
-import {
   Table,
   TableBody,
   TableCell,
@@ -47,21 +41,6 @@ export function AdminNodeTable({
   isHistoryLoading: boolean
   unavailableMessage: string
 }) {
-  if (nodes.length === 0) {
-    return (
-      <Empty className="min-h-56 rounded-xl border border-dashed">
-        <EmptyHeader>
-          <EmptyTitle className="scroll-m-20 text-xl font-semibold tracking-tight">
-            No nodes reported
-          </EmptyTitle>
-          <EmptyDescription className="text-sm text-muted-foreground">
-            Proxmox did not return any managed cluster nodes.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-
   return (
     <div className="overflow-x-auto overflow-y-hidden">
       <Table className="min-w-4xl table-fixed">

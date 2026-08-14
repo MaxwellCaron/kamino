@@ -1,9 +1,45 @@
 import { useEffect, useState } from "react"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { cn } from "@workspace/ui/lib/utils"
 import { AnimatePresence, m } from "motion/react"
 import { loadingTransition } from "@/components/loading-transition"
 
 const SHOW_DELAY_MS = 150
+
+export function RoutePending() {
+  return (
+    <main
+      role="status"
+      aria-busy="true"
+      className="flex min-h-svh items-center justify-center gap-3 bg-background text-sm text-muted-foreground"
+    >
+      <Spinner className="size-5" />
+      Loading Kamino...
+    </main>
+  )
+}
+
+export function LazyContentFallback({
+  label,
+  className,
+}: {
+  label: string
+  className?: string
+}) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      className={cn(
+        "flex min-h-24 w-full items-center justify-center gap-2 text-sm text-muted-foreground",
+        className
+      )}
+    >
+      <Spinner className="size-5" />
+      {label}
+    </div>
+  )
+}
 
 export function PreloadOverlay({
   active,

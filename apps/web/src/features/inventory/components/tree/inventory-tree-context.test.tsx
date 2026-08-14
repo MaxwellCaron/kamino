@@ -32,6 +32,7 @@ const mockState = vi.hoisted(() => ({
       applySubStateUpdate: vi.fn(),
       rebuildTree: vi.fn(),
     },
+    expandedItemIds: [] as Array<string>,
     expandAll: vi.fn(),
     collapseAll: vi.fn(),
     revealItem: vi.fn().mockResolvedValue(undefined),

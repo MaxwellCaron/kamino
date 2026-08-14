@@ -14,6 +14,7 @@ export interface InventoryTreeDataContextValue {
 
 export interface InventoryTreeViewContextValue {
   tree: TreeInstance<ApiTreeNode>
+  expandedItemIds: Array<string>
   expandAll: () => void
   collapseAll: () => void
   searchQuery: string

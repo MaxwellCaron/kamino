@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -30,13 +30,8 @@ import {
   vnetsQueryOptions,
 } from "@/features/sdn/api/sdn-api"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
+import { VNetDialog } from "@/features/sdn/components/vnet-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
-
-const VNetDialog = lazy(() =>
-  import("@/features/sdn/components/vnet-dialog").then((module) => ({
-    default: module.VNetDialog,
-  }))
-)
 
 const SDN_APPLY_ITEM_ID = "sdn-apply"
 
@@ -170,7 +165,9 @@ export function VNetsCard({
           },
         ],
         onSettled: (result) => {
-          queryClient.invalidateQueries({ queryKey: vnetsQueryOptions.queryKey })
+          queryClient.invalidateQueries({
+            queryKey: vnetsQueryOptions.queryKey,
+          })
           if (result.failed.length === 0) onAllSucceeded?.()
         },
       })
@@ -279,7 +276,7 @@ export function VNetsCard({
         />
       </CardContent>
 
-      <Suspense fallback={null}>
+      <>
         {canAdminister && createOpen ? (
           <VNetDialog open={createOpen} onOpenChange={setCreateOpen} />
         ) : null}
@@ -292,7 +289,7 @@ export function VNetsCard({
             onOpenChange={editDialog.onOpenChange}
           />
         ) : null}
-      </Suspense>
+      </>
     </Card>
   )
 }

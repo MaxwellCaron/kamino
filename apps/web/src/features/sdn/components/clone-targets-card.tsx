@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
@@ -20,13 +20,8 @@ import {
   podCloneTargetsQueryOptions,
 } from "@/features/pods/api/clone-targets-api"
 import { getCloneTargetColumns } from "@/features/sdn/components/clone-targets-columns"
+import { CloneTargetDialog } from "@/features/sdn/components/clone-target-dialog"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
-
-const CloneTargetDialog = lazy(() =>
-  import("@/features/sdn/components/clone-target-dialog").then((module) => ({
-    default: module.CloneTargetDialog,
-  }))
-)
 
 export function CloneTargetsCard({
   canAdminister,
@@ -114,7 +109,7 @@ export function CloneTargetsCard({
         />
       </CardContent>
 
-      <Suspense fallback={null}>
+      <>
         {canAdminister && createOpen ? (
           <CloneTargetDialog open={createOpen} onOpenChange={setCreateOpen} />
         ) : null}
@@ -127,7 +122,7 @@ export function CloneTargetsCard({
             onOpenChange={editDialog.onOpenChange}
           />
         ) : null}
-      </Suspense>
+      </>
     </Card>
   )
 }

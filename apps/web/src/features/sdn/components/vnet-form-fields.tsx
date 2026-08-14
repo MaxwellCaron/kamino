@@ -80,10 +80,11 @@ export function VNetNameField({
                 placeholder="pod245"
                 maxLength={8}
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? "vnet-name-error" : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id="vnet-name-error">
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -123,10 +124,11 @@ export function VNetAliasField({
                 onBlur={field.handleBlur}
                 placeholder="Optional description"
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? "vnet-alias-error" : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id="vnet-alias-error">
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -193,6 +195,7 @@ export function VNetZoneField({
                 <SelectTrigger
                   id="zone"
                   aria-invalid={isInvalid}
+                  aria-errormessage={isInvalid ? "vnet-zone-error" : undefined}
                   className="w-full"
                 >
                   <SelectValue placeholder="Select a zone" />
@@ -209,7 +212,7 @@ export function VNetZoneField({
               </Select>
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id="vnet-zone-error">
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -255,10 +258,11 @@ export function VNetTagField({
                 disabled={tagDisabled}
                 placeholder={tagRule === "required" ? "1245" : "Optional"}
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? "vnet-tag-error" : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id="vnet-tag-error">
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}

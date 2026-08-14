@@ -2,6 +2,7 @@ import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -138,7 +139,9 @@ export function getUserColumns({
   }
 
   return [
-    createRowSelectionColumn<ApiPrincipal>((user) => getPrincipalBaseName(user)),
+    createRowSelectionColumn<ApiPrincipal>((user) =>
+      getPrincipalBaseName(user)
+    ),
     ...columns,
     {
       id: "actions",
@@ -160,48 +163,52 @@ export function getUserColumns({
               }
             />
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEditClick(user)}>
-                <HugeiconsIcon
-                  icon={PencilEdit01Icon}
-                  className="text-muted-foreground"
-                />
-                Edit
-              </DropdownMenuItem>
-              {canManageMemberships ? (
-                <DropdownMenuItem onClick={() => onEditGroups(user)}>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => onEditClick(user)}>
                   <HugeiconsIcon
-                    icon={UserGroupIcon}
+                    icon={PencilEdit01Icon}
                     className="text-muted-foreground"
                   />
-                  Groups
+                  Edit
                 </DropdownMenuItem>
-              ) : null}
-              {user.status === false ? (
-                <DropdownMenuItem onClick={() => onEnableClick(user)}>
-                  <HugeiconsIcon
-                    icon={Tick01Icon}
-                    className="text-muted-foreground"
-                  />
-                  Enable
-                </DropdownMenuItem>
-              ) : null}
-              {user.status !== false ? (
+                {canManageMemberships ? (
+                  <DropdownMenuItem onClick={() => onEditGroups(user)}>
+                    <HugeiconsIcon
+                      icon={UserGroupIcon}
+                      className="text-muted-foreground"
+                    />
+                    Groups
+                  </DropdownMenuItem>
+                ) : null}
+                {user.status === false ? (
+                  <DropdownMenuItem onClick={() => onEnableClick(user)}>
+                    <HugeiconsIcon
+                      icon={Tick01Icon}
+                      className="text-muted-foreground"
+                    />
+                    Enable
+                  </DropdownMenuItem>
+                ) : null}
+                {user.status !== false ? (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => onDisableClick(user)}
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} />
+                    Disable
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
                 <DropdownMenuItem
                   variant="destructive"
-                  onClick={() => onDisableClick(user)}
+                  onClick={() => onDeleteClick(user)}
                 >
-                  <HugeiconsIcon icon={Cancel01Icon} />
-                  Disable
+                  <HugeiconsIcon icon={Delete01Icon} />
+                  Delete
                 </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => onDeleteClick(user)}
-              >
-                <HugeiconsIcon icon={Delete01Icon} />
-                Delete
-              </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

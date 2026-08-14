@@ -16,10 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import {
-  getFirstIssueMessage,
-  optionalVmNameSchema,
-} from "./create-vm-form"
+import { getFirstIssueMessage, optionalVmNameSchema } from "./create-vm-form"
 import { formatFieldError } from "./create-vm-step-utils"
 import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
@@ -52,26 +49,32 @@ export function CloneNameField({
           getFirstIssueMessage(optionalVmNameSchema.safeParse(value)),
       }}
     >
-      {(field: any) => (
-        <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-          <FieldLabel htmlFor={inputId}>Name</FieldLabel>
-          <Input
-            id={inputId}
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(event) =>
-              field.handleChange(
-                replaceWhitespaceWithHyphen(event.target.value)
-              )
-            }
-            placeholder={placeholder}
-            aria-invalid={field.state.meta.errors.length > 0 || undefined}
-          />
-          <FieldError>
-            {formatFieldError(field.state.meta.errors[0])}
-          </FieldError>
-        </Field>
-      )}
+      {(field: any) => {
+        const isInvalid = field.state.meta.errors.length > 0
+        const errorId = `${inputId}-error`
+
+        return (
+          <Field data-invalid={isInvalid || undefined}>
+            <FieldLabel htmlFor={inputId}>Name</FieldLabel>
+            <Input
+              id={inputId}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(event) =>
+                field.handleChange(
+                  replaceWhitespaceWithHyphen(event.target.value)
+                )
+              }
+              placeholder={placeholder}
+              aria-invalid={isInvalid || undefined}
+              aria-errormessage={isInvalid ? errorId : undefined}
+            />
+            <FieldError id={errorId}>
+              {formatFieldError(field.state.meta.errors[0])}
+            </FieldError>
+          </Field>
+        )
+      }}
     </FieldComponent>
   )
 }

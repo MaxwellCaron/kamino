@@ -4,6 +4,7 @@ import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
 import type { AppBreadcrumb } from "@/components/app-shell/site-breadcrumb-data"
 import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { RoutePending } from "@/components/loading-overlay"
 
 export function createQueryClient() {
   return new QueryClient({
@@ -28,6 +29,7 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
+    defaultPendingComponent: RoutePending,
   })
 
   return router

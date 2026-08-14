@@ -44,16 +44,25 @@ export function UserDialogEditForm({
               <FieldContent>
                 <Input
                   id="username"
+                  autoComplete="username"
                   maxLength={20}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="jdoe"
                   aria-invalid={isInvalid}
+                  aria-errormessage={
+                    isInvalid ? "edit-username-error" : undefined
+                  }
                   disabled={!canRenameUsers}
                 />
               </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="edit-username-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}
@@ -75,14 +84,23 @@ export function UserDialogEditForm({
               <FieldContent>
                 <Input
                   id="full-name"
+                  autoComplete="name"
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="Maxwell Caron"
                   aria-invalid={isInvalid}
+                  aria-errormessage={
+                    isInvalid ? "edit-full-name-error" : undefined
+                  }
                 />
               </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="edit-full-name-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}
@@ -106,14 +124,23 @@ export function UserDialogEditForm({
                   <Input
                     id="password"
                     type="password"
+                    autoComplete="new-password"
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                     placeholder="Leave blank to keep unchanged"
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "edit-password-error" : undefined
+                    }
                   />
                 </FieldContent>
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id="edit-password-error"
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             )
           }}

@@ -6,13 +6,16 @@ import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
   Command,
+  CommandDialog,
   CommandEmpty,
+  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
   CommandShortcut,
 } from "@workspace/ui/components/command"
+import { Spinner } from "@workspace/ui/components/spinner"
 
 import { buildSiteCommandRows, groupLabels } from "./site-command-index"
 import {
@@ -29,14 +32,20 @@ const COMMAND_ROW_OVERSCAN = 8
 export type SiteCommandMenuProps = {
   commands: Array<SiteCommandResult>
   emptyMessage: string
+  open: boolean
+  pending: boolean
   searchQuery: string
+  onOpenChange: (open: boolean) => void
   onSearchQueryChange: (value: string) => void
 }
 
 export function SiteCommandMenu({
   commands,
   emptyMessage,
+  onOpenChange,
   onSearchQueryChange,
+  open,
+  pending,
   searchQuery,
 }: SiteCommandMenuProps) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -125,7 +134,7 @@ export function SiteCommandMenu({
         activeIndex >= 0 ? activeIndex : getFirstRowIndex(rows)
 
       if (event.key === "Enter") {
-        if (currentIndex >= 0) {
+        if (currentIndex >= 0 && !pending) {
           event.preventDefault()
           rows[currentIndex]?.command.onSelect()
         }
@@ -142,112 +151,142 @@ export function SiteCommandMenu({
       event.preventDefault()
       selectRowAtIndex(nextIndex)
     },
-    [activeIndex, rows, selectRowAtIndex]
+    [activeIndex, pending, rows, selectRowAtIndex]
   )
 
   const firstGroupKey = rows[0]?.group
 
   return (
-    <Command
-      shouldFilter={false}
-      value={activeCommandId ?? ""}
-      onValueChange={handleActiveValueChange}
-      onKeyDown={handleKeyDown}
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      className="top-1/2 max-w-xl! -translate-y-1/2"
     >
-      <CommandInput
-        placeholder="Search Kamino..."
-        value={searchQuery}
-        onValueChange={onSearchQueryChange}
-      />
-      <CommandList
-        ref={listRef}
-        className="max-h-[min(70dvh,42rem)] overscroll-contain"
+      <Command
+        shouldFilter={false}
+        value={activeCommandId ?? ""}
+        onValueChange={handleActiveValueChange}
+        onKeyDown={handleKeyDown}
       >
-        <CommandEmpty>{emptyMessage}</CommandEmpty>
-        {rows.length > 0 ? (
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              position: "relative",
-              width: "100%",
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows.at(virtualRow.index)
-              if (row === undefined) return null
+        <CommandInput
+          placeholder="Search Kamino..."
+          value={searchQuery}
+          onValueChange={onSearchQueryChange}
+        />
+        <CommandList
+          ref={listRef}
+          className="max-h-[min(70dvh,42rem)] overscroll-contain"
+        >
+          <CommandEmpty>{emptyMessage}</CommandEmpty>
+          {rows.length > 0 ? (
+            <CommandGroup
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+                width: "100%",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows.at(virtualRow.index)
+                if (row === undefined) return null
 
-              const { command } = row
-              const showSeparator =
-                row.startsGroup &&
-                row.group !== firstGroupKey &&
-                virtualRow.index > 0
+                const { command } = row
+                const showSeparator =
+                  row.startsGroup &&
+                  row.group !== firstGroupKey &&
+                  virtualRow.index > 0
 
-              return (
-                <div
-                  key={virtualRow.key}
-                  ref={virtualizer.measureElement}
-                  data-index={virtualRow.index}
-                  data-command-id={command.id}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {row.startsGroup ? (
-                    <div className="overflow-hidden px-1.5 text-foreground">
-                      {showSeparator ? <CommandSeparator /> : null}
-                      <div
-                        className="px-3 py-2 text-xs font-medium text-muted-foreground"
-                        cmdk-group-heading=""
-                      >
-                        {groupLabels[row.group]}
+                return (
+                  <div
+                    key={virtualRow.key}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    data-command-id={command.id}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {row.startsGroup ? (
+                      <div className="overflow-hidden px-1.5 text-foreground">
+                        {showSeparator ? <CommandSeparator /> : null}
+                        <div
+                          className="px-3 py-2 text-xs font-medium text-muted-foreground"
+                          cmdk-group-heading=""
+                        >
+                          {groupLabels[row.group]}
+                        </div>
+                        <CommandItem
+                          disabled={pending && command.id === "account:logout"}
+                          aria-busy={
+                            (pending && command.id === "account:logout") ||
+                            undefined
+                          }
+                          value={command.id}
+                          keywords={command.keywords}
+                          onSelect={command.onSelect}
+                          variant={command.variant}
+                          aria-label={`${groupLabels[row.group]}: ${command.label}`}
+                          aria-posinset={virtualRow.index + 1}
+                          aria-setsize={rows.length}
+                        >
+                          <SiteCommandOptionContent
+                            command={command}
+                            pending={pending && command.id === "account:logout"}
+                          />
+                        </CommandItem>
                       </div>
-                      <CommandItem
-                        value={command.id}
-                        keywords={command.keywords}
-                        onSelect={command.onSelect}
-                        variant={command.variant}
-                        aria-label={`${groupLabels[row.group]}: ${command.label}`}
-                        aria-posinset={virtualRow.index + 1}
-                        aria-setsize={rows.length}
-                      >
-                        <SiteCommandOptionContent command={command} />
-                      </CommandItem>
-                    </div>
-                  ) : (
-                    <div className="overflow-hidden px-1.5 text-foreground">
-                      <CommandItem
-                        value={command.id}
-                        keywords={command.keywords}
-                        onSelect={command.onSelect}
-                        variant={command.variant}
-                        aria-label={`${groupLabels[row.group]}: ${command.label}`}
-                        aria-posinset={virtualRow.index + 1}
-                        aria-setsize={rows.length}
-                      >
-                        <SiteCommandOptionContent command={command} />
-                      </CommandItem>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
-      </CommandList>
-    </Command>
+                    ) : (
+                      <div className="overflow-hidden px-1.5 text-foreground">
+                        <CommandItem
+                          disabled={pending && command.id === "account:logout"}
+                          aria-busy={
+                            (pending && command.id === "account:logout") ||
+                            undefined
+                          }
+                          value={command.id}
+                          keywords={command.keywords}
+                          onSelect={command.onSelect}
+                          variant={command.variant}
+                          aria-label={`${groupLabels[row.group]}: ${command.label}`}
+                          aria-posinset={virtualRow.index + 1}
+                          aria-setsize={rows.length}
+                        >
+                          <SiteCommandOptionContent
+                            command={command}
+                            pending={pending && command.id === "account:logout"}
+                          />
+                        </CommandItem>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </CommandGroup>
+          ) : null}
+        </CommandList>
+      </Command>
+    </CommandDialog>
   )
 }
 
-function SiteCommandOptionContent({ command }: { command: SiteCommandResult }) {
+function SiteCommandOptionContent({
+  command,
+  pending,
+}: {
+  command: SiteCommandResult
+  pending: boolean
+}) {
   return (
     <>
-      <HugeiconsIcon icon={command.icon} />
+      {pending ? <Spinner /> : <HugeiconsIcon icon={command.icon} />}
       <span className="min-w-0 flex-1">
-        <span className="block truncate">{command.label}</span>
+        <span className="block truncate" role="status" aria-live="polite">
+          {pending ? `${command.label}...` : command.label}
+        </span>
         {command.preview ? (
           <>
             <span className="block truncate text-xs font-normal text-muted-foreground">

@@ -13,7 +13,10 @@ import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { hasNodeActions } from "../../utils/inventory-capabilities"
 import { collectFolderPowerTargets } from "../../utils/inventory-power-actions"
 import { stopTreeItemEvent } from "./inventory-action-utils"
-import { InventoryNodeMenuBody } from "./inventory-node-menu-body"
+import {
+  InventoryMenuEmptyState,
+  InventoryNodeMenuBody,
+} from "./inventory-node-menu-body"
 import type { FolderPowerTargets } from "../../utils/inventory-power-actions"
 import type { ApiTreeNode } from "../../types/inventory-types"
 
@@ -94,6 +97,22 @@ function InventoryNodeMenuSelfQuerying({
         : EMPTY_FOLDER_POWER,
     [data.kind, itemId, tree]
   )
+
+  if (tree?.length === 0) {
+    return (
+      <InventoryNodeMenuDropdown
+        data={data}
+        className={className}
+        iconSize={iconSize}
+        contentAlign={contentAlign}
+        canPower={false}
+        open={open}
+        onOpenChange={onOpenChange}
+      >
+        <InventoryMenuEmptyState />
+      </InventoryNodeMenuDropdown>
+    )
+  }
 
   return (
     <InventoryNodeMenuDropdown

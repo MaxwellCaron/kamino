@@ -81,6 +81,7 @@ export type DataTableServerPagination = {
 interface DataTableProps<TData, TValue> {
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
+  emptyMessage?: string
   error: Error | null
   features?: DataTableFeatures
   getRowId?: TableOptions<TData>["getRowId"]
@@ -98,6 +99,7 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  emptyMessage,
   error,
   features: featuresInput,
   getRowId,
@@ -311,7 +313,11 @@ export function DataTable<TData, TValue>({
                 </Fragment>
               ))
             ) : (
-              <DataTableStateRow colSpan={columns.length} error={error} />
+              <DataTableStateRow
+                colSpan={columns.length}
+                error={error}
+                emptyMessage={emptyMessage}
+              />
             )}
           </TableBody>
         </Table>
@@ -329,7 +335,7 @@ export function DataTable<TData, TValue>({
             if (!open) clearSelection()
           }}
         >
-          <ActionBarSelection>
+          <ActionBarSelection role="status" aria-live="polite" aria-atomic>
             {selectedRows.length}{" "}
             <span className="hidden lg:block">selected</span>
           </ActionBarSelection>

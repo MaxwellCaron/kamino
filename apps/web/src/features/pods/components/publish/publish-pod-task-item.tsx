@@ -69,10 +69,10 @@ function getTaskErrorCount(
 
   return paths.reduce((count, path) => {
     const meta = form.getFieldMeta(path)
-    const errors = meta?.errors ?? []
+    const issues = meta?.errors ?? []
     const showValidation = (meta?.isTouched ?? false) || submissionAttempts > 0
 
-    return showValidation && meta && !meta.isValid && errors.length > 0
+    return showValidation && meta && !meta.isValid && issues.length > 0
       ? count + 1
       : count
   }, 0)
@@ -106,7 +106,11 @@ export function PublishPodTaskItem({
 
               if (errorCount === 0) return null
 
-              return <Badge variant="destructive">{errorCount}</Badge>
+              return (
+                <Badge variant="destructive">
+                  {errorCount} {errorCount === 1 ? "error" : "errors"}
+                </Badge>
+              )
             }}
           </form.Subscribe>
         </div>
@@ -119,6 +123,7 @@ export function PublishPodTaskItem({
                 const showValidation =
                   field.state.meta.isTouched || submissionAttempts > 0
                 const isInvalid = showValidation && !field.state.meta.isValid
+                const errorId = `${field.name}-error`
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -133,9 +138,11 @@ export function PublishPodTaskItem({
                           field.handleChange(event.target.value)
                         }
                         aria-invalid={isInvalid || undefined}
+                        aria-errormessage={isInvalid ? errorId : undefined}
                         placeholder="Task Title"
                       />
                       <FieldError
+                        id={errorId}
                         errors={showValidation ? field.state.meta.errors : []}
                       />
                     </FieldContent>
@@ -152,6 +159,7 @@ export function PublishPodTaskItem({
                   field.state.value.length > publishPodTaskContentMaxLength
                 const isInvalid =
                   isOverLimit || (showValidation && !field.state.meta.isValid)
+                const errorId = `${field.name}-error`
 
                 return (
                   <Field data-invalid={isInvalid || undefined}>
@@ -174,6 +182,7 @@ export function PublishPodTaskItem({
                             onBlur={field.handleBlur}
                             onValueChange={field.handleChange}
                             isInvalid={isInvalid}
+                            aria-errormessage={isInvalid ? errorId : undefined}
                             maxLength={publishPodTaskContentMaxLength}
                             placeholder="Describe the task instructions..."
                             className="min-h-30"
@@ -192,6 +201,7 @@ export function PublishPodTaskItem({
                         </TabsContent>
                       </Tabs>
                       <FieldError
+                        id={errorId}
                         errors={showValidation ? field.state.meta.errors : []}
                       />
                     </FieldContent>

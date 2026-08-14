@@ -1,8 +1,9 @@
-import { Suspense, lazy, useState } from "react"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
@@ -19,11 +20,6 @@ import { VNetsCard } from "@/features/sdn/components/vnets-card"
 import { PreloadOverlay } from "@/components/loading-overlay"
 
 const sdnRouteApi = getRouteApi("/_dashboard/admin/sdn")
-const ConfirmDialog = lazy(() =>
-  import("@/components/dialogs/confirm-dialog").then((module) => ({
-    default: module.ConfirmDialog,
-  }))
-)
 
 export function SdnPage() {
   const { user } = sdnRouteApi.useRouteContext()
@@ -78,11 +74,9 @@ export function SdnPage() {
         </div>
       )}
 
-      <Suspense fallback={null}>
-        {confirm && (
-          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-        )}
-      </Suspense>
+      {confirm && (
+        <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      )}
     </div>
   )
 }

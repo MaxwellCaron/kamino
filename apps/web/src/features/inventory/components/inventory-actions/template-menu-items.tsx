@@ -33,7 +33,7 @@ export function TemplateMenuItems({
   onManagePermissions,
   onClone,
   onRename,
-  isLoading,
+  disabled,
 }: {
   permissions: ApiTreeNodePermissions
   isFavorite?: boolean
@@ -45,7 +45,7 @@ export function TemplateMenuItems({
   onManagePermissions: () => void
   onClone: () => void
   onRename: () => void
-  isLoading?: boolean
+  disabled?: boolean
 }) {
   const deleteVm = useDeleteVM()
   const vmIdentifier = formatVmReference(vmid, name)
@@ -58,7 +58,7 @@ export function TemplateMenuItems({
         itemId={itemId}
         isFavorite={isFavorite}
         onToggleFavorite={onToggleFavorite}
-        isLoading={isLoading}
+        disabled={disabled}
       />
       {(hasActionItems ||
         capabilities.hasEditItems ||
@@ -68,7 +68,7 @@ export function TemplateMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             {capabilities.clone.visible && (
-              <DropdownMenuItem onClick={onClone} disabled={isLoading}>
+              <DropdownMenuItem onClick={onClone} disabled={disabled}>
                 <HugeiconsIcon
                   icon={CopyIcon}
                   className="text-muted-foreground"
@@ -87,7 +87,7 @@ export function TemplateMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {capabilities.rename.visible && (
-              <DropdownMenuItem onClick={onRename} disabled={isLoading}>
+              <DropdownMenuItem onClick={onRename} disabled={disabled}>
                 <HugeiconsIcon
                   icon={PencilEdit01Icon}
                   className="text-muted-foreground"
@@ -95,10 +95,7 @@ export function TemplateMenuItems({
                 Edit
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
-              onClick={onManagePermissions}
-              disabled={isLoading}
-            >
+            <DropdownMenuItem onClick={onManagePermissions} disabled={disabled}>
               <HugeiconsIcon
                 icon={LockedIcon}
                 className="text-muted-foreground"
@@ -112,7 +109,7 @@ export function TemplateMenuItems({
       {capabilities.delete.visible && (
         <DropdownMenuItem
           variant="destructive"
-          disabled={isLoading}
+          disabled={disabled}
           onClick={() =>
             onAction({
               title: "Delete Template?",

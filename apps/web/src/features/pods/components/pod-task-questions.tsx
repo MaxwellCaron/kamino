@@ -9,6 +9,7 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
@@ -150,6 +151,9 @@ function PodTaskQuestionField({
           placeholder={question.answerMask || "Type your answer here..."}
           disabled={controlsDisabled}
           aria-invalid={answerIsIncorrect || undefined}
+          aria-errormessage={
+            answerIsIncorrect ? `${question.id}-error` : undefined
+          }
           onChange={(event) =>
             setDraft({ answer: answer?.answer, value: event.target.value })
           }
@@ -195,6 +199,11 @@ function PodTaskQuestionField({
       {question.description && (
         <FieldDescription>{question.description}</FieldDescription>
       )}
+      {answerIsIncorrect ? (
+        <FieldError id={`${question.id}-error`}>
+          That answer is incorrect.
+        </FieldError>
+      ) : null}
       {mutation.isError && (
         <FieldDescription>{mutation.error.message}</FieldDescription>
       )}

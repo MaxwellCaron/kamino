@@ -108,7 +108,7 @@ function getCreateProgressStepId(
 
 export function CreatePodSubmitState({
   createdPod,
-  errorMessage,
+  error,
   hasVirtualMachines,
   hasRouter,
   onCreateAnother,
@@ -118,7 +118,7 @@ export function CreatePodSubmitState({
   state,
 }: {
   createdPod?: CreatePodResult | null
-  errorMessage?: string | null
+  error?: string | null
   hasVirtualMachines: boolean
   hasRouter: boolean
   onCreateAnother: () => void
@@ -174,7 +174,7 @@ export function CreatePodSubmitState({
         <ProgressErrorState
           title="Creation Failed"
           description={
-            errorMessage ??
+            error ??
             "Your Pod failed to create. Please try again or contact support if the issue persists."
           }
           actions={[

@@ -48,7 +48,12 @@ export function SimpleDataTable<TData, TValue>({
   const resolvedAnimationKey = animationKey ?? dataAnimationKey
 
   return (
-    <div className="overflow-hidden **:no-scrollbar">
+    <div
+      className="overflow-hidden **:no-scrollbar"
+      role="status"
+      aria-live="polite"
+      aria-busy={isLoading || undefined}
+    >
       <Table className="border-y">
         <TableHeader className="bg-muted hover:bg-muted [&_tr]:border-b">
           {table.getHeaderGroups().map((headerGroup) => (

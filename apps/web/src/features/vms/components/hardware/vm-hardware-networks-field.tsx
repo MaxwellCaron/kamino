@@ -148,6 +148,7 @@ export function VmHardwareNetworksField({
                         </FieldLabel>
                         <VmHardwareNetworkBridgeCombobox
                           id={`${fieldIdPrefix}-bridge-${network.id}`}
+                          errorId={`${fieldIdPrefix}-bridge-${network.id}-error`}
                           bridgeOptions={bridgeOptions}
                           vnetOptions={vnetOptions}
                           networkOptions={networkOptions}
@@ -160,7 +161,9 @@ export function VmHardwareNetworksField({
                         {scopedNetwork ? (
                           <FieldDescription>Managed by pod.</FieldDescription>
                         ) : null}
-                        <FieldError>
+                        <FieldError
+                          id={`${fieldIdPrefix}-bridge-${network.id}-error`}
+                        >
                           {formatFieldError(field.state.meta.errors[0])}
                         </FieldError>
                       </Field>
@@ -247,11 +250,18 @@ export function VmHardwareNetworksField({
                         aria-invalid={
                           field.state.meta.errors.length > 0 || undefined
                         }
+                        aria-errormessage={
+                          field.state.meta.errors.length > 0
+                            ? `${fieldIdPrefix}-vlan-${network.id}-error`
+                            : undefined
+                        }
                       />
                       {scopedNetwork ? (
                         <FieldDescription>Managed by pod.</FieldDescription>
                       ) : null}
-                      <FieldError>
+                      <FieldError
+                        id={`${fieldIdPrefix}-vlan-${network.id}-error`}
+                      >
                         {formatFieldError(field.state.meta.errors[0])}
                       </FieldError>
                     </Field>

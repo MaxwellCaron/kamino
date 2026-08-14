@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { RouterIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
 import { ManualRouterCloneFormFields } from "./manual-router-clone-form-fields"
 import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 import {
@@ -221,6 +222,15 @@ export function ManualRouterCloneDialog({
                 folderOptions={folderOptions}
                 cloneTargets={cloneTargets}
               />
+              <form.Subscribe selector={(state) => state.canSubmit}>
+                {(canSubmit) =>
+                  canSubmit ? null : (
+                    <FieldError>
+                      Correct the highlighted fields before cloning.
+                    </FieldError>
+                  )
+                }
+              </form.Subscribe>
             </AppDialogScrollBody>
 
             <DialogFooter>

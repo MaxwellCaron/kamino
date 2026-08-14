@@ -387,5 +387,3 @@ export function InventoryPermissionsDialog(
     </Dialog>
   )
 }
-
-export const InventoryAclDialog = InventoryPermissionsDialog

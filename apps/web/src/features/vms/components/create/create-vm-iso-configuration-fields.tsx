@@ -125,8 +125,13 @@ export const IsoConfigurationFields = withCreateVmForm({
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined
                     }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-name-error"
+                        : undefined
+                    }
                   />
-                  <FieldError>
+                  <FieldError id="iso-name-error">
                     {formatFieldError(field.state.meta.errors[0])}
                   </FieldError>
                 </Field>
@@ -143,8 +148,14 @@ export const IsoConfigurationFields = withCreateVmForm({
                       onValueChange={(value) => field.handleChange(value ?? "")}
                     >
                       <SelectTrigger
+                        id="node"
                         aria-invalid={
                           field.state.meta.errors.length > 0 || undefined
+                        }
+                        aria-errormessage={
+                          field.state.meta.errors.length > 0
+                            ? "iso-node-error"
+                            : undefined
                         }
                       >
                         <SelectValue placeholder="Optimal (Default)" />
@@ -161,7 +172,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                         </SelectGroup>
                       </SelectContent>
                     </Select>
-                    <FieldError>
+                    <FieldError id="iso-node-error">
                       {formatFieldError(field.state.meta.errors[0])}
                     </FieldError>
                   </Field>
@@ -186,7 +197,7 @@ export const IsoConfigurationFields = withCreateVmForm({
           <form.AppField name="iso_storage">
             {(field) => (
               <Field>
-                <FieldLabel>ISO Storage</FieldLabel>
+                <FieldLabel htmlFor="iso-storage">ISO Storage</FieldLabel>
                 <Select
                   value={field.state.value ?? ""}
                   onValueChange={(value) => {
@@ -195,8 +206,14 @@ export const IsoConfigurationFields = withCreateVmForm({
                   }}
                 >
                   <SelectTrigger
+                    id="iso-storage"
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-storage-error"
+                        : undefined
                     }
                   >
                     <SelectValue placeholder="Select storage for ISOs" />
@@ -218,7 +235,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                 <FieldDescription>
                   Choose the storage that contains the installation ISO.
                 </FieldDescription>
-                <FieldError>
+                <FieldError id="iso-storage-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>
@@ -228,15 +245,21 @@ export const IsoConfigurationFields = withCreateVmForm({
           <form.AppField name="iso">
             {(field) => (
               <Field>
-                <FieldLabel>ISO Image</FieldLabel>
+                <FieldLabel htmlFor="iso-image">ISO Image</FieldLabel>
                 <Select
                   value={field.state.value ?? ""}
                   disabled={!form.state.values.iso_storage}
                   onValueChange={(value) => field.handleChange(value ?? "")}
                 >
                   <SelectTrigger
+                    id="iso-image"
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-image-error"
+                        : undefined
                     }
                   >
                     <SelectValue placeholder="Select an ISO image" />
@@ -257,7 +280,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                     ? "Choose the ISO image to attach as the install media."
                     : "Select an ISO storage first to load images."}
                 </FieldDescription>
-                <FieldError>
+                <FieldError id="iso-image-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>
@@ -267,14 +290,14 @@ export const IsoConfigurationFields = withCreateVmForm({
           <form.AppField name="ostype">
             {(field) => (
               <Field>
-                <FieldLabel>OS Type</FieldLabel>
+                <FieldLabel htmlFor="iso-os-type">OS Type</FieldLabel>
                 <Select
                   value={field.state.value}
                   onValueChange={(value) =>
                     field.handleChange(value ?? "other")
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="iso-os-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -295,14 +318,14 @@ export const IsoConfigurationFields = withCreateVmForm({
             <form.AppField name="bios">
               {(field) => (
                 <Field>
-                  <FieldLabel>BIOS</FieldLabel>
+                  <FieldLabel htmlFor="iso-bios">BIOS</FieldLabel>
                   <Select
                     value={field.state.value}
                     onValueChange={(value) =>
                       field.handleChange(value ?? "seabios")
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="iso-bios">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -322,12 +345,12 @@ export const IsoConfigurationFields = withCreateVmForm({
             <form.AppField name="machine">
               {(field) => (
                 <Field>
-                  <FieldLabel>Machine Type</FieldLabel>
+                  <FieldLabel htmlFor="iso-machine">Machine Type</FieldLabel>
                   <Select
                     value={field.state.value}
                     onValueChange={(value) => field.handleChange(value ?? "pc")}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="iso-machine">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -348,14 +371,14 @@ export const IsoConfigurationFields = withCreateVmForm({
           <form.AppField name="scsi">
             {(field) => (
               <Field>
-                <FieldLabel>SCSI Controller</FieldLabel>
+                <FieldLabel htmlFor="iso-scsi">SCSI Controller</FieldLabel>
                 <Select
                   value={field.state.value}
                   onValueChange={(value) =>
                     field.handleChange(value ?? "virtio-scsi-single")
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="iso-scsi">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -401,8 +424,13 @@ export const IsoConfigurationFields = withCreateVmForm({
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-sockets-error"
+                          : undefined
+                      }
                     />
-                    <FieldError>
+                    <FieldError id="iso-sockets-error">
                       {formatFieldError(field.state.meta.errors[0])}
                     </FieldError>
                   </Field>
@@ -431,8 +459,13 @@ export const IsoConfigurationFields = withCreateVmForm({
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-cores-error"
+                          : undefined
+                      }
                     />
-                    <FieldError>
+                    <FieldError id="iso-cores-error">
                       {formatFieldError(field.state.meta.errors[0])}
                     </FieldError>
                   </Field>
@@ -443,14 +476,14 @@ export const IsoConfigurationFields = withCreateVmForm({
             <form.AppField name="cpu_type">
               {(field) => (
                 <Field>
-                  <FieldLabel>CPU Type</FieldLabel>
+                  <FieldLabel htmlFor="iso-cpu-type">CPU Type</FieldLabel>
                   <Select
                     value={field.state.value}
                     onValueChange={(value) =>
                       field.handleChange(value ?? "x86-64-v2-AES")
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="iso-cpu-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -493,8 +526,13 @@ export const IsoConfigurationFields = withCreateVmForm({
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-memory-error"
+                          : undefined
+                      }
                     />
-                    <FieldError>
+                    <FieldError id="iso-memory-error">
                       {formatFieldError(field.state.meta.errors[0])}
                     </FieldError>
                   </Field>
@@ -524,8 +562,13 @@ export const IsoConfigurationFields = withCreateVmForm({
                       aria-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-balloon-error"
+                          : undefined
+                      }
                     />
-                    <FieldError>
+                    <FieldError id="iso-balloon-error">
                       {formatFieldError(field.state.meta.errors[0])}
                     </FieldError>
                   </Field>
@@ -539,14 +582,20 @@ export const IsoConfigurationFields = withCreateVmForm({
           <form.AppField name="storage">
             {(field) => (
               <Field>
-                <FieldLabel>Disk</FieldLabel>
+                <FieldLabel htmlFor="iso-disk-storage">Disk</FieldLabel>
                 <Select
                   value={field.state.value ?? ""}
                   onValueChange={(value) => field.handleChange(value ?? "")}
                 >
                   <SelectTrigger
+                    id="iso-disk-storage"
                     aria-invalid={
                       field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-disk-storage-error"
+                        : undefined
                     }
                   >
                     <SelectValue placeholder="Select disk" />
@@ -565,7 +614,7 @@ export const IsoConfigurationFields = withCreateVmForm({
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <FieldError>
+                <FieldError id="iso-disk-storage-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>
@@ -588,8 +637,13 @@ export const IsoConfigurationFields = withCreateVmForm({
                     field.handleChange(parseNumberInput(event.target.value, 32))
                   }
                   aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  aria-errormessage={
+                    field.state.meta.errors.length > 0
+                      ? "iso-disk-size-error"
+                      : undefined
+                  }
                 />
-                <FieldError>
+                <FieldError id="iso-disk-size-error">
                   {formatFieldError(field.state.meta.errors[0])}
                 </FieldError>
               </Field>

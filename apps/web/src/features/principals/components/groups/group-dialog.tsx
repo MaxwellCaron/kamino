@@ -10,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
 import { Tabs, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiBulkCreateResponse,
@@ -175,6 +176,14 @@ export function GroupDialog({
           <GroupDialogCreateForm form={form} />
         </AppDialogScrollBody>
       )}
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
 
       <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>

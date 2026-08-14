@@ -237,7 +237,7 @@ export function CreatePodPage() {
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 lg:px-8">
           <CreatePodSubmitState
             createdPod={state.createdPod}
-            errorMessage={resolvedSubmitErrorMessage}
+            error={resolvedSubmitErrorMessage}
             hasVirtualMachines={hasSubmittedVirtualMachines}
             hasRouter={hasRouter}
             onCreateAnother={handleCreateAnother}

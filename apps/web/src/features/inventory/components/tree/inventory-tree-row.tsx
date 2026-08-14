@@ -92,7 +92,9 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
     className: libClassName,
     onClick: libOnClick,
     onFocus: libOnFocus,
+    onKeyDown: libOnKeyDown,
     style: libStyle,
+    tabIndex: libTabIndex,
     role,
     ...libProps
   } = item.getProps() as TreeItemDomProps
@@ -101,6 +103,7 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
     <div
       {...libProps}
       role={role ?? "treeitem"}
+      tabIndex={libTabIndex}
       data-slot="tree-item"
       data-focus={vm.isFocused || undefined}
       data-folder={vm.isFolder || undefined}
@@ -117,6 +120,7 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
         "group/row z-10 cursor-pointer appearance-none border-0 bg-transparent p-0 text-left outline-hidden select-none not-last:pb-0.5 focus:z-20 data-disabled:pointer-events-none data-disabled:opacity-50"
       )}
       onFocus={libOnFocus}
+      onKeyDown={libOnKeyDown}
       onClick={(event) => {
         if (hasSelectionModifier(event)) {
           applySelectionFromClick(event, item, tree)
@@ -149,7 +153,7 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
             type="button"
             tabIndex={-1}
             aria-label={`${vm.isExpanded ? "Collapse" : "Expand"} ${vm.name}`}
-            className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted/80"
+            className="-my-1 -ml-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted/80"
             onMouseDown={(event) => {
               event.preventDefault()
               event.stopPropagation()

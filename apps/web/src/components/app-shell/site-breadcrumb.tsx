@@ -42,7 +42,11 @@ function BreadcrumbLinkContent({
       <BreadcrumbLink
         className={className}
         render={
-          <Link to="/inventory/items/$itemId" params={breadcrumb.link.params} />
+          <Link
+            to="/inventory/items/$itemId"
+            params={breadcrumb.link.params}
+            aria-label={breadcrumb.label}
+          />
         }
       >
         {breadcrumb.label}
@@ -53,7 +57,7 @@ function BreadcrumbLinkContent({
   return (
     <BreadcrumbLink
       className={className}
-      render={<Link to={breadcrumb.link.to} />}
+      render={<Link to={breadcrumb.link.to} aria-label={breadcrumb.label} />}
     >
       {breadcrumb.label}
     </BreadcrumbLink>
@@ -144,9 +148,13 @@ export function SiteBreadcrumb() {
                                     <Link
                                       to="/inventory/items/$itemId"
                                       params={hiddenEntry.link.params}
+                                      aria-label={hiddenEntry.label}
                                     />
                                   ) : hiddenEntry.link ? (
-                                    <Link to={hiddenEntry.link.to} />
+                                    <Link
+                                      to={hiddenEntry.link.to}
+                                      aria-label={hiddenEntry.label}
+                                    />
                                   ) : (
                                     <span />
                                   )

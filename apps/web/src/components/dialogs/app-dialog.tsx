@@ -52,39 +52,6 @@ type AppAlertDialogHeaderProps = {
   variant?: AppDialogVariant
 }
 
-function AppAlertDialogHeader({
-  description,
-  descriptionProps,
-  icon: Icon,
-  title,
-  variant = "default",
-}: AppAlertDialogHeaderProps) {
-  return (
-    <AlertDialogHeader>
-      <AlertDialogTitle className="flex items-center gap-2">
-        {variant === "child" ? (
-          <>
-            {Icon ? <HugeiconsIcon icon={Icon} /> : null}
-            <span>{title}</span>
-          </>
-        ) : (
-          <>
-            {Icon ? (
-              <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
-            ) : null}
-            <span className="text-2xl font-semibold tracking-tight">
-              {title}
-            </span>
-          </>
-        )}
-      </AlertDialogTitle>
-      <AlertDialogDescription {...descriptionProps}>
-        {description}
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-  )
-}
-
 type AppAlertDialogContentProps = ComponentProps<typeof AlertDialogContent> &
   AppAlertDialogHeaderProps & {
     open?: boolean
@@ -101,16 +68,36 @@ export function AppAlertDialogContent({
   className,
   ...props
 }: AppAlertDialogContentProps) {
+  const Icon = icon
+
   return (
     <AlertDialogContent className={cn("sm:max-w-xl", className)} {...props}>
       <Freeze freeze={open === false}>
-        <AppAlertDialogHeader
-          description={description}
-          descriptionProps={descriptionProps}
-          icon={icon}
-          title={title}
-          variant={variant}
-        />
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            {variant === "child" ? (
+              <>
+                {Icon ? <HugeiconsIcon icon={Icon} /> : null}
+                <span>{title}</span>
+              </>
+            ) : (
+              <>
+                {Icon ? (
+                  <HugeiconsIcon
+                    icon={Icon}
+                    className="text-muted-foreground"
+                  />
+                ) : null}
+                <span className="text-2xl font-semibold tracking-tight">
+                  {title}
+                </span>
+              </>
+            )}
+          </AlertDialogTitle>
+          <AlertDialogDescription {...descriptionProps}>
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
         {children}
       </Freeze>
     </AlertDialogContent>
@@ -124,39 +111,6 @@ type AppDialogHeaderProps = {
   icon?: AppDialogIcon
   title: string
   variant?: AppDialogVariant
-}
-
-export function AppDialogHeader({
-  description,
-  descriptionProps,
-  headerAfter,
-  icon: Icon,
-  title,
-  variant = "default",
-}: AppDialogHeaderProps) {
-  return (
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        {variant === "child" ? (
-          <>
-            {Icon ? <HugeiconsIcon icon={Icon} /> : null}
-            <span>{title}</span>
-          </>
-        ) : (
-          <>
-            {Icon ? (
-              <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
-            ) : null}
-            <span className="text-2xl font-semibold tracking-tight">
-              {title}
-            </span>
-          </>
-        )}
-      </DialogTitle>
-      <DialogDescription {...descriptionProps}>{description}</DialogDescription>
-      {headerAfter}
-    </DialogHeader>
-  )
 }
 
 type AppDialogContentProps = ComponentProps<typeof DialogContent> &
@@ -176,17 +130,37 @@ export function AppDialogContent({
   className,
   ...props
 }: AppDialogContentProps) {
+  const Icon = icon
+
   return (
     <DialogContent className={cn("sm:max-w-xl", className)} {...props}>
       <Freeze freeze={open === false}>
-        <AppDialogHeader
-          description={description}
-          descriptionProps={descriptionProps}
-          headerAfter={headerAfter}
-          icon={icon}
-          title={title}
-          variant={variant}
-        />
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {variant === "child" ? (
+              <>
+                {Icon ? <HugeiconsIcon icon={Icon} /> : null}
+                <span>{title}</span>
+              </>
+            ) : (
+              <>
+                {Icon ? (
+                  <HugeiconsIcon
+                    icon={Icon}
+                    className="text-muted-foreground"
+                  />
+                ) : null}
+                <span className="text-2xl font-semibold tracking-tight">
+                  {title}
+                </span>
+              </>
+            )}
+          </DialogTitle>
+          <DialogDescription {...descriptionProps}>
+            {description}
+          </DialogDescription>
+          {headerAfter}
+        </DialogHeader>
         {children}
       </Freeze>
     </DialogContent>

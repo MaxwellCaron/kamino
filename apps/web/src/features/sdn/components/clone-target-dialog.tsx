@@ -118,6 +118,7 @@ function CloneTargetTextField({
     >
       {(field: any) => {
         const isInvalid = isTouchedInvalid(field.state.meta)
+        const errorId = `${name}-error`
 
         return (
           <Field data-invalid={isInvalid} data-disabled={disabled}>
@@ -132,10 +133,11 @@ function CloneTargetTextField({
                 disabled={disabled}
                 maxLength={maxLength}
                 aria-invalid={isInvalid}
+                aria-errormessage={isInvalid ? errorId : undefined}
               />
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id={errorId}>
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -180,6 +182,7 @@ function CloneTargetComboboxField({
     >
       {(field: any) => {
         const isInvalid = isTouchedInvalid(field.state.meta)
+        const errorId = `${name}-error`
         const selected = suggestions.includes(field.state.value)
           ? field.state.value
           : null
@@ -201,6 +204,7 @@ function CloneTargetComboboxField({
                   placeholder={placeholder}
                   onBlur={field.handleBlur}
                   aria-invalid={isInvalid}
+                  aria-errormessage={isInvalid ? errorId : undefined}
                 />
                 <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
                 <ComboboxContent>
@@ -215,7 +219,7 @@ function CloneTargetComboboxField({
               </Combobox>
             </FieldContent>
             {isInvalid && (
-              <FieldError>
+              <FieldError id={errorId}>
                 {formatFieldError(field.state.meta.errors[0])}
               </FieldError>
             )}
@@ -242,6 +246,7 @@ function CloneTargetProfileField({
             profile. A LAN Router target hosts LAN-only pods.
           </FieldDescription>
           <RadioGroup
+            aria-label="Network profile"
             value={field.state.value}
             onValueChange={(value) => field.handleChange(String(value))}
             className="gap-2"
@@ -604,6 +609,14 @@ function CloneTargetForm({
           }}
         </form.Subscribe>
       </AppDialogScrollBody>
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
 
       <DialogFooter>
         <form.Subscribe>

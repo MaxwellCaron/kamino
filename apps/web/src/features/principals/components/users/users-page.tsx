@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -22,6 +22,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   ManagementPermissionKeys,
@@ -33,6 +34,9 @@ import {
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import { getUserColumns } from "@/features/principals/components/users/users-columns"
+import { MembershipDialog } from "@/features/principals/components/membership-dialog"
+import { UserDialog } from "@/features/principals/components/users/user-dialog"
+import { UserGroupBulkDialog } from "@/features/principals/components/users/user-group-bulk-dialog"
 import { useUsersPageMutations } from "@/features/principals/hooks/use-users-page-mutations"
 import { UsersSelectionActions } from "@/features/principals/components/users/users-selection-actions"
 import { AppActionButton } from "@/components/actions/app-action-button"
@@ -41,32 +45,6 @@ import { PreloadOverlay } from "@/components/loading-overlay"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
-const ConfirmDialog = lazy(() =>
-  import("@/components/dialogs/confirm-dialog").then((module) => ({
-    default: module.ConfirmDialog,
-  }))
-)
-const MembershipDialog = lazy(() =>
-  import("@/features/principals/components/membership-dialog").then(
-    (module) => ({
-      default: module.MembershipDialog,
-    })
-  )
-)
-const UserDialog = lazy(() =>
-  import("@/features/principals/components/users/user-dialog").then(
-    (module) => ({
-      default: module.UserDialog,
-    })
-  )
-)
-const UserGroupBulkDialog = lazy(() =>
-  import("@/features/principals/components/users/user-group-bulk-dialog").then(
-    (module) => ({
-      default: module.UserGroupBulkDialog,
-    })
-  )
-)
 
 export function UsersPage() {
   const { user } = usersRouteApi.useRouteContext()
@@ -247,7 +225,7 @@ export function UsersPage() {
         </div>
       )}
 
-      <Suspense fallback={null}>
+      <>
         {canAdminister && createOpen ? (
           <UserDialog
             capabilities={providerCapabilities}
@@ -289,7 +267,7 @@ export function UsersPage() {
         {confirm && (
           <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
         )}
-      </Suspense>
+      </>
     </div>
   )
 }

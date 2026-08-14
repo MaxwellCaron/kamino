@@ -56,13 +56,21 @@ export function UserDialogCreatePrefixTab({
                   onBlur={field.handleBlur}
                   placeholder="user"
                   aria-invalid={isInvalid}
+                  aria-errormessage={
+                    isInvalid ? "user-prefix-error" : undefined
+                  }
                 />
               </FieldContent>
               <FieldDescription>
                 Generated usernames use the prefix plus a padded number. i.e.
                 user01, user02, user3.
               </FieldDescription>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="user-prefix-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}
@@ -92,9 +100,17 @@ export function UserDialogCreatePrefixTab({
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "user-prefix-start-error" : undefined
+                    }
                   />
                 </FieldContent>
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id="user-prefix-start-error"
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             )
           }}
@@ -124,9 +140,17 @@ export function UserDialogCreatePrefixTab({
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "user-prefix-quantity-error" : undefined
+                    }
                   />
                 </FieldContent>
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id="user-prefix-quantity-error"
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             )
           }}
@@ -146,19 +170,30 @@ export function UserDialogCreatePrefixTab({
 
             return (
               <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor="shared-password">Shared Password</FieldLabel>
+                <FieldLabel htmlFor="shared-password">
+                  Shared Password
+                </FieldLabel>
                 <FieldContent>
                   <Input
                     id="shared-password"
                     type="password"
+                    autoComplete="new-password"
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                     placeholder="Password123!"
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "shared-password-error" : undefined
+                    }
                   />
                 </FieldContent>
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id="shared-password-error"
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             )
           }}

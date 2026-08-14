@@ -142,6 +142,7 @@ function PublishPodVmHostOctetField({
       {(field) => {
         const isInvalid = field.state.meta.errors.length > 0
         const fieldId = `publish-pod-vm-host-octet-${index}`
+        const errorId = `${fieldId}-error`
 
         return (
           <Field className="w-24 gap-1" data-invalid={isInvalid || undefined}>
@@ -163,9 +164,10 @@ function PublishPodVmHostOctetField({
                 field.handleChange(raw === "" ? null : Number(raw))
               }}
               aria-invalid={isInvalid || undefined}
+              aria-errormessage={isInvalid ? errorId : undefined}
               data-invalid={isInvalid || undefined}
             />
-            <FieldError errors={field.state.meta.errors} />
+            <FieldError id={errorId} errors={field.state.meta.errors} />
           </Field>
         )
       }}

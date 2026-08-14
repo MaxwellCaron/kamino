@@ -30,6 +30,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
@@ -42,6 +43,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import type { VncScreenHandle } from "react-vnc"
+import { LazyContentFallback } from "@/components/loading-overlay"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
@@ -341,7 +343,14 @@ export function VncConsole({
         )}
 
         {session && (
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={
+              <LazyContentFallback
+                label="Loading console"
+                className="absolute inset-0"
+              />
+            }
+          >
             <LazyVncScreen
               key={session.sessionId}
               ref={vncRef}
@@ -503,14 +512,16 @@ function ConsoleToolbar({
               }
             />
             <DropdownMenuContent align="end">
-              {KEY_COMBOS.map((combo) => (
-                <DropdownMenuItem
-                  key={combo.label}
-                  onClick={() => send(combo.action)}
-                >
-                  {combo.label}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                {KEY_COMBOS.map((combo) => (
+                  <DropdownMenuItem
+                    key={combo.label}
+                    onClick={() => send(combo.action)}
+                  >
+                    {combo.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
           <TooltipProvider>

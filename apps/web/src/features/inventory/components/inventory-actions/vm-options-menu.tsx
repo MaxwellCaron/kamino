@@ -57,6 +57,11 @@ export function VmOptionsMenu({
 
   return (
     <>
+      {isLoading ? (
+        <span className="sr-only" role="status" aria-live="polite">
+          Loading available actions
+        </span>
+      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -92,7 +97,7 @@ export function VmOptionsMenu({
                 })
               }
               onDelete={() => {}}
-              isLoading={isLoading}
+              disabled={isLoading}
             />
           ) : isTemplate ? (
             <TemplateMenuItems
@@ -130,7 +135,7 @@ export function VmOptionsMenu({
                   })
                 }
               }}
-              isLoading={isLoading}
+              disabled={isLoading}
             />
           ) : (
             <VmMenuItems
@@ -188,7 +193,7 @@ export function VmOptionsMenu({
                   })
                 }
               }}
-              isLoading={isLoading}
+              disabled={isLoading}
               powerStatus={powerStatus}
               guestType={guestType}
             />

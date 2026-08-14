@@ -194,7 +194,7 @@ function GroupPermissionsForm({
                   size="sm"
                   onClick={handleReload}
                 >
-                  <HugeiconsIcon icon={ReloadIcon} />
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
                   Reload
                 </Button>
               </AlertAction>
@@ -227,6 +227,7 @@ function GroupPermissionsForm({
                 return (
                   <FieldSet>
                     <RadioGroup
+                      aria-label="Management role"
                       name={field.name}
                       value={field.state.value}
                       onValueChange={(value) =>

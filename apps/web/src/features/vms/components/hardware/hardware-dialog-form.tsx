@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
 import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
 import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
@@ -150,6 +151,14 @@ export function VmHardwareDialogForm({
           </VmHardwareNetworkSection>
         </div>
       </AppDialogScrollBody>
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
 
       <DialogFooter>
         <AppDialogPrimaryButton pending={updateHardware.isPending}>

@@ -2,6 +2,7 @@ import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
@@ -134,17 +135,19 @@ export function getVNetColumns({
               }
             />
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEditVnet(vnet)}>
-                <HugeiconsIcon icon={PencilEdit01Icon} />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => onDeleteClick(vnet)}
-              >
-                <HugeiconsIcon icon={Delete01Icon} />
-                Delete
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => onEditVnet(vnet)}>
+                  <HugeiconsIcon icon={PencilEdit01Icon} />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onDeleteClick(vnet)}
+                >
+                  <HugeiconsIcon icon={Delete01Icon} />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

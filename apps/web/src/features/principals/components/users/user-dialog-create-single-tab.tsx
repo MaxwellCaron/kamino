@@ -49,15 +49,24 @@ export function UserDialogCreateSingleTab({
               <FieldContent>
                 <Input
                   id="single-username"
+                  autoComplete="username"
                   maxLength={20}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="jdoe"
                   aria-invalid={isInvalid}
+                  aria-errormessage={
+                    isInvalid ? "single-username-error" : undefined
+                  }
                 />
               </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="single-username-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}
@@ -81,14 +90,23 @@ export function UserDialogCreateSingleTab({
                   <Input
                     id="single-password"
                     type="password"
+                    autoComplete="new-password"
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                     placeholder="Password123!"
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "single-password-error" : undefined
+                    }
                   />
                 </FieldContent>
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                {isInvalid && (
+                  <FieldError
+                    id="single-password-error"
+                    errors={field.state.meta.errors}
+                  />
+                )}
               </Field>
             )
           }}

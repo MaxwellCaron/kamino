@@ -130,6 +130,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       selectedItemIds,
       setSelectedItemIds,
     })
+  const expandedItemIds = tree.getState().expandedItems
 
   const revealAndNavigateToItem = useInventoryTreeRevealNavigation({
     activeItemId,
@@ -168,6 +169,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
   const viewValue = useMemo(
     () => ({
       tree,
+      expandedItemIds,
       expandAll,
       collapseAll,
       searchQuery,
@@ -184,6 +186,7 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
     [
       clearSelection,
       collapseAll,
+      expandedItemIds,
       expandAll,
       favoriteIds,
       isSearchActive,
@@ -210,6 +213,11 @@ export function InventoryTreeProvider({ children }: { children: ReactNode }) {
       <InventoryTreeViewContext value={viewValue}>
         <InventoryTreeNavigationContext value={navigationValue}>
           {children}
+          {!isLoading && !error && apiTree.length === 0 ? (
+            <span className="sr-only" role="status" aria-live="polite">
+              No items in inventory
+            </span>
+          ) : null}
         </InventoryTreeNavigationContext>
       </InventoryTreeViewContext>
     </InventoryTreeDataContext>

@@ -1,7 +1,5 @@
 import * as React from "react"
-import { useForm } from "@tanstack/react-form"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useSelector } from "@tanstack/react-store"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Alert01Icon,
   FilterIcon,
@@ -228,21 +226,19 @@ function MembershipForm({
   const queryClient = useQueryClient()
   const baselineIdsRef = React.useRef(serverIds)
   const [search, setSearch] = React.useState("")
+  const [selectedIds, setSelectedIds] = React.useState(serverIds)
   const [membershipFilter, setMembershipFilter] =
     React.useState<MembershipFilter>("all")
 
-  const form = useForm({
-    defaultValues: {
-      selectedIds: serverIds,
-    },
-    onSubmit: async ({ value }) => {
+  const saveMutation = useMutation({
+    mutationFn: async (nextSelectedIds: Array<string>) => {
       try {
         if (mode === "user-groups") {
-          await setUserGroups(principal.id, uniqueIds(value.selectedIds))
+          await setUserGroups(principal.id, uniqueIds(nextSelectedIds))
         } else {
           const serverSet = new Set(baselineIdsRef.current)
-          const selectedSet = new Set(value.selectedIds)
-          const toAdd = value.selectedIds.filter((id) => !serverSet.has(id))
+          const selectedSet = new Set(nextSelectedIds)
+          const toAdd = nextSelectedIds.filter((id) => !serverSet.has(id))
           const toRemove = baselineIdsRef.current.filter(
             (id) => !selectedSet.has(id)
           )
@@ -265,15 +261,10 @@ function MembershipForm({
   const serverChanged = !sameIds(serverIds, baselineIdsRef.current)
 
   const handleReload = () => {
-    form.reset({ selectedIds: serverIds })
+    setSelectedIds(serverIds)
     baselineIdsRef.current = serverIds
     forceRerender()
   }
-
-  const selectedIds = useSelector(
-    form.store,
-    (state) => state.values.selectedIds
-  )
   const rowSelection = React.useMemo<RowSelectionState>(
     () => Object.fromEntries(selectedIds.map((id) => [id, true])),
     [selectedIds]
@@ -316,7 +307,7 @@ function MembershipForm({
     for (const [id, selected] of Object.entries(nextSelection)) {
       if (selected) nextSelectedIds.push(id)
     }
-    form.setFieldValue("selectedIds", nextSelectedIds)
+    setSelectedIds(nextSelectedIds)
   }
 
   const isGroupsMode = mode === "user-groups"
@@ -341,19 +332,18 @@ function MembershipForm({
     [itemName, itemNamePlural]
   )
 
+  const handleSave = () => {
+    onOpenChange(false)
+    showSingleMutationToast({
+      title: "Updating memberships",
+      name: formatPrincipalReference(principal),
+      promise: saveMutation.mutateAsync(selectedIds),
+      successDescription: "Memberships updated",
+    })
+  }
+
   return (
-    <form
-      className="contents"
-      action={() => {
-        onOpenChange(false)
-        showSingleMutationToast({
-          title: "Updating memberships",
-          name: formatPrincipalReference(principal),
-          promise: form.handleSubmit(),
-          successDescription: "Memberships updated",
-        })
-      }}
-    >
+    <div className="contents">
       {serverChanged && (
         <Alert>
           <HugeiconsIcon icon={Alert01Icon} />
@@ -368,7 +358,7 @@ function MembershipForm({
               size="sm"
               onClick={handleReload}
             >
-              <HugeiconsIcon icon={ReloadIcon} />
+              <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
               Reload
             </Button>
           </AlertAction>
@@ -428,17 +418,15 @@ function MembershipForm({
         />
       </AppDialogScrollBody>
       <DialogFooter>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              disabled={!hasChanges}
-              pending={isSubmitting}
-            >
-              Save (<span className="tabular-nums">{selectedIds.length}</span>)
-            </AppDialogPrimaryButton>
-          )}
-        </form.Subscribe>
+        <AppDialogPrimaryButton
+          type="button"
+          disabled={!hasChanges}
+          pending={saveMutation.isPending}
+          onClick={handleSave}
+        >
+          Save (<span className="tabular-nums">{selectedIds.length}</span>)
+        </AppDialogPrimaryButton>
       </DialogFooter>
-    </form>
+    </div>
   )
 }

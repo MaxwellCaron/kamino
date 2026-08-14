@@ -67,7 +67,11 @@ export function InventoryFolderPage() {
             />
           </div>
           <Separator />
-          <InventoryFolderContents folder={folder} />
+          {(folder.children?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing here yet.</p>
+          ) : (
+            <InventoryFolderContents folder={folder} />
+          )}
         </div>
       )}
     </div>

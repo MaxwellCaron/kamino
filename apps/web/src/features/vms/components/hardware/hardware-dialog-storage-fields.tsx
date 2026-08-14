@@ -92,11 +92,16 @@ export function VmHardwareStorageFields({
                 )
               }
               aria-invalid={field.state.meta.errors.length > 0 || undefined}
+              aria-errormessage={
+                field.state.meta.errors.length > 0
+                  ? "hardware-disk-size-error"
+                  : undefined
+              }
             />
             <FieldDescription>
               Existing disks can only be expanded from {minimumDiskSize} GB.
             </FieldDescription>
-            <FieldError>
+            <FieldError id="hardware-disk-size-error">
               {formatFieldError(field.state.meta.errors[0])}
             </FieldError>
           </Field>

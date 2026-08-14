@@ -5,6 +5,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
   FieldSet,
   FieldTitle,
 } from "@workspace/ui/components/field"
@@ -85,6 +86,7 @@ export function CreatePodNetworkingSection({
 }: CreatePodNetworkingSectionProps) {
   return (
     <FieldSet className="w-full">
+      <FieldLegend>Networking mode</FieldLegend>
       <FieldDescription>
         {routerTemplateConfigured
           ? "Choose how Kamino should provision routing and isolated networks for this pod."

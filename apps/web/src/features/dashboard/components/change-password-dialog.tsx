@@ -115,10 +115,18 @@ export function ChangePasswordDialog({
                       }
                       onBlur={field.handleBlur}
                       aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "current-password-error" : undefined
+                      }
                       placeholder="************"
                     />
                   </FieldContent>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="current-password-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -142,13 +150,19 @@ export function ChangePasswordDialog({
                       }
                       onBlur={field.handleBlur}
                       aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "new-password-error" : undefined
+                      }
                       placeholder="************"
                     />
                     <FieldDescription>
                       Use at least 8 characters.
                     </FieldDescription>
                     {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
+                      <FieldError
+                        id="new-password-error"
+                        errors={field.state.meta.errors}
+                      />
                     )}
                   </FieldContent>
                 </Field>
@@ -177,9 +191,17 @@ export function ChangePasswordDialog({
                       onBlur={field.handleBlur}
                       placeholder="************"
                       aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "confirm-password-error" : undefined
+                      }
                     />
                   </FieldContent>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="confirm-password-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -187,7 +209,11 @@ export function ChangePasswordDialog({
         </FieldGroup>
 
         <DialogFooter className="mt-6">
-          <AppDialogPrimaryButton pending={mutation.isPending}>
+          <AppDialogPrimaryButton
+            pending={mutation.isPending}
+            disabled={mutation.isPending}
+            aria-busy={mutation.isPending || undefined}
+          >
             Update
           </AppDialogPrimaryButton>
         </DialogFooter>

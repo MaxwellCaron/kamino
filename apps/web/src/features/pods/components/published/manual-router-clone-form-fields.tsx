@@ -145,6 +145,7 @@ function RouterCloneProfileField({
         <Field>
           <FieldTitle>Router type</FieldTitle>
           <RadioGroup
+            aria-label="Router type"
             className="grid w-full grid-cols-1 gap-3"
             value={field.state.value}
             onValueChange={(value) => {
@@ -286,8 +287,15 @@ function RouterCloneNetworkNumberField({
             onBlur={field.handleBlur}
             onChange={(event) => field.handleChange(event.target.value)}
             aria-invalid={field.state.meta.errors.length > 0 || undefined}
+            aria-errormessage={
+              field.state.meta.errors.length > 0
+                ? "router-network-number-error"
+                : undefined
+            }
           />
-          <FieldError>{field.state.meta.errors[0]}</FieldError>
+          <FieldError id="router-network-number-error">
+            {field.state.meta.errors[0]}
+          </FieldError>
         </Field>
       )}
     </form.Field>

@@ -20,6 +20,8 @@ export function VMIDField({
   fieldName,
   inputId,
 }: VMIDFieldProps) {
+  const errorId = `${inputId}-error`
+
   return (
     <FieldComponent
       name={fieldName}
@@ -52,8 +54,11 @@ export function VMIDField({
               field.handleChange(parseNumberInput(event.target.value, 0))
             }
             aria-invalid={field.state.meta.errors.length > 0 || undefined}
+            aria-errormessage={
+              field.state.meta.errors.length > 0 ? errorId : undefined
+            }
           />
-          <FieldError>
+          <FieldError id={errorId}>
             {formatFieldError(field.state.meta.errors[0])}
           </FieldError>
         </Field>

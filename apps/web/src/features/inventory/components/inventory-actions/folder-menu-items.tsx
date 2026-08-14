@@ -27,7 +27,7 @@ export function FolderMenuItems({
   onEditLimit,
   onRename,
   onDelete,
-  isLoading,
+  disabled,
 }: {
   permissions: ApiTreeNodePermissions
   power: {
@@ -40,7 +40,7 @@ export function FolderMenuItems({
   onEditLimit: () => void
   onRename: () => void
   onDelete: () => void
-  isLoading?: boolean
+  disabled?: boolean
 }) {
   const capabilities = getFolderCapabilities(permissions)
   const showPower = power !== null && power.targetCount > 0
@@ -52,7 +52,7 @@ export function FolderMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Create</DropdownMenuLabel>
             {capabilities.createFolder.visible && (
-              <DropdownMenuItem onClick={onCreateFolder} disabled={isLoading}>
+              <DropdownMenuItem onClick={onCreateFolder} disabled={disabled}>
                 <HugeiconsIcon
                   icon={FolderAddIcon}
                   className="text-muted-foreground"
@@ -61,7 +61,7 @@ export function FolderMenuItems({
               </DropdownMenuItem>
             )}
             {capabilities.createVm.visible && (
-              <DropdownMenuItem onClick={onCreateVm} disabled={isLoading}>
+              <DropdownMenuItem onClick={onCreateVm} disabled={disabled}>
                 <HugeiconsIcon
                   icon={ComputerAddIcon}
                   className="text-muted-foreground"
@@ -85,7 +85,7 @@ export function FolderMenuItems({
                 variant={
                   definition.action === "stop" ? "destructive" : "default"
                 }
-                disabled={isLoading}
+                disabled={disabled}
                 onClick={() => power.onPowerAction(definition.action)}
               >
                 <HugeiconsIcon
@@ -106,7 +106,7 @@ export function FolderMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {capabilities.rename.visible && (
-              <DropdownMenuItem onClick={onRename} disabled={isLoading}>
+              <DropdownMenuItem onClick={onRename} disabled={disabled}>
                 <HugeiconsIcon
                   icon={PencilEdit01Icon}
                   className="text-muted-foreground"
@@ -115,7 +115,7 @@ export function FolderMenuItems({
               </DropdownMenuItem>
             )}
             {capabilities.managePermissions.visible && (
-              <DropdownMenuItem onClick={onEditLimit} disabled={isLoading}>
+              <DropdownMenuItem onClick={onEditLimit} disabled={disabled}>
                 <HugeiconsIcon
                   icon={GaugeIcon}
                   className="text-muted-foreground"
@@ -126,7 +126,7 @@ export function FolderMenuItems({
             {capabilities.managePermissions.visible && (
               <DropdownMenuItem
                 onClick={onManagePermissions}
-                disabled={isLoading}
+                disabled={disabled}
               >
                 <HugeiconsIcon
                   icon={LockedIcon}
@@ -143,7 +143,7 @@ export function FolderMenuItems({
         <DropdownMenuItem
           variant="destructive"
           onClick={onDelete}
-          disabled={isLoading}
+          disabled={disabled}
         >
           <HugeiconsIcon icon={Delete01Icon} />
           Delete

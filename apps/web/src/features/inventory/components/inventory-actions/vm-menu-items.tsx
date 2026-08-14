@@ -46,7 +46,7 @@ export function VmMenuItems({
   onClone,
   onRename,
   onEditHardware,
-  isLoading,
+  disabled,
   powerStatus,
 }: {
   permissions: ApiTreeNodePermissions
@@ -62,7 +62,7 @@ export function VmMenuItems({
   onClone: () => void
   onRename: () => void
   onEditHardware: () => void
-  isLoading?: boolean
+  disabled?: boolean
   powerStatus?: string
 }) {
   const deleteVm = useDeleteVM()
@@ -73,7 +73,7 @@ export function VmMenuItems({
     powerStatus,
     vmid,
     vmName: name,
-    isLoading,
+    disabled,
   })
   const capabilities = getVmCapabilities(permissions, { guestType })
   const hasActionItems = capabilities.hasActionItems
@@ -89,7 +89,7 @@ export function VmMenuItems({
         itemId={itemId}
         isFavorite={isFavorite}
         onToggleFavorite={onToggleFavorite}
-        isLoading={isLoading}
+        disabled={disabled}
       />
       {hasItemsAfterGeneral && <DropdownMenuSeparator />}
       {powerActions.powerMode !== null && (
@@ -125,7 +125,7 @@ export function VmMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             {capabilities.clone.visible && (
-              <DropdownMenuItem onClick={onClone} disabled={isLoading}>
+              <DropdownMenuItem onClick={onClone} disabled={disabled}>
                 <HugeiconsIcon
                   icon={CopyIcon}
                   className="text-muted-foreground"
@@ -140,7 +140,7 @@ export function VmMenuItems({
                     onSnapshot(capabilities.snapshot.mode)
                   }
                 }}
-                disabled={isLoading}
+                disabled={disabled}
               >
                 <HugeiconsIcon
                   icon={Camera01Icon}
@@ -151,7 +151,7 @@ export function VmMenuItems({
             )}
             {capabilities.template.visible && (
               <DropdownMenuItem
-                disabled={isLoading}
+                disabled={disabled}
                 onClick={() =>
                   onAction({
                     title: "Templatize",
@@ -192,7 +192,7 @@ export function VmMenuItems({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Edit</DropdownMenuLabel>
             {capabilities.rename.visible && (
-              <DropdownMenuItem onClick={onRename} disabled={isLoading}>
+              <DropdownMenuItem onClick={onRename} disabled={disabled}>
                 <HugeiconsIcon
                   icon={PencilEdit01Icon}
                   className="text-muted-foreground"
@@ -201,7 +201,7 @@ export function VmMenuItems({
               </DropdownMenuItem>
             )}
             {capabilities.editHardware.visible && (
-              <DropdownMenuItem onClick={onEditHardware} disabled={isLoading}>
+              <DropdownMenuItem onClick={onEditHardware} disabled={disabled}>
                 <HugeiconsIcon
                   icon={Settings01Icon}
                   className="text-muted-foreground"
@@ -212,7 +212,7 @@ export function VmMenuItems({
             {capabilities.managePermissions.visible && (
               <DropdownMenuItem
                 onClick={onManagePermissions}
-                disabled={isLoading}
+                disabled={disabled}
               >
                 <HugeiconsIcon
                   icon={LockedIcon}
@@ -228,7 +228,7 @@ export function VmMenuItems({
       {capabilities.delete.visible && (
         <DropdownMenuItem
           variant="destructive"
-          disabled={isLoading}
+          disabled={disabled}
           onClick={() =>
             onAction({
               title: "Delete",

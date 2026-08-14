@@ -392,7 +392,7 @@ function buildAccountCommands(actions: BuildSiteCommandsActions) {
     label: "Log out",
     subtitle: "Sign out of Kamino",
     keywords: ["logout", "sign out", "exit"],
-    onSelect: runCommand(actions, actions.logout),
+    onSelect: actions.logout,
     variant: "destructive",
   })
 

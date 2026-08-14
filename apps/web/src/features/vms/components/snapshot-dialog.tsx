@@ -165,11 +165,19 @@ function DirectSnapshotForm({
                     id="snapname"
                     placeholder="my-snapshot"
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "snapshot-name-error" : undefined
+                    }
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="snapshot-name-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -300,15 +308,26 @@ function RequestSnapshotForm({
 
               return (
                 <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="request-snapname">
+                    Snapshot name
+                  </FieldLabel>
                   <Input
                     id="request-snapname"
                     placeholder="snapshot-2026-04-22T15-04-05Z"
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "request-snapshot-name-error" : undefined
+                    }
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="request-snapshot-name-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}

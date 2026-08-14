@@ -3,6 +3,7 @@ import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
@@ -154,18 +155,20 @@ export function getCloneTargetColumns({
               }
             />
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(target)}>
-                <HugeiconsIcon icon={PencilEdit01Icon} />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={target.is_default || target.is_personal}
-                onClick={() => onDeleteClick(target)}
-              >
-                <HugeiconsIcon icon={Delete01Icon} />
-                Delete
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => onEdit(target)}>
+                  <HugeiconsIcon icon={PencilEdit01Icon} />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={target.is_default || target.is_personal}
+                  onClick={() => onDeleteClick(target)}
+                >
+                  <HugeiconsIcon icon={Delete01Icon} />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form"
 import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import { FieldGroup } from "@workspace/ui/components/field"
+import { FieldError, FieldGroup } from "@workspace/ui/components/field"
 import {
   AppDialog,
   AppDialogPrimaryButton,
@@ -94,6 +94,13 @@ export function VmNotesDialog({
             }}
           </form.Field>
         </FieldGroup>
+        <form.Subscribe selector={(state) => state.canSubmit}>
+          {(canSubmit) =>
+            canSubmit ? null : (
+              <FieldError>Correct the notes field to continue.</FieldError>
+            )
+          }
+        </form.Subscribe>
         <DialogFooter className="mt-6">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
