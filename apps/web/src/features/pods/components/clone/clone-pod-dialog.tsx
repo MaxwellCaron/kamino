@@ -5,7 +5,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   CancelCircleIcon,
   CheckmarkCircle01Icon,
-  PackageIcon,
+  Clock01Icon,
+  CopyIcon,
 } from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
@@ -16,7 +17,6 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import { Progress } from "@workspace/ui/components/progress"
-import { ItemGroup } from "@workspace/ui/components/item"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 import { Badge } from "@workspace/ui/components/badge"
@@ -126,8 +126,6 @@ function useCloneProcess({
     progress,
     colors,
     elapsedTime: formatTime(elapsedTime),
-    completedTasks,
-    totalTasks,
     error:
       progressData?.state === "error"
         ? progressData.message
@@ -171,8 +169,6 @@ export function ClonePodDialog({
     progress,
     colors,
     elapsedTime,
-    completedTasks,
-    totalTasks,
     error,
     startCloning,
   } = useCloneProcess({ open, pod, clonedPodId, onCloned })
@@ -252,7 +248,7 @@ export function ClonePodDialog({
                     className={IDLE_PROGRESS_COLORS.text}
                   >
                     <HugeiconsIcon
-                      icon={PackageIcon}
+                      icon={CopyIcon}
                       className="size-8"
                       aria-hidden="true"
                     />
@@ -263,14 +259,10 @@ export function ClonePodDialog({
                 {dialogTitle}
               </span>
             </div>
-            {isCloning && (
-              <Badge
-                variant="ghost"
-                className="text-muted-foreground tabular-nums"
-              >
-                {completedTasks} / {totalTasks} Completed
-              </Badge>
-            )}
+            <Badge variant="outline" className="font-mono">
+              <HugeiconsIcon icon={Clock01Icon} />
+              {elapsedTime}
+            </Badge>
           </AlertDialogTitle>
         </AlertDialogHeader>
 
@@ -283,20 +275,18 @@ export function ClonePodDialog({
           )}
         />
 
-        <ItemGroup className="gap-4">
+        <div>
           <CloneStatusItem
             title={
               <>
-                {actionLabel} &apos;{podTitle}&apos; Pod -{" "}
+                {podTitle} -{" "}
                 <span className="text-muted-foreground">{username}</span>
               </>
             }
             tasks={tasks}
-            isCloning={isCloning}
             isFinished={isFinished}
             isFailed={isError}
             colors={displayColors}
-            elapsedTime={elapsedTime}
           />
           {error && (
             <InlineErrorAlert
@@ -306,7 +296,7 @@ export function ClonePodDialog({
               className="bg-muted/50"
             />
           )}
-        </ItemGroup>
+        </div>
 
         <AlertDialogFooter>
           <AlertDialogCancel
