@@ -9,6 +9,7 @@ const SHOW_DELAY_MS = 150
 export function RoutePending() {
   return (
     <main
+      data-route-pending=""
       role="status"
       aria-busy="true"
       className="flex min-h-svh items-center justify-center gap-3 bg-background text-sm text-muted-foreground"

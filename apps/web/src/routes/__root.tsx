@@ -99,11 +99,59 @@ const themeScript = `
 })()
 `
 
+const routePendingCriticalCss = `
+:root {
+  --route-pending-background: oklch(1 0 0);
+  --route-pending-foreground: oklch(0.56 0.021 213.5);
+}
+
+.dark {
+  --route-pending-background: oklch(0.148 0.004 228.8);
+  --route-pending-foreground: oklch(0.723 0.014 214.4);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+[data-route-pending] {
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--route-pending-background);
+  color: var(--route-pending-foreground);
+  font: 0.875rem/1.25rem "DM Sans Variable", sans-serif;
+}
+
+[data-route-pending] svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: route-pending-spin 1s linear infinite;
+}
+
+@keyframes route-pending-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-route-pending] svg {
+    animation: none;
+  }
+}
+`
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <script>{themeScript}</script>
+        <style>{routePendingCriticalCss}</style>
         <HeadContent />
       </head>
       <body>
