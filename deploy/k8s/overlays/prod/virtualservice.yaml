@@ -18,6 +18,17 @@ spec:
             host: api.kamino.svc.cluster.local
             port:
               number: 8080
+    - match:
+        - uri:
+            prefix: /assets/
+      retries:
+        attempts: 1
+        retryOn: 404,connect-failure,refused-stream,unavailable,cancelled
+      route:
+        - destination:
+            host: web.kamino.svc.cluster.local
+            port:
+              number: 3000
     - route:
         - destination:
             host: web.kamino.svc.cluster.local

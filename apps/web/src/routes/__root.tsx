@@ -4,6 +4,7 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router"
+import dmSansLatinUrl from "@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2?url"
 import appCss from "@workspace/ui/globals.css?url"
 import {
   ThemeProvider,
@@ -100,6 +101,14 @@ const themeScript = `
 `
 
 const routePendingCriticalCss = `
+@font-face {
+  font-family: "DM Sans Variable";
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 1000;
+  src: url("${dmSansLatinUrl}") format("woff2-variations");
+}
+
 :root {
   --route-pending-background: oklch(1 0 0);
   --route-pending-foreground: oklch(0.56 0.021 213.5);
@@ -116,6 +125,10 @@ body {
   margin: 0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 [data-route-pending] {
   display: flex;
   min-height: 100svh;
@@ -125,6 +138,16 @@ body {
   background: var(--route-pending-background);
   color: var(--route-pending-foreground);
   font: 0.875rem/1.25rem "DM Sans Variable", sans-serif;
+}
+
+[data-route-pending-label] {
+  inline-size: 6.9375rem;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.route-pending-font-ready [data-route-pending-label] {
+  visibility: visible;
 }
 
 [data-route-pending] svg {
@@ -146,12 +169,31 @@ body {
 }
 `
 
+const routePendingFontScript = `
+document.fonts
+  .load('400 14px "DM Sans Variable"', 'Loading Kamino...')
+  .then((fonts) => {
+    if (fonts.length > 0) {
+      document.documentElement.classList.add("route-pending-font-ready")
+    }
+  })
+  .catch(() => {})
+`
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          rel="preload"
+          href={dmSansLatinUrl}
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         <script>{themeScript}</script>
         <style>{routePendingCriticalCss}</style>
+        <script>{routePendingFontScript}</script>
         <HeadContent />
       </head>
       <body>

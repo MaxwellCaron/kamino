@@ -228,6 +228,14 @@
 }
 
 @layer components {
+  [data-route-pending-label] {
+    inline-size: 6.9375rem;
+    visibility: hidden;
+    white-space: nowrap;
+  }
+  .route-pending-font-ready [data-route-pending-label] {
+    visibility: visible;
+  }
   [data-slot="table-container"],
   [data-slot="tree-scroll-container"] {
     scrollbar-width: thin;

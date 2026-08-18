@@ -12,10 +12,11 @@ export function RoutePending() {
       data-route-pending=""
       role="status"
       aria-busy="true"
+      aria-label="Loading Kamino"
       className="flex min-h-svh items-center justify-center gap-3 bg-background text-sm text-muted-foreground"
     >
       <Spinner className="size-5" />
-      Loading Kamino...
+      <span data-route-pending-label="">Loading Kamino...</span>
     </main>
   )
 }

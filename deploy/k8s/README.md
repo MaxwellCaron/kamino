@@ -168,8 +168,10 @@ kubectl apply -f deploy/argocd/kamino-application.yaml
 
 The application creates resources in the `kamino` namespace. The API uses one
 replica with a `Recreate` rollout because startup reconciliation and VNC session
-handoffs are process-local. The web tier uses two replicas with normal rolling
-updates.
+handoffs are process-local. The web tier uses two replicas with `Recreate`
+updates so a page shell and its content-hashed assets cannot come from different
+releases. Istio also retries a missing hashed asset once against another web pod
+to tolerate a stale or independently replaced replica.
 
 Argo CD Image Updater follows the digest behind each public `latest` tag. The
 workloads use `Always`, so every newly created or restarted pod checks GHCR for
