@@ -203,15 +203,84 @@ WHERE cp.id = sqlc.arg(id)
   );
 
 -- name: InsertClonedPod :one
-WITH candidate AS (
-    SELECT n::INTEGER AS network_number
-    FROM generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM pod_network_allocations pna
-        WHERE pna.network_number = n
-    )
+WITH existing_batch AS (
+    SELECT pna.allocation_batch_start
+    FROM pod_network_allocations pna
+    WHERE pna.allocation_batch_id = sqlc.narg(allocation_batch_id)::UUID
+    ORDER BY pna.allocation_batch_start ASC NULLS LAST
+    LIMIT 1
+),
+contiguous_start AS (
+    SELECT n::INTEGER AS network_start
+    FROM generate_series(
+        sqlc.arg(min_network_number)::INTEGER,
+        sqlc.arg(max_network_number)::INTEGER - sqlc.arg(allocation_batch_size)::INTEGER + 1
+    ) AS n
+    WHERE sqlc.narg(allocation_batch_id)::UUID IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pod_network_allocations pna
+          WHERE pna.network_number BETWEEN n AND n + sqlc.arg(allocation_batch_size)::INTEGER - 1
+      )
     ORDER BY n
+    LIMIT 1
+),
+batch_choice AS (
+    SELECT existing_batch.allocation_batch_start AS network_start
+    FROM existing_batch
+
+    UNION ALL
+
+    SELECT contiguous_start.network_start
+    FROM contiguous_start
+    WHERE NOT EXISTS (SELECT 1 FROM existing_batch)
+
+    UNION ALL
+
+    SELECT NULL::INTEGER
+    WHERE sqlc.narg(allocation_batch_id)::UUID IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM existing_batch)
+      AND NOT EXISTS (SELECT 1 FROM contiguous_start)
+
+    LIMIT 1
+),
+preferred_candidate AS (
+    SELECT
+        batch_choice.network_start + sqlc.arg(allocation_batch_index)::INTEGER AS network_number,
+        batch_choice.network_start
+    FROM batch_choice
+    WHERE batch_choice.network_start IS NOT NULL
+      AND batch_choice.network_start + sqlc.arg(allocation_batch_index)::INTEGER
+          BETWEEN sqlc.arg(min_network_number)::INTEGER AND sqlc.arg(max_network_number)::INTEGER
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pod_network_allocations pna
+          WHERE pna.network_number = batch_choice.network_start + sqlc.arg(allocation_batch_index)::INTEGER
+      )
+),
+candidate AS (
+    SELECT choices.network_number, choices.network_start
+    FROM (
+        SELECT
+            preferred_candidate.network_number,
+            preferred_candidate.network_start,
+            0 AS priority
+        FROM preferred_candidate
+
+        UNION ALL
+
+        SELECT
+            n::INTEGER AS network_number,
+            NULL::INTEGER AS network_start,
+            1 AS priority
+        FROM generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM pod_network_allocations pna
+            WHERE pna.network_number = n
+        )
+    ) AS choices
+    ORDER BY choices.priority, choices.network_number
     LIMIT 1
 ),
 allocation AS (
@@ -220,6 +289,8 @@ allocation AS (
         kind,
         network_profile_key,
         clone_target_key,
+        allocation_batch_id,
+        allocation_batch_start,
         folder_id
     )
     SELECT
@@ -227,6 +298,8 @@ allocation AS (
         'published_clone',
         sqlc.arg(network_profile_key),
         sqlc.arg(clone_target_key),
+        sqlc.narg(allocation_batch_id),
+        candidate.network_start,
         sqlc.arg(folder_id)
     FROM candidate
     RETURNING id, network_number
@@ -278,4 +351,3 @@ SELECT
     created_at,
     updated_at
 FROM inserted;
-

@@ -237,6 +237,12 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 		return
 	}
 
+	networkBatch, reqErr := managerCloneNetworkBatch(req)
+	if reqErr != nil {
+		writeRequestError(c, reqErr)
+		return
+	}
+
 	progress := newBatchClonePodProgressReporter(req.ProgressID, req.ProgressBatchID)
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
@@ -298,7 +304,7 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 	}
 	defer h.releasePodCloneClaim(pod.ID, req.PrincipalID, c.Request.Context())
 
-	clone, reqErr := h.clonePublishedPod(c.Request.Context(), req.PrincipalID, folderName, pod, progress)
+	clone, reqErr := h.clonePublishedPod(c.Request.Context(), req.PrincipalID, folderName, pod, progress, networkBatch)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
@@ -314,4 +320,39 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 
 	progress.succeed("Pod cloned successfully.")
 	c.JSON(http.StatusOK, summary)
+}
+
+func managerCloneNetworkBatch(req createPublishedPodCloneRequest) (*podNetworkAllocationBatch, *requestError) {
+	if req.NetworkBatchID == nil && req.NetworkBatchIndex == nil && req.NetworkBatchSize == nil {
+		return nil, nil
+	}
+	if req.NetworkBatchID == nil || req.NetworkBatchIndex == nil || req.NetworkBatchSize == nil {
+		return nil, &requestError{
+			Status:      http.StatusBadRequest,
+			UserMessage: "network batch id, index, and size must be provided together",
+		}
+	}
+	if *req.NetworkBatchID == uuid.Nil {
+		return nil, &requestError{
+			Status:      http.StatusBadRequest,
+			UserMessage: "network batch id must not be empty",
+		}
+	}
+	if *req.NetworkBatchSize < 1 {
+		return nil, &requestError{
+			Status:      http.StatusBadRequest,
+			UserMessage: "network batch size must be positive",
+		}
+	}
+	if *req.NetworkBatchIndex < 0 || *req.NetworkBatchIndex >= *req.NetworkBatchSize {
+		return nil, &requestError{
+			Status:      http.StatusBadRequest,
+			UserMessage: "network batch index must be within the batch",
+		}
+	}
+	return &podNetworkAllocationBatch{
+		ID:    *req.NetworkBatchID,
+		Index: *req.NetworkBatchIndex,
+		Size:  *req.NetworkBatchSize,
+	}, nil
 }

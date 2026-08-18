@@ -171,6 +171,9 @@ export type CreatePublishedPodCloneParams = {
   principalId: string
   progressId: string
   progressBatchId: string
+  networkBatchId: string
+  networkBatchIndex: number
+  networkBatchSize: number
 }
 
 export async function createPublishedPodClone(
@@ -186,6 +189,9 @@ export async function createPublishedPodClone(
         principal_id: params.principalId,
         progress_id: params.progressId,
         progress_batch_id: params.progressBatchId,
+        network_batch_id: params.networkBatchId,
+        network_batch_index: params.networkBatchIndex,
+        network_batch_size: params.networkBatchSize,
       }),
     }
   )

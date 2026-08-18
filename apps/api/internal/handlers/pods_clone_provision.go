@@ -20,6 +20,7 @@ func (h *PodsHandler) clonePublishedPod(
 	folderName string,
 	pod publishedPodBase,
 	progress *clonePodProgressReporter,
+	networkBatch *podNetworkAllocationBatch,
 ) (database.ClonedPods, *requestError) {
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
@@ -138,7 +139,7 @@ func (h *PodsHandler) clonePublishedPod(
 		}
 	}
 
-	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey, cloneTarget)
+	clone, reqErr := h.createClonedPodRecord(ctx, principalID, pod.ID, targetFolderID, pod.NetworkProfileKey, cloneTarget, networkBatch)
 	if reqErr != nil {
 		return database.ClonedPods{}, reqErr
 	}

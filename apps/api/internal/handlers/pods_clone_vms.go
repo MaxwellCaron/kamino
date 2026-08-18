@@ -282,19 +282,32 @@ func (h *PodsHandler) createClonedPodRecord(
 	folderID uuid.UUID,
 	networkProfileKey string,
 	cloneTarget podCloneTarget,
+	networkBatch *podNetworkAllocationBatch,
 ) (database.ClonedPods, *requestError) {
+	var allocationBatchID *uuid.UUID
+	var allocationBatchIndex int32
+	allocationBatchSize := int32(1)
+	if networkBatch != nil {
+		allocationBatchID = &networkBatch.ID
+		allocationBatchIndex = networkBatch.Index
+		allocationBatchSize = networkBatch.Size
+	}
+
 	var cloneRow database.InsertClonedPodRow
 	err := podnetworks.WithPodNetworkAllocation(ctx, h.DB, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
 		cloneRow, err = database.New(tx).InsertClonedPod(ctx, database.InsertClonedPodParams{
-			ID:                uuid.New(),
-			PodID:             podID,
-			UserPrincipalID:   principalID,
-			FolderID:          folderID,
-			NetworkProfileKey: &networkProfileKey,
-			CloneTargetKey:    cloneTarget.Key,
-			MinNetworkNumber:  cloneTarget.NetworkMin,
-			MaxNetworkNumber:  cloneTarget.NetworkMax,
+			ID:                   uuid.New(),
+			PodID:                podID,
+			UserPrincipalID:      principalID,
+			FolderID:             folderID,
+			NetworkProfileKey:    &networkProfileKey,
+			CloneTargetKey:       cloneTarget.Key,
+			MinNetworkNumber:     cloneTarget.NetworkMin,
+			MaxNetworkNumber:     cloneTarget.NetworkMax,
+			AllocationBatchID:    allocationBatchID,
+			AllocationBatchIndex: allocationBatchIndex,
+			AllocationBatchSize:  allocationBatchSize,
 		})
 		return err
 	})

@@ -2,7 +2,10 @@ import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
-import type { PublishedPodCatalogEntry, PublishedPodCloneSummary } from "@/features/pods/types/pod-types"
+import type {
+  PublishedPodCatalogEntry,
+  PublishedPodCloneSummary,
+} from "@/features/pods/types/pod-types"
 import {
   runMutationUnits,
   showUnitMutationToast,
@@ -83,16 +86,19 @@ export function usePublishedPodsManagerClones() {
   const [pendingManagerClonePod, setPendingManagerClonePod] =
     useState<PublishedPodCatalogEntry | null>(null)
 
-  const removePendingPrincipal = useCallback((podId: string, principalId: string) => {
-    setPendingPrincipalIdsByPodId((prev) => {
-      const next = (prev[podId] ?? []).filter((id) => id !== principalId)
-      if (next.length === 0) {
-        const { [podId]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [podId]: next }
-    })
-  }, [])
+  const removePendingPrincipal = useCallback(
+    (podId: string, principalId: string) => {
+      setPendingPrincipalIdsByPodId((prev) => {
+        const next = (prev[podId] ?? []).filter((id) => id !== principalId)
+        if (next.length === 0) {
+          const { [podId]: _, ...rest } = prev
+          return rest
+        }
+        return { ...prev, [podId]: next }
+      })
+    },
+    []
+  )
 
   const handleManagerClone = useCallback(
     (pod: PublishedPodCatalogEntry, principals: Array<PrincipalOption>) => {
@@ -105,18 +111,23 @@ export function usePublishedPodsManagerClones() {
 
       const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
       const progressBatchId = uuid()
+      const networkBatchId = uuid()
       const childToPrincipal = new Map<string, string>()
 
       const cloneOne = async (
         principal: PrincipalOption,
         progressId: string,
-        batchId: string
+        batchId: string,
+        networkIndex: number
       ) => {
         const summary = await createPublishedPodClone({
           podId: pod.id,
           principalId: principal.id,
           progressId,
           progressBatchId: batchId,
+          networkBatchId,
+          networkBatchIndex: networkIndex,
+          networkBatchSize: principals.length,
         })
         queryClient.setQueryData(
           clonesQueryKey,
@@ -130,7 +141,7 @@ export function usePublishedPodsManagerClones() {
         )
       }
 
-      const innerUnits = principals.map((principal) => ({
+      const innerUnits = principals.map((principal, networkIndex) => ({
         items: [
           {
             id: principal.id,
@@ -142,7 +153,7 @@ export function usePublishedPodsManagerClones() {
           const progressId = uuid()
           childToPrincipal.set(progressId, principal.id)
           try {
-            await cloneOne(principal, progressId, progressBatchId)
+            await cloneOne(principal, progressId, progressBatchId, networkIndex)
           } finally {
             removePendingPrincipal(pod.id, principal.id)
           }
@@ -153,14 +164,19 @@ export function usePublishedPodsManagerClones() {
         title: `Cloning "${pod.title}"`,
         units: [
           {
-            items: principals.map((principal) => ({
+            items: principals.map((principal, networkIndex) => ({
               id: principal.id,
               name: principal.label,
               successDescription: "Cloned",
               retry: async () => {
                 const retryProgressId = uuid()
                 const retryBatchId = uuid()
-                await cloneOne(principal, retryProgressId, retryBatchId)
+                await cloneOne(
+                  principal,
+                  retryProgressId,
+                  retryBatchId,
+                  networkIndex
+                )
               },
             })),
             run: async (report) => {

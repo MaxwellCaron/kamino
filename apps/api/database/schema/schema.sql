@@ -712,6 +712,8 @@ CREATE TABLE pod_network_allocations (
     network_profile_key   TEXT NULL,
     clone_target_key      TEXT NOT NULL
                           REFERENCES pod_clone_targets(key) ON UPDATE CASCADE ON DELETE RESTRICT,
+    allocation_batch_id    UUID NULL,
+    allocation_batch_start INTEGER NULL CHECK (allocation_batch_start BETWEEN 1 AND 254),
     folder_id             UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     inventory_item_id     UUID NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
     cloned_pod_id         UUID NULL UNIQUE REFERENCES cloned_pods(id) ON DELETE CASCADE,
@@ -721,8 +723,14 @@ CREATE TABLE pod_network_allocations (
     -- The number is the inner VLAN tag, so it stays unique across targets.
     UNIQUE (network_number),
     CONSTRAINT pod_network_allocations_profile_key_not_empty
-        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0)
+        CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0),
+    CONSTRAINT pod_network_allocations_batch_start_requires_id
+        CHECK (allocation_batch_start IS NULL OR allocation_batch_id IS NOT NULL)
 );
+
+CREATE INDEX ix_pod_network_allocations_batch
+    ON pod_network_allocations (allocation_batch_id)
+    WHERE allocation_batch_id IS NOT NULL;
 
 CREATE UNIQUE INDEX ux_pod_network_allocations_dev_pod_folder
     ON pod_network_allocations (folder_id)

@@ -243,9 +243,18 @@ type publishedPodCloneBulkActionRequest struct {
 }
 
 type createPublishedPodCloneRequest struct {
-	PrincipalID     uuid.UUID `json:"principal_id" binding:"required"`
-	ProgressID      string    `json:"progress_id" binding:"required"`
-	ProgressBatchID string    `json:"progress_batch_id" binding:"required"`
+	PrincipalID       uuid.UUID  `json:"principal_id" binding:"required"`
+	ProgressID        string     `json:"progress_id" binding:"required"`
+	ProgressBatchID   string     `json:"progress_batch_id" binding:"required"`
+	NetworkBatchID    *uuid.UUID `json:"network_batch_id"`
+	NetworkBatchIndex *int32     `json:"network_batch_index"`
+	NetworkBatchSize  *int32     `json:"network_batch_size"`
+}
+
+type podNetworkAllocationBatch struct {
+	ID    uuid.UUID
+	Index int32
+	Size  int32
 }
 
 type publishedPodCloneBulkActionFailure struct {

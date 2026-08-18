@@ -169,15 +169,84 @@ func (q *Queries) GetClonedPodForPrincipalByPodID(ctx context.Context, arg GetCl
 }
 
 const insertClonedPod = `-- name: InsertClonedPod :one
-WITH candidate AS (
-    SELECT n::INTEGER AS network_number
-    FROM generate_series($1::INTEGER, $2::INTEGER) AS n
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM pod_network_allocations pna
-        WHERE pna.network_number = n
-    )
+WITH existing_batch AS (
+    SELECT pna.allocation_batch_start
+    FROM pod_network_allocations pna
+    WHERE pna.allocation_batch_id = $1::UUID
+    ORDER BY pna.allocation_batch_start ASC NULLS LAST
+    LIMIT 1
+),
+contiguous_start AS (
+    SELECT n::INTEGER AS network_start
+    FROM generate_series(
+        $2::INTEGER,
+        $3::INTEGER - $4::INTEGER + 1
+    ) AS n
+    WHERE $1::UUID IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pod_network_allocations pna
+          WHERE pna.network_number BETWEEN n AND n + $4::INTEGER - 1
+      )
     ORDER BY n
+    LIMIT 1
+),
+batch_choice AS (
+    SELECT existing_batch.allocation_batch_start AS network_start
+    FROM existing_batch
+
+    UNION ALL
+
+    SELECT contiguous_start.network_start
+    FROM contiguous_start
+    WHERE NOT EXISTS (SELECT 1 FROM existing_batch)
+
+    UNION ALL
+
+    SELECT NULL::INTEGER
+    WHERE $1::UUID IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM existing_batch)
+      AND NOT EXISTS (SELECT 1 FROM contiguous_start)
+
+    LIMIT 1
+),
+preferred_candidate AS (
+    SELECT
+        batch_choice.network_start + $5::INTEGER AS network_number,
+        batch_choice.network_start
+    FROM batch_choice
+    WHERE batch_choice.network_start IS NOT NULL
+      AND batch_choice.network_start + $5::INTEGER
+          BETWEEN $2::INTEGER AND $3::INTEGER
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pod_network_allocations pna
+          WHERE pna.network_number = batch_choice.network_start + $5::INTEGER
+      )
+),
+candidate AS (
+    SELECT choices.network_number, choices.network_start
+    FROM (
+        SELECT
+            preferred_candidate.network_number,
+            preferred_candidate.network_start,
+            0 AS priority
+        FROM preferred_candidate
+
+        UNION ALL
+
+        SELECT
+            n::INTEGER AS network_number,
+            NULL::INTEGER AS network_start,
+            1 AS priority
+        FROM generate_series($2::INTEGER, $3::INTEGER) AS n
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM pod_network_allocations pna
+            WHERE pna.network_number = n
+        )
+    ) AS choices
+    ORDER BY choices.priority, choices.network_number
     LIMIT 1
 ),
 allocation AS (
@@ -186,14 +255,18 @@ allocation AS (
         kind,
         network_profile_key,
         clone_target_key,
+        allocation_batch_id,
+        allocation_batch_start,
         folder_id
     )
     SELECT
         candidate.network_number,
         'published_clone',
-        $3,
-        $4,
-        $5
+        $6,
+        $7,
+        $1,
+        candidate.network_start,
+        $8
     FROM candidate
     RETURNING id, network_number
 ),
@@ -208,13 +281,13 @@ inserted AS (
         clone_target_key
     )
     SELECT
-        $6,
-        $7,
+        $9,
+        $10,
+        $11,
         $8,
-        $5,
         allocation.network_number,
-        $3,
-        $4
+        $6,
+        $7
     FROM allocation
     RETURNING
         id,
@@ -247,14 +320,17 @@ FROM inserted
 `
 
 type InsertClonedPodParams struct {
-	MinNetworkNumber  int32     `json:"min_network_number"`
-	MaxNetworkNumber  int32     `json:"max_network_number"`
-	NetworkProfileKey *string   `json:"network_profile_key"`
-	CloneTargetKey    string    `json:"clone_target_key"`
-	FolderID          uuid.UUID `json:"folder_id"`
-	ID                uuid.UUID `json:"id"`
-	PodID             uuid.UUID `json:"pod_id"`
-	UserPrincipalID   uuid.UUID `json:"user_principal_id"`
+	AllocationBatchID    *uuid.UUID `json:"allocation_batch_id"`
+	MinNetworkNumber     int32      `json:"min_network_number"`
+	MaxNetworkNumber     int32      `json:"max_network_number"`
+	AllocationBatchSize  int32      `json:"allocation_batch_size"`
+	AllocationBatchIndex int32      `json:"allocation_batch_index"`
+	NetworkProfileKey    *string    `json:"network_profile_key"`
+	CloneTargetKey       string     `json:"clone_target_key"`
+	FolderID             uuid.UUID  `json:"folder_id"`
+	ID                   uuid.UUID  `json:"id"`
+	PodID                uuid.UUID  `json:"pod_id"`
+	UserPrincipalID      uuid.UUID  `json:"user_principal_id"`
 }
 
 type InsertClonedPodRow struct {
@@ -271,8 +347,11 @@ type InsertClonedPodRow struct {
 
 func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (InsertClonedPodRow, error) {
 	row := q.db.QueryRow(ctx, insertClonedPod,
+		arg.AllocationBatchID,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
+		arg.AllocationBatchSize,
+		arg.AllocationBatchIndex,
 		arg.NetworkProfileKey,
 		arg.CloneTargetKey,
 		arg.FolderID,

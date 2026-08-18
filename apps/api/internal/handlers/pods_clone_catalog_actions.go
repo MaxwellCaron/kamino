@@ -247,7 +247,7 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 	}
 	defer h.releasePodCloneClaim(pod.ID, principalID, c.Request.Context())
 
-	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, folderName, pod, progress)
+	clone, reqErr := h.clonePublishedPod(c.Request.Context(), principalID, folderName, pod, progress, nil)
 	if reqErr != nil {
 		progress.fail(reqErr.UserMessage)
 		writeRequestError(c, reqErr)
