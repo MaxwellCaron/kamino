@@ -275,7 +275,7 @@ export function ClonePodDialog({
           )}
         />
 
-        <div>
+        <div className="space-y-6">
           <CloneStatusItem
             title={
               <>
