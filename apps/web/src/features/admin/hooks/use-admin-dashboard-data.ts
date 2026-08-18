@@ -164,7 +164,7 @@ export function useAdminDashboardData(
     () => storageQueries.find((query) => query.error)?.error,
     [storageQueries]
   )
-  const isStorageLoading =
+  const isClusterCapacityLoading =
     isNodesLoading ||
     (nodesData !== undefined &&
       nodesData.length > 0 &&
@@ -179,7 +179,8 @@ export function useAdminDashboardData(
     isInventoryLoading ||
     isPendingRequestsLoading ||
     isPendingRequestsTotalLoading ||
-    isCompletedRequestsTotalLoading
+    isCompletedRequestsTotalLoading ||
+    isClusterCapacityLoading
   const isDashboardEmpty =
     !isMainDashboardLoading &&
     !primaryStatsError &&
@@ -190,8 +191,7 @@ export function useAdminDashboardData(
 
   return {
     cluster: {
-      isNodesLoading,
-      isStorageLoading,
+      isCapacityLoading: isClusterCapacityLoading,
       nodes,
       nodesError,
       storageError,

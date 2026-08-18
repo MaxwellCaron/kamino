@@ -25,7 +25,6 @@ import {
   sharedStorageHistoryKey,
 } from "../utils/admin-dashboard"
 import { UsageAreaChart } from "./usage-charts"
-import { AdminClusterCardSkeleton } from "./admin-cluster-card-skeleton"
 import { AdminNodeTable } from "./admin-node-table"
 import { AdminSharedStorageTable } from "./admin-shared-storage-table"
 import type { DashboardStorageSummary } from "../utils/admin-dashboard"
@@ -53,15 +52,13 @@ export function AdminClusterCard({
   storageSummary,
   nodesError,
   storageError,
-  isNodesLoading,
-  isStorageLoading,
+  isCapacityLoading,
 }: {
   nodes: Array<ApiNode>
   storageSummary: DashboardStorageSummary
   nodesError?: unknown
   storageError?: unknown
-  isNodesLoading?: boolean
-  isStorageLoading?: boolean
+  isCapacityLoading?: boolean
 }) {
   const clusterLoadError = nodesError ?? storageError
   const [timeframe, setTimeframe] = useState<UsageHistoryTimeframe>("hour")
@@ -108,8 +105,8 @@ export function AdminClusterCard({
     return "History unavailable."
   }, [historyError])
 
-  if (isNodesLoading || isStorageLoading) {
-    return <AdminClusterCardSkeleton />
+  if (isCapacityLoading) {
+    return null
   }
 
   if (clusterLoadError) {

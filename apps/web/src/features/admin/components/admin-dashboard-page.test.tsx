@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import { AdminDashboardPage } from "./admin-dashboard-page"
+import type { ApiClusterUsageHistoryResponse } from "../api/admin-metrics-api"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import type { ApiStorage } from "@/features/vms/types/vm-types"
 import { renderWithQueryClient } from "@/test/test-utils"
+
+type MockUsageAreaChartProps = {
+  isLoading?: boolean
+  label: string
+  total: number
+  used: number
+}
 
 const {
   mockUsersQueryFn,
@@ -96,7 +105,19 @@ vi.mock("./admin-dashboard-principals-cards", () => ({
 }))
 
 vi.mock("./usage-charts", () => ({
-  UsageAreaChart: () => <div>Usage chart</div>,
+  UsageAreaChart: ({
+    isLoading = false,
+    label,
+    total,
+    used,
+  }: MockUsageAreaChartProps) => (
+    <div
+      data-loading={String(isLoading)}
+      data-testid={`usage-${label.toLowerCase()}`}
+    >
+      {used} / {total}
+    </div>
+  ),
 }))
 
 vi.mock("./admin-node-table", () => ({
@@ -114,7 +135,18 @@ const testUser: AuthUser = {
   management_permissions: { grants: ["manager"] },
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 function resolveAdminDefaults() {
+  mockUsersQueryFn.mockResolvedValue([])
   mockGroupsQueryFn.mockResolvedValue([])
   mockInventoryTreeQueryFn.mockResolvedValue([])
   mockPendingSummariesQueryFn.mockResolvedValue([])
@@ -158,5 +190,64 @@ describe("AdminDashboardPage", () => {
     renderWithQueryClient(<AdminDashboardPage user={testUser} />)
 
     expect(await screen.findByText("Cluster")).toBeInTheDocument()
+  })
+
+  it("shows current usage while chart history is still loading", async () => {
+    const storageDeferred = createDeferred<Array<ApiStorage>>()
+    const historyDeferred = createDeferred<ApiClusterUsageHistoryResponse>()
+    mockStoragesQueryFn.mockReturnValue(storageDeferred.promise)
+    mockClusterHistoryQueryFn.mockReturnValue(historyDeferred.promise)
+
+    renderWithQueryClient(<AdminDashboardPage user={testUser} />)
+
+    expect(screen.queryByLabelText("Loading cluster")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("usage-cpu")).not.toBeInTheDocument()
+
+    storageDeferred.resolve([
+      {
+        storage: "local-lvm",
+        type: "lvmthin",
+        content: "images",
+        avail: 768,
+        total: 1024,
+        used: 256,
+        shared: 0,
+        kamino_shared: false,
+        kamino_excluded: false,
+      },
+    ])
+
+    expect(await screen.findByTestId("usage-cpu")).toHaveTextContent("0.8 / 8")
+    expect(screen.getByTestId("usage-cpu")).toHaveAttribute(
+      "data-loading",
+      "true"
+    )
+    expect(screen.getByTestId("usage-memory")).toHaveTextContent("1 / 16")
+    expect(screen.getByTestId("usage-memory")).toHaveAttribute(
+      "data-loading",
+      "true"
+    )
+    expect(screen.getByTestId("usage-storage")).toHaveTextContent("256 / 1024")
+    expect(screen.getByTestId("usage-storage")).toHaveAttribute(
+      "data-loading",
+      "true"
+    )
+
+    historyDeferred.resolve({ points: [], nodes: [], shared_storages: [] })
+
+    await waitFor(() => {
+      expect(screen.getByTestId("usage-cpu")).toHaveAttribute(
+        "data-loading",
+        "false"
+      )
+    })
+    expect(screen.getByTestId("usage-memory")).toHaveAttribute(
+      "data-loading",
+      "false"
+    )
+    expect(screen.getByTestId("usage-storage")).toHaveAttribute(
+      "data-loading",
+      "false"
+    )
   })
 })
