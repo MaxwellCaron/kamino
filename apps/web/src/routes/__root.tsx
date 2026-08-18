@@ -5,7 +5,7 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router"
 import dmSansLatinUrl from "@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2?url"
-import appCss from "@workspace/ui/globals.css?url"
+import "@workspace/ui/globals.css"
 import {
   ThemeProvider,
   useTheme,
@@ -59,10 +59,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         type: "image/svg+xml",
         href: "/kamino.svg",
       },
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
     ],
   }),
   shellComponent: RootShell,
@@ -83,6 +79,11 @@ function RootComponent() {
 
 const themeScript = `
 (() => {
+  globalThis.__zod_globalConfig = {
+    ...globalThis.__zod_globalConfig,
+    jitless: true,
+  }
+
   const storageKey = ${JSON.stringify(themeStorageKey)}
   const defaultTheme = ${JSON.stringify(defaultTheme)}
   const root = document.documentElement

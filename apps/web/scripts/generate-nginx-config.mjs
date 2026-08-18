@@ -1,6 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { access, mkdir, readFile, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import { createHash } from "node:crypto"
-import { dirname } from "node:path"
 
 const [shellPath, templatePath, outputPath] = process.argv.slice(2)
 
@@ -14,6 +14,31 @@ const [shell, template] = await Promise.all([
   readFile(shellPath, "utf8"),
   readFile(templatePath, "utf8"),
 ])
+
+const assetPaths = [
+  ...new Set(
+    [...shell.matchAll(/["'](\/assets\/[^"'?#]+)(?:[?#][^"']*)?["']/g)].map(
+      ([, assetPath]) => assetPath
+    )
+  ),
+]
+const missingAssets = []
+
+await Promise.all(
+  assetPaths.map(async (assetPath) => {
+    try {
+      await access(join(dirname(shellPath), assetPath.slice(1)))
+    } catch {
+      missingAssets.push(assetPath)
+    }
+  })
+)
+
+if (missingAssets.length > 0) {
+  throw new Error(
+    `Missing assets referenced by ${shellPath}: ${missingAssets.sort().join(", ")}`
+  )
+}
 
 const inlineScripts = [
   ...shell.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi),
@@ -30,7 +55,13 @@ if (inlineScripts.length === 0) {
 const hashes = [
   ...new Set(
     inlineScripts.map((script) => {
-      const digest = createHash("sha256").update(script).digest("base64")
+      const browserScript = script
+        .replaceAll("\r\n", "\n")
+        .replaceAll("\r", "\n")
+        .replaceAll("\0", "\uFFFD")
+      const digest = createHash("sha256")
+        .update(browserScript)
+        .digest("base64")
       return `'sha256-${digest}'`
     })
   ),
