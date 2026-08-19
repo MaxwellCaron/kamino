@@ -5,6 +5,7 @@ import {
   ChartTooltip,
   TooltipContent,
 } from "@workspace/ui/components/charts/tooltip"
+import { useChartStable } from "@workspace/ui/components/charts/chart-context"
 import { XAxis } from "@workspace/ui/components/charts/x-axis"
 import {
   formatPercent,
@@ -12,6 +13,7 @@ import {
   percentage,
 } from "../utils/admin-dashboard"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { XAxisProps } from "@workspace/ui/components/charts/x-axis"
 import type { CapacityHistoryPoint } from "../utils/admin-dashboard"
 
 function getXAxisConfig(timeframe: UsageHistoryTimeframe) {
@@ -80,6 +82,19 @@ function getNodeAspectRatio(_timeframe: UsageHistoryTimeframe) {
   return "9 / 1"
 }
 
+function XAxisWhenReady(props: XAxisProps) {
+  const { chartPhase } = useChartStable()
+  const showAxis =
+    chartPhase === "gridTweenReady" ||
+    chartPhase === "revealing" ||
+    chartPhase === "ready" ||
+    chartPhase === "exitingReady"
+  if (!showAxis) {
+    return null
+  }
+  return <XAxis {...props} />
+}
+
 function UsageChartBody({
   chartData,
   color,
@@ -116,10 +131,13 @@ function UsageChartBody({
         {isLoading ? `Loading ${label} chart` : `${label} chart ready`}
       </span>
       <AreaChart
+        animationDuration={600}
         aspectRatio={aspectRatio}
         data={chartData}
         margin={margin}
         status={isLoading ? "loading" : "ready"}
+        yDomainTweenDuration={250}
+        loadingLabel="Loading..."
       >
         <Grid
           fadeHorizontal={false}
@@ -134,6 +152,7 @@ function UsageChartBody({
             fill="var(--color-primary)"
             fillOpacity={0.08}
             gradientToOpacity={0.01}
+            loadingStyle="sweep"
             showHighlight={false}
             stroke="var(--color-primary)"
             strokeWidth={compact ? 1 : 1.5}
@@ -146,12 +165,13 @@ function UsageChartBody({
           fillOpacity={0.2}
           gradientToOpacity={0.02}
           loading={showCapacitySeries ? false : undefined}
+          loadingStyle="sweep"
           showHighlight={false}
           stroke={color}
           strokeWidth={compact ? 1.5 : 2}
         />
         {showXAxis ? (
-          <XAxis
+          <XAxisWhenReady
             formatLabel={xAxisConfig.formatLabel}
             numTicks={compact ? 2 : xAxisConfig.numTicks}
             tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
