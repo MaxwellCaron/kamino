@@ -77,7 +77,7 @@ export function UserGroupBulkDialog({
   }, [groupOptions, search])
 
   const selectedGroups = useMemo(
-    () => groupOptions.filter((group) => rowSelection[group.id]),
+    () => groupOptions.filter((group) => group.id in rowSelection),
     [groupOptions, rowSelection]
   )
 

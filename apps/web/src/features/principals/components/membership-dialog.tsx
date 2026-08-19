@@ -304,8 +304,8 @@ function MembershipForm({
     const nextSelection =
       typeof updater === "function" ? updater(rowSelection) : updater
     const nextSelectedIds: Array<string> = []
-    for (const [id, selected] of Object.entries(nextSelection)) {
-      if (selected) nextSelectedIds.push(id)
+    for (const id of Object.keys(nextSelection)) {
+      nextSelectedIds.push(id)
     }
     setSelectedIds(nextSelectedIds)
   }
