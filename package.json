@@ -13,7 +13,8 @@
     "format": "turbo format",
     "typecheck": "turbo typecheck",
     "typecheck:stable": "turbo typecheck:stable",
-    "test": "turbo test"
+    "test": "turbo test",
+    "ci": "bash scripts/ci.sh"
   },
   "packageManager": "bun@1.3.11",
   "engines": {
