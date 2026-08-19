@@ -128,7 +128,6 @@ export function SnapshotsTable({
       </CardHeader>
       <CardContent className="flex-1 border-b px-0">
         <SimpleDataTable
-          animationKey={itemId}
           columns={columns}
           data={filtered}
           error={snapshotsError}

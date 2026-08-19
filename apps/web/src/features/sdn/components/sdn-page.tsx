@@ -17,7 +17,6 @@ import { podCloneTargetsQueryOptions } from "@/features/pods/api/clone-targets-a
 import { CloneTargetsCard } from "@/features/sdn/components/clone-targets-card"
 import { SdnHeader } from "@/features/sdn/components/sdn-header"
 import { VNetsCard } from "@/features/sdn/components/vnets-card"
-import { PreloadOverlay } from "@/components/loading-overlay"
 
 const sdnRouteApi = getRouteApi("/_dashboard/admin/sdn")
 
@@ -51,7 +50,6 @@ export function SdnPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={isLoading} label="Loading VNets" />
       {!isLoading && (
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
           <SdnHeader

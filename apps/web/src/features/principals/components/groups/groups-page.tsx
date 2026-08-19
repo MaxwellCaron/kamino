@@ -39,7 +39,6 @@ import { GroupDialog } from "@/features/principals/components/groups/group-dialo
 import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
 import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import { DataTable } from "@/components/data-table/data-table"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 import {
   showSingleMutationToast,
@@ -164,7 +163,6 @@ export function GroupsPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={isLoading} label="Loading groups" />
       {!isLoading && (
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
           <Card>

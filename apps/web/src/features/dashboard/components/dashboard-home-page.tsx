@@ -8,7 +8,6 @@ import { DashboardRecentPodsCard } from "./dashboard-published-pods-card"
 import { DashboardStatsGrid } from "./dashboard-stat-cards"
 import { ChangePasswordDialog } from "./change-password-dialog"
 import type { AuthUser } from "@/features/auth/types/auth-types"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { getManagementRoleLabel } from "@/features/auth/utils/management-permissions"
 import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
@@ -32,7 +31,6 @@ export function DashboardHomePage({ user }: { user: AuthUser }) {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={dashboard.isLoading} label="Loading dashboard" />
       <div className="grid grid-cols-1 gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid-cols-12">
         {dashboard.primaryStatsError ? (
           <div className="xl:col-span-12">

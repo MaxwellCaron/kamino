@@ -1,6 +1,6 @@
-import { AnimatePresence, m } from "motion/react"
 import {
   Table,
+  TableBody,
   TableCell,
   TableHead,
   TableHeader,
@@ -12,15 +12,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 
-import { animateContainer, animateTableRow } from "../animate"
 import { DataTableStateRow } from "./data-table-state-row"
 import type { ColumnDef, TableOptions } from "@tanstack/react-table"
-import type { Key } from "react"
-
-const MotionTableRow = m.create(TableRow)
 
 export type SimpleDataTableProps<TData, TValue> = {
-  animationKey?: Key
   columns: Array<ColumnDef<TData, TValue>>
   data: Array<TData>
   error: Error | null
@@ -29,7 +24,6 @@ export type SimpleDataTableProps<TData, TValue> = {
 }
 
 export function SimpleDataTable<TData, TValue>({
-  animationKey,
   columns,
   data,
   error,
@@ -42,10 +36,6 @@ export function SimpleDataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getRowId,
   })
-  const dataAnimationKey = JSON.stringify(
-    table.getCoreRowModel().rows.map((row) => row.id)
-  )
-  const resolvedAnimationKey = animationKey ?? dataAnimationKey
 
   return (
     <div
@@ -74,37 +64,24 @@ export function SimpleDataTable<TData, TValue>({
             </TableRow>
           ))}
         </TableHeader>
-        <AnimatePresence>
-          <m.tbody
-            key={`${String(resolvedAnimationKey)}-${isLoading ? "loading" : "loaded"}`}
-            className="overflow-hidden [&_tr:last-child]:border-0"
-            initial="hidden"
-            animate="show"
-            variants={animateContainer}
-          >
-            <AnimatePresence mode="popLayout">
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <MotionTableRow key={row.id} variants={animateTableRow}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cell.column.columnDef.meta?.className}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </MotionTableRow>
-                ))
-              ) : (
-                <DataTableStateRow colSpan={columns.length} error={error} />
-              )}
-            </AnimatePresence>
-          </m.tbody>
-        </AnimatePresence>
+        <TableBody className="overflow-hidden [&_tr:last-child]:border-0">
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    className={cell.column.columnDef.meta?.className}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <DataTableStateRow colSpan={columns.length} error={error} />
+          )}
+        </TableBody>
       </Table>
     </div>
   )

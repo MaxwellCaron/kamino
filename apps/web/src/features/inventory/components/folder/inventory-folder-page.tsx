@@ -6,7 +6,6 @@ import { inventoryTreeQueryOptions } from "../../api/inventory-api"
 import { findInventoryTreeNode } from "../../utils/inventory-tree"
 import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryFolderContents } from "./inventory-folder-contents"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { FolderIcon } from "@/components/status/folder-icon"
 
@@ -37,7 +36,6 @@ export function InventoryFolderPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col">
-      <PreloadOverlay active={isLoading} label="Loading folder" />
       {folder && folder.kind === "folder" && (
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 pt-12">

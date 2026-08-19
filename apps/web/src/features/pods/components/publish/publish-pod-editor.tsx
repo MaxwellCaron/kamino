@@ -19,7 +19,6 @@ import {
   publishPodOptionsQueryOptions,
   publishedPodProgressQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import {
   groupsQueryOptions,
@@ -270,7 +269,6 @@ export function PublishPodEditor({
 
   return (
     <div className="@container/main relative flex flex-1 flex-col">
-      <PreloadOverlay active={isLoadingFormOptions} label="Loading pod" />
       {!isLoadingFormOptions && (
         <form
           noValidate

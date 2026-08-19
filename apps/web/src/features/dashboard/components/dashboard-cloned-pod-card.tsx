@@ -63,7 +63,7 @@ export function DashboardCurrentClonedPodCard({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false} mode="wait">
           {error ? (
             <Empty key="error" className="min-h-52 border border-dashed">
               <EmptyHeader>

@@ -41,7 +41,6 @@ import { useUsersPageMutations } from "@/features/principals/hooks/use-users-pag
 import { UsersSelectionActions } from "@/features/principals/components/users/users-selection-actions"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { DataTable } from "@/components/data-table/data-table"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
@@ -132,7 +131,6 @@ export function UsersPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={isLoading} label="Loading users" />
       {!isLoading && (
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
           <Card>

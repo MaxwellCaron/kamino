@@ -6,6 +6,23 @@ import { loadingTransition } from "@/components/loading-transition"
 
 const SHOW_DELAY_MS = 150
 
+function LoadingIndicator({
+  label,
+  routePendingLabel = false,
+}: {
+  label: string
+  routePendingLabel?: boolean
+}) {
+  return (
+    <>
+      <Spinner className="size-5" />
+      <span {...(routePendingLabel ? { "data-route-pending-label": "" } : {})}>
+        {label}
+      </span>
+    </>
+  )
+}
+
 export function RoutePending() {
   return (
     <main
@@ -15,8 +32,7 @@ export function RoutePending() {
       aria-label="Loading Kamino"
       className="flex min-h-svh items-center justify-center gap-3 bg-background text-sm text-muted-foreground"
     >
-      <Spinner className="size-5" />
-      <span data-route-pending-label="">Loading Kamino...</span>
+      <LoadingIndicator label="Loading Kamino..." routePendingLabel />
     </main>
   )
 }
@@ -33,12 +49,11 @@ export function LazyContentFallback({
       role="status"
       aria-busy="true"
       className={cn(
-        "flex min-h-24 w-full items-center justify-center gap-2 text-sm text-muted-foreground",
+        "flex min-h-24 w-full items-center justify-center gap-3 text-sm text-muted-foreground",
         className
       )}
     >
-      <Spinner className="size-5" />
-      {label}
+      <LoadingIndicator label={label} />
     </div>
   )
 }
@@ -63,18 +78,18 @@ export function PreloadOverlay({
   }, [active])
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {visible && (
         <m.div
           key="preload-overlay"
+          role="status"
           aria-busy="true"
           aria-label={label}
-          className="absolute inset-0 z-30 flex items-center justify-center bg-background"
-          initial={{ opacity: 1 }}
+          className="absolute inset-0 z-30 flex items-center justify-center gap-3 bg-background text-sm text-muted-foreground"
           exit={{ opacity: 0 }}
           transition={loadingTransition}
         >
-          <Spinner className="size-10 opacity-20" />
+          <LoadingIndicator label={label} />
         </m.div>
       )}
     </AnimatePresence>

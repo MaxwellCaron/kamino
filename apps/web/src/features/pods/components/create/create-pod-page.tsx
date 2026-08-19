@@ -17,7 +17,6 @@ import { CreatePodReviewSection } from "./create-pod-4-review"
 import { CreatePodSubmitState } from "./create-pod-creation-state"
 import type { CreatePodFormValues } from "./create-pod-form"
 import type { CreatePodResult } from "@/features/pods/api/create-pod-api"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { uuid } from "@/features/shared/utils/uuid"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
@@ -254,10 +253,6 @@ export function CreatePodPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col">
-      <PreloadOverlay
-        active={isCreateOptionsLoading}
-        label="Loading pod creation"
-      />
       {!isCreateOptionsLoading && (
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
           <div className="flex flex-col gap-2">

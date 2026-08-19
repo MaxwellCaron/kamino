@@ -11,7 +11,6 @@ import type { PendingCloneBulkAction } from "../../types/published-pods-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import type { PublishedPodsStats } from "@/features/pods/types/published-pods-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { usePublishedPodsManagerClones } from "@/features/pods/hooks/use-published-pods-manager-clones"
@@ -142,7 +141,6 @@ export function PublishedPodsPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={isPodsLoading} label="Loading published pods" />
       {!isPodsLoading && (
         <>
           <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">

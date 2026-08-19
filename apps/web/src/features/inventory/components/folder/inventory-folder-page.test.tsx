@@ -73,12 +73,12 @@ describe("InventoryFolderPage", () => {
     mockInventoryNodeMenuProps.current = null
   })
 
-  it("shows preload overlay while loading without throwing not found", async () => {
+  it("leaves initial loading feedback to the route without throwing not found", () => {
     mockInventoryTreeQueryFn.mockReturnValue(new Promise(() => {}))
 
     renderWithQueryClient(<InventoryFolderPage />)
 
-    expect(await screen.findByLabelText("Loading folder")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Loading folder")).not.toBeInTheDocument()
     expect(
       screen.queryByRole("heading", { name: "Test Folder" })
     ).not.toBeInTheDocument()

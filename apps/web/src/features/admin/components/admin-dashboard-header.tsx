@@ -1,4 +1,3 @@
-import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerIcon,
@@ -18,7 +17,6 @@ import {
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
 import type { ReactNode } from "react"
 import type { AdminStats } from "../utils/admin-dashboard"
-import { animateChild, animateContainer } from "@/components/animate"
 
 type Stat = {
   icon: ReactNode
@@ -113,17 +111,11 @@ export function AdminDashboardHeader({ stats }: { stats: AdminStats | null }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <m.div
-          className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1"
-          initial="hidden"
-          animate="show"
-          variants={animateContainer}
-        >
+        <div className="grid grid-cols-2 grid-rows-3 gap-4 lg:grid-cols-3 lg:grid-rows-2 lg:gap-6 2xl:grid-cols-6 2xl:grid-rows-1">
           {statCards.map((stat) => {
             return (
-              <m.div key={stat.label} variants={animateChild}>
+              <div key={stat.label}>
                 <Item
-                  key={stat.label}
                   variant="muted"
                   className="relative h-full flex-col items-start overflow-hidden"
                 >
@@ -146,10 +138,10 @@ export function AdminDashboardHeader({ stats }: { stats: AdminStats | null }) {
                     </div>
                   </div>
                 </Item>
-              </m.div>
+              </div>
             )
           })}
-        </m.div>
+        </div>
       </CardContent>
     </Card>
   )

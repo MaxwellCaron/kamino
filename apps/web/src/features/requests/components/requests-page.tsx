@@ -17,7 +17,6 @@ import type {
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
@@ -339,7 +338,6 @@ export function RequestsPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={isRequestsLoading} label="Loading requests" />
       {!isRequestsLoading && (
         <>
           <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">

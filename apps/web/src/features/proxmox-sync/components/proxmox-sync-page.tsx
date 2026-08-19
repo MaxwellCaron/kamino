@@ -49,7 +49,6 @@ import {
 import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff-columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
@@ -158,7 +157,6 @@ export function ProxmoxSyncPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay active={isLoading} label="Loading Proxmox sync" />
       {!isLoading && (
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
           {diff?.warning && (

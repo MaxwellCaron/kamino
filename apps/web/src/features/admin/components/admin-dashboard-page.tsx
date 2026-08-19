@@ -12,7 +12,6 @@ import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
 import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-requests-card"
 import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AuthUser } from "@/features/auth/types/auth-types"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { useAdminDashboardData } from "@/features/admin/hooks/use-admin-dashboard-data"
@@ -117,10 +116,6 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      <PreloadOverlay
-        active={dashboard.state.isLoading}
-        label="Loading admin dashboard"
-      />
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
         {dashboard.state.error ? (
           <div className="xl:col-span-12">

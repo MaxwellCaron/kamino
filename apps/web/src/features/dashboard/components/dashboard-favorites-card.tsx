@@ -1,4 +1,3 @@
-import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import {
@@ -21,7 +20,6 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
-import { animateContainer, animateTableRow } from "@/components/animate"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 export function DashboardFavoritesCard({
@@ -66,7 +64,7 @@ export function DashboardFavoritesCard({
             ))}
           </div>
         ) : favorites.length > 0 ? (
-          <m.div initial="hidden" animate="show" variants={animateContainer}>
+          <div>
             <ItemGroup>
               {favorites.map((favorite) => {
                 const vmid = favorite.vm?.vmid
@@ -74,19 +72,18 @@ export function DashboardFavoritesCard({
                   vmid !== undefined ? vmStatuses?.[vmid] : undefined
 
                 return (
-                  <m.div key={favorite.id} variants={animateTableRow}>
+                  <div key={favorite.id}>
                     <InventoryFolderItem
-                      key={favorite.id}
                       node={favorite}
                       status={status}
                       isFavorite
                       onToggleFavorite={() => toggleFavorite(favorite.id)}
                     />
-                  </m.div>
+                  </div>
                 )
               })}
             </ItemGroup>
-          </m.div>
+          </div>
         ) : (
           <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>
