@@ -26,11 +26,14 @@ const podDateFormatter = new Intl.DateTimeFormat("en-US", {
 type BrowsePodsCardProps = {
   pod: PodCatalogSummary
   hasClonedInstance: boolean
+  /** Play the title/description/footer stagger-in animation. Default: true */
+  animate?: boolean
 }
 
 export function BrowsePodsCard({
   pod,
   hasClonedInstance,
+  animate = true,
 }: BrowsePodsCardProps) {
   const stagger = useCutoutContentStaggerVariants()
 
@@ -76,7 +79,7 @@ export function BrowsePodsCard({
           <m.div
             animate="show"
             className="contents"
-            initial="hidden"
+            initial={animate ? "hidden" : false}
             variants={stagger.container}
           >
             <m.h2

@@ -71,6 +71,7 @@ export function DashboardRecentPodsCard({
                   <BrowsePodsCard
                     pod={pod}
                     hasClonedInstance={clonedPodIds.has(pod.id)}
+                    animate={false}
                   />
                 </div>
               ))}
