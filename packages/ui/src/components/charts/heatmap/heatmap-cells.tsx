@@ -237,7 +237,20 @@ const HeatmapMotionCell = memo(function HeatmapMotionCell({
   const targetFill = fillScale(bin.count);
   const emptyFill = fillScale(0);
   const patternFillOpacity = heatmapLevelCellFillOpacity(levelStyle);
-  const dataOpacity = useMotionValue(0);
+
+  const isReadyResting =
+    chartStatus === "ready" && chartPhase === "ready" && isLoaded;
+  const readyHoverStyle = resolveHeatmapHoverStyle(
+    hoverState.isHighlighted,
+    hoverState.isDimmed,
+    { inactiveOpacity, inactiveScale, activeScale }
+  );
+  const readyDataOpacity = readyHoverStyle.opacity;
+
+  /** Skip the mount-time fade when a cell renders straight into its resting state. */
+  const dataOpacity = useMotionValue(
+    !animateCells && isReadyResting ? readyDataOpacity : 0
+  );
   /** Orchestration layer: conceal, static loading base. */
   const shimmerOpacity = useMotionValue(0);
   /** Pulse loop only — kept separate so stagger tweens don't break re-entry. */
@@ -253,8 +266,6 @@ const HeatmapMotionCell = memo(function HeatmapMotionCell({
     chartPhase === "revealing" &&
     !isLoaded &&
     (revealMode === "fromLoading" || revealMode === "enter");
-  const isReadyResting =
-    chartStatus === "ready" && chartPhase === "ready" && isLoaded;
 
   const participates = useMemo(
     () =>
@@ -286,13 +297,7 @@ const HeatmapMotionCell = memo(function HeatmapMotionCell({
     delayMs / 1000
   );
 
-  const readyHoverStyle = resolveHeatmapHoverStyle(
-    hoverState.isHighlighted,
-    hoverState.isDimmed,
-    { inactiveOpacity, inactiveScale, activeScale }
-  );
   const rowOpacityMultiplier = resolveHeatmapRowOpacity(cell.row, rowOpacity);
-  const readyDataOpacity = readyHoverStyle.opacity;
   const readyScale = isReadyResting ? readyHoverStyle.scale : 1;
   const transformOrigin = `${cell.x + cell.width / 2}px ${cell.y + cell.height / 2}px`;
 

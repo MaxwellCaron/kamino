@@ -1,6 +1,5 @@
 "use client"
 
-import { ParentSize } from "@visx/responsive"
 import { scaleLinear, scaleTime } from "@visx/scale"
 import { useReducedMotion } from "motion/react"
 import {
@@ -132,7 +131,7 @@ const DEFAULT_MARGIN: Margin = { top: 28, right: 16, bottom: 0, left: 40 }
 
 const FLUID_HEATMAP_FALLBACK_CELL_PX = 11
 
-/** Reserve fluid chart height before ParentSize measures width. */
+/** Reserve fluid chart height before the container is measured. */
 function estimateFluidHeatmapHeight(
   width: number,
   columnCount: number,
@@ -669,6 +668,7 @@ export function HeatmapChart({
       ? estimateFluidHeatmapHeight(0, columnCount, rowCount, margin)
       : undefined
   )
+  const [measuredSize, setMeasuredSize] = useState({ width: 0, height: 0 })
   const levelStyles = useMemo(
     () => resolveHeatmapLevelStyles(levelColors, levelStylesProp),
     [levelColors, levelStylesProp]
@@ -683,29 +683,31 @@ export function HeatmapChart({
   )
 
   useLayoutEffect(() => {
-    if (layout !== "fluid") {
-      return
-    }
-
     const element = containerRef.current
     if (!element) {
       return
     }
 
-    const syncReservedHeight = () => {
-      setReservedHeight(
-        estimateFluidHeatmapHeight(
-          element.offsetWidth,
-          columnCount,
-          rowCount,
-          margin
-        )
+    const syncMeasurements = () => {
+      const width = element.offsetWidth
+      const height = element.offsetHeight
+
+      setMeasuredSize((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height }
       )
+
+      if (layout === "fluid") {
+        setReservedHeight(
+          estimateFluidHeatmapHeight(width, columnCount, rowCount, margin)
+        )
+      }
     }
 
-    syncReservedHeight()
+    syncMeasurements()
 
-    const observer = new ResizeObserver(syncReservedHeight)
+    const observer = new ResizeObserver(syncMeasurements)
     observer.observe(element)
     return () => observer.disconnect()
   }, [
@@ -745,43 +747,39 @@ export function HeatmapChart({
         ...(reservedHeight != null ? { minHeight: reservedHeight } : undefined),
       }}
     >
-      <ParentSize>
-        {({ width, height: parentHeight }) => (
-          <HeatmapChartInner
-            animateCells={animateCells}
-            animationDuration={animationDuration}
-            binSize={binSize}
-            chartPhase={chartPhase}
-            chartStatus={status}
-            colorScale={colorScale}
-            columnSeparators={columnSeparators}
-            data={data}
-            enterStaggerScale={enterStaggerScale}
-            enterTransition={enterTransition}
-            fillScale={fillScale}
-            gap={gap}
-            height={parentHeight}
-            isLoaded={isLoaded}
-            layout={layout}
-            levelStyles={levelStyles}
-            loadingCellMaxOpacity={loadingCellMaxOpacity}
-            loadingCellRandomness={loadingCellRandomness}
-            loadingLabel={loadingLabel}
-            loadingOpacity={loadingOpacity}
-            margin={margin}
-            revealEpoch={revealEpoch}
-            revealMode={revealMode}
-            showLoadingCells={showLoadingCells}
-            showLoadingLabel={showLoadingLabel}
-            sizingColumnCount={sizingColumnCount}
-            weekStartDay={weekStartDay}
-            width={width}
-            xDomain={xDomain}
-          >
-            {children}
-          </HeatmapChartInner>
-        )}
-      </ParentSize>
+      <HeatmapChartInner
+        animateCells={animateCells}
+        animationDuration={animationDuration}
+        binSize={binSize}
+        chartPhase={chartPhase}
+        chartStatus={status}
+        colorScale={colorScale}
+        columnSeparators={columnSeparators}
+        data={data}
+        enterStaggerScale={enterStaggerScale}
+        enterTransition={enterTransition}
+        fillScale={fillScale}
+        gap={gap}
+        height={measuredSize.height}
+        isLoaded={isLoaded}
+        layout={layout}
+        levelStyles={levelStyles}
+        loadingCellMaxOpacity={loadingCellMaxOpacity}
+        loadingCellRandomness={loadingCellRandomness}
+        loadingLabel={loadingLabel}
+        loadingOpacity={loadingOpacity}
+        margin={margin}
+        revealEpoch={revealEpoch}
+        revealMode={revealMode}
+        showLoadingCells={showLoadingCells}
+        showLoadingLabel={showLoadingLabel}
+        sizingColumnCount={sizingColumnCount}
+        weekStartDay={weekStartDay}
+        width={measuredSize.width}
+        xDomain={xDomain}
+      >
+        {children}
+      </HeatmapChartInner>
     </div>
   )
 }
