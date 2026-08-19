@@ -86,7 +86,7 @@ export function ManagerCloneDialog({
   })
 
   const resolvedSelected = availableOptions.filter(
-    (option) => rowSelection[option.id]
+    (option) => option.id in rowSelection
   )
 
   const noAvailable = availableOptions.length === 0

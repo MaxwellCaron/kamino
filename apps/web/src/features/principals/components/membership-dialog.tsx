@@ -283,7 +283,7 @@ function MembershipForm({
     const normalizedSearch = search.trim().toLocaleLowerCase()
 
     return options.filter((option) => {
-      const isSelected = !!rowSelection[option.id]
+      const isSelected = option.id in rowSelection
       const membershipMatches =
         membershipFilter === "all" ||
         (membershipFilter === "selected" && isSelected) ||
