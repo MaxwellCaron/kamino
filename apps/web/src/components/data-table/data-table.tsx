@@ -30,21 +30,14 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import {
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+import { flexRender, useTable } from "@tanstack/react-table"
 import { Fragment, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableStateRow } from "./data-table-state-row"
-import { defaultDataTableFeatures } from "./data-table-types"
+import { appTableFeatures, defaultDataTableFeatures } from "./data-table-types"
 import type { ComponentType, ReactNode } from "react"
 import type {
+  AppTableFeatures,
   DataTableFeatures,
   DataTableSelectionActionsContext,
 } from "./data-table-types"
@@ -53,6 +46,7 @@ import type {
   ExpandedState,
   OnChangeFn,
   PaginationState,
+  RowData,
   RowSelectionState,
   SortingState,
   TableOptions,
@@ -78,13 +72,13 @@ export type DataTableServerPagination = {
   onSearchChange: (value: string) => void
 }
 
-interface DataTableProps<TData, TValue> {
-  columns: Array<ColumnDef<TData, TValue>>
+interface DataTableProps<TData extends RowData, TValue> {
+  columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>
   data: Array<TData>
   emptyMessage?: string
   error: Error | null
   features?: DataTableFeatures
-  getRowId?: TableOptions<TData>["getRowId"]
+  getRowId?: TableOptions<AppTableFeatures, TData>["getRowId"]
   initialPageSize?: number
   initialSorting?: SortingState
   selectionActions?: (
@@ -96,7 +90,7 @@ interface DataTableProps<TData, TValue> {
   searchLabel?: string
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends RowData, TValue>({
   columns,
   data,
   emptyMessage,
@@ -127,21 +121,18 @@ export function DataTable<TData, TValue>({
 
   const searchValue = isServerMode ? serverPagination.search : globalFilter
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data,
-    columns,
+    columns: columns as Array<ColumnDef<AppTableFeatures, TData>>,
     getRowId,
     enableRowSelection: true,
-    getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: getRowCanExpand
       ? (row) => getRowCanExpand(row.original)
       : undefined,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel:
-      enablePagination && !isServerMode ? getPaginationRowModel() : undefined,
-    getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
-    getFilteredRowModel: isServerMode ? undefined : getFilteredRowModel(),
-    manualPagination: isServerMode,
+    manualSorting: !enableSorting,
+    manualFiltering: isServerMode,
+    manualPagination: isServerMode || !enablePagination,
     rowCount: isServerMode ? serverPagination.rowCount : undefined,
     ...(isServerMode
       ? { onPaginationChange: serverPagination.onPaginationChange }
@@ -163,6 +154,7 @@ export function DataTable<TData, TValue>({
       enablePagination && !isServerMode
         ? {
             pagination: {
+              pageIndex: 0,
               pageSize: initialPageSize,
             },
           }
@@ -204,7 +196,7 @@ export function DataTable<TData, TValue>({
           <div className="flex items-center gap-2">
             <p className="hidden text-sm font-medium lg:block">Rows per page</p>
             <Select
-              value={`${table.getState().pagination.pageSize}`}
+              value={`${table.state.pagination.pageSize}`}
               onValueChange={(value) => {
                 if (isServerMode) {
                   serverPagination.onPaginationChange((prev) => ({
@@ -220,7 +212,7 @@ export function DataTable<TData, TValue>({
             >
               <SelectTrigger aria-label="Rows per page">
                 <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
+                  placeholder={table.state.pagination.pageSize}
                 />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false} align="end">

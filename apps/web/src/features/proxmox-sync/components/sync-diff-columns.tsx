@@ -1,10 +1,13 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { DetailsCell, KindBadge } from "./sync-diff-cells"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { SyncChange } from "@/features/proxmox-sync/api/proxmox-sync-api"
 import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
 
-export function getSyncDiffColumns(): Array<ColumnDef<SyncChange>> {
+export function getSyncDiffColumns(): Array<
+  ColumnDef<AppTableFeatures, SyncChange>
+> {
   return [
     createRowSelectionColumn<SyncChange>((change) => change.name, {
       isRowDisabled: (change) =>

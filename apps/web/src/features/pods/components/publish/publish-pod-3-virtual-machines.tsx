@@ -1,10 +1,5 @@
 import * as React from "react"
-import {
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+import { flexRender, useTable } from "@tanstack/react-table"
 import {
   Alert,
   AlertDescription,
@@ -62,6 +57,7 @@ import {
 } from "@workspace/ui/components/table"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { createDefaultPublishPodVmPermissions } from "./publish-pod-form"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type {
   ColumnDef,
   ExpandedState,
@@ -77,6 +73,7 @@ import type {
   DraftPrincipal,
   PermissionState,
 } from "@/features/inventory/types/inventory-types"
+import { appTableFeatures } from "@/components/data-table/data-table-types"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
 import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
@@ -212,7 +209,9 @@ function PublishPodVirtualMachinesTable({
     return Object.fromEntries(updateVirtualMachines.map((vmId) => [vmId, true]))
   }, [canUpdatePodTemplates, updateVirtualMachines])
 
-  const columns = React.useMemo<Array<ColumnDef<PublishPodVMRow>>>(
+  const columns = React.useMemo<
+    Array<ColumnDef<AppTableFeatures, PublishPodVMRow>>
+  >(
     () => [
       ...(canUpdatePodTemplates
         ? [
@@ -238,7 +237,7 @@ function PublishPodVirtualMachinesTable({
               ),
               enableHiding: false,
               enableSorting: false,
-            } satisfies ColumnDef<PublishPodVMRow>,
+            } satisfies ColumnDef<AppTableFeatures, PublishPodVMRow>,
           ]
         : []),
       {
@@ -344,23 +343,19 @@ function PublishPodVirtualMachinesTable({
     [canUpdatePodTemplates, form, updateVirtualMachines]
   )
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: rows,
     columns,
     enableRowSelection: canUpdatePodTemplates,
-    getExpandedRowModel: getExpandedRowModel(),
-    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
     getRowId: (row) => row.vm.id,
     getRowCanExpand: () => true,
     onExpandedChange: setExpanded,
     onRowSelectionChange: (updater) => {
       const nextSelection =
         typeof updater === "function" ? updater(rowSelection) : updater
-      onUpdateVirtualMachinesChange(
-        Object.entries(nextSelection).flatMap(([vmId, selected]) =>
-          selected ? [vmId] : []
-        )
-      )
+      onUpdateVirtualMachinesChange(Object.keys(nextSelection))
     },
     state: {
       expanded,

@@ -10,17 +10,15 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+import { flexRender, useTable } from "@tanstack/react-table"
 import { useMemo } from "react"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type {
   ColumnDef,
   OnChangeFn,
   RowSelectionState,
 } from "@tanstack/react-table"
+import { appTableFeatures } from "@/components/data-table/data-table-types"
 
 export type PrincipalSelectionItem = {
   description: string
@@ -44,7 +42,9 @@ export function PrincipalSelectionTable({
   rowSelection,
   selectAllLabel = "Select all",
 }: PrincipalSelectionTableProps) {
-  const columns = useMemo<Array<ColumnDef<PrincipalSelectionItem>>>(
+  const columns = useMemo<
+    Array<ColumnDef<AppTableFeatures, PrincipalSelectionItem>>
+  >(
     () => [
       {
         accessorKey: "label",
@@ -89,12 +89,13 @@ export function PrincipalSelectionTable({
     [selectAllLabel]
   )
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data,
     columns,
     enableRowSelection: true,
     getRowId: (principal) => principal.id,
-    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
     onRowSelectionChange,
     state: { rowSelection },
   })

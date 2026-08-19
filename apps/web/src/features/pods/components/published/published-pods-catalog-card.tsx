@@ -8,6 +8,7 @@ import {
 import { PublishedPodClonesTable } from "./published-pod-clones-table"
 import { PublishedPodsEmptyState } from "./published-pods-empty-state"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { DataTable } from "@/components/data-table/data-table"
 
@@ -17,7 +18,7 @@ export function PublishedPodsCatalogCard({
   isLoading,
   pods,
 }: {
-  columns: Array<ColumnDef<PublishedPodCatalogEntry>>
+  columns: Array<ColumnDef<AppTableFeatures, PublishedPodCatalogEntry>>
   error: Error | null
   isLoading: boolean
   pods: Array<PublishedPodCatalogEntry>

@@ -4,6 +4,7 @@ import { IdentificationIcon } from "@hugeicons/core-free-icons"
 import { DataTable } from "./data-table"
 import { DataTableColumnHeader } from "./data-table-column-header"
 import { createRowSelectionColumn } from "./data-table-row-selection-column"
+import type { AppTableFeatures } from "./data-table-types"
 import type { ColumnDef } from "@tanstack/react-table"
 import { renderWithQueryClient } from "@/test/test-utils"
 
@@ -13,7 +14,7 @@ vi.mock("@/components/loading-transition", () => ({
 
 type Row = { id: string; name: string }
 
-const sortableColumns: Array<ColumnDef<Row>> = [
+const sortableColumns: Array<ColumnDef<AppTableFeatures, Row>> = [
   {
     accessorKey: "name",
     header: ({ column }) => (
@@ -22,7 +23,7 @@ const sortableColumns: Array<ColumnDef<Row>> = [
   },
 ]
 
-const columns: Array<ColumnDef<Row>> = [
+const columns: Array<ColumnDef<AppTableFeatures, Row>> = [
   {
     accessorKey: "name",
     header: "Name",
@@ -125,7 +126,7 @@ describe("DataTable client mode", () => {
 })
 
 describe("DataTable row selection", () => {
-  const selectableColumns: Array<ColumnDef<Row>> = [
+  const selectableColumns: Array<ColumnDef<AppTableFeatures, Row>> = [
     createRowSelectionColumn<Row>((row) => row.name),
     { accessorKey: "name", header: "Name" },
   ]
@@ -154,7 +155,7 @@ describe("DataTable row selection", () => {
   })
 
   it("disables row checkboxes through isRowDisabled", () => {
-    const disabledColumns: Array<ColumnDef<Row>> = [
+    const disabledColumns: Array<ColumnDef<AppTableFeatures, Row>> = [
       createRowSelectionColumn<Row>((row) => row.name, {
         isRowDisabled: (row) => row.id === "row-0",
       }),

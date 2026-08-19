@@ -3,6 +3,7 @@ import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   formatPrincipalReference,
@@ -17,7 +18,7 @@ type PrincipalColumnsOptions = {
 export function getPrincipalColumns({
   icon: Icon,
   label,
-}: PrincipalColumnsOptions): Array<ColumnDef<ApiPrincipal>> {
+}: PrincipalColumnsOptions): Array<ColumnDef<AppTableFeatures, ApiPrincipal>> {
   return [
     {
       accessorKey: "name",

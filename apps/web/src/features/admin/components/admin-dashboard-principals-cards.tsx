@@ -11,15 +11,16 @@ import {
 } from "@workspace/ui/components/card"
 import { buttonVariants } from "@workspace/ui/components/button"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
 
 type AdminDashboardPrincipalsCardsProps = {
-  groupColumns: Array<ColumnDef<ApiPrincipal>>
+  groupColumns: Array<ColumnDef<AppTableFeatures, ApiPrincipal>>
   recentGroups: Array<ApiPrincipal>
   groupsError: Error | null
   isGroupsLoading: boolean
-  userColumns: Array<ColumnDef<ApiPrincipal>>
+  userColumns: Array<ColumnDef<AppTableFeatures, ApiPrincipal>>
   recentUsers: Array<ApiPrincipal>
   usersError: Error | null
   isUsersLoading: boolean

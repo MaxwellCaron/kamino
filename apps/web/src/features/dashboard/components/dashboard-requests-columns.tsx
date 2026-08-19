@@ -4,6 +4,7 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
@@ -24,7 +25,7 @@ type ActivityColumnsOptions = {
 export function getDashboardActivityColumns({
   onOpen,
   tree,
-}: ActivityColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
+}: ActivityColumnsOptions): Array<ColumnDef<AppTableFeatures, ApiRequestSummary>> {
   return [
     {
       accessorKey: "kind",

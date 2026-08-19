@@ -1,4 +1,5 @@
 import { Badge } from "@workspace/ui/components/badge"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { Row } from "@tanstack/react-table"
 import type { SyncChange } from "@/features/proxmox-sync/api/proxmox-sync-api"
 
@@ -20,7 +21,11 @@ export function KindBadge({ kind }: { kind: SyncChange["kind"] }) {
   )
 }
 
-export function DetailsCell({ row }: { row: Row<SyncChange> }) {
+export function DetailsCell({
+  row,
+}: {
+  row: Row<AppTableFeatures, SyncChange>
+}) {
   const change = row.original
 
   if (change.kind === "update" && change.fields && change.fields.length > 0) {

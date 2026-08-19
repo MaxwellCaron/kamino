@@ -1,14 +1,15 @@
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "./data-table-types"
+import type { ColumnDef, RowData } from "@tanstack/react-table"
 
 type RowSelectionColumnOptions<TData> = {
   isRowDisabled?: (row: TData) => boolean
 }
 
-export function createRowSelectionColumn<TData>(
+export function createRowSelectionColumn<TData extends RowData>(
   getRowLabel: (row: TData) => string,
   options?: RowSelectionColumnOptions<TData>
-): ColumnDef<TData> {
+): ColumnDef<AppTableFeatures, TData> {
   return {
     id: "select",
     enableSorting: false,

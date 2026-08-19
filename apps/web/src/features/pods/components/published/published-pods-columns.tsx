@@ -31,6 +31,7 @@ import {
 } from "./published-pod-clones-disclosure"
 import { PublishedPodStatusBadge } from "./published-pod-status-badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type {
   PodStatus,
   PublishedPodCatalogEntry,
@@ -67,7 +68,9 @@ export function getPublishedPodsColumns({
   statusChangePendingId,
   onManagerClone,
   managerClonePending,
-}: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
+}: PublishedPodColumnsOptions): Array<
+  ColumnDef<AppTableFeatures, PublishedPodCatalogEntry>
+> {
   return [
     {
       id: "expand",

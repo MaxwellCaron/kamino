@@ -15,6 +15,7 @@ import {
 } from "../utils/request-presenters"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ColumnDef } from "@tanstack/react-table"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
@@ -31,8 +32,8 @@ export function getRequestColumns({
   selectable = true,
   tree,
   excludeColumns = [],
-}: RequestColumnsOptions): Array<ColumnDef<ApiRequestSummary>> {
-  const allColumns: Array<ColumnDef<ApiRequestSummary>> = [
+}: RequestColumnsOptions): Array<ColumnDef<AppTableFeatures, ApiRequestSummary>> {
+  const allColumns: Array<ColumnDef<AppTableFeatures, ApiRequestSummary>> = [
     ...(selectable
       ? [
           createRowSelectionColumn<ApiRequestSummary>((request) =>

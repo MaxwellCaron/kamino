@@ -6,16 +6,17 @@ import {
   Sorting04Icon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
+import type { AppTableFeatures } from "./data-table-types"
 import type { IconSvgElement } from "@hugeicons/react"
-import type { Column } from "@tanstack/react-table"
+import type { Column, RowData } from "@tanstack/react-table"
 
-type DataTableColumnHeaderProps<TData, TValue> = {
-  column: Column<TData, TValue>
+type DataTableColumnHeaderProps<TData extends RowData, TValue> = {
+  column: Column<AppTableFeatures, TData, TValue>
   title: string
   icon: IconSvgElement
 }
 
-export function DataTableColumnHeader<TData, TValue>({
+export function DataTableColumnHeader<TData extends RowData, TValue>({
   column,
   title,
   icon,

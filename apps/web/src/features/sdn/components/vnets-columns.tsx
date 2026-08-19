@@ -20,6 +20,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { EnabledBadge } from "@workspace/ui/components/enabled-badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
@@ -34,8 +35,8 @@ export function getVNetColumns({
   canManage,
   onEditVnet,
   onDeleteClick,
-}: VNetColumnsOptions): Array<ColumnDef<ApiVNet>> {
-  const columns: Array<ColumnDef<ApiVNet>> = [
+}: VNetColumnsOptions): Array<ColumnDef<AppTableFeatures, ApiVNet>> {
+  const columns: Array<ColumnDef<AppTableFeatures, ApiVNet>> = [
     {
       accessorKey: "vnet",
       header: ({ column }) => (

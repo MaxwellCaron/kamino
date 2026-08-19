@@ -18,6 +18,7 @@ import {
   Tag02Icon,
 } from "@hugeicons/core-free-icons"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 
@@ -31,8 +32,8 @@ export function getCloneTargetColumns({
   canManage,
   onEdit,
   onDeleteClick,
-}: CloneTargetColumnsOptions): Array<ColumnDef<PodCloneTarget>> {
-  const columns: Array<ColumnDef<PodCloneTarget>> = [
+}: CloneTargetColumnsOptions): Array<ColumnDef<AppTableFeatures, PodCloneTarget>> {
+  const columns: Array<ColumnDef<AppTableFeatures, PodCloneTarget>> = [
     {
       accessorKey: "label",
       header: ({ column }) => (

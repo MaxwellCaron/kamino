@@ -25,6 +25,7 @@ import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { EnabledBadge } from "@workspace/ui/components/enabled-badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { getPrincipalBaseName } from "@/components/principals/principal-label"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
@@ -48,8 +49,8 @@ export function getUserColumns({
   onEnableClick,
   onDisableClick,
   onDeleteClick,
-}: UserColumnsOptions): Array<ColumnDef<ApiPrincipal>> {
-  const columns: Array<ColumnDef<ApiPrincipal>> = [
+}: UserColumnsOptions): Array<ColumnDef<AppTableFeatures, ApiPrincipal>> {
+  const columns: Array<ColumnDef<AppTableFeatures, ApiPrincipal>> = [
     {
       accessorKey: "name",
       header: ({ column }) => (

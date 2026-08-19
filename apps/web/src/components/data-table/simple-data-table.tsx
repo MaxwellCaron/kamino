@@ -6,35 +6,34 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+import { flexRender, useTable } from "@tanstack/react-table"
 
+import { appTableFeatures } from "./data-table-types"
 import { DataTableStateRow } from "./data-table-state-row"
-import type { ColumnDef, TableOptions } from "@tanstack/react-table"
+import type { AppTableFeatures } from "./data-table-types"
+import type { ColumnDef, RowData, TableOptions } from "@tanstack/react-table"
 
-export type SimpleDataTableProps<TData, TValue> = {
-  columns: Array<ColumnDef<TData, TValue>>
+export type SimpleDataTableProps<TData extends RowData, TValue> = {
+  columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>
   data: Array<TData>
   error: Error | null
-  getRowId?: TableOptions<TData>["getRowId"]
+  getRowId?: TableOptions<AppTableFeatures, TData>["getRowId"]
   isLoading: boolean
 }
 
-export function SimpleDataTable<TData, TValue>({
+export function SimpleDataTable<TData extends RowData, TValue>({
   columns,
   data,
   error,
   getRowId,
   isLoading,
 }: SimpleDataTableProps<TData, TValue>) {
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
+    columns: columns as Array<ColumnDef<AppTableFeatures, TData>>,
     getRowId,
+    manualPagination: true,
   })
 
   return (
