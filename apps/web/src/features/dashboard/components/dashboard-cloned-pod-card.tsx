@@ -18,7 +18,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { cn } from "@workspace/ui/lib/utils"
 import { Image } from "@unpic/react"
 import {
@@ -113,18 +112,6 @@ export function DashboardCurrentClonedPodCard({
                       <ClonedPodStatusBadge status={entry.clonedPod.status} />
                     </ItemTitle>
                     <ItemDescription>{entry.pod.description}</ItemDescription>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <HugeiconsIcon icon={CopyIcon} className="size-4" />
-                      Cloned{" "}
-                      <RelativeTimeCard
-                        date={entry.clonedPod.cloned_at}
-                        display="relative"
-                        timezones={["UTC"]}
-                        delay={50}
-                        closeDelay={150}
-                        variant="muted"
-                      />
-                    </span>
                     <div className="flex w-full flex-col gap-2 pt-4">
                       <div className="flex items-center justify-between gap-2 text-sm">
                         <span className="text-muted-foreground">
