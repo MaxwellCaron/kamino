@@ -39,6 +39,9 @@ type TreeItemDomProps = HTMLAttributes<HTMLDivElement> & {
 const rowMenuButtonClassName =
   "bg-transparent! opacity-0 transition-opacity group-has-[:focus-visible]/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
 
+const CHEVRON_CENTER_OFFSET = 16
+const CHEVRON_GUIDE_INSET = 8
+
 function hasSelectionModifier(event: ReactMouseEvent<HTMLElement>) {
   return event.shiftKey || event.ctrlKey || event.metaKey
 }
@@ -117,7 +120,7 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
       }}
       className={cn(
         libClassName,
-        "group/row z-10 cursor-pointer appearance-none border-0 bg-transparent p-0 text-left outline-hidden select-none not-last:pb-0.5 focus:z-20 data-disabled:pointer-events-none data-disabled:opacity-50"
+        "group/row relative z-10 cursor-pointer appearance-none border-0 bg-transparent p-0 text-left outline-hidden select-none not-last:pb-0.5 focus:z-20 data-disabled:pointer-events-none data-disabled:opacity-50"
       )}
       onFocus={libOnFocus}
       onKeyDown={libOnKeyDown}
@@ -246,6 +249,45 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
           ) : null}
         </div>
       </span>
+      {vm.guideContinues.map((continues, guideLevel) => {
+        const isParentGuide = guideLevel === vm.level - 1
+        if (!continues && !isParentGuide) {
+          return null
+        }
+
+        return (
+          <span
+            key={guideLevel}
+            className={cn(
+              "pointer-events-none absolute top-0 w-px bg-foreground/10",
+              isParentGuide && !continues ? "h-1/2" : "-bottom-0.5"
+            )}
+            style={{
+              left: guideLevel * TREE_INDENT + CHEVRON_CENTER_OFFSET,
+            }}
+          />
+        )
+      })}
+      {vm.level > 0 ? (
+        <span
+          className="pointer-events-none absolute top-1/2 h-px bg-foreground/10"
+          style={{
+            left: (vm.level - 1) * TREE_INDENT + CHEVRON_CENTER_OFFSET,
+            width: vm.isFolder
+              ? TREE_INDENT - CHEVRON_GUIDE_INSET
+              : TREE_INDENT,
+          }}
+        />
+      ) : null}
+      {vm.isFolder && vm.isExpanded && vm.hasChildren ? (
+        <span
+          className="pointer-events-none absolute -bottom-0.5 w-px bg-foreground/10"
+          style={{
+            left: vm.level * TREE_INDENT + CHEVRON_CENTER_OFFSET,
+            top: CHEVRON_CENTER_OFFSET + CHEVRON_GUIDE_INSET,
+          }}
+        />
+      ) : null}
     </div>
   )
 })

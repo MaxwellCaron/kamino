@@ -1,5 +1,6 @@
 import { defaultRangeExtractor } from "@tanstack/react-virtual"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import type { ItemInstance } from "@headless-tree/core"
 import type { Range } from "@tanstack/react-virtual"
 
 export function mergeIndexIntoRange(
@@ -20,6 +21,25 @@ export function createTreeRangeExtractor(focusedIndex: number) {
     mergeIndexIntoRange(defaultRangeExtractor(range), focusedIndex)
 }
 
+export function computeRowGuideContinues(
+  item: ItemInstance<ApiTreeNode>
+): Array<boolean> {
+  const level = item.getItemMeta().level
+  const continues: Array<boolean> = []
+  let current = item
+
+  for (let guideLevel = level - 1; guideLevel >= 0; guideLevel--) {
+    const parent = current.getParent()
+    if (!parent) break
+    const siblings = parent.getChildren()
+    continues[guideLevel] =
+      siblings[siblings.length - 1]?.getId() !== current.getId()
+    current = parent
+  }
+
+  return continues
+}
+
 export interface InventoryTreeRowVm {
   id: string
   name: string
@@ -37,6 +57,8 @@ export interface InventoryTreeRowVm {
   vmLimit: number | null
   canPower: boolean
   hasActions: boolean
+  hasChildren: boolean
+  guideContinues: Array<boolean>
 }
 
 export function upsertRowVm(
@@ -69,6 +91,12 @@ function rowVmEqual(a: InventoryTreeRowVm, b: InventoryTreeRowVm): boolean {
     a.vmCount === b.vmCount &&
     a.vmLimit === b.vmLimit &&
     a.canPower === b.canPower &&
-    a.hasActions === b.hasActions
+    a.hasActions === b.hasActions &&
+    a.hasChildren === b.hasChildren &&
+    guideContinuesEqual(a.guideContinues, b.guideContinues)
   )
+}
+
+function guideContinuesEqual(a: Array<boolean>, b: Array<boolean>): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index])
 }

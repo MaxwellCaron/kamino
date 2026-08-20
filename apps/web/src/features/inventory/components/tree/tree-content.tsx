@@ -20,7 +20,11 @@ import {
   INVENTORY_TREE_ROW_GAP,
   INVENTORY_TREE_ROW_HEIGHT,
 } from "./inventory-tree-row-skeleton"
-import { createTreeRangeExtractor, upsertRowVm } from "./tree-content-utils"
+import {
+  computeRowGuideContinues,
+  createTreeRangeExtractor,
+  upsertRowVm,
+} from "./tree-content-utils"
 import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
 import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
@@ -198,6 +202,8 @@ export function InventoryTreeContent({
             vmLimit: data.effective_vm_limit ?? null,
             canPower,
             hasActions: hasNodeActions(data, canPower),
+            hasChildren: item.getChildren().length > 0,
+            guideContinues: computeRowGuideContinues(item),
           })
 
           return (
