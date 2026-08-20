@@ -12,6 +12,10 @@ import { stopTreeItemEvent } from "../inventory-actions/inventory-action-utils"
 import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
 import { TREE_INDENT } from "../../utils/constants"
+import {
+  INVENTORY_TREE_ROW_GAP,
+  INVENTORY_TREE_ROW_HEIGHT,
+} from "./inventory-tree-row-skeleton"
 import type { HTMLAttributes, MouseEvent as ReactMouseEvent, Ref } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
@@ -41,6 +45,19 @@ const rowMenuButtonClassName =
 
 const CHEVRON_CENTER_OFFSET = 16
 const CHEVRON_GUIDE_INSET = 8
+const GUIDE_CORNER_RADIUS = 8
+const ROW_MIDPOINT = (INVENTORY_TREE_ROW_HEIGHT - INVENTORY_TREE_ROW_GAP) / 2
+
+function buildElbowConnectorPath(width: number, radius: number): string {
+  const mid = ROW_MIDPOINT
+  return `M0 0H1V${mid - radius}A${radius - 1} ${radius - 1} 0 0 0 ${radius} ${mid - 1}H${width}V${mid}H${radius}A${radius} ${radius} 0 0 1 0 ${mid - radius}Z`
+}
+
+function buildJunctionConnectorPath(width: number, radius: number): string {
+  const mid = ROW_MIDPOINT
+  const outerArcEnd = (mid - radius + Math.sqrt(2 * radius - 1)).toFixed(2)
+  return `M0 0H1V${mid - radius}A${radius - 1} ${radius - 1} 0 0 0 ${radius} ${mid - 1}H${width}V${mid}H${radius}A${radius} ${radius} 0 0 1 1 ${outerArcEnd}V${INVENTORY_TREE_ROW_HEIGHT}H0Z`
+}
 
 function hasSelectionModifier(event: ReactMouseEvent<HTMLElement>) {
   return event.shiftKey || event.ctrlKey || event.metaKey
@@ -101,6 +118,11 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
     role,
     ...libProps
   } = item.getProps() as TreeItemDomProps
+
+  const tickWidth = vm.isFolder
+    ? TREE_INDENT - CHEVRON_GUIDE_INSET
+    : TREE_INDENT
+  const cornerRadius = Math.min(GUIDE_CORNER_RADIUS, tickWidth)
 
   return (
     <div
@@ -249,35 +271,39 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
           ) : null}
         </div>
       </span>
-      {vm.guideContinues.map((continues, guideLevel) => {
-        const isParentGuide = guideLevel === vm.level - 1
-        if (!continues && !isParentGuide) {
-          return null
-        }
-
-        return (
+      {vm.guideContinues.slice(0, -1).map((continues, guideLevel) =>
+        continues ? (
           <span
             key={guideLevel}
-            className={cn(
-              "pointer-events-none absolute top-0 w-px bg-foreground/10",
-              isParentGuide && !continues ? "h-1/2" : "-bottom-0.5"
-            )}
+            className="pointer-events-none absolute top-0 -bottom-0.5 w-px bg-foreground/10"
             style={{
               left: guideLevel * TREE_INDENT + CHEVRON_CENTER_OFFSET,
             }}
           />
-        )
-      })}
+        ) : null
+      )}
       {vm.level > 0 ? (
-        <span
-          className="pointer-events-none absolute top-1/2 h-px bg-foreground/10"
+        <svg
+          className="pointer-events-none absolute top-0 text-foreground/10"
           style={{
             left: (vm.level - 1) * TREE_INDENT + CHEVRON_CENTER_OFFSET,
-            width: vm.isFolder
-              ? TREE_INDENT - CHEVRON_GUIDE_INSET
-              : TREE_INDENT,
           }}
-        />
+          width={tickWidth}
+          height={
+            vm.guideContinues[vm.level - 1]
+              ? INVENTORY_TREE_ROW_HEIGHT
+              : ROW_MIDPOINT
+          }
+        >
+          <path
+            fill="currentColor"
+            d={
+              vm.guideContinues[vm.level - 1]
+                ? buildJunctionConnectorPath(tickWidth, cornerRadius)
+                : buildElbowConnectorPath(tickWidth, cornerRadius)
+            }
+          />
+        </svg>
       ) : null}
       {vm.isFolder && vm.isExpanded && vm.hasChildren ? (
         <span
