@@ -297,6 +297,45 @@ func TestBatchRelease_FreesInflight(t *testing.T) {
 	}
 }
 
+func TestBatchQuarantine_RemainsUnavailableAfterRelease(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
+	alloc := New(px)
+
+	batch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 1)
+	if err != nil {
+		t.Fatalf("NewBatch returned error: %v", err)
+	}
+	vmid, err := batch.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("Claim returned error: %v", err)
+	}
+	if vmid != 100 {
+		t.Fatalf("Claim vmid = %d, want 100", vmid)
+	}
+
+	batch.Quarantine(vmid)
+	batch.Release()
+
+	nextBatch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 1)
+	if err != nil {
+		t.Fatalf("second NewBatch returned error: %v", err)
+	}
+	vmid, err = nextBatch.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("second Claim returned error: %v", err)
+	}
+	if vmid != 101 {
+		t.Fatalf("second Claim vmid = %d, want 101 after quarantining 100", vmid)
+	}
+
+	_, err = alloc.RunSingle(context.Background(), 100, func(int) error { return nil })
+	if !errors.Is(err, ErrVMIDUnavailable) {
+		t.Fatalf("RunSingle(100) error = %v, want ErrVMIDUnavailable", err)
+	}
+}
+
 func TestNewBatch_CapacityCountsInflight(t *testing.T) {
 	t.Parallel()
 

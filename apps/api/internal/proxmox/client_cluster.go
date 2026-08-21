@@ -253,6 +253,7 @@ func IsVMIDCreateConflict(err error) bool {
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "config file already exists") ||
 		strings.Contains(message, "vmid already exists") ||
+		(strings.Contains(message, "disk image") && strings.Contains(message, "already exists")) ||
 		(strings.Contains(message, "unable to create vm") && strings.Contains(message, "already exists"))
 }
 

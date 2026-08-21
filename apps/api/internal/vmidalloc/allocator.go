@@ -45,13 +45,18 @@ const singleAllocAttempts = 25
 // Allocator is the single process-wide VMID coordinator. One instance is constructed
 // at startup and shared across all handlers; no handler may create its own mutex.
 type Allocator struct {
-	px       proxmoxProvider
-	mu       sync.Mutex
-	inflight map[int]struct{} // VMIDs claimed by unreleased batches; guarded by mu
+	px          proxmoxProvider
+	mu          sync.Mutex
+	inflight    map[int]struct{} // VMIDs claimed by unreleased batches; guarded by mu
+	quarantined map[int]struct{} // VMIDs rejected by completed Proxmox tasks; guarded by mu
 }
 
 func New(px proxmoxProvider) *Allocator {
-	return &Allocator{px: px, inflight: make(map[int]struct{})}
+	return &Allocator{
+		px:          px,
+		inflight:    make(map[int]struct{}),
+		quarantined: make(map[int]struct{}),
+	}
 }
 
 // NewBatch loads the cluster VMID set once and returns a Batch for r.
@@ -63,6 +68,9 @@ func (a *Allocator) NewBatch(ctx context.Context, r Range, requiredCount int) (*
 	}
 	a.mu.Lock()
 	for id := range a.inflight {
+		used[id] = struct{}{}
+	}
+	for id := range a.quarantined {
 		used[id] = struct{}{}
 	}
 	a.mu.Unlock()
@@ -95,6 +103,9 @@ func (a *Allocator) RunSingle(
 		if _, occupied := a.inflight[requestedID]; occupied {
 			return 0, ErrVMIDUnavailable
 		}
+		if _, occupied := a.quarantined[requestedID]; occupied {
+			return 0, ErrVMIDUnavailable
+		}
 		available, err := a.px.IsVMIDAvailable(ctx, requestedID)
 		if err != nil {
 			return 0, fmt.Errorf("verify VMID %d availability: %w", requestedID, err)
@@ -119,6 +130,9 @@ func (a *Allocator) RunSingle(
 	for offset := range singleAllocAttempts {
 		vmid := firstID + offset
 		if _, occupied := a.inflight[vmid]; occupied {
+			continue
+		}
+		if _, occupied := a.quarantined[vmid]; occupied {
 			continue
 		}
 		available, err := a.px.IsVMIDAvailable(ctx, vmid)
@@ -165,6 +179,9 @@ func (b *Batch) Claim(ctx context.Context, claim func(vmid int) error) (int, err
 		if _, occupied := b.alloc.inflight[id]; occupied {
 			continue
 		}
+		if _, occupied := b.alloc.quarantined[id]; occupied {
+			continue
+		}
 		if err := claim(id); err != nil {
 			if proxmox.IsVMIDCreateConflict(err) {
 				b.used[id] = struct{}{}
@@ -179,6 +196,18 @@ func (b *Batch) Claim(ctx context.Context, claim func(vmid int) error) (int, err
 		return id, nil
 	}
 	return 0, &ErrRangeExhausted{Min: b.r.Min, Max: b.r.Max}
+}
+
+func (b *Batch) Quarantine(vmid int) {
+	if b == nil {
+		return
+	}
+	b.alloc.mu.Lock()
+	defer b.alloc.mu.Unlock()
+
+	b.used[vmid] = struct{}{}
+	delete(b.alloc.inflight, vmid)
+	b.alloc.quarantined[vmid] = struct{}{}
 }
 
 // Release frees this batch's process-wide VMID reservations. Callers must

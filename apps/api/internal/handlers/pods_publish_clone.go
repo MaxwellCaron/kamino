@@ -32,6 +32,8 @@ type cloneVMOptions struct {
 	onSynced      func(clonedVM)
 }
 
+const cloneTaskVMIDConflictRetryLimit = 3
+
 // cloneVMIntoFolder authorizes the source, clones it into the folder, stamps a
 // fresh identity, syncs pool membership, and imports it into the inventory.
 func (h *PodsHandler) cloneVMIntoFolder(
@@ -81,29 +83,13 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	}
 	defer release()
 
-	task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts)
+	started, reqErr := h.startAndWaitForVMClone(
+		ctx, source, sourceItemID, targetNode, name, full, opts,
+	)
 	if reqErr != nil {
 		return clonedVM{}, reqErr
 	}
-
-	started := clonedVM{
-		SourceItemID: sourceItemID,
-		TargetNode:   targetNode,
-		VMID:         newID,
-		CloneTask:    task,
-	}
-	if opts.onStarted != nil {
-		opts.onStarted(started)
-	}
-
-	if err := h.PX.WaitForTask(ctx, task.Node, task.UPID); err != nil {
-		return clonedVM{}, &requestError{
-			Status:      http.StatusBadGateway,
-			UserMessage: "failed to clone VM",
-			Operation:   "clone pod VM",
-			Err:         err,
-		}
-	}
+	newID := started.VMID
 	if err := h.PX.SetVMUpstreamUUID(ctx, targetNode, newID, uuid.New()); err != nil {
 		return clonedVM{}, &requestError{
 			Status:      http.StatusBadGateway,
@@ -136,13 +122,67 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 		InventoryItemID: clonedItemID,
 		TargetNode:      targetNode,
 		VMID:            newID,
-		CloneTask:       task,
+		CloneTask:       started.CloneTask,
 	}
 	if opts.onSynced != nil {
 		opts.onSynced(clone)
 	}
 
 	return clone, nil
+}
+
+func (h *PodsHandler) startAndWaitForVMClone(
+	ctx context.Context,
+	source verifiedVMTarget,
+	sourceItemID uuid.UUID,
+	targetNode string,
+	name string,
+	full bool,
+	opts cloneVMOptions,
+) (clonedVM, *requestError) {
+	conflictRetries := 0
+	for {
+		task, newID, reqErr := h.startVMClone(ctx, source, targetNode, name, full, opts)
+		if reqErr != nil {
+			return clonedVM{}, reqErr
+		}
+
+		started := clonedVM{
+			SourceItemID: sourceItemID,
+			TargetNode:   targetNode,
+			VMID:         newID,
+			CloneTask:    task,
+		}
+		if opts.onStarted != nil {
+			opts.onStarted(started)
+		}
+
+		err := h.PX.WaitForTask(ctx, task.Node, task.UPID)
+		if err == nil {
+			return started, nil
+		}
+		if opts.batch != nil && proxmox.IsVMIDCreateConflict(err) {
+			opts.batch.Quarantine(newID)
+			if conflictRetries < cloneTaskVMIDConflictRetryLimit {
+				conflictRetries++
+				log.Printf(
+					"clone pod VM: quarantining VMID %d after Proxmox task conflict; retrying with another VMID (%d/%d): %v",
+					newID,
+					conflictRetries,
+					cloneTaskVMIDConflictRetryLimit,
+					err,
+				)
+				continue
+			}
+		}
+
+		return clonedVM{}, &requestError{
+			Status:      http.StatusBadGateway,
+			UserMessage: "failed to clone VM",
+			Operation:   "clone pod VM",
+			Err:         err,
+		}
+	}
 }
 
 // startVMClone allocates a VMID and starts the clone task.
